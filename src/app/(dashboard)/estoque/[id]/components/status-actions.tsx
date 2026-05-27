@@ -1,6 +1,7 @@
 // src/app/(dashboard)/estoque/[id]/components/status-actions.tsx
 'use client'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -33,7 +34,7 @@ export function StatusActions({ motoId, statusAtual, papel, lojaIdUsuario, lojaI
       setOpen(false)
       setObservacao('')
     } catch (e: any) {
-      alert(e.message)
+      toast.error(e.message)
     } finally {
       setLoading(false)
     }

@@ -5,7 +5,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getTransicoesPermitidas } from '@/lib/estado-moto'
+import { getTransicoesPermitidas, statusLabel, type Status } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
 
 export async function alterarStatusAction(motoId: string, novoStatus: string, observacao?: string) {
@@ -15,10 +15,13 @@ export async function alterarStatusAction(motoId: string, novoStatus: string, ob
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
 
+  if (!(novoStatus in statusLabel)) throw new Error('Status inválido')
+  const status = novoStatus as Status
+
   const isMinhaLoja = usuario.lojaId === moto.lojaId
   const permitidas = getTransicoesPermitidas(moto.status, usuario.papel, isMinhaLoja)
 
-  if (!permitidas.includes(novoStatus as any)) {
+  if (!permitidas.includes(status)) {
     throw new Error(`Transição ${moto.status} → ${novoStatus} não permitida`)
   }
 

@@ -89,7 +89,7 @@ export async function buscarHistoricoMoto(motoId: string) {
       usuarioNome: usuarios.nome,
     })
     .from(historicoEstoque)
-    .innerJoin(usuarios, eq(historicoEstoque.usuarioId, usuarios.id))
+    .leftJoin(usuarios, eq(historicoEstoque.usuarioId, usuarios.id))
     .where(eq(historicoEstoque.motoId, motoId))
     .orderBy(sql`${historicoEstoque.data} DESC`)
 }

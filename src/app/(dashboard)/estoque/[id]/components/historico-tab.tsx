@@ -26,7 +26,7 @@ export async function HistoricoTab({ motoId }: { motoId: string }) {
               </p>
             )}
             {h.observacao && <p className="text-xs text-slate-400 mt-1">{h.observacao}</p>}
-            <p className="text-xs text-slate-400">por {h.usuarioNome}</p>
+            <p className="text-xs text-slate-400">por {h.usuarioNome ?? 'Usuário removido'}</p>
           </div>
           <span className="text-xs text-slate-400 whitespace-nowrap">
             {h.data ? format(new Date(h.data), "dd/MM/yy HH:mm", { locale: ptBR }) : '—'}
