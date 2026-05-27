@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusActions } from './components/status-actions'
 import { HistoricoTab } from './components/historico-tab'
+import { VendaTab } from './components/venda-tab'
 import { statusLabel, type Status } from '@/lib/estado-moto'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -84,8 +85,10 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="venda">
-          <Card><CardContent className="pt-4 text-sm text-slate-400">
-            Implementado no Plano 2.
+          <Card><CardContent className="pt-4">
+            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+              <VendaTab motoId={moto.id} papel={usuario.papel} />
+            </Suspense>
           </CardContent></Card>
         </TabsContent>
       </Tabs>

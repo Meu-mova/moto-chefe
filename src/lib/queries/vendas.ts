@@ -12,6 +12,7 @@ export async function listarPedidosPorLoja(lojaId: string) {
       dataPedido: pedidosVenda.dataPedido,
       observacao: pedidosVenda.observacao,
       motoId: pedidosVenda.motoId,
+      lojaId: pedidosVenda.lojaId,
       chassi: motos.chassi,
       cor: motos.cor,
       marca: modelos.marca,
@@ -35,10 +36,15 @@ export async function listarTodosPedidos() {
       id: pedidosVenda.id,
       status: pedidosVenda.status,
       dataPedido: pedidosVenda.dataPedido,
+      observacao: pedidosVenda.observacao,
+      motoId: pedidosVenda.motoId,
+      lojaId: pedidosVenda.lojaId,
       chassi: motos.chassi,
+      cor: motos.cor,
       marca: modelos.marca,
       modelo: modelos.modelo,
       lojaNome: lojas.nome,
+      vendedorId: pedidosVenda.vendedorId,
       vendedorNome: usuarios.nome,
     })
     .from(pedidosVenda)

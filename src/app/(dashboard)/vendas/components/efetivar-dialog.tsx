@@ -1,0 +1,80 @@
+'use client'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { efetivarVendaAction } from '../actions'
+
+type Props = { pedidoId: string; chassi: string; modelo: string }
+
+export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
+  const [open, setOpen] = useState(false)
+  const [clienteNome, setClienteNome] = useState('')
+  const [clienteCpf, setClienteCpf] = useState('')
+  const [valor, setValor] = useState('')
+  const [formaPagamento, setFormaPagamento] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleEfetivar() {
+    if (!clienteNome || !clienteCpf || !valor || !formaPagamento) return
+    setLoading(true)
+    try {
+      await efetivarVendaAction(pedidoId, clienteNome, clienteCpf, valor, formaPagamento)
+      setOpen(false)
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>Efetivar Venda</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Efetivar Venda — {modelo} ({chassi})</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Cliente</Label>
+              <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder="Nome completo" />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF do Cliente</Label>
+              <Input value={clienteCpf} onChange={e => setClienteCpf(e.target.value)} placeholder="000.000.000-00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Forma de Pagamento</Label>
+              <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v ?? '')}>
+                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="financiamento">Financiamento</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleEfetivar}
+              disabled={loading || !clienteNome || !clienteCpf || !valor || !formaPagamento}
+            >
+              {loading ? 'Efetivando...' : 'Confirmar Venda'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
