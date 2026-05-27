@@ -10,6 +10,7 @@ import { StatusActions } from './components/status-actions'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
 import { OSTab } from './components/os-tab'
+import { GarantiasTab } from './components/garantias-tab'
 import { statusLabel, type Status } from '@/lib/estado-moto'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -83,8 +84,10 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="garantias">
-          <Card><CardContent className="pt-4 text-sm text-slate-400">
-            Implementado no Plano 3.
+          <Card><CardContent className="pt-4">
+            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+              <GarantiasTab motoId={moto.id} />
+            </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="venda">
