@@ -1,0 +1,141 @@
+import {
+  pgTable, pgEnum, uuid, text, boolean,
+  timestamp, date, numeric,
+} from 'drizzle-orm/pg-core'
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+export const papelEnum = pgEnum('papel', ['admin_geral', 'aux_adm', 'vendedor', 'mecanico'])
+export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor'])
+export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida'])
+export const pedidoStatusEnum = pgEnum('pedido_status', ['pendente', 'efetivado', 'cancelado'])
+export const transferenciaStatusEnum = pgEnum('transferencia_status', ['pendente', 'aceita', 'recusada'])
+export const osStatusEnum = pgEnum('os_status', ['aberta', 'em_andamento', 'concluida'])
+export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada'])
+export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
+export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda'])
+
+// ─── lojas ───────────────────────────────────────────────────────────────────
+export const lojas = pgTable('lojas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  cidade: text('cidade').notNull(),
+  endereco: text('endereco').notNull(),
+  ativa: boolean('ativa').notNull().default(true),
+})
+
+// ─── usuarios ────────────────────────────────────────────────────────────────
+export const usuarios = pgTable('usuarios', {
+  id: uuid('id').primaryKey(), // vinculado ao Supabase Auth uid
+  nome: text('nome').notNull(),
+  email: text('email').notNull().unique(),
+  papel: papelEnum('papel').notNull(),
+  lojaId: uuid('loja_id').references(() => lojas.id), // nullable para admin_geral
+})
+
+// ─── modelos ─────────────────────────────────────────────────────────────────
+export const modelos = pgTable('modelos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  marca: text('marca').notNull(),
+  modelo: text('modelo').notNull(),
+  categoria: categoriaEnum('categoria').notNull(),
+  potenciaW: text('potencia_w').notNull(),
+  motor: text('motor').notNull(),
+  velocidadeMax: text('velocidade_max').notNull(),
+})
+
+// ─── motos ───────────────────────────────────────────────────────────────────
+export const motos = pgTable('motos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chassi: text('chassi').notNull().unique(),
+  modeloId: uuid('modelo_id').notNull().references(() => modelos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  status: motoStatusEnum('status').notNull().default('faturada'),
+  cor: text('cor').notNull(),
+  notaFiscalEntrada: text('nota_fiscal_entrada').notNull(),
+  responsavelMontagemId: uuid('responsavel_montagem_id').references(() => usuarios.id),
+  dataMontagem: date('data_montagem'),
+})
+
+// ─── pedidos_venda ───────────────────────────────────────────────────────────
+export const pedidosVenda = pgTable('pedidos_venda', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
+  status: pedidoStatusEnum('status').notNull().default('pendente'),
+  dataPedido: timestamp('data_pedido', { withTimezone: true }).notNull().defaultNow(),
+  dataAtualizacao: timestamp('data_atualizacao', { withTimezone: true }).notNull().defaultNow(),
+  observacao: text('observacao'),
+})
+
+// ─── vendas ──────────────────────────────────────────────────────────────────
+export const vendas = pgTable('vendas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoVendaId: uuid('pedido_venda_id').notNull().references(() => pedidosVenda.id),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
+  efetivadoPor: uuid('efetivado_por').notNull().references(() => usuarios.id),
+  clienteNome: text('cliente_nome').notNull(), // armazenado via pgcrypto na migration
+  clienteCpf: text('cliente_cpf').notNull(),   // armazenado via pgcrypto na migration
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  formaPagamento: text('forma_pagamento').notNull(),
+  dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── transferencias ──────────────────────────────────────────────────────────
+export const transferencias = pgTable('transferencias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaOrigemId: uuid('loja_origem_id').notNull().references(() => lojas.id),
+  lojaDestinoId: uuid('loja_destino_id').notNull().references(() => lojas.id),
+  solicitadoPor: uuid('solicitado_por').notNull().references(() => usuarios.id),
+  respondidoPor: uuid('respondido_por').references(() => usuarios.id),
+  status: transferenciaStatusEnum('status').notNull().default('pendente'),
+  dataSolicitacao: timestamp('data_solicitacao', { withTimezone: true }).notNull().defaultNow(),
+  dataResposta: timestamp('data_resposta', { withTimezone: true }),
+  observacao: text('observacao'),
+})
+
+// ─── historico_estoque ───────────────────────────────────────────────────────
+export const historicoEstoque = pgTable('historico_estoque', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaOrigemId: uuid('loja_origem_id').references(() => lojas.id),
+  lojaDestinoId: uuid('loja_destino_id').references(() => lojas.id),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  tipo: historicoTipoEnum('tipo').notNull(),
+  statusAnterior: motoStatusEnum('status_anterior'),
+  statusNovo: motoStatusEnum('status_novo'),
+  referenciaTipo: referenciaEnum('referencia_tipo'),
+  referenciaId: uuid('referencia_id'),
+  data: timestamp('data', { withTimezone: true }).notNull().defaultNow(),
+  observacao: text('observacao'),
+})
+
+// ─── ordens_servico ──────────────────────────────────────────────────────────
+export const ordensServico = pgTable('ordens_servico', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  abertaPor: uuid('aberta_por').notNull().references(() => usuarios.id),
+  mecanicoId: uuid('mecanico_id').references(() => usuarios.id),
+  status: osStatusEnum('status').notNull().default('aberta'),
+  descricao: text('descricao').notNull(),
+  dataAbertura: timestamp('data_abertura', { withTimezone: true }).notNull().defaultNow(),
+  dataConclusao: timestamp('data_conclusao', { withTimezone: true }),
+})
+
+// ─── garantias ───────────────────────────────────────────────────────────────
+export const garantias = pgTable('garantias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  osId: uuid('os_id').references(() => ordensServico.id),
+  descricao: text('descricao').notNull(),
+  dataInicio: date('data_inicio').notNull(),
+  dataFim: date('data_fim').notNull(),
+  status: garantiaStatusEnum('status').notNull().default('ativa'),
+  dataPedidoPeca: date('data_pedido_peca'),
+  numeroPedidoFabrica: text('numero_pedido_fabrica'),
+})
