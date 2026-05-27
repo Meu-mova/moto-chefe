@@ -1,0 +1,32 @@
+// src/lib/auth.ts
+import { createClient } from '@/lib/supabase/server'
+import { db } from '@/lib/db'
+import { usuarios } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
+
+export async function getUsuarioLogado() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) redirect('/login')
+
+  const [usuario] = await db
+    .select()
+    .from(usuarios)
+    .where(eq(usuarios.id, user.id))
+    .limit(1)
+
+  if (!usuario) redirect('/login')
+
+  return usuario
+}
+
+export function isAdmin(papel: string) {
+  return papel === 'admin_geral'
+}
+
+export function canEditLoja(usuarioLojaId: string | null, targetLojaId: string, papel: string) {
+  if (papel === 'admin_geral') return true
+  return usuarioLojaId === targetLojaId
+}
