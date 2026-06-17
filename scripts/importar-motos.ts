@@ -14,8 +14,7 @@ import { eq, and } from 'drizzle-orm'
 import { modelos, motos, lojas } from '../src/lib/db/schema'
 import * as path from 'path'
 
-const DB_URL =
-  'postgresql://postgres:Motochefe%402026@db.bzlaradpofaecqzawyym.supabase.co:5432/postgres'
+const DB_URL = process.env.DATABASE_URL!
 
 // ── Mapeamentos ───────────────────────────────────────────────────────────────
 

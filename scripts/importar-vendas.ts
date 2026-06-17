@@ -14,7 +14,7 @@ import { motos, modelos, lojas, usuarios, pedidosVenda, vendas, historicoEstoque
 import * as path from 'path'
 import { randomUUID } from 'crypto'
 
-const DB_URL = 'postgresql://postgres:Motochefe%402026@db.bzlaradpofaecqzawyym.supabase.co:5432/postgres'
+const DB_URL = process.env.DATABASE_URL!
 
 // Apelidos/nomes curtos usados na planilha → nome que aparece no banco
 const ALIASES: Record<string, string> = {

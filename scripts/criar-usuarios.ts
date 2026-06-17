@@ -9,11 +9,11 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { eq, inArray } from 'drizzle-orm'
 import { usuarios, historicoEstoque, ordensServico } from '../src/lib/db/schema'
 
-const SUPABASE_URL = 'https://bzlaradpofaecqzawyym.supabase.co'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const DB_URL       = 'postgresql://postgres:Motochefe%402026@db.bzlaradpofaecqzawyym.supabase.co:5432/postgres'
+const DB_URL       = process.env.DATABASE_URL!
 const DOMINIO      = 'motochefesuldeminas.com.br'
-const SENHA        = 'Motochefe@26'
+const SENHA        = process.env.DEFAULT_USER_PASSWORD!
 
 // IDs das lojas reais (buscados após limpeza)
 const LOJAS: Record<string, string> = {
@@ -76,8 +76,8 @@ function nomeParaEmail(nome: string): string {
 }
 
 async function main() {
-  if (!SERVICE_KEY) {
-    console.error('SUPABASE_SERVICE_ROLE_KEY não definido. Execute com: SUPABASE_SERVICE_ROLE_KEY=... npx tsx ...')
+  if (!SERVICE_KEY || !SUPABASE_URL || !DB_URL || !SENHA) {
+    console.error('Variáveis obrigatórias: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, DEFAULT_USER_PASSWORD')
     process.exit(1)
   }
 
