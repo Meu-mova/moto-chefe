@@ -25,7 +25,8 @@ export function SolicitarDialog({ lojas, motos, lojaUsuarioId, papel }: Props) {
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const motosPermitidas = papel === 'admin_geral'
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
+  const motosPermitidas = isAdmin
     ? motos
     : motos.filter(m => m.lojaId === lojaUsuarioId)
 
@@ -54,7 +55,7 @@ export function SolicitarDialog({ lojas, motos, lojaUsuarioId, papel }: Props) {
     }
   }
 
-  if (!['admin_geral', 'aux_adm', 'vendedor'].includes(papel)) return null
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel)) return null
 
   return (
     <>

@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 const papelLabel: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  aux_adm: 'Aux. Administrativo',
-  vendedor: 'Vendedor',
-  mecanico: 'Mecânico',
+  admin_geral:  'Admin Geral',
+  admin_socio:  'Admin Sócio',
+  aux_adm:      'Aux. Administrativo',
+  vendedor:     'Vendedor',
+  mecanico:     'Mecânico',
 }
 
 export async function Header() {

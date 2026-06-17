@@ -10,50 +10,51 @@ import { aceitarTransferenciaAction, recusarTransferenciaAction } from '../actio
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-// Shared shape that both listarTransferenciasPorLoja and listarTodasTransferencias provide
 export type TransferenciaCardData = {
   id: string
   status: 'pendente' | 'aceita' | 'recusada'
   dataSolicitacao: Date | string | null
+  dataResposta: Date | string | null
   observacao: string | null
   chassi: string
-  marca: string
   modelo: string
+  cor: string | null
+  lojaOrigemId: string
   lojaOrigemNome: string
   lojaDestinoId: string
+  lojaDestinoNome: string
   solicitadoPorNome: string
-  cor?: string | null
-  lojaOrigemId?: string | null
+  respondidoPorNome: string | null
 }
 
 const statusBadge: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pendente: 'outline',
-  aceita: 'default',
+  aceita:   'default',
   recusada: 'destructive',
 }
 
 const statusLabel: Record<string, string> = {
   pendente: 'Pendente',
-  aceita: 'Aceita',
+  aceita:   'Aceita',
   recusada: 'Recusada',
 }
 
 type Props = {
   transferencia: TransferenciaCardData
-  lojaDestinoNome: string
   papel: string
   lojaIdUsuario: string | null
-  lojaDestinoId: string
 }
 
-export function TransferenciaCard({ transferencia: t, lojaDestinoNome, papel, lojaIdUsuario, lojaDestinoId }: Props) {
+export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Props) {
   const [recusarOpen, setRecusarOpen] = useState(false)
-  const [observacao, setObservacao] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [observacao, setObservacao]   = useState('')
+  const [loading, setLoading]         = useState(false)
+
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
 
   const podeResponder =
     t.status === 'pendente' &&
-    (papel === 'admin_geral' || (papel === 'aux_adm' && lojaIdUsuario === lojaDestinoId))
+    (isAdmin || (papel === 'aux_adm' && lojaIdUsuario === t.lojaDestinoId))
 
   async function handleAceitar() {
     setLoading(true)
@@ -87,7 +88,7 @@ export function TransferenciaCard({ transferencia: t, lojaDestinoNome, papel, lo
       <CardContent className="pt-4 space-y-3">
         <div className="flex justify-between items-start">
           <div>
-            <p className="font-medium text-sm">{t.marca} {t.modelo}</p>
+            <p className="font-medium text-sm">{t.modelo}</p>
             <p className="text-xs font-mono text-slate-500">
               {t.chassi}{t.cor ? ` · ${t.cor}` : ''}
             </p>
@@ -100,11 +101,18 @@ export function TransferenciaCard({ transferencia: t, lojaDestinoNome, papel, lo
           <p>
             De: <span className="text-slate-700">{t.lojaOrigemNome}</span>
             {' → '}
-            Para: <span className="text-slate-700">{lojaDestinoNome}</span>
+            Para: <span className="text-slate-700">{t.lojaDestinoNome}</span>
           </p>
           <p>
             Solicitado por <span className="text-slate-700">{t.solicitadoPorNome}</span> em {dataFormatada}
           </p>
+          {t.respondidoPorNome && t.dataResposta && (
+            <p>
+              {t.status === 'aceita' ? 'Aprovado' : 'Recusado'} por{' '}
+              <span className="text-slate-700">{t.respondidoPorNome}</span>{' '}
+              em {format(new Date(t.dataResposta), 'dd/MM/yyyy', { locale: ptBR })}
+            </p>
+          )}
           {t.observacao && <p className="italic">{t.observacao}</p>}
         </div>
         {podeResponder && (
@@ -112,12 +120,7 @@ export function TransferenciaCard({ transferencia: t, lojaDestinoNome, papel, lo
             <Button size="sm" onClick={handleAceitar} disabled={loading}>
               Aceitar
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setRecusarOpen(true)}
-              disabled={loading}
-            >
+            <Button size="sm" variant="destructive" onClick={() => setRecusarOpen(true)} disabled={loading}>
               Recusar
             </Button>
           </div>
@@ -135,9 +138,7 @@ export function TransferenciaCard({ transferencia: t, lojaDestinoNome, papel, lo
             onChange={e => setObservacao(e.target.value)}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRecusarOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setRecusarOpen(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleRecusar} disabled={loading}>
               {loading ? 'Salvando...' : 'Confirmar Recusa'}
             </Button>

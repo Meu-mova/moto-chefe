@@ -33,7 +33,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
     }
   }
 
-  if (!['admin_geral', 'aux_adm', 'vendedor'].includes(papel)) return null
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel)) return null
 
   return (
     <>

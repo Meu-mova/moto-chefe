@@ -1,61 +1,69 @@
 import { db } from '@/lib/db'
 import { transferencias, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
-import { eq, or } from 'drizzle-orm'
+import { eq, or, and, ilike, inArray, desc } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 
-export type TransferenciaComDetalhes = Awaited<ReturnType<typeof listarTransferenciasPorLoja>>[0]
+export type TransferenciaComDetalhes = Awaited<ReturnType<typeof listarTransferencias>>[0]
 
-export async function listarTransferenciasPorLoja(lojaId: string) {
+export async function listarTransferencias(filtros?: {
+  lojaId?: string        // non-admin: scope a loja origem OU destino do usuário
+  lojaOrigemId?: string[]
+  lojaDestinoId?: string[]
+  modeloId?: string[]
+  status?: string[]
+  chassiBusca?: string
+}) {
+  const lojaOrigem  = alias(lojas,    'loja_origem')
+  const lojaDestino = alias(lojas,    'loja_destino')
+  const solicitante = alias(usuarios, 'solicitante')
+  const respondente = alias(usuarios, 'respondente')
+
   return db
     .select({
-      id: transferencias.id,
-      status: transferencias.status,
-      dataSolicitacao: transferencias.dataSolicitacao,
-      dataResposta: transferencias.dataResposta,
-      observacao: transferencias.observacao,
-      motoId: transferencias.motoId,
-      chassi: motos.chassi,
-      cor: motos.cor,
-      motoStatus: motos.status,
-      marca: modelos.marca,
-      modelo: modelos.modelo,
-      lojaOrigemId: transferencias.lojaOrigemId,
-      lojaOrigemNome: lojas.nome,
-      lojaDestinoId: transferencias.lojaDestinoId,
-      solicitadoPorId: transferencias.solicitadoPor,
-      solicitadoPorNome: usuarios.nome,
+      id:                 transferencias.id,
+      status:             transferencias.status,
+      dataSolicitacao:    transferencias.dataSolicitacao,
+      dataResposta:       transferencias.dataResposta,
+      observacao:         transferencias.observacao,
+      motoId:             transferencias.motoId,
+      chassi:             motos.chassi,
+      cor:                motos.cor,
+      modelo:             modelos.modelo,
+      modeloId:           motos.modeloId,
+      lojaOrigemId:       transferencias.lojaOrigemId,
+      lojaOrigemNome:     lojaOrigem.nome,
+      lojaDestinoId:      transferencias.lojaDestinoId,
+      lojaDestinoNome:    lojaDestino.nome,
+      solicitadoPorNome:  solicitante.nome,
+      respondidoPorNome:  respondente.nome,
     })
     .from(transferencias)
-    .innerJoin(motos, eq(transferencias.motoId, motos.id))
-    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .innerJoin(lojas, eq(transferencias.lojaOrigemId, lojas.id))
-    .innerJoin(usuarios, eq(transferencias.solicitadoPor, usuarios.id))
+    .innerJoin(motos,        eq(transferencias.motoId,         motos.id))
+    .innerJoin(modelos,      eq(motos.modeloId,                modelos.id))
+    .innerJoin(lojaOrigem,   eq(transferencias.lojaOrigemId,   lojaOrigem.id))
+    .innerJoin(lojaDestino,  eq(transferencias.lojaDestinoId,  lojaDestino.id))
+    .innerJoin(solicitante,  eq(transferencias.solicitadoPor,  solicitante.id))
+    .leftJoin(respondente,   eq(transferencias.respondidoPor,  respondente.id))
     .where(
-      or(
-        eq(transferencias.lojaOrigemId, lojaId),
-        eq(transferencias.lojaDestinoId, lojaId)
+      and(
+        filtros?.lojaId
+          ? or(eq(transferencias.lojaOrigemId, filtros.lojaId), eq(transferencias.lojaDestinoId, filtros.lojaId))
+          : undefined,
+        filtros?.lojaOrigemId?.length   ? inArray(transferencias.lojaOrigemId,  filtros.lojaOrigemId)              : undefined,
+        filtros?.lojaDestinoId?.length  ? inArray(transferencias.lojaDestinoId, filtros.lojaDestinoId)             : undefined,
+        filtros?.modeloId?.length       ? inArray(motos.modeloId,               filtros.modeloId)                  : undefined,
+        filtros?.status?.length         ? inArray(transferencias.status,         filtros.status as any[])           : undefined,
+        filtros?.chassiBusca?.trim()    ? ilike(motos.chassi,                   `%${filtros.chassiBusca.trim()}%`) : undefined,
       )
     )
-    .orderBy(transferencias.dataSolicitacao)
+    .orderBy(desc(transferencias.dataSolicitacao))
+}
+
+// Mantidas para compatibilidade com código legado
+export async function listarTransferenciasPorLoja(lojaId: string) {
+  return listarTransferencias({ lojaId })
 }
 
 export async function listarTodasTransferencias() {
-  return db
-    .select({
-      id: transferencias.id,
-      status: transferencias.status,
-      dataSolicitacao: transferencias.dataSolicitacao,
-      observacao: transferencias.observacao,
-      chassi: motos.chassi,
-      marca: modelos.marca,
-      modelo: modelos.modelo,
-      lojaOrigemNome: lojas.nome,
-      lojaDestinoId: transferencias.lojaDestinoId,
-      solicitadoPorNome: usuarios.nome,
-    })
-    .from(transferencias)
-    .innerJoin(motos, eq(transferencias.motoId, motos.id))
-    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .innerJoin(lojas, eq(transferencias.lojaOrigemId, lojas.id))
-    .innerJoin(usuarios, eq(transferencias.solicitadoPor, usuarios.id))
-    .orderBy(transferencias.dataSolicitacao)
+  return listarTransferencias()
 }

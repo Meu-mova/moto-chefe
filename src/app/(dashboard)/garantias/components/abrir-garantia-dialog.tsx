@@ -18,9 +18,7 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
   const [motoId, setMotoId] = useState('')
   const [osId, setOsId] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [dataInicio, setDataInicio] = useState('')
-  const [dataFim, setDataFim] = useState('')
-  const [dataPedidoPeca, setDataPedidoPeca] = useState('')
+  const [dataPedido, setDataPedido] = useState('')
   const [numeroPedidoFabrica, setNumeroPedidoFabrica] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -28,22 +26,21 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
 
   function resetForm() {
     setMotoId(''); setOsId(''); setDescricao('')
-    setDataInicio(''); setDataFim(''); setDataPedidoPeca(''); setNumeroPedidoFabrica('')
+    setDataPedido(''); setNumeroPedidoFabrica('')
   }
 
   async function handleAbrir() {
-    if (!motoId || !descricao || !dataInicio || !dataFim) return
+    if (!motoId || !descricao || !dataPedido) return
     setLoading(true)
     try {
       await abrirGarantiaAction({
         motoId,
         osId: osId || undefined,
         descricao,
-        dataInicio,
-        dataFim,
-        dataPedidoPeca: dataPedidoPeca || undefined,
+        dataInicio: dataPedido,
         numeroPedidoFabrica: numeroPedidoFabrica || undefined,
       })
+      toast.success('Garantia aberta! Prazo: 30 dias.')
       setOpen(false)
       resetForm()
     } catch (e: unknown) {
@@ -53,7 +50,7 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
     }
   }
 
-  if (!['admin_geral', 'aux_adm'].includes(papel)) return null
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(papel)) return null
 
   return (
     <>
@@ -90,28 +87,19 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
               <Label>Descrição</Label>
               <Textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição do problema em garantia..." />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Data Início</Label>
-                <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Data Fim</Label>
-                <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
-              </div>
-            </div>
             <div className="space-y-2">
-              <Label>Data Pedido da Peça (opcional)</Label>
-              <Input type="date" value={dataPedidoPeca} onChange={e => setDataPedidoPeca(e.target.value)} />
+              <Label>Data do Pedido</Label>
+              <Input type="date" value={dataPedido} onChange={e => setDataPedido(e.target.value)} />
+              <p className="text-xs text-slate-400">O prazo de resolução é de 30 dias a partir desta data.</p>
             </div>
             <div className="space-y-2">
               <Label>Número do Pedido na Fábrica (opcional)</Label>
-              <Input value={numeroPedidoFabrica} onChange={e => setNumeroPedidoFabrica(e.target.value)} placeholder="Ex: FAB-2024-001" />
+              <Input value={numeroPedidoFabrica} onChange={e => setNumeroPedidoFabrica(e.target.value)} placeholder="Ex: FAB-2026-001" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAbrir} disabled={loading || !motoId || !descricao || !dataInicio || !dataFim}>
+            <Button onClick={handleAbrir} disabled={loading || !motoId || !descricao || !dataPedido}>
               {loading ? 'Abrindo...' : 'Abrir Garantia'}
             </Button>
           </DialogFooter>

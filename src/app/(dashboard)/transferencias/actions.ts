@@ -9,7 +9,7 @@ export async function solicitarTransferenciaAction(
   observacao?: string
 ) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
     throw new Error('Sem permissão para solicitar transferência')
   }
   const supabase = await createClient()
@@ -26,7 +26,7 @@ export async function solicitarTransferenciaAction(
 
 export async function aceitarTransferenciaAction(transferenciaId: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'aux_adm'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para aceitar transferência')
   }
   const supabase = await createClient()
@@ -41,7 +41,7 @@ export async function aceitarTransferenciaAction(transferenciaId: string) {
 
 export async function recusarTransferenciaAction(transferenciaId: string, observacao: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'aux_adm'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para recusar transferência')
   }
   const supabase = await createClient()

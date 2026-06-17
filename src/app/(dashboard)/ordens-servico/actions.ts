@@ -9,10 +9,10 @@ export async function abrirOSAction(
   descricao: string
 ) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'aux_adm'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para abrir OS')
   }
-  if (!usuario.lojaId && usuario.papel !== 'admin_geral') {
+  if (!usuario.lojaId && !['admin_geral', 'admin_socio'].includes(usuario.papel)) {
     throw new Error('Usuário sem loja associada')
   }
   const supabase = await createClient()
@@ -30,7 +30,7 @@ export async function abrirOSAction(
 
 export async function atualizarStatusOSAction(osId: string, novoStatus: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'aux_adm', 'mecanico'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)) {
     throw new Error('Sem permissão para atualizar OS')
   }
   const supabase = await createClient()

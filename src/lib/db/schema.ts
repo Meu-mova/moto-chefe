@@ -1,12 +1,15 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric,
+  timestamp, date, numeric, jsonb,
 } from 'drizzle-orm/pg-core'
 
+
 // ─── Enums ───────────────────────────────────────────────────────────────────
-export const papelEnum = pgEnum('papel', ['admin_geral', 'aux_adm', 'vendedor', 'mecanico'])
-export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor'])
-export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida'])
+export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico'])
+export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
+export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
+export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
+export const disponibilidadeEnum = pgEnum('disponibilidade_moto', ['disponivel', 'reservada', 'vendida'])
 export const pedidoStatusEnum = pgEnum('pedido_status', ['pendente', 'efetivado', 'cancelado'])
 export const transferenciaStatusEnum = pgEnum('transferencia_status', ['pendente', 'aceita', 'recusada'])
 export const osStatusEnum = pgEnum('os_status', ['aberta', 'em_andamento', 'concluida'])
@@ -49,11 +52,39 @@ export const motos = pgTable('motos', {
   chassi: text('chassi').notNull().unique(),
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
-  status: motoStatusEnum('status').notNull().default('faturada'),
+  status: motoStatusEnum('status').notNull().default('caixa'),
+  disponibilidade: disponibilidadeEnum('disponibilidade'),
   cor: text('cor').notNull(),
   notaFiscalEntrada: text('nota_fiscal_entrada').notNull(),
   responsavelMontagemId: uuid('responsavel_montagem_id').references(() => usuarios.id),
   dataMontagem: date('data_montagem'),
+})
+
+// ─── reservas ────────────────────────────────────────────────────────────────
+export const reservas = pgTable('reservas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
+  valorReserva: numeric('valor_reserva', { precision: 12, scale: 2 }).notNull(),
+  valorTotalVenda: numeric('valor_total_venda', { precision: 12, scale: 2 }),
+  meioPagamento: text('meio_pagamento').notNull(),
+  dataPrevistaFinalizacao: date('data_prevista_finalizacao').notNull(),
+  status: reservaStatusEnum('status').notNull().default('ativa'),
+  clienteNome: text('cliente_nome'),
+  clienteCpf: text('cliente_cpf'),
+  clienteCelular: text('cliente_celular'),
+  clienteEmail: text('cliente_email'),
+  clienteCep: text('cliente_cep'),
+  clienteLogradouro: text('cliente_logradouro'),
+  clienteNumero: text('cliente_numero'),
+  clienteComplemento: text('cliente_complemento'),
+  clienteBairro: text('cliente_bairro'),
+  clienteCidade: text('cliente_cidade'),
+  clienteEstado: text('cliente_estado'),
+  cartaoOperadora: text('cartao_operadora'),
+  cartaoParcelas: numeric('cartao_parcelas'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── pedidos_venda ───────────────────────────────────────────────────────────
@@ -76,10 +107,22 @@ export const vendas = pgTable('vendas', {
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
   efetivadoPor: uuid('efetivado_por').notNull().references(() => usuarios.id),
-  clienteNome: text('cliente_nome').notNull(), // armazenado via pgcrypto na migration
-  clienteCpf: text('cliente_cpf').notNull(),   // armazenado via pgcrypto na migration
+  clienteNome: text('cliente_nome').notNull(),
+  clienteCpf: text('cliente_cpf').notNull(),
+  clienteCelular: text('cliente_celular'),
+  clienteEmail: text('cliente_email'),
+  clienteCep: text('cliente_cep'),
+  clienteLogradouro: text('cliente_logradouro'),
+  clienteNumero: text('cliente_numero'),
+  clienteComplemento: text('cliente_complemento'),
+  clienteBairro: text('cliente_bairro'),
+  clienteCidade: text('cliente_cidade'),
+  clienteEstado: text('cliente_estado'),
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   formaPagamento: text('forma_pagamento').notNull(),
+  pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
+  reservaId: uuid('reserva_id').references(() => reservas.id),
+  notaFiscalSaida: text('nota_fiscal_saida'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -135,6 +178,7 @@ export const garantias = pgTable('garantias', {
   descricao: text('descricao').notNull(),
   dataInicio: date('data_inicio').notNull(),
   dataFim: date('data_fim').notNull(),
+  dataEncerramento: date('data_encerramento'),
   status: garantiaStatusEnum('status').notNull().default('ativa'),
   dataPedidoPeca: date('data_pedido_peca'),
   numeroPedidoFabrica: text('numero_pedido_fabrica'),

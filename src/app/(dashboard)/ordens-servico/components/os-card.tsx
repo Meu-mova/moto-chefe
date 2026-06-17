@@ -34,10 +34,12 @@ type Props = {
 export function OSCard({ os, papel, lojaIdUsuario }: Props) {
   const [loading, setLoading] = useState(false)
 
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
+
   const podeAtualizar =
     os.status !== 'concluida' &&
-    ['admin_geral', 'aux_adm', 'mecanico'].includes(papel) &&
-    (papel === 'admin_geral' || lojaIdUsuario === os.lojaId)
+    ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(papel) &&
+    (isAdmin || lojaIdUsuario === os.lojaId)
 
   async function handleAvancar() {
     const novo = nextStatus[os.status]

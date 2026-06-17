@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const papelLabel: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  aux_adm: 'Aux. Adm.',
-  vendedor: 'Vendedor',
-  mecanico: 'Mecânico',
+  admin_geral:  'Admin Geral',
+  admin_socio:  'Admin Sócio',
+  aux_adm:      'Aux. Adm.',
+  vendedor:     'Vendedor',
+  mecanico:     'Mecânico',
 }
 
 export default async function UsuariosPage() {

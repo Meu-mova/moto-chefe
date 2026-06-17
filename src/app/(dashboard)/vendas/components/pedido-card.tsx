@@ -30,11 +30,13 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario }: Props
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const podeEfetivar = p.status === 'pendente' && ['admin_geral', 'aux_adm'].includes(papel) &&
-    (papel === 'admin_geral' || lojaIdUsuario === p.lojaId)
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
+
+  const podeEfetivar = p.status === 'pendente' && ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) &&
+    (isAdmin || lojaIdUsuario === p.lojaId)
 
   const podeCancelar = p.status === 'pendente' && (
-    papel === 'admin_geral' ||
+    isAdmin ||
     (papel === 'aux_adm' && lojaIdUsuario === p.lojaId) ||
     (papel === 'vendedor' && usuarioId === p.vendedorId && lojaIdUsuario === p.lojaId)
   )

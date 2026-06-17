@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { SuperAdminGuard as AdminGuard } from '../components/admin-guard'
 import { db } from '@/lib/db'
 import { motos, lojas, modelos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'

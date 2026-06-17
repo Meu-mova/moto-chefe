@@ -35,7 +35,7 @@ export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
     }
   }
 
-  if (!['admin_geral', 'aux_adm'].includes(papel)) return null
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(papel)) return null
 
   return (
     <>

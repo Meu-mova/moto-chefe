@@ -13,11 +13,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS transferencias_moto_pendente_idx
   ON transferencias (moto_id)
   WHERE status = 'pendente';
 
--- Apenas uma garantia ativa por moto
-CREATE UNIQUE INDEX IF NOT EXISTS garantias_moto_ativa_idx
-  ON garantias (moto_id)
-  WHERE status = 'ativa';
-
 -- Validação data_fim > data_inicio em garantias
 ALTER TABLE garantias
   ADD CONSTRAINT garantias_data_fim_check

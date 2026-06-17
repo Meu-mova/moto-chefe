@@ -395,10 +395,6 @@ BEGIN
     RAISE EXCEPTION 'Garantia não pode ser aberta para moto com status "%"', v_moto_status;
   END IF;
 
-  IF EXISTS (SELECT 1 FROM garantias WHERE moto_id = p_moto_id AND status = 'ativa') THEN
-    RAISE EXCEPTION 'Já existe garantia ativa para esta moto. Encerre a anterior primeiro.';
-  END IF;
-
   INSERT INTO garantias (moto_id, loja_id, os_id, descricao, data_inicio, data_fim, status, data_pedido_peca, numero_pedido_fabrica)
   VALUES (p_moto_id, p_loja_id, p_os_id, p_descricao, p_data_inicio, p_data_fim, 'ativa', p_data_pedido_peca, p_numero_pedido_fabrica)
   RETURNING id INTO v_garantia_id;
@@ -419,7 +415,8 @@ CREATE OR REPLACE FUNCTION encerrar_garantia(
   p_usuario_id uuid,
   p_papel text,
   p_loja_usuario_id uuid,
-  p_observacao text DEFAULT NULL
+  p_observacao text DEFAULT NULL,
+  p_data_encerramento date DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -431,6 +428,7 @@ DECLARE
   v_os_id uuid;
   v_os_status os_status;
   v_garantia_status garantia_status;
+  v_data_real date;
 BEGIN
   SELECT moto_id, loja_id, os_id, status
   INTO v_moto_id, v_loja_garantia_id, v_os_id, v_garantia_status
@@ -451,13 +449,24 @@ BEGIN
     END IF;
   END IF;
 
+  v_data_real := COALESCE(p_data_encerramento, CURRENT_DATE);
+
   PERFORM id FROM motos WHERE id = v_moto_id FOR UPDATE;
 
-  UPDATE garantias SET status = 'encerrada' WHERE id = p_garantia_id;
-  UPDATE motos SET status = 'disponivel' WHERE id = v_moto_id;
+  UPDATE garantias
+  SET status = 'encerrada', data_encerramento = v_data_real
+  WHERE id = p_garantia_id;
 
-  INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
-  VALUES (v_moto_id, p_usuario_id, 'mudanca_status', 'em_garantia', 'disponivel', p_observacao);
+  -- Só volta para disponível se não houver outras garantias ativas nesta moto
+  IF NOT EXISTS (
+    SELECT 1 FROM garantias
+    WHERE moto_id = v_moto_id AND status = 'ativa' AND id != p_garantia_id
+  ) THEN
+    UPDATE motos SET status = 'disponivel' WHERE id = v_moto_id;
+
+    INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
+    VALUES (v_moto_id, p_usuario_id, 'mudanca_status', 'em_garantia', 'disponivel', p_observacao);
+  END IF;
 END;
 $$;
 
@@ -477,8 +486,17 @@ BEGIN
   LOOP
     PERFORM id FROM motos WHERE id = v_garantia.moto_id FOR UPDATE;
 
-    UPDATE garantias SET status = 'encerrada' WHERE id = v_garantia.id;
-    UPDATE motos SET status = 'disponivel' WHERE id = v_garantia.moto_id;
+    UPDATE garantias
+    SET status = 'encerrada', data_encerramento = CURRENT_DATE
+    WHERE id = v_garantia.id;
+
+    -- Só volta para disponível se não houver outras garantias ativas
+    IF NOT EXISTS (
+      SELECT 1 FROM garantias
+      WHERE moto_id = v_garantia.moto_id AND status = 'ativa' AND id != v_garantia.id
+    ) THEN
+      UPDATE motos SET status = 'disponivel' WHERE id = v_garantia.moto_id;
+    END IF;
 
     INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
     SELECT v_garantia.moto_id, u.id, 'mudanca_status', 'em_garantia', 'disponivel',

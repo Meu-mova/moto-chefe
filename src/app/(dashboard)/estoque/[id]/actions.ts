@@ -3,12 +3,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos } from '@/lib/db/schema'
+import { motos, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getTransicoesPermitidas, statusLabel, type Status } from '@/lib/estado-moto'
+import {
+  getTransicoesStatusPermitidas,
+  getTransicoesDisponibilidadePermitidas,
+  statusLabel,
+  disponibilidadeLabel,
+  type Status,
+  type Disponibilidade,
+} from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
 
-export async function alterarStatusAction(motoId: string, novoStatus: string, observacao?: string) {
+export async function alterarStatusAction(
+  motoId: string,
+  novoStatus: string,
+  observacao?: string,
+  mecanicoId?: string,
+  dataMontagem?: string,
+) {
   const usuario = await getUsuarioLogado()
   const supabase = await createClient()
 
@@ -18,21 +31,75 @@ export async function alterarStatusAction(motoId: string, novoStatus: string, ob
   if (!(novoStatus in statusLabel)) throw new Error('Status inválido')
   const status = novoStatus as Status
 
+  if (novoStatus === 'montada' && !mecanicoId) {
+    throw new Error('Selecione o mecânico responsável pela montagem')
+  }
+
   const isMinhaLoja = usuario.lojaId === moto.lojaId
-  const permitidas = getTransicoesPermitidas(moto.status, usuario.papel, isMinhaLoja)
+  const permitidas = getTransicoesStatusPermitidas(moto.status as Status, usuario.papel, isMinhaLoja)
 
   if (!permitidas.includes(status)) {
     throw new Error(`Transição ${moto.status} → ${novoStatus} não permitida`)
+  }
+
+  // Monta observação incluindo o mecânico responsável quando aplicável
+  let obsHistorico = observacao ?? null
+  if (novoStatus === 'montada' && mecanicoId) {
+    const [mecanico] = await db
+      .select({ nome: usuarios.nome })
+      .from(usuarios)
+      .where(eq(usuarios.id, mecanicoId))
+      .limit(1)
+    const mecanicoNome = mecanico?.nome ?? 'Desconhecido'
+    const partes = [`Mecânico responsável: ${mecanicoNome}`]
+    if (observacao) partes.push(observacao)
+    obsHistorico = partes.join(' — ')
   }
 
   const { error } = await supabase.rpc('mudar_status_moto', {
     p_moto_id: motoId,
     p_novo_status: novoStatus,
     p_usuario_id: usuario.id,
-    p_observacao: observacao ?? null,
+    p_observacao: obsHistorico,
   })
 
   if (error) throw new Error(error.message)
+
+  if (novoStatus === 'montada' && mecanicoId) {
+    await db.update(motos)
+      .set({
+        responsavelMontagemId: mecanicoId,
+        dataMontagem: dataMontagem ?? new Date().toISOString().split('T')[0],
+      })
+      .where(eq(motos.id, motoId))
+  }
+
+  revalidatePath(`/estoque/${motoId}`)
+  revalidatePath('/estoque')
+}
+
+export async function alterarDisponibilidadeAction(motoId: string, novaDisp: string, observacao?: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+
+  if (!(novaDisp in disponibilidadeLabel)) throw new Error('Disponibilidade inválida')
+  const disp = novaDisp as Disponibilidade
+
+  const isMinhaLoja = usuario.lojaId === moto.lojaId
+  const permitidas = getTransicoesDisponibilidadePermitidas(
+    moto.status as Status,
+    moto.disponibilidade as Disponibilidade | null,
+    usuario.papel,
+    isMinhaLoja,
+  )
+
+  if (!permitidas.includes(disp)) {
+    throw new Error(`Transição de disponibilidade não permitida`)
+  }
+
+  await db.update(motos).set({ disponibilidade: disp }).where(eq(motos.id, motoId))
 
   revalidatePath(`/estoque/${motoId}`)
   revalidatePath('/estoque')

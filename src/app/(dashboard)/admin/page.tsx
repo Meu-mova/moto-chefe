@@ -1,9 +1,13 @@
 import { AdminGuard } from './components/admin-guard'
+import { getUsuarioLogado } from '@/lib/auth'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, Users, Bike, Settings2 } from 'lucide-react'
 
 export default async function AdminPage() {
+  const usuario = await getUsuarioLogado()
+  const isSuperAdmin = usuario.papel === 'admin_geral'
+
   return (
     <AdminGuard>
       <div className="space-y-6">
@@ -39,15 +43,17 @@ export default async function AdminPage() {
               <CardContent><p className="text-sm text-slate-500">Gerenciar modelos de moto</p></CardContent>
             </Card>
           </Link>
-          <Link href="/admin/acoes">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="flex-row gap-3 items-center pb-2">
-                <Settings2 className="text-slate-600" size={20} />
-                <CardTitle className="text-base">Ações Especiais</CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-sm text-slate-500">Reatribuição de loja, correções</p></CardContent>
-            </Card>
-          </Link>
+          {isSuperAdmin && (
+            <Link href="/admin/acoes">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardHeader className="flex-row gap-3 items-center pb-2">
+                  <Settings2 className="text-slate-600" size={20} />
+                  <CardTitle className="text-base">Ações Especiais</CardTitle>
+                </CardHeader>
+                <CardContent><p className="text-sm text-slate-500">Reatribuição de loja, correções</p></CardContent>
+              </Card>
+            </Link>
+          )}
         </div>
       </div>
     </AdminGuard>

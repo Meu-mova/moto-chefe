@@ -1,0 +1,30 @@
+﻿[
+    {
+        "id":  "f9a8679b-5ac0-44bc-a510-44ee8d33a54b",
+        "email":  "admin@motochefe.com",
+        "role":  "admin_geral",
+        "nome":  "César Admin",
+        "loja_id":  null
+    },
+    {
+        "id":  "ee48ccc2-8d68-41a2-bc67-3c39a640007f",
+        "email":  "auxadm@motochefe.com",
+        "role":  "aux_adm",
+        "nome":  "Ana Auxiliar",
+        "loja_id":  "11111111-1111-1111-1111-111111111111"
+    },
+    {
+        "id":  "9649bdd2-c177-427d-89c2-8a639923599b",
+        "email":  "vendedor@motochefe.com",
+        "role":  "vendedor",
+        "nome":  "João Vendedor",
+        "loja_id":  "11111111-1111-1111-1111-111111111111"
+    },
+    {
+        "id":  "3afc4d64-cad9-4ba7-8b7e-fef3d684ce47",
+        "email":  "mecanico@motochefe.com",
+        "role":  "mecanico",
+        "nome":  "Pedro Mecânico",
+        "loja_id":  "22222222-2222-2222-2222-222222222222"
+    }
+]

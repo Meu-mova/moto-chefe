@@ -10,7 +10,7 @@ export default async function OrdensServicoPage() {
   const usuario = await getUsuarioLogado()
 
   const [lista, mecanicos] = await Promise.all([
-    usuario.papel === 'admin_geral'
+    ['admin_geral', 'admin_socio'].includes(usuario.papel)
       ? listarTodasOS()
       : listarOSPorLoja(usuario.lojaId!),
     db
@@ -19,7 +19,7 @@ export default async function OrdensServicoPage() {
       .where(eq(usuarios.papel, 'mecanico')),
   ])
 
-  const motosParaOS = usuario.papel === 'admin_geral'
+  const motosParaOS = ['admin_geral', 'admin_socio'].includes(usuario.papel)
     ? await db
         .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo })
         .from(motos)

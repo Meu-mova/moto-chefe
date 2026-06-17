@@ -1,30 +1,30 @@
 // src/lib/estado-moto.ts
-export type Status = 'faturada' | 'montada' | 'disponivel' | 'reservada' | 'em_garantia' | 'vendida'
-type Papel = 'admin_geral' | 'aux_adm' | 'vendedor' | 'mecanico'
+export type Status = 'caixa' | 'montada' | 'em_garantia'
+export type Disponibilidade = 'disponivel' | 'reservada' | 'vendida'
+type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico'
 
-// Transições normais (Aux Adm)
+const isAdmin = (p: Papel) => p === 'admin_geral' || p === 'admin_socio'
+
+// Transições de status físico (Aux Adm + Admin)
 const transicoesNormais: Partial<Record<Status, Status[]>> = {
-  faturada:    ['montada', 'em_garantia'],
-  montada:     ['disponivel', 'em_garantia'],
-  disponivel:  ['em_garantia'],
-  em_garantia: [],
-}
-
-// Transições de correção (Admin Geral apenas)
-const transicoesCorrecao: Partial<Record<Status, Status[]>> = {
-  montada:     ['faturada'],
-  disponivel:  ['montada'],
+  caixa:       ['montada'],
+  montada:     ['em_garantia'],
   em_garantia: ['montada'],
 }
 
-export function getTransicoesPermitidas(
+// Transições de correção (Admin apenas)
+const transicoesCorrecao: Partial<Record<Status, Status[]>> = {
+  montada: ['caixa'],
+}
+
+export function getTransicoesStatusPermitidas(
   statusAtual: Status,
   papel: Papel,
   isMinhaLoja: boolean
 ): Status[] {
-  if (!isMinhaLoja && papel !== 'admin_geral') return []
+  if (!isMinhaLoja && !isAdmin(papel)) return []
 
-  if (papel === 'admin_geral') {
+  if (isAdmin(papel)) {
     return [
       ...(transicoesNormais[statusAtual] ?? []),
       ...(transicoesCorrecao[statusAtual] ?? []),
@@ -38,11 +38,43 @@ export function getTransicoesPermitidas(
   return []
 }
 
+// Transições de disponibilidade (Aux Adm + Admin, apenas motos montadas)
+export function getTransicoesDisponibilidadePermitidas(
+  statusAtual: Status,
+  dispAtual: Disponibilidade | null,
+  papel: Papel,
+  isMinhaLoja: boolean
+): Disponibilidade[] {
+  if (statusAtual !== 'montada') return []
+  if (!isMinhaLoja && !isAdmin(papel)) return []
+  if (!isAdmin(papel) && papel !== 'aux_adm') return []
+  if (dispAtual === 'vendida') return []
+
+  if (dispAtual === null) return ['disponivel']
+  if (dispAtual === 'disponivel') return ['reservada']
+  if (dispAtual === 'reservada') return ['disponivel']
+  return []
+}
+
 export const statusLabel: Record<Status, string> = {
-  faturada:    'Faturada',
+  caixa:       'Caixa',
+  montada:     'Montada',
+  em_garantia: 'Garantia',
+}
+
+export const disponibilidadeLabel: Record<Disponibilidade, string> = {
+  disponivel: 'Disponível',
+  reservada:  'Reservada',
+  vendida:    'Vendida',
+}
+
+// Compat: usado em lugares que ainda esperam a string antiga
+export const statusLabel_legado: Record<string, string> = {
+  faturada:    'Caixa',
+  caixa:       'Caixa',
   montada:     'Montada',
   disponivel:  'Disponível',
   reservada:   'Reservada',
-  em_garantia: 'Em Garantia',
+  em_garantia: 'Garantia',
   vendida:     'Vendida',
 }

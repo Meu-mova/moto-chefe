@@ -1,43 +1,79 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios, historicoEstoque } from '@/lib/db/schema'
-import { eq, and, sql } from 'drizzle-orm'
+import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias } from '@/lib/db/schema'
+import { eq, and, or, isNull, ilike, sql, inArray } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
+type OrdenacaoCampo = 'modelo' | 'cor' | 'loja' | 'status' | 'disponibilidade'
+
 export async function listarMotos(filtros?: {
-  status?: string
-  lojaId?: string
-  modeloId?: string
-  categoria?: string
+  status?: string[]
+  disponibilidade?: string[]
+  excluirVendidas?: boolean   // true = modo padrão: mostra null + disponivel + reservada, oculta vendida
+  chassiBusca?: string
+  lojaId?: string[]
+  modeloId?: string[]
+  cor?: string[]
+  ord?: OrdenacaoCampo
+  dir?: 'asc' | 'desc'
 }) {
+  const { asc, desc } = await import('drizzle-orm')
+  const campoMap = {
+    modelo:         modelos.modelo,
+    cor:            motos.cor,
+    loja:           lojas.nome,
+    status:         motos.status,
+    disponibilidade: motos.disponibilidade,
+  } as const
+
+  const campo = campoMap[filtros?.ord ?? 'modelo']
+  const ordenar = filtros?.dir === 'desc' ? desc(campo) : asc(campo)
+
   return db
     .select({
       id: motos.id,
       chassi: motos.chassi,
       cor: motos.cor,
       status: motos.status,
+      disponibilidade: motos.disponibilidade,
       notaFiscalEntrada: motos.notaFiscalEntrada,
       dataMontagem: motos.dataMontagem,
       lojaId: motos.lojaId,
       lojaNome: lojas.nome,
+      modeloId: motos.modeloId,
       marca: modelos.marca,
       modelo: modelos.modelo,
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
+      transferenciaPendente: sql<boolean>`EXISTS (
+        SELECT 1 FROM transferencias
+        WHERE transferencias.moto_id = ${motos.id}
+        AND transferencias.status = 'pendente'
+      )`,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
     .where(
       and(
-        filtros?.status ? eq(motos.status, filtros.status as any) : undefined,
-        filtros?.lojaId ? eq(motos.lojaId, filtros.lojaId) : undefined,
-        filtros?.modeloId ? eq(motos.modeloId, filtros.modeloId) : undefined,
-        filtros?.categoria ? eq(modelos.categoria, filtros.categoria as any) : undefined,
+        filtros?.status?.length          ? inArray(motos.status, filtros.status as any[])                   : undefined,
+        filtros?.excluirVendidas
+          ? sql`(${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`
+          : undefined,
+        filtros?.disponibilidade?.length
+          ? inArray(motos.disponibilidade, filtros.disponibilidade as any[])
+          : undefined,
+        filtros?.chassiBusca?.trim()
+          ? ilike(motos.chassi, `%${filtros.chassiBusca.trim()}%`)
+          : undefined,
+        filtros?.lojaId?.length          ? inArray(motos.lojaId, filtros.lojaId)                            : undefined,
+        filtros?.modeloId?.length        ? inArray(motos.modeloId, filtros.modeloId)                        : undefined,
+        filtros?.cor?.length             ? inArray(motos.cor, filtros.cor)                                  : undefined,
       )
     )
-    .orderBy(motos.status)
+    .orderBy(ordenar)
 }
 
 export async function contarPorStatus() {
@@ -51,12 +87,15 @@ export async function contarPorStatus() {
 }
 
 export async function buscarMoto(id: string) {
+  const mecanico = alias(usuarios, 'mecanico')
+
   const [moto] = await db
     .select({
       id: motos.id,
       chassi: motos.chassi,
       cor: motos.cor,
       status: motos.status,
+      disponibilidade: motos.disponibilidade,
       notaFiscalEntrada: motos.notaFiscalEntrada,
       dataMontagem: motos.dataMontagem,
       lojaId: motos.lojaId,
@@ -66,11 +105,12 @@ export async function buscarMoto(id: string) {
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       motor: modelos.motor,
-      velocidadeMax: modelos.velocidadeMax,
+      mecanicoNome: mecanico.nome,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
+    .leftJoin(mecanico, eq(motos.responsavelMontagemId, mecanico.id))
     .where(eq(motos.id, id))
     .limit(1)
 
