@@ -26,8 +26,8 @@ export function Sidebar({ papel }: Props) {
   return (
     <aside className="w-64 min-h-screen bg-slate-900 text-white flex flex-col">
       <div className="p-6 border-b border-slate-700">
-        <h1 className="font-bold text-lg">Moto Elétrica</h1>
-        <p className="text-xs text-slate-400 mt-1">Gestão de Estoque</p>
+        <h1 className="font-bold text-lg">MOVA</h1>
+        <p className="text-xs text-slate-400 mt-1">Gestão de Motos Elétricas</p>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => (

@@ -16,8 +16,8 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Gestão de Estoque</CardTitle>
-          <p className="text-center text-sm text-slate-500">Motos Elétricas</p>
+          <CardTitle className="text-2xl text-center">MOVA</CardTitle>
+          <p className="text-center text-sm text-slate-500">Gestão de Motos Elétricas</p>
         </CardHeader>
         <CardContent>
           <form action={loginAction} className="space-y-4">

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gestão de Estoque — Motos Elétricas",
-  description: "Sistema multi-loja de gestão de estoque de motos elétricas",
+  title: "MOVA — Gestão de Motos Elétricas",
+  description: "MOVA — Sistema multi-loja de gestão de motos elétricas",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
