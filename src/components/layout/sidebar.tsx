@@ -2,10 +2,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3, Home, Package } from 'lucide-react'
 
 const baseNavItems = [
-  { href: '/estoque',       label: 'Estoque',           icon: LayoutDashboard },
+  { href: '/dashboard',     label: 'Dashboard',         icon: Home            },
+  { href: '/estoque',       label: 'Estoque',           icon: Package         },
   { href: '/transferencias',label: 'Transferências',    icon: ArrowLeftRight  },
   { href: '/vendas',        label: 'Vendas',            icon: ShoppingCart    },
   { href: '/ordens-servico',label: 'Ordens de Serviço', icon: Wrench          },

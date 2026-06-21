@@ -10,7 +10,7 @@ import { CaixaFiltros } from './components/caixa-filtros'
 
 export default async function CaixaPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/estoque')
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
 
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)

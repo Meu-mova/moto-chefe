@@ -14,7 +14,7 @@ export async function loginAction(formData: FormData) {
     redirect('/login?error=1')
   }
 
-  redirect('/estoque')
+  redirect('/dashboard')
 }
 
 export async function logoutAction() {
