@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3, Home, Package } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3, Home, Package, PackagePlus } from 'lucide-react'
 
 const baseNavItems = [
   { href: '/dashboard',     label: 'Dashboard',         icon: Home            },
@@ -24,6 +24,7 @@ export function Sidebar({ papel }: Props) {
     ...baseNavItems,
     ...(isAdmin ? [{ href: '/caixa', label: 'Caixa', icon: Wallet }] : []),
     ...(isAdmin ? [{ href: '/financeiro', label: 'Financeiro', icon: BarChart3 }] : []),
+    ...(isAdmin ? [{ href: '/entrada', label: 'Entrada', icon: PackagePlus }] : []),
     ...(isAdmin ? [{ href: '/compras', label: 'Compras', icon: ShoppingBag }] : []),
     ...(papel === 'admin_geral' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ]
