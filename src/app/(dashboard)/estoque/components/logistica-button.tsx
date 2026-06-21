@@ -15,9 +15,10 @@ type Props = {
   descricao: string
   lojaAtualId: string
   lojas: Loja[]
+  showLabel?: boolean
 }
 
-export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas }: Props) {
+export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas, showLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [lojaDestinoId, setLojaDestinoId] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,13 +47,16 @@ export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas }: Props
   return (
     <>
       <Button
-        variant="ghost"
-        size="icon"
+        variant={showLabel ? 'outline' : 'ghost'}
+        size={showLabel ? 'sm' : 'icon'}
         title="Solicitar Transferência"
         onClick={handleOpen}
-        className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+        className={showLabel
+          ? 'h-8 gap-1.5 text-xs border-purple-300 text-purple-600 hover:bg-purple-50'
+          : 'h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50'}
       >
-        <Truck size={16} />
+        <Truck size={showLabel ? 14 : 16} />
+        {showLabel && 'Transferir'}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

@@ -4,12 +4,13 @@ import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { usuarios } from '@/lib/db/schema'
+import { lojas, modelos, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { StatusActions } from './components/status-actions'
+import { MotoActions } from './components/moto-actions'
+import { EditarMotoButton } from './components/editar-moto-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
 import { OSTab } from './components/os-tab'
@@ -24,10 +25,12 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
 
   if (!moto) notFound()
 
-  const mecanicos = await db
-    .select({ id: usuarios.id, nome: usuarios.nome })
-    .from(usuarios)
-    .where(eq(usuarios.papel, 'mecanico'))
+  const [mecanicos, lojasOpts, usuariosOpts, modelosOpts] = await Promise.all([
+    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
+    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
+    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+  ])
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -37,14 +40,33 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         </Link>
         <div>
           <h1 className="text-2xl font-bold">{moto.marca} {moto.modelo}</h1>
-          <p className="text-slate-500 text-sm font-mono">{moto.chassi}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base">Informações</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Informações</CardTitle>
+            {['admin_geral', 'admin_socio'].includes(usuario.papel) && (
+              <EditarMotoButton
+                moto={{
+                  id: moto.id,
+                  chassi: moto.chassi,
+                  cor: moto.cor,
+                  motor: moto.motor,
+                  modeloId: moto.modeloId,
+                  lojaId: moto.lojaId,
+                  notaFiscalEntrada: moto.notaFiscalEntrada,
+                  status: moto.status,
+                  disponibilidade: moto.disponibilidade,
+                }}
+                lojas={lojasOpts}
+                modelos={modelosOpts}
+              />
+            )}
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-500">Chassi</span><span className="font-mono text-xs">{moto.chassi}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Status</span><Badge>{statusLabel[moto.status as Status] ?? moto.status}</Badge></div>
             {moto.disponibilidade && (
               <div className="flex justify-between"><span className="text-slate-500">Disponibilidade</span><Badge variant="outline">{disponibilidadeLabel[moto.disponibilidade as Disponibilidade] ?? moto.disponibilidade}</Badge></div>
@@ -54,7 +76,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between"><span className="text-slate-500">Categoria</span><span>{moto.categoria}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Potência</span><span>{moto.potenciaW}W</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Motor</span><span>{moto.motor}</span></div>
-<div className="flex justify-between"><span className="text-slate-500">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
             {moto.dataMontagem && (
               <div className="flex justify-between"><span className="text-slate-500">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
             )}
@@ -64,20 +86,16 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base">Alterar Status</CardTitle></CardHeader>
-          <CardContent>
-            <StatusActions
-              motoId={moto.id}
-              statusAtual={moto.status}
-              disponibilidadeAtual={moto.disponibilidade ?? null}
-              papel={usuario.papel}
-              lojaIdUsuario={usuario.lojaId ?? null}
-              lojaIdMoto={moto.lojaId}
-              mecanicos={mecanicos}
-            />
-          </CardContent>
-        </Card>
+        <MotoActions
+        moto={moto}
+        papel={usuario.papel}
+        vendedorId={usuario.id}
+        vendedorNome={usuario.nome}
+        usuarios={usuariosOpts}
+        mecanicos={mecanicos}
+        lojas={lojasOpts}
+        lojaUsuarioId={usuario.lojaId ?? null}
+      />
       </div>
 
       <Tabs defaultValue="historico">

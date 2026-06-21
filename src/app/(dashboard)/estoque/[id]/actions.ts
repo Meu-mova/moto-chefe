@@ -78,6 +78,45 @@ export async function alterarStatusAction(
   revalidatePath('/estoque')
 }
 
+export async function editarMotoAction(
+  motoId: string,
+  dados: {
+    chassi?: string
+    cor?: string
+    motor?: string
+    modeloId?: string
+    lojaId?: string
+    notaFiscalEntrada?: string
+    status?: string
+    disponibilidade?: string | null
+  },
+) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    throw new Error('Sem permissão para editar moto')
+  }
+
+  const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+
+  const updates: Record<string, unknown> = {}
+  if (dados.chassi !== undefined && dados.chassi !== moto.chassi) updates.chassi = dados.chassi
+  if (dados.cor !== undefined && dados.cor !== moto.cor) updates.cor = dados.cor
+  if (dados.motor !== undefined && dados.motor !== moto.motor) updates.motor = dados.motor || null
+  if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) updates.modeloId = dados.modeloId
+  if (dados.lojaId !== undefined && dados.lojaId !== moto.lojaId) updates.lojaId = dados.lojaId
+  if (dados.notaFiscalEntrada !== undefined && dados.notaFiscalEntrada !== moto.notaFiscalEntrada) updates.notaFiscalEntrada = dados.notaFiscalEntrada
+  if (dados.status !== undefined && dados.status !== moto.status) updates.status = dados.status
+  if (dados.disponibilidade !== undefined && dados.disponibilidade !== moto.disponibilidade) updates.disponibilidade = dados.disponibilidade
+
+  if (Object.keys(updates).length === 0) return
+
+  await db.update(motos).set(updates).where(eq(motos.id, motoId))
+
+  revalidatePath(`/estoque/${motoId}`)
+  revalidatePath('/estoque')
+}
+
 export async function alterarDisponibilidadeAction(motoId: string, novaDisp: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
 

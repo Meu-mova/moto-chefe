@@ -42,17 +42,41 @@ function validarCpf(cpf: string): boolean {
 
 type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string }
 
+type Usuario = { id: string; nome: string }
+
+type DadosReservaAtiva = {
+  valorEntrada: string
+  valorTotal: string
+  clienteNome: string
+  clienteCpf: string
+  clienteCelular: string
+  clienteEmail: string
+  clienteCep: string
+  clienteLogradouro: string
+  clienteNumero: string
+  clienteComplemento: string
+  clienteBairro: string
+  clienteCidade: string
+  clienteEstado: string
+  vendedorId: string
+}
+
 type Props = {
   motoId: string
   descricao: string
+  vendedorId: string
   vendedorNome: string
+  usuarios: Usuario[]
   soReserva?: boolean
+  reservaAtiva?: DadosReservaAtiva
+  showLabel?: boolean
 }
 
-export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usuarios, soReserva, reservaAtiva, showLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
+  const [vendedorSelecionado, setVendedorSelecionado] = useState(vendedorId)
 
   // ── Dados do cliente ──
   const [clienteNome, setClienteNome] = useState('')
@@ -81,11 +105,30 @@ export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Pro
   const [dataPrevista, setDataPrevista] = useState('')
 
   function resetForm(tipoInicial: 'venda' | 'reserva') {
-    setTipo(tipoInicial)
-    setClienteNome(''); setClienteCpf(''); setClienteCelular(''); setClienteEmail('')
-    setClienteCep(''); setClienteLogradouro(''); setClienteNumero(''); setClienteComplemento('')
-    setClienteBairro(''); setClienteCidade(''); setClienteEstado('')
-    setValorVenda(''); setPgtos([{ id: '1', tipo: '', valor: '' }])
+    setTipo(reservaAtiva ? 'venda' : tipoInicial)
+    if (reservaAtiva) {
+      setClienteNome(reservaAtiva.clienteNome)
+      setClienteCpf(reservaAtiva.clienteCpf)
+      setClienteCelular(reservaAtiva.clienteCelular)
+      setClienteEmail(reservaAtiva.clienteEmail)
+      setClienteCep(reservaAtiva.clienteCep)
+      setClienteLogradouro(reservaAtiva.clienteLogradouro)
+      setClienteNumero(reservaAtiva.clienteNumero)
+      setClienteComplemento(reservaAtiva.clienteComplemento)
+      setClienteBairro(reservaAtiva.clienteBairro)
+      setClienteCidade(reservaAtiva.clienteCidade)
+      setClienteEstado(reservaAtiva.clienteEstado)
+      const restante = (parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2)
+      setValorVenda(restante)
+      setVendedorSelecionado(reservaAtiva.vendedorId)
+    } else {
+      setClienteNome(''); setClienteCpf(''); setClienteCelular(''); setClienteEmail('')
+      setClienteCep(''); setClienteLogradouro(''); setClienteNumero(''); setClienteComplemento('')
+      setClienteBairro(''); setClienteCidade(''); setClienteEstado('')
+      setValorVenda('')
+      setVendedorSelecionado(vendedorId)
+    }
+    setPgtos([{ id: '1', tipo: '', valor: '' }])
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
   }
 
@@ -176,6 +219,7 @@ export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Pro
       if (tipo === 'venda') {
         await registrarVendaCompletaAction({
           motoId, ...clienteBase, valorTotal: valorVenda,
+          vendedorId: vendedorSelecionado,
           pagamentos: pgtos.map(p => ({
             tipo: p.tipo, valor: parseFloat(p.valor),
             ...(p.tipo === 'cartao_credito' ? { operadora: p.operadora, parcelas: parseInt(p.parcelas!) } : {}),
@@ -185,6 +229,7 @@ export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Pro
       } else {
         await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda, meioPagamento: meioPgto,
+          vendedorId: vendedorSelecionado,
           ...(meioPgto === 'cartao_credito' ? {
             cartaoOperadora: meioPgtoOperadora,
             cartaoParcelas: parseInt(meioPgtoParcelas),
@@ -205,42 +250,44 @@ export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Pro
     <>
       {!soReserva && (
         <Button
-          variant="ghost"
-          size="icon"
-          title="Registrar Venda"
+          variant={showLabel ? 'outline' : 'ghost'}
+          size={showLabel ? 'sm' : 'icon'}
+          title={reservaAtiva ? 'Finalizar Venda (Reservada)' : 'Registrar Venda'}
           onClick={() => abrir('venda')}
-          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+          className={showLabel
+            ? 'h-8 gap-1.5 text-xs border-green-300 text-green-600 hover:bg-green-50'
+            : 'h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50'}
         >
-          <ShoppingCart size={16} />
+          <ShoppingCart size={showLabel ? 14 : 16} />
+          {showLabel && (reservaAtiva ? 'Finalizar Venda' : 'Vender')}
         </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Registrar Reserva"
-        onClick={() => abrir('reserva')}
-        className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-      >
-        <CalendarClock size={16} />
-      </Button>
+      {soReserva && (
+        <Button
+          variant={showLabel ? 'outline' : 'ghost'}
+          size={showLabel ? 'sm' : 'icon'}
+          title="Registrar Reserva"
+          onClick={() => abrir('reserva')}
+          className={showLabel
+            ? 'h-8 gap-1.5 text-xs border-blue-300 text-blue-600 hover:bg-blue-50'
+            : 'h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50'}
+        >
+          <CalendarClock size={showLabel ? 14 : 16} />
+          {showLabel && 'Reservar'}
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>
-              {tipo === 'venda' ? 'Registrar Venda' : 'Registrar Reserva'}
-            </DialogTitle>
-            <p className="text-sm text-slate-500 mt-0.5">{descricao}</p>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-            {/* Vendedor + tipo */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Vendedor:</span>
-                <span className="font-medium">{vendedorNome}</span>
+              <div>
+                <DialogTitle>
+                  {tipo === 'venda' ? 'Registrar Venda' : 'Registrar Reserva'}
+                </DialogTitle>
+                <p className="text-sm text-slate-500 mt-0.5">{descricao}</p>
               </div>
-              {!soReserva && (
+              {!soReserva && !reservaAtiva && (
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -261,6 +308,34 @@ export function VenderButton({ motoId, descricao, vendedorNome, soReserva }: Pro
                 </div>
               )}
             </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Vendedor */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Vendedor</Label>
+                <Select value={vendedorSelecionado} onValueChange={v => setVendedorSelecionado(v ?? vendedorId)}>
+                  <SelectTrigger className="w-full">
+                    {usuarios.find(u => u.id === vendedorSelecionado)?.nome ?? 'Selecionar vendedor'}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usuarios.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {reservaAtiva && (
+              <div className="text-sm px-3 py-2 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
+                <p className="font-medium">Moto reservada</p>
+                <p>Entrada paga: R$ {parseFloat(reservaAtiva.valorEntrada).toFixed(2).replace('.', ',')}</p>
+                <p>Valor total acordado: R$ {parseFloat(reservaAtiva.valorTotal).toFixed(2).replace('.', ',')}</p>
+                <p>Restante a cobrar: R$ {(parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2).replace('.', ',')}</p>
+              </div>
+            )}
 
             <div className="h-px bg-slate-200" />
 

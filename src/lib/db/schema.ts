@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb,
+  timestamp, date, numeric, jsonb, pgView,
 } from 'drizzle-orm/pg-core'
 
 
@@ -16,6 +16,7 @@ export const osStatusEnum = pgEnum('os_status', ['aberta', 'em_andamento', 'conc
 export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada'])
 export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
 export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda'])
+export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {
@@ -56,6 +57,7 @@ export const motos = pgTable('motos', {
   disponibilidade: disponibilidadeEnum('disponibilidade'),
   cor: text('cor').notNull(),
   notaFiscalEntrada: text('nota_fiscal_entrada').notNull(),
+  motor: text('motor'),
   responsavelMontagemId: uuid('responsavel_montagem_id').references(() => usuarios.id),
   dataMontagem: date('data_montagem'),
 })
@@ -182,4 +184,18 @@ export const garantias = pgTable('garantias', {
   status: garantiaStatusEnum('status').notNull().default('ativa'),
   dataPedidoPeca: date('data_pedido_peca'),
   numeroPedidoFabrica: text('numero_pedido_fabrica'),
+})
+
+// ─── lancamentos_caixa ──────────────────────────────────────────────────────
+export const lancamentosCaixa = pgTable('lancamentos_caixa', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  tipo: tipoLancamentoEnum('tipo').notNull(),
+  categoria: text('categoria').notNull(),
+  descricao: text('descricao'),
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  data: date('data').notNull(),
+  vendaId: uuid('venda_id').references(() => vendas.id),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

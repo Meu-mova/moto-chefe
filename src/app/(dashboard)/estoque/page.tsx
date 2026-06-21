@@ -1,6 +1,7 @@
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
-import { lojas, modelos, motos } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { lojas, modelos, motos, usuarios } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
@@ -36,7 +37,7 @@ export default async function EstoquePage({
   const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
   const dir = params.dir === 'desc' ? 'desc' : 'asc'
 
-  const [motosList, lojasOpts, modelosOpts, coresOpts] = await Promise.all([
+  const [motosList, lojasOpts, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await Promise.all([
     listarMotos({
       status:          parseParam(params.status),
       disponibilidade: dispValues.length ? dispValues : undefined,
@@ -51,6 +52,8 @@ export default async function EstoquePage({
     db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
+    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
+    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),
   ])
 
   const counts = {
@@ -81,8 +84,11 @@ export default async function EstoquePage({
         <MotoTable
           motos={motosList}
           papel={usuario.papel}
+          vendedorId={usuario.id}
           vendedorNome={usuario.nome}
+          usuarios={usuariosOpts}
           lojas={lojasOpts}
+          mecanicos={mecanicosOpts}
           lojaUsuarioId={usuario.lojaId ?? null}
           ord={ord}
           dir={dir}

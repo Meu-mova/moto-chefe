@@ -17,6 +17,7 @@ import {
   type Disponibilidade,
 } from '@/lib/estado-moto'
 import { alterarStatusAction, alterarDisponibilidadeAction } from '../actions'
+import { abrirGarantiaAction } from '../../../garantias/actions'
 
 type Mecanico = { id: string; nome: string }
 
@@ -40,6 +41,10 @@ export function StatusActions({
   const [dataMontagem, setDataMontagem] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [garantiaDescricao, setGarantiaDescricao] = useState('')
+  const [garantiaDataPedido, setGarantiaDataPedido] = useState('')
+  const [garantiaNumeroPedido, setGarantiaNumeroPedido] = useState('')
+
   const isMinhaLoja = lojaIdUsuario === lojaIdMoto
 
   const statusPermitidos = getTransicoesStatusPermitidas(statusAtual as Status, papel as any, isMinhaLoja)
@@ -58,17 +63,32 @@ export function StatusActions({
     setMecanicoId('')
     setDataMontagem(new Date().toISOString().split('T')[0])
     setObservacao('')
+    setGarantiaDescricao('')
+    setGarantiaDataPedido(new Date().toISOString().split('T')[0])
+    setGarantiaNumeroPedido('')
     setOpen(true)
   }
 
   const exigeMecanico = alvo?.tipo === 'status' && alvo?.valor === 'montada'
-  const podeConfirmar = !exigeMecanico || (!!mecanicoId && !!dataMontagem)
+  const exigeGarantia = alvo?.tipo === 'status' && alvo?.valor === 'em_garantia'
+  const podeConfirmar = exigeGarantia
+    ? !!(garantiaDescricao && garantiaDataPedido)
+    : !exigeMecanico || (!!mecanicoId && !!dataMontagem)
 
   async function handleConfirm() {
     if (!alvo || !podeConfirmar) return
     setLoading(true)
     try {
-      if (alvo.tipo === 'status') {
+      if (exigeGarantia) {
+        await abrirGarantiaAction({
+          motoId,
+          descricao: garantiaDescricao,
+          dataInicio: garantiaDataPedido,
+          dataPedidoPeca: garantiaDataPedido,
+          numeroPedidoFabrica: garantiaNumeroPedido || undefined,
+        })
+        toast.success('Garantia aberta! Prazo: 30 dias.')
+      } else if (alvo.tipo === 'status') {
         await alterarStatusAction(motoId, alvo.valor, observacao, mecanicoId || undefined, dataMontagem || undefined)
       } else {
         await alterarDisponibilidadeAction(motoId, alvo.valor, observacao)
@@ -127,6 +147,33 @@ export function StatusActions({
               <strong>{alvoLabel}</strong>?
             </p>
 
+            {exigeGarantia && (
+              <>
+                <div className="space-y-2">
+                  <Label>Descrição do Problema <span className="text-red-500">*</span></Label>
+                  <Textarea
+                    value={garantiaDescricao}
+                    onChange={e => setGarantiaDescricao(e.target.value)}
+                    placeholder="Descreva o defeito ou problema em garantia..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data do Pedido <span className="text-red-500">*</span></Label>
+                  <Input type="date" value={garantiaDataPedido} onChange={e => setGarantiaDataPedido(e.target.value)} />
+                  <p className="text-xs text-slate-400">O prazo de resolução é de 30 dias a partir desta data.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Número do Pedido na Fábrica (opcional)</Label>
+                  <Input
+                    value={garantiaNumeroPedido}
+                    onChange={e => setGarantiaNumeroPedido(e.target.value)}
+                    placeholder="Ex: FAB-2026-001"
+                  />
+                </div>
+              </>
+            )}
+
             {exigeMecanico && (
               <>
                 <div className="space-y-2">
@@ -164,11 +211,13 @@ export function StatusActions({
               </>
             )}
 
-            <Textarea
-              placeholder="Observação (opcional)"
-              value={observacao}
-              onChange={e => setObservacao(e.target.value)}
-            />
+            {!exigeGarantia && (
+              <Textarea
+                placeholder="Observação (opcional)"
+                value={observacao}
+                onChange={e => setObservacao(e.target.value)}
+              />
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

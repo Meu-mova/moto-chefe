@@ -72,6 +72,7 @@ export async function efetivarVendaAction(
 
 type DadosVendaCompleta = {
   motoId: string
+  vendedorId?: string
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -110,6 +111,9 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
+  const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
+  const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+
   await db.transaction(async (tx) => {
     // Verificar reserva ativa para linkar
     const [reservaAtiva] = await tx
@@ -122,7 +126,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     const [pedido] = await tx.insert(pedidosVenda).values({
       motoId: data.motoId,
       lojaId: moto.lojaId,
-      vendedorId: usuario.id,
+      vendedorId,
       status: 'efetivado',
       observacao: null,
     }).returning({ id: pedidosVenda.id })
@@ -132,7 +136,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       pedidoVendaId: pedido.id,
       motoId: data.motoId,
       lojaId: moto.lojaId,
-      vendedorId: usuario.id,
+      vendedorId,
       efetivadoPor: usuario.id,
       clienteNome: data.clienteNome,
       clienteCpf: data.clienteCpf,
@@ -222,6 +226,7 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
 
 type DadosReserva = {
   motoId: string
+  vendedorId?: string
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -258,13 +263,16 @@ export async function registrarReservaAction(data: DadosReserva) {
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
 
+  const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
+  const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
+
   await db.transaction(async (tx) => {
     const valorTotalNum = parseFloat(data.valorTotalVenda)
 
     await tx.insert(reservas).values({
       motoId: data.motoId,
       lojaId: moto.lojaId,
-      vendedorId: usuario.id,
+      vendedorId: vendedorIdReserva,
       valorReserva: data.valorReserva,
       valorTotalVenda: data.valorTotalVenda,
       meioPagamento: data.meioPagamento,

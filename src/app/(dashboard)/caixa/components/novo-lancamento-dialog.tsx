@@ -1,0 +1,175 @@
+'use client'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
+import { criarLancamentoAction } from '../actions'
+
+type Loja = { id: string; nome: string }
+
+const categoriasEntrada = [
+  'Venda',
+  'Entrada de sinal',
+  'Recebimento parcela',
+  'Aporte sócio',
+  'Outros',
+]
+
+const categoriasSaida = [
+  'Aluguel',
+  'Salários',
+  'Energia',
+  'Água',
+  'Internet',
+  'Fornecedor',
+  'Manutenção',
+  'Repasse sócio',
+  'Comissão',
+  'Impostos',
+  'Material escritório',
+  'Marketing',
+  'Outros',
+]
+
+export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; lojaUsuarioId: string | null }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const [tipo, setTipo] = useState<'entrada' | 'saida'>('saida')
+  const [categoria, setCategoria] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [valor, setValor] = useState('')
+  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [lojaId, setLojaId] = useState(lojaUsuarioId ?? lojas[0]?.id ?? '')
+
+  function handleOpen() {
+    setTipo('saida')
+    setCategoria('')
+    setDescricao('')
+    setValor('')
+    setData(new Date().toISOString().split('T')[0])
+    setLojaId(lojaUsuarioId ?? lojas[0]?.id ?? '')
+    setOpen(true)
+  }
+
+  const categorias = tipo === 'entrada' ? categoriasEntrada : categoriasSaida
+
+  async function handleSalvar() {
+    if (!categoria || !valor || !data || !lojaId) {
+      toast.error('Preencha todos os campos obrigatórios')
+      return
+    }
+    setLoading(true)
+    try {
+      await criarLancamentoAction({
+        lojaId,
+        tipo,
+        categoria,
+        descricao: descricao.trim() || undefined,
+        valor,
+        data,
+      })
+      toast.success('Lançamento registrado!')
+      setOpen(false)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao registrar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Button onClick={handleOpen}>
+        <Plus size={16} className="mr-2" /> Novo Lançamento
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Novo Lançamento</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Tipo *</Label>
+              <select
+                value={tipo}
+                onChange={e => { setTipo(e.target.value as 'entrada' | 'saida'); setCategoria('') }}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none"
+              >
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Loja *</Label>
+              <select
+                value={lojaId}
+                onChange={e => setLojaId(e.target.value)}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none"
+              >
+                {lojas.map(l => (
+                  <option key={l.id} value={l.id}>{l.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categoria *</Label>
+            <select
+              value={categoria}
+              onChange={e => setCategoria(e.target.value)}
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none"
+            >
+              <option value="">Selecione...</option>
+              {categorias.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Valor (R$) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={valor}
+                onChange={e => setValor(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data *</Label>
+              <Input type="date" value={data} onChange={e => setData(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrição</Label>
+            <Textarea
+              value={descricao}
+              onChange={e => setDescricao(e.target.value)}
+              placeholder="Detalhes do lançamento..."
+              rows={2}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSalvar} disabled={loading}>
+              {loading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
+  )
+}

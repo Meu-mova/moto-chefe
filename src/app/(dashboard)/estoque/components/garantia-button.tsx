@@ -12,9 +12,10 @@ import { abrirGarantiaAction } from '../../garantias/actions'
 type Props = {
   motoId: string
   descricao: string
+  showLabel?: boolean
 }
 
-export function GarantiaButton({ motoId, descricao }: Props) {
+export function GarantiaButton({ motoId, descricao, showLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [descricaoGarantia, setDescricaoGarantia] = useState('')
   const [dataPedido, setDataPedido] = useState('')
@@ -51,13 +52,16 @@ export function GarantiaButton({ motoId, descricao }: Props) {
   return (
     <>
       <Button
-        variant="ghost"
-        size="icon"
+        variant={showLabel ? 'outline' : 'ghost'}
+        size={showLabel ? 'sm' : 'icon'}
         title="Abrir Garantia"
         onClick={() => setOpen(true)}
-        className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+        className={showLabel
+          ? 'h-8 gap-1.5 text-xs border-orange-300 text-orange-600 hover:bg-orange-50'
+          : 'h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50'}
       >
-        <ShieldAlert size={16} />
+        <ShieldAlert size={showLabel ? 14 : 16} />
+        {showLabel && 'Garantia'}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

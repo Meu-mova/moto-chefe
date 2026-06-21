@@ -1,6 +1,6 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias } from '@/lib/db/schema'
+import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas } from '@/lib/db/schema'
 import { eq, and, or, isNull, ilike, sql, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
@@ -52,6 +52,76 @@ export async function listarMotos(filtros?: {
         WHERE transferencias.moto_id = ${motos.id}
         AND transferencias.status = 'pendente'
       )`,
+      reservaValorEntrada: sql<string | null>`(
+        SELECT r.valor_reserva FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaValorTotal: sql<string | null>`(
+        SELECT r.valor_total_venda FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteNome: sql<string | null>`(
+        SELECT r.cliente_nome FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCpf: sql<string | null>`(
+        SELECT r.cliente_cpf FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCelular: sql<string | null>`(
+        SELECT r.cliente_celular FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteEmail: sql<string | null>`(
+        SELECT r.cliente_email FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCep: sql<string | null>`(
+        SELECT r.cliente_cep FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteLogradouro: sql<string | null>`(
+        SELECT r.cliente_logradouro FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteNumero: sql<string | null>`(
+        SELECT r.cliente_numero FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteComplemento: sql<string | null>`(
+        SELECT r.cliente_complemento FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteBairro: sql<string | null>`(
+        SELECT r.cliente_bairro FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCidade: sql<string | null>`(
+        SELECT r.cliente_cidade FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteEstado: sql<string | null>`(
+        SELECT r.cliente_estado FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaVendedorId: sql<string | null>`(
+        SELECT r.vendedor_id FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
@@ -98,14 +168,90 @@ export async function buscarMoto(id: string) {
       disponibilidade: motos.disponibilidade,
       notaFiscalEntrada: motos.notaFiscalEntrada,
       dataMontagem: motos.dataMontagem,
+      modeloId: motos.modeloId,
       lojaId: motos.lojaId,
       lojaNome: lojas.nome,
       marca: modelos.marca,
       modelo: modelos.modelo,
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
-      motor: modelos.motor,
+      motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
       mecanicoNome: mecanico.nome,
+      transferenciaPendente: sql<boolean>`EXISTS (
+        SELECT 1 FROM transferencias
+        WHERE transferencias.moto_id = ${motos.id}
+        AND transferencias.status = 'pendente'
+      )`,
+      reservaValorEntrada: sql<string | null>`(
+        SELECT r.valor_reserva FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaValorTotal: sql<string | null>`(
+        SELECT r.valor_total_venda FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteNome: sql<string | null>`(
+        SELECT r.cliente_nome FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCpf: sql<string | null>`(
+        SELECT r.cliente_cpf FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCelular: sql<string | null>`(
+        SELECT r.cliente_celular FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteEmail: sql<string | null>`(
+        SELECT r.cliente_email FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCep: sql<string | null>`(
+        SELECT r.cliente_cep FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteLogradouro: sql<string | null>`(
+        SELECT r.cliente_logradouro FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteNumero: sql<string | null>`(
+        SELECT r.cliente_numero FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteComplemento: sql<string | null>`(
+        SELECT r.cliente_complemento FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteBairro: sql<string | null>`(
+        SELECT r.cliente_bairro FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteCidade: sql<string | null>`(
+        SELECT r.cliente_cidade FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaClienteEstado: sql<string | null>`(
+        SELECT r.cliente_estado FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaVendedorId: sql<string | null>`(
+        SELECT r.vendedor_id FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))

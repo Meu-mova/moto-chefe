@@ -2,26 +2,30 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3 } from 'lucide-react'
 
 const baseNavItems = [
   { href: '/estoque',       label: 'Estoque',           icon: LayoutDashboard },
   { href: '/transferencias',label: 'Transferências',    icon: ArrowLeftRight  },
   { href: '/vendas',        label: 'Vendas',            icon: ShoppingCart    },
-  { href: '/compras',       label: 'Compras',           icon: ShoppingBag     },
   { href: '/ordens-servico',label: 'Ordens de Serviço', icon: Wrench          },
   { href: '/garantias',     label: 'Garantias',         icon: Shield          },
 ]
 
-const adminNavItem = { href: '/admin', label: 'Admin', icon: Settings }
+const adminPapeis = ['admin_geral', 'admin_socio']
 
 type Props = { papel: string }
 
 export function Sidebar({ papel }: Props) {
   const pathname = usePathname()
-  const navItems = papel === 'admin_geral'
-    ? [...baseNavItems, adminNavItem]
-    : baseNavItems
+  const isAdmin = adminPapeis.includes(papel)
+  const navItems = [
+    ...baseNavItems,
+    ...(isAdmin ? [{ href: '/caixa', label: 'Caixa', icon: Wallet }] : []),
+    ...(isAdmin ? [{ href: '/financeiro', label: 'Financeiro', icon: BarChart3 }] : []),
+    ...(isAdmin ? [{ href: '/compras', label: 'Compras', icon: ShoppingBag }] : []),
+    ...(papel === 'admin_geral' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
+  ]
 
   return (
     <aside className="w-64 min-h-screen bg-slate-900 text-white flex flex-col">

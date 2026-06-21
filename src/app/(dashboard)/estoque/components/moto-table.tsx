@@ -7,6 +7,7 @@ import { VenderButton } from './vender-button'
 import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
 import { NfSaidaButton } from './nf-saida-button'
+import { MontarButton } from './montar-button'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
 
 function StatusIcon({ status }: { status: string }) {
@@ -51,15 +52,22 @@ const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
 const podeGarantia  = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
+const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
 type Campo = 'modelo' | 'cor' | 'loja' | 'status' | 'disponibilidade'
 type Loja  = { id: string; nome: string }
 
+type Usuario = { id: string; nome: string }
+type Mecanico = { id: string; nome: string }
+
 type Props = {
   motos: MotoComDetalhes[]
   papel: string
+  vendedorId: string
   vendedorNome: string
+  usuarios: Usuario[]
+  mecanicos: Mecanico[]
   lojas: Loja[]
   lojaUsuarioId: string | null
   ord: string
@@ -81,7 +89,7 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
   return `/estoque?${p.toString()}`
 }
 
-export function MotoTable({ motos, papel, vendedorNome, lojas, lojaUsuarioId, ord, dir, baseParams }: Props) {
+export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, ord, dir, baseParams }: Props) {
   const isAdmin = ADMINS.has(papel)
 
   function th(campo: Campo, label: string) {
@@ -164,12 +172,40 @@ export function MotoTable({ motos, papel, vendedorNome, lojas, lojaUsuarioId, or
 
                             {podeAlterar && podeVender.has(papel) && (
                               <>
-                                {/* Montada disponível ou reservada: venda + reserva */}
-                                {moto.status !== 'caixa' && (moto.disponibilidade === 'disponivel' || moto.disponibilidade === 'reservada') && (
+                                {/* Montada disponível: venda + reserva */}
+                                {moto.status !== 'caixa' && moto.disponibilidade === 'disponivel' && (
                                   <VenderButton
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
+                                    usuarios={usuarios}
+                                  />
+                                )}
+                                {/* Reservada: só finalizar venda */}
+                                {moto.disponibilidade === 'reservada' && moto.reservaValorEntrada && (
+                                  <VenderButton
+                                    motoId={moto.id}
+                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    vendedorId={vendedorId}
+                                    vendedorNome={vendedorNome}
+                                    usuarios={usuarios}
+                                    reservaAtiva={{
+                                      valorEntrada: moto.reservaValorEntrada,
+                                      valorTotal: moto.reservaValorTotal ?? '0',
+                                      clienteNome: moto.reservaClienteNome ?? '',
+                                      clienteCpf: moto.reservaClienteCpf ?? '',
+                                      clienteCelular: moto.reservaClienteCelular ?? '',
+                                      clienteEmail: moto.reservaClienteEmail ?? '',
+                                      clienteCep: moto.reservaClienteCep ?? '',
+                                      clienteLogradouro: moto.reservaClienteLogradouro ?? '',
+                                      clienteNumero: moto.reservaClienteNumero ?? '',
+                                      clienteComplemento: moto.reservaClienteComplemento ?? '',
+                                      clienteBairro: moto.reservaClienteBairro ?? '',
+                                      clienteCidade: moto.reservaClienteCidade ?? '',
+                                      clienteEstado: moto.reservaClienteEstado ?? '',
+                                      vendedorId: moto.reservaVendedorId ?? vendedorId,
+                                    }}
                                   />
                                 )}
                                 {/* Caixa ainda não reservada: só reserva */}
@@ -177,11 +213,21 @@ export function MotoTable({ motos, papel, vendedorNome, lojas, lojaUsuarioId, or
                                   <VenderButton
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
+                                    usuarios={usuarios}
                                     soReserva
                                   />
                                 )}
                               </>
+                            )}
+
+                            {podeAlterar && podeMontar.has(papel) && moto.status === 'caixa' && (
+                              <MontarButton
+                                motoId={moto.id}
+                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                mecanicos={mecanicos}
+                              />
                             )}
 
                             {podeAlterar && podeLogistica.has(papel) && moto.disponibilidade !== 'vendida' && (

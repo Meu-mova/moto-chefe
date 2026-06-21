@@ -46,8 +46,7 @@ export function getTransicoesDisponibilidadePermitidas(
   isMinhaLoja: boolean
 ): Disponibilidade[] {
   if (statusAtual !== 'montada') return []
-  if (!isMinhaLoja && !isAdmin(papel)) return []
-  if (!isAdmin(papel) && papel !== 'aux_adm') return []
+  if (!isAdmin(papel)) return []
   if (dispAtual === 'vendida') return []
 
   if (dispAtual === null) return ['disponivel']
