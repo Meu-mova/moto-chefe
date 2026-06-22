@@ -91,11 +91,14 @@ function gerarHtmlPrint(
   entrada: number,
   linhasCartao: Linha[],
   linhasLink: Linha[],
-  linhasFinanciamento: Linha[]
+  linhasFinanciamento: Linha[],
+  linhasCartaoDestaque: Linha[]
 ) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
+  const cartao21 = linhasCartaoDestaque.find(l => l.parcelas === 21)
+  const cartao12 = linhasCartaoDestaque.find(l => l.parcelas === 12)
 
   function tabelaHtml(linhas: Linha[], cor: string, labelCredito = 'Crédito') {
     if (!linhas.length) return '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px">Nenhuma opção configurada</p>'
@@ -130,9 +133,20 @@ function gerarHtmlPrint(
     .brand{font-size:12px;color:#94a3b8;margin-bottom:4px}
     .model{font-size:24px;font-weight:700}
     .date{font-size:12px;color:#94a3b8}
-    .pix-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 20px;text-align:center;margin-bottom:20px}
-    .pix-label{font-size:11px;color:#16a34a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-    .pix-val{font-size:28px;font-weight:700;color:#15803d}
+    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+    .price-card{border-radius:10px;padding:12px 10px;text-align:center}
+    .price-tabela{background:#f8fafc;border:2px solid #e2e8f0}
+    .price-desconto{background:#eff6ff;border:2px solid #bfdbfe}
+    .price-pix{background:#f0fdf4;border:2px solid #bbf7d0}
+    .price-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;color:#64748b}
+    .price-desconto .price-label{color:#3b82f6}
+    .price-pix .price-label{color:#16a34a}
+    .price-val{font-size:20px;font-weight:700;color:#334155}
+    .price-desconto .price-val{color:#1d4ed8}
+    .price-pix .price-val{color:#15803d}
+    .price-sub{font-size:10px;color:#94a3b8;margin-top:3px}
+    .price-desconto .price-sub{color:#93c5fd}
+    .price-pix .price-sub{color:#86efac}
     .entrada-tag{text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:20px;font-size:13px;color:#475569}
     .section{margin-bottom:20px}
     .section-title{font-size:13px;font-weight:700;color:#334155;margin-bottom:10px}
@@ -149,9 +163,22 @@ function gerarHtmlPrint(
     <div class="date">${data}</div>
   </div>
 
-  <div class="pix-box">
-    <div class="pix-label">PIX / Dinheiro — Melhor preço</div>
-    <div class="pix-val">${fmt(base)}</div>
+  <div class="price-row">
+    <div class="price-card price-tabela">
+      <div class="price-label">Valor de Tabela</div>
+      <div class="price-val">${cartao21 ? fmt(cartao21.parcela) : '—'}</div>
+      <div class="price-sub">21x no cartão</div>
+    </div>
+    <div class="price-card price-desconto">
+      <div class="price-label">Valor com Desconto</div>
+      <div class="price-val">${cartao12 ? fmt(cartao12.parcela) : '—'}</div>
+      <div class="price-sub">12x no cartão</div>
+    </div>
+    <div class="price-card price-pix">
+      <div class="price-label">Valor Promocional</div>
+      <div class="price-val">${fmt(base)}</div>
+      <div class="price-sub">PIX / À vista</div>
+    </div>
   </div>
 
   ${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmt(entrada)}</strong></div>` : ''}
@@ -174,6 +201,48 @@ function gerarHtmlPrint(
 </html>`
 }
 
+function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Linha[] }) {
+  const cartao21 = linhasCartao.find(l => l.parcelas === 21)
+  const cartao12 = linhasCartao.find(l => l.parcelas === 12)
+
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {/* Valor de Tabela — 21x cartão */}
+      <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Valor de Tabela</p>
+        {cartao21 ? (
+          <>
+            <p className="text-xl font-bold text-slate-700">{fmt(cartao21.parcela)}</p>
+            <p className="text-xs text-slate-400 mt-0.5">21x no cartão</p>
+          </>
+        ) : (
+          <p className="text-sm text-slate-300 mt-2">—</p>
+        )}
+      </div>
+
+      {/* Valor com Desconto — 12x cartão */}
+      <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Valor com Desconto</p>
+        {cartao12 ? (
+          <>
+            <p className="text-xl font-bold text-blue-700">{fmt(cartao12.parcela)}</p>
+            <p className="text-xs text-blue-400 mt-0.5">12x no cartão</p>
+          </>
+        ) : (
+          <p className="text-sm text-blue-200 mt-2">—</p>
+        )}
+      </div>
+
+      {/* Valor Promocional — PIX */}
+      <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-1">Valor Promocional</p>
+        <p className="text-xl font-bold text-green-700">{fmt(base)}</p>
+        <p className="text-xs text-green-500 mt-0.5">PIX / À vista</p>
+      </div>
+    </div>
+  )
+}
+
 export function SimuladorClient({ modelos, taxas }: Props) {
   const [modeloId, setModeloId] = useState('')
   const [entrada, setEntrada] = useState('')
@@ -183,6 +252,10 @@ export function SimuladorClient({ modelos, taxas }: Props) {
   const entradaNum = parseFloat(entrada || '0')
   const entradaInvalida = base > 0 && entradaNum >= base
 
+  const linhasCartaoDestaque = useMemo(
+    () => modelo ? calcularLinhas(taxas.taxasCartao, base, 0) : [],
+    [modelo, base, taxas.taxasCartao]
+  )
   const linhasCartao = useMemo(
     () => modelo && !entradaInvalida ? calcularLinhas(taxas.taxasCartao, base, entradaNum) : [],
     [modelo, base, entradaNum, entradaInvalida, taxas.taxasCartao]
@@ -198,7 +271,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
 
   function handlePrint() {
     if (!modelo) return
-    const html = gerarHtmlPrint(modelo, entradaNum, linhasCartao, linhasLink, linhasFinanciamento)
+    const html = gerarHtmlPrint(modelo, entradaNum, linhasCartao, linhasLink, linhasFinanciamento, linhasCartaoDestaque)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const win = window.open(url, '_blank', 'width=780,height=960')
@@ -236,11 +309,8 @@ export function SimuladorClient({ modelos, taxas }: Props) {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* PIX */}
-            <div className="rounded-xl bg-green-50 border border-green-200 p-5 text-center">
-              <p className="text-xs text-green-600 uppercase tracking-wider mb-2">PIX / Dinheiro — Melhor preço</p>
-              <p className="text-4xl font-bold text-green-700">{fmt(base)}</p>
-            </div>
+            {/* Resumo de preços destacados */}
+            <PrecosDestaque base={base} linhasCartao={linhasCartaoDestaque} />
 
             {/* Entrada */}
             <div className="max-w-xs space-y-1.5">
