@@ -32,6 +32,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  if (user?.user_metadata?.must_change_password === true) {
+    if (!request.nextUrl.pathname.startsWith('/trocar-senha')) {
+      return NextResponse.redirect(new URL('/trocar-senha', request.url))
+    }
+  }
+
   return supabaseResponse
 }
 
