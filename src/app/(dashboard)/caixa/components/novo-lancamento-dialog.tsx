@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -48,7 +48,6 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   function handleOpen() {
     setTipo('saida')
@@ -124,13 +123,6 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
 
   return (
     <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
-        onChange={handleFileChange}
-        style={{ position: 'fixed', top: -9999, left: -9999, opacity: 0 }}
-      />
       <Button onClick={handleOpen}>
         <Plus size={16} className="mr-2" /> Novo Lançamento
       </Button>
@@ -228,16 +220,20 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
-                  isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
-                }`}
-              >
-                <Upload size={16} />
-                Enviar comprovante (JPG, PNG, PDF)
-              </button>
+              <div className={`relative w-full border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
+                isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
+              }`}>
+                <div className="flex items-center justify-center gap-2 pointer-events-none">
+                  <Upload size={16} />
+                  Enviar comprovante (JPG, PNG, PDF)
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </div>
             )}
           </div>
 
