@@ -47,6 +47,7 @@ export const modelos = pgTable('modelos', {
   motor: text('motor').notNull(),
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
+  imagemUrl: text('imagem_url'),
 })
 
 // ─── motos ───────────────────────────────────────────────────────────────────
@@ -227,6 +228,7 @@ export const precificacao = pgTable('precificacao', {
   taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
   custo: numeric('custo', { precision: 12, scale: 2 }),
+  imagemUrl: text('imagem_url'),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

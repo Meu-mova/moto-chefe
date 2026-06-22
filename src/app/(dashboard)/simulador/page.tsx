@@ -29,6 +29,7 @@ export default async function SimuladorPage() {
           id: m.id,
           nome: m.nome,
           valorMinimo: m.valorMinimo,
+          imagemUrl: m.imagemUrl ?? null,
         }))}
         taxas={{
           taxasCartao: (taxas?.taxasCartao ?? {}) as Record<string, number>,

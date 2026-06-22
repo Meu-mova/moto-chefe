@@ -10,6 +10,7 @@ type Modelo = {
   id: string
   nome: string
   valorMinimo: string
+  imagemUrl: string | null
 }
 
 type Taxas = {
@@ -152,9 +153,12 @@ function gerarHtmlPrint(
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
-      <div class="model">${nomeEsc}</div>
+    <div style="display:flex;align-items:center;gap:16px">
+      ${modelo.imagemUrl ? `<img src="${modelo.imagemUrl}" alt="${nomeEsc}" style="height:80px;width:120px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px">` : ''}
+      <div>
+        <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
+        <div class="model">${nomeEsc}</div>
+      </div>
     </div>
     <div class="date">${data}</div>
   </div>
@@ -303,9 +307,18 @@ export function SimuladorClient({ modelos, taxas }: Props) {
       {/* Resultado */}
       {modelo && (
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="px-6 pt-5 pb-4 border-b bg-slate-50">
-            <h2 className="text-2xl font-bold text-slate-900">{modelo.nome}</h2>
-            <p className="text-sm text-slate-400 mt-0.5">Condições de pagamento</p>
+          <div className="border-b bg-slate-50 flex items-center gap-5 px-6 py-4">
+            {modelo.imagemUrl && (
+              <img
+                src={modelo.imagemUrl}
+                alt={modelo.nome}
+                className="h-24 w-36 object-contain rounded-lg bg-white border p-1 shrink-0"
+              />
+            )}
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">{modelo.nome}</h2>
+              <p className="text-sm text-slate-400 mt-0.5">Condições de pagamento</p>
+            </div>
           </div>
 
           <div className="p-6 space-y-6">
