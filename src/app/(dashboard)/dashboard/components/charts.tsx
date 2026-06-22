@@ -45,7 +45,7 @@ export function GraficoVendasPorDia({ dados }: { dados: VendasDia[] }) {
 export function GraficoEstoquePorLoja({ dados }: { dados: EstoqueLoja[] }) {
   return (
     <div className="bg-white rounded-lg border p-4">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">Estoque por loja</h3>
+      <h3 className="text-sm font-semibold text-slate-700 mb-4">Showroom por loja</h3>
       {dados.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-8">Sem dados</p>
       ) : (

@@ -9,7 +9,7 @@ export default async function EntradaPage() {
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
 
   const modelosOpts = await db
-    .select({ id: modelos.id, modelo: modelos.modelo, marca: modelos.marca })
+    .select({ id: modelos.id, modelo: modelos.modelo, marca: modelos.marca, precoCompraPadrao: modelos.precoCompraPadrao })
     .from(modelos)
     .orderBy(modelos.marca, modelos.modelo)
 

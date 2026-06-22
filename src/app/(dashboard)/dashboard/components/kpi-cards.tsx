@@ -1,9 +1,10 @@
-import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench } from 'lucide-react'
+import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus } from 'lucide-react'
 
 type KPIs = {
   totalVendas: number
   faturamento: number
   estoque: number
+  valorEstoque: number
   transferenciasPendentes: number
   garantiasAtivas: number
   osAbertas: number
@@ -11,35 +12,104 @@ type KPIs = {
 
 type Props = {
   kpis: KPIs
+  kpisAnt: KPIs
   papel: string
+  motoMaisVendida: { modelo: string; total: number } | null
+  precoMedio: number
 }
 
 const formatCurrency = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function KpiCards({ kpis, papel }: Props) {
-  const cards = [
-    { label: 'Vendas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Faturamento', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Estoque', value: kpis.estoque, icon: Warehouse, color: 'text-purple-600', bg: 'bg-purple-50' },
-  ]
+function calcVariacao(atual: number, anterior: number): { pct: number; label: string } | null {
+  if (anterior === 0 && atual === 0) return null
+  if (anterior === 0) return { pct: 100, label: '+100%' }
+  const pct = ((atual - anterior) / anterior) * 100
+  const rounded = Math.round(pct)
+  if (rounded === 0) return { pct: 0, label: '0%' }
+  return { pct: rounded, label: `${rounded > 0 ? '+' : ''}${rounded}%` }
+}
 
-  if (papel !== 'vendedor') {
+function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number }) {
+  const v = calcVariacao(atual, anterior)
+  if (!v) return null
+
+  if (v.pct > 0) {
+    return (
+      <span className="flex items-center gap-0.5 text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+        <TrendingUp size={12} />
+        {v.label}
+      </span>
+    )
+  }
+  if (v.pct < 0) {
+    return (
+      <span className="flex items-center gap-0.5 text-xs font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
+        <TrendingDown size={12} />
+        {v.label}
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-0.5 text-xs font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-full">
+      <Minus size={12} />
+      {v.label}
+    </span>
+  )
+}
+
+const ADMINS = ['admin_geral', 'admin_socio']
+
+export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio }: Props) {
+  const isAdmin = ADMINS.includes(papel)
+  const isVendedor = papel === 'vendedor'
+
+  type Card = {
+    label: string
+    value: string | number
+    icon: any
+    color: string
+    bg: string
+    variacao?: { atual: number; anterior: number }
+  }
+
+  const cards: Card[] = []
+
+  if (isVendedor) {
+    const comissao = kpis.faturamento * 0.005
+    const comissaoAnt = kpisAnt.faturamento * 0.005
+    cards.push(
+      { label: 'Motos Vendidas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
+      { label: 'Total de Vendas', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', variacao: { atual: kpis.faturamento, anterior: kpisAnt.faturamento } },
+      { label: 'Mais Vendida', value: motoMaisVendida ? `${motoMaisVendida.modelo} (${motoMaisVendida.total})` : '—', icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
+      { label: 'Preço Médio', value: precoMedio > 0 ? formatCurrency(precoMedio) : '—', icon: Calculator, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+      { label: 'Comissão', value: formatCurrency(comissao), icon: HandCoins, color: 'text-emerald-600', bg: 'bg-emerald-50', variacao: { atual: comissao, anterior: comissaoAnt } },
+    )
+  } else {
+    cards.push(
+      { label: 'Vendas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
+      { label: 'Faturamento', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', variacao: { atual: kpis.faturamento, anterior: kpisAnt.faturamento } },
+      { label: 'Showroom', value: kpis.estoque, icon: Warehouse, color: 'text-purple-600', bg: 'bg-purple-50' },
+    )
+
+    if (isAdmin) {
+      cards.push(
+        { label: 'Valor Showroom', value: formatCurrency(kpis.valorEstoque), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+      )
+    }
+
     cards.push(
       { label: 'Transf. Pendentes', value: kpis.transferenciasPendentes, icon: ArrowLeftRight, color: 'text-orange-600', bg: 'bg-orange-50' },
       { label: 'Garantias Ativas', value: kpis.garantiasAtivas, icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
-    )
-  }
-
-  if (papel !== 'vendedor') {
-    cards.push(
       { label: 'OS Abertas', value: kpis.osAbertas, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50' },
     )
   }
 
+  const gridCols = isVendedor ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {cards.map(({ label, value, icon: Icon, color, bg }) => (
+    <div className={`grid grid-cols-2 md:grid-cols-3 ${gridCols} gap-4`}>
+      {cards.map(({ label, value, icon: Icon, color, bg, variacao }) => (
         <div key={label} className="bg-white rounded-lg border p-4 flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-500">{label}</span>
@@ -47,7 +117,13 @@ export function KpiCards({ kpis, papel }: Props) {
               <Icon size={16} />
             </div>
           </div>
-          <span className="text-2xl font-bold">{value}</span>
+          <span className={`font-bold ${String(value).length > 15 ? 'text-lg' : 'text-2xl'}`}>{value}</span>
+          {variacao && (
+            <div className="flex items-center gap-1">
+              <VariacaoBadge atual={variacao.atual} anterior={variacao.anterior} />
+              <span className="text-[10px] text-slate-400">vs mês anterior</span>
+            </div>
+          )}
         </div>
       ))}
     </div>

@@ -176,6 +176,7 @@ export async function buscarMoto(id: string) {
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
+      precoCompra: motos.precoCompra,
       mecanicoNome: mecanico.nome,
       transferenciaPendente: sql<boolean>`EXISTS (
         SELECT 1 FROM transferencias

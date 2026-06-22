@@ -45,6 +45,7 @@ export const modelos = pgTable('modelos', {
   potenciaW: text('potencia_w').notNull(),
   motor: text('motor').notNull(),
   velocidadeMax: text('velocidade_max').notNull(),
+  precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
 })
 
 // ─── motos ───────────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export const motos = pgTable('motos', {
   cor: text('cor').notNull(),
   notaFiscalEntrada: text('nota_fiscal_entrada').notNull(),
   motor: text('motor'),
+  precoCompra: numeric('preco_compra', { precision: 12, scale: 2 }),
   responsavelMontagemId: uuid('responsavel_montagem_id').references(() => usuarios.id),
   dataMontagem: date('data_montagem'),
 })

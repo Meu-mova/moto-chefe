@@ -4,6 +4,7 @@ import { GarantiaButton } from '../../components/garantia-button'
 import { LogisticaButton } from '../../components/logistica-button'
 import { NfSaidaButton } from '../../components/nf-saida-button'
 import { MontarButton } from '../../components/montar-button'
+import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight } from 'lucide-react'
 
@@ -75,8 +76,18 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
       )
     }
 
+    if (podeAlterar && podeGarantia.has(papel) && moto.status === 'em_garantia') {
+      acoes.push(
+        <ResolverGarantiaButton key="resolver-garantia" motoId={moto.id} descricao={descricao} />
+      )
+    }
+
     if (podeAlterar && podeVender.has(papel)) {
-      if (moto.status !== 'caixa' && moto.disponibilidade === 'disponivel') {
+      const podeVenderMoto = moto.status !== 'caixa' && (
+        moto.disponibilidade === 'disponivel' ||
+        moto.status === 'em_garantia'
+      )
+      if (podeVenderMoto) {
         acoes.push(
           <VenderButton
             key="vender"

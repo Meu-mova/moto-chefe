@@ -69,7 +69,7 @@ export default async function EstoquePage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Estoque</h1>
+        <h1 className="text-2xl font-bold">Showroom</h1>
         <p className="text-slate-500 text-sm">Todas as motos do grupo</p>
       </div>
       <StatusCards counts={counts} />

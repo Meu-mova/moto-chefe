@@ -77,6 +77,9 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between"><span className="text-slate-500">Potência</span><span>{moto.potenciaW}W</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Motor</span><span>{moto.motor}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
+            {moto.precoCompra && ['admin_geral', 'admin_socio'].includes(usuario.papel) && (
+              <div className="flex justify-between"><span className="text-slate-500">Preço de Compra</span><span className="font-medium text-green-700">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+            )}
             {moto.dataMontagem && (
               <div className="flex justify-between"><span className="text-slate-500">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
             )}

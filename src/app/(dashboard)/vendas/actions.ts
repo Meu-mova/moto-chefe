@@ -85,6 +85,7 @@ type DadosVendaCompleta = {
   clienteCidade: string
   clienteEstado: string
   valorTotal: string
+  dataVenda?: string
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number }[]
 }
 
@@ -96,11 +97,11 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
-  if (moto.disponibilidade !== 'disponivel' && moto.disponibilidade !== 'reservada') {
-    throw new Error('Moto não está disponível para venda')
-  }
   if (moto.status === 'caixa') {
     throw new Error('Moto ainda não foi montada — não pode ser vendida')
+  }
+  if (moto.status === 'vendida') {
+    throw new Error('Moto já foi vendida')
   }
 
   const valorNum = parseFloat(data.valorTotal)
@@ -129,9 +130,12 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       vendedorId,
       status: 'efetivado',
       observacao: null,
+      dataPedido: dataVendaFinal,
+      dataAtualizacao: dataVendaFinal,
     }).returning({ id: pedidosVenda.id })
 
     // Criar venda com todos os dados
+    const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
     await tx.insert(vendas).values({
       pedidoVendaId: pedido.id,
       motoId: data.motoId,
@@ -153,6 +157,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       formaPagamento: data.pagamentos[0].tipo,
       pagamentos: data.pagamentos,
       reservaId: reservaAtiva?.id ?? null,
+      dataVenda: dataVendaFinal,
     })
 
     // Marcar reserva como convertida
@@ -244,6 +249,7 @@ type DadosReserva = {
   cartaoOperadora?: string
   cartaoParcelas?: number
   dataPrevistaFinalizacao: string
+  dataReserva?: string
 }
 
 export async function registrarReservaAction(data: DadosReserva) {
@@ -254,10 +260,11 @@ export async function registrarReservaAction(data: DadosReserva) {
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
-  const podeReservar = moto.disponibilidade === 'disponivel'
-    || (moto.status === 'caixa' && moto.disponibilidade === null)
-  if (!podeReservar) {
-    throw new Error('Moto não está disponível para reserva')
+  if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
+    throw new Error('Moto já foi vendida')
+  }
+  if (moto.disponibilidade === 'reservada') {
+    throw new Error('Moto já está reservada')
   }
 
   const valorNum = parseFloat(data.valorReserva)
@@ -269,6 +276,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   await db.transaction(async (tx) => {
     const valorTotalNum = parseFloat(data.valorTotalVenda)
 
+    const dataReservaFinal = data.dataReserva ? new Date(data.dataReserva + 'T12:00:00') : new Date()
     await tx.insert(reservas).values({
       motoId: data.motoId,
       lojaId: moto.lojaId,
@@ -291,6 +299,7 @@ export async function registrarReservaAction(data: DadosReserva) {
       clienteBairro: data.clienteBairro,
       clienteCidade: data.clienteCidade,
       clienteEstado: data.clienteEstado,
+      criadoEm: dataReservaFinal,
     })
 
     await tx.update(motos)

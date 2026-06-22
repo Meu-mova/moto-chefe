@@ -6,7 +6,7 @@ import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings
 
 const baseNavItems = [
   { href: '/dashboard',     label: 'Dashboard',         icon: Home            },
-  { href: '/estoque',       label: 'Estoque',           icon: Package         },
+  { href: '/estoque',       label: 'Showroom',          icon: Package         },
   { href: '/transferencias',label: 'Transferências',    icon: ArrowLeftRight  },
   { href: '/vendas',        label: 'Vendas',            icon: ShoppingCart    },
   { href: '/ordens-servico',label: 'Ordens de Serviço', icon: Wrench          },

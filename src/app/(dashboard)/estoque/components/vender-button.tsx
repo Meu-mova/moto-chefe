@@ -94,6 +94,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
 
   // ── Venda ──
   const [valorVenda, setValorVenda] = useState('')
+  const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
 
   // ── Reserva ──
@@ -128,6 +129,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
       setValorVenda('')
       setVendedorSelecionado(vendedorId)
     }
+    setDataVenda(new Date().toISOString().split('T')[0])
     setPgtos([{ id: '1', tipo: '', valor: '' }])
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
   }
@@ -220,6 +222,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
         await registrarVendaCompletaAction({
           motoId, ...clienteBase, valorTotal: valorVenda,
           vendedorId: vendedorSelecionado,
+          dataVenda: dataVenda || undefined,
           pagamentos: pgtos.map(p => ({
             tipo: p.tipo, valor: parseFloat(p.valor),
             ...(p.tipo === 'cartao_credito' ? { operadora: p.operadora, parcelas: parseInt(p.parcelas!) } : {}),
@@ -235,6 +238,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             cartaoParcelas: parseInt(meioPgtoParcelas),
           } : {}),
           dataPrevistaFinalizacao: dataPrevista,
+          dataReserva: dataVenda || undefined,
         })
         toast.success('Reserva registrada com sucesso!')
       }
@@ -311,7 +315,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-            {/* Vendedor */}
+            {/* Vendedor + Data */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Vendedor</Label>
@@ -325,6 +329,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>{tipo === 'venda' ? 'Data da Venda' : 'Data da Reserva'}</Label>
+                <Input
+                  type="date"
+                  value={dataVenda}
+                  onChange={e => setDataVenda(e.target.value)}
+                />
               </div>
             </div>
 

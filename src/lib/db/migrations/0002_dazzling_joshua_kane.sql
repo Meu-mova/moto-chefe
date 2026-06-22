@@ -1,0 +1,1 @@
+ALTER TABLE "modelos" ADD COLUMN "preco_compra_padrao" numeric(12, 2);

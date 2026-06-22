@@ -14,6 +14,7 @@ import {
   type Disponibilidade,
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
+import { garantias, historicoEstoque } from '@/lib/db/schema'
 
 export async function alterarStatusAction(
   motoId: string,
@@ -115,6 +116,42 @@ export async function editarMotoAction(
 
   revalidatePath(`/estoque/${motoId}`)
   revalidatePath('/estoque')
+}
+
+export async function resolverGarantiaSemRegistroAction(motoId: string, observacao?: string) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+  if (moto.status !== 'em_garantia') throw new Error('Moto não está em garantia')
+
+  const [garantiaAtiva] = await db
+    .select({ id: garantias.id })
+    .from(garantias)
+    .where(eq(garantias.motoId, motoId))
+    .limit(1)
+
+  if (garantiaAtiva) throw new Error('Esta moto tem garantia formal registrada. Use o fluxo de encerramento de garantia.')
+
+  await db.update(motos)
+    .set({ status: 'montada', disponibilidade: 'disponivel' })
+    .where(eq(motos.id, motoId))
+
+  await db.insert(historicoEstoque).values({
+    motoId,
+    usuarioId: usuario.id,
+    tipo: 'mudanca_status',
+    statusAnterior: 'em_garantia',
+    statusNovo: 'montada',
+    observacao: observacao || 'Garantia resolvida (sem registro formal)',
+  })
+
+  revalidatePath(`/estoque/${motoId}`)
+  revalidatePath('/estoque')
+  revalidatePath('/dashboard')
 }
 
 export async function alterarDisponibilidadeAction(motoId: string, novaDisp: string, observacao?: string) {

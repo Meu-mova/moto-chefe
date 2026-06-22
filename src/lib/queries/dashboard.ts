@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios } from '@/lib/db/schema'
-import { eq, and, gte, lte, sql, count, sum, inArray, or } from 'drizzle-orm'
+import { eq, and, gte, lte, sql, count, sum, inArray, or, avg, desc } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 
 type Filtros = {
@@ -41,7 +41,7 @@ export async function getKPIs(filtros: Filtros) {
   if (lojaId?.length) estoqueConditions.push(lojaFilter(motos.lojaId, lojaId)!)
 
   const [estoqueResult] = await db
-    .select({ total: count() })
+    .select({ total: count(), valorTotal: sum(motos.precoCompra) })
     .from(motos)
     .where(and(...estoqueConditions))
 
@@ -86,6 +86,7 @@ export async function getKPIs(filtros: Filtros) {
     totalVendas: vendasResult.totalVendas,
     faturamento: Number(vendasResult.faturamento ?? 0),
     estoque: estoqueResult.total,
+    valorEstoque: Number(estoqueResult.valorTotal ?? 0),
     transferenciasPendentes: transfResult.total,
     garantiasAtivas: garantiaResult.total,
     osAbertas: osResult.total,
@@ -285,4 +286,132 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
     .where(and(...conditions))
     .orderBy(sql`${ordensServico.dataAbertura} DESC`)
     .limit(limite)
+}
+
+export async function getMotoMaisVendida(filtros: Filtros) {
+  const { dataInicio, dataFim, lojaId, vendedorId } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [
+    gte(vendas.dataVenda, inicio),
+    lte(vendas.dataVenda, fim),
+  ]
+  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
+
+  const [result] = await db
+    .select({
+      modelo: modelos.modelo,
+      total: count(),
+    })
+    .from(vendas)
+    .innerJoin(motos, eq(vendas.motoId, motos.id))
+    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+    .where(and(...conditions))
+    .groupBy(modelos.modelo)
+    .orderBy(desc(count()))
+    .limit(1)
+
+  return result ?? null
+}
+
+export async function getPrecoMedioVendas(filtros: Filtros) {
+  const { dataInicio, dataFim, lojaId, vendedorId } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [
+    gte(vendas.dataVenda, inicio),
+    lte(vendas.dataVenda, fim),
+  ]
+  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
+
+  const [result] = await db
+    .select({
+      media: avg(vendas.valor),
+    })
+    .from(vendas)
+    .where(and(...conditions))
+
+  return Number(result?.media ?? 0)
+}
+
+export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>) {
+  const { dataInicio, dataFim, lojaId } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [
+    gte(vendas.dataVenda, inicio),
+    lte(vendas.dataVenda, fim),
+  ]
+  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+
+  const lojaVendedor = db
+    .select({ id: lojas.id, nome: lojas.nome })
+    .from(lojas)
+    .as('loja_vendedor')
+
+  return db
+    .select({
+      vendedorId: vendas.vendedorId,
+      nome: usuarios.nome,
+      loja: lojaVendedor.nome,
+      totalVendas: count(),
+      faturamento: sum(vendas.valor),
+    })
+    .from(vendas)
+    .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
+    .leftJoin(lojaVendedor, eq(usuarios.lojaId, lojaVendedor.id))
+    .where(and(...conditions))
+    .groupBy(vendas.vendedorId, usuarios.nome, lojaVendedor.nome)
+    .orderBy(sql`sum(${vendas.valor}::numeric) DESC`)
+}
+
+export async function getModelosMaisVendidos(filtros: Filtros) {
+  const { dataInicio, dataFim, lojaId, vendedorId } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [
+    gte(vendas.dataVenda, inicio),
+    lte(vendas.dataVenda, fim),
+  ]
+  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
+
+  return db
+    .select({
+      modelo: modelos.modelo,
+      marca: modelos.marca,
+      totalVendas: count(),
+      faturamento: sum(vendas.valor),
+    })
+    .from(vendas)
+    .innerJoin(motos, eq(vendas.motoId, motos.id))
+    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+    .where(and(...conditions))
+    .groupBy(modelos.modelo, modelos.marca)
+    .orderBy(desc(count()))
+}
+
+export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
+  const { dataInicio, dataFim } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  return db
+    .select({
+      lojaId: vendas.lojaId,
+      loja: lojas.nome,
+      totalVendas: count(),
+      faturamento: sum(vendas.valor),
+    })
+    .from(vendas)
+    .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
+    .where(and(gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)))
+    .groupBy(vendas.lojaId, lojas.nome)
+    .orderBy(desc(sum(vendas.valor)))
 }

@@ -438,11 +438,11 @@ BEGIN
     RAISE EXCEPTION 'Garantia não está ativa';
   END IF;
 
-  IF p_papel != 'admin_geral' AND v_loja_garantia_id != p_loja_usuario_id THEN
+  IF p_papel NOT IN ('admin_geral', 'admin_socio', 'aux_adm') AND v_loja_garantia_id != p_loja_usuario_id THEN
     RAISE EXCEPTION 'Sem permissão para encerrar esta garantia';
   END IF;
 
-  IF p_papel != 'admin_geral' AND v_os_id IS NOT NULL THEN
+  IF p_papel NOT IN ('admin_geral', 'admin_socio', 'aux_adm') AND v_os_id IS NOT NULL THEN
     SELECT status INTO v_os_status FROM ordens_servico WHERE id = v_os_id;
     IF v_os_status != 'concluida' THEN
       RAISE EXCEPTION 'A OS vinculada deve estar concluída antes de encerrar a garantia';

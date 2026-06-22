@@ -8,17 +8,15 @@ type Props = {
   vendedores: { id: string; nome: string }[]
   isAdmin: boolean
   lojaUsuarioId: string | null
-  dataInicioDefault: string
-  dataFimDefault: string
+  mesDefault: string
 }
 
-export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, dataInicioDefault, dataFimDefault }: Props) {
+export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, mesDefault }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const dataInicio = searchParams.get('de') ?? dataInicioDefault
-  const dataFim = searchParams.get('ate') ?? dataFimDefault
+  const mesAtual = searchParams.get('mes') ?? mesDefault
   const lojaAtual = searchParams.get('loja') ?? ''
   const vendedorAtual = searchParams.get('vendedor') ?? ''
 
@@ -35,20 +33,11 @@ export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, da
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
-        <label className="text-sm text-slate-500">De</label>
+        <label className="text-sm text-slate-500">Mês</label>
         <input
-          type="date"
-          value={dataInicio}
-          onChange={e => update('de', e.target.value)}
-          className="border rounded-md px-3 py-1.5 text-sm"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-slate-500">Até</label>
-        <input
-          type="date"
-          value={dataFim}
-          onChange={e => update('ate', e.target.value)}
+          type="month"
+          value={mesAtual}
+          onChange={e => update('mes', e.target.value)}
           className="border rounded-md px-3 py-1.5 text-sm"
         />
       </div>

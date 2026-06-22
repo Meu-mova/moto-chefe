@@ -16,9 +16,8 @@ function formatDate(d: string | null) {
 export async function GarantiasTab({ motoId, papel, lojaIdUsuario }: Props) {
   const lista = await listarGarantiasPorMoto(motoId)
 
-  const podeEncerrar = (lojaIdGarantia: string) =>
-    ['admin_geral', 'admin_socio'].includes(papel) ||
-    (papel === 'aux_adm' && lojaIdUsuario === lojaIdGarantia)
+  const podeEncerrar = () =>
+    ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel)
 
   return (
     <div className="space-y-3">
@@ -39,7 +38,7 @@ export async function GarantiasTab({ motoId, papel, lojaIdUsuario }: Props) {
               <p>Pedido fábrica: {g.numeroPedidoFabrica}</p>
             )}
           </div>
-          {g.status === 'ativa' && podeEncerrar(g.lojaId) && (
+          {g.status === 'ativa' && podeEncerrar() && (
             <EncerrarGarantiaButton
               garantiaId={g.id}
               descricao={g.descricao}

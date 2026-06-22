@@ -62,10 +62,11 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
   const [loading, setLoading] = useState(false)
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
+  const isAuxAdm = papel === 'aux_adm'
 
   const podeEncerrar =
     g.status === 'ativa' &&
-    (isAdmin || (papel === 'aux_adm' && lojaIdUsuario === g.lojaId))
+    (isAdmin || isAuxAdm)
 
   const dias = g.status === 'ativa' ? diasDecorridos(g.dataInicio) : null
   const urgencia = calcUrgencia(dias)

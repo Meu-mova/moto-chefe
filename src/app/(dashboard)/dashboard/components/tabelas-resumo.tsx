@@ -160,6 +160,158 @@ export function TabelaGarantiasVencendo({ garantias }: { garantias: Garantia[] }
   )
 }
 
+type ModeloVendido = {
+  modelo: string
+  marca: string
+  totalVendas: number
+  faturamento: string | null
+}
+
+export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[] }) {
+  const totalUnidades = modelos.reduce((s, m) => s + m.totalVendas, 0)
+
+  return (
+    <div className="bg-white rounded-lg border">
+      <div className="px-4 py-3 border-b">
+        <h3 className="text-sm font-semibold text-slate-700">Modelos mais vendidos</h3>
+      </div>
+      {modelos.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">Nenhuma venda no período</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="text-center px-4 py-2 font-medium w-10">#</th>
+              <th className="text-left px-4 py-2 font-medium">Modelo</th>
+              <th className="text-right px-4 py-2 font-medium">Vendas</th>
+              <th className="text-right px-4 py-2 font-medium">%</th>
+              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {modelos.map((m, i) => {
+              const pct = totalUnidades > 0 ? Math.round((m.totalVendas / totalUnidades) * 100) : 0
+              return (
+                <tr key={m.modelo} className="border-b last:border-0 hover:bg-slate-50">
+                  <td className="px-4 py-2 text-center">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
+                  </td>
+                  <td className="px-4 py-2 font-medium">{m.modelo}</td>
+                  <td className="px-4 py-2 text-right">{m.totalVendas}</td>
+                  <td className="px-4 py-2 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <div className="w-16 bg-slate-100 rounded-full h-1.5">
+                        <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-slate-500 text-xs w-8 text-right">{pct}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right text-green-700">{formatCurrency(m.faturamento ?? 0)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+type RankingVendedor = {
+  vendedorId: string
+  nome: string
+  loja: string
+  totalVendas: number
+  faturamento: string | null
+}
+
+export function TabelaRankingVendedores({ ranking, vendedorAtualId }: { ranking: RankingVendedor[]; vendedorAtualId?: string }) {
+  return (
+    <div className="bg-white rounded-lg border">
+      <div className="px-4 py-3 border-b">
+        <h3 className="text-sm font-semibold text-slate-700">Ranking de vendedores</h3>
+      </div>
+      {ranking.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">Nenhuma venda no período</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="text-center px-4 py-2 font-medium w-10">#</th>
+              <th className="text-left px-4 py-2 font-medium">Vendedor</th>
+              <th className="text-left px-4 py-2 font-medium">Loja</th>
+              <th className="text-right px-4 py-2 font-medium">Vendas</th>
+              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map((r, i) => {
+              const isMe = r.vendedorId === vendedorAtualId
+              return (
+                <tr key={r.vendedorId} className={`border-b last:border-0 ${isMe ? 'bg-blue-50 font-medium' : 'hover:bg-slate-50'}`}>
+                  <td className="px-4 py-2 text-center">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
+                  </td>
+                  <td className="px-4 py-2">{r.nome}{isMe ? ' (você)' : ''}</td>
+                  <td className="px-4 py-2 text-slate-500">{r.loja}</td>
+                  <td className="px-4 py-2 text-right">{r.totalVendas}</td>
+                  <td className="px-4 py-2 text-right text-green-700">{formatCurrency(r.faturamento ?? 0)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+type RankingLoja = {
+  lojaId: string
+  loja: string
+  totalVendas: number
+  faturamento: string | null
+}
+
+export function TabelaRankingLojas({ ranking, lojaAtualId }: { ranking: RankingLoja[]; lojaAtualId?: string | null }) {
+  return (
+    <div className="bg-white rounded-lg border">
+      <div className="px-4 py-3 border-b">
+        <h3 className="text-sm font-semibold text-slate-700">Ranking de lojas</h3>
+      </div>
+      {ranking.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">Nenhuma venda no período</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="text-center px-4 py-2 font-medium w-10">#</th>
+              <th className="text-left px-4 py-2 font-medium">Loja</th>
+              <th className="text-right px-4 py-2 font-medium">Vendas</th>
+              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranking.map((r, i) => {
+              const isMyStore = r.lojaId === lojaAtualId
+              return (
+                <tr key={r.lojaId} className={`border-b last:border-0 ${isMyStore ? 'bg-blue-50 font-medium' : 'hover:bg-slate-50'}`}>
+                  <td className="px-4 py-2 text-center">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
+                  </td>
+                  <td className="px-4 py-2">{r.loja}{isMyStore ? ' (sua loja)' : ''}</td>
+                  <td className="px-4 py-2 text-right">{r.totalVendas}</td>
+                  <td className="px-4 py-2 text-right text-green-700">{formatCurrency(r.faturamento ?? 0)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 export function TabelaOsAbertas({ ordens }: { ordens: OS[] }) {
   return (
     <div className="bg-white rounded-lg border">
