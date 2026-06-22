@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   function handleOpen() {
     setTipo('saida')
@@ -60,26 +61,20 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
     setOpen(true)
   }
 
-  function selecionarArquivo() {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/jpeg,image/png,image/webp,application/pdf'
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (!file) return
-
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Formato não suportado. Envie JPG, PNG, WebP ou PDF.')
-        return
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Arquivo muito grande. Máximo: 10MB.')
-        return
-      }
-      setArquivo(file)
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Formato não suportado. Envie JPG, PNG, WebP ou PDF.')
+      return
     }
-    input.click()
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo: 10MB.')
+      return
+    }
+    setArquivo(file)
+    e.target.value = ''
   }
 
   const categorias = tipo === 'entrada' ? categoriasEntrada : categoriasSaida
@@ -129,6 +124,13 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
 
   return (
     <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        onChange={handleFileChange}
+        style={{ position: 'fixed', top: -9999, left: -9999, opacity: 0 }}
+      />
       <Button onClick={handleOpen}>
         <Plus size={16} className="mr-2" /> Novo Lançamento
       </Button>
@@ -228,7 +230,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
             ) : (
               <button
                 type="button"
-                onClick={selecionarArquivo}
+                onClick={() => fileRef.current?.click()}
                 className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
                   isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
                 }`}
