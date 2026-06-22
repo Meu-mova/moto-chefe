@@ -195,10 +195,11 @@ export function NovoLancamentoForm({ lojas, lojaUsuarioId }: { lojas: Loja[]; lo
             </button>
           </div>
         ) : (
-          <Input
+          <input
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
             onChange={handleFileChange}
+            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
           />
         )}
       </div>
