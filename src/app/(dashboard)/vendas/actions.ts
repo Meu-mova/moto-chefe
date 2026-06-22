@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa } from '@/lib/db/schema'
+import { motos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, garantias } from '@/lib/db/schema'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -285,6 +285,9 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
 
     // Remover lançamentos de caixa vinculados
     await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
+
+    // Desvincular garantias (FK impede DELETE da venda se houver garantia linkada)
+    await tx.update(garantias).set({ vendaId: null }).where(eq(garantias.vendaId, vendaId))
 
     // Registrar no histórico
     await tx.insert(historicoEstoque).values({
