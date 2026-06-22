@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { simuladorPrecos } from '@/lib/db/schema'
+import { precificacao } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { asc, eq } from 'drizzle-orm'
 import { SimuladorClient } from './components/simulador-client'
@@ -13,32 +13,25 @@ export default async function SimuladorPage() {
 
   const modelos = await db
     .select()
-    .from(simuladorPrecos)
-    .where(eq(simuladorPrecos.ativo, true))
-    .orderBy(asc(simuladorPrecos.nome))
-
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+    .from(precificacao)
+    .where(eq(precificacao.ativo, true))
+    .orderBy(asc(precificacao.nome))
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Simulador de Preços</h1>
-        <p className="text-slate-500 text-sm">
-          Referência de valores e simulação de formas de pagamento
-        </p>
+        <p className="text-slate-500 text-sm">Referência de valores e condições de pagamento</p>
       </div>
-
-      <SimuladorClient
-        modelos={modelos.map(m => ({
-          id: m.id,
-          nome: m.nome,
-          precoAvista: m.precoAvista,
-          precoPix: m.precoPix,
-          taxaCartaoFisico: m.taxaCartaoFisico,
-          taxaLinkPagamento: m.taxaLinkPagamento,
-        }))}
-        isAdmin={isAdmin}
-      />
+      <SimuladorClient modelos={modelos.map(m => ({
+        id: m.id,
+        nome: m.nome,
+        valorMinimo: m.valorMinimo,
+        taxaPix: m.taxaPix,
+        taxasCartao: (m.taxasCartao ?? {}) as Record<string, number>,
+        taxasLink: (m.taxasLink ?? {}) as Record<string, number>,
+        taxasFinanciamento: (m.taxasFinanciamento ?? {}) as Record<string, number>,
+      }))} />
     </div>
   )
 }

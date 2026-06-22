@@ -208,6 +208,19 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── precificacao ─────────────────────────────────────────────────────────────
+export const precificacao = pgTable('precificacao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  valorMinimo: numeric('valor_minimo', { precision: 12, scale: 2 }).notNull(),
+  taxaPix: numeric('taxa_pix', { precision: 8, scale: 6 }).notNull().default('0'),
+  taxasCartao: jsonb('taxas_cartao').$type<Record<string, number>>().notNull().default({}),
+  taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
+  taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {
   id: uuid('id').primaryKey().defaultRandom(),

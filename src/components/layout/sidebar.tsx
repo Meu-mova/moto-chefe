@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag,
   Wallet, BarChart3, Home, Package, PackagePlus, QrCode, Calculator,
-  ChevronLeft, ChevronRight, Zap,
+  ChevronLeft, ChevronRight, Zap, Tag,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -37,6 +37,7 @@ export function Sidebar({ papel }: Props) {
     ...(isAdmin ? [{ href: '/financeiro', label: 'Financeiro', icon: BarChart3  }] : []),
     ...(isAdmin ? [{ href: '/entrada',    label: 'Entrada',    icon: PackagePlus }] : []),
     ...(isAdmin ? [{ href: '/compras',    label: 'Compras',    icon: ShoppingBag }] : []),
+    ...(isAdmin ? [{ href: '/precificacao', label: 'Precificação', icon: Tag }] : []),
     ...(papel === 'admin_geral' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ]
 
