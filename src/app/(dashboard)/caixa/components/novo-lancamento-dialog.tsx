@@ -126,7 +126,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
       <Button onClick={handleOpen}>
         <Plus size={16} className="mr-2" /> Novo Lançamento
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen} modal={false}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Novo Lançamento</DialogTitle>
