@@ -5,6 +5,7 @@ import { lancamentosCaixa } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 export async function criarLancamentoAction(dados: {
   lojaId: string
@@ -78,8 +79,11 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
   const fileName = `${Date.now()}-${crypto.randomUUID()}.${ext}`
   const filePath = `caixa/${fileName}`
 
-  const supabase = await createClient()
-  const { error } = await supabase.storage
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { error } = await supabaseAdmin.storage
     .from('comprovantes')
     .upload(filePath, file, { contentType: file.type })
 
