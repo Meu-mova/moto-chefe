@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Upload, FileCheck, X } from 'lucide-react'
+import { Plus, FileCheck, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { criarLancamentoAction, uploadComprovanteAction } from '../actions'
 
@@ -220,20 +220,12 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
                 </button>
               </div>
             ) : (
-              <div className={`relative w-full border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
-                isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
-              }`}>
-                <div className="flex items-center justify-center gap-2 pointer-events-none">
-                  <Upload size={16} />
-                  Enviar comprovante (JPG, PNG, PDF)
-                </div>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={handleFileChange}
+                className="cursor-pointer file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+              />
             )}
           </div>
 
