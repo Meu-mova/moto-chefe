@@ -105,7 +105,7 @@ function pct(a: number, b: number) {
 function gerarHtmlPrint(
   modelo: Modelo,
   entrada: number,
-  _linhasCartao: Linha[],
+  linhasCartao: Linha[],
   _linhasLink: Linha[],
   _linhasFinanciamento: Linha[],
   linhasCartaoDestaque: Linha[]
@@ -113,10 +113,13 @@ function gerarHtmlPrint(
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
-  const cartao21 = linhasCartaoDestaque.find(l => l.parcelas === 21)
-  const cartao12 = linhasCartaoDestaque.find(l => l.parcelas === 12)
+  const tabela21 = linhasCartaoDestaque.find(l => l.parcelas === 21)
+  const cartao21 = linhasCartao.find(l => l.parcelas === 21) ?? tabela21
+  const cartao12 = linhasCartao.find(l => l.parcelas === 12) ?? linhasCartaoDestaque.find(l => l.parcelas === 12)
   const desc12 = cartao21 && cartao12 ? pct(cartao12.credito, cartao21.credito) : null
-  const descPix = cartao21 ? pct(base, cartao21.credito) : null
+  const eco12 = cartao21 && cartao12 ? cartao21.credito - cartao12.credito : null
+  const descPix = tabela21 ? pct(base, tabela21.credito) : null
+  const ecoPix = tabela21 ? tabela21.credito - base : null
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -176,12 +179,14 @@ function gerarHtmlPrint(
       <div class="price-val">${cartao12 ? fmt(cartao12.credito) : '—'}</div>
       <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
       ${desc12 ? `<div class="badge badge-blue">${desc12}% de desconto</div>` : ''}
+      ${eco12 && eco12 > 0 ? `<div style="font-size:10px;color:#3b82f6;margin-top:3px">Economia de ${fmt(eco12)}</div>` : ''}
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
       <div class="price-val">${fmt(base)}</div>
       <div class="price-sub">PIX / Dinheiro</div>
       ${descPix ? `<div class="badge badge-green">${descPix}% de desconto</div>` : ''}
+      ${ecoPix && ecoPix > 0 ? `<div style="font-size:10px;color:#16a34a;margin-top:3px">Economia de ${fmt(ecoPix)}</div>` : ''}
     </div>
   </div>
 
@@ -190,24 +195,44 @@ function gerarHtmlPrint(
 </html>`
 }
 
-function DescontoBadge({ pctStr, cor }: { pctStr: string | null; cor: string }) {
+function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: string | null; economia: number | null; corBadge: string; corEcon: string }) {
   if (!pctStr) return null
   return (
-    <span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${cor}`}>
-      {pctStr}% de desconto
-    </span>
+    <div className="mt-2 space-y-0.5">
+      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${corBadge}`}>
+        {pctStr}% de desconto
+      </span>
+      {economia !== null && economia > 0 && (
+        <p className={`text-[10px] font-semibold ${corEcon}`}>
+          Economia de {fmt(economia)}
+        </p>
+      )}
+    </div>
   )
 }
 
-function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Linha[] }) {
+function PrecosDestaque({
+  base, linhasCartao, linhasCartaoDestaque,
+}: {
+  base: number
+  linhasCartao: Linha[]        // com entrada aplicada
+  linhasCartaoDestaque: Linha[] // sem entrada (referência de tabela)
+}) {
   const cartao21 = linhasCartao.find(l => l.parcelas === 21)
   const cartao12 = linhasCartao.find(l => l.parcelas === 12)
+  const tabela21 = linhasCartaoDestaque.find(l => l.parcelas === 21) // baseline para desconto PIX
+
+  // Desconto 12x vs 21x (ambos com entrada)
   const desc12 = cartao21 && cartao12 ? pct(cartao12.credito, cartao21.credito) : null
-  const descPix = cartao21 ? pct(base, cartao21.credito) : null
+  const eco12 = cartao21 && cartao12 ? cartao21.credito - cartao12.credito : null
+
+  // Desconto PIX vs tabela 21x sem entrada (PIX não muda com entrada)
+  const descPix = tabela21 ? pct(base, tabela21.credito) : null
+  const ecoPix = tabela21 ? tabela21.credito - base : null
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      {/* Valor de Tabela — 21x cartão */}
+      {/* Valor de Tabela — 21x cartão (com entrada se houver) */}
       <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Valor de Tabela</p>
         {cartao21 ? (
@@ -220,26 +245,26 @@ function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Li
         )}
       </div>
 
-      {/* Valor com Desconto — 12x cartão */}
+      {/* Valor com Desconto — 12x cartão (com entrada se houver) */}
       <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
             <p className="text-lg font-bold text-blue-700">{fmt(cartao12.credito)}</p>
             <p className="text-xs text-blue-400 mt-1">12x de {fmt(cartao12.parcela)}</p>
-            <DescontoBadge pctStr={desc12} cor="bg-blue-100 text-blue-700" />
+            <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-blue-100 text-blue-700" corEcon="text-blue-500" />
           </>
         ) : (
           <p className="text-sm text-blue-200 mt-2">—</p>
         )}
       </div>
 
-      {/* Valor Promocional — PIX/Dinheiro */}
+      {/* Valor Promocional — PIX/Dinheiro (sempre base, não muda com entrada) */}
       <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-2">Valor Promocional</p>
         <p className="text-lg font-bold text-green-700">{fmt(base)}</p>
         <p className="text-xs text-green-500 mt-1">PIX / Dinheiro</p>
-        <DescontoBadge pctStr={descPix} cor="bg-green-100 text-green-700" />
+        <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-green-100 text-green-700" corEcon="text-green-600" />
       </div>
     </div>
   )
@@ -323,7 +348,11 @@ export function SimuladorClient({ modelos, taxas }: Props) {
 
           <div className="p-6 space-y-6">
             {/* Resumo de preços destacados */}
-            <PrecosDestaque base={base} linhasCartao={linhasCartaoDestaque} />
+            <PrecosDestaque
+              base={base}
+              linhasCartao={entradaInvalida ? linhasCartaoDestaque : linhasCartao}
+              linhasCartaoDestaque={linhasCartaoDestaque}
+            />
 
             {/* Entrada */}
             <div className="max-w-xs space-y-1.5">
