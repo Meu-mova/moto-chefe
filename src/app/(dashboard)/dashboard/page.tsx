@@ -119,15 +119,21 @@ export default async function DashboardPage({
   const mecanicoId = usuario.papel === 'mecanico' ? usuario.id : undefined
   const filtrosRanking = { dataInicio, dataFim }
 
+  const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+    Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Timeout')), ms))])
+
   const [
     { kpis, kpisAnt, vendasDia, estoqueLoja, vendasLoja, ultimasVendas, transfPendentes, garantiasVencendo, osAbertas, motoMaisVendida, precoMedio, rankingVendedores, rankingLojas, modelosMaisVendidos },
     lojasOpts,
     vendedoresOpts,
-  ] = await Promise.all([
-    getDashboardDataCached(filtros, filtrosAnt, filtrosRanking, mecanicoId, isAdmin),
-    getLojasOpts(),
-    getVendedoresOpts(),
-  ])
+  ] = await withTimeout(
+    Promise.all([
+      getDashboardDataCached(filtros, filtrosAnt, filtrosRanking, mecanicoId, isAdmin),
+      getLojasOpts(),
+      getVendedoresOpts(),
+    ]),
+    20000
+  )
 
   return (
     <div className="space-y-6">
