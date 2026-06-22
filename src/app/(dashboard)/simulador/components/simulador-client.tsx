@@ -166,13 +166,13 @@ function gerarHtmlPrint(
   <div class="price-row">
     <div class="price-card price-tabela">
       <div class="price-label">Valor de Tabela</div>
-      <div class="price-val">${cartao21 ? fmt(cartao21.parcela) : '—'}</div>
-      <div class="price-sub">21x no cartão</div>
+      <div class="price-val">${cartao21 ? fmt(cartao21.credito) : '—'}</div>
+      <div class="price-sub">${cartao21 ? `21x de ${fmt(cartao21.parcela)}` : '21x no cartão'}</div>
     </div>
     <div class="price-card price-desconto">
       <div class="price-label">Valor com Desconto</div>
-      <div class="price-val">${cartao12 ? fmt(cartao12.parcela) : '—'}</div>
-      <div class="price-sub">12x no cartão</div>
+      <div class="price-val">${cartao12 ? fmt(cartao12.credito) : '—'}</div>
+      <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
@@ -209,11 +209,11 @@ function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Li
     <div className="grid grid-cols-3 gap-3">
       {/* Valor de Tabela — 21x cartão */}
       <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Valor de Tabela</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
-            <p className="text-xl font-bold text-slate-700">{fmt(cartao21.parcela)}</p>
-            <p className="text-xs text-slate-400 mt-0.5">21x no cartão</p>
+            <p className="text-lg font-bold text-slate-700">{fmt(cartao21.credito)}</p>
+            <p className="text-xs text-slate-400 mt-1">21x de {fmt(cartao21.parcela)}</p>
           </>
         ) : (
           <p className="text-sm text-slate-300 mt-2">—</p>
@@ -222,11 +222,11 @@ function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Li
 
       {/* Valor com Desconto — 12x cartão */}
       <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Valor com Desconto</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
-            <p className="text-xl font-bold text-blue-700">{fmt(cartao12.parcela)}</p>
-            <p className="text-xs text-blue-400 mt-0.5">12x no cartão</p>
+            <p className="text-lg font-bold text-blue-700">{fmt(cartao12.credito)}</p>
+            <p className="text-xs text-blue-400 mt-1">12x de {fmt(cartao12.parcela)}</p>
           </>
         ) : (
           <p className="text-sm text-blue-200 mt-2">—</p>
@@ -235,9 +235,9 @@ function PrecosDestaque({ base, linhasCartao }: { base: number; linhasCartao: Li
 
       {/* Valor Promocional — PIX */}
       <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-1">Valor Promocional</p>
-        <p className="text-xl font-bold text-green-700">{fmt(base)}</p>
-        <p className="text-xs text-green-500 mt-0.5">PIX / À vista</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-2">Valor Promocional</p>
+        <p className="text-lg font-bold text-green-700">{fmt(base)}</p>
+        <p className="text-xs text-green-500 mt-1">PIX / À vista</p>
       </div>
     </div>
   )
