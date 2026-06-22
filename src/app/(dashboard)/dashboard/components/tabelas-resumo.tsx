@@ -220,7 +220,7 @@ export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[
 type RankingVendedor = {
   vendedorId: string
   nome: string
-  loja: string
+  loja: string | null
   totalVendas: number
   faturamento: string | null
 }
