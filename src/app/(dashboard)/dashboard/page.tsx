@@ -42,7 +42,7 @@ const getVendedoresOpts = unstable_cache(
 async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; filtrosAnt: Filtros; papel: string }) {
   const [kpis, kpisAnt, motoMaisVendida, precoMedio] = await withTimeout(
     Promise.all([getKPIs(filtros), getKPIs(filtrosAnt), getMotoMaisVendida(filtros), getPrecoMedioVendas(filtros)]),
-    10000,
+    25000,
   )
   return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} />
 }
@@ -54,7 +54,7 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
       getEstoquePorLoja(filtros.lojaId),
       isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([] as Awaited<ReturnType<typeof getVendasPorLoja>>),
     ]),
-    10000,
+    25000,
   )
   return (
     <>
@@ -72,7 +72,7 @@ async function RankingSection({
 }: { filtros: Filtros; filtrosRanking: { dataInicio: string; dataFim: string } }) {
   const [rankingVendedores, rankingLojas, modelosMaisVendidos] = await withTimeout(
     Promise.all([getRankingVendedores(filtrosRanking), getRankingLojas(filtrosRanking), getModelosMaisVendidos(filtros)]),
-    10000,
+    25000,
   )
   return (
     <>
@@ -95,7 +95,7 @@ async function TabelasSection({
       getGarantiasProxVencimento(lojaId),
       getOsAbertas(lojaId, mecanicoId),
     ]),
-    10000,
+    25000,
   )
   return (
     <>

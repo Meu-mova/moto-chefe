@@ -8,7 +8,7 @@ declare global {
 }
 
 const client = postgres(process.env.DATABASE_URL!, {
-  max: 5,
+  max: 10,
   prepare: false,
   idle_timeout: 20,
   connect_timeout: 15,

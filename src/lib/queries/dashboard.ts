@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios } from '@/lib/db/schema'
-import { eq, and, gte, lte, sql, count, sum, inArray, or, avg, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 
 type Filtros = {
@@ -19,43 +19,60 @@ export async function getKPIs(filtros: Filtros) {
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
 
-  const vendasConditions = [gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)]
-  if (lojaId?.length) vendasConditions.push(lojaFilter(vendas.lojaId, lojaId)!)
-  if (vendedorId) vendasConditions.push(eq(vendas.vendedorId, vendedorId))
+  const vendasCond = and(
+    gte(vendas.dataVenda, inicio),
+    lte(vendas.dataVenda, fim),
+    lojaId?.length ? lojaFilter(vendas.lojaId, lojaId) : undefined,
+    vendedorId ? eq(vendas.vendedorId, vendedorId) : undefined,
+  )
 
-  const estoqueConditions: ReturnType<typeof eq>[] = [
-    sql`${motos.status} != 'vendida'` as any,
-    sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'` as any,
-  ]
-  if (lojaId?.length) estoqueConditions.push(lojaFilter(motos.lojaId, lojaId)! as any)
+  const estoqueCond = and(
+    sql`${motos.status} != 'vendida'`,
+    sql`(${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida')`,
+    lojaId?.length ? lojaFilter(motos.lojaId, lojaId) : undefined,
+  )
 
-  const transfConditions: ReturnType<typeof eq>[] = [eq(transferencias.status, 'pendente') as any]
-  if (lojaId?.length) {
-    transfConditions.push(or(lojaFilter(transferencias.lojaOrigemId, lojaId)!, lojaFilter(transferencias.lojaDestinoId, lojaId)!)! as any)
-  }
+  const transfCond = and(
+    eq(transferencias.status, 'pendente'),
+    lojaId?.length
+      ? or(lojaFilter(transferencias.lojaOrigemId, lojaId)!, lojaFilter(transferencias.lojaDestinoId, lojaId)!)
+      : undefined,
+  )
 
-  const garantiaConditions: ReturnType<typeof eq>[] = [eq(garantias.status, 'ativa') as any]
-  if (lojaId?.length) garantiaConditions.push(lojaFilter(garantias.lojaId, lojaId)! as any)
+  const garantiaCond = and(
+    eq(garantias.status, 'ativa'),
+    lojaId?.length ? lojaFilter(garantias.lojaId, lojaId) : undefined,
+  )
 
-  const osConditions: ReturnType<typeof eq>[] = [or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))! as any]
-  if (lojaId?.length) osConditions.push(lojaFilter(ordensServico.lojaId, lojaId)! as any)
+  const osCond = and(
+    or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
+    lojaId?.length ? lojaFilter(ordensServico.lojaId, lojaId) : undefined,
+  )
 
-  const [vendasResult, estoqueResult, transfResult, garantiaResult, osResult] = await Promise.all([
-    db.select({ totalVendas: count(), faturamento: sum(vendas.valor) }).from(vendas).where(and(...vendasConditions)).then(r => r[0]),
-    db.select({ total: count(), valorTotal: sum(motos.precoCompra) }).from(motos).where(and(...estoqueConditions)).then(r => r[0]),
-    db.select({ total: count() }).from(transferencias).where(and(...transfConditions)).then(r => r[0]),
-    db.select({ total: count() }).from(garantias).where(and(...garantiaConditions)).then(r => r[0]),
-    db.select({ total: count() }).from(ordensServico).where(and(...osConditions)).then(r => r[0]),
-  ])
+  // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
+  const rows = await db.execute(sql`
+    SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${vendas.valor}),       0)::numeric AS val FROM ${vendas}         WHERE ${vendasCond}
+    UNION ALL
+    SELECT 'e',        count(*)::int,     coalesce(sum(${motos.precoCompra}),  0)::numeric        FROM ${motos}          WHERE ${estoqueCond}
+    UNION ALL
+    SELECT 'tr',       count(*)::int,     0                                                        FROM ${transferencias} WHERE ${transfCond}
+    UNION ALL
+    SELECT 'g',        count(*)::int,     0                                                        FROM ${garantias}      WHERE ${garantiaCond}
+    UNION ALL
+    SELECT 'os',       count(*)::int,     0                                                        FROM ${ordensServico}  WHERE ${osCond}
+  `)
+
+  const m: Record<string, { n: number; val: string }> = {}
+  for (const row of rows as any[]) m[row.t] = row
 
   return {
-    totalVendas: vendasResult.totalVendas,
-    faturamento: Number(vendasResult.faturamento ?? 0),
-    estoque: estoqueResult.total,
-    valorEstoque: Number(estoqueResult.valorTotal ?? 0),
-    transferenciasPendentes: transfResult.total,
-    garantiasAtivas: garantiaResult.total,
-    osAbertas: osResult.total,
+    totalVendas:             Number(m.v?.n  ?? 0),
+    faturamento:             Number(m.v?.val ?? 0),
+    estoque:                 Number(m.e?.n  ?? 0),
+    valorEstoque:            Number(m.e?.val ?? 0),
+    transferenciasPendentes: Number(m.tr?.n ?? 0),
+    garantiasAtivas:         Number(m.g?.n  ?? 0),
+    osAbertas:               Number(m.os?.n ?? 0),
   }
 }
 
