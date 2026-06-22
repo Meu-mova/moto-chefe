@@ -22,7 +22,7 @@ export function Sidebar({ papel }: Props) {
   const isAdmin = adminPapeis.includes(papel)
   const navItems = [
     ...baseNavItems,
-    ...(isAdmin ? [{ href: '/caixa', label: 'Caixa', icon: Wallet }] : []),
+    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa', label: 'Caixa', icon: Wallet }] : []),
     ...(isAdmin ? [{ href: '/financeiro', label: 'Financeiro', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ href: '/entrada', label: 'Entrada', icon: PackagePlus }] : []),
     ...(isAdmin ? [{ href: '/compras', label: 'Compras', icon: ShoppingBag }] : []),

@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, pedidosVenda, vendas, reservas, historicoEstoque } from '@/lib/db/schema'
+import { motos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa } from '@/lib/db/schema'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -115,6 +115,8 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
 
+  const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
+
   await db.transaction(async (tx) => {
     // Verificar reserva ativa para linkar
     const [reservaAtiva] = await tx
@@ -133,10 +135,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       dataPedido: dataVendaFinal,
       dataAtualizacao: dataVendaFinal,
     }).returning({ id: pedidosVenda.id })
-
-    // Criar venda com todos os dados
-    const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
-    await tx.insert(vendas).values({
+    const [venda] = await tx.insert(vendas).values({
       pedidoVendaId: pedido.id,
       motoId: data.motoId,
       lojaId: moto.lojaId,
@@ -158,7 +157,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       pagamentos: data.pagamentos,
       reservaId: reservaAtiva?.id ?? null,
       dataVenda: dataVendaFinal,
-    })
+    }).returning({ id: vendas.id })
 
     // Marcar reserva como convertida
     if (reservaAtiva) {
@@ -190,10 +189,26 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       referenciaId: pedido.id,
       observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${valorNum.toFixed(2)} — ${descPagamentos}`,
     })
+
+    // Registrar pagamentos em dinheiro no caixa automaticamente
+    const pagamentosDinheiro = data.pagamentos.filter(p => p.tipo === 'dinheiro')
+    for (const pgto of pagamentosDinheiro) {
+      await tx.insert(lancamentosCaixa).values({
+        lojaId: moto.lojaId,
+        usuarioId: usuario.id,
+        tipo: 'entrada',
+        categoria: 'Venda',
+        descricao: `Venda dinheiro — ${data.clienteNome}`,
+        valor: pgto.valor.toFixed(2),
+        data: dataVendaFinal.toISOString().split('T')[0],
+        vendaId: venda.id,
+      })
+    }
   })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
+  revalidatePath('/caixa')
 }
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
