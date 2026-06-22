@@ -199,5 +199,6 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   data: date('data').notNull(),
   vendaId: uuid('venda_id').references(() => vendas.id),
+  comprovanteUrl: text('comprovante_url'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

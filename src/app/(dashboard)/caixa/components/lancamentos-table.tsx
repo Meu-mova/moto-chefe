@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirLancamentoAction } from '../actions'
 import { useRouter } from 'next/navigation'
@@ -17,6 +17,7 @@ type Lancamento = {
   data: string
   lojaNome: string
   usuarioNome: string
+  comprovanteUrl: string | null
   criadoEm: Date
 }
 
@@ -61,6 +62,7 @@ export function LancamentosTable({ lancamentos, isAdmin }: Props) {
           <TableHead>Descrição</TableHead>
           <TableHead>Loja</TableHead>
           <TableHead className="text-right">Valor</TableHead>
+          <TableHead className="text-center">Comprov.</TableHead>
           <TableHead>Registrado por</TableHead>
           {isAdmin && <TableHead className="w-10" />}
         </TableRow>
@@ -81,6 +83,21 @@ export function LancamentosTable({ lancamentos, isAdmin }: Props) {
             <TableCell>{l.lojaNome}</TableCell>
             <TableCell className={`text-right font-mono ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
               {l.tipo === 'entrada' ? '+' : '-'}{formatCurrency(l.valor)}
+            </TableCell>
+            <TableCell className="text-center">
+              {l.comprovanteUrl ? (
+                <a
+                  href={l.comprovanteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700"
+                  title="Ver comprovante"
+                >
+                  <Paperclip size={14} />
+                </a>
+              ) : (
+                <span className="text-slate-300">—</span>
+              )}
             </TableCell>
             <TableCell className="text-xs text-slate-400">{l.usuarioNome}</TableCell>
             {isAdmin && (

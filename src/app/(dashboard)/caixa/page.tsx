@@ -41,6 +41,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
         data: lancamentosCaixa.data,
         lojaNome: lojas.nome,
         usuarioNome: usuarios.nome,
+        comprovanteUrl: lancamentosCaixa.comprovanteUrl,
         criadoEm: lancamentosCaixa.criadoEm,
       })
       .from(lancamentosCaixa)

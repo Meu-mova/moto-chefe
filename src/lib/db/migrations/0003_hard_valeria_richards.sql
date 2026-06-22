@@ -1,0 +1,1 @@
+ALTER TABLE "lancamentos_caixa" ADD COLUMN "comprovante_url" text;
