@@ -2,6 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
 import { CancelarVendaButton } from './cancelar-venda-button'
+import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
@@ -54,6 +55,7 @@ export function VendasTable({ vendas, papel }: Props) {
             <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
             <TableCell className="text-right">
               <div className="flex items-center gap-1 justify-end">
+                <DetalhesVendaDialog venda={v} />
                 {!v.notaFiscalSaida && podeFazerGarantia && (
                   <NfSaidaButton
                     motoId={v.motoId}
