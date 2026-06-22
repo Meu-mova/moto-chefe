@@ -9,16 +9,54 @@ import { KpiCards } from './components/kpi-cards'
 import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoVendasPorLoja } from './components/charts'
 import { TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo, TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos } from './components/tabelas-resumo'
 
+type Filtros = { dataInicio: string; dataFim: string; lojaId?: string[]; vendedorId?: string }
+
+// Dados de dashboard cacheados por 60s — evita múltiplos acessos simultâneos ao banco
+const getDashboardDataCached = unstable_cache(
+  async (
+    filtros: Filtros,
+    filtrosAnt: Filtros,
+    filtrosRanking: { dataInicio: string; dataFim: string },
+    mecanicoId: string | undefined,
+    isAdmin: boolean,
+  ) => {
+    const [
+      kpis, kpisAnt, vendasDia, estoqueLoja, vendasLoja,
+      ultimasVendas, transfPendentes, garantiasVencendo,
+      osAbertas, motoMaisVendida, precoMedio,
+      rankingVendedores, rankingLojas, modelosMaisVendidos,
+    ] = await Promise.all([
+      getKPIs(filtros),
+      getKPIs(filtrosAnt),
+      getVendasPorDia(filtros),
+      getEstoquePorLoja(filtros.lojaId),
+      isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([] as Awaited<ReturnType<typeof getVendasPorLoja>>),
+      getUltimasVendas(filtros),
+      getTransferenciasPendentes(filtros.lojaId),
+      getGarantiasProxVencimento(filtros.lojaId),
+      getOsAbertas(filtros.lojaId, mecanicoId),
+      getMotoMaisVendida(filtros),
+      getPrecoMedioVendas(filtros),
+      getRankingVendedores(filtrosRanking),
+      getRankingLojas(filtrosRanking),
+      getModelosMaisVendidos(filtros),
+    ])
+    return { kpis, kpisAnt, vendasDia, estoqueLoja, vendasLoja, ultimasVendas, transfPendentes, garantiasVencendo, osAbertas, motoMaisVendida, precoMedio, rankingVendedores, rankingLojas, modelosMaisVendidos }
+  },
+  ['dashboard-data'],
+  { revalidate: 60 },
+)
+
 const getLojasOpts = unstable_cache(
   () => db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
   ['lojas-opts'],
-  { revalidate: 300 }
+  { revalidate: 300 },
 )
 
 const getVendedoresOpts = unstable_cache(
   () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'vendedor')).orderBy(usuarios.nome),
   ['vendedores-opts'],
-  { revalidate: 300 }
+  { revalidate: 300 },
 )
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -64,14 +102,14 @@ export default async function DashboardPage({
     ? [params.loja]
     : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
 
-  const filtros = {
+  const filtros: Filtros = {
     dataInicio,
     dataFim,
     lojaId: lojaIds.length ? lojaIds : undefined,
     vendedorId: isAdmin ? params.vendedor : (usuario.papel === 'vendedor' ? usuario.id : undefined),
   }
 
-  const filtrosAnt = {
+  const filtrosAnt: Filtros = {
     dataInicio: dataInicioAnt,
     dataFim: dataFimAnt,
     lojaId: filtros.lojaId,
@@ -79,41 +117,14 @@ export default async function DashboardPage({
   }
 
   const mecanicoId = usuario.papel === 'mecanico' ? usuario.id : undefined
-
   const filtrosRanking = { dataInicio, dataFim }
 
   const [
-    kpis,
-    kpisAnt,
-    vendasDia,
-    estoqueLoja,
-    vendasLoja,
-    ultimasVendas,
-    transfPendentes,
-    garantiasVencendo,
-    osAbertas,
-    motoMaisVendida,
-    precoMedio,
-    rankingVendedores,
-    rankingLojas,
-    modelosMaisVendidos,
+    { kpis, kpisAnt, vendasDia, estoqueLoja, vendasLoja, ultimasVendas, transfPendentes, garantiasVencendo, osAbertas, motoMaisVendida, precoMedio, rankingVendedores, rankingLojas, modelosMaisVendidos },
     lojasOpts,
     vendedoresOpts,
   ] = await Promise.all([
-    getKPIs(filtros),
-    getKPIs(filtrosAnt),
-    getVendasPorDia(filtros),
-    getEstoquePorLoja(filtros.lojaId),
-    isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([]),
-    getUltimasVendas(filtros),
-    getTransferenciasPendentes(filtros.lojaId),
-    getGarantiasProxVencimento(filtros.lojaId),
-    getOsAbertas(filtros.lojaId, mecanicoId),
-    getMotoMaisVendida(filtros),
-    getPrecoMedioVendas(filtros),
-    getRankingVendedores(filtrosRanking),
-    getRankingLojas(filtrosRanking),
-    getModelosMaisVendidos(filtros),
+    getDashboardDataCached(filtros, filtrosAnt, filtrosRanking, mecanicoId, isAdmin),
     getLojasOpts(),
     getVendedoresOpts(),
   ])
