@@ -213,40 +213,45 @@ function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: stri
 }
 
 function PrecosDestaque({
-  base, linhasCartao, linhasCartaoDestaque,
+  base, linhasCartaoDestaque, linhasCartaoComEntrada, entrada,
 }: {
   base: number
-  linhasCartao: Linha[]        // com entrada aplicada
-  linhasCartaoDestaque: Linha[] // sem entrada (referência de tabela)
+  linhasCartaoDestaque: Linha[]
+  linhasCartaoComEntrada: Linha[]
+  entrada: number
 }) {
-  const cartao21 = linhasCartao.find(l => l.parcelas === 21)
-  const cartao12 = linhasCartao.find(l => l.parcelas === 12)
-  const tabela21 = linhasCartaoDestaque.find(l => l.parcelas === 21) // baseline para desconto PIX
+  const cartao21 = linhasCartaoDestaque.find(l => l.parcelas === 21)
+  const cartao12 = linhasCartaoDestaque.find(l => l.parcelas === 12)
+  const c21Entrada = entrada > 0 ? linhasCartaoComEntrada.find(l => l.parcelas === 21) : null
+  const c12Entrada = entrada > 0 ? linhasCartaoComEntrada.find(l => l.parcelas === 12) : null
 
-  // Desconto 12x vs 21x (ambos com entrada)
   const desc12 = cartao21 && cartao12 ? pct(cartao12.credito, cartao21.credito) : null
-  const eco12 = cartao21 && cartao12 ? cartao21.credito - cartao12.credito : null
-
-  // Desconto PIX vs tabela 21x sem entrada (PIX não muda com entrada)
-  const descPix = tabela21 ? pct(base, tabela21.credito) : null
-  const ecoPix = tabela21 ? tabela21.credito - base : null
+  const eco12  = cartao21 && cartao12 ? cartao21.credito - cartao12.credito : null
+  const descPix = cartao21 ? pct(base, cartao21.credito) : null
+  const ecoPix  = cartao21 ? cartao21.credito - base : null
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      {/* Valor de Tabela — 21x cartão (com entrada se houver) */}
+      {/* Valor de Tabela — 21x */}
       <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
             <p className="text-lg font-bold text-slate-700">{fmt(cartao21.credito)}</p>
             <p className="text-xs text-slate-400 mt-1">21x de {fmt(cartao21.parcela)}</p>
+            {c21Entrada && (
+              <div className="mt-2 pt-2 border-t border-slate-200">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Com entrada</p>
+                <p className="text-xs font-semibold text-slate-600">21x de {fmt(c21Entrada.parcela)}</p>
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-slate-300 mt-2">—</p>
         )}
       </div>
 
-      {/* Valor com Desconto — 12x cartão (com entrada se houver) */}
+      {/* Valor com Desconto — 12x */}
       <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-2">Valor com Desconto</p>
         {cartao12 ? (
@@ -254,13 +259,19 @@ function PrecosDestaque({
             <p className="text-lg font-bold text-blue-700">{fmt(cartao12.credito)}</p>
             <p className="text-xs text-blue-400 mt-1">12x de {fmt(cartao12.parcela)}</p>
             <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-blue-100 text-blue-700" corEcon="text-blue-500" />
+            {c12Entrada && (
+              <div className="mt-2 pt-2 border-t border-blue-200">
+                <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-0.5">Com entrada</p>
+                <p className="text-xs font-semibold text-blue-600">12x de {fmt(c12Entrada.parcela)}</p>
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-blue-200 mt-2">—</p>
         )}
       </div>
 
-      {/* Valor Promocional — PIX/Dinheiro (sempre base, não muda com entrada) */}
+      {/* Valor Promocional — PIX/Dinheiro */}
       <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-2">Valor Promocional</p>
         <p className="text-lg font-bold text-green-700">{fmt(base)}</p>
@@ -351,8 +362,9 @@ export function SimuladorClient({ modelos, taxas }: Props) {
             {/* Resumo de preços destacados */}
             <PrecosDestaque
               base={base}
-              linhasCartao={entradaInvalida ? linhasCartaoDestaque : linhasCartao}
               linhasCartaoDestaque={linhasCartaoDestaque}
+              linhasCartaoComEntrada={linhasCartao}
+              entrada={entradaInvalida ? 0 : entradaNum}
             />
 
             {/* Entrada */}
