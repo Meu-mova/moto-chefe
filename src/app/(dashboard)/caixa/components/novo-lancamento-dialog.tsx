@@ -60,20 +60,26 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
     setOpen(true)
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  function selecionarArquivo() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/jpeg,image/png,image/webp,application/pdf'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Formato não suportado. Envie JPG, PNG, WebP ou PDF.')
-      return
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Formato não suportado. Envie JPG, PNG, WebP ou PDF.')
+        return
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Arquivo muito grande. Máximo: 10MB.')
+        return
+      }
+      setArquivo(file)
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Arquivo muito grande. Máximo: 10MB.')
-      return
-    }
-    setArquivo(file)
+    input.click()
   }
 
   const categorias = tipo === 'entrada' ? categoriasEntrada : categoriasSaida
@@ -220,20 +226,16 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
                 </button>
               </div>
             ) : (
-              <label
-                className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm cursor-pointer hover:bg-slate-50 ${
+              <button
+                type="button"
+                onClick={selecionarArquivo}
+                className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
                   isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
                 }`}
               >
                 <Upload size={16} />
                 Enviar comprovante (JPG, PNG, PDF)
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  onChange={handleFileChange}
-                  className="sr-only"
-                />
-              </label>
+              </button>
             )}
           </div>
 
