@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
@@ -26,6 +26,7 @@ type Props = { papel: string }
 
 export function Sidebar({ papel }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
   const isAdmin = adminPapeis.includes(papel)
@@ -76,10 +77,11 @@ export function Sidebar({ papel }: Props) {
             if (collapsed) {
               return (
                 <Tooltip key={href}>
-                  <TooltipTrigger asChild>
-                    <Link href={href} className={linkClass}>
-                      <Icon size={18} />
-                    </Link>
+                  <TooltipTrigger
+                    onClick={() => router.push(href)}
+                    className={linkClass}
+                  >
+                    <Icon size={18} />
                   </TooltipTrigger>
                   <TooltipContent side="right">{label}</TooltipContent>
                 </Tooltip>
