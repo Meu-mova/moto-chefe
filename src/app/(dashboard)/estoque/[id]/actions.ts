@@ -71,6 +71,7 @@ export async function alterarStatusAction(
       .set({
         responsavelMontagemId: mecanicoId,
         dataMontagem: dataMontagem ?? new Date().toISOString().split('T')[0],
+        disponibilidade: 'disponivel',
       })
       .where(eq(motos.id, motoId))
   }
