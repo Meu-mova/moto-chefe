@@ -258,6 +258,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
 
                 <Link
                   href={`/estoque/${moto.id}`}
+                  prefetch={false}
                   title="Ver detalhes"
                   className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-slate-500 hover:text-slate-700'}
                 >
