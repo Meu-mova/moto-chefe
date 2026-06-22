@@ -28,8 +28,9 @@ export default async function EstoquePage({
   // Vendidas nunca aparecem no estoque — sempre excluídas
   const dispValues = parseParam(params.disponibilidade)
 
-  const lojaValues = params.loja !== undefined
-    ? parseParam(params.loja)
+  const lojaParam = parseParam(params.loja)
+  const lojaValues = lojaParam.length > 0
+    ? lojaParam
     : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
 
   const validOrds = ['modelo', 'cor', 'loja', 'status', 'disponibilidade'] as const
@@ -70,7 +71,11 @@ export default async function EstoquePage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
-        <p className="text-slate-500 text-sm">Todas as motos do grupo</p>
+        <p className="text-slate-500 text-sm">
+          {!isAdmin && usuario.lojaId
+            ? `Motos da loja ${lojasOpts.find(l => l.id === usuario.lojaId)?.nome ?? ''}`
+            : 'Todas as motos do grupo'}
+        </p>
       </div>
       <StatusCards counts={counts} />
       <EstoqueFiltros
