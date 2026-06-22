@@ -1,9 +1,11 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
+import { CancelarVendaButton } from './cancelar-venda-button'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
+const podeCancelar = new Set(['admin_geral', 'admin_socio'])
 
 function formatarValor(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -62,6 +64,12 @@ export function VendasTable({ vendas, papel }: Props) {
                   <GarantiaButton
                     motoId={v.motoId}
                     descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
+                  />
+                )}
+                {podeCancelar.has(papel) && (
+                  <CancelarVendaButton
+                    vendaId={v.id}
+                    descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
                   />
                 )}
               </div>

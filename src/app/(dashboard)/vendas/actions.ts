@@ -242,6 +242,68 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
   revalidatePath('/estoque')
 }
 
+// ─── Cancelar Venda ─────────────────────────────────────────────────────────
+
+export async function cancelarVendaCompletaAction(vendaId: string, motivo: string) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    throw new Error('Apenas administradores e sócios podem cancelar vendas')
+  }
+
+  if (!motivo.trim()) {
+    throw new Error('Informe o motivo do cancelamento')
+  }
+
+  const [vendaRecord] = await db
+    .select({
+      id: vendas.id,
+      motoId: vendas.motoId,
+      lojaId: vendas.lojaId,
+      pedidoVendaId: vendas.pedidoVendaId,
+      clienteNome: vendas.clienteNome,
+      valor: vendas.valor,
+    })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+
+  if (!vendaRecord) throw new Error('Venda não encontrada')
+
+  await db.transaction(async (tx) => {
+    // Reverter moto para montada/disponível
+    await tx.update(motos)
+      .set({ status: 'montada', disponibilidade: 'disponivel' })
+      .where(eq(motos.id, vendaRecord.motoId))
+
+    // Cancelar o pedido de venda
+    await tx.update(pedidosVenda)
+      .set({ status: 'cancelado' })
+      .where(eq(pedidosVenda.id, vendaRecord.pedidoVendaId))
+
+    // Remover a venda
+    await tx.delete(vendas).where(eq(vendas.id, vendaId))
+
+    // Remover lançamentos de caixa vinculados
+    await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
+
+    // Registrar no histórico
+    await tx.insert(historicoEstoque).values({
+      motoId: vendaRecord.motoId,
+      lojaDestinoId: vendaRecord.lojaId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      statusAnterior: 'vendida',
+      statusNovo: 'montada',
+      observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)} — Motivo: ${motivo}`,
+    })
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+  revalidatePath('/caixa')
+  revalidatePath('/dashboard')
+}
+
 // ─── Reserva ─────────────────────────────────────────────────────────────────
 
 type DadosReserva = {
