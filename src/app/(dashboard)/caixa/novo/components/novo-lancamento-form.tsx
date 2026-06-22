@@ -21,18 +21,13 @@ const categoriasEntrada = [
 ]
 
 const categoriasSaida = [
-  'Aluguel',
-  'Salários',
-  'Energia',
+  'Depósito',
   'Água',
+  'Luz',
   'Internet',
-  'Fornecedor',
-  'Manutenção',
-  'Repasse sócio',
-  'Comissão',
-  'Impostos',
   'Material escritório',
-  'Marketing',
+  'Material oficina',
+  'Manutenção',
   'Outros',
 ]
 
