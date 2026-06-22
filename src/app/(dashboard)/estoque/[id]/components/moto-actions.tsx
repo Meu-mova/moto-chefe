@@ -36,6 +36,9 @@ type Moto = {
   reservaClienteCidade: string | null
   reservaClienteEstado: string | null
   reservaVendedorId: string | null
+  reservaMeioPagamento: string | null
+  reservaCartaoOperadora: string | null
+  reservaCartaoParcelas: string | null
 }
 
 type Props = {
@@ -125,6 +128,9 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
               clienteCidade: moto.reservaClienteCidade ?? '',
               clienteEstado: moto.reservaClienteEstado ?? '',
               vendedorId: moto.reservaVendedorId ?? vendedorId,
+              meioPagamento: moto.reservaMeioPagamento ?? 'pix',
+              cartaoOperadora: moto.reservaCartaoOperadora,
+              cartaoParcelas: moto.reservaCartaoParcelas,
             }}
           />
         )

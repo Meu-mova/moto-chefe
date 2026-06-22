@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3, Home, Package, PackagePlus, QrCode } from 'lucide-react'
+import { ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag, Wallet, BarChart3, Home, Package, PackagePlus, QrCode, Calculator } from 'lucide-react'
 
 const baseNavItems = [
   { href: '/dashboard',     label: 'Dashboard',         icon: Home            },
@@ -11,6 +11,7 @@ const baseNavItems = [
   { href: '/vendas',        label: 'Vendas',            icon: ShoppingCart    },
   { href: '/ordens-servico',label: 'Ordens de Serviço', icon: Wrench          },
   { href: '/garantias',     label: 'Garantias',         icon: Shield          },
+  { href: '/simulador',    label: 'Simulador',         icon: Calculator      },
 ]
 
 const adminPapeis = ['admin_geral', 'admin_socio']

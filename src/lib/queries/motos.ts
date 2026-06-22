@@ -122,6 +122,21 @@ export async function listarMotos(filtros?: {
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1
       )`,
+      reservaMeioPagamento: sql<string | null>`(
+        SELECT r.meio_pagamento FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaCartaoOperadora: sql<string | null>`(
+        SELECT r.cartao_operadora FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaCartaoParcelas: sql<string | null>`(
+        SELECT r.cartao_parcelas::text FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
@@ -250,6 +265,21 @@ export async function buscarMoto(id: string) {
       )`,
       reservaVendedorId: sql<string | null>`(
         SELECT r.vendedor_id FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaMeioPagamento: sql<string | null>`(
+        SELECT r.meio_pagamento FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaCartaoOperadora: sql<string | null>`(
+        SELECT r.cartao_operadora FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      reservaCartaoParcelas: sql<string | null>`(
+        SELECT r.cartao_parcelas::text FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1
       )`,

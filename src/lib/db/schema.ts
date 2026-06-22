@@ -207,3 +207,15 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   comprovanteUrl: text('comprovante_url'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── simulador_precos ─────────────────────────────────────────────────────────
+export const simuladorPrecos = pgTable('simulador_precos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  precoAvista: numeric('preco_avista', { precision: 10, scale: 2 }).notNull(),
+  precoPix: numeric('preco_pix', { precision: 10, scale: 2 }).notNull(),
+  taxaCartaoFisico: numeric('taxa_cartao_fisico', { precision: 8, scale: 6 }).notNull(),
+  taxaLinkPagamento: numeric('taxa_link_pagamento', { precision: 8, scale: 6 }).notNull(),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})

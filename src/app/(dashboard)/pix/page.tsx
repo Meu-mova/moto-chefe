@@ -35,6 +35,8 @@ export default async function PixPage({
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) redirect('/dashboard')
 
+  const ocultarValores = usuario.papel === 'aux_adm'
+
   const params = await searchParams
   const hoje = new Date()
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
@@ -131,24 +133,42 @@ export default async function PixPage({
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Total Recebido</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">{formatValor(String(totalRecebido))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{pixList.length} transações</p>
+            {ocultarValores ? (
+              <p className="text-xl font-bold text-slate-900 mt-1">{pixList.length} transações</p>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-slate-900 mt-1">{formatValor(String(totalRecebido))}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{pixList.length} transações</p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Vinculados</p>
-            <p className="text-xl font-bold text-green-700 mt-1">{formatValor(String(totalVinculado))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{countVinculado} transações</p>
+            {ocultarValores ? (
+              <p className="text-xl font-bold text-green-700 mt-1">{countVinculado} transações</p>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-green-700 mt-1">{formatValor(String(totalVinculado))}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{countVinculado} transações</p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Não Vinculados</p>
-            <p className="text-xl font-bold text-amber-600 mt-1">
-              {formatValor(String(totalRecebido - totalVinculado))}
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">{pixList.length - countVinculado} transações</p>
+            {ocultarValores ? (
+              <p className="text-xl font-bold text-amber-600 mt-1">{pixList.length - countVinculado} transações</p>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-amber-600 mt-1">
+                  {formatValor(String(totalRecebido - totalVinculado))}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">{pixList.length - countVinculado} transações</p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -170,7 +190,7 @@ export default async function PixPage({
                 <TableHead>Pagador</TableHead>
                 <TableHead>Observação PIX</TableHead>
                 <TableHead>Referência MOVA</TableHead>
-                <TableHead className="text-right pr-4">Valor</TableHead>
+                {!ocultarValores && <TableHead className="text-right pr-4">Valor</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,15 +269,17 @@ export default async function PixPage({
                         <span className="text-slate-300 text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right pr-4 font-medium tabular-nums text-slate-900">
-                      {formatValor(pix.price)}
-                    </TableCell>
+                    {!ocultarValores && (
+                      <TableCell className="text-right pr-4 font-medium tabular-nums text-slate-900">
+                        {formatValor(pix.price)}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}
               {pixList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-slate-400 py-12">
+                  <TableCell colSpan={ocultarValores ? 4 : 5} className="text-center text-slate-400 py-12">
                     <TrendingUp size={32} className="mx-auto mb-2 opacity-20" />
                     Nenhum PIX recebido no período
                   </TableCell>

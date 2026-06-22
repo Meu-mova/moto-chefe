@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { registrarEntrada, registrarEntradaLote } from '../actions'
 import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 
 type Modelo = { id: string; modelo: string; marca: string; precoCompraPadrao: string | null }
@@ -382,12 +383,10 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
               </div>
               <div>
                 <label className="block text-sm text-slate-500 mb-1">Preço de Compra (R$) *</label>
-                <input
-                  type="text"
+                <CurrencyInput
                   value={precoCompra}
-                  onChange={e => setPrecoCompra(e.target.value)}
-                  placeholder="Ex: 8500.00"
-                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  onChange={setPrecoCompra}
+                  placeholder="0,00"
                   required
                 />
               </div>

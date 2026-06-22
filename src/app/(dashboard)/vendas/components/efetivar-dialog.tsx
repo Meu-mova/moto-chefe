@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { efetivarVendaAction } from '../actions'
@@ -48,7 +49,7 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />
+              <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
             </div>
             <div className="space-y-2">
               <Label>Forma de Pagamento</Label>

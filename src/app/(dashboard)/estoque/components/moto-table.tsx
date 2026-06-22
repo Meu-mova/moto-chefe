@@ -205,6 +205,9 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                       clienteCidade: moto.reservaClienteCidade ?? '',
                                       clienteEstado: moto.reservaClienteEstado ?? '',
                                       vendedorId: moto.reservaVendedorId ?? vendedorId,
+                                      meioPagamento: moto.reservaMeioPagamento ?? 'pix',
+                                      cartaoOperadora: moto.reservaCartaoOperadora,
+                                      cartaoParcelas: moto.reservaCartaoParcelas,
                                     }}
                                   />
                                 )}

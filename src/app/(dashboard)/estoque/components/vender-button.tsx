@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -47,6 +48,9 @@ type Usuario = { id: string; nome: string }
 type DadosReservaAtiva = {
   valorEntrada: string
   valorTotal: string
+  meioPagamento: string
+  cartaoOperadora?: string | null
+  cartaoParcelas?: string | null
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -119,8 +123,20 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
       setClienteBairro(reservaAtiva.clienteBairro)
       setClienteCidade(reservaAtiva.clienteCidade)
       setClienteEstado(reservaAtiva.clienteEstado)
+      // Valor total da venda = o que foi acordado na reserva (não apenas o restante)
+      setValorVenda(reservaAtiva.valorTotal)
       const restante = (parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2)
-      setValorVenda(restante)
+      // Pré-preenche: entrada já recebida (com forma de pagamento da reserva) + restante
+      setPgtos([
+        {
+          id: 'entrada',
+          tipo: reservaAtiva.meioPagamento,
+          valor: reservaAtiva.valorEntrada,
+          operadora: reservaAtiva.cartaoOperadora ?? undefined,
+          parcelas: reservaAtiva.cartaoParcelas ?? undefined,
+        },
+        { id: 'restante', tipo: '', valor: restante },
+      ])
       setVendedorSelecionado(reservaAtiva.vendedorId)
     } else {
       setClienteNome(''); setClienteCpf(''); setClienteCelular(''); setClienteEmail('')
@@ -128,9 +144,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
       setClienteBairro(''); setClienteCidade(''); setClienteEstado('')
       setValorVenda('')
       setVendedorSelecionado(vendedorId)
+      setPgtos([{ id: '1', tipo: '', valor: '' }])
     }
     setDataVenda(new Date().toISOString().split('T')[0])
-    setPgtos([{ id: '1', tipo: '', valor: '' }])
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
   }
 
@@ -287,7 +303,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle>
-                  {tipo === 'venda' ? 'Registrar Venda' : 'Registrar Reserva'}
+                  {reservaAtiva ? 'Finalizar Venda' : tipo === 'venda' ? 'Registrar Venda' : 'Registrar Reserva'}
                 </DialogTitle>
                 <p className="text-sm text-slate-500 mt-0.5">{descricao}</p>
               </div>
@@ -341,11 +357,11 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             </div>
 
             {reservaAtiva && (
-              <div className="text-sm px-3 py-2 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
-                <p className="font-medium">Moto reservada</p>
-                <p>Entrada paga: R$ {parseFloat(reservaAtiva.valorEntrada).toFixed(2).replace('.', ',')}</p>
-                <p>Valor total acordado: R$ {parseFloat(reservaAtiva.valorTotal).toFixed(2).replace('.', ',')}</p>
-                <p>Restante a cobrar: R$ {(parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2).replace('.', ',')}</p>
+              <div className="text-sm px-3 py-2 rounded-md border bg-blue-50 text-blue-700 border-blue-200 space-y-0.5">
+                <p className="font-medium">Resumo da reserva</p>
+                <p>Total acordado: <span className="font-semibold">R$ {parseFloat(reservaAtiva.valorTotal).toFixed(2).replace('.', ',')}</span></p>
+                <p>Entrada já recebida: R$ {parseFloat(reservaAtiva.valorEntrada).toFixed(2).replace('.', ',')} — preencha a forma de pagamento abaixo</p>
+                <p>Restante a receber: <span className="font-semibold">R$ {(parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2).replace('.', ',')}</span></p>
               </div>
             )}
 
@@ -481,19 +497,29 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                 <p className="text-sm font-semibold">Pagamento</p>
 
                 <div className="space-y-1">
-                  <Label>Valor da Venda (R$) <span className="text-red-500">*</span></Label>
-                  <Input
-                    type="number" step="0.01" min="0"
+                  <Label>
+                    Valor da Venda (R$) <span className="text-red-500">*</span>
+                    {reservaAtiva && <span className="text-xs text-slate-400 ml-1">(definido na reserva)</span>}
+                  </Label>
+                  <CurrencyInput
                     value={valorVenda}
-                    onChange={e => setValorVenda(e.target.value)}
-                    placeholder="0.00"
+                    onChange={setValorVenda}
+                    placeholder="0,00"
+                    readOnly={!!reservaAtiva}
+                    className={reservaAtiva ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Formas de Pagamento <span className="text-red-500">*</span></Label>
-                  {pgtos.map(p => (
+                  {pgtos.map((p, idx) => (
                     <div key={p.id} className="space-y-1">
+                      {reservaAtiva && idx === 0 && (
+                        <p className="text-xs text-slate-500 font-medium">Entrada recebida</p>
+                      )}
+                      {reservaAtiva && idx === 1 && (
+                        <p className="text-xs text-slate-500 font-medium">Restante a receber</p>
+                      )}
                       <div className="flex gap-2 items-center">
                         <Select value={p.tipo} onValueChange={v => updatePgto(p.id, 'tipo', v ?? '')}>
                           <SelectTrigger className="flex-1">
@@ -505,12 +531,11 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                             ))}
                           </SelectContent>
                         </Select>
-                        <Input
-                          type="number" step="0.01" min="0"
+                        <CurrencyInput
                           className="w-32"
-                          placeholder="R$ 0.00"
+                          placeholder="0,00"
                           value={p.valor}
-                          onChange={e => updatePgto(p.id, 'valor', e.target.value)}
+                          onChange={v => updatePgto(p.id, 'valor', v)}
                         />
                         {pgtos.length > 1 && (
                           <Button type="button" variant="ghost" size="icon" onClick={() => removePgto(p.id)}>
@@ -568,20 +593,18 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label>Valor da Entrada (R$) <span className="text-red-500">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0"
+                    <CurrencyInput
                       value={valorReserva}
-                      onChange={e => setValorReserva(e.target.value)}
-                      placeholder="0.00"
+                      onChange={setValorReserva}
+                      placeholder="0,00"
                     />
                   </div>
                   <div className="space-y-1">
                     <Label>Valor Total da Venda (R$) <span className="text-red-500">*</span></Label>
-                    <Input
-                      type="number" step="0.01" min="0"
+                    <CurrencyInput
                       value={valorTotalVenda}
-                      onChange={e => setValorTotalVenda(e.target.value)}
-                      placeholder="0.00"
+                      onChange={setValorTotalVenda}
+                      placeholder="0,00"
                     />
                   </div>
                 </div>

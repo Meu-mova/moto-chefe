@@ -32,7 +32,7 @@ export function VendasTable({ vendas, papel }: Props) {
           <TableHead className="w-20">Nº</TableHead>
           <TableHead>Data</TableHead>
           <TableHead>Modelo</TableHead>
-          <TableHead className="text-xs text-slate-500">Chassi</TableHead>
+          <TableHead className="text-xs text-slate-500 w-36">Chassi</TableHead>
           <TableHead>Cor</TableHead>
           <TableHead>Loja</TableHead>
           <TableHead>Vendedor</TableHead>
@@ -49,7 +49,9 @@ export function VendasTable({ vendas, papel }: Props) {
               {formatarData(v.dataVenda)}
             </TableCell>
             <TableCell className="font-medium">{v.modelo}</TableCell>
-            <TableCell className="font-mono text-xs text-slate-500">{v.chassi}</TableCell>
+            <TableCell className="font-mono text-xs text-slate-500 max-w-36">
+              <span className="block truncate" title={v.chassi}>{v.chassi}</span>
+            </TableCell>
             <TableCell>{v.cor}</TableCell>
             <TableCell>{v.lojaNome}</TableCell>
             <TableCell>{v.vendedorNome}</TableCell>

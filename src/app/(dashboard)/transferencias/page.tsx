@@ -37,7 +37,7 @@ export default async function TransferenciasPage({
       .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(inArray(motos.status, ['disponivel', 'montada'])),
+      .where(inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia'])),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
   ])
 
