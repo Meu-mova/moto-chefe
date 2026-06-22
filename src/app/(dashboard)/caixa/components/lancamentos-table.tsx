@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Trash2, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
-import { excluirLancamentoAction } from '../actions'
+import { excluirLancamentoAction, getComprovanteUrlAction } from '../actions'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -86,15 +86,21 @@ export function LancamentosTable({ lancamentos, isAdmin }: Props) {
             </TableCell>
             <TableCell className="text-center">
               {l.comprovanteUrl ? (
-                <a
-                  href={l.comprovanteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700"
                   title="Ver comprovante"
+                  onClick={async () => {
+                    try {
+                      const url = await getComprovanteUrlAction(l.comprovanteUrl!)
+                      window.open(url, '_blank')
+                    } catch {
+                      toast.error('Erro ao abrir comprovante')
+                    }
+                  }}
                 >
                   <Paperclip size={14} />
-                </a>
+                </button>
               ) : (
                 <span className="text-slate-300">—</span>
               )}

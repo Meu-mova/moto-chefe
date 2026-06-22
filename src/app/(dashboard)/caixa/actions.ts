@@ -71,8 +71,11 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
     throw new Error('Arquivo muito grande. Máximo: 10MB.')
   }
 
-  const ext = file.name.split('.').pop() ?? 'bin'
-  const fileName = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf',
+  }
+  const ext = extMap[file.type] ?? 'bin'
+  const fileName = `${Date.now()}-${crypto.randomUUID()}.${ext}`
   const filePath = `caixa/${fileName}`
 
   const supabase = await createClient()
@@ -82,11 +85,22 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
 
   if (error) throw new Error(`Erro no upload: ${error.message}`)
 
-  const { data: urlData } = supabase.storage
-    .from('comprovantes')
-    .getPublicUrl(filePath)
+  return filePath
+}
 
-  return urlData.publicUrl
+export async function getComprovanteUrlAction(filePath: string): Promise<string> {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.storage
+    .from('comprovantes')
+    .createSignedUrl(filePath, 300)
+
+  if (error || !data?.signedUrl) throw new Error('Erro ao gerar URL do comprovante')
+  return data.signedUrl
 }
 
 export async function excluirLancamentoAction(lancamentoId: string) {

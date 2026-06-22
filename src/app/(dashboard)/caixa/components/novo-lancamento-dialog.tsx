@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -48,7 +48,6 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   function handleOpen() {
     setTipo('saida')
@@ -207,13 +206,6 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
               Comprovante {isSaida && <span className="text-red-500">*</span>}
               {!isSaida && <span className="text-slate-400 text-xs ml-1">(opcional)</span>}
             </Label>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={handleFileChange}
-              className="hidden"
-            />
             {arquivo ? (
               <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-green-50 border-green-200">
                 <FileCheck size={16} className="text-green-600 shrink-0" />
@@ -221,23 +213,27 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
                 <span className="text-xs text-green-500">{(arquivo.size / 1024).toFixed(0)} KB</span>
                 <button
                   type="button"
-                  onClick={() => { setArquivo(null); if (fileRef.current) fileRef.current.value = '' }}
+                  onClick={() => setArquivo(null)}
                   className="text-green-400 hover:text-red-500 p-0.5"
                 >
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm hover:bg-slate-50 ${
+              <label
+                className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-3 text-sm cursor-pointer hover:bg-slate-50 ${
                   isSaida ? 'border-orange-200 text-orange-500 hover:border-orange-300' : 'border-slate-200 text-slate-400 hover:border-slate-300'
                 }`}
               >
                 <Upload size={16} />
                 Enviar comprovante (JPG, PNG, PDF)
-              </button>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+              </label>
             )}
           </div>
 
