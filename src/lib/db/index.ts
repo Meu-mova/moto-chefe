@@ -8,10 +8,10 @@ declare global {
 }
 
 const client = postgres(process.env.DATABASE_URL!, {
-  max: 2,          // serverless: 1-2 conexões por instância — o pooler gerencia o resto
-  prepare: false,  // obrigatório para Supabase transaction-mode pooler
-  idle_timeout: 10,
-  connect_timeout: 10,
+  max: 5,
+  prepare: false,
+  idle_timeout: 20,
+  connect_timeout: 15,
 })
 
 export const db = globalThis.__db ?? (globalThis.__db = drizzle(client, { schema }))

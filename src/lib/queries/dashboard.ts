@@ -19,68 +19,34 @@ export async function getKPIs(filtros: Filtros) {
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
 
-  const vendasConditions = [
-    gte(vendas.dataVenda, inicio),
-    lte(vendas.dataVenda, fim),
-  ]
+  const vendasConditions = [gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)]
   if (lojaId?.length) vendasConditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) vendasConditions.push(eq(vendas.vendedorId, vendedorId))
 
-  const [vendasResult] = await db
-    .select({
-      totalVendas: count(),
-      faturamento: sum(vendas.valor),
-    })
-    .from(vendas)
-    .where(and(...vendasConditions))
-
-  const estoqueConditions = [
-    sql`${motos.status} != 'vendida'`,
-    sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'`,
+  const estoqueConditions: ReturnType<typeof eq>[] = [
+    sql`${motos.status} != 'vendida'` as any,
+    sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'` as any,
   ]
-  if (lojaId?.length) estoqueConditions.push(lojaFilter(motos.lojaId, lojaId)!)
+  if (lojaId?.length) estoqueConditions.push(lojaFilter(motos.lojaId, lojaId)! as any)
 
-  const [estoqueResult] = await db
-    .select({ total: count(), valorTotal: sum(motos.precoCompra) })
-    .from(motos)
-    .where(and(...estoqueConditions))
-
-  const transfConditions = [
-    eq(transferencias.status, 'pendente'),
-  ]
+  const transfConditions: ReturnType<typeof eq>[] = [eq(transferencias.status, 'pendente') as any]
   if (lojaId?.length) {
-    transfConditions.push(
-      or(
-        lojaFilter(transferencias.lojaOrigemId, lojaId)!,
-        lojaFilter(transferencias.lojaDestinoId, lojaId)!,
-      )!
-    )
+    transfConditions.push(or(lojaFilter(transferencias.lojaOrigemId, lojaId)!, lojaFilter(transferencias.lojaDestinoId, lojaId)!)! as any)
   }
 
-  const [transfResult] = await db
-    .select({ total: count() })
-    .from(transferencias)
-    .where(and(...transfConditions))
+  const garantiaConditions: ReturnType<typeof eq>[] = [eq(garantias.status, 'ativa') as any]
+  if (lojaId?.length) garantiaConditions.push(lojaFilter(garantias.lojaId, lojaId)! as any)
 
-  const garantiaConditions = [
-    eq(garantias.status, 'ativa'),
-  ]
-  if (lojaId?.length) garantiaConditions.push(lojaFilter(garantias.lojaId, lojaId)!)
+  const osConditions: ReturnType<typeof eq>[] = [or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))! as any]
+  if (lojaId?.length) osConditions.push(lojaFilter(ordensServico.lojaId, lojaId)! as any)
 
-  const [garantiaResult] = await db
-    .select({ total: count() })
-    .from(garantias)
-    .where(and(...garantiaConditions))
-
-  const osConditions = [
-    or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
-  ]
-  if (lojaId?.length) osConditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
-
-  const [osResult] = await db
-    .select({ total: count() })
-    .from(ordensServico)
-    .where(and(...osConditions))
+  const [vendasResult, estoqueResult, transfResult, garantiaResult, osResult] = await Promise.all([
+    db.select({ totalVendas: count(), faturamento: sum(vendas.valor) }).from(vendas).where(and(...vendasConditions)).then(r => r[0]),
+    db.select({ total: count(), valorTotal: sum(motos.precoCompra) }).from(motos).where(and(...estoqueConditions)).then(r => r[0]),
+    db.select({ total: count() }).from(transferencias).where(and(...transfConditions)).then(r => r[0]),
+    db.select({ total: count() }).from(garantias).where(and(...garantiaConditions)).then(r => r[0]),
+    db.select({ total: count() }).from(ordensServico).where(and(...osConditions)).then(r => r[0]),
+  ])
 
   return {
     totalVendas: vendasResult.totalVendas,

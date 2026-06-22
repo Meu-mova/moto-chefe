@@ -1,11 +1,11 @@
-// src/lib/auth.ts
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
+import { cache } from 'react'
 
-export async function getUsuarioLogado() {
+export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -20,7 +20,7 @@ export async function getUsuarioLogado() {
   if (!usuario) redirect('/login')
 
   return usuario
-}
+})
 
 export function isAdmin(papel: string) {
   return papel === 'admin_geral'
