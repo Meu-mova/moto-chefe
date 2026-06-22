@@ -31,23 +31,30 @@ function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-type Linha = { parcelas: number; total: number; financiado: number; parcela: number }
+type Linha = { parcelas: number; credito: number; parcela: number }
 
 function calcularLinhas(taxas: Record<string, number>, base: number, entrada: number): Linha[] {
+  const saldo = base - entrada
   return Object.entries(taxas)
     .filter(([, taxa]) => taxa > 0)
     .sort(([a], [b]) => parseInt(a) - parseInt(b))
     .map(([n, taxa]) => {
       const parcelas = parseInt(n)
-      const total = base * (1 + taxa)
-      const financiado = total - entrada
-      const parcela = financiado / parcelas
-      return { parcelas, total, financiado, parcela }
+      const credito = saldo * (1 + taxa)
+      const parcela = credito / parcelas
+      return { parcelas, credito, parcela }
     })
-    .filter(r => r.financiado > 0)
+    .filter(r => r.credito > 0)
 }
 
-function TabelaOpcoes({ linhas, cor, entrada }: { linhas: Linha[]; cor: string; entrada: number }) {
+function TabelaOpcoes({
+  linhas, cor, entrada, labelCredito = 'Crédito',
+}: {
+  linhas: Linha[]
+  cor: string
+  entrada: number
+  labelCredito?: string
+}) {
   if (linhas.length === 0) {
     return <p className="text-sm text-slate-400 py-4 text-center">Nenhuma opção configurada</p>
   }
@@ -57,20 +64,18 @@ function TabelaOpcoes({ linhas, cor, entrada }: { linhas: Linha[]; cor: string; 
         <thead className="bg-slate-50 border-b">
           <tr>
             <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium">Parcelas</th>
-            <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Valor Total</th>
             {entrada > 0 && (
-              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Financiado</th>
+              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">{labelCredito}</th>
             )}
-            <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Parcela</th>
+            <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Valor da Parcela</th>
           </tr>
         </thead>
         <tbody className="divide-y">
-          {linhas.map(({ parcelas, total, financiado, parcela }) => (
+          {linhas.map(({ parcelas, credito, parcela }) => (
             <tr key={parcelas} className="hover:bg-slate-50/50">
               <td className="px-3 py-2 font-semibold text-slate-700">{parcelas}x</td>
-              <td className="px-3 py-2 text-right text-slate-600">{fmt(total)}</td>
               {entrada > 0 && (
-                <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(financiado)}</td>
+                <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(credito)}</td>
               )}
               <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmt(parcela)}</td>
             </tr>
@@ -83,7 +88,6 @@ function TabelaOpcoes({ linhas, cor, entrada }: { linhas: Linha[]; cor: string; 
 
 function gerarHtmlPrint(
   modelo: Modelo,
-  taxas: Taxas,
   entrada: number,
   linhasCartao: Linha[],
   linhasLink: Linha[],
@@ -93,23 +97,21 @@ function gerarHtmlPrint(
   const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
 
-  function tabelaHtml(linhas: Linha[], cor: string) {
+  function tabelaHtml(linhas: Linha[], cor: string, labelCredito = 'Crédito') {
     if (!linhas.length) return '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px">Nenhuma opção configurada</p>'
     return `<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
           <th style="text-align:left;padding:7px 10px;color:#64748b;font-size:11px">Parcelas</th>
-          <th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px">Valor Total</th>
-          ${entrada > 0 ? '<th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px">Financiado</th>' : ''}
-          <th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px">Parcela</th>
+          ${entrada > 0 ? `<th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px">${labelCredito}</th>` : ''}
+          <th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px">Valor da Parcela</th>
         </tr>
       </thead>
       <tbody>
-        ${linhas.map(({ parcelas, total, financiado, parcela }) => `
+        ${linhas.map(({ parcelas, credito, parcela }) => `
           <tr style="border-bottom:1px solid #f1f5f9">
             <td style="padding:8px 10px;font-weight:700;color:#334155">${parcelas}x</td>
-            <td style="padding:8px 10px;text-align:right;color:#475569">${fmt(total)}</td>
-            ${entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:#94a3b8;font-size:12px">${fmt(financiado)}</td>` : ''}
+            ${entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:#94a3b8;font-size:12px">${fmt(credito)}</td>` : ''}
             <td style="padding:8px 10px;text-align:right;font-weight:700;color:${cor}">${fmt(parcela)}</td>
           </tr>`).join('')}
       </tbody>
@@ -156,15 +158,15 @@ function gerarHtmlPrint(
 
   <div class="section">
     <div class="section-title">💳 Cartão de Crédito</div>
-    <div class="section-box">${tabelaHtml(linhasCartao, '#1d4ed8')}</div>
+    <div class="section-box">${tabelaHtml(linhasCartao, '#1d4ed8', 'Crédito')}</div>
   </div>
   <div class="section">
     <div class="section-title">🔗 Link de Pagamento</div>
-    <div class="section-box">${tabelaHtml(linhasLink, '#7c3aed')}</div>
+    <div class="section-box">${tabelaHtml(linhasLink, '#7c3aed', 'Crédito')}</div>
   </div>
   <div class="section">
     <div class="section-title">🏦 Financiamento</div>
-    <div class="section-box">${tabelaHtml(linhasFinanciamento, '#b45309')}</div>
+    <div class="section-box">${tabelaHtml(linhasFinanciamento, '#b45309', 'Financiado')}</div>
   </div>
 
   <div class="footer">MOVA — Simulação gerada em ${data} · Valores sujeitos a alteração · Sujeito à aprovação de crédito</div>
@@ -196,7 +198,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
 
   function handlePrint() {
     if (!modelo) return
-    const html = gerarHtmlPrint(modelo, taxas, entradaNum, linhasCartao, linhasLink, linhasFinanciamento)
+    const html = gerarHtmlPrint(modelo, entradaNum, linhasCartao, linhasLink, linhasFinanciamento)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const win = window.open(url, '_blank', 'width=780,height=960')
@@ -211,8 +213,10 @@ export function SimuladorClient({ modelos, taxas }: Props) {
         <div className="max-w-sm space-y-1.5">
           <Label className="text-sm font-medium text-slate-700">Selecione o modelo</Label>
           <Select value={modeloId} onValueChange={v => setModeloId(v ?? '')}>
-            <SelectTrigger className="h-11 text-base">
-              <SelectValue placeholder="Escolha um modelo..." />
+            <SelectTrigger className="h-11 text-base w-full">
+              <span className={modeloId ? 'text-foreground' : 'text-muted-foreground'}>
+                {modeloId ? (modelos.find(m => m.id === modeloId)?.nome ?? 'Escolha um modelo...') : 'Escolha um modelo...'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {modelos.map(m => (
@@ -271,7 +275,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
                     <h3 className="font-semibold text-sm">Financiamento</h3>
                     <span className="text-xs text-slate-400">sujeito a aprovação de crédito</span>
                   </div>
-                  <TabelaOpcoes linhas={linhasFinanciamento} cor="text-amber-700" entrada={entradaNum} />
+                  <TabelaOpcoes linhas={linhasFinanciamento} cor="text-amber-700" entrada={entradaNum} labelCredito="Financiado" />
                 </div>
 
                 <div className="flex justify-end pt-2">
