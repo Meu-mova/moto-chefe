@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { db } from '@/lib/db'
 import { lojas, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -7,6 +8,18 @@ import { DashboardFiltros } from './components/dashboard-filtros'
 import { KpiCards } from './components/kpi-cards'
 import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoVendasPorLoja } from './components/charts'
 import { TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo, TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos } from './components/tabelas-resumo'
+
+const getLojasOpts = unstable_cache(
+  () => db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+  ['lojas-opts'],
+  { revalidate: 300 }
+)
+
+const getVendedoresOpts = unstable_cache(
+  () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'vendedor')).orderBy(usuarios.nome),
+  ['vendedores-opts'],
+  { revalidate: 300 }
+)
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -101,8 +114,8 @@ export default async function DashboardPage({
     getRankingVendedores(filtrosRanking),
     getRankingLojas(filtrosRanking),
     getModelosMaisVendidos(filtros),
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'vendedor')).orderBy(usuarios.nome),
+    getLojasOpts(),
+    getVendedoresOpts(),
   ])
 
   return (

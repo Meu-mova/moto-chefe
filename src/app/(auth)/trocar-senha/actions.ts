@@ -25,5 +25,8 @@ export async function trocarSenhaAction(formData: FormData) {
     redirect('/trocar-senha?error=1')
   }
 
+  // Força refresh do JWT no cookie para que o middleware leia must_change_password: false
+  await supabase.auth.refreshSession()
+
   redirect('/dashboard')
 }
