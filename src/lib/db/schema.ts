@@ -226,6 +226,7 @@ export const precificacao = pgTable('precificacao', {
   taxasCartao: jsonb('taxas_cartao').$type<Record<string, number>>().notNull().default({}),
   taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
+  custo: numeric('custo', { precision: 12, scale: 2 }),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

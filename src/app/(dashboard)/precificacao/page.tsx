@@ -40,6 +40,7 @@ export default async function PrecificacaoPage() {
           id: m.id,
           nome: m.nome,
           valorMinimo: m.valorMinimo,
+          custo: m.custo,
           ativo: m.ativo,
         }))}
       />

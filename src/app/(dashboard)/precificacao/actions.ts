@@ -36,11 +36,12 @@ export async function salvarTaxasAction(data: TaxasPayload) {
   revalidatePath('/simulador')
 }
 
-export async function criarModeloAction(data: { nome: string; valorMinimo: string }) {
+export async function criarModeloAction(data: { nome: string; valorMinimo: string; custo?: string }) {
   await checarAdmin()
   await db.insert(precificacao).values({
     nome: data.nome.toUpperCase(),
     valorMinimo: data.valorMinimo,
+    custo: data.custo || null,
     taxaPix: '0',
     taxasCartao: {},
     taxasLink: {},
@@ -50,11 +51,12 @@ export async function criarModeloAction(data: { nome: string; valorMinimo: strin
   revalidatePath('/simulador')
 }
 
-export async function editarModeloAction(id: string, data: { nome: string; valorMinimo: string }) {
+export async function editarModeloAction(id: string, data: { nome: string; valorMinimo: string; custo?: string }) {
   await checarAdmin()
   await db.update(precificacao).set({
     nome: data.nome.toUpperCase(),
     valorMinimo: data.valorMinimo,
+    custo: data.custo || null,
   }).where(eq(precificacao.id, id))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
