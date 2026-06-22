@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
-import { precificacao } from '@/lib/db/schema'
+import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { asc } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { PrecificacaoClient } from './components/precificacao-client'
 import { redirect } from 'next/navigation'
 
@@ -11,29 +11,38 @@ export default async function PrecificacaoPage() {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
 
-  const modelos = await db
-    .select()
-    .from(precificacao)
-    .orderBy(asc(precificacao.nome))
+  const [taxasRow, modelos] = await Promise.all([
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
+    db.select().from(precificacao).orderBy(asc(precificacao.nome)),
+  ])
+
+  const taxas = taxasRow[0] ?? {
+    taxasCartao: {} as Record<string, number>,
+    taxasLink: {} as Record<string, number>,
+    taxasFinanciamento: {} as Record<string, number>,
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Precificação</h1>
         <p className="text-slate-500 text-sm">
-          Gerencie taxas e preços por modalidade e parcelamento
+          Configure as taxas globais e os valores mínimos por modelo
         </p>
       </div>
-      <PrecificacaoClient modelos={modelos.map(m => ({
-        id: m.id,
-        nome: m.nome,
-        valorMinimo: m.valorMinimo,
-        taxaPix: m.taxaPix,
-        taxasCartao: (m.taxasCartao ?? {}) as Record<string, number>,
-        taxasLink: (m.taxasLink ?? {}) as Record<string, number>,
-        taxasFinanciamento: (m.taxasFinanciamento ?? {}) as Record<string, number>,
-        ativo: m.ativo,
-      }))} />
+      <PrecificacaoClient
+        taxas={{
+          taxasCartao: (taxas.taxasCartao ?? {}) as Record<string, number>,
+          taxasLink: (taxas.taxasLink ?? {}) as Record<string, number>,
+          taxasFinanciamento: (taxas.taxasFinanciamento ?? {}) as Record<string, number>,
+        }}
+        modelos={modelos.map(m => ({
+          id: m.id,
+          nome: m.nome,
+          valorMinimo: m.valorMinimo,
+          ativo: m.ativo,
+        }))}
+      />
     </div>
   )
 }

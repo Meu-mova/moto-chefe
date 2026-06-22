@@ -208,6 +208,15 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── configuracao_taxas (singleton) ──────────────────────────────────────────
+export const configuracaoTaxas = pgTable('configuracao_taxas', {
+  id: integer('id').primaryKey().default(1),
+  taxasCartao: jsonb('taxas_cartao').$type<Record<string, number>>().notNull().default({}),
+  taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
+  taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── precificacao ─────────────────────────────────────────────────────────────
 export const precificacao = pgTable('precificacao', {
   id: uuid('id').primaryKey().defaultRandom(),
