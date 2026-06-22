@@ -113,6 +113,7 @@ function gerarHtmlPrint(
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
+  const imgUrl = modelo.imagemUrl && /^https:\/\//i.test(modelo.imagemUrl) ? esc(modelo.imagemUrl) : null
   const tabela21 = linhasCartaoDestaque.find(l => l.parcelas === 21)
   const cartao21 = linhasCartao.find(l => l.parcelas === 21) ?? tabela21
   const cartao12 = linhasCartao.find(l => l.parcelas === 12) ?? linhasCartaoDestaque.find(l => l.parcelas === 12)
@@ -157,7 +158,7 @@ function gerarHtmlPrint(
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:16px">
-      ${modelo.imagemUrl ? `<img src="${modelo.imagemUrl}" alt="${nomeEsc}" style="height:80px;width:120px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px">` : ''}
+      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:80px;width:120px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px">` : ''}
       <div>
         <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
         <div class="model">${nomeEsc}</div>

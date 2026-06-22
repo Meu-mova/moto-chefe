@@ -2,8 +2,16 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, readdirSync } from 'fs'
 import { join, extname, basename } from 'path'
 
-const SUPABASE_URL = 'https://bzlaradpofaecqzawyym.supabase.co'
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6bGFyYWRwb2ZhZWNxemF3eXltIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTg4NjgxNCwiZXhwIjoyMDk1NDYyODE0fQ.ZZwUoxO_dk-v1iuYbpFqNm7Xk8YpxvaKzIa9W0Djs4Y'
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error('Variáveis NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias (.env.local)')
+  process.exit(1)
+}
 const IMAGENS_DIR = 'D:/ECOMOV/Arquivos ECOMOV/IMAGENS'
 const BUCKET = 'modelos'
 
