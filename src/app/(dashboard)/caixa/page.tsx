@@ -4,8 +4,9 @@ import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { NovoLancamentoDialog } from './components/novo-lancamento-dialog'
 import { LancamentosTable } from './components/lancamentos-table'
+import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { CaixaFiltros } from './components/caixa-filtros'
 
 export default async function CaixaPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -74,7 +75,12 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Caixa</h1>
-        <NovoLancamentoDialog lojas={lojasOpts} lojaUsuarioId={usuario.lojaId ?? null} />
+        <Link
+          href="/caixa/novo"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus size={16} /> Novo Lançamento
+        </Link>
       </div>
 
       <CaixaFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} isAdmin={isAdmin} />
