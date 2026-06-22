@@ -1,6 +1,10 @@
 // next.config.ts
 import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {}
+const nextConfig: NextConfig = {
+  serverActions: {
+    bodySizeLimit: '10mb',
+  },
+}
 
 export default nextConfig
