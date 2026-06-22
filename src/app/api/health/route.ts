@@ -11,6 +11,7 @@ export async function GET() {
     ])
     return NextResponse.json({ db: 'ok', ms: Date.now() - start })
   } catch (e) {
-    return NextResponse.json({ db: 'error', error: String(e), ms: Date.now() - start }, { status: 500 })
+    console.error('health: db check failed', e)
+    return NextResponse.json({ db: 'error', ms: Date.now() - start }, { status: 500 })
   }
 }
