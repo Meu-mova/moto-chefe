@@ -1,7 +1,8 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView,
+  timestamp, date, numeric, jsonb, pgView, integer,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export const motos = pgTable('motos', {
 // ─── reservas ────────────────────────────────────────────────────────────────
 export const reservas = pgTable('reservas', {
   id: uuid('id').primaryKey().defaultRandom(),
+  numero: integer('numero').notNull().default(sql`nextval('numero_venda_seq')`),
   motoId: uuid('moto_id').notNull().references(() => motos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
@@ -94,6 +96,7 @@ export const reservas = pgTable('reservas', {
 // ─── pedidos_venda ───────────────────────────────────────────────────────────
 export const pedidosVenda = pgTable('pedidos_venda', {
   id: uuid('id').primaryKey().defaultRandom(),
+  numero: integer('numero').notNull().default(sql`nextval('numero_venda_seq')`),
   motoId: uuid('moto_id').notNull().references(() => motos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
@@ -106,6 +109,8 @@ export const pedidosVenda = pgTable('pedidos_venda', {
 // ─── vendas ──────────────────────────────────────────────────────────────────
 export const vendas = pgTable('vendas', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // número herdado do pedido_venda via trigger no banco
+  numero: integer('numero').notNull().default(sql`nextval('numero_venda_seq')`),
   pedidoVendaId: uuid('pedido_venda_id').notNull().references(() => pedidosVenda.id),
   motoId: uuid('moto_id').notNull().references(() => motos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),

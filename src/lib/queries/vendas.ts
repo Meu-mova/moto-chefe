@@ -15,6 +15,7 @@ export async function listarVendas(filtros?: {
   return db
     .select({
       id:               vendas.id,
+      numero:           vendas.numero,
       motoId:           vendas.motoId,
       lojaId:           vendas.lojaId,
       vendedorId:       vendas.vendedorId,
@@ -63,6 +64,7 @@ export async function listarPedidosPorLoja(lojaId: string) {
   return db
     .select({
       id: pedidosVenda.id,
+      numero: pedidosVenda.numero,
       status: pedidosVenda.status,
       dataPedido: pedidosVenda.dataPedido,
       observacao: pedidosVenda.observacao,
@@ -89,6 +91,7 @@ export async function listarTodosPedidos() {
   return db
     .select({
       id: pedidosVenda.id,
+      numero: pedidosVenda.numero,
       status: pedidosVenda.status,
       dataPedido: pedidosVenda.dataPedido,
       observacao: pedidosVenda.observacao,
@@ -114,6 +117,7 @@ export async function buscarPedido(id: string) {
   const [pedido] = await db
     .select({
       id: pedidosVenda.id,
+      numero: pedidosVenda.numero,
       status: pedidosVenda.status,
       dataPedido: pedidosVenda.dataPedido,
       observacao: pedidosVenda.observacao,

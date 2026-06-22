@@ -46,7 +46,7 @@ export function DetalhesVendaDialog({ venda: v }: Props) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes da Venda</DialogTitle>
+            <DialogTitle>Venda #{v.numero}</DialogTitle>
             <p className="text-sm text-slate-500">{v.marca} {v.modelo} — {v.cor}</p>
           </DialogHeader>
 
@@ -67,6 +67,7 @@ export function DetalhesVendaDialog({ venda: v }: Props) {
             <div className="space-y-1.5">
               <p className="font-semibold text-slate-700">Venda</p>
               <div className="grid grid-cols-2 gap-1.5 text-slate-600">
+                <p className="col-span-2">Número: <span className="text-slate-900 font-mono font-semibold">#{v.numero}</span></p>
                 <p>Data: <span className="text-slate-900">{formatDate(v.dataVenda)}</span></p>
                 <p>Loja: <span className="text-slate-900">{v.lojaNome}</span></p>
                 <p>Vendedor: <span className="text-slate-900">{v.vendedorNome}</span></p>

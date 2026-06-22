@@ -61,9 +61,12 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario }: Props
             <p className="font-medium text-sm">{p.marca} {p.modelo}</p>
             <p className="text-xs font-mono text-slate-500">{p.chassi} · {p.cor}</p>
           </div>
-          <Badge variant={statusBadge[p.status] ?? 'secondary'}>
-            {p.status === 'pendente' ? 'Pendente' : p.status === 'efetivado' ? 'Efetivado' : 'Cancelado'}
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge variant={statusBadge[p.status] ?? 'secondary'}>
+              {p.status === 'pendente' ? 'Pendente' : p.status === 'efetivado' ? 'Efetivado' : 'Cancelado'}
+            </Badge>
+            <span className="text-xs font-mono text-slate-400">#{p.numero}</span>
+          </div>
         </div>
         <div className="text-xs text-slate-500 space-y-1">
           <p>Loja: <span className="text-slate-700">{p.lojaNome}</span></p>

@@ -29,6 +29,7 @@ export function VendasTable({ vendas, papel }: Props) {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-20">Nº</TableHead>
           <TableHead>Data</TableHead>
           <TableHead>Modelo</TableHead>
           <TableHead className="text-xs text-slate-500">Chassi</TableHead>
@@ -43,6 +44,7 @@ export function VendasTable({ vendas, papel }: Props) {
       <TableBody>
         {vendas.map(v => (
           <TableRow key={v.id}>
+            <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>
             <TableCell className="text-slate-500 text-sm whitespace-nowrap">
               {formatarData(v.dataVenda)}
             </TableCell>
