@@ -241,8 +241,9 @@ function PrecosDestaque({
             <p className="text-xs text-slate-400 mt-1">21x de {fmt(cartao21.parcela)}</p>
             {c21Entrada && (
               <div className="mt-2 pt-2 border-t border-slate-200">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Com entrada</p>
-                <p className="text-xs font-semibold text-slate-600">21x de {fmt(c21Entrada.parcela)}</p>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-slate-700">{fmt(c21Entrada.credito)} no cartão</p>
+                <p className="text-xs text-slate-500">21x de {fmt(c21Entrada.parcela)}</p>
               </div>
             )}
           </>
@@ -261,8 +262,9 @@ function PrecosDestaque({
             <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-blue-100 text-blue-700" corEcon="text-blue-500" />
             {c12Entrada && (
               <div className="mt-2 pt-2 border-t border-blue-200">
-                <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-0.5">Com entrada</p>
-                <p className="text-xs font-semibold text-blue-600">12x de {fmt(c12Entrada.parcela)}</p>
+                <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-blue-700">{fmt(c12Entrada.credito)} no cartão</p>
+                <p className="text-xs text-blue-500">12x de {fmt(c12Entrada.parcela)}</p>
               </div>
             )}
           </>
