@@ -16,7 +16,7 @@ export default async function NovoLancamentoPage() {
         <h1 className="text-2xl font-bold">Novo Lançamento</h1>
         <p className="text-slate-500 text-sm">Registrar entrada ou saída no caixa</p>
       </div>
-      <NovoLancamentoForm lojas={lojasOpts} lojaUsuarioId={usuario.lojaId ?? null} />
+      <NovoLancamentoForm lojas={lojasOpts} lojaUsuarioId={usuario.lojaId ?? null} isAdmin={['admin_geral', 'admin_socio'].includes(usuario.papel)} />
     </div>
   )
 }

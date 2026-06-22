@@ -31,7 +31,7 @@ const categoriasSaida = [
   'Outros',
 ]
 
-export function NovoLancamentoForm({ lojas, lojaUsuarioId }: { lojas: Loja[]; lojaUsuarioId: string | null }) {
+export function NovoLancamentoForm({ lojas, lojaUsuarioId, isAdmin }: { lojas: Loja[]; lojaUsuarioId: string | null; isAdmin: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -120,7 +120,8 @@ export function NovoLancamentoForm({ lojas, lojaUsuarioId }: { lojas: Loja[]; lo
           <select
             value={lojaId}
             onChange={e => setLojaId(e.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none"
+            disabled={!isAdmin}
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {lojas.map(l => (
               <option key={l.id} value={l.id}>{l.nome}</option>
