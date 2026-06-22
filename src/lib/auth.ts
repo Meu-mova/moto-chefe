@@ -7,9 +7,7 @@ import { cache } from 'react'
 
 export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
-  // middleware já verificou o token via getUser() — aqui lemos do cookie sem HTTP
-  const { data: { session } } = await supabase.auth.getSession()
-  const user = session?.user ?? null
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
