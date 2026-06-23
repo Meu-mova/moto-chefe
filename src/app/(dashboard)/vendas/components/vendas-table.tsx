@@ -1,3 +1,4 @@
+'use client'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
@@ -7,6 +8,41 @@ import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeCancelar = new Set(['admin_geral', 'admin_socio'])
+const ADMINS       = new Set(['admin_geral', 'admin_socio'])
+
+const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
+
+type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
+
+function calcStatus(pagamentos: unknown, conciliadoValor: number): StatusConc {
+  const pgtos = (pagamentos ?? []) as { tipo: string; valor: number }[]
+  const totalCartao = pgtos
+    .filter(p => TIPOS_CARTAO.has(p.tipo))
+    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+
+  if (totalCartao < 0.01) return 'na'
+  const conciliado = Number(conciliadoValor) || 0
+  if (conciliado < 0.01) return 'pendente'
+  if (conciliado >= totalCartao - 0.05) return 'conciliada'
+  return 'parcial'
+}
+
+const BADGE: Record<StatusConc, { label: string; cls: string } | null> = {
+  na:          null,
+  pendente:    { label: 'Pendente',   cls: 'bg-red-50 text-red-700 border-red-200' },
+  parcial:     { label: 'Parcial',    cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  conciliada:  { label: '✓ OK',       cls: 'bg-green-50 text-green-700 border-green-200' },
+}
+
+function ConcBadge({ status }: { status: StatusConc }) {
+  const b = BADGE[status]
+  if (!b) return <span className="text-slate-300 text-xs">—</span>
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium whitespace-nowrap ${b.cls}`}>
+      {b.label}
+    </span>
+  )
+}
 
 function formatarValor(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -23,7 +59,8 @@ type Props = {
 
 export function VendasTable({ vendas, papel }: Props) {
   const podeFazerGarantia = podeGarantia.has(papel)
-  const colSpan = podeFazerGarantia ? 10 : 9
+  const isAdmin           = ADMINS.has(papel)
+  const colSpan = podeFazerGarantia ? (isAdmin ? 11 : 10) : (isAdmin ? 10 : 9)
 
   return (
     <Table>
@@ -38,50 +75,59 @@ export function VendasTable({ vendas, papel }: Props) {
           <TableHead>Vendedor</TableHead>
           <TableHead>NF Saída</TableHead>
           <TableHead>Valor</TableHead>
+          {isAdmin && <TableHead>Conciliação</TableHead>}
           <TableHead className="text-right">Ações</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {vendas.map(v => (
-          <TableRow key={v.id}>
-            <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>
-            <TableCell className="text-slate-500 text-sm whitespace-nowrap">
-              {formatarData(v.dataVenda)}
-            </TableCell>
-            <TableCell className="font-medium">{v.modelo}</TableCell>
-            <TableCell className="font-mono text-xs text-slate-500 max-w-36">
-              <span className="block truncate" title={v.chassi}>{v.chassi}</span>
-            </TableCell>
-            <TableCell>{v.cor}</TableCell>
-            <TableCell>{v.lojaNome}</TableCell>
-            <TableCell>{v.vendedorNome}</TableCell>
-            <TableCell className="text-slate-500">{v.notaFiscalSaida ?? '—'}</TableCell>
-            <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
-            <TableCell className="text-right">
-              <div className="flex items-center gap-1 justify-end">
-                <DetalhesVendaDialog venda={v} />
-                {!v.notaFiscalSaida && podeFazerGarantia && (
-                  <NfSaidaButton
-                    motoId={v.motoId}
-                    descricao={`${v.modelo} — ${v.chassi}`}
-                  />
-                )}
-                {podeFazerGarantia && (
-                  <GarantiaButton
-                    motoId={v.motoId}
-                    descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
-                  />
-                )}
-                {podeCancelar.has(papel) && (
-                  <CancelarVendaButton
-                    vendaId={v.id}
-                    descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
-                  />
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+        {vendas.map(v => {
+          const status = calcStatus(v.pagamentos, v.conciliadoValor as number)
+          return (
+            <TableRow key={v.id}>
+              <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>
+              <TableCell className="text-slate-500 text-sm whitespace-nowrap">
+                {formatarData(v.dataVenda)}
+              </TableCell>
+              <TableCell className="font-medium">{v.modelo}</TableCell>
+              <TableCell className="font-mono text-xs text-slate-500 max-w-36">
+                <span className="block truncate" title={v.chassi}>{v.chassi}</span>
+              </TableCell>
+              <TableCell>{v.cor}</TableCell>
+              <TableCell>{v.lojaNome}</TableCell>
+              <TableCell>{v.vendedorNome}</TableCell>
+              <TableCell className="text-slate-500">{v.notaFiscalSaida ?? '—'}</TableCell>
+              <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
+              {isAdmin && (
+                <TableCell>
+                  <ConcBadge status={status} />
+                </TableCell>
+              )}
+              <TableCell className="text-right">
+                <div className="flex items-center gap-1 justify-end">
+                  <DetalhesVendaDialog venda={v} />
+                  {!v.notaFiscalSaida && podeFazerGarantia && (
+                    <NfSaidaButton
+                      motoId={v.motoId}
+                      descricao={`${v.modelo} — ${v.chassi}`}
+                    />
+                  )}
+                  {podeFazerGarantia && (
+                    <GarantiaButton
+                      motoId={v.motoId}
+                      descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
+                    />
+                  )}
+                  {podeCancelar.has(papel) && (
+                    <CancelarVendaButton
+                      vendaId={v.id}
+                      descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
+                    />
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          )
+        })}
         {vendas.length === 0 && (
           <TableRow>
             <TableCell colSpan={colSpan} className="text-center text-slate-400 py-8">

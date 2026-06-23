@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { pedidosVenda, vendas, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
-import { eq, and, ilike, inArray, desc } from 'drizzle-orm'
+import { eq, and, ilike, inArray, desc, sql } from 'drizzle-orm'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
 export type VendaComDetalhes  = Awaited<ReturnType<typeof listarVendas>>[0]
@@ -35,6 +35,12 @@ export async function listarVendas(filtros?: {
       clienteCidade:    vendas.clienteCidade,
       clienteEstado:    vendas.clienteEstado,
       notaFiscalSaida:  vendas.notaFiscalSaida,
+      conciliadoValor:  sql<number>`COALESCE((
+        SELECT SUM(valor_bruto::numeric)
+        FROM conciliacoes_cartao
+        WHERE venda_id = ${vendas.id}
+        AND conciliado = true
+      ), 0)`,
       chassi:           motos.chassi,
       cor:              motos.cor,
       modeloId:         motos.modeloId,
