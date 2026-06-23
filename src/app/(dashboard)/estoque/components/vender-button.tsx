@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -130,6 +130,15 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
   const [valorVenda, setValorVenda] = useState('')
   const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
+
+  // Quando o total da venda muda numa finalização de reserva, atualiza o restante automaticamente
+  useEffect(() => {
+    if (!reservaAtiva) return
+    const total = parseFloat(valorVenda) || 0
+    const entrada = parseFloat(reservaAtiva.valorEntrada) || 0
+    const restante = Math.max(0, total - entrada).toFixed(2)
+    setPgtos(prev => prev.map(p => p.id === 'restante' ? { ...p, valor: restante } : p))
+  }, [valorVenda]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reserva ──
   const [valorReserva, setValorReserva] = useState('')
@@ -419,9 +428,13 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             {reservaAtiva && (
               <div className="text-sm px-3 py-2 rounded-md border bg-blue-50 text-blue-700 border-blue-200 space-y-0.5">
                 <p className="font-medium">Resumo da reserva</p>
-                <p>Total acordado: <span className="font-semibold">R$ {parseFloat(reservaAtiva.valorTotal).toFixed(2).replace('.', ',')}</span></p>
-                <p>Entrada já recebida: R$ {parseFloat(reservaAtiva.valorEntrada).toFixed(2).replace('.', ',')} — preencha a forma de pagamento abaixo</p>
-                <p>Restante a receber: <span className="font-semibold">R$ {(parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2).replace('.', ',')}</span></p>
+                <p>Total negociado: <span className="font-semibold">{fmtBRL(parseFloat(valorVenda) || 0)}</span>
+                  {valorVenda !== reservaAtiva.valorTotal && (
+                    <span className="ml-1 text-xs text-blue-500">(reservado: {fmtBRL(parseFloat(reservaAtiva.valorTotal))})</span>
+                  )}
+                </p>
+                <p>Entrada já recebida: <span className="font-semibold">{fmtBRL(parseFloat(reservaAtiva.valorEntrada))}</span></p>
+                <p>Restante a receber: <span className="font-semibold">{fmtBRL(Math.max(0, (parseFloat(valorVenda) || 0) - parseFloat(reservaAtiva.valorEntrada)))}</span></p>
               </div>
             )}
 
@@ -514,14 +527,12 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                 <div className="space-y-1">
                   <Label>
                     Valor da Venda (R$) <span className="text-red-500">*</span>
-                    {reservaAtiva && <span className="text-xs text-slate-400 ml-1">(definido na reserva)</span>}
+                    {reservaAtiva && <span className="text-xs text-slate-400 ml-1">(editável — restante atualiza automaticamente)</span>}
                   </Label>
                   <CurrencyInput
                     value={valorVenda}
                     onChange={setValorVenda}
                     placeholder="0,00"
-                    readOnly={!!reservaAtiva}
-                    className={reservaAtiva ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}
                   />
                 </div>
 
