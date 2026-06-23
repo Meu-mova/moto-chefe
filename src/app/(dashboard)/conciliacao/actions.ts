@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, modelos, motos } from '@/lib/db/schema'
-import { eq, and, between, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -217,15 +217,9 @@ export async function desvincularVendaAction(conciliacaoId: string) {
   revalidatePath('/conciliacao')
 }
 
-export async function buscarVendasParaVincular(dataRef: string, valorRef: number) {
-  // Busca vendas com cartão ± 5 dias e valor próximo (±20%)
-  const base = new Date(dataRef + 'T12:00:00Z')
-  const dMin = new Date(base); dMin.setDate(dMin.getDate() - 5)
-  const dMax = new Date(base); dMax.setDate(dMax.getDate() + 5)
-  const vMin = valorRef * 0.8
-  const vMax = valorRef * 1.2
-
-  const rows = await db
+export async function buscarVendasParaVincular(valorRef: number) {
+  // Busca vendas onde algum lançamento de cartão tem valor exato (tolerância de R$0,01)
+  return db
     .select({
       id:             vendas.id,
       numero:         vendas.numero,
@@ -236,14 +230,13 @@ export async function buscarVendasParaVincular(dataRef: string, valorRef: number
       pagamentos:     vendas.pagamentos,
     })
     .from(vendas)
-    .where(between(vendas.dataVenda, dMin, dMax))
-    .orderBy(desc(vendas.dataVenda))
-
-  return rows.filter(v => {
-    const pgtos = (v.pagamentos ?? []) as { tipo: string; valor: number }[]
-    return pgtos.some(p =>
-      ['cartao_credito', 'cartao_debito', 'link_pagamento'].includes(p.tipo) &&
-      p.valor >= vMin && p.valor <= vMax
+    .where(
+      sql`EXISTS (
+        SELECT 1 FROM jsonb_array_elements(${vendas.pagamentos}) AS p
+        WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
+        AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
+      )`
     )
-  })
+    .orderBy(desc(vendas.dataVenda))
+    .limit(50)
 }

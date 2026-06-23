@@ -25,7 +25,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
     setOpen(true)
     setCarregando(true)
     try {
-      const lista = await buscarVendasParaVincular(dataRef, valorRef)
+      const lista = await buscarVendasParaVincular(valorRef)
       setVendas(lista)
     } finally {
       setCarregando(false)
