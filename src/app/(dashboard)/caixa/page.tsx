@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, sql, ne } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,7 +66,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
         total: sql<string>`SUM(${lancamentosCaixa.valor})`,
       })
       .from(lancamentosCaixa)
-      .where(filtros)
+      .where(and(filtros, ne(lancamentosCaixa.statusAprovacao, 'reprovado')))
       .groupBy(lancamentosCaixa.tipo),
   ])
 
