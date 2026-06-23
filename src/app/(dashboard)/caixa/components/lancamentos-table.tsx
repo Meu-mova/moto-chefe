@@ -176,7 +176,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1">
-                      <ShieldAlert size={15} className="text-amber-500" title="Pendente de aprovação" />
+                      <ShieldAlert size={15} className="text-amber-500" />
                       {podeAprovar && l.comprovanteUrl && (
                         <button
                           type="button"
