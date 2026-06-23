@@ -41,6 +41,12 @@ type Moto = {
   reservaCartaoParcelas: string | null
 }
 
+type TaxasVenda = {
+  taxasCartao: Record<string, number>
+  taxasLink: Record<string, number>
+  taxasFinanciamento: Record<string, number>
+}
+
 type Props = {
   moto: Moto
   papel: string
@@ -50,6 +56,8 @@ type Props = {
   mecanicos: Mecanico[]
   lojas: Loja[]
   lojaUsuarioId: string | null
+  precoMinimoPix: number | null
+  taxasVenda: TaxasVenda | null
 }
 
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
@@ -58,7 +66,7 @@ const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
-export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId }: Props) {
+export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda }: Props) {
   const isAdmin = ADMINS.has(papel)
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   const descricao = `${moto.modelo} — ${moto.cor} (${moto.lojaNome})`
@@ -100,6 +108,8 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             vendedorNome={vendedorNome}
             usuarios={usuarios}
             showLabel
+            precoMinimoPix={precoMinimoPix}
+            taxasVenda={taxasVenda}
           />
         )
       }
@@ -113,6 +123,8 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             vendedorNome={vendedorNome}
             usuarios={usuarios}
             showLabel
+            precoMinimoPix={precoMinimoPix}
+            taxasVenda={taxasVenda}
             reservaAtiva={{
               valorEntrada: moto.reservaValorEntrada,
               valorTotal: moto.reservaValorTotal ?? '0',
@@ -146,6 +158,8 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             usuarios={usuarios}
             soReserva
             showLabel
+            precoMinimoPix={precoMinimoPix}
+            taxasVenda={taxasVenda}
           />
         )
       }

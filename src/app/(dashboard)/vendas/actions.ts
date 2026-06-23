@@ -2,9 +2,35 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa } from '@/lib/db/schema'
+import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
+
+async function buscarPrecificacao(modeloId: string) {
+  const [modeloRow] = await db
+    .select({ modelo: modelos.modelo })
+    .from(modelos).where(eq(modelos.id, modeloId)).limit(1)
+  if (!modeloRow) return null
+
+  const [[precRow], [taxasRow]] = await Promise.all([
+    db.select({ valorMinimo: precificacao.valorMinimo })
+      .from(precificacao)
+      .where(and(eq(precificacao.nome, modeloRow.modelo), eq(precificacao.ativo, true)))
+      .limit(1),
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
+  ])
+
+  if (!precRow || !taxasRow) return null
+  return {
+    valorMinimoPix: parseFloat(precRow.valorMinimo),
+    taxas: {
+      taxasCartao: taxasRow.taxasCartao as Record<string, number>,
+      taxasLink: taxasRow.taxasLink as Record<string, number>,
+      taxasFinanciamento: taxasRow.taxasFinanciamento as Record<string, number>,
+    },
+  }
+}
 
 export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
@@ -110,6 +136,17 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
+  }
+
+  const prec = await buscarPrecificacao(moto.modeloId)
+  if (prec) {
+    const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
+    if (liquido < prec.valorMinimoPix - 0.01) {
+      const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      throw new Error(
+        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)} — mínimo PIX ${fmt(prec.valorMinimoPix)}`
+      )
+    }
   }
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
@@ -346,6 +383,19 @@ export async function registrarReservaAction(data: DadosReserva) {
 
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
+
+  const prec = await buscarPrecificacao(moto.modeloId)
+  if (prec) {
+    const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    const valorTotalNum = parseFloat(data.valorTotalVenda)
+    const check = validarReserva(valorNum, isNaN(valorTotalNum) ? 0 : valorTotalNum, prec.valorMinimoPix)
+    if (!check.entradaOk) {
+      throw new Error(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
+    }
+    if (!check.totalOk) {
+      throw new Error(`Valor total ${fmt(valorTotalNum)} abaixo do preço mínimo PIX ${fmt(prec.valorMinimoPix)}`)
+    }
+  }
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id

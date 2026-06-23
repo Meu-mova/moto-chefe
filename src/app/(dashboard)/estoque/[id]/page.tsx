@@ -4,8 +4,8 @@ import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { lojas, modelos, usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { lojas, modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,12 +25,26 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
 
   if (!moto) notFound()
 
-  const [mecanicos, lojasOpts, usuariosOpts, modelosOpts] = await Promise.all([
+  const [mecanicos, lojasOpts, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+    db.select({ valorMinimo: precificacao.valorMinimo })
+      .from(precificacao)
+      .where(and(eq(precificacao.nome, moto.modelo), eq(precificacao.ativo, true)))
+      .limit(1),
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
   ])
+
+  const precoMinimoPix = precRow[0] ? parseFloat(precRow[0].valorMinimo) : null
+  const taxasVenda = taxasRow[0]
+    ? {
+        taxasCartao: taxasRow[0].taxasCartao as Record<string, number>,
+        taxasLink: taxasRow[0].taxasLink as Record<string, number>,
+        taxasFinanciamento: taxasRow[0].taxasFinanciamento as Record<string, number>,
+      }
+    : null
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -98,6 +112,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         mecanicos={mecanicos}
         lojas={lojasOpts}
         lojaUsuarioId={usuario.lojaId ?? null}
+        precoMinimoPix={precoMinimoPix}
+        taxasVenda={taxasVenda}
       />
       </div>
 
