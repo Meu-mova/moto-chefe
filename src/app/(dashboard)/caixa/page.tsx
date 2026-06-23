@@ -2,6 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LancamentosTable } from './components/lancamentos-table'
@@ -31,6 +32,8 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
     !isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined,
   )
 
+  const aprovadoresTbl = alias(usuarios, 'aprovadores')
+
   const [lancamentos, lojasOpts, totais] = await Promise.all([
     db
       .select({
@@ -43,11 +46,15 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
         lojaNome: lojas.nome,
         usuarioNome: usuarios.nome,
         comprovanteUrl: lancamentosCaixa.comprovanteUrl,
+        aprovado: lancamentosCaixa.aprovado,
+        aprovadoPorNome: aprovadoresTbl.nome,
+        aprovadoEm: lancamentosCaixa.aprovadoEm,
         criadoEm: lancamentosCaixa.criadoEm,
       })
       .from(lancamentosCaixa)
       .innerJoin(lojas, eq(lancamentosCaixa.lojaId, lojas.id))
       .innerJoin(usuarios, eq(lancamentosCaixa.usuarioId, usuarios.id))
+      .leftJoin(aprovadoresTbl, eq(lancamentosCaixa.aprovadoPorId, aprovadoresTbl.id))
       .where(filtros)
       .orderBy(desc(lancamentosCaixa.data), desc(lancamentosCaixa.criadoEm)),
 
@@ -103,7 +110,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
       <Card>
         <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
         <CardContent>
-          <LancamentosTable lancamentos={lancamentos} isAdmin={isAdmin} />
+          <LancamentosTable lancamentos={lancamentos} isAdmin={isAdmin} podeAprovar={isAdmin} />
         </CardContent>
       </Card>
     </div>

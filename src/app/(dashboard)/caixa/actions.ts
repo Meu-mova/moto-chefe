@@ -129,6 +129,30 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
   return data.signedUrl
 }
 
+export async function aprovarLancamentoAction(lancamentoId: string) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const [lancamento] = await db
+    .select({ tipo: lancamentosCaixa.tipo, aprovado: lancamentosCaixa.aprovado })
+    .from(lancamentosCaixa)
+    .where(eq(lancamentosCaixa.id, lancamentoId))
+    .limit(1)
+
+  if (!lancamento) throw new Error('Lançamento não encontrado')
+  if (lancamento.tipo !== 'saida') throw new Error('Apenas saídas podem ser aprovadas')
+  if (lancamento.aprovado) throw new Error('Lançamento já aprovado')
+
+  await db
+    .update(lancamentosCaixa)
+    .set({ aprovado: true, aprovadoPorId: usuario.id, aprovadoEm: new Date() })
+    .where(eq(lancamentosCaixa.id, lancamentoId))
+
+  revalidatePath('/caixa')
+}
+
 export async function excluirLancamentoAction(lancamentoId: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
