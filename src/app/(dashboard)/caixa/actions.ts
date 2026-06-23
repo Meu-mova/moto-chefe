@@ -98,10 +98,13 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
     throw new Error('Sem permissão')
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.storage
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { data, error } = await supabaseAdmin.storage
     .from('comprovantes')
-    .createSignedUrl(filePath, 300)
+    .createSignedUrl(filePath, 600)
 
   if (error || !data?.signedUrl) throw new Error('Erro ao gerar URL do comprovante')
   return data.signedUrl
