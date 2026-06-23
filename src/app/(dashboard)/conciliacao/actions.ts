@@ -77,21 +77,44 @@ function parsePagueVeloz(text: string) {
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
+function detectarFormato(primeiraLinha: string): string | null {
+  if (primeiraLinha.startsWith('Data e hora'))      return 'infinitypay'
+  if (primeiraLinha.startsWith('Cod PagueVeloz') ||
+      primeiraLinha.startsWith('Cod Pague'))         return 'pagueveloz'
+  return null
+}
+
 export async function importarRelatorioAction(formData: FormData) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
 
-  const operadora = formData.get('operadora') as string
+  const operadoraSelecionada = formData.get('operadora') as string
   const file = formData.get('file') as File
-  if (!file || !operadora) throw new Error('Arquivo ou operadora não informados')
+  if (!file || !operadoraSelecionada) throw new Error('Arquivo ou operadora não informados')
 
-  const text = await file.text()
+  // Tenta UTF-8; se falhar, tenta latin1 (comum em arquivos Windows brasileiros)
+  let text: string
+  try {
+    const buf = await file.arrayBuffer()
+    text = new TextDecoder('utf-8').decode(buf)
+    if (text.includes('�')) text = new TextDecoder('latin1').decode(buf)
+  } catch {
+    text = await file.text()
+  }
+
+  // Auto-detecta o formato pelo cabeçalho
+  const primeiraLinha = text.trim().split(/\r?\n/)[0] ?? ''
+  const formatoDetectado = detectarFormato(primeiraLinha)
+  const operadora = formatoDetectado ?? operadoraSelecionada
+
+  if (formatoDetectado && formatoDetectado !== operadoraSelecionada) {
+    console.log(`[conciliacao] formato detectado: ${formatoDetectado} (selecionado: ${operadoraSelecionada})`)
+  }
 
   let rows: ReturnType<typeof parseInfinityPay> = []
-  if (operadora === 'infinitypay')  rows = parseInfinityPay(text)
-  else if (operadora === 'pagueveloz') rows = parsePagueVeloz(text)
-  // stone: parser adicionado quando tivermos amostra
-  else throw new Error(`Parser para ${operadora} ainda não implementado`)
+  if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
+  else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
+  else throw new Error(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
 
   let importadas = 0
   let duplicadas = 0
