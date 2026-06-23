@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas, modelos, motos } from '@/lib/db/schema'
+import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos } from '@/lib/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -218,6 +218,21 @@ export async function desvincularVendaAction(conciliacaoId: string) {
 }
 
 export async function buscarConciliacoesDaVenda(vendaId: string) {
+  const usuario = await getUsuarioLogado()
+
+  // Verifica se o usuário tem acesso a essa venda
+  const [venda] = await db
+    .select({ lojaId: vendas.lojaId })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  if (!venda) return []
+
+  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel) && venda.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
+
   return db
     .select({
       id:            conciliacoesCartao.id,
@@ -229,6 +244,33 @@ export async function buscarConciliacoesDaVenda(vendaId: string) {
     })
     .from(conciliacoesCartao)
     .where(and(eq(conciliacoesCartao.vendaId, vendaId), eq(conciliacoesCartao.conciliado, true)))
+}
+
+export async function buscarPixDaVenda(vendaId: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [venda] = await db
+    .select({ lojaId: vendas.lojaId })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  if (!venda) return []
+
+  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel) && venda.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
+
+  return db
+    .select({
+      id:              pixRecebimentos.id,
+      dataPagamento:   pixRecebimentos.dataPagamento,
+      valor:           pixRecebimentos.valor,
+      pagadorNome:     pixRecebimentos.pagadorNome,
+      observacao:      pixRecebimentos.observacao,
+    })
+    .from(pixRecebimentos)
+    .where(eq(pixRecebimentos.vendaId, vendaId))
 }
 
 export async function buscarVendasParaVincular(valorRef: number) {

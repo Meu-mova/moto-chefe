@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { fetchAllPix, parseObservation } from '@/lib/validapix'
 import { db } from '@/lib/db'
-import { vendas, pedidosVenda, lojas, motos, modelos } from '@/lib/db/schema'
-import { inArray, eq } from 'drizzle-orm'
+import { vendas, pedidosVenda, lojas, motos, modelos, pixRecebimentos } from '@/lib/db/schema'
+import { inArray, eq, sql } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -113,6 +113,31 @@ export default async function PixPage({
       (tipo === 'PV' && numero && pedidoByNum.has(numero))
     if (matched) { totalVinculado += valor; countVinculado++ }
     if (!pix.observation?.trim()) countSemRef++
+  }
+
+  // Persiste/atualiza os PIX no banco para cruzamento com vendas
+  if (pixList.length > 0) {
+    await db.insert(pixRecebimentos)
+      .values(pixList.map(pix => {
+        const { tipo, numero } = parseObservation(pix.observation)
+        return {
+          id:               pix.endToEndId,
+          dataPagamento:    new Date(pix.date),
+          valor:            pix.price,
+          pagadorNome:      pix.name || null,
+          pagadorDocumento: pix.document || null,
+          observacao:       pix.observation || null,
+          vendaId:          (tipo === 'NF' && numero ? vendaByNF.get(String(numero))?.id : null) ?? null,
+          pedidoId:         (tipo === 'PV' && numero ? pedidoByNum.get(numero)?.id : null) ?? null,
+        }
+      }))
+      .onConflictDoUpdate({
+        target: pixRecebimentos.id,
+        set: {
+          vendaId:  sql`excluded.venda_id`,
+          pedidoId: sql`excluded.pedido_id`,
+        },
+      })
   }
 
   return (

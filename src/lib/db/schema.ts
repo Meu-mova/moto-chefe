@@ -252,6 +252,19 @@ export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── pix_recebimentos ────────────────────────────────────────────────────────
+export const pixRecebimentos = pgTable('pix_recebimentos', {
+  id:               text('id').primaryKey(),  // endToEndId do ValidaPix
+  dataPagamento:    timestamp('data_pagamento', { withTimezone: true }).notNull(),
+  valor:            numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  pagadorNome:      text('pagador_nome'),
+  pagadorDocumento: text('pagador_documento'),
+  observacao:       text('observacao'),
+  vendaId:          uuid('venda_id').references(() => vendas.id),
+  pedidoId:         uuid('pedido_id').references(() => pedidosVenda.id),
+  createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {
   id: uuid('id').primaryKey().defaultRandom(),

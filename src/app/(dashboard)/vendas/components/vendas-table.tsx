@@ -14,16 +14,21 @@ const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento
 
 type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
 
-function calcStatus(pagamentos: unknown, conciliadoValor: number): StatusConc {
+function calcStatus(pagamentos: unknown, conciliadoValor: number, pixConciliadoValor: number): StatusConc {
   const pgtos = (pagamentos ?? []) as { tipo: string; valor: number }[]
   const totalCartao = pgtos
     .filter(p => TIPOS_CARTAO.has(p.tipo))
     .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  const totalPix = pgtos
+    .filter(p => p.tipo === 'pix')
+    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
 
-  if (totalCartao < 0.01) return 'na'
-  const conciliado = Number(conciliadoValor) || 0
+  const totalNecessa = totalCartao + totalPix
+  if (totalNecessa < 0.01) return 'na'
+
+  const conciliado = (Number(conciliadoValor) || 0) + (Number(pixConciliadoValor) || 0)
   if (conciliado < 0.01) return 'pendente'
-  if (conciliado >= totalCartao - 0.05) return 'conciliada'
+  if (conciliado >= totalNecessa - 0.05) return 'conciliada'
   return 'parcial'
 }
 
@@ -81,7 +86,7 @@ export function VendasTable({ vendas, papel }: Props) {
       </TableHeader>
       <TableBody>
         {vendas.map(v => {
-          const status = calcStatus(v.pagamentos, v.conciliadoValor as number)
+          const status = calcStatus(v.pagamentos, v.conciliadoValor as number, v.pixConciliadoValor as number)
           return (
             <TableRow key={v.id}>
               <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>

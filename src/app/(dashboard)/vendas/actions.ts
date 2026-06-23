@@ -2,8 +2,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas } from '@/lib/db/schema'
-import { eq, and, isNull, desc } from 'drizzle-orm'
+import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios } from '@/lib/db/schema'
+import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 
@@ -462,4 +462,22 @@ export async function registrarReservaAction(data: DadosReserva) {
   })
 
   revalidatePath('/estoque')
+}
+
+export async function buscarHistoricoMotoAction(motoId: string) {
+  await getUsuarioLogado()
+  return db
+    .select({
+      id:            historicoEstoque.id,
+      tipo:          historicoEstoque.tipo,
+      statusAnterior: historicoEstoque.statusAnterior,
+      statusNovo:    historicoEstoque.statusNovo,
+      data:          historicoEstoque.data,
+      observacao:    historicoEstoque.observacao,
+      usuarioNome:   usuarios.nome,
+    })
+    .from(historicoEstoque)
+    .leftJoin(usuarios, eq(historicoEstoque.usuarioId, usuarios.id))
+    .where(eq(historicoEstoque.motoId, motoId))
+    .orderBy(sql`${historicoEstoque.data} DESC`)
 }
