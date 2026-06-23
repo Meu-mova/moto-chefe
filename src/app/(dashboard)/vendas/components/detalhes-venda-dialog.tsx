@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Eye } from 'lucide-react'
+import { Eye, CheckCircle2, Clock } from 'lucide-react'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import { buscarConciliacoesDaVenda } from '../../conciliacao/actions'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -22,14 +23,57 @@ const tipoLabel: Record<string, string> = {
   transferencia: 'Transferência Bancária',
 }
 
+const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
+
+type Conc = Awaited<ReturnType<typeof buscarConciliacoesDaVenda>>[number]
+type Pgto = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
+
+function matchPagamentos(pgtos: Pgto[], concs: Conc[]): boolean[] {
+  const usados = new Set<string>()
+  const resultado = pgtos.map(() => false)
+
+  // 1ª passagem: casa por código de autorização
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao) return
+    const match = concs.find(c => !usados.has(c.id) && c.autorizacao === p.autorizacao)
+    if (match) { resultado[i] = true; usados.add(match.id) }
+  })
+
+  // 2ª passagem: casa por valor (tolerância R$0,05) para os que não têm autorização
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i]) return
+    const match = concs.find(c => !usados.has(c.id) && Math.abs(Number(c.valorBruto) - p.valor) <= 0.05)
+    if (match) { resultado[i] = true; usados.add(match.id) }
+  })
+
+  return resultado
+}
+
 type Props = {
   venda: VendaComDetalhes
 }
 
 export function DetalhesVendaDialog({ venda: v }: Props) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]           = useState(false)
+  const [concs, setConcs]         = useState<Conc[]>([])
+  const [loadingConc, setLoading] = useState(false)
 
-  const pagamentos = (v.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number }[]) ?? []
+  const pagamentos = (v.pagamentos as Pgto[]) ?? []
+  const temCartao  = pagamentos.some(p => TIPOS_CARTAO.has(p.tipo))
+
+  async function abrirDialog() {
+    setOpen(true)
+    if (temCartao) {
+      setLoading(true)
+      try {
+        setConcs(await buscarConciliacoesDaVenda(v.id))
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  const conciliados = matchPagamentos(pagamentos, concs)
 
   return (
     <>
@@ -37,7 +81,7 @@ export function DetalhesVendaDialog({ venda: v }: Props) {
         variant="ghost"
         size="icon"
         title="Ver detalhes"
-        onClick={() => setOpen(true)}
+        onClick={abrirDialog}
         className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
       >
         <Eye size={16} />
@@ -83,16 +127,41 @@ export function DetalhesVendaDialog({ venda: v }: Props) {
               <p className="font-semibold text-slate-700">Pagamento</p>
               {pagamentos.length > 0 ? (
                 <div className="space-y-1">
-                  {pagamentos.map((p, i) => (
-                    <div key={i} className="flex justify-between items-center bg-slate-50 rounded px-3 py-1.5">
-                      <span className="text-slate-600">
-                        {tipoLabel[p.tipo] ?? p.tipo}
-                        {p.operadora ? ` (${p.operadora})` : ''}
-                        {p.parcelas ? ` ${p.parcelas}x` : ''}
-                      </span>
-                      <span className="font-medium">{formatCurrency(p.valor)}</span>
-                    </div>
-                  ))}
+                  {pagamentos.map((p, i) => {
+                    const precisaConc = TIPOS_CARTAO.has(p.tipo)
+                    const conciliado  = precisaConc && conciliados[i]
+                    const pendente    = precisaConc && !loadingConc && !conciliados[i]
+
+                    return (
+                      <div
+                        key={i}
+                        className={`flex justify-between items-center rounded px-3 py-2 ${
+                          conciliado ? 'bg-green-50 border border-green-200' :
+                          pendente   ? 'bg-red-50 border border-red-100' :
+                                       'bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {precisaConc && (
+                            loadingConc
+                              ? <Clock size={13} className="text-slate-300 animate-pulse" />
+                              : conciliado
+                                ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                                : <Clock size={13} className="text-red-400 shrink-0" />
+                          )}
+                          <span className={conciliado ? 'text-green-800' : pendente ? 'text-red-700' : 'text-slate-600'}>
+                            {tipoLabel[p.tipo] ?? p.tipo}
+                            {p.operadora ? ` (${p.operadora})` : ''}
+                            {p.parcelas  ? ` ${p.parcelas}x`  : ''}
+                            {p.autorizacao ? <span className="ml-1 font-mono text-xs opacity-60">#{p.autorizacao}</span> : null}
+                          </span>
+                        </div>
+                        <span className={`font-medium tabular-nums ${conciliado ? 'text-green-700' : ''}`}>
+                          {formatCurrency(p.valor)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-slate-500">{tipoLabel[v.formaPagamento] ?? v.formaPagamento} — {formatCurrency(v.valor)}</p>

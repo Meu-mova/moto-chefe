@@ -217,6 +217,20 @@ export async function desvincularVendaAction(conciliacaoId: string) {
   revalidatePath('/conciliacao')
 }
 
+export async function buscarConciliacoesDaVenda(vendaId: string) {
+  return db
+    .select({
+      id:            conciliacoesCartao.id,
+      autorizacao:   conciliacoesCartao.autorizacao,
+      valorBruto:    conciliacoesCartao.valorBruto,
+      operadora:     conciliacoesCartao.operadora,
+      tipo:          conciliacoesCartao.tipo,
+      dataTransacao: conciliacoesCartao.dataTransacao,
+    })
+    .from(conciliacoesCartao)
+    .where(and(eq(conciliacoesCartao.vendaId, vendaId), eq(conciliacoesCartao.conciliado, true)))
+}
+
 export async function buscarVendasParaVincular(valorRef: number) {
   // Busca vendas onde algum lançamento de cartão tem valor exato (tolerância de R$0,01)
   return db
