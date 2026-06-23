@@ -46,7 +46,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
         lojaNome: lojas.nome,
         usuarioNome: usuarios.nome,
         comprovanteUrl: lancamentosCaixa.comprovanteUrl,
-        aprovado: lancamentosCaixa.aprovado,
+        statusAprovacao: lancamentosCaixa.statusAprovacao,
         aprovadoPorNome: aprovadoresTbl.nome,
         aprovadoEm: lancamentosCaixa.aprovadoEm,
         criadoEm: lancamentosCaixa.criadoEm,

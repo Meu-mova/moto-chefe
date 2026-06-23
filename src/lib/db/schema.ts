@@ -206,7 +206,7 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   data: date('data').notNull(),
   vendaId: uuid('venda_id').references(() => vendas.id),
   comprovanteUrl: text('comprovante_url'),
-  aprovado: boolean('aprovado').notNull().default(false),
+  statusAprovacao: text('status_aprovacao').notNull().default('pendente'),
   aprovadoPorId: uuid('aprovado_por_id').references(() => usuarios.id),
   aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),

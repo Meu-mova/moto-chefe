@@ -3,9 +3,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2, Paperclip, ExternalLink, Loader2, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Trash2, Paperclip, ExternalLink, Loader2, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
 import { toast } from 'sonner'
-import { excluirLancamentoAction, getComprovanteUrlAction, aprovarLancamentoAction } from '../actions'
+import { excluirLancamentoAction, getComprovanteUrlAction, aprovarLancamentoAction, reprovarLancamentoAction } from '../actions'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -19,7 +19,7 @@ type Lancamento = {
   lojaNome: string
   usuarioNome: string
   comprovanteUrl: string | null
-  aprovado: boolean
+  statusAprovacao: string
   aprovadoPorNome: string | null
   aprovadoEm: Date | null
   criadoEm: Date
@@ -31,7 +31,15 @@ type Props = {
   podeAprovar: boolean
 }
 
-type Preview = { signedUrl: string; isPdf: boolean; path: string; lancamentoId: string; aprovado: boolean; aprovadoPorNome: string | null; aprovadoEm: Date | null }
+type Preview = {
+  signedUrl: string
+  isPdf: boolean
+  path: string
+  lancamentoId: string
+  statusAprovacao: string
+  aprovadoPorNome: string | null
+  aprovadoEm: Date | null
+}
 
 function formatCurrency(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -48,10 +56,10 @@ function fmtDateTime(d: Date | null) {
 
 export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
   const router = useRouter()
-  const [excluindo,    setExcluindo]    = useState<string | null>(null)
-  const [abrindo,      setAbrindo]      = useState<string | null>(null)
-  const [aprovando,    setAprovando]    = useState<string | null>(null)
-  const [preview,      setPreview]      = useState<Preview | null>(null)
+  const [excluindo, setExcluindo] = useState<string | null>(null)
+  const [abrindo,   setAbrindo]   = useState<string | null>(null)
+  const [agindo,    setAgindo]    = useState<string | null>(null) // id do lancamento em ação
+  const [preview,   setPreview]   = useState<Preview | null>(null)
 
   async function handleVerComprovante(l: Lancamento) {
     setAbrindo(l.comprovanteUrl!)
@@ -62,7 +70,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
         isPdf: isPdfPath(l.comprovanteUrl!),
         path: l.comprovanteUrl!,
         lancamentoId: l.id,
-        aprovado: l.aprovado,
+        statusAprovacao: l.statusAprovacao,
         aprovadoPorNome: l.aprovadoPorNome,
         aprovadoEm: l.aprovadoEm,
       })
@@ -74,19 +82,34 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
   }
 
   async function handleAprovar(lancamentoId: string) {
-    setAprovando(lancamentoId)
+    setAgindo(lancamentoId)
     try {
       await aprovarLancamentoAction(lancamentoId)
       toast.success('Comprovante aprovado')
-      // Atualiza preview se estiver aberto
       if (preview?.lancamentoId === lancamentoId) {
-        setPreview(p => p ? { ...p, aprovado: true } : null)
+        setPreview(p => p ? { ...p, statusAprovacao: 'aprovado' } : null)
       }
       router.refresh()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao aprovar')
     } finally {
-      setAprovando(null)
+      setAgindo(null)
+    }
+  }
+
+  async function handleReprovar(lancamentoId: string) {
+    setAgindo(lancamentoId)
+    try {
+      await reprovarLancamentoAction(lancamentoId)
+      toast.success('Comprovante reprovado')
+      if (preview?.lancamentoId === lancamentoId) {
+        setPreview(p => p ? { ...p, statusAprovacao: 'reprovado' } : null)
+      }
+      router.refresh()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao reprovar')
+    } finally {
+      setAgindo(null)
     }
   }
 
@@ -149,7 +172,6 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700 disabled:opacity-40"
-                    title="Ver comprovante"
                     disabled={abrindo === l.comprovanteUrl}
                     onClick={() => handleVerComprovante(l)}
                   >
@@ -166,30 +188,13 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
               {/* Aprovação */}
               <TableCell className="text-center">
                 {l.tipo === 'saida' ? (
-                  l.aprovado ? (
-                    <span
-                      className="inline-flex items-center gap-1 text-green-600 text-xs"
-                      title={`Aprovado por ${l.aprovadoPorNome} em ${fmtDateTime(l.aprovadoEm)}`}
-                    >
-                      <ShieldCheck size={15} />
-                      <span className="hidden sm:inline">Aprovado</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1">
-                      <ShieldAlert size={15} className="text-amber-500" />
-                      {podeAprovar && l.comprovanteUrl && (
-                        <button
-                          type="button"
-                          className="text-xs text-amber-600 hover:text-amber-800 underline disabled:opacity-40"
-                          disabled={aprovando === l.id}
-                          onClick={() => handleAprovar(l.id)}
-                          title="Aprovar comprovante"
-                        >
-                          {aprovando === l.id ? <Loader2 size={11} className="animate-spin inline" /> : 'Aprovar'}
-                        </button>
-                      )}
-                    </span>
-                  )
+                  <AprovacaoCell
+                    lancamento={l}
+                    podeAprovar={podeAprovar}
+                    agindo={agindo}
+                    onAprovar={handleAprovar}
+                    onReprovar={handleReprovar}
+                  />
                 ) : (
                   <span className="text-slate-300">—</span>
                 )}
@@ -236,39 +241,16 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
 
           {preview && (
             <div className="space-y-3">
-              {/* Status de aprovação no modal */}
-              {preview.aprovado ? (
-                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
-                  <ShieldCheck size={16} />
-                  <span>
-                    Aprovado por <strong>{preview.aprovadoPorNome}</strong>
-                    {preview.aprovadoEm && <> em {fmtDateTime(preview.aprovadoEm)}</>}
-                  </span>
-                </div>
-              ) : podeAprovar ? (
-                <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  <span className="flex items-center gap-1.5 text-sm text-amber-700">
-                    <ShieldAlert size={16} />
-                    Pendente de aprovação
-                  </span>
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
-                    disabled={aprovando === preview.lancamentoId}
-                    onClick={() => handleAprovar(preview.lancamentoId)}
-                  >
-                    {aprovando === preview.lancamentoId
-                      ? <><Loader2 size={12} className="animate-spin mr-1" />Aprovando...</>
-                      : <><ShieldCheck size={13} className="mr-1" />Aprovar Comprovante</>
-                    }
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  <ShieldAlert size={16} />
-                  Pendente de aprovação
-                </div>
-              )}
+              {/* Barra de status no modal */}
+              <StatusBar
+                status={preview.statusAprovacao}
+                aprovadoPorNome={preview.aprovadoPorNome}
+                aprovadoEm={preview.aprovadoEm}
+                podeAprovar={podeAprovar}
+                agindo={agindo === preview.lancamentoId}
+                onAprovar={() => handleAprovar(preview.lancamentoId)}
+                onReprovar={() => handleReprovar(preview.lancamentoId)}
+              />
 
               {/* Arquivo */}
               {preview.isPdf ? (
@@ -293,5 +275,167 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar }: {
+  lancamento: Lancamento
+  podeAprovar: boolean
+  agindo: string | null
+  onAprovar: (id: string) => void
+  onReprovar: (id: string) => void
+}) {
+  const busy = agindo === lancamento.id
+
+  if (lancamento.statusAprovacao === 'aprovado') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-green-600 text-xs"
+        title={lancamento.aprovadoPorNome ? `Aprovado por ${lancamento.aprovadoPorNome} em ${fmtDateTime(lancamento.aprovadoEm)}` : undefined}
+      >
+        <ShieldCheck size={15} />
+        <span className="hidden sm:inline">Aprovado</span>
+      </span>
+    )
+  }
+
+  if (lancamento.statusAprovacao === 'reprovado') {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span
+          className="inline-flex items-center gap-1 text-red-600 text-xs"
+          title={lancamento.aprovadoPorNome ? `Reprovado por ${lancamento.aprovadoPorNome} em ${fmtDateTime(lancamento.aprovadoEm)}` : undefined}
+        >
+          <ShieldX size={15} />
+          <span className="hidden sm:inline">Reprovado</span>
+        </span>
+        {podeAprovar && (
+          <button
+            type="button"
+            className="ml-1 text-xs text-slate-400 hover:text-green-700 underline disabled:opacity-40"
+            disabled={busy}
+            onClick={() => onAprovar(lancamento.id)}
+          >
+            Aprovar
+          </button>
+        )}
+      </span>
+    )
+  }
+
+  // pendente
+  return (
+    <span className="inline-flex items-center gap-1">
+      <ShieldAlert size={15} className="text-amber-500 shrink-0" />
+      {podeAprovar && lancamento.comprovanteUrl && (
+        <>
+          <button
+            type="button"
+            className="text-xs text-green-600 hover:text-green-800 underline disabled:opacity-40"
+            disabled={busy}
+            onClick={() => onAprovar(lancamento.id)}
+          >
+            {busy ? <Loader2 size={11} className="animate-spin inline" /> : 'Aprovar'}
+          </button>
+          <span className="text-slate-300">·</span>
+          <button
+            type="button"
+            className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-40"
+            disabled={busy}
+            onClick={() => onReprovar(lancamento.id)}
+          >
+            Reprovar
+          </button>
+        </>
+      )}
+    </span>
+  )
+}
+
+function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, onAprovar, onReprovar }: {
+  status: string
+  aprovadoPorNome: string | null
+  aprovadoEm: Date | null
+  podeAprovar: boolean
+  agindo: boolean
+  onAprovar: () => void
+  onReprovar: () => void
+}) {
+  if (status === 'aprovado') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+        <ShieldCheck size={16} />
+        <span>
+          Aprovado{aprovadoPorNome && <> por <strong>{aprovadoPorNome}</strong></>}
+          {aprovadoEm && <> em {fmtDateTime(aprovadoEm)}</>}
+        </span>
+        {podeAprovar && (
+          <button
+            type="button"
+            className="ml-auto text-xs text-red-500 hover:text-red-700 underline disabled:opacity-40"
+            disabled={agindo}
+            onClick={onReprovar}
+          >
+            Reprovar
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  if (status === 'reprovado') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <ShieldX size={16} />
+        <span>
+          Reprovado{aprovadoPorNome && <> por <strong>{aprovadoPorNome}</strong></>}
+          {aprovadoEm && <> em {fmtDateTime(aprovadoEm)}</>}
+        </span>
+        {podeAprovar && (
+          <Button
+            size="sm"
+            className="ml-auto bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
+            disabled={agindo}
+            onClick={onAprovar}
+          >
+            {agindo ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldCheck size={13} className="mr-1" />}
+            Aprovar
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  // pendente
+  return (
+    <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+      <span className="flex items-center gap-1.5 text-sm text-amber-700">
+        <ShieldAlert size={16} />
+        Pendente de aprovação
+      </span>
+      {podeAprovar && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-red-300 text-red-600 hover:bg-red-50 h-7 text-xs"
+            disabled={agindo}
+            onClick={onReprovar}
+          >
+            {agindo ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldX size={13} className="mr-1" />}
+            Reprovar
+          </Button>
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
+            disabled={agindo}
+            onClick={onAprovar}
+          >
+            {agindo ? <Loader2 size={12} className="animate-spin mr-1" /> : <ShieldCheck size={13} className="mr-1" />}
+            Aprovar
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
