@@ -98,6 +98,20 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
     throw new Error('Sem permissão')
   }
 
+  // Rejeita caminhos suspeitos antes de qualquer chamada ao storage
+  if (!filePath.startsWith('caixa/') || filePath.includes('..') || filePath.includes('\0')) {
+    throw new Error('Caminho inválido')
+  }
+
+  // Verifica que o path existe como comprovante de um lançamento real no banco
+  const [lancamento] = await db
+    .select({ id: lancamentosCaixa.id })
+    .from(lancamentosCaixa)
+    .where(eq(lancamentosCaixa.comprovanteUrl, filePath))
+    .limit(1)
+
+  if (!lancamento) throw new Error('Comprovante não encontrado')
+
   const supabaseAdmin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
