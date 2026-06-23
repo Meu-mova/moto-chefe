@@ -407,9 +407,8 @@ export async function registrarReservaAction(data: DadosReserva) {
     if (!check.entradaOk) {
       throw new Error(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
     }
-    if (!check.totalOk) {
-      throw new Error(`Valor total ${fmt(valorTotalNum)} abaixo do preço mínimo PIX ${fmt(prec.valorMinimoPix)}`)
-    }
+    // Total negociado é livre — depende da forma de pagamento (PIX, cartão, etc.)
+    // Apenas a entrada mínima de 30% é obrigatória para reservas
   }
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)

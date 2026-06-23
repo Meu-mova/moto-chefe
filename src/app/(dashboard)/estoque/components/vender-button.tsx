@@ -282,7 +282,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
     tipo === 'venda'
       ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && liquidoOk)
       : !!(valorReserva && valorTotalVenda && meioPgto && dataPrevista && !reservaCartaoIncompleto
-          && (reservaValidacao ? reservaValidacao.entradaOk && reservaValidacao.totalOk : true))
+          && (reservaValidacao ? reservaValidacao.entradaOk : true))
   )
 
   async function handleSubmit() {
@@ -678,7 +678,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                     <Label>
                       Valor Total da Venda (R$) <span className="text-red-500">*</span>
                       {precoMinimoPix && (
-                        <span className="ml-1 text-xs text-slate-400">mín. {fmtBRL(precoMinimoPix)}</span>
+                        <span className="ml-1 text-xs text-slate-400">PIX: {fmtBRL(precoMinimoPix)}</span>
                       )}
                     </Label>
                     <CurrencyInput
@@ -687,14 +687,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                       placeholder="0,00"
                       className={
                         valorTotalNum > 0 && reservaValidacao && !reservaValidacao.totalOk
-                          ? 'border-red-400'
+                          ? 'border-amber-400'
                           : ''
                       }
                     />
                     {valorTotalNum > 0 && reservaValidacao && !reservaValidacao.totalOk && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
                         <AlertTriangle size={11} />
-                        Total mínimo: {fmtBRL(precoMinimoPix!)} (preço PIX)
+                        Abaixo do preço mínimo PIX ({fmtBRL(precoMinimoPix!)}) — confirme se está correto
                       </p>
                     )}
                   </div>
