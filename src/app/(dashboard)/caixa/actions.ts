@@ -2,7 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { lancamentosCaixa } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
@@ -103,11 +103,16 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
     throw new Error('Caminho inválido')
   }
 
-  // Verifica que o path existe como comprovante de um lançamento real no banco
+  // Verifica que o path pertence a um lançamento real; aux_adm só acessa sua própria loja
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const whereClause = isAdmin
+    ? eq(lancamentosCaixa.comprovanteUrl, filePath)
+    : and(eq(lancamentosCaixa.comprovanteUrl, filePath), eq(lancamentosCaixa.lojaId, usuario.lojaId!))
+
   const [lancamento] = await db
     .select({ id: lancamentosCaixa.id })
     .from(lancamentosCaixa)
-    .where(eq(lancamentosCaixa.comprovanteUrl, filePath))
+    .where(whereClause)
     .limit(1)
 
   if (!lancamento) throw new Error('Comprovante não encontrado')
