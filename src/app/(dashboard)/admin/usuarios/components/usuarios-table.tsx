@@ -103,7 +103,7 @@ function FormUsuario({
         </div>
         <div className="space-y-1.5">
           <Label>Função</Label>
-          <Select value={papel} onValueChange={setPapel}>
+          <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione a função" />
             </SelectTrigger>
@@ -116,7 +116,7 @@ function FormUsuario({
         </div>
         <div className="col-span-2 space-y-1.5">
           <Label>Loja</Label>
-          <Select value={lojaId ?? ''} onValueChange={setLojaId}>
+          <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
             <SelectTrigger>
               <SelectValue placeholder="Sem loja (Admin Geral)" />
             </SelectTrigger>
