@@ -1,0 +1,2 @@
+[     885ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://mova-motochefe-4aokpq9w9-cesarrodriguestri-2038s-projects.vercel.app/login:0
+[   11288ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://mova-motochefe-4aokpq9w9-cesarrodriguestri-2038s-projects.vercel.app/login?error=1:0

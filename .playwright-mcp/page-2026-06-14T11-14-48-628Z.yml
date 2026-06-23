@@ -1,0 +1,54 @@
+- generic [ref=e1]:
+  - generic [active]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - navigation [ref=e7]:
+            - button "previous" [disabled] [ref=e8]:
+              - img "previous" [ref=e9]
+            - generic [ref=e11]:
+              - generic [ref=e12]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e13]:
+              - img "next" [ref=e14]
+          - img
+        - generic [ref=e16]:
+          - link "Next.js 16.2.6 (stale) Turbopack" [ref=e17] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+            - img [ref=e18]
+            - generic "There is a newer version (16.2.9) available, upgrade recommended!" [ref=e20]: Next.js 16.2.6 (stale)
+            - generic [ref=e21]: Turbopack
+          - img
+      - dialog "Runtime Error" [ref=e23]:
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - generic [ref=e29]:
+              - generic [ref=e30]: Runtime Error
+              - generic [ref=e31]: Server
+            - generic [ref=e32]:
+              - button "Copy Error Info" [ref=e33] [cursor=pointer]:
+                - img [ref=e34]
+              - button "No related documentation found" [disabled] [ref=e36]:
+                - img [ref=e37]
+              - button "Attach Node.js inspector" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+          - generic [ref=e49]: "Failed query: select \"garantias\".\"id\", \"garantias\".\"status\", \"garantias\".\"descricao\", \"garantias\".\"data_inicio\", \"garantias\".\"data_fim\", \"garantias\".\"data_encerramento\", \"garantias\".\"data_pedido_peca\", \"garantias\".\"numero_pedido_fabrica\", \"garantias\".\"loja_id\", \"garantias\".\"moto_id\", \"motos\".\"chassi\", \"motos\".\"cor\", \"modelos\".\"marca\", \"modelos\".\"modelo\", \"motos\".\"modelo_id\", \"lojas\".\"nome\", \"garantias\".\"os_id\" from \"garantias\" inner join \"motos\" on \"garantias\".\"moto_id\" = \"motos\".\"id\" inner join \"modelos\" on \"motos\".\"modelo_id\" = \"modelos\".\"id\" inner join \"lojas\" on \"garantias\".\"loja_id\" = \"lojas\".\"id\" order by \"garantias\".\"data_inicio\" desc params:"
+        - generic [ref=e50]: "1"
+        - generic [ref=e51]: "2"
+    - generic [ref=e56] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e57]:
+        - img [ref=e58]
+      - generic [ref=e61]:
+        - button "Open issues overlay" [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: "0"
+            - generic [ref=e65]: "1"
+          - generic [ref=e66]: Issue
+        - button "Collapse issues badge" [ref=e67]:
+          - img [ref=e68]
+  - generic [ref=e71]:
+    - img [ref=e72]
+    - heading "This page couldn’t load" [level=1] [ref=e74]
+    - paragraph [ref=e75]: A server error occurred. Reload to try again.
+    - button "Reload" [ref=e78] [cursor=pointer]
+  - paragraph [ref=e79]: ERROR 3009124057

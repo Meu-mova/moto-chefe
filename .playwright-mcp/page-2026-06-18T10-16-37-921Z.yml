@@ -1,0 +1,1209 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading [level=1] [ref=e946]: MOVA
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link [ref=e947] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e9]
+          - text: Estoque
+        - link [ref=e948] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e15]
+          - text: Transferências
+        - link [ref=e949] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e19]
+          - text: Vendas
+        - link [ref=e950] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e24]
+          - text: Ordens de Serviço
+        - link [ref=e951] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e27]
+          - text: Garantias
+    - generic [ref=e29]:
+      - banner [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: Adrielly Marques
+            - generic [ref=e34]: Aux. Administrativo
+          - button [ref=e952]: Sair
+      - main [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - heading [level=1] [ref=e953]: Estoque
+            - paragraph [ref=e41]: Todas as motos do grupo
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]:
+                - generic [ref=e45]: Total
+                - img [ref=e46]
+              - paragraph [ref=e50]: "45"
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - generic [ref=e53]: Caixa
+                - img [ref=e54]
+              - paragraph [ref=e58]: "10"
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - generic [ref=e61]: Montadas
+                - img [ref=e62]
+              - paragraph [ref=e64]: "27"
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - generic [ref=e67]: Disponíveis
+                - img [ref=e68]
+              - paragraph [ref=e71]: "23"
+            - generic [ref=e72]:
+              - generic [ref=e73]:
+                - generic [ref=e74]: Reservadas
+                - img [ref=e75]
+              - paragraph [ref=e78]: "4"
+            - generic [ref=e79]:
+              - generic [ref=e80]:
+                - generic [ref=e81]: Garantia
+                - img [ref=e82]
+              - paragraph [ref=e84]: "8"
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - generic [ref=e87]: Ag. NF
+                - img [ref=e88]
+              - paragraph [ref=e92]: "0"
+          - generic [ref=e93]:
+            - button [ref=e954]:
+              - generic [ref=e96]: Modelo
+              - img [ref=e97]
+            - textbox [ref=e955]:
+              - /placeholder: Buscar chassi...
+            - button [ref=e956]:
+              - generic [ref=e102]: Cor
+              - img [ref=e103]
+            - button [ref=e957]:
+              - generic [ref=e107]: Varginha
+              - img [ref=e108]
+            - button [ref=e958]:
+              - generic [ref=e112]: Status
+              - img [ref=e113]
+            - button [ref=e959]:
+              - generic [ref=e117]: Disponibilidade
+              - img [ref=e118]
+          - table [ref=e122]:
+            - rowgroup [ref=e123]:
+              - row [ref=e960]:
+                - columnheader [ref=e961]:
+                  - link [ref=e962] [cursor=pointer]:
+                    - /url: /estoque?ord=modelo&dir=desc
+                    - text: Modelo
+                    - img [ref=e127]
+                - columnheader [ref=e963]: Chassi
+                - columnheader [ref=e964]:
+                  - link [ref=e965] [cursor=pointer]:
+                    - /url: /estoque?ord=cor&dir=asc
+                    - text: Cor
+                    - img [ref=e132]
+                - columnheader [ref=e966]:
+                  - link [ref=e967] [cursor=pointer]:
+                    - /url: /estoque?ord=loja&dir=asc
+                    - text: Loja
+                    - img [ref=e137]
+                - columnheader [ref=e968]:
+                  - link [ref=e969] [cursor=pointer]:
+                    - /url: /estoque?ord=status&dir=asc
+                    - text: Status
+                    - img [ref=e142]
+                - columnheader [ref=e970]:
+                  - link [ref=e971] [cursor=pointer]:
+                    - /url: /estoque?ord=disponibilidade&dir=asc
+                    - text: Disponibilidade
+                    - img [ref=e147]
+                - columnheader [ref=e972]: Ações
+            - rowgroup [ref=e151]:
+              - row [ref=e973]:
+                - cell [ref=e974]: BIGTRI
+                - cell [ref=e975]: XL2025098060
+                - cell [ref=e976]: CINZA
+                - cell [ref=e977]: Varginha
+                - cell [ref=e978]:
+                  - generic [ref=e158]:
+                    - img [ref=e159]
+                    - text: Montada
+                - cell [ref=e979]:
+                  - generic [ref=e162]: Disponível
+                - cell [ref=e163]:
+                  - generic [ref=e164]:
+                    - button [ref=e980]:
+                      - img
+                    - button [ref=e981]:
+                      - img
+                    - button [ref=e982]:
+                      - img
+                    - button [ref=e983]:
+                      - img
+                    - link [ref=e984] [cursor=pointer]:
+                      - /url: /estoque/4bbf8bbd-6d18-4755-9535-0c8bb52da437
+                      - img
+              - row [ref=e985]:
+                - cell [ref=e986]: BIGTRI
+                - cell [ref=e987]: XL2025084057
+                - cell [ref=e988]: CINZA
+                - cell [ref=e989]: Varginha
+                - cell [ref=e990]:
+                  - generic [ref=e176]:
+                    - img [ref=e177]
+                    - text: Garantia
+                - cell [ref=e181]
+                - cell [ref=e182]:
+                  - generic [ref=e183]:
+                    - button [ref=e991]:
+                      - img
+                    - button [ref=e992]:
+                      - img
+                    - link [ref=e993] [cursor=pointer]:
+                      - /url: /estoque/8e295458-a46f-458a-98ee-79926e20ad43
+                      - img
+              - row [ref=e994]:
+                - cell [ref=e995]: BOB
+                - cell [ref=e996]: "172922506891377"
+                - cell [ref=e997]: BRANCO
+                - cell [ref=e998]: Varginha
+                - cell [ref=e999]:
+                  - generic [ref=e193]:
+                    - img [ref=e194]
+                    - text: Montada
+                - cell [ref=e1000]:
+                  - generic [ref=e197]: Disponível
+                - cell [ref=e198]:
+                  - generic [ref=e199]:
+                    - button [ref=e1001]:
+                      - img
+                    - button [ref=e1002]:
+                      - img
+                    - button [ref=e1003]:
+                      - img
+                    - button [ref=e1004]:
+                      - img
+                    - link [ref=e1005] [cursor=pointer]:
+                      - /url: /estoque/8227cb42-e2b9-4dff-909b-46f52d939ac3
+                      - img
+              - row [ref=e1006]:
+                - cell [ref=e1007]: BOB
+                - cell [ref=e1008]: LM60V1000W2025111400776
+                - cell [ref=e1009]: BRANCO
+                - cell [ref=e1010]: Varginha
+                - cell [ref=e1011]:
+                  - generic [ref=e211]:
+                    - img [ref=e212]
+                    - text: Montada
+                - cell [ref=e1012]:
+                  - generic [ref=e215]: Disponível
+                - cell [ref=e216]:
+                  - generic [ref=e217]:
+                    - button [ref=e1013]:
+                      - img
+                    - button [ref=e1014]:
+                      - img
+                    - button [ref=e1015]:
+                      - img
+                    - button [ref=e1016]:
+                      - img
+                    - link [ref=e1017] [cursor=pointer]:
+                      - /url: /estoque/f7f68628-dda4-4069-aa7a-d0a96d97d0c8
+                      - img
+              - row [ref=e1018]:
+                - cell [ref=e1019]: DOT
+                - cell [ref=e1020]: QS60V30H25051402422
+                - cell [ref=e1021]: CINZA
+                - cell [ref=e1022]: Varginha
+                - cell [ref=e1023]:
+                  - generic [ref=e229]:
+                    - img [ref=e230]
+                    - text: Garantia
+                - cell [ref=e234]
+                - cell [ref=e235]:
+                  - generic [ref=e236]:
+                    - button [ref=e1024]:
+                      - img
+                    - button [ref=e1025]:
+                      - img
+                    - link [ref=e1026] [cursor=pointer]:
+                      - /url: /estoque/d8e0adc4-2fe2-422f-bdef-4030a61848bc
+                      - img
+              - row [ref=e1027]:
+                - cell [ref=e1028]: DOT
+                - cell [ref=e1029]: QS60V30H25112604121
+                - cell [ref=e1030]: CINZA
+                - cell [ref=e1031]: Varginha
+                - cell [ref=e1032]:
+                  - generic [ref=e246]:
+                    - img [ref=e247]
+                    - text: Montada
+                - cell [ref=e1033]:
+                  - generic [ref=e250]: Disponível
+                - cell [ref=e251]:
+                  - generic [ref=e252]:
+                    - button [ref=e1034]:
+                      - img
+                    - button [ref=e1035]:
+                      - img
+                    - button [ref=e1036]:
+                      - img
+                    - button [ref=e1037]:
+                      - img
+                    - link [ref=e1038] [cursor=pointer]:
+                      - /url: /estoque/ad83f339-1f09-4751-81bd-0751ae9e2085
+                      - img
+              - row [ref=e1039]:
+                - cell [ref=e1040]: DRIFT CAR
+                - cell [ref=e1041]: MIMO202507096
+                - cell [ref=e1042]: FOGO
+                - cell [ref=e1043]: Varginha
+                - cell [ref=e1044]:
+                  - generic [ref=e264]:
+                    - img [ref=e265]
+                    - text: Montada
+                - cell [ref=e1045]:
+                  - generic [ref=e268]: Disponível
+                - cell [ref=e269]:
+                  - generic [ref=e270]:
+                    - button [ref=e1046]:
+                      - img
+                    - button [ref=e1047]:
+                      - img
+                    - button [ref=e1048]:
+                      - img
+                    - button [ref=e1049]:
+                      - img
+                    - link [ref=e1050] [cursor=pointer]:
+                      - /url: /estoque/7ae194ee-19b0-44e4-8826-3d72a204cf33
+                      - img
+              - row [ref=e1051]:
+                - cell [ref=e1052]: FAMILY
+                - cell [ref=e1053]: MTBX150070037
+                - cell [ref=e1054]: PRETO
+                - cell [ref=e1055]: Varginha
+                - cell [ref=e1056]:
+                  - generic [ref=e282]:
+                    - img [ref=e283]
+                    - text: Montada
+                - cell [ref=e1057]:
+                  - generic [ref=e286]: Disponível
+                - cell [ref=e287]:
+                  - generic [ref=e288]:
+                    - button [ref=e1058]:
+                      - img
+                    - button [ref=e1059]:
+                      - img
+                    - button [ref=e1060]:
+                      - img
+                    - button [ref=e1061]:
+                      - img
+                    - link [ref=e1062] [cursor=pointer]:
+                      - /url: /estoque/7abaa59e-05b8-4008-ab2b-36696fa1074e
+                      - img
+              - row [ref=e1063]:
+                - cell [ref=e1064]: GIGA
+                - cell [ref=e1065]: LA25860V1000W0141
+                - cell [ref=e1066]: PRETO
+                - cell [ref=e1067]: Varginha
+                - cell [ref=e1068]:
+                  - generic [ref=e300]:
+                    - img [ref=e301]
+                    - text: Caixa
+                - cell [ref=e305]
+                - cell [ref=e306]:
+                  - generic [ref=e307]:
+                    - button [ref=e1069]:
+                      - img
+                    - button [ref=e1070]:
+                      - img
+                    - button [ref=e1071]:
+                      - img
+                    - link [ref=e1072] [cursor=pointer]:
+                      - /url: /estoque/d7a1f1ad-0922-4587-9c51-e8c8bf63866c
+                      - img
+              - row [ref=e1073]:
+                - cell [ref=e1074]: GIGA
+                - cell [ref=e1075]: LA25860V1000W0086
+                - cell [ref=e1076]: CINZA
+                - cell [ref=e1077]: Varginha
+                - cell [ref=e1078]:
+                  - generic [ref=e318]:
+                    - img [ref=e319]
+                    - text: Montada
+                - cell [ref=e1079]:
+                  - generic [ref=e322]: Disponível
+                - cell [ref=e323]:
+                  - generic [ref=e324]:
+                    - button [ref=e1080]:
+                      - img
+                    - button [ref=e1081]:
+                      - img
+                    - button [ref=e1082]:
+                      - img
+                    - button [ref=e1083]:
+                      - img
+                    - link [ref=e1084] [cursor=pointer]:
+                      - /url: /estoque/e66147bb-7873-4019-94c1-b1d362585a79
+                      - img
+              - row [ref=e1085]:
+                - cell [ref=e1086]: JET
+                - cell [ref=e1087]: LA2025SA110005669
+                - cell [ref=e1088]: PRETO
+                - cell [ref=e1089]: Varginha
+                - cell [ref=e1090]:
+                  - generic [ref=e336]:
+                    - img [ref=e337]
+                    - text: Montada
+                - cell [ref=e1091]:
+                  - generic [ref=e340]: Reservada
+                - cell [ref=e341]:
+                  - generic [ref=e342]:
+                    - button [ref=e1092]:
+                      - img
+                    - button [ref=e1093]:
+                      - img
+                    - link [ref=e1094] [cursor=pointer]:
+                      - /url: /estoque/f2f32a10-ed81-4f54-b5d1-af60879aae52
+                      - img
+              - row [ref=e1095]:
+                - cell [ref=e1096]: JET
+                - cell [ref=e1097]: LA25960V1000W9477
+                - cell [ref=e1098]: CINZA
+                - cell [ref=e1099]: Varginha
+                - cell [ref=e1100]:
+                  - generic [ref=e352]:
+                    - img [ref=e353]
+                    - text: Caixa
+                - cell [ref=e357]
+                - cell [ref=e358]:
+                  - generic [ref=e359]:
+                    - button [ref=e1101]:
+                      - img
+                    - button [ref=e1102]:
+                      - img
+                    - button [ref=e1103]:
+                      - img
+                    - link [ref=e1104] [cursor=pointer]:
+                      - /url: /estoque/aa4eca9e-9ed5-4666-b6f9-4e5e8ca55111
+                      - img
+              - row [ref=e1105]:
+                - cell [ref=e1106]: JET
+                - cell [ref=e1107]: LA25860V1000W1152
+                - cell [ref=e1108]: PRETO
+                - cell [ref=e1109]: Varginha
+                - cell [ref=e1110]:
+                  - generic [ref=e370]:
+                    - img [ref=e371]
+                    - text: Caixa
+                - cell [ref=e375]
+                - cell [ref=e376]:
+                  - generic [ref=e377]:
+                    - button [ref=e1111]:
+                      - img
+                    - button [ref=e1112]:
+                      - img
+                    - button [ref=e1113]:
+                      - img
+                    - link [ref=e1114] [cursor=pointer]:
+                      - /url: /estoque/20064a7d-b6f7-43d3-9a3b-cb2d0464fba5
+                      - img
+              - row [ref=e1115]:
+                - cell [ref=e1116]: JET
+                - cell [ref=e1117]: LA2025SA110008317
+                - cell [ref=e1118]: BRANCO
+                - cell [ref=e1119]: Varginha
+                - cell [ref=e1120]:
+                  - generic [ref=e388]:
+                    - img [ref=e389]
+                    - text: Caixa
+                - cell [ref=e393]
+                - cell [ref=e394]:
+                  - generic [ref=e395]:
+                    - button [ref=e1121]:
+                      - img
+                    - button [ref=e1122]:
+                      - img
+                    - button [ref=e1123]:
+                      - img
+                    - link [ref=e1124] [cursor=pointer]:
+                      - /url: /estoque/9bbab1af-c0cc-4cc3-9541-b351c6d3385d
+                      - img
+              - row [ref=e1125]:
+                - cell [ref=e1126]: JET
+                - cell [ref=e1127]: MCBRJET2601220071
+                - cell [ref=e1128]: BRANCO
+                - cell [ref=e1129]: Varginha
+                - cell [ref=e1130]:
+                  - generic [ref=e406]:
+                    - img [ref=e407]
+                    - text: Garantia
+                - cell [ref=e411]
+                - cell [ref=e412]:
+                  - generic [ref=e413]:
+                    - button [ref=e1131]:
+                      - img
+                    - button [ref=e1132]:
+                      - img
+                    - link [ref=e1133] [cursor=pointer]:
+                      - /url: /estoque/e2bad6d3-5d2b-4874-8b71-0dfe0c7560f7
+                      - img
+              - row [ref=e1134]:
+                - cell [ref=e1135]: JETMAX
+                - cell [ref=e1136]: LYDAE3933T1204684
+                - cell [ref=e1137]: VERMELHO
+                - cell [ref=e1138]: Varginha
+                - cell [ref=e1139]:
+                  - generic [ref=e423]:
+                    - img [ref=e424]
+                    - text: Montada
+                - cell [ref=e1140]:
+                  - generic [ref=e427]: Reservada
+                - cell [ref=e428]:
+                  - generic [ref=e429]:
+                    - button [ref=e1141]:
+                      - img
+                    - button [ref=e1142]:
+                      - img
+                    - link [ref=e1143] [cursor=pointer]:
+                      - /url: /estoque/8c8ed12b-ecec-40e8-bc81-da2d37ce2551
+                      - img
+              - row [ref=e1144]:
+                - cell [ref=e1145]: JETMAX
+                - cell [ref=e1146]: LYDAE393XT1204696
+                - cell [ref=e1147]: VERMELHO
+                - cell [ref=e1148]: Varginha
+                - cell [ref=e1149]:
+                  - generic [ref=e439]:
+                    - img [ref=e440]
+                    - text: Montada
+                - cell [ref=e1150]:
+                  - generic [ref=e443]: Reservada
+                - cell [ref=e444]:
+                  - generic [ref=e445]:
+                    - button [ref=e1151]:
+                      - img
+                    - button [ref=e1152]:
+                      - img
+                    - link [ref=e1153] [cursor=pointer]:
+                      - /url: /estoque/2f9f00ae-86a7-49c3-86ca-9bdce6b2ab79
+                      - img
+              - row [ref=e1154]:
+                - cell [ref=e1155]: JETMAX
+                - cell [ref=e1156]: LYDAE3932T1205891
+                - cell [ref=e1157]: BRANCO
+                - cell [ref=e1158]: Varginha
+                - cell [ref=e1159]:
+                  - generic [ref=e455]:
+                    - img [ref=e456]
+                    - text: Caixa
+                - cell [ref=e460]
+                - cell [ref=e461]:
+                  - generic [ref=e462]:
+                    - button [ref=e1160]:
+                      - img
+                    - button [ref=e1161]:
+                      - img
+                    - button [ref=e1162]:
+                      - img
+                    - link [ref=e1163] [cursor=pointer]:
+                      - /url: /estoque/18917cd6-73da-4cff-b2f2-6c279d4ac2d8
+                      - img
+              - row [ref=e1164]:
+                - cell [ref=e1165]: JETMAX
+                - cell [ref=e1166]: LYDAE3939T1205838
+                - cell [ref=e1167]: AZUL
+                - cell [ref=e1168]: Varginha
+                - cell [ref=e1169]:
+                  - generic [ref=e473]:
+                    - img [ref=e474]
+                    - text: Caixa
+                - cell [ref=e478]
+                - cell [ref=e479]:
+                  - generic [ref=e480]:
+                    - button [ref=e1170]:
+                      - img
+                    - button [ref=e1171]:
+                      - img
+                    - button [ref=e1172]:
+                      - img
+                    - link [ref=e1173] [cursor=pointer]:
+                      - /url: /estoque/27051bad-75a7-4db8-9f16-08734cc059ed
+                      - img
+              - row [ref=e1174]:
+                - cell [ref=e1175]: JETMAX
+                - cell [ref=e1176]: LYDAE393XT1206240
+                - cell [ref=e1177]: CINZA
+                - cell [ref=e1178]: Varginha
+                - cell [ref=e1179]:
+                  - generic [ref=e491]:
+                    - img [ref=e492]
+                    - text: Caixa
+                - cell [ref=e496]
+                - cell [ref=e497]:
+                  - generic [ref=e498]:
+                    - button [ref=e1180]:
+                      - img
+                    - button [ref=e1181]:
+                      - img
+                    - button [ref=e1182]:
+                      - img
+                    - link [ref=e1183] [cursor=pointer]:
+                      - /url: /estoque/9113a7b3-ffa5-4232-aeed-05255bf16bf5
+                      - img
+              - row [ref=e1184]:
+                - cell [ref=e1185]: JETMAX
+                - cell [ref=e1186]: LYDAE3933T1206239
+                - cell [ref=e1187]: CINZA
+                - cell [ref=e1188]: Varginha
+                - cell [ref=e1189]:
+                  - generic [ref=e509]:
+                    - img [ref=e510]
+                    - text: Caixa
+                - cell [ref=e514]
+                - cell [ref=e515]:
+                  - generic [ref=e516]:
+                    - button [ref=e1190]:
+                      - img
+                    - button [ref=e1191]:
+                      - img
+                    - button [ref=e1192]:
+                      - img
+                    - link [ref=e1193] [cursor=pointer]:
+                      - /url: /estoque/31ddf2d4-c893-46e9-8d79-45175b901cc2
+                      - img
+              - row [ref=e1194]:
+                - cell [ref=e1195]: JETMAX
+                - cell [ref=e1196]: LYDAE3930T1205954
+                - cell [ref=e1197]: PRETO
+                - cell [ref=e1198]: Varginha
+                - cell [ref=e1199]:
+                  - generic [ref=e527]:
+                    - img [ref=e528]
+                    - text: Caixa
+                - cell [ref=e532]
+                - cell [ref=e533]:
+                  - generic [ref=e534]:
+                    - button [ref=e1200]:
+                      - img
+                    - button [ref=e1201]:
+                      - img
+                    - button [ref=e1202]:
+                      - img
+                    - link [ref=e1203] [cursor=pointer]:
+                      - /url: /estoque/d6dc851f-a220-4217-bcb0-964dfa0cc880
+                      - img
+              - row [ref=e1204]:
+                - cell [ref=e1205]: JETMAX
+                - cell [ref=e1206]: LYDAE3933T1205950
+                - cell [ref=e1207]: PRETO
+                - cell [ref=e1208]: Varginha
+                - cell [ref=e1209]:
+                  - generic [ref=e545]:
+                    - img [ref=e546]
+                    - text: Caixa
+                - cell [ref=e550]
+                - cell [ref=e551]:
+                  - generic [ref=e552]:
+                    - button [ref=e1210]:
+                      - img
+                    - button [ref=e1211]:
+                      - img
+                    - button [ref=e1212]:
+                      - img
+                    - link [ref=e1213] [cursor=pointer]:
+                      - /url: /estoque/281cfbee-056b-48f5-aab6-1e219b479b02
+                      - img
+              - row [ref=e1214]:
+                - cell [ref=e1215]: JETMAX
+                - cell [ref=e1216]: LYDAE3937S1200233
+                - cell [ref=e1217]: PRETO
+                - cell [ref=e1218]: Varginha
+                - cell [ref=e1219]:
+                  - generic [ref=e563]:
+                    - img [ref=e564]
+                    - text: Garantia
+                - cell [ref=e568]
+                - cell [ref=e569]:
+                  - generic [ref=e570]:
+                    - button [ref=e1220]:
+                      - img
+                    - button [ref=e1221]:
+                      - img
+                    - link [ref=e1222] [cursor=pointer]:
+                      - /url: /estoque/c5dbc9ef-db23-4627-8d4c-5fa26736ec0d
+                      - img
+              - row [ref=e1223]:
+                - cell [ref=e1224]: JETMAX
+                - cell [ref=e1225]: LYDAE3935T1200488
+                - cell [ref=e1226]: PRETO
+                - cell [ref=e1227]: Varginha
+                - cell [ref=e1228]:
+                  - generic [ref=e580]:
+                    - img [ref=e581]
+                    - text: Garantia
+                - cell [ref=e585]
+                - cell [ref=e586]:
+                  - generic [ref=e587]:
+                    - button [ref=e1229]:
+                      - img
+                    - button [ref=e1230]:
+                      - img
+                    - link [ref=e1231] [cursor=pointer]:
+                      - /url: /estoque/3ca28f6c-a403-4cb6-a75b-829c3d1030de
+                      - img
+              - row [ref=e1232]:
+                - cell [ref=e1233]: MIA
+                - cell [ref=e1234]: MCBRMIA2512040147
+                - cell [ref=e1235]: PRETO
+                - cell [ref=e1236]: Varginha
+                - cell [ref=e1237]:
+                  - generic [ref=e597]:
+                    - img [ref=e598]
+                    - text: Montada
+                - cell [ref=e1238]:
+                  - generic [ref=e601]: Disponível
+                - cell [ref=e602]:
+                  - generic [ref=e603]:
+                    - button [ref=e1239]:
+                      - img
+                    - button [ref=e1240]:
+                      - img
+                    - button [ref=e1241]:
+                      - img
+                    - button [ref=e1242]:
+                      - img
+                    - link [ref=e1243] [cursor=pointer]:
+                      - /url: /estoque/26366c33-9542-47fd-9abe-765262024fa6
+                      - img
+              - row [ref=e1244]:
+                - cell [ref=e1245]: MIATRI
+                - cell [ref=e1246]: SXKJ22506120390
+                - cell [ref=e1247]: PRETO
+                - cell [ref=e1248]: Varginha
+                - cell [ref=e1249]:
+                  - generic [ref=e615]:
+                    - img [ref=e616]
+                    - text: Montada
+                - cell [ref=e1250]:
+                  - generic [ref=e619]: Disponível
+                - cell [ref=e620]:
+                  - generic [ref=e621]:
+                    - button [ref=e1251]:
+                      - img
+                    - button [ref=e1252]:
+                      - img
+                    - button [ref=e1253]:
+                      - img
+                    - button [ref=e1254]:
+                      - img
+                    - link [ref=e1255] [cursor=pointer]:
+                      - /url: /estoque/f307343c-6fa0-4c25-bf09-ecf5ae105583
+                      - img
+              - row [ref=e1256]:
+                - cell [ref=e1257]: MIATRI
+                - cell [ref=e1258]: SXKJ22506120098
+                - cell [ref=e1259]: PRETO
+                - cell [ref=e1260]: Varginha
+                - cell [ref=e1261]:
+                  - generic [ref=e633]:
+                    - img [ref=e634]
+                    - text: Montada
+                - cell [ref=e1262]:
+                  - generic [ref=e637]: Disponível
+                - cell [ref=e638]:
+                  - generic [ref=e639]:
+                    - button [ref=e1263]:
+                      - img
+                    - button [ref=e1264]:
+                      - img
+                    - button [ref=e1265]:
+                      - img
+                    - button [ref=e1266]:
+                      - img
+                    - link [ref=e1267] [cursor=pointer]:
+                      - /url: /estoque/fa402bc6-59cd-4620-83ab-0ae246680293
+                      - img
+              - row [ref=e1268]:
+                - cell [ref=e1269]: PATINETE G5
+                - cell [ref=e1270]: LA20250815151
+                - cell [ref=e1271]: PRETO
+                - cell [ref=e1272]: Varginha
+                - cell [ref=e1273]:
+                  - generic [ref=e651]:
+                    - img [ref=e652]
+                    - text: Montada
+                - cell [ref=e1274]:
+                  - generic [ref=e655]: Disponível
+                - cell [ref=e656]:
+                  - generic [ref=e657]:
+                    - button [ref=e1275]:
+                      - img
+                    - button [ref=e1276]:
+                      - img
+                    - button [ref=e1277]:
+                      - img
+                    - button [ref=e1278]:
+                      - img
+                    - link [ref=e1279] [cursor=pointer]:
+                      - /url: /estoque/7d9b337c-d96e-4bcf-b340-76ffb2f03690
+                      - img
+              - row [ref=e1280]:
+                - cell [ref=e1281]: PATINETE G5
+                - cell [ref=e1282]: LA20250815185
+                - cell [ref=e1283]: PRETO
+                - cell [ref=e1284]: Varginha
+                - cell [ref=e1285]:
+                  - generic [ref=e669]:
+                    - img [ref=e670]
+                    - text: Montada
+                - cell [ref=e1286]:
+                  - generic [ref=e673]: Disponível
+                - cell [ref=e674]:
+                  - generic [ref=e675]:
+                    - button [ref=e1287]:
+                      - img
+                    - button [ref=e1288]:
+                      - img
+                    - button [ref=e1289]:
+                      - img
+                    - button [ref=e1290]:
+                      - img
+                    - link [ref=e1291] [cursor=pointer]:
+                      - /url: /estoque/45321471-d3bd-4259-95b4-5ccbbe94ecf0
+                      - img
+              - row [ref=e1292]:
+                - cell [ref=e1293]: R10
+                - cell [ref=e1294]: LYDAE3836T1200209
+                - cell [ref=e1295]: VERDE/AMARELO
+                - cell [ref=e1296]: Varginha
+                - cell [ref=e1297]:
+                  - generic [ref=e687]:
+                    - img [ref=e688]
+                    - text: Montada
+                - cell [ref=e1298]:
+                  - generic [ref=e691]: Disponível
+                - cell [ref=e692]:
+                  - generic [ref=e693]:
+                    - button [ref=e1299]:
+                      - img
+                    - button [ref=e1300]:
+                      - img
+                    - button [ref=e1301]:
+                      - img
+                    - button [ref=e1302]:
+                      - img
+                    - link [ref=e1303] [cursor=pointer]:
+                      - /url: /estoque/d683d12b-ed6f-411e-8350-fc9f6221ed9e
+                      - img
+              - row [ref=e1304]:
+                - cell [ref=e1305]: R10
+                - cell [ref=e1306]: LYDAE3837T1200218
+                - cell [ref=e1307]: VERDE/AMARELO
+                - cell [ref=e1308]: Varginha
+                - cell [ref=e1309]:
+                  - generic [ref=e705]:
+                    - img [ref=e706]
+                    - text: Montada
+                - cell [ref=e1310]:
+                  - generic [ref=e709]: Disponível
+                - cell [ref=e710]:
+                  - generic [ref=e711]:
+                    - button [ref=e1311]:
+                      - img
+                    - button [ref=e1312]:
+                      - img
+                    - button [ref=e1313]:
+                      - img
+                    - button [ref=e1314]:
+                      - img
+                    - link [ref=e1315] [cursor=pointer]:
+                      - /url: /estoque/c83129cd-88ca-4a53-8031-6963e7a74b39
+                      - img
+              - row [ref=e1316]:
+                - cell [ref=e1317]: RET
+                - cell [ref=e1318]: LM60V1000W2025061900300
+                - cell [ref=e1319]: PRETO
+                - cell [ref=e1320]: Varginha
+                - cell [ref=e1321]:
+                  - generic [ref=e723]:
+                    - img [ref=e724]
+                    - text: Montada
+                - cell [ref=e1322]:
+                  - generic [ref=e727]: Disponível
+                - cell [ref=e728]:
+                  - generic [ref=e729]:
+                    - button [ref=e1323]:
+                      - img
+                    - button [ref=e1324]:
+                      - img
+                    - button [ref=e1325]:
+                      - img
+                    - button [ref=e1326]:
+                      - img
+                    - link [ref=e1327] [cursor=pointer]:
+                      - /url: /estoque/74d2b4c1-0392-48da-8f05-a8f69e07173f
+                      - img
+              - row [ref=e1328]:
+                - cell [ref=e1329]: RETRO
+                - cell [ref=e1330]: F2300800651
+                - cell [ref=e1331]: BRANCO
+                - cell [ref=e1332]: Varginha
+                - cell [ref=e1333]:
+                  - generic [ref=e741]:
+                    - img [ref=e742]
+                    - text: Montada
+                - cell [ref=e1334]:
+                  - generic [ref=e745]: Disponível
+                - cell [ref=e746]:
+                  - generic [ref=e747]:
+                    - button [ref=e1335]:
+                      - img
+                    - button [ref=e1336]:
+                      - img
+                    - button [ref=e1337]:
+                      - img
+                    - button [ref=e1338]:
+                      - img
+                    - link [ref=e1339] [cursor=pointer]:
+                      - /url: /estoque/fa5923b2-cdf6-4bbd-b1e8-61dc2b6302b2
+                      - img
+              - row [ref=e1340]:
+                - cell [ref=e1341]: S8 MINI
+                - cell [ref=e1342]: LA250860V1000W5488
+                - cell [ref=e1343]: AZUL
+                - cell [ref=e1344]: Varginha
+                - cell [ref=e1345]:
+                  - generic [ref=e759]:
+                    - img [ref=e760]
+                    - text: Montada
+                - cell [ref=e1346]:
+                  - generic [ref=e763]: Disponível
+                - cell [ref=e764]:
+                  - generic [ref=e765]:
+                    - button [ref=e1347]:
+                      - img
+                    - button [ref=e1348]:
+                      - img
+                    - button [ref=e1349]:
+                      - img
+                    - button [ref=e1350]:
+                      - img
+                    - link [ref=e1351] [cursor=pointer]:
+                      - /url: /estoque/beac94a5-e269-4419-9ebd-eb8553d36b50
+                      - img
+              - row [ref=e1352]:
+                - cell [ref=e1353]: S8 MINI
+                - cell [ref=e1354]: LA250860V1000W9277
+                - cell [ref=e1355]: AMARELO
+                - cell [ref=e1356]: Varginha
+                - cell [ref=e1357]:
+                  - generic [ref=e777]:
+                    - img [ref=e778]
+                    - text: Montada
+                - cell [ref=e1358]:
+                  - generic [ref=e781]: Disponível
+                - cell [ref=e782]:
+                  - generic [ref=e783]:
+                    - button [ref=e1359]:
+                      - img
+                    - button [ref=e1360]:
+                      - img
+                    - button [ref=e1361]:
+                      - img
+                    - button [ref=e1362]:
+                      - img
+                    - link [ref=e1363] [cursor=pointer]:
+                      - /url: /estoque/78ae079b-543e-4f45-aabc-2cf46dff899c
+                      - img
+              - row [ref=e1364]:
+                - cell [ref=e1365]: SOMA
+                - cell [ref=e1366]: "172922505661129"
+                - cell [ref=e1367]: BRANCO
+                - cell [ref=e1368]: Varginha
+                - cell [ref=e1369]:
+                  - generic [ref=e795]:
+                    - img [ref=e796]
+                    - text: Montada
+                - cell [ref=e1370]:
+                  - generic [ref=e799]: Disponível
+                - cell [ref=e800]:
+                  - generic [ref=e801]:
+                    - button [ref=e1371]:
+                      - img
+                    - button [ref=e1372]:
+                      - img
+                    - button [ref=e1373]:
+                      - img
+                    - button [ref=e1374]:
+                      - img
+                    - link [ref=e1375] [cursor=pointer]:
+                      - /url: /estoque/348c9195-8921-44d2-b9f4-ec38a9065c33
+                      - img
+              - row [ref=e1376]:
+                - cell [ref=e1377]: SOMA
+                - cell [ref=e1378]: "172922505660919"
+                - cell [ref=e1379]: PRETO
+                - cell [ref=e1380]: Varginha
+                - cell [ref=e1381]:
+                  - generic [ref=e813]:
+                    - img [ref=e814]
+                    - text: Montada
+                - cell [ref=e1382]:
+                  - generic [ref=e817]: Disponível
+                - cell [ref=e818]:
+                  - generic [ref=e819]:
+                    - button [ref=e1383]:
+                      - img
+                    - button [ref=e1384]:
+                      - img
+                    - button [ref=e1385]:
+                      - img
+                    - button [ref=e1386]:
+                      - img
+                    - link [ref=e1387] [cursor=pointer]:
+                      - /url: /estoque/bb9c91da-7e03-4a38-8e17-579c85862371
+                      - img
+              - row [ref=e1388]:
+                - cell [ref=e1389]: SUPER JOY
+                - cell [ref=e1390]: LM60V800W2025041100154
+                - cell [ref=e1391]: CINZA
+                - cell [ref=e1392]: Varginha
+                - cell [ref=e1393]:
+                  - generic [ref=e831]:
+                    - img [ref=e832]
+                    - text: Garantia
+                - cell [ref=e836]
+                - cell [ref=e837]:
+                  - generic [ref=e838]:
+                    - button [ref=e1394]:
+                      - img
+                    - button [ref=e1395]:
+                      - img
+                    - link [ref=e1396] [cursor=pointer]:
+                      - /url: /estoque/02edb1ab-b682-4597-bc4f-d3dcd16ab183
+                      - img
+              - row [ref=e1397]:
+                - cell [ref=e1398]: X11 MINI
+                - cell [ref=e1399]: SA25960V1000W1454
+                - cell [ref=e1400]: CINZA
+                - cell [ref=e1401]: Varginha
+                - cell [ref=e1402]:
+                  - generic [ref=e848]:
+                    - img [ref=e849]
+                    - text: Garantia
+                - cell [ref=e853]
+                - cell [ref=e854]:
+                  - generic [ref=e855]:
+                    - button [ref=e1403]:
+                      - img
+                    - button [ref=e1404]:
+                      - img
+                    - link [ref=e1405] [cursor=pointer]:
+                      - /url: /estoque/9b6d2bbc-c9ea-4080-87c1-991db38f0dd8
+                      - img
+              - row [ref=e1406]:
+                - cell [ref=e1407]: X12
+                - cell [ref=e1408]: MCBRX122602100219
+                - cell [ref=e1409]: PRETO
+                - cell [ref=e1410]: Varginha
+                - cell [ref=e1411]:
+                  - generic [ref=e865]:
+                    - img [ref=e866]
+                    - text: Montada
+                - cell [ref=e1412]:
+                  - generic [ref=e869]: Reservada
+                - cell [ref=e870]:
+                  - generic [ref=e871]:
+                    - button [ref=e1413]:
+                      - img
+                    - button [ref=e1414]:
+                      - img
+                    - link [ref=e1415] [cursor=pointer]:
+                      - /url: /estoque/85dfffad-aec0-4ee7-8f65-f6f4a5dfccf8
+                      - img
+              - row [ref=e1416]:
+                - cell [ref=e1417]: X12
+                - cell [ref=e1418]: MCBRX122602100035
+                - cell [ref=e1419]: VERMELHO
+                - cell [ref=e1420]: Varginha
+                - cell [ref=e1421]:
+                  - generic [ref=e881]:
+                    - img [ref=e882]
+                    - text: Garantia
+                - cell [ref=e886]
+                - cell [ref=e887]:
+                  - generic [ref=e888]:
+                    - button [ref=e1422]:
+                      - img
+                    - button [ref=e1423]:
+                      - img
+                    - link [ref=e1424] [cursor=pointer]:
+                      - /url: /estoque/cce08310-6650-461b-9ece-01a0452d4383
+                      - img
+              - row [ref=e1425]:
+                - cell [ref=e1426]: X12
+                - cell [ref=e1427]: MCBRX122602050039
+                - cell [ref=e1428]: BRANCO
+                - cell [ref=e1429]: Varginha
+                - cell [ref=e1430]:
+                  - generic [ref=e898]:
+                    - img [ref=e899]
+                    - text: Montada
+                - cell [ref=e1431]:
+                  - generic [ref=e902]: Disponível
+                - cell [ref=e903]:
+                  - generic [ref=e904]:
+                    - button [ref=e1432]:
+                      - img
+                    - button [ref=e1433]:
+                      - img
+                    - button [ref=e1434]:
+                      - img
+                    - button [ref=e1435]:
+                      - img
+                    - link [ref=e1436] [cursor=pointer]:
+                      - /url: /estoque/55612975-c40a-46bd-b42a-8f6e6f2a37f4
+                      - img
+              - row [ref=e1437]:
+                - cell [ref=e1438]: X12
+                - cell [ref=e1439]: MCBRX122602110015
+                - cell [ref=e1440]: AZUL
+                - cell [ref=e1441]: Varginha
+                - cell [ref=e1442]:
+                  - generic [ref=e916]:
+                    - img [ref=e917]
+                    - text: Montada
+                - cell [ref=e1443]:
+                  - generic [ref=e920]: Disponível
+                - cell [ref=e921]:
+                  - generic [ref=e922]:
+                    - button [ref=e1444]:
+                      - img
+                    - button [ref=e1445]:
+                      - img
+                    - button [ref=e1446]:
+                      - img
+                    - button [ref=e1447]:
+                      - img
+                    - link [ref=e1448] [cursor=pointer]:
+                      - /url: /estoque/170cee55-09a0-4b05-aec4-c95b573928cd
+                      - img
+              - row [ref=e1449]:
+                - cell [ref=e1450]: X15
+                - cell [ref=e1451]: 10ZW6073316YA25180807
+                - cell [ref=e1452]: BRANCO
+                - cell [ref=e1453]: Varginha
+                - cell [ref=e1454]:
+                  - generic [ref=e934]:
+                    - img [ref=e935]
+                    - text: Montada
+                - cell [ref=e1455]:
+                  - generic [ref=e938]: Disponível
+                - cell [ref=e939]:
+                  - generic [ref=e940]:
+                    - button [ref=e1456]:
+                      - img
+                    - button [ref=e1457]:
+                      - img
+                    - button [ref=e1458]:
+                      - img
+                    - button [ref=e1459]:
+                      - img
+                    - link [ref=e1460] [cursor=pointer]:
+                      - /url: /estoque/65e8916d-c6a9-40fa-8101-5051afb37069
+                      - img
+  - button "Open Next.js Dev Tools" [ref=e1466] [cursor=pointer]:
+    - img [ref=e1467]
+  - alert [ref=e1470]
+  - dialog "Registrar Venda" [ref=e1474]:
+    - generic [ref=e1476]:
+      - generic [ref=e1477]:
+        - heading "Registrar Venda" [level=2] [ref=e1478]
+        - paragraph [ref=e1479]: BIGTRI — CINZA (Varginha)
+      - generic [ref=e1480]:
+        - button "Venda" [active] [ref=e1481]
+        - button "Reserva" [ref=e1482]
+    - generic [ref=e1483]:
+      - generic [ref=e1485]:
+        - generic [ref=e1486]: Vendedor
+        - combobox [ref=e1487]:
+          - text: Adrielly Marques
+          - img: ▼
+        - textbox [ref=e1488]: 0d653b51-bc25-4c4d-859c-373d10966c5f
+      - generic [ref=e1490]:
+        - paragraph [ref=e1491]: Dados do Cliente
+        - generic [ref=e1492]:
+          - generic [ref=e1493]:
+            - generic [ref=e1494]:
+              - text: Nome completo
+              - generic [ref=e1495]: "*"
+            - textbox "Nome completo do cliente" [ref=e1496]
+          - generic [ref=e1497]:
+            - generic [ref=e1498]:
+              - text: CPF
+              - generic [ref=e1499]: "*"
+            - textbox "000.000.000-00" [ref=e1500]
+          - generic [ref=e1501]:
+            - generic [ref=e1502]:
+              - text: Celular
+              - generic [ref=e1503]: "*"
+            - textbox "(00) 00000-0000" [ref=e1504]
+          - generic [ref=e1505]:
+            - generic [ref=e1506]:
+              - text: E-mail
+              - generic [ref=e1507]: "*"
+            - textbox "email@exemplo.com" [ref=e1508]
+          - generic [ref=e1509]:
+            - generic [ref=e1510]: CEP
+            - generic [ref=e1511]:
+              - textbox "00000-000" [ref=e1512]
+              - button "Buscar CEP" [ref=e1513]:
+                - img
+          - generic [ref=e1514]:
+            - generic [ref=e1515]: Estado
+            - textbox "SP" [ref=e1516]
+          - generic [ref=e1517]:
+            - generic [ref=e1518]: Logradouro
+            - textbox "Rua, Avenida..." [ref=e1519]
+          - generic [ref=e1520]:
+            - generic [ref=e1521]: Número
+            - textbox "123" [ref=e1522]
+          - generic [ref=e1523]:
+            - generic [ref=e1524]: Complemento
+            - textbox "Apto, Bloco, Sala..." [ref=e1525]
+          - generic [ref=e1526]:
+            - generic [ref=e1527]: Bairro
+            - textbox "Bairro" [ref=e1528]
+          - generic [ref=e1529]:
+            - generic [ref=e1530]: Cidade
+            - textbox "Cidade" [ref=e1531]
+      - generic [ref=e1533]:
+        - paragraph [ref=e1534]: Pagamento
+        - generic [ref=e1535]:
+          - generic [ref=e1536]:
+            - text: Valor da Venda (R$)
+            - generic [ref=e1537]: "*"
+          - spinbutton [ref=e1538]
+        - generic [ref=e1539]:
+          - generic [ref=e1540]:
+            - text: Formas de Pagamento
+            - generic [ref=e1541]: "*"
+          - generic [ref=e1543]:
+            - combobox [ref=e1544]:
+              - generic [ref=e1545]: Forma de pagamento
+              - img: ▼
+            - textbox [ref=e1546]
+            - spinbutton [ref=e1547]
+          - button "Adicionar forma" [ref=e1548]:
+            - img
+            - text: Adicionar forma
+    - generic [ref=e1549]:
+      - button "Cancelar" [ref=e1550]
+      - button "Confirmar Venda" [disabled]
+    - button "Close" [ref=e1551]:
+      - img
+      - generic [ref=e1552]: Close

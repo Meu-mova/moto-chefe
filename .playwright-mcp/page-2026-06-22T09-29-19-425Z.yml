@@ -1,0 +1,207 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Estoque" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Estoque
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+        - link "Caixa" [ref=e32] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e33]
+          - text: Caixa
+        - link "Financeiro" [ref=e36] [cursor=pointer]:
+          - /url: /financeiro
+          - img [ref=e37]
+          - text: Financeiro
+        - link "Entrada" [ref=e39] [cursor=pointer]:
+          - /url: /entrada
+          - img [ref=e40]
+          - text: Entrada
+        - link "Compras" [ref=e44] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e45]
+          - text: Compras
+        - link "Admin" [ref=e48] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e49]
+          - text: Admin
+    - generic [ref=e52]:
+      - banner [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - paragraph [ref=e56]: César Admin
+            - generic [ref=e57]: Admin Geral
+          - button "Sair" [ref=e59]
+      - main [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - heading "Dashboard" [level=1] [ref=e64]
+              - paragraph [ref=e65]: Resumo da operação
+            - generic [ref=e66]:
+              - generic [ref=e67]:
+                - generic [ref=e68]: De
+                - textbox [ref=e69]: 2026-06-01
+              - generic [ref=e70]:
+                - generic [ref=e71]: Até
+                - textbox [ref=e72]: 2026-06-30
+              - combobox [ref=e73]:
+                - option "Todas as lojas" [selected]
+                - option "Galpão Matriz"
+                - option "Itajuba"
+                - option "Lavras"
+                - option "Poços de Caldas"
+                - option "Pouso Alegre"
+                - option "Varginha"
+              - combobox [ref=e74]:
+                - option "Todos os vendedores" [selected]
+                - option "Anne Ester"
+                - option "Brenda Aquiles"
+                - option "Emanuel Paiva"
+                - option "Fernando Betão"
+                - option "Julia Nascimento"
+                - option "Juscelino Junior"
+                - option "Karla"
+                - option "Kawan Manso"
+                - option "Luara Alkmin"
+                - option "Pablo Albinati"
+                - option "Rayssa Dayane"
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - generic [ref=e77]:
+                - generic [ref=e78]: Vendas
+                - img [ref=e80]
+              - generic [ref=e84]: "56"
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - generic [ref=e87]: Faturamento
+                - img [ref=e89]
+              - generic [ref=e91]: R$ 608.331,68
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e94]: Estoque
+                - img [ref=e96]
+              - generic [ref=e99]: "199"
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: Transf. Pendentes
+                - img [ref=e104]
+              - generic [ref=e107]: "0"
+            - generic [ref=e108]:
+              - generic [ref=e109]:
+                - generic [ref=e110]: Garantias Ativas
+                - img [ref=e112]
+              - generic [ref=e114]: "2"
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e117]: OS Abertas
+                - img [ref=e119]
+              - generic [ref=e121]: "0"
+          - generic [ref=e122]:
+            - heading "Vendas por dia" [level=3] [ref=e124]
+            - heading "Estoque por loja" [level=3] [ref=e127]
+          - heading "Vendas por loja" [level=3] [ref=e131]
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - heading "Últimas vendas" [level=3] [ref=e136]
+              - table [ref=e137]:
+                - rowgroup [ref=e138]:
+                  - row "Modelo Chassi Loja Vendedor Valor Data" [ref=e139]:
+                    - columnheader "Modelo" [ref=e140]
+                    - columnheader "Chassi" [ref=e141]
+                    - columnheader "Loja" [ref=e142]
+                    - columnheader "Vendedor" [ref=e143]
+                    - columnheader "Valor" [ref=e144]
+                    - columnheader "Data" [ref=e145]
+                - rowgroup [ref=e146]:
+                  - row "MIA MIA 1000W MCBRMIA2512030172 BRANCO Pouso Alegre Anne Ester R$ 9.000,00 12/06/2026" [ref=e147]:
+                    - cell "MIA" [ref=e148]
+                    - cell "MIA 1000W MCBRMIA2512030172 BRANCO" [ref=e149]
+                    - cell "Pouso Alegre" [ref=e150]
+                    - cell "Anne Ester" [ref=e151]
+                    - cell "R$ 9.000,00" [ref=e152]
+                    - cell "12/06/2026" [ref=e153]
+                  - row "S8 MINI S8-MINI 1000W LA250860V1000W5489 SA25860V1000W5489 AZUL Lavras Tiago Souza Gomes R$ 11.490,00 12/06/2026" [ref=e154]:
+                    - cell "S8 MINI" [ref=e155]
+                    - cell "S8-MINI 1000W LA250860V1000W5489 SA25860V1000W5489 AZUL" [ref=e156]
+                    - cell "Lavras" [ref=e157]
+                    - cell "Tiago Souza Gomes" [ref=e158]
+                    - cell "R$ 11.490,00" [ref=e159]
+                    - cell "12/06/2026" [ref=e160]
+                  - row "JETMAX JET MAX 1000W LYDAE3930T1204416 JYX1000W260181978 PRETO Poços de Caldas Rayssa Dayane R$ 12.870,00 11/06/2026" [ref=e161]:
+                    - cell "JETMAX" [ref=e162]
+                    - cell "JET MAX 1000W LYDAE3930T1204416 JYX1000W260181978 PRETO" [ref=e163]
+                    - cell "Poços de Caldas" [ref=e164]
+                    - cell "Rayssa Dayane" [ref=e165]
+                    - cell "R$ 12.870,00" [ref=e166]
+                    - cell "11/06/2026" [ref=e167]
+                  - row "JETMAX JET MAX 1000W LYDAE3932T1201064 JYX1000W260180320 BRANCO Varginha Brenda Aquiles R$ 13.290,00 11/06/2026" [ref=e168]:
+                    - cell "JETMAX" [ref=e169]
+                    - cell "JET MAX 1000W LYDAE3932T1201064 JYX1000W260180320 BRANCO" [ref=e170]
+                    - cell "Varginha" [ref=e171]
+                    - cell "Brenda Aquiles" [ref=e172]
+                    - cell "R$ 13.290,00" [ref=e173]
+                    - cell "11/06/2026" [ref=e174]
+                  - row "JETMAX JET MAX 1000W LYDAE3934T1204452 JYX1000W260182662 PRETO Poços de Caldas Julia Nascimento R$ 12.700,00 11/06/2026" [ref=e175]:
+                    - cell "JETMAX" [ref=e176]
+                    - cell "JET MAX 1000W LYDAE3934T1204452 JYX1000W260182662 PRETO" [ref=e177]
+                    - cell "Poços de Caldas" [ref=e178]
+                    - cell "Julia Nascimento" [ref=e179]
+                    - cell "R$ 12.700,00" [ref=e180]
+                    - cell "11/06/2026" [ref=e181]
+            - generic [ref=e182]:
+              - heading "Transferências pendentes" [level=3] [ref=e184]
+              - paragraph [ref=e185]: Nenhuma pendente
+          - generic [ref=e186]:
+            - generic [ref=e187]:
+              - heading "Garantias próximas do vencimento" [level=3] [ref=e189]
+              - table [ref=e190]:
+                - rowgroup [ref=e191]:
+                  - row "Modelo Chassi Loja Descrição Vence em" [ref=e192]:
+                    - columnheader "Modelo" [ref=e193]
+                    - columnheader "Chassi" [ref=e194]
+                    - columnheader "Loja" [ref=e195]
+                    - columnheader "Descrição" [ref=e196]
+                    - columnheader "Vence em" [ref=e197]
+                - rowgroup [ref=e198]:
+                  - row "BIG TRI XL2025107063 Galpão Matriz teste de garantia 01/07/2026" [ref=e199]:
+                    - cell "BIG TRI" [ref=e200]
+                    - cell "XL2025107063" [ref=e201]
+                    - cell "Galpão Matriz" [ref=e202]
+                    - cell "teste de garantia" [ref=e203]
+                    - cell "01/07/2026" [ref=e204]
+                  - row "BIG TRI XL2025107063 Galpão Matriz Segunda garantia - teste 14/07/2026" [ref=e205]:
+                    - cell "BIG TRI" [ref=e206]
+                    - cell "XL2025107063" [ref=e207]
+                    - cell "Galpão Matriz" [ref=e208]
+                    - cell "Segunda garantia - teste" [ref=e209]
+                    - cell "14/07/2026" [ref=e210]
+            - generic [ref=e211]:
+              - heading "Ordens de serviço abertas" [level=3] [ref=e213]
+              - paragraph [ref=e214]: Nenhuma OS aberta
+  - button "Open Next.js Dev Tools" [ref=e220] [cursor=pointer]:
+    - img [ref=e221]

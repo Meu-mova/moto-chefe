@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e3723] [cursor=pointer]:
+    - img [ref=e3724]
+  - alert [ref=e3727]
+  - generic [ref=e3729]:
+    - generic [ref=e3730]:
+      - generic [ref=e3731]: MOVA
+      - paragraph [ref=e3732]: Gestão de Motos Elétricas
+    - generic [ref=e3734]:
+      - generic [ref=e3735]:
+        - generic [ref=e3736]: Email
+        - textbox "Email" [ref=e3737]:
+          - /placeholder: seu@email.com
+          - text: admin@motochefe.com
+      - generic [ref=e3738]:
+        - generic [ref=e3739]: Senha
+        - textbox "Senha" [ref=e3740]: Admin@2026
+      - button "Entrar" [ref=e3741]

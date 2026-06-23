@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+        - link "Caixa" [ref=e32] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e33]
+          - text: Caixa
+        - link "PIX" [ref=e36] [cursor=pointer]:
+          - /url: /pix
+          - img [ref=e37]
+          - text: PIX
+        - link "Financeiro" [ref=e43] [cursor=pointer]:
+          - /url: /financeiro
+          - img [ref=e44]
+          - text: Financeiro
+        - link "Entrada" [ref=e46] [cursor=pointer]:
+          - /url: /entrada
+          - img [ref=e47]
+          - text: Entrada
+        - link "Compras" [ref=e51] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e52]
+          - text: Compras
+        - link "Admin" [ref=e55] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e56]
+          - text: Admin
+    - generic [ref=e59]:
+      - banner [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - paragraph [ref=e63]: Cesar Rodrigues
+            - generic [ref=e64]: Admin Geral
+          - button "Sair" [ref=e66]
+      - main [ref=e67]:
+        - generic [ref=e68]:
+          - heading "Erro ao carregar a página" [level=2] [ref=e69]
+          - paragraph [ref=e70]: Não foi possível carregar os dados. Tente novamente em alguns segundos.
+          - button "Tentar novamente" [ref=e71]
+  - alert [ref=e72]

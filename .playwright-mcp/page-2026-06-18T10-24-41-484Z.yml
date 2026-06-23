@@ -1,0 +1,121 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading [level=1] [ref=e112]: MOVA
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link [ref=e113] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e9]
+          - text: Estoque
+        - link [ref=e114] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e15]
+          - text: Transferências
+        - link [ref=e115] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e19]
+          - text: Vendas
+        - link [ref=e116] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e24]
+          - text: Ordens de Serviço
+        - link [ref=e117] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e27]
+          - text: Garantias
+    - generic [ref=e29]:
+      - banner [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - paragraph [ref=e33]: Adrielly Marques
+            - generic [ref=e34]: Aux. Administrativo
+          - button [ref=e118]: Sair
+      - main [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - link [ref=e119] [cursor=pointer]:
+              - /url: /estoque
+              - img [ref=e41]
+              - text: Voltar
+            - generic [ref=e43]:
+              - heading [level=1] [ref=e120]: MotoChefe BIGTRI
+              - paragraph [ref=e45]: XL2025098060
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e49]: Informações
+              - generic [ref=e50]:
+                - generic [ref=e51]:
+                  - generic [ref=e52]: Status
+                  - generic [ref=e53]: Montada
+                - generic [ref=e54]:
+                  - generic [ref=e55]: Disponibilidade
+                  - generic [ref=e56]: Disponível
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Loja
+                  - generic [ref=e59]: Varginha
+                - generic [ref=e60]:
+                  - generic [ref=e61]: Cor
+                  - generic [ref=e62]: CINZA
+                - generic [ref=e63]:
+                  - generic [ref=e64]: Categoria
+                  - generic [ref=e65]: triciclo
+                - generic [ref=e66]:
+                  - generic [ref=e67]: Potência
+                  - generic [ref=e68]: 1000 WW
+                - generic [ref=e69]:
+                  - generic [ref=e70]: Motor
+                  - generic [ref=e71]: HRD48/60V1000W202508120364
+                - generic [ref=e72]:
+                  - generic [ref=e73]: NF Entrada
+                  - generic [ref=e74]: "38050"
+            - generic [ref=e75]:
+              - generic [ref=e77]: Alterar Status
+              - generic [ref=e80]:
+                - paragraph [ref=e81]: Status
+                - button [ref=e121]: → Garantia
+          - generic [ref=e84]:
+            - tablist [ref=e85]:
+              - tab [selected] [ref=e122]: Histórico
+              - tab [ref=e123]: Ordens de Serviço
+              - tab [ref=e124]: Garantias
+              - tab [ref=e125]: Dados da Venda
+            - tabpanel [ref=e90]:
+              - generic [ref=e93]:
+                - generic [ref=e95]:
+                  - img [ref=e96]
+                  - generic [ref=e99]:
+                    - paragraph [ref=e100]: Nota Fiscal de Entrada
+                    - paragraph [ref=e101]: "38050"
+                - paragraph [ref=e102]: Nenhum evento registrado.
+  - button "Open Next.js Dev Tools" [ref=e108] [cursor=pointer]:
+    - img [ref=e109]
+  - alert [ref=e126]
+  - dialog "Confirmar alteração" [ref=e130]:
+    - heading "Confirmar alteração" [level=2] [ref=e132]
+    - generic [ref=e133]:
+      - paragraph [ref=e134]:
+        - text: Alterar status para
+        - strong [ref=e135]: Garantia
+        - text: "?"
+      - generic [ref=e136]:
+        - generic [ref=e137]:
+          - text: Descrição do Problema
+          - generic [ref=e138]: "*"
+        - textbox "Descreva o defeito ou problema em garantia..." [active] [ref=e139]
+      - generic [ref=e140]:
+        - generic [ref=e141]:
+          - text: Data do Pedido
+          - generic [ref=e142]: "*"
+        - textbox [ref=e143]: 2026-06-18
+        - paragraph [ref=e144]: O prazo de resolução é de 30 dias a partir desta data.
+      - generic [ref=e145]:
+        - generic [ref=e146]: Número do Pedido na Fábrica (opcional)
+        - 'textbox "Ex: FAB-2026-001" [ref=e147]'
+    - generic [ref=e148]:
+      - button "Cancelar" [ref=e149]
+      - button "Confirmar" [disabled]
+    - button "Close" [ref=e150]:
+      - img
+      - generic [ref=e151]: Close

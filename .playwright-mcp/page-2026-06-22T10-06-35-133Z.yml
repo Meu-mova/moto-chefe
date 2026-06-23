@@ -1,0 +1,235 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: Anne Ester
+            - generic [ref=e37]: Vendedor
+          - button "Sair" [ref=e39]
+      - main [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - heading "Dashboard" [level=1] [ref=e44]
+              - paragraph [ref=e45]: Resumo da operação
+            - generic [ref=e46]:
+              - generic [ref=e47]:
+                - generic [ref=e48]: De
+                - textbox [ref=e49]: 2026-06-01
+              - generic [ref=e50]:
+                - generic [ref=e51]: Até
+                - textbox [ref=e52]: 2026-06-30
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: Motos Vendidas
+                - img [ref=e58]
+              - generic [ref=e62]: "5"
+            - generic [ref=e63]:
+              - generic [ref=e64]:
+                - generic [ref=e65]: Total de Vendas
+                - img [ref=e67]
+              - generic [ref=e69]: R$ 56.047,60
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - generic [ref=e72]: Mais Vendida
+                - img [ref=e74]
+              - generic [ref=e76]: X12 (2)
+            - generic [ref=e77]:
+              - generic [ref=e78]:
+                - generic [ref=e79]: Preço Médio
+                - img [ref=e81]
+              - generic [ref=e83]: R$ 11.209,52
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - generic [ref=e86]: Comissão
+                - img [ref=e88]
+              - generic [ref=e94]: R$ 280,24
+          - generic [ref=e95]:
+            - heading "Vendas por dia" [level=3] [ref=e97]
+            - generic [ref=e99]:
+              - heading "Ranking de vendedores" [level=3] [ref=e101]
+              - table [ref=e102]:
+                - rowgroup [ref=e103]:
+                  - row "# Vendedor Loja Vendas Faturamento" [ref=e104]:
+                    - columnheader "#" [ref=e105]
+                    - columnheader "Vendedor" [ref=e106]
+                    - columnheader "Loja" [ref=e107]
+                    - columnheader "Vendas" [ref=e108]
+                    - columnheader "Faturamento" [ref=e109]
+                - rowgroup [ref=e110]:
+                  - row "🥇 Brenda Aquiles Varginha 12 R$ 142.675,35" [ref=e111]:
+                    - cell "🥇" [ref=e112]
+                    - cell "Brenda Aquiles" [ref=e113]
+                    - cell "Varginha" [ref=e114]
+                    - cell "12" [ref=e115]
+                    - cell "R$ 142.675,35" [ref=e116]
+                  - row "🥈 Juscelino Junior Itajuba 7 R$ 72.972,73" [ref=e117]:
+                    - cell "🥈" [ref=e118]
+                    - cell "Juscelino Junior" [ref=e119]
+                    - cell "Itajuba" [ref=e120]
+                    - cell "7" [ref=e121]
+                    - cell "R$ 72.972,73" [ref=e122]
+                  - row "🥉 Kawan Manso Pouso Alegre 5 R$ 58.958,50" [ref=e123]:
+                    - cell "🥉" [ref=e124]
+                    - cell "Kawan Manso" [ref=e125]
+                    - cell "Pouso Alegre" [ref=e126]
+                    - cell "5" [ref=e127]
+                    - cell "R$ 58.958,50" [ref=e128]
+                  - row "4º Anne Ester (você) Pouso Alegre 5 R$ 56.047,60" [ref=e129]:
+                    - cell "4º" [ref=e130]
+                    - cell "Anne Ester (você)" [ref=e131]
+                    - cell "Pouso Alegre" [ref=e132]
+                    - cell "5" [ref=e133]
+                    - cell "R$ 56.047,60" [ref=e134]
+                  - row "5º Julia Nascimento Poços de Caldas 4 R$ 49.630,00" [ref=e135]:
+                    - cell "5º" [ref=e136]
+                    - cell "Julia Nascimento" [ref=e137]
+                    - cell "Poços de Caldas" [ref=e138]
+                    - cell "4" [ref=e139]
+                    - cell "R$ 49.630,00" [ref=e140]
+                  - row "6º Rayssa Dayane Poços de Caldas 4 R$ 48.603,50" [ref=e141]:
+                    - cell "6º" [ref=e142]
+                    - cell "Rayssa Dayane" [ref=e143]
+                    - cell "Poços de Caldas" [ref=e144]
+                    - cell "4" [ref=e145]
+                    - cell "R$ 48.603,50" [ref=e146]
+                  - row "7º Luara Alkmin Itajuba 4 R$ 31.479,00" [ref=e147]:
+                    - cell "7º" [ref=e148]
+                    - cell "Luara Alkmin" [ref=e149]
+                    - cell "Itajuba" [ref=e150]
+                    - cell "4" [ref=e151]
+                    - cell "R$ 31.479,00" [ref=e152]
+                  - row "8º Tiago Souza Gomes Lavras 3 R$ 28.965,00" [ref=e153]:
+                    - cell "8º" [ref=e154]
+                    - cell "Tiago Souza Gomes" [ref=e155]
+                    - cell "Lavras" [ref=e156]
+                    - cell "3" [ref=e157]
+                    - cell "R$ 28.965,00" [ref=e158]
+                  - row "9º Cesar Rodrigues Pouso Alegre 4 R$ 28.870,00" [ref=e159]:
+                    - cell "9º" [ref=e160]
+                    - cell "Cesar Rodrigues" [ref=e161]
+                    - cell "Pouso Alegre" [ref=e162]
+                    - cell "4" [ref=e163]
+                    - cell "R$ 28.870,00" [ref=e164]
+                  - row "10º Emanuel Paiva Lavras 2 R$ 19.380,00" [ref=e165]:
+                    - cell "10º" [ref=e166]
+                    - cell "Emanuel Paiva" [ref=e167]
+                    - cell "Lavras" [ref=e168]
+                    - cell "2" [ref=e169]
+                    - cell "R$ 19.380,00" [ref=e170]
+                  - row "11º Karla Varginha 1 R$ 13.290,00" [ref=e171]:
+                    - cell "11º" [ref=e172]
+                    - cell "Karla" [ref=e173]
+                    - cell "Varginha" [ref=e174]
+                    - cell "1" [ref=e175]
+                    - cell "R$ 13.290,00" [ref=e176]
+                  - row "12º Brenda Aquiles Galpão Matriz 1 R$ 12.940,00" [ref=e177]:
+                    - cell "12º" [ref=e178]
+                    - cell "Brenda Aquiles" [ref=e179]
+                    - cell "Galpão Matriz" [ref=e180]
+                    - cell "1" [ref=e181]
+                    - cell "R$ 12.940,00" [ref=e182]
+                  - row "13º Kawan Manso Galpão Matriz 1 R$ 12.940,00" [ref=e183]:
+                    - cell "13º" [ref=e184]
+                    - cell "Kawan Manso" [ref=e185]
+                    - cell "Galpão Matriz" [ref=e186]
+                    - cell "1" [ref=e187]
+                    - cell "R$ 12.940,00" [ref=e188]
+                  - row "14º Carlos Barbosa Itajuba 1 R$ 12.290,00" [ref=e189]:
+                    - cell "14º" [ref=e190]
+                    - cell "Carlos Barbosa" [ref=e191]
+                    - cell "Itajuba" [ref=e192]
+                    - cell "1" [ref=e193]
+                    - cell "R$ 12.290,00" [ref=e194]
+                  - row "15º Luara Alkmin Galpão Matriz 1 R$ 12.290,00" [ref=e195]:
+                    - cell "15º" [ref=e196]
+                    - cell "Luara Alkmin" [ref=e197]
+                    - cell "Galpão Matriz" [ref=e198]
+                    - cell "1" [ref=e199]
+                    - cell "R$ 12.290,00" [ref=e200]
+                  - row "16º Cesar Rodrigues Varginha 1 R$ 7.000,00" [ref=e201]:
+                    - cell "16º" [ref=e202]
+                    - cell "Cesar Rodrigues" [ref=e203]
+                    - cell "Varginha" [ref=e204]
+                    - cell "1" [ref=e205]
+                    - cell "R$ 7.000,00" [ref=e206]
+          - generic [ref=e207]:
+            - heading "Últimas vendas" [level=3] [ref=e209]
+            - table [ref=e210]:
+              - rowgroup [ref=e211]:
+                - row "Modelo Chassi Loja Vendedor Valor Data" [ref=e212]:
+                  - columnheader "Modelo" [ref=e213]
+                  - columnheader "Chassi" [ref=e214]
+                  - columnheader "Loja" [ref=e215]
+                  - columnheader "Vendedor" [ref=e216]
+                  - columnheader "Valor" [ref=e217]
+                  - columnheader "Data" [ref=e218]
+              - rowgroup [ref=e219]:
+                - row "MIA MIA 1000W MCBRMIA2512030172 BRANCO Pouso Alegre Anne Ester R$ 9.000,00 12/06/2026" [ref=e220]:
+                  - cell "MIA" [ref=e221]
+                  - cell "MIA 1000W MCBRMIA2512030172 BRANCO" [ref=e222]
+                  - cell "Pouso Alegre" [ref=e223]
+                  - cell "Anne Ester" [ref=e224]
+                  - cell "R$ 9.000,00" [ref=e225]
+                  - cell "12/06/2026" [ref=e226]
+                - row "X12 X12-1000W MCBRX122602050081 BRANCO Pouso Alegre Anne Ester R$ 11.000,00 10/06/2026" [ref=e227]:
+                  - cell "X12" [ref=e228]
+                  - cell "X12-1000W MCBRX122602050081 BRANCO" [ref=e229]
+                  - cell "Pouso Alegre" [ref=e230]
+                  - cell "Anne Ester" [ref=e231]
+                  - cell "R$ 11.000,00" [ref=e232]
+                  - cell "10/06/2026" [ref=e233]
+                - row "JETMAX JETMAX 1000W LYDAE3939T1204513 JYX1000W260181916 BRANCO Pouso Alegre Anne Ester R$ 14.486,10 06/06/2026" [ref=e234]:
+                  - cell "JETMAX" [ref=e235]
+                  - cell "JETMAX 1000W LYDAE3939T1204513 JYX1000W260181916 BRANCO" [ref=e236]
+                  - cell "Pouso Alegre" [ref=e237]
+                  - cell "Anne Ester" [ref=e238]
+                  - cell "R$ 14.486,10" [ref=e239]
+                  - cell "06/06/2026" [ref=e240]
+                - row "JET JET 1000W LA250960V1000W7263 QS60V30H25071503037 BRANCO Pouso Alegre Anne Ester R$ 10.530,00 06/06/2026" [ref=e241]:
+                  - cell "JET" [ref=e242]
+                  - cell "JET 1000W LA250960V1000W7263 QS60V30H25071503037 BRANCO" [ref=e243]
+                  - cell "Pouso Alegre" [ref=e244]
+                  - cell "Anne Ester" [ref=e245]
+                  - cell "R$ 10.530,00" [ref=e246]
+                  - cell "06/06/2026" [ref=e247]
+                - row "X12 X12-1000W MCBRX122602100246 PRETO Pouso Alegre Anne Ester R$ 11.031,50 05/06/2026" [ref=e248]:
+                  - cell "X12" [ref=e249]
+                  - cell "X12-1000W MCBRX122602100246 PRETO" [ref=e250]
+                  - cell "Pouso Alegre" [ref=e251]
+                  - cell "Anne Ester" [ref=e252]
+                  - cell "R$ 11.031,50" [ref=e253]
+                  - cell "05/06/2026" [ref=e254]
+  - button "Open Next.js Dev Tools" [ref=e260] [cursor=pointer]:
+    - img [ref=e261]

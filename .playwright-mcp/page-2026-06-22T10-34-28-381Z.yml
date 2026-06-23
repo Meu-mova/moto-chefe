@@ -1,0 +1,1097 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: Adrielly Marques
+            - generic [ref=e37]: Aux. Administrativo
+          - button "Sair" [ref=e39]
+      - main [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - heading "Showroom" [level=1] [ref=e43]
+            - paragraph [ref=e44]: Todas as motos do grupo
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]:
+                - generic [ref=e48]: Total
+                - img [ref=e49]
+              - paragraph [ref=e53]: "45"
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: Caixa
+                - img [ref=e57]
+              - paragraph [ref=e61]: "10"
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - generic [ref=e64]: Montadas
+                - img [ref=e65]
+              - paragraph [ref=e67]: "27"
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: Disponíveis
+                - img [ref=e71]
+              - paragraph [ref=e74]: "23"
+            - generic [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]: Reservadas
+                - img [ref=e78]
+              - paragraph [ref=e81]: "4"
+            - generic [ref=e82]:
+              - generic [ref=e83]:
+                - generic [ref=e84]: Garantia
+                - img [ref=e85]
+              - paragraph [ref=e87]: "8"
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: Ag. NF
+                - img [ref=e91]
+              - paragraph [ref=e95]: "0"
+          - generic [ref=e96]:
+            - button "Modelo" [ref=e98]:
+              - generic [ref=e99]: Modelo
+              - img [ref=e100]
+            - textbox "Buscar chassi..." [ref=e102]
+            - button "Cor" [ref=e104]:
+              - generic [ref=e105]: Cor
+              - img [ref=e106]
+            - button "Varginha" [ref=e109]:
+              - generic [ref=e110]: Varginha
+              - img [ref=e111]
+            - button "Status" [ref=e114]:
+              - generic [ref=e115]: Status
+              - img [ref=e116]
+            - button "Disponibilidade" [ref=e119]:
+              - generic [ref=e120]: Disponibilidade
+              - img [ref=e121]
+          - table [ref=e125]:
+            - rowgroup [ref=e126]:
+              - row "Modelo Chassi Cor Loja Status Disponibilidade Ações" [ref=e127]:
+                - columnheader "Modelo" [ref=e128]:
+                  - link "Modelo" [ref=e129] [cursor=pointer]:
+                    - /url: /estoque?ord=modelo&dir=desc
+                    - text: Modelo
+                    - img [ref=e130]
+                - columnheader "Chassi" [ref=e132]
+                - columnheader "Cor" [ref=e133]:
+                  - link "Cor" [ref=e134] [cursor=pointer]:
+                    - /url: /estoque?ord=cor&dir=asc
+                    - text: Cor
+                    - img [ref=e135]
+                - columnheader "Loja" [ref=e138]:
+                  - link "Loja" [ref=e139] [cursor=pointer]:
+                    - /url: /estoque?ord=loja&dir=asc
+                    - text: Loja
+                    - img [ref=e140]
+                - columnheader "Status" [ref=e143]:
+                  - link "Status" [ref=e144] [cursor=pointer]:
+                    - /url: /estoque?ord=status&dir=asc
+                    - text: Status
+                    - img [ref=e145]
+                - columnheader "Disponibilidade" [ref=e148]:
+                  - link "Disponibilidade" [ref=e149] [cursor=pointer]:
+                    - /url: /estoque?ord=disponibilidade&dir=asc
+                    - text: Disponibilidade
+                    - img [ref=e150]
+                - columnheader "Ações" [ref=e153]
+            - rowgroup [ref=e154]:
+              - row "BIG TRI XL2025084057 CINZA Varginha Garantia" [ref=e155]:
+                - cell "BIG TRI" [ref=e156]
+                - cell "XL2025084057" [ref=e157]
+                - cell "CINZA" [ref=e158]
+                - cell "Varginha" [ref=e159]
+                - cell "Garantia" [ref=e160]:
+                  - generic [ref=e161]:
+                    - img [ref=e162]
+                    - text: Garantia
+                - cell [ref=e166]
+                - cell [ref=e167]:
+                  - generic [ref=e168]:
+                    - button "Abrir Garantia" [ref=e169]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e170]:
+                      - img
+                    - link "Ver detalhes" [ref=e171] [cursor=pointer]:
+                      - /url: /estoque/8e295458-a46f-458a-98ee-79926e20ad43
+                      - img
+              - row "BIG TRI XL2025098060 CINZA Varginha Montada Disponível" [ref=e172]:
+                - cell "BIG TRI" [ref=e173]
+                - cell "XL2025098060" [ref=e174]
+                - cell "CINZA" [ref=e175]
+                - cell "Varginha" [ref=e176]
+                - cell "Montada" [ref=e177]:
+                  - generic [ref=e178]:
+                    - img [ref=e179]
+                    - text: Montada
+                - cell "Disponível" [ref=e181]:
+                  - generic [ref=e182]: Disponível
+                - cell [ref=e183]:
+                  - generic [ref=e184]:
+                    - button "Abrir Garantia" [ref=e185]:
+                      - img
+                    - button "Registrar Venda" [ref=e186]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e187]:
+                      - img
+                    - link "Ver detalhes" [ref=e188] [cursor=pointer]:
+                      - /url: /estoque/4bbf8bbd-6d18-4755-9535-0c8bb52da437
+                      - img
+              - row "BOB 172922506891377 BRANCO Varginha Montada Disponível" [ref=e189]:
+                - cell "BOB" [ref=e190]
+                - cell "172922506891377" [ref=e191]
+                - cell "BRANCO" [ref=e192]
+                - cell "Varginha" [ref=e193]
+                - cell "Montada" [ref=e194]:
+                  - generic [ref=e195]:
+                    - img [ref=e196]
+                    - text: Montada
+                - cell "Disponível" [ref=e198]:
+                  - generic [ref=e199]: Disponível
+                - cell [ref=e200]:
+                  - generic [ref=e201]:
+                    - button "Abrir Garantia" [ref=e202]:
+                      - img
+                    - button "Registrar Venda" [ref=e203]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e204]:
+                      - img
+                    - link "Ver detalhes" [ref=e205] [cursor=pointer]:
+                      - /url: /estoque/8227cb42-e2b9-4dff-909b-46f52d939ac3
+                      - img
+              - row "BOB LM60V1000W2025111400776 BRANCO Varginha Montada Disponível" [ref=e206]:
+                - cell "BOB" [ref=e207]
+                - cell "LM60V1000W2025111400776" [ref=e208]
+                - cell "BRANCO" [ref=e209]
+                - cell "Varginha" [ref=e210]
+                - cell "Montada" [ref=e211]:
+                  - generic [ref=e212]:
+                    - img [ref=e213]
+                    - text: Montada
+                - cell "Disponível" [ref=e215]:
+                  - generic [ref=e216]: Disponível
+                - cell [ref=e217]:
+                  - generic [ref=e218]:
+                    - button "Abrir Garantia" [ref=e219]:
+                      - img
+                    - button "Registrar Venda" [ref=e220]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e221]:
+                      - img
+                    - link "Ver detalhes" [ref=e222] [cursor=pointer]:
+                      - /url: /estoque/f7f68628-dda4-4069-aa7a-d0a96d97d0c8
+                      - img
+              - row "DOT QS60V30H25051402422 CINZA Varginha Garantia" [ref=e223]:
+                - cell "DOT" [ref=e224]
+                - cell "QS60V30H25051402422" [ref=e225]
+                - cell "CINZA" [ref=e226]
+                - cell "Varginha" [ref=e227]
+                - cell "Garantia" [ref=e228]:
+                  - generic [ref=e229]:
+                    - img [ref=e230]
+                    - text: Garantia
+                - cell [ref=e234]
+                - cell [ref=e235]:
+                  - generic [ref=e236]:
+                    - button "Abrir Garantia" [ref=e237]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e238]:
+                      - img
+                    - link "Ver detalhes" [ref=e239] [cursor=pointer]:
+                      - /url: /estoque/d8e0adc4-2fe2-422f-bdef-4030a61848bc
+                      - img
+              - row "DOT QS60V30H25112604121 CINZA Varginha Montada Disponível" [ref=e240]:
+                - cell "DOT" [ref=e241]
+                - cell "QS60V30H25112604121" [ref=e242]
+                - cell "CINZA" [ref=e243]
+                - cell "Varginha" [ref=e244]
+                - cell "Montada" [ref=e245]:
+                  - generic [ref=e246]:
+                    - img [ref=e247]
+                    - text: Montada
+                - cell "Disponível" [ref=e249]:
+                  - generic [ref=e250]: Disponível
+                - cell [ref=e251]:
+                  - generic [ref=e252]:
+                    - button "Abrir Garantia" [ref=e253]:
+                      - img
+                    - button "Registrar Venda" [ref=e254]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e255]:
+                      - img
+                    - link "Ver detalhes" [ref=e256] [cursor=pointer]:
+                      - /url: /estoque/ad83f339-1f09-4751-81bd-0751ae9e2085
+                      - img
+              - row "DRIFT CAR MIMO202507096 FOGO Varginha Montada Disponível" [ref=e257]:
+                - cell "DRIFT CAR" [ref=e258]
+                - cell "MIMO202507096" [ref=e259]
+                - cell "FOGO" [ref=e260]
+                - cell "Varginha" [ref=e261]
+                - cell "Montada" [ref=e262]:
+                  - generic [ref=e263]:
+                    - img [ref=e264]
+                    - text: Montada
+                - cell "Disponível" [ref=e266]:
+                  - generic [ref=e267]: Disponível
+                - cell [ref=e268]:
+                  - generic [ref=e269]:
+                    - button "Abrir Garantia" [ref=e270]:
+                      - img
+                    - button "Registrar Venda" [ref=e271]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e272]:
+                      - img
+                    - link "Ver detalhes" [ref=e273] [cursor=pointer]:
+                      - /url: /estoque/7ae194ee-19b0-44e4-8826-3d72a204cf33
+                      - img
+              - row "FAMILY MTBX150070037 PRETO Varginha Montada Disponível" [ref=e274]:
+                - cell "FAMILY" [ref=e275]
+                - cell "MTBX150070037" [ref=e276]
+                - cell "PRETO" [ref=e277]
+                - cell "Varginha" [ref=e278]
+                - cell "Montada" [ref=e279]:
+                  - generic [ref=e280]:
+                    - img [ref=e281]
+                    - text: Montada
+                - cell "Disponível" [ref=e283]:
+                  - generic [ref=e284]: Disponível
+                - cell [ref=e285]:
+                  - generic [ref=e286]:
+                    - button "Abrir Garantia" [ref=e287]:
+                      - img
+                    - button "Registrar Venda" [ref=e288]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e289]:
+                      - img
+                    - link "Ver detalhes" [ref=e290] [cursor=pointer]:
+                      - /url: /estoque/7abaa59e-05b8-4008-ab2b-36696fa1074e
+                      - img
+              - row "GIGA LA25860V1000W0086 CINZA Varginha Montada Disponível" [ref=e291]:
+                - cell "GIGA" [ref=e292]
+                - cell "LA25860V1000W0086" [ref=e293]
+                - cell "CINZA" [ref=e294]
+                - cell "Varginha" [ref=e295]
+                - cell "Montada" [ref=e296]:
+                  - generic [ref=e297]:
+                    - img [ref=e298]
+                    - text: Montada
+                - cell "Disponível" [ref=e300]:
+                  - generic [ref=e301]: Disponível
+                - cell [ref=e302]:
+                  - generic [ref=e303]:
+                    - button "Abrir Garantia" [ref=e304]:
+                      - img
+                    - button "Registrar Venda" [ref=e305]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e306]:
+                      - img
+                    - link "Ver detalhes" [ref=e307] [cursor=pointer]:
+                      - /url: /estoque/e66147bb-7873-4019-94c1-b1d362585a79
+                      - img
+              - row "GIGA LA25860V1000W0141 PRETO Varginha Caixa" [ref=e308]:
+                - cell "GIGA" [ref=e309]
+                - cell "LA25860V1000W0141" [ref=e310]
+                - cell "PRETO" [ref=e311]
+                - cell "Varginha" [ref=e312]
+                - cell "Caixa" [ref=e313]:
+                  - generic [ref=e314]:
+                    - img [ref=e315]
+                    - text: Caixa
+                - cell [ref=e319]
+                - cell [ref=e320]:
+                  - generic [ref=e321]:
+                    - button "Abrir Garantia" [ref=e322]:
+                      - img
+                    - button "Registrar Reserva" [ref=e323]:
+                      - img
+                    - button "Montar" [ref=e324]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e325]:
+                      - img
+                    - link "Ver detalhes" [ref=e326] [cursor=pointer]:
+                      - /url: /estoque/d7a1f1ad-0922-4587-9c51-e8c8bf63866c
+                      - img
+              - row "JET LA25960V1000W9477 CINZA Varginha Caixa" [ref=e327]:
+                - cell "JET" [ref=e328]
+                - cell "LA25960V1000W9477" [ref=e329]
+                - cell "CINZA" [ref=e330]
+                - cell "Varginha" [ref=e331]
+                - cell "Caixa" [ref=e332]:
+                  - generic [ref=e333]:
+                    - img [ref=e334]
+                    - text: Caixa
+                - cell [ref=e338]
+                - cell [ref=e339]:
+                  - generic [ref=e340]:
+                    - button "Abrir Garantia" [ref=e341]:
+                      - img
+                    - button "Registrar Reserva" [ref=e342]:
+                      - img
+                    - button "Montar" [ref=e343]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e344]:
+                      - img
+                    - link "Ver detalhes" [ref=e345] [cursor=pointer]:
+                      - /url: /estoque/aa4eca9e-9ed5-4666-b6f9-4e5e8ca55111
+                      - img
+              - row "JET MCBRJET2601220071 BRANCO Varginha Garantia" [ref=e346]:
+                - cell "JET" [ref=e347]
+                - cell "MCBRJET2601220071" [ref=e348]
+                - cell "BRANCO" [ref=e349]
+                - cell "Varginha" [ref=e350]
+                - cell "Garantia" [ref=e351]:
+                  - generic [ref=e352]:
+                    - img [ref=e353]
+                    - text: Garantia
+                - cell [ref=e357]
+                - cell [ref=e358]:
+                  - generic [ref=e359]:
+                    - button "Abrir Garantia" [ref=e360]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e361]:
+                      - img
+                    - link "Ver detalhes" [ref=e362] [cursor=pointer]:
+                      - /url: /estoque/e2bad6d3-5d2b-4874-8b71-0dfe0c7560f7
+                      - img
+              - row "JET LA2025SA110005669 PRETO Varginha Montada Reservada" [ref=e363]:
+                - cell "JET" [ref=e364]
+                - cell "LA2025SA110005669" [ref=e365]
+                - cell "PRETO" [ref=e366]
+                - cell "Varginha" [ref=e367]
+                - cell "Montada" [ref=e368]:
+                  - generic [ref=e369]:
+                    - img [ref=e370]
+                    - text: Montada
+                - cell "Reservada" [ref=e372]:
+                  - generic [ref=e373]: Reservada
+                - cell [ref=e374]:
+                  - generic [ref=e375]:
+                    - button "Abrir Garantia" [ref=e376]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e377]:
+                      - img
+                    - link "Ver detalhes" [ref=e378] [cursor=pointer]:
+                      - /url: /estoque/f2f32a10-ed81-4f54-b5d1-af60879aae52
+                      - img
+              - row "JET LA2025SA110008317 BRANCO Varginha Caixa" [ref=e379]:
+                - cell "JET" [ref=e380]
+                - cell "LA2025SA110008317" [ref=e381]
+                - cell "BRANCO" [ref=e382]
+                - cell "Varginha" [ref=e383]
+                - cell "Caixa" [ref=e384]:
+                  - generic [ref=e385]:
+                    - img [ref=e386]
+                    - text: Caixa
+                - cell [ref=e390]
+                - cell [ref=e391]:
+                  - generic [ref=e392]:
+                    - button "Abrir Garantia" [ref=e393]:
+                      - img
+                    - button "Registrar Reserva" [ref=e394]:
+                      - img
+                    - button "Montar" [ref=e395]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e396]:
+                      - img
+                    - link "Ver detalhes" [ref=e397] [cursor=pointer]:
+                      - /url: /estoque/9bbab1af-c0cc-4cc3-9541-b351c6d3385d
+                      - img
+              - row "JET LA25860V1000W1152 PRETO Varginha Caixa" [ref=e398]:
+                - cell "JET" [ref=e399]
+                - cell "LA25860V1000W1152" [ref=e400]
+                - cell "PRETO" [ref=e401]
+                - cell "Varginha" [ref=e402]
+                - cell "Caixa" [ref=e403]:
+                  - generic [ref=e404]:
+                    - img [ref=e405]
+                    - text: Caixa
+                - cell [ref=e409]
+                - cell [ref=e410]:
+                  - generic [ref=e411]:
+                    - button "Abrir Garantia" [ref=e412]:
+                      - img
+                    - button "Registrar Reserva" [ref=e413]:
+                      - img
+                    - button "Montar" [ref=e414]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e415]:
+                      - img
+                    - link "Ver detalhes" [ref=e416] [cursor=pointer]:
+                      - /url: /estoque/20064a7d-b6f7-43d3-9a3b-cb2d0464fba5
+                      - img
+              - row "JETMAX LYDAE3933T1204684 VERMELHO Varginha Montada Reservada" [ref=e417]:
+                - cell "JETMAX" [ref=e418]
+                - cell "LYDAE3933T1204684" [ref=e419]
+                - cell "VERMELHO" [ref=e420]
+                - cell "Varginha" [ref=e421]
+                - cell "Montada" [ref=e422]:
+                  - generic [ref=e423]:
+                    - img [ref=e424]
+                    - text: Montada
+                - cell "Reservada" [ref=e426]:
+                  - generic [ref=e427]: Reservada
+                - cell [ref=e428]:
+                  - generic [ref=e429]:
+                    - button "Abrir Garantia" [ref=e430]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e431]:
+                      - img
+                    - link "Ver detalhes" [ref=e432] [cursor=pointer]:
+                      - /url: /estoque/8c8ed12b-ecec-40e8-bc81-da2d37ce2551
+                      - img
+              - row "JETMAX LYDAE393XT1204696 VERMELHO Varginha Montada Reservada" [ref=e433]:
+                - cell "JETMAX" [ref=e434]
+                - cell "LYDAE393XT1204696" [ref=e435]
+                - cell "VERMELHO" [ref=e436]
+                - cell "Varginha" [ref=e437]
+                - cell "Montada" [ref=e438]:
+                  - generic [ref=e439]:
+                    - img [ref=e440]
+                    - text: Montada
+                - cell "Reservada" [ref=e442]:
+                  - generic [ref=e443]: Reservada
+                - cell [ref=e444]:
+                  - generic [ref=e445]:
+                    - button "Abrir Garantia" [ref=e446]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e447]:
+                      - img
+                    - link "Ver detalhes" [ref=e448] [cursor=pointer]:
+                      - /url: /estoque/2f9f00ae-86a7-49c3-86ca-9bdce6b2ab79
+                      - img
+              - row "JETMAX LYDAE3932T1205891 BRANCO Varginha Caixa" [ref=e449]:
+                - cell "JETMAX" [ref=e450]
+                - cell "LYDAE3932T1205891" [ref=e451]
+                - cell "BRANCO" [ref=e452]
+                - cell "Varginha" [ref=e453]
+                - cell "Caixa" [ref=e454]:
+                  - generic [ref=e455]:
+                    - img [ref=e456]
+                    - text: Caixa
+                - cell [ref=e460]
+                - cell [ref=e461]:
+                  - generic [ref=e462]:
+                    - button "Abrir Garantia" [ref=e463]:
+                      - img
+                    - button "Registrar Reserva" [ref=e464]:
+                      - img
+                    - button "Montar" [ref=e465]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e466]:
+                      - img
+                    - link "Ver detalhes" [ref=e467] [cursor=pointer]:
+                      - /url: /estoque/18917cd6-73da-4cff-b2f2-6c279d4ac2d8
+                      - img
+              - row "JETMAX LYDAE3939T1205838 AZUL Varginha Caixa" [ref=e468]:
+                - cell "JETMAX" [ref=e469]
+                - cell "LYDAE3939T1205838" [ref=e470]
+                - cell "AZUL" [ref=e471]
+                - cell "Varginha" [ref=e472]
+                - cell "Caixa" [ref=e473]:
+                  - generic [ref=e474]:
+                    - img [ref=e475]
+                    - text: Caixa
+                - cell [ref=e479]
+                - cell [ref=e480]:
+                  - generic [ref=e481]:
+                    - button "Abrir Garantia" [ref=e482]:
+                      - img
+                    - button "Registrar Reserva" [ref=e483]:
+                      - img
+                    - button "Montar" [ref=e484]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e485]:
+                      - img
+                    - link "Ver detalhes" [ref=e486] [cursor=pointer]:
+                      - /url: /estoque/27051bad-75a7-4db8-9f16-08734cc059ed
+                      - img
+              - row "JETMAX LYDAE393XT1206240 CINZA Varginha Caixa" [ref=e487]:
+                - cell "JETMAX" [ref=e488]
+                - cell "LYDAE393XT1206240" [ref=e489]
+                - cell "CINZA" [ref=e490]
+                - cell "Varginha" [ref=e491]
+                - cell "Caixa" [ref=e492]:
+                  - generic [ref=e493]:
+                    - img [ref=e494]
+                    - text: Caixa
+                - cell [ref=e498]
+                - cell [ref=e499]:
+                  - generic [ref=e500]:
+                    - button "Abrir Garantia" [ref=e501]:
+                      - img
+                    - button "Registrar Reserva" [ref=e502]:
+                      - img
+                    - button "Montar" [ref=e503]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e504]:
+                      - img
+                    - link "Ver detalhes" [ref=e505] [cursor=pointer]:
+                      - /url: /estoque/9113a7b3-ffa5-4232-aeed-05255bf16bf5
+                      - img
+              - row "JETMAX LYDAE3933T1206239 CINZA Varginha Caixa" [ref=e506]:
+                - cell "JETMAX" [ref=e507]
+                - cell "LYDAE3933T1206239" [ref=e508]
+                - cell "CINZA" [ref=e509]
+                - cell "Varginha" [ref=e510]
+                - cell "Caixa" [ref=e511]:
+                  - generic [ref=e512]:
+                    - img [ref=e513]
+                    - text: Caixa
+                - cell [ref=e517]
+                - cell [ref=e518]:
+                  - generic [ref=e519]:
+                    - button "Abrir Garantia" [ref=e520]:
+                      - img
+                    - button "Registrar Reserva" [ref=e521]:
+                      - img
+                    - button "Montar" [ref=e522]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e523]:
+                      - img
+                    - link "Ver detalhes" [ref=e524] [cursor=pointer]:
+                      - /url: /estoque/31ddf2d4-c893-46e9-8d79-45175b901cc2
+                      - img
+              - row "JETMAX LYDAE3930T1205954 PRETO Varginha Caixa" [ref=e525]:
+                - cell "JETMAX" [ref=e526]
+                - cell "LYDAE3930T1205954" [ref=e527]
+                - cell "PRETO" [ref=e528]
+                - cell "Varginha" [ref=e529]
+                - cell "Caixa" [ref=e530]:
+                  - generic [ref=e531]:
+                    - img [ref=e532]
+                    - text: Caixa
+                - cell [ref=e536]
+                - cell [ref=e537]:
+                  - generic [ref=e538]:
+                    - button "Abrir Garantia" [ref=e539]:
+                      - img
+                    - button "Registrar Reserva" [ref=e540]:
+                      - img
+                    - button "Montar" [ref=e541]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e542]:
+                      - img
+                    - link "Ver detalhes" [ref=e543] [cursor=pointer]:
+                      - /url: /estoque/d6dc851f-a220-4217-bcb0-964dfa0cc880
+                      - img
+              - row "JETMAX LYDAE3933T1205950 PRETO Varginha Caixa" [ref=e544]:
+                - cell "JETMAX" [ref=e545]
+                - cell "LYDAE3933T1205950" [ref=e546]
+                - cell "PRETO" [ref=e547]
+                - cell "Varginha" [ref=e548]
+                - cell "Caixa" [ref=e549]:
+                  - generic [ref=e550]:
+                    - img [ref=e551]
+                    - text: Caixa
+                - cell [ref=e555]
+                - cell [ref=e556]:
+                  - generic [ref=e557]:
+                    - button "Abrir Garantia" [ref=e558]:
+                      - img
+                    - button "Registrar Reserva" [ref=e559]:
+                      - img
+                    - button "Montar" [ref=e560]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e561]:
+                      - img
+                    - link "Ver detalhes" [ref=e562] [cursor=pointer]:
+                      - /url: /estoque/281cfbee-056b-48f5-aab6-1e219b479b02
+                      - img
+              - row "JETMAX LYDAE3937S1200233 PRETO Varginha Garantia" [ref=e563]:
+                - cell "JETMAX" [ref=e564]
+                - cell "LYDAE3937S1200233" [ref=e565]
+                - cell "PRETO" [ref=e566]
+                - cell "Varginha" [ref=e567]
+                - cell "Garantia" [ref=e568]:
+                  - generic [ref=e569]:
+                    - img [ref=e570]
+                    - text: Garantia
+                - cell [ref=e574]
+                - cell [ref=e575]:
+                  - generic [ref=e576]:
+                    - button "Abrir Garantia" [ref=e577]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e578]:
+                      - img
+                    - link "Ver detalhes" [ref=e579] [cursor=pointer]:
+                      - /url: /estoque/c5dbc9ef-db23-4627-8d4c-5fa26736ec0d
+                      - img
+              - row "JETMAX LYDAE3935T1200488 PRETO Varginha Garantia" [ref=e580]:
+                - cell "JETMAX" [ref=e581]
+                - cell "LYDAE3935T1200488" [ref=e582]
+                - cell "PRETO" [ref=e583]
+                - cell "Varginha" [ref=e584]
+                - cell "Garantia" [ref=e585]:
+                  - generic [ref=e586]:
+                    - img [ref=e587]
+                    - text: Garantia
+                - cell [ref=e591]
+                - cell [ref=e592]:
+                  - generic [ref=e593]:
+                    - button "Abrir Garantia" [ref=e594]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e595]:
+                      - img
+                    - link "Ver detalhes" [ref=e596] [cursor=pointer]:
+                      - /url: /estoque/3ca28f6c-a403-4cb6-a75b-829c3d1030de
+                      - img
+              - row "MIA MCBRMIA2512040147 PRETO Varginha Montada Disponível" [ref=e597]:
+                - cell "MIA" [ref=e598]
+                - cell "MCBRMIA2512040147" [ref=e599]
+                - cell "PRETO" [ref=e600]
+                - cell "Varginha" [ref=e601]
+                - cell "Montada" [ref=e602]:
+                  - generic [ref=e603]:
+                    - img [ref=e604]
+                    - text: Montada
+                - cell "Disponível" [ref=e606]:
+                  - generic [ref=e607]: Disponível
+                - cell [ref=e608]:
+                  - generic [ref=e609]:
+                    - button "Abrir Garantia" [ref=e610]:
+                      - img
+                    - button "Registrar Venda" [ref=e611]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e612]:
+                      - img
+                    - link "Ver detalhes" [ref=e613] [cursor=pointer]:
+                      - /url: /estoque/26366c33-9542-47fd-9abe-765262024fa6
+                      - img
+              - row "MIA TRI SXKJ22506120098 PRETO Varginha Montada Disponível" [ref=e614]:
+                - cell "MIA TRI" [ref=e615]
+                - cell "SXKJ22506120098" [ref=e616]
+                - cell "PRETO" [ref=e617]
+                - cell "Varginha" [ref=e618]
+                - cell "Montada" [ref=e619]:
+                  - generic [ref=e620]:
+                    - img [ref=e621]
+                    - text: Montada
+                - cell "Disponível" [ref=e623]:
+                  - generic [ref=e624]: Disponível
+                - cell [ref=e625]:
+                  - generic [ref=e626]:
+                    - button "Abrir Garantia" [ref=e627]:
+                      - img
+                    - button "Registrar Venda" [ref=e628]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e629]:
+                      - img
+                    - link "Ver detalhes" [ref=e630] [cursor=pointer]:
+                      - /url: /estoque/fa402bc6-59cd-4620-83ab-0ae246680293
+                      - img
+              - row "MIA TRI SXKJ22506120390 PRETO Varginha Montada Disponível" [ref=e631]:
+                - cell "MIA TRI" [ref=e632]
+                - cell "SXKJ22506120390" [ref=e633]
+                - cell "PRETO" [ref=e634]
+                - cell "Varginha" [ref=e635]
+                - cell "Montada" [ref=e636]:
+                  - generic [ref=e637]:
+                    - img [ref=e638]
+                    - text: Montada
+                - cell "Disponível" [ref=e640]:
+                  - generic [ref=e641]: Disponível
+                - cell [ref=e642]:
+                  - generic [ref=e643]:
+                    - button "Abrir Garantia" [ref=e644]:
+                      - img
+                    - button "Registrar Venda" [ref=e645]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e646]:
+                      - img
+                    - link "Ver detalhes" [ref=e647] [cursor=pointer]:
+                      - /url: /estoque/f307343c-6fa0-4c25-bf09-ecf5ae105583
+                      - img
+              - row "PATINETE G5 LA20250815151 PRETO Varginha Montada Disponível" [ref=e648]:
+                - cell "PATINETE G5" [ref=e649]
+                - cell "LA20250815151" [ref=e650]
+                - cell "PRETO" [ref=e651]
+                - cell "Varginha" [ref=e652]
+                - cell "Montada" [ref=e653]:
+                  - generic [ref=e654]:
+                    - img [ref=e655]
+                    - text: Montada
+                - cell "Disponível" [ref=e657]:
+                  - generic [ref=e658]: Disponível
+                - cell [ref=e659]:
+                  - generic [ref=e660]:
+                    - button "Abrir Garantia" [ref=e661]:
+                      - img
+                    - button "Registrar Venda" [ref=e662]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e663]:
+                      - img
+                    - link "Ver detalhes" [ref=e664] [cursor=pointer]:
+                      - /url: /estoque/7d9b337c-d96e-4bcf-b340-76ffb2f03690
+                      - img
+              - row "PATINETE G5 LA20250815185 PRETO Varginha Montada Disponível" [ref=e665]:
+                - cell "PATINETE G5" [ref=e666]
+                - cell "LA20250815185" [ref=e667]
+                - cell "PRETO" [ref=e668]
+                - cell "Varginha" [ref=e669]
+                - cell "Montada" [ref=e670]:
+                  - generic [ref=e671]:
+                    - img [ref=e672]
+                    - text: Montada
+                - cell "Disponível" [ref=e674]:
+                  - generic [ref=e675]: Disponível
+                - cell [ref=e676]:
+                  - generic [ref=e677]:
+                    - button "Abrir Garantia" [ref=e678]:
+                      - img
+                    - button "Registrar Venda" [ref=e679]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e680]:
+                      - img
+                    - link "Ver detalhes" [ref=e681] [cursor=pointer]:
+                      - /url: /estoque/45321471-d3bd-4259-95b4-5ccbbe94ecf0
+                      - img
+              - row "R10 LYDAE3836T1200209 VERDE/AMARELO Varginha Montada Disponível" [ref=e682]:
+                - cell "R10" [ref=e683]
+                - cell "LYDAE3836T1200209" [ref=e684]
+                - cell "VERDE/AMARELO" [ref=e685]
+                - cell "Varginha" [ref=e686]
+                - cell "Montada" [ref=e687]:
+                  - generic [ref=e688]:
+                    - img [ref=e689]
+                    - text: Montada
+                - cell "Disponível" [ref=e691]:
+                  - generic [ref=e692]: Disponível
+                - cell [ref=e693]:
+                  - generic [ref=e694]:
+                    - button "Abrir Garantia" [ref=e695]:
+                      - img
+                    - button "Registrar Venda" [ref=e696]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e697]:
+                      - img
+                    - link "Ver detalhes" [ref=e698] [cursor=pointer]:
+                      - /url: /estoque/d683d12b-ed6f-411e-8350-fc9f6221ed9e
+                      - img
+              - row "R10 LYDAE3837T1200218 VERDE/AMARELO Varginha Montada Disponível" [ref=e699]:
+                - cell "R10" [ref=e700]
+                - cell "LYDAE3837T1200218" [ref=e701]
+                - cell "VERDE/AMARELO" [ref=e702]
+                - cell "Varginha" [ref=e703]
+                - cell "Montada" [ref=e704]:
+                  - generic [ref=e705]:
+                    - img [ref=e706]
+                    - text: Montada
+                - cell "Disponível" [ref=e708]:
+                  - generic [ref=e709]: Disponível
+                - cell [ref=e710]:
+                  - generic [ref=e711]:
+                    - button "Abrir Garantia" [ref=e712]:
+                      - img
+                    - button "Registrar Venda" [ref=e713]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e714]:
+                      - img
+                    - link "Ver detalhes" [ref=e715] [cursor=pointer]:
+                      - /url: /estoque/c83129cd-88ca-4a53-8031-6963e7a74b39
+                      - img
+              - row "RET LM60V1000W2025061900300 PRETO Varginha Montada Disponível" [ref=e716]:
+                - cell "RET" [ref=e717]
+                - cell "LM60V1000W2025061900300" [ref=e718]
+                - cell "PRETO" [ref=e719]
+                - cell "Varginha" [ref=e720]
+                - cell "Montada" [ref=e721]:
+                  - generic [ref=e722]:
+                    - img [ref=e723]
+                    - text: Montada
+                - cell "Disponível" [ref=e725]:
+                  - generic [ref=e726]: Disponível
+                - cell [ref=e727]:
+                  - generic [ref=e728]:
+                    - button "Abrir Garantia" [ref=e729]:
+                      - img
+                    - button "Registrar Venda" [ref=e730]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e731]:
+                      - img
+                    - link "Ver detalhes" [ref=e732] [cursor=pointer]:
+                      - /url: /estoque/74d2b4c1-0392-48da-8f05-a8f69e07173f
+                      - img
+              - row "RETRO F2300800651 BRANCO Varginha Montada Disponível" [ref=e733]:
+                - cell "RETRO" [ref=e734]
+                - cell "F2300800651" [ref=e735]
+                - cell "BRANCO" [ref=e736]
+                - cell "Varginha" [ref=e737]
+                - cell "Montada" [ref=e738]:
+                  - generic [ref=e739]:
+                    - img [ref=e740]
+                    - text: Montada
+                - cell "Disponível" [ref=e742]:
+                  - generic [ref=e743]: Disponível
+                - cell [ref=e744]:
+                  - generic [ref=e745]:
+                    - button "Abrir Garantia" [ref=e746]:
+                      - img
+                    - button "Registrar Venda" [ref=e747]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e748]:
+                      - img
+                    - link "Ver detalhes" [ref=e749] [cursor=pointer]:
+                      - /url: /estoque/fa5923b2-cdf6-4bbd-b1e8-61dc2b6302b2
+                      - img
+              - row "S8 MINI LA250860V1000W5488 AZUL Varginha Montada Disponível" [ref=e750]:
+                - cell "S8 MINI" [ref=e751]
+                - cell "LA250860V1000W5488" [ref=e752]
+                - cell "AZUL" [ref=e753]
+                - cell "Varginha" [ref=e754]
+                - cell "Montada" [ref=e755]:
+                  - generic [ref=e756]:
+                    - img [ref=e757]
+                    - text: Montada
+                - cell "Disponível" [ref=e759]:
+                  - generic [ref=e760]: Disponível
+                - cell [ref=e761]:
+                  - generic [ref=e762]:
+                    - button "Abrir Garantia" [ref=e763]:
+                      - img
+                    - button "Registrar Venda" [ref=e764]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e765]:
+                      - img
+                    - link "Ver detalhes" [ref=e766] [cursor=pointer]:
+                      - /url: /estoque/beac94a5-e269-4419-9ebd-eb8553d36b50
+                      - img
+              - row "S8 MINI LA250860V1000W9277 AMARELO Varginha Montada Disponível" [ref=e767]:
+                - cell "S8 MINI" [ref=e768]
+                - cell "LA250860V1000W9277" [ref=e769]
+                - cell "AMARELO" [ref=e770]
+                - cell "Varginha" [ref=e771]
+                - cell "Montada" [ref=e772]:
+                  - generic [ref=e773]:
+                    - img [ref=e774]
+                    - text: Montada
+                - cell "Disponível" [ref=e776]:
+                  - generic [ref=e777]: Disponível
+                - cell [ref=e778]:
+                  - generic [ref=e779]:
+                    - button "Abrir Garantia" [ref=e780]:
+                      - img
+                    - button "Registrar Venda" [ref=e781]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e782]:
+                      - img
+                    - link "Ver detalhes" [ref=e783] [cursor=pointer]:
+                      - /url: /estoque/78ae079b-543e-4f45-aabc-2cf46dff899c
+                      - img
+              - row "SOMA 172922505661129 BRANCO Varginha Montada Disponível" [ref=e784]:
+                - cell "SOMA" [ref=e785]
+                - cell "172922505661129" [ref=e786]
+                - cell "BRANCO" [ref=e787]
+                - cell "Varginha" [ref=e788]
+                - cell "Montada" [ref=e789]:
+                  - generic [ref=e790]:
+                    - img [ref=e791]
+                    - text: Montada
+                - cell "Disponível" [ref=e793]:
+                  - generic [ref=e794]: Disponível
+                - cell [ref=e795]:
+                  - generic [ref=e796]:
+                    - button "Abrir Garantia" [ref=e797]:
+                      - img
+                    - button "Registrar Venda" [ref=e798]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e799]:
+                      - img
+                    - link "Ver detalhes" [ref=e800] [cursor=pointer]:
+                      - /url: /estoque/348c9195-8921-44d2-b9f4-ec38a9065c33
+                      - img
+              - row "SOMA 172922505660919 PRETO Varginha Montada Disponível" [ref=e801]:
+                - cell "SOMA" [ref=e802]
+                - cell "172922505660919" [ref=e803]
+                - cell "PRETO" [ref=e804]
+                - cell "Varginha" [ref=e805]
+                - cell "Montada" [ref=e806]:
+                  - generic [ref=e807]:
+                    - img [ref=e808]
+                    - text: Montada
+                - cell "Disponível" [ref=e810]:
+                  - generic [ref=e811]: Disponível
+                - cell [ref=e812]:
+                  - generic [ref=e813]:
+                    - button "Abrir Garantia" [ref=e814]:
+                      - img
+                    - button "Registrar Venda" [ref=e815]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e816]:
+                      - img
+                    - link "Ver detalhes" [ref=e817] [cursor=pointer]:
+                      - /url: /estoque/bb9c91da-7e03-4a38-8e17-579c85862371
+                      - img
+              - row "SUPER JOY LM60V800W2025041100154 CINZA Varginha Garantia" [ref=e818]:
+                - cell "SUPER JOY" [ref=e819]
+                - cell "LM60V800W2025041100154" [ref=e820]
+                - cell "CINZA" [ref=e821]
+                - cell "Varginha" [ref=e822]
+                - cell "Garantia" [ref=e823]:
+                  - generic [ref=e824]:
+                    - img [ref=e825]
+                    - text: Garantia
+                - cell [ref=e829]
+                - cell [ref=e830]:
+                  - generic [ref=e831]:
+                    - button "Abrir Garantia" [ref=e832]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e833]:
+                      - img
+                    - link "Ver detalhes" [ref=e834] [cursor=pointer]:
+                      - /url: /estoque/02edb1ab-b682-4597-bc4f-d3dcd16ab183
+                      - img
+              - row "X11 MINI SA25960V1000W1454 CINZA Varginha Garantia" [ref=e835]:
+                - cell "X11 MINI" [ref=e836]
+                - cell "SA25960V1000W1454" [ref=e837]
+                - cell "CINZA" [ref=e838]
+                - cell "Varginha" [ref=e839]
+                - cell "Garantia" [ref=e840]:
+                  - generic [ref=e841]:
+                    - img [ref=e842]
+                    - text: Garantia
+                - cell [ref=e846]
+                - cell [ref=e847]:
+                  - generic [ref=e848]:
+                    - button "Abrir Garantia" [ref=e849]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e850]:
+                      - img
+                    - link "Ver detalhes" [ref=e851] [cursor=pointer]:
+                      - /url: /estoque/9b6d2bbc-c9ea-4080-87c1-991db38f0dd8
+                      - img
+              - row "X12 MCBRX122602100219 PRETO Varginha Montada Reservada" [ref=e852]:
+                - cell "X12" [ref=e853]
+                - cell "MCBRX122602100219" [ref=e854]
+                - cell "PRETO" [ref=e855]
+                - cell "Varginha" [ref=e856]
+                - cell "Montada" [ref=e857]:
+                  - generic [ref=e858]:
+                    - img [ref=e859]
+                    - text: Montada
+                - cell "Reservada" [ref=e861]:
+                  - generic [ref=e862]: Reservada
+                - cell [ref=e863]:
+                  - generic [ref=e864]:
+                    - button "Abrir Garantia" [ref=e865]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e866]:
+                      - img
+                    - link "Ver detalhes" [ref=e867] [cursor=pointer]:
+                      - /url: /estoque/85dfffad-aec0-4ee7-8f65-f6f4a5dfccf8
+                      - img
+              - row "X12 MCBRX122602100035 VERMELHO Varginha Garantia" [ref=e868]:
+                - cell "X12" [ref=e869]
+                - cell "MCBRX122602100035" [ref=e870]
+                - cell "VERMELHO" [ref=e871]
+                - cell "Varginha" [ref=e872]
+                - cell "Garantia" [ref=e873]:
+                  - generic [ref=e874]:
+                    - img [ref=e875]
+                    - text: Garantia
+                - cell [ref=e879]
+                - cell [ref=e880]:
+                  - generic [ref=e881]:
+                    - button "Abrir Garantia" [ref=e882]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e883]:
+                      - img
+                    - link "Ver detalhes" [ref=e884] [cursor=pointer]:
+                      - /url: /estoque/cce08310-6650-461b-9ece-01a0452d4383
+                      - img
+              - row "X12 MCBRX122602050039 BRANCO Varginha Montada Disponível" [ref=e885]:
+                - cell "X12" [ref=e886]
+                - cell "MCBRX122602050039" [ref=e887]
+                - cell "BRANCO" [ref=e888]
+                - cell "Varginha" [ref=e889]
+                - cell "Montada" [ref=e890]:
+                  - generic [ref=e891]:
+                    - img [ref=e892]
+                    - text: Montada
+                - cell "Disponível" [ref=e894]:
+                  - generic [ref=e895]: Disponível
+                - cell [ref=e896]:
+                  - generic [ref=e897]:
+                    - button "Abrir Garantia" [ref=e898]:
+                      - img
+                    - button "Registrar Venda" [ref=e899]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e900]:
+                      - img
+                    - link "Ver detalhes" [ref=e901] [cursor=pointer]:
+                      - /url: /estoque/55612975-c40a-46bd-b42a-8f6e6f2a37f4
+                      - img
+              - row "X12 MCBRX122602110015 AZUL Varginha Montada Disponível" [ref=e902]:
+                - cell "X12" [ref=e903]
+                - cell "MCBRX122602110015" [ref=e904]
+                - cell "AZUL" [ref=e905]
+                - cell "Varginha" [ref=e906]
+                - cell "Montada" [ref=e907]:
+                  - generic [ref=e908]:
+                    - img [ref=e909]
+                    - text: Montada
+                - cell "Disponível" [ref=e911]:
+                  - generic [ref=e912]: Disponível
+                - cell [ref=e913]:
+                  - generic [ref=e914]:
+                    - button "Abrir Garantia" [ref=e915]:
+                      - img
+                    - button "Registrar Venda" [ref=e916]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e917]:
+                      - img
+                    - link "Ver detalhes" [ref=e918] [cursor=pointer]:
+                      - /url: /estoque/170cee55-09a0-4b05-aec4-c95b573928cd
+                      - img
+              - row "X15 10ZW6073316YA25180807 BRANCO Varginha Montada Disponível" [ref=e919]:
+                - cell "X15" [ref=e920]
+                - cell "10ZW6073316YA25180807" [ref=e921]
+                - cell "BRANCO" [ref=e922]
+                - cell "Varginha" [ref=e923]
+                - cell "Montada" [ref=e924]:
+                  - generic [ref=e925]:
+                    - img [ref=e926]
+                    - text: Montada
+                - cell "Disponível" [ref=e928]:
+                  - generic [ref=e929]: Disponível
+                - cell [ref=e930]:
+                  - generic [ref=e931]:
+                    - button "Abrir Garantia" [ref=e932]:
+                      - img
+                    - button "Registrar Venda" [ref=e933]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e934]:
+                      - img
+                    - link "Ver detalhes" [ref=e935] [cursor=pointer]:
+                      - /url: /estoque/65e8916d-c6a9-40fa-8101-5051afb37069
+                      - img
+  - button "Open Next.js Dev Tools" [ref=e941] [cursor=pointer]:
+    - img [ref=e942]

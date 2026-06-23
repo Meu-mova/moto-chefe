@@ -1,0 +1,290 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e16]
+  - generic [ref=e17]:
+    - complementary [ref=e18]:
+      - generic [ref=e19]:
+        - heading "MOVA" [level=1] [ref=e20]
+        - paragraph [ref=e21]: Gestão de Motos Elétricas
+      - navigation [ref=e22]:
+        - link "Dashboard" [ref=e23] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e24]
+          - text: Dashboard
+        - link "Showroom" [ref=e27] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e28]
+          - text: Showroom
+        - link "Transferências" [ref=e32] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e33]
+          - text: Transferências
+        - link "Vendas" [ref=e36] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e37]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e41] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e42]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e44] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e45]
+          - text: Garantias
+        - link "Caixa" [ref=e47] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e48]
+          - text: Caixa
+        - link "PIX" [ref=e51] [cursor=pointer]:
+          - /url: /pix
+          - img [ref=e52]
+          - text: PIX
+        - link "Financeiro" [ref=e58] [cursor=pointer]:
+          - /url: /financeiro
+          - img [ref=e59]
+          - text: Financeiro
+        - link "Entrada" [ref=e61] [cursor=pointer]:
+          - /url: /entrada
+          - img [ref=e62]
+          - text: Entrada
+        - link "Compras" [ref=e66] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e67]
+          - text: Compras
+        - link "Admin" [ref=e70] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e71]
+          - text: Admin
+    - generic [ref=e74]:
+      - banner [ref=e75]:
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - paragraph [ref=e78]: Cesar Rodrigues
+            - generic [ref=e79]: Admin Geral
+          - button "Sair" [ref=e81]
+      - main [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - heading "Dashboard" [level=1] [ref=e86]
+              - paragraph [ref=e87]: Resumo da operação
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: Mês
+                - textbox [ref=e91]: 2026-06
+              - combobox [ref=e92]:
+                - option "Todas as lojas" [selected]
+                - option "Galpão Matriz"
+                - option "Itajuba"
+                - option "Lavras"
+                - option "Poços de Caldas"
+                - option "Pouso Alegre"
+                - option "Varginha"
+              - combobox [ref=e93]:
+                - option "Todos os vendedores" [selected]
+                - option "Anne Ester"
+                - option "Brenda Aquiles"
+                - option "Emanuel Paiva"
+                - option "Fernando Betão"
+                - option "Julia Nascimento"
+                - option "Juscelino Junior"
+                - option "Karla"
+                - option "Kawan Manso"
+                - option "Luara Alkmin"
+                - option "Pablo Albinati"
+                - option "Rayssa Dayane"
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - generic [ref=e96]:
+                - generic [ref=e97]: Vendas
+                - img [ref=e99]
+              - generic [ref=e103]: "63"
+              - generic [ref=e104]:
+                - generic [ref=e105]:
+                  - img [ref=e106]
+                  - text: "-62%"
+                - generic [ref=e109]: vs mês anterior
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - generic [ref=e112]: Faturamento
+                - img [ref=e114]
+              - generic [ref=e116]: R$ 690.161,68
+              - generic [ref=e117]:
+                - generic [ref=e118]:
+                  - img [ref=e119]
+                  - text: "-62%"
+                - generic [ref=e122]: vs mês anterior
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - generic [ref=e125]: Showroom
+                - img [ref=e127]
+              - generic [ref=e130]: "213"
+            - generic [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]: Valor Showroom
+                - img [ref=e135]
+              - generic [ref=e138]: R$ 1.184.118,89
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - generic [ref=e141]: Transf. Pendentes
+                - img [ref=e143]
+              - generic [ref=e146]: "0"
+            - generic [ref=e147]:
+              - generic [ref=e148]:
+                - generic [ref=e149]: Garantias Ativas
+                - img [ref=e151]
+              - generic [ref=e153]: "2"
+            - generic [ref=e154]:
+              - generic [ref=e155]:
+                - generic [ref=e156]: OS Abertas
+                - img [ref=e158]
+              - generic [ref=e160]: "0"
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - heading "Vendas por dia" [level=3] [ref=e163]
+              - application [ref=e166]:
+                - generic [ref=e218]:
+                  - generic [ref=e219]:
+                    - generic [ref=e221]: 01/06
+                    - generic [ref=e223]: 02/06
+                    - generic [ref=e225]: 03/06
+                    - generic [ref=e227]: 05/06
+                    - generic [ref=e229]: 06/06
+                    - generic [ref=e231]: 08/06
+                    - generic [ref=e233]: 09/06
+                    - generic [ref=e235]: 10/06
+                    - generic [ref=e237]: 11/06
+                    - generic [ref=e239]: 12/06
+                    - generic [ref=e241]: 18/06
+                    - generic [ref=e243]: 22/06
+                  - generic [ref=e244]:
+                    - generic [ref=e246]: "0"
+                    - generic [ref=e248]: "4"
+                    - generic [ref=e250]: "8"
+                    - generic [ref=e252]: "12"
+                    - generic [ref=e254]: "16"
+            - generic [ref=e255]:
+              - heading "Showroom por loja" [level=3] [ref=e256]
+              - application [ref=e259]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]:
+                    - generic [ref=e296]: "0"
+                    - generic [ref=e298]: "15"
+                    - generic [ref=e300]: "30"
+                    - generic [ref=e302]: "45"
+                    - generic [ref=e304]: "60"
+                  - generic [ref=e305]:
+                    - generic [ref=e307]: GalpãoMatriz
+                    - generic [ref=e309]: Itajuba
+                    - generic [ref=e311]: Lavras
+                    - generic [ref=e313]: Poços deCaldas
+                    - generic [ref=e315]: Pouso Alegre
+                    - generic [ref=e317]: Varginha
+          - generic [ref=e318]:
+            - heading "Vendas por loja" [level=3] [ref=e319]
+            - generic [ref=e321]:
+              - list [ref=e323]:
+                - listitem [ref=e324]:
+                  - img "Galpão Matriz legend icon" [ref=e325]
+                  - text: Galpão Matriz
+                - listitem [ref=e327]:
+                  - img "Itajuba legend icon" [ref=e328]
+                  - text: Itajuba
+                - listitem [ref=e330]:
+                  - img "Lavras legend icon" [ref=e331]
+                  - text: Lavras
+                - listitem [ref=e333]:
+                  - img "Pouso Alegre legend icon" [ref=e334]
+                  - text: Pouso Alegre
+                - listitem [ref=e336]:
+                  - img "Poços de Caldas legend icon" [ref=e337]
+                  - text: Poços de Caldas
+                - listitem [ref=e339]:
+                  - img "Varginha legend icon" [ref=e340]
+                  - text: Varginha
+              - application [ref=e342]:
+                - generic [ref=e364]:
+                  - generic [ref=e367]: "Galpão Matriz: 3"
+                  - generic [ref=e370]: "Itajuba: 16"
+                  - generic [ref=e373]: "Lavras: 6"
+                  - generic [ref=e376]: "Poços de Caldas: 9"
+                  - generic [ref=e379]: "Pouso Alegre: 15"
+                  - generic [ref=e382]: "Varginha: 14"
+          - generic [ref=e386]:
+            - generic [ref=e387]:
+              - heading "Últimas vendas" [level=3] [ref=e389]
+              - table [ref=e390]:
+                - rowgroup [ref=e391]:
+                  - row "Modelo Chassi Loja Vendedor Valor Data" [ref=e392]:
+                    - columnheader "Modelo" [ref=e393]
+                    - columnheader "Chassi" [ref=e394]
+                    - columnheader "Loja" [ref=e395]
+                    - columnheader "Vendedor" [ref=e396]
+                    - columnheader "Valor" [ref=e397]
+                    - columnheader "Data" [ref=e398]
+                - rowgroup [ref=e399]:
+                  - row "JET LA2025SA110009724 Lavras Tiago Souza Gomes R$ 10.950,00 22/06/2026" [ref=e400]:
+                    - cell "JET" [ref=e401]
+                    - cell "LA2025SA110009724" [ref=e402]
+                    - cell "Lavras" [ref=e403]
+                    - cell "Tiago Souza Gomes" [ref=e404]
+                    - cell "R$ 10.950,00" [ref=e405]
+                    - cell "22/06/2026" [ref=e406]
+                  - row "JETMAX LYDAE393XT1206092 Itajuba Carlos Barbosa R$ 12.290,00 22/06/2026" [ref=e407]:
+                    - cell "JETMAX" [ref=e408]
+                    - cell "LYDAE393XT1206092" [ref=e409]
+                    - cell "Itajuba" [ref=e410]
+                    - cell "Carlos Barbosa" [ref=e411]
+                    - cell "R$ 12.290,00" [ref=e412]
+                    - cell "22/06/2026" [ref=e413]
+                  - row "JET LA25860V1000W1048 Pouso Alegre Pedro Henrique R$ 10.530,00 22/06/2026" [ref=e414]:
+                    - cell "JET" [ref=e415]
+                    - cell "LA25860V1000W1048" [ref=e416]
+                    - cell "Pouso Alegre" [ref=e417]
+                    - cell "Pedro Henrique" [ref=e418]
+                    - cell "R$ 10.530,00" [ref=e419]
+                    - cell "22/06/2026" [ref=e420]
+                  - row "JETMAX LYDAE3936T1206249 Itajuba Carlos Barbosa R$ 12.290,00 22/06/2026" [ref=e421]:
+                    - cell "JETMAX" [ref=e422]
+                    - cell "LYDAE3936T1206249" [ref=e423]
+                    - cell "Itajuba" [ref=e424]
+                    - cell "Carlos Barbosa" [ref=e425]
+                    - cell "R$ 12.290,00" [ref=e426]
+                    - cell "22/06/2026" [ref=e427]
+                  - row "JETMAX LYDAE393XT1201023 Itajuba Carlos Barbosa R$ 13.290,00 22/06/2026" [ref=e428]:
+                    - cell "JETMAX" [ref=e429]
+                    - cell "LYDAE393XT1201023" [ref=e430]
+                    - cell "Itajuba" [ref=e431]
+                    - cell "Carlos Barbosa" [ref=e432]
+                    - cell "R$ 13.290,00" [ref=e433]
+                    - cell "22/06/2026" [ref=e434]
+            - generic [ref=e435]:
+              - heading "Transferências pendentes" [level=3] [ref=e437]
+              - paragraph [ref=e438]: Nenhuma pendente
+          - generic [ref=e439]:
+            - generic [ref=e440]:
+              - heading "Garantias próximas do vencimento" [level=3] [ref=e442]
+              - table [ref=e443]:
+                - rowgroup [ref=e444]:
+                  - row "Modelo Chassi Loja Descrição Vence em" [ref=e445]:
+                    - columnheader "Modelo" [ref=e446]
+                    - columnheader "Chassi" [ref=e447]
+                    - columnheader "Loja" [ref=e448]
+                    - columnheader "Descrição" [ref=e449]
+                    - columnheader "Vence em" [ref=e450]
+                - rowgroup [ref=e451]:
+                  - row "BIG TRI XL2025107063 Galpão Matriz teste de garantia 01/07/2026" [ref=e452]:
+                    - cell "BIG TRI" [ref=e453]
+                    - cell "XL2025107063" [ref=e454]
+                    - cell "Galpão Matriz" [ref=e455]
+                    - cell "teste de garantia" [ref=e456]
+                    - cell "01/07/2026" [ref=e457]
+                  - row "BIG TRI XL2025107063 Galpão Matriz Segunda garantia - teste 14/07/2026" [ref=e458]:
+                    - cell "BIG TRI" [ref=e459]
+                    - cell "XL2025107063" [ref=e460]
+                    - cell "Galpão Matriz" [ref=e461]
+                    - cell "Segunda garantia - teste" [ref=e462]
+                    - cell "14/07/2026" [ref=e463]
+            - generic [ref=e464]:
+              - heading "Ordens de serviço abertas" [level=3] [ref=e466]
+              - paragraph [ref=e467]: Nenhuma OS aberta
+  - generic [ref=e468]: Galpão Matriz

@@ -1,0 +1,114 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading [level=1] [ref=e91]: MOVA
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link [ref=e92] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e9]
+          - text: Estoque
+        - link [ref=e93] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e15]
+          - text: Transferências
+        - link [ref=e94] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e19]
+          - text: Vendas
+        - link [ref=e95] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e24]
+          - text: Ordens de Serviço
+        - link [ref=e96] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e27]
+          - text: Garantias
+        - link [ref=e97] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e30]
+          - text: Caixa
+        - link [ref=e98] [cursor=pointer]:
+          - /url: /financeiro
+          - img [ref=e34]
+          - text: Financeiro
+        - link [ref=e99] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e37]
+          - text: Compras
+        - link [ref=e100] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e41]
+          - text: Admin
+    - generic [ref=e44]:
+      - banner [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - paragraph [ref=e48]: César Admin
+            - generic [ref=e49]: Admin Geral
+          - button [ref=e101]: Sair
+      - main [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - heading [level=1] [ref=e102]: Caixa
+            - button [ref=e103]:
+              - img
+              - text: Novo Lançamento
+          - generic [ref=e57]:
+            - textbox [ref=e58]: 2026-06
+            - combobox [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e63]: Entradas
+              - paragraph [ref=e65]: R$ 0,00
+            - generic [ref=e66]:
+              - generic [ref=e68]: Saídas
+              - paragraph [ref=e70]: R$ 0,00
+            - generic [ref=e71]:
+              - generic [ref=e73]: Saldo
+              - paragraph [ref=e75]: R$ 0,00
+          - generic [ref=e76]:
+            - generic [ref=e78]: Lançamentos
+            - paragraph [ref=e80]: Nenhum lançamento encontrado.
+  - button "Open Next.js Dev Tools" [ref=e86] [cursor=pointer]:
+    - img [ref=e87]
+  - alert [ref=e90]
+  - dialog "Novo Lançamento" [ref=e107]:
+    - heading "Novo Lançamento" [level=2] [ref=e109]
+    - generic [ref=e110]:
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - generic [ref=e113]: Tipo *
+          - combobox [active] [ref=e114]:
+            - generic [ref=e115]: saida
+            - img: ▼
+          - textbox [ref=e116]: saida
+        - generic [ref=e117]:
+          - generic [ref=e118]: Loja *
+          - combobox [ref=e119]:
+            - generic [ref=e120]: f154c1a5-c5ed-4bdc-af14-b1dea024beae
+            - img: ▼
+          - textbox [ref=e121]: f154c1a5-c5ed-4bdc-af14-b1dea024beae
+      - generic [ref=e122]:
+        - generic [ref=e123]: Categoria *
+        - combobox [ref=e124]:
+          - generic [ref=e125]: Selecione...
+          - img: ▼
+        - textbox [ref=e126]
+      - generic [ref=e127]:
+        - generic [ref=e128]:
+          - generic [ref=e129]: Valor (R$) *
+          - spinbutton [ref=e130]
+        - generic [ref=e131]:
+          - generic [ref=e132]: Data *
+          - textbox [ref=e133]: 2026-06-18
+      - generic [ref=e134]:
+        - generic [ref=e135]: Descrição
+        - textbox "Detalhes do lançamento..." [ref=e136]
+      - generic [ref=e137]:
+        - button "Cancelar" [ref=e138]
+        - button "Salvar" [ref=e139]
+    - button "Close" [ref=e140]:
+      - img
+      - generic [ref=e141]: Close

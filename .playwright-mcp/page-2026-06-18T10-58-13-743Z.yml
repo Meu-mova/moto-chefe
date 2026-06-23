@@ -1,0 +1,113 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Estoque" [ref=e8] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e9]
+          - text: Estoque
+        - link "Transferências" [ref=e14] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e15]
+          - text: Transferências
+        - link "Vendas" [ref=e18] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e19]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e23] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e24]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e26] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e27]
+          - text: Garantias
+        - link "Compras" [ref=e29] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e30]
+          - text: Compras
+        - link "Admin" [ref=e33] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e34]
+          - text: Admin
+    - generic [ref=e37]:
+      - banner [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - paragraph [ref=e41]: César Admin
+            - generic [ref=e42]: Admin Geral
+          - button "Sair" [ref=e44]
+      - main [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - link "Voltar" [ref=e48] [cursor=pointer]:
+              - /url: /estoque
+              - img [ref=e49]
+              - text: Voltar
+            - heading "MotoChefe BIGTRI" [level=1] [ref=e52]
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: Informações
+                - button "Editar" [ref=e57]:
+                  - img
+                  - text: Editar
+              - generic [ref=e58]:
+                - generic [ref=e59]:
+                  - generic [ref=e60]: Chassi
+                  - generic [ref=e61]: XL2025098060
+                - generic [ref=e62]:
+                  - generic [ref=e63]: Status
+                  - generic [ref=e64]: Montada
+                - generic [ref=e65]:
+                  - generic [ref=e66]: Disponibilidade
+                  - generic [ref=e67]: Disponível
+                - generic [ref=e68]:
+                  - generic [ref=e69]: Loja
+                  - generic [ref=e70]: Varginha
+                - generic [ref=e71]:
+                  - generic [ref=e72]: Cor
+                  - generic [ref=e73]: CINZA
+                - generic [ref=e74]:
+                  - generic [ref=e75]: Categoria
+                  - generic [ref=e76]: triciclo
+                - generic [ref=e77]:
+                  - generic [ref=e78]: Potência
+                  - generic [ref=e79]: 1000 WW
+                - generic [ref=e80]:
+                  - generic [ref=e81]: Motor
+                  - generic [ref=e82]: HRD48/60V1000W202508120364
+                - generic [ref=e83]:
+                  - generic [ref=e84]: NF Entrada
+                  - generic [ref=e85]: "38050"
+            - generic [ref=e86]:
+              - generic [ref=e88]: Ações
+              - generic [ref=e90]:
+                - button "Garantia" [ref=e91]:
+                  - img
+                  - text: Garantia
+                - button "Vender" [ref=e92]:
+                  - img
+                  - text: Vender
+                - button "Transferir" [ref=e93]:
+                  - img
+                  - text: Transferir
+          - generic [ref=e94]:
+            - tablist [ref=e95]:
+              - tab "Histórico" [selected] [ref=e96]
+              - tab "Ordens de Serviço" [ref=e97]
+              - tab "Garantias" [ref=e98]
+              - tab "Dados da Venda" [ref=e99]
+            - tabpanel [ref=e100]:
+              - generic [ref=e103]:
+                - generic [ref=e105]:
+                  - img [ref=e106]
+                  - generic [ref=e109]:
+                    - paragraph [ref=e110]: Nota Fiscal de Entrada
+                    - paragraph [ref=e111]: "38050"
+                - paragraph [ref=e112]: Nenhum evento registrado.
+  - button "Open Next.js Dev Tools" [ref=e118] [cursor=pointer]:
+    - img [ref=e119]

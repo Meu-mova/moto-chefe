@@ -1,0 +1,102 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: Adrielly Marques
+            - generic [ref=e37]: Aux. Administrativo
+          - button "Sair" [ref=e39]
+      - main [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - link "Voltar" [ref=e43] [cursor=pointer]:
+              - /url: /estoque
+              - img [ref=e44]
+              - text: Voltar
+            - heading "MotoChefe BIG TRI" [level=1] [ref=e47]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e51]: Informações
+              - generic [ref=e52]:
+                - generic [ref=e53]:
+                  - generic [ref=e54]: Chassi
+                  - generic [ref=e55]: XL2025084057
+                - generic [ref=e56]:
+                  - generic [ref=e57]: Status
+                  - generic [ref=e58]: Garantia
+                - generic [ref=e59]:
+                  - generic [ref=e60]: Loja
+                  - generic [ref=e61]: Varginha
+                - generic [ref=e62]:
+                  - generic [ref=e63]: Cor
+                  - generic [ref=e64]: CINZA
+                - generic [ref=e65]:
+                  - generic [ref=e66]: Categoria
+                  - generic [ref=e67]: autopropelido
+                - generic [ref=e68]:
+                  - generic [ref=e69]: Potência
+                  - generic [ref=e70]: —W
+                - generic [ref=e71]:
+                  - generic [ref=e72]: Motor
+                  - generic [ref=e73]: —
+                - generic [ref=e74]:
+                  - generic [ref=e75]: NF Entrada
+                  - generic [ref=e76]: "35998"
+            - generic [ref=e77]:
+              - generic [ref=e79]: Ações
+              - generic [ref=e81]:
+                - button "Garantia" [ref=e82]:
+                  - img
+                  - text: Garantia
+                - button "Resolver Garantia" [ref=e83]:
+                  - img
+                  - text: Resolver Garantia
+                - button "Transferir" [ref=e84]:
+                  - img
+                  - text: Transferir
+          - generic [ref=e85]:
+            - tablist [ref=e86]:
+              - tab "Histórico" [selected] [ref=e87]
+              - tab "Ordens de Serviço" [ref=e88]
+              - tab "Garantias" [ref=e89]
+              - tab "Dados da Venda" [ref=e90]
+            - tabpanel [ref=e91]:
+              - generic [ref=e94]:
+                - generic [ref=e96]:
+                  - img [ref=e97]
+                  - generic [ref=e100]:
+                    - paragraph [ref=e101]: Nota Fiscal de Entrada
+                    - paragraph [ref=e102]: "35998"
+                - paragraph [ref=e103]: Nenhum evento registrado.
+  - button "Open Next.js Dev Tools" [ref=e109] [cursor=pointer]:
+    - img [ref=e110]

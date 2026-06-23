@@ -1,0 +1,1119 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+    - generic [ref=e32]:
+      - banner [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: Anne Ester
+            - generic [ref=e37]: Vendedor
+          - button "Sair" [ref=e39]
+      - main [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - heading "Showroom" [level=1] [ref=e43]
+            - paragraph [ref=e44]: Todas as motos do grupo
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]:
+                - generic [ref=e48]: Total
+                - img [ref=e49]
+              - paragraph [ref=e53]: "51"
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: Caixa
+                - img [ref=e57]
+              - paragraph [ref=e61]: "26"
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - generic [ref=e64]: Montadas
+                - img [ref=e65]
+              - paragraph [ref=e67]: "25"
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: Disponíveis
+                - img [ref=e71]
+              - paragraph [ref=e74]: "23"
+            - generic [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]: Reservadas
+                - img [ref=e78]
+              - paragraph [ref=e81]: "2"
+            - generic [ref=e82]:
+              - generic [ref=e83]:
+                - generic [ref=e84]: Garantia
+                - img [ref=e85]
+              - paragraph [ref=e87]: "0"
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: Ag. NF
+                - img [ref=e91]
+              - paragraph [ref=e95]: "0"
+          - generic [ref=e96]:
+            - button "Modelo" [ref=e98]:
+              - generic [ref=e99]: Modelo
+              - img [ref=e100]
+            - textbox "Buscar chassi..." [ref=e102]
+            - button "Cor" [ref=e104]:
+              - generic [ref=e105]: Cor
+              - img [ref=e106]
+            - button "Pouso Alegre" [ref=e109]:
+              - generic [ref=e110]: Pouso Alegre
+              - img [ref=e111]
+            - button "Status" [ref=e114]:
+              - generic [ref=e115]: Status
+              - img [ref=e116]
+            - button "Disponibilidade" [ref=e119]:
+              - generic [ref=e120]: Disponibilidade
+              - img [ref=e121]
+          - table [ref=e125]:
+            - rowgroup [ref=e126]:
+              - row "Modelo Chassi Cor Loja Status Disponibilidade Ações" [ref=e127]:
+                - columnheader "Modelo" [ref=e128]:
+                  - link "Modelo" [ref=e129] [cursor=pointer]:
+                    - /url: /estoque?ord=modelo&dir=desc
+                    - text: Modelo
+                    - img [ref=e130]
+                - columnheader "Chassi" [ref=e132]
+                - columnheader "Cor" [ref=e133]:
+                  - link "Cor" [ref=e134] [cursor=pointer]:
+                    - /url: /estoque?ord=cor&dir=asc
+                    - text: Cor
+                    - img [ref=e135]
+                - columnheader "Loja" [ref=e138]:
+                  - link "Loja" [ref=e139] [cursor=pointer]:
+                    - /url: /estoque?ord=loja&dir=asc
+                    - text: Loja
+                    - img [ref=e140]
+                - columnheader "Status" [ref=e143]:
+                  - link "Status" [ref=e144] [cursor=pointer]:
+                    - /url: /estoque?ord=status&dir=asc
+                    - text: Status
+                    - img [ref=e145]
+                - columnheader "Disponibilidade" [ref=e148]:
+                  - link "Disponibilidade" [ref=e149] [cursor=pointer]:
+                    - /url: /estoque?ord=disponibilidade&dir=asc
+                    - text: Disponibilidade
+                    - img [ref=e150]
+                - columnheader "Ações" [ref=e153]
+            - rowgroup [ref=e154]:
+              - row "BIG TRI XL2025107025 PRETO Pouso Alegre Montada Disponível" [ref=e155]:
+                - cell "BIG TRI" [ref=e156]
+                - cell "XL2025107025" [ref=e157]
+                - cell "PRETO" [ref=e158]
+                - cell "Pouso Alegre" [ref=e159]
+                - cell "Montada" [ref=e160]:
+                  - generic [ref=e161]:
+                    - img [ref=e162]
+                    - text: Montada
+                - cell "Disponível" [ref=e164]:
+                  - generic [ref=e165]: Disponível
+                - cell [ref=e166]:
+                  - generic [ref=e167]:
+                    - button "Registrar Venda" [ref=e168]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e169]:
+                      - img
+                    - link "Ver detalhes" [ref=e170] [cursor=pointer]:
+                      - /url: /estoque/3165e3c0-5090-46fb-aadc-9d81ee175952
+                      - img
+              - row "BOB 172922506890144 CINZA Pouso Alegre Montada Disponível" [ref=e171]:
+                - cell "BOB" [ref=e172]
+                - cell "172922506890144" [ref=e173]
+                - cell "CINZA" [ref=e174]
+                - cell "Pouso Alegre" [ref=e175]
+                - cell "Montada" [ref=e176]:
+                  - generic [ref=e177]:
+                    - img [ref=e178]
+                    - text: Montada
+                - cell "Disponível" [ref=e180]:
+                  - generic [ref=e181]: Disponível
+                - cell [ref=e182]:
+                  - generic [ref=e183]:
+                    - button "Registrar Venda" [ref=e184]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e185]:
+                      - img
+                    - link "Ver detalhes" [ref=e186] [cursor=pointer]:
+                      - /url: /estoque/9e25a226-a5a9-4cc8-a4bc-52553b6aa23c
+                      - img
+              - row "BOB 172922506891372 BRANCO Pouso Alegre Montada Disponível" [ref=e187]:
+                - cell "BOB" [ref=e188]
+                - cell "172922506891372" [ref=e189]
+                - cell "BRANCO" [ref=e190]
+                - cell "Pouso Alegre" [ref=e191]
+                - cell "Montada" [ref=e192]:
+                  - generic [ref=e193]:
+                    - img [ref=e194]
+                    - text: Montada
+                - cell "Disponível" [ref=e196]:
+                  - generic [ref=e197]: Disponível
+                - cell [ref=e198]:
+                  - generic [ref=e199]:
+                    - button "Registrar Venda" [ref=e200]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e201]:
+                      - img
+                    - link "Ver detalhes" [ref=e202] [cursor=pointer]:
+                      - /url: /estoque/3a7e2ad6-fc3d-470f-bd85-838d2fb418ed
+                      - img
+              - row "BOB 172922506890901 PRETO Pouso Alegre Montada Disponível" [ref=e203]:
+                - cell "BOB" [ref=e204]
+                - cell "172922506890901" [ref=e205]
+                - cell "PRETO" [ref=e206]
+                - cell "Pouso Alegre" [ref=e207]
+                - cell "Montada" [ref=e208]:
+                  - generic [ref=e209]:
+                    - img [ref=e210]
+                    - text: Montada
+                - cell "Disponível" [ref=e212]:
+                  - generic [ref=e213]: Disponível
+                - cell [ref=e214]:
+                  - generic [ref=e215]:
+                    - button "Registrar Venda" [ref=e216]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e217]:
+                      - img
+                    - link "Ver detalhes" [ref=e218] [cursor=pointer]:
+                      - /url: /estoque/a0e5dc2a-b6e0-42d5-89a6-5728aad37a72
+                      - img
+              - row "CHOOPER 92RCP30EVRJ000236 PRETO Pouso Alegre Montada Disponível" [ref=e219]:
+                - cell "CHOOPER" [ref=e220]
+                - cell "92RCP30EVRJ000236" [ref=e221]
+                - cell "PRETO" [ref=e222]
+                - cell "Pouso Alegre" [ref=e223]
+                - cell "Montada" [ref=e224]:
+                  - generic [ref=e225]:
+                    - img [ref=e226]
+                    - text: Montada
+                - cell "Disponível" [ref=e228]:
+                  - generic [ref=e229]: Disponível
+                - cell [ref=e230]:
+                  - generic [ref=e231]:
+                    - button "Registrar Venda" [ref=e232]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e233]:
+                      - img
+                    - link "Ver detalhes" [ref=e234] [cursor=pointer]:
+                      - /url: /estoque/24fd21ad-b96b-4b7d-b3bb-873fd289c345
+                      - img
+              - row "DOT QS60V30H25112604067 CINZA Pouso Alegre Montada Disponível" [ref=e235]:
+                - cell "DOT" [ref=e236]
+                - cell "QS60V30H25112604067" [ref=e237]
+                - cell "CINZA" [ref=e238]
+                - cell "Pouso Alegre" [ref=e239]
+                - cell "Montada" [ref=e240]:
+                  - generic [ref=e241]:
+                    - img [ref=e242]
+                    - text: Montada
+                - cell "Disponível" [ref=e244]:
+                  - generic [ref=e245]: Disponível
+                - cell [ref=e246]:
+                  - generic [ref=e247]:
+                    - button "Registrar Venda" [ref=e248]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e249]:
+                      - img
+                    - link "Ver detalhes" [ref=e250] [cursor=pointer]:
+                      - /url: /estoque/dab43ded-f5a2-4a7c-abad-c2bdd481450e
+                      - img
+              - row "DOT QS60V30H25112503271 PRETO Pouso Alegre Montada Reservada" [ref=e251]:
+                - cell "DOT" [ref=e252]
+                - cell "QS60V30H25112503271" [ref=e253]
+                - cell "PRETO" [ref=e254]
+                - cell "Pouso Alegre" [ref=e255]
+                - cell "Montada" [ref=e256]:
+                  - generic [ref=e257]:
+                    - img [ref=e258]
+                    - text: Montada
+                - cell "Reservada" [ref=e260]:
+                  - generic [ref=e261]: Reservada
+                - cell [ref=e262]:
+                  - generic [ref=e263]:
+                    - button "Solicitar Transferência" [ref=e264]:
+                      - img
+                    - link "Ver detalhes" [ref=e265] [cursor=pointer]:
+                      - /url: /estoque/702249e3-8cee-4276-a831-c1a4a4f570ff
+                      - img
+              - row "DOT QS60V30H25091800965 PRETO Pouso Alegre Montada Disponível" [ref=e266]:
+                - cell "DOT" [ref=e267]
+                - cell "QS60V30H25091800965" [ref=e268]
+                - cell "PRETO" [ref=e269]
+                - cell "Pouso Alegre" [ref=e270]
+                - cell "Montada" [ref=e271]:
+                  - generic [ref=e272]:
+                    - img [ref=e273]
+                    - text: Montada
+                - cell "Disponível" [ref=e275]:
+                  - generic [ref=e276]: Disponível
+                - cell [ref=e277]:
+                  - generic [ref=e278]:
+                    - button "Registrar Venda" [ref=e279]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e280]:
+                      - img
+                    - link "Ver detalhes" [ref=e281] [cursor=pointer]:
+                      - /url: /estoque/d28b86bd-6550-4a2f-8f7f-ca516a706386
+                      - img
+              - row "DRIFT CAR MIMO202507526 CEU Pouso Alegre Caixa" [ref=e282]:
+                - cell "DRIFT CAR" [ref=e283]
+                - cell "MIMO202507526" [ref=e284]
+                - cell "CEU" [ref=e285]
+                - cell "Pouso Alegre" [ref=e286]
+                - cell "Caixa" [ref=e287]:
+                  - generic [ref=e288]:
+                    - img [ref=e289]
+                    - text: Caixa
+                - cell [ref=e293]
+                - cell [ref=e294]:
+                  - generic [ref=e295]:
+                    - button "Registrar Reserva" [ref=e296]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e297]:
+                      - img
+                    - link "Ver detalhes" [ref=e298] [cursor=pointer]:
+                      - /url: /estoque/66904d63-df62-4de2-8d9a-76c476050ef7
+                      - img
+              - row "E-BIKER AJ23110260 VERMELHO Pouso Alegre Montada Disponível" [ref=e299]:
+                - cell "E-BIKER" [ref=e300]
+                - cell "AJ23110260" [ref=e301]
+                - cell "VERMELHO" [ref=e302]
+                - cell "Pouso Alegre" [ref=e303]
+                - cell "Montada" [ref=e304]:
+                  - generic [ref=e305]:
+                    - img [ref=e306]
+                    - text: Montada
+                - cell "Disponível" [ref=e308]:
+                  - generic [ref=e309]: Disponível
+                - cell [ref=e310]:
+                  - generic [ref=e311]:
+                    - button "Registrar Venda" [ref=e312]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e313]:
+                      - img
+                    - link "Ver detalhes" [ref=e314] [cursor=pointer]:
+                      - /url: /estoque/4b0b9a17-5ad4-45d7-a453-9050384d063d
+                      - img
+              - row "ECO II R36WD1000RA003587 CINZA Pouso Alegre Montada Disponível" [ref=e315]:
+                - cell "ECO II" [ref=e316]
+                - cell "R36WD1000RA003587" [ref=e317]
+                - cell "CINZA" [ref=e318]
+                - cell "Pouso Alegre" [ref=e319]
+                - cell "Montada" [ref=e320]:
+                  - generic [ref=e321]:
+                    - img [ref=e322]
+                    - text: Montada
+                - cell "Disponível" [ref=e324]:
+                  - generic [ref=e325]: Disponível
+                - cell [ref=e326]:
+                  - generic [ref=e327]:
+                    - button "Registrar Venda" [ref=e328]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e329]:
+                      - img
+                    - link "Ver detalhes" [ref=e330] [cursor=pointer]:
+                      - /url: /estoque/038ca582-b6cd-480b-b565-535cfdc4fe37
+                      - img
+              - row "FAMILY MTBX150070158 BRANCO Pouso Alegre Montada Disponível" [ref=e331]:
+                - cell "FAMILY" [ref=e332]
+                - cell "MTBX150070158" [ref=e333]
+                - cell "BRANCO" [ref=e334]
+                - cell "Pouso Alegre" [ref=e335]
+                - cell "Montada" [ref=e336]:
+                  - generic [ref=e337]:
+                    - img [ref=e338]
+                    - text: Montada
+                - cell "Disponível" [ref=e340]:
+                  - generic [ref=e341]: Disponível
+                - cell [ref=e342]:
+                  - generic [ref=e343]:
+                    - button "Registrar Venda" [ref=e344]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e345]:
+                      - img
+                    - link "Ver detalhes" [ref=e346] [cursor=pointer]:
+                      - /url: /estoque/90d287ac-e2d2-4032-91e7-e032a61364e0
+                      - img
+              - row "GIGA LA25860V1000W0113 PRETO Pouso Alegre Caixa" [ref=e347]:
+                - cell "GIGA" [ref=e348]
+                - cell "LA25860V1000W0113" [ref=e349]
+                - cell "PRETO" [ref=e350]
+                - cell "Pouso Alegre" [ref=e351]
+                - cell "Caixa" [ref=e352]:
+                  - generic [ref=e353]:
+                    - img [ref=e354]
+                    - text: Caixa
+                - cell [ref=e358]
+                - cell [ref=e359]:
+                  - generic [ref=e360]:
+                    - button "Registrar Reserva" [ref=e361]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e362]:
+                      - img
+                    - link "Ver detalhes" [ref=e363] [cursor=pointer]:
+                      - /url: /estoque/4fc05738-e74a-4a37-b69a-e1ab4ca7acb3
+                      - img
+              - row "GIGA LA25860V1000W0111 PRETO Pouso Alegre Caixa" [ref=e364]:
+                - cell "GIGA" [ref=e365]
+                - cell "LA25860V1000W0111" [ref=e366]
+                - cell "PRETO" [ref=e367]
+                - cell "Pouso Alegre" [ref=e368]
+                - cell "Caixa" [ref=e369]:
+                  - generic [ref=e370]:
+                    - img [ref=e371]
+                    - text: Caixa
+                - cell [ref=e375]
+                - cell [ref=e376]:
+                  - generic [ref=e377]:
+                    - button "Registrar Reserva" [ref=e378]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e379]:
+                      - img
+                    - link "Ver detalhes" [ref=e380] [cursor=pointer]:
+                      - /url: /estoque/b80e2efd-d146-4a31-a43b-7eb5d001d9ec
+                      - img
+              - row "GIGA LA25860V1000W0296 CINZA Pouso Alegre Caixa" [ref=e381]:
+                - cell "GIGA" [ref=e382]
+                - cell "LA25860V1000W0296" [ref=e383]
+                - cell "CINZA" [ref=e384]
+                - cell "Pouso Alegre" [ref=e385]
+                - cell "Caixa" [ref=e386]:
+                  - generic [ref=e387]:
+                    - img [ref=e388]
+                    - text: Caixa
+                - cell [ref=e392]
+                - cell [ref=e393]:
+                  - generic [ref=e394]:
+                    - button "Registrar Reserva" [ref=e395]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e396]:
+                      - img
+                    - link "Ver detalhes" [ref=e397] [cursor=pointer]:
+                      - /url: /estoque/668e89c8-2ea7-49b9-b7a1-96646c52072e
+                      - img
+              - row "JET LA2025SA110008328 BRANCO Pouso Alegre Caixa" [ref=e398]:
+                - cell "JET" [ref=e399]
+                - cell "LA2025SA110008328" [ref=e400]
+                - cell "BRANCO" [ref=e401]
+                - cell "Pouso Alegre" [ref=e402]
+                - cell "Caixa" [ref=e403]:
+                  - generic [ref=e404]:
+                    - img [ref=e405]
+                    - text: Caixa
+                - cell [ref=e409]
+                - cell [ref=e410]:
+                  - generic [ref=e411]:
+                    - button "Registrar Reserva" [ref=e412]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e413]:
+                      - img
+                    - link "Ver detalhes" [ref=e414] [cursor=pointer]:
+                      - /url: /estoque/4516f89f-5916-4412-aa08-4018ee15a180
+                      - img
+              - row "JET LA2025SA110008531 BRANCO Pouso Alegre Caixa" [ref=e415]:
+                - cell "JET" [ref=e416]
+                - cell "LA2025SA110008531" [ref=e417]
+                - cell "BRANCO" [ref=e418]
+                - cell "Pouso Alegre" [ref=e419]
+                - cell "Caixa" [ref=e420]:
+                  - generic [ref=e421]:
+                    - img [ref=e422]
+                    - text: Caixa
+                - cell [ref=e426]
+                - cell [ref=e427]:
+                  - generic [ref=e428]:
+                    - button "Registrar Reserva" [ref=e429]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e430]:
+                      - img
+                    - link "Ver detalhes" [ref=e431] [cursor=pointer]:
+                      - /url: /estoque/b0fe63a8-8cf4-47e6-bac3-c11f935c3a47
+                      - img
+              - row "JET LA25960V1000W9430 CINZA Pouso Alegre Caixa" [ref=e432]:
+                - cell "JET" [ref=e433]
+                - cell "LA25960V1000W9430" [ref=e434]
+                - cell "CINZA" [ref=e435]
+                - cell "Pouso Alegre" [ref=e436]
+                - cell "Caixa" [ref=e437]:
+                  - generic [ref=e438]:
+                    - img [ref=e439]
+                    - text: Caixa
+                - cell [ref=e443]
+                - cell [ref=e444]:
+                  - generic [ref=e445]:
+                    - button "Registrar Reserva" [ref=e446]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e447]:
+                      - img
+                    - link "Ver detalhes" [ref=e448] [cursor=pointer]:
+                      - /url: /estoque/2fd579da-f651-4d1e-a51f-bef84d643e28
+                      - img
+              - row "JET LA25860V1000W1048 PRETO Pouso Alegre Caixa" [ref=e449]:
+                - cell "JET" [ref=e450]
+                - cell "LA25860V1000W1048" [ref=e451]
+                - cell "PRETO" [ref=e452]
+                - cell "Pouso Alegre" [ref=e453]
+                - cell "Caixa" [ref=e454]:
+                  - generic [ref=e455]:
+                    - img [ref=e456]
+                    - text: Caixa
+                - cell [ref=e460]
+                - cell [ref=e461]:
+                  - generic [ref=e462]:
+                    - button "Registrar Reserva" [ref=e463]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e464]:
+                      - img
+                    - link "Ver detalhes" [ref=e465] [cursor=pointer]:
+                      - /url: /estoque/1f504da9-58bd-4c29-b4a1-12a0bc0b5b5e
+                      - img
+              - row "JETMAX LYDAE3938T1204406 PRETO Pouso Alegre Montada Disponível" [ref=e466]:
+                - cell "JETMAX" [ref=e467]
+                - cell "LYDAE3938T1204406" [ref=e468]
+                - cell "PRETO" [ref=e469]
+                - cell "Pouso Alegre" [ref=e470]
+                - cell "Montada" [ref=e471]:
+                  - generic [ref=e472]:
+                    - img [ref=e473]
+                    - text: Montada
+                - cell "Disponível" [ref=e475]:
+                  - generic [ref=e476]: Disponível
+                - cell [ref=e477]:
+                  - generic [ref=e478]:
+                    - button "Registrar Venda" [ref=e479]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e480]:
+                      - img
+                    - link "Ver detalhes" [ref=e481] [cursor=pointer]:
+                      - /url: /estoque/f1b927f8-7fca-413b-8f13-8e732251c5fe
+                      - img
+              - row "JETMAX LYDAE393XT1205783 PRETO Pouso Alegre Caixa" [ref=e482]:
+                - cell "JETMAX" [ref=e483]
+                - cell "LYDAE393XT1205783" [ref=e484]
+                - cell "PRETO" [ref=e485]
+                - cell "Pouso Alegre" [ref=e486]
+                - cell "Caixa" [ref=e487]:
+                  - generic [ref=e488]:
+                    - img [ref=e489]
+                    - text: Caixa
+                - cell [ref=e493]
+                - cell [ref=e494]:
+                  - generic [ref=e495]:
+                    - button "Registrar Reserva" [ref=e496]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e497]:
+                      - img
+                    - link "Ver detalhes" [ref=e498] [cursor=pointer]:
+                      - /url: /estoque/493584bd-c2aa-460f-8962-99c3231e70a1
+                      - img
+              - row "JETMAX LYDAE3937T1205806 BRANCO Pouso Alegre Caixa" [ref=e499]:
+                - cell "JETMAX" [ref=e500]
+                - cell "LYDAE3937T1205806" [ref=e501]
+                - cell "BRANCO" [ref=e502]
+                - cell "Pouso Alegre" [ref=e503]
+                - cell "Caixa" [ref=e504]:
+                  - generic [ref=e505]:
+                    - img [ref=e506]
+                    - text: Caixa
+                - cell [ref=e510]
+                - cell [ref=e511]:
+                  - generic [ref=e512]:
+                    - button "Registrar Reserva" [ref=e513]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e514]:
+                      - img
+                    - link "Ver detalhes" [ref=e515] [cursor=pointer]:
+                      - /url: /estoque/aad0429d-a7c0-4a52-9943-01fab2ff5bae
+                      - img
+              - row "JETMAX LYDAE3932T1205907 CINZA Pouso Alegre Caixa" [ref=e516]:
+                - cell "JETMAX" [ref=e517]
+                - cell "LYDAE3932T1205907" [ref=e518]
+                - cell "CINZA" [ref=e519]
+                - cell "Pouso Alegre" [ref=e520]
+                - cell "Caixa" [ref=e521]:
+                  - generic [ref=e522]:
+                    - img [ref=e523]
+                    - text: Caixa
+                - cell [ref=e527]
+                - cell [ref=e528]:
+                  - generic [ref=e529]:
+                    - button "Registrar Reserva" [ref=e530]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e531]:
+                      - img
+                    - link "Ver detalhes" [ref=e532] [cursor=pointer]:
+                      - /url: /estoque/92926923-7dea-468c-86dd-d64fc3425dcc
+                      - img
+              - row "JETMAX LYDAE3930T1205968 PRETO Pouso Alegre Caixa" [ref=e533]:
+                - cell "JETMAX" [ref=e534]
+                - cell "LYDAE3930T1205968" [ref=e535]
+                - cell "PRETO" [ref=e536]
+                - cell "Pouso Alegre" [ref=e537]
+                - cell "Caixa" [ref=e538]:
+                  - generic [ref=e539]:
+                    - img [ref=e540]
+                    - text: Caixa
+                - cell [ref=e544]
+                - cell [ref=e545]:
+                  - generic [ref=e546]:
+                    - button "Registrar Reserva" [ref=e547]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e548]:
+                      - img
+                    - link "Ver detalhes" [ref=e549] [cursor=pointer]:
+                      - /url: /estoque/49b6ad84-182d-450e-98e5-12b3752184c0
+                      - img
+              - row "JETMAX LYDAE393XT1206156 CINZA Pouso Alegre Caixa" [ref=e550]:
+                - cell "JETMAX" [ref=e551]
+                - cell "LYDAE393XT1206156" [ref=e552]
+                - cell "CINZA" [ref=e553]
+                - cell "Pouso Alegre" [ref=e554]
+                - cell "Caixa" [ref=e555]:
+                  - generic [ref=e556]:
+                    - img [ref=e557]
+                    - text: Caixa
+                - cell [ref=e561]
+                - cell [ref=e562]:
+                  - generic [ref=e563]:
+                    - button "Registrar Reserva" [ref=e564]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e565]:
+                      - img
+                    - link "Ver detalhes" [ref=e566] [cursor=pointer]:
+                      - /url: /estoque/5c0bc140-57bf-408a-8121-cb4a1bb76196
+                      - img
+              - row "JETMAX LYDAE3930T1206148 BRANCO Pouso Alegre Caixa" [ref=e567]:
+                - cell "JETMAX" [ref=e568]
+                - cell "LYDAE3930T1206148" [ref=e569]
+                - cell "BRANCO" [ref=e570]
+                - cell "Pouso Alegre" [ref=e571]
+                - cell "Caixa" [ref=e572]:
+                  - generic [ref=e573]:
+                    - img [ref=e574]
+                    - text: Caixa
+                - cell [ref=e578]
+                - cell [ref=e579]:
+                  - generic [ref=e580]:
+                    - button "Registrar Reserva" [ref=e581]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e582]:
+                      - img
+                    - link "Ver detalhes" [ref=e583] [cursor=pointer]:
+                      - /url: /estoque/28ebb31a-49db-4c8c-ac7c-9a0f70a222a2
+                      - img
+              - row "JETMAX LYDAE3934T1206086 CINZA Pouso Alegre Caixa" [ref=e584]:
+                - cell "JETMAX" [ref=e585]
+                - cell "LYDAE3934T1206086" [ref=e586]
+                - cell "CINZA" [ref=e587]
+                - cell "Pouso Alegre" [ref=e588]
+                - cell "Caixa" [ref=e589]:
+                  - generic [ref=e590]:
+                    - img [ref=e591]
+                    - text: Caixa
+                - cell [ref=e595]
+                - cell [ref=e596]:
+                  - generic [ref=e597]:
+                    - button "Registrar Reserva" [ref=e598]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e599]:
+                      - img
+                    - link "Ver detalhes" [ref=e600] [cursor=pointer]:
+                      - /url: /estoque/6c29deb8-ead7-426e-ad41-d4e2cae4bdee
+                      - img
+              - row "JETMAX LYDAE3935T1204413 PRETO Pouso Alegre Montada Reservada" [ref=e601]:
+                - cell "JETMAX" [ref=e602]
+                - cell "LYDAE3935T1204413" [ref=e603]
+                - cell "PRETO" [ref=e604]
+                - cell "Pouso Alegre" [ref=e605]
+                - cell "Montada" [ref=e606]:
+                  - generic [ref=e607]:
+                    - img [ref=e608]
+                    - text: Montada
+                - cell "Reservada" [ref=e610]:
+                  - generic [ref=e611]: Reservada
+                - cell [ref=e612]:
+                  - generic [ref=e613]:
+                    - button "Solicitar Transferência" [ref=e614]:
+                      - img
+                    - link "Ver detalhes" [ref=e615] [cursor=pointer]:
+                      - /url: /estoque/87279b50-d1f8-4c3d-bdf7-f4950a8ac89b
+                      - img
+              - row "JETMAX LYDAE3932T1205874 PRETO Pouso Alegre Caixa" [ref=e616]:
+                - cell "JETMAX" [ref=e617]
+                - cell "LYDAE3932T1205874" [ref=e618]
+                - cell "PRETO" [ref=e619]
+                - cell "Pouso Alegre" [ref=e620]
+                - cell "Caixa" [ref=e621]:
+                  - generic [ref=e622]:
+                    - img [ref=e623]
+                    - text: Caixa
+                - cell [ref=e627]
+                - cell [ref=e628]:
+                  - generic [ref=e629]:
+                    - button "Registrar Reserva" [ref=e630]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e631]:
+                      - img
+                    - link "Ver detalhes" [ref=e632] [cursor=pointer]:
+                      - /url: /estoque/8ab29a03-d38d-4b6e-b1a9-9d3aa5c00df9
+                      - img
+              - row "JETMAX LYDAE3933T1205883 PRETO Pouso Alegre Caixa" [ref=e633]:
+                - cell "JETMAX" [ref=e634]
+                - cell "LYDAE3933T1205883" [ref=e635]
+                - cell "PRETO" [ref=e636]
+                - cell "Pouso Alegre" [ref=e637]
+                - cell "Caixa" [ref=e638]:
+                  - generic [ref=e639]:
+                    - img [ref=e640]
+                    - text: Caixa
+                - cell [ref=e644]
+                - cell [ref=e645]:
+                  - generic [ref=e646]:
+                    - button "Registrar Reserva" [ref=e647]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e648]:
+                      - img
+                    - link "Ver detalhes" [ref=e649] [cursor=pointer]:
+                      - /url: /estoque/ee1f4d33-8bee-441a-83e1-04fb04da714c
+                      - img
+              - row "JETMAX LYDAE3935T1205836 AZUL Pouso Alegre Caixa" [ref=e650]:
+                - cell "JETMAX" [ref=e651]
+                - cell "LYDAE3935T1205836" [ref=e652]
+                - cell "AZUL" [ref=e653]
+                - cell "Pouso Alegre" [ref=e654]
+                - cell "Caixa" [ref=e655]:
+                  - generic [ref=e656]:
+                    - img [ref=e657]
+                    - text: Caixa
+                - cell [ref=e661]
+                - cell [ref=e662]:
+                  - generic [ref=e663]:
+                    - button "Registrar Reserva" [ref=e664]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e665]:
+                      - img
+                    - link "Ver detalhes" [ref=e666] [cursor=pointer]:
+                      - /url: /estoque/031cef15-eaf6-4252-8198-d49337acf8b9
+                      - img
+              - row "JETMAX LYDAE3939T1206231 BRANCO Pouso Alegre Caixa" [ref=e667]:
+                - cell "JETMAX" [ref=e668]
+                - cell "LYDAE3939T1206231" [ref=e669]
+                - cell "BRANCO" [ref=e670]
+                - cell "Pouso Alegre" [ref=e671]
+                - cell "Caixa" [ref=e672]:
+                  - generic [ref=e673]:
+                    - img [ref=e674]
+                    - text: Caixa
+                - cell [ref=e678]
+                - cell [ref=e679]:
+                  - generic [ref=e680]:
+                    - button "Registrar Reserva" [ref=e681]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e682]:
+                      - img
+                    - link "Ver detalhes" [ref=e683] [cursor=pointer]:
+                      - /url: /estoque/d44767c4-ef1b-4059-8c96-fefc48476e9e
+                      - img
+              - row "LIBERTY ST2025011500334 BRANCO Pouso Alegre Caixa" [ref=e684]:
+                - cell "LIBERTY" [ref=e685]
+                - cell "ST2025011500334" [ref=e686]
+                - cell "BRANCO" [ref=e687]
+                - cell "Pouso Alegre" [ref=e688]
+                - cell "Caixa" [ref=e689]:
+                  - generic [ref=e690]:
+                    - img [ref=e691]
+                    - text: Caixa
+                - cell [ref=e695]
+                - cell [ref=e696]:
+                  - generic [ref=e697]:
+                    - button "Registrar Reserva" [ref=e698]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e699]:
+                      - img
+                    - link "Ver detalhes" [ref=e700] [cursor=pointer]:
+                      - /url: /estoque/732451ed-1a09-4449-a89f-fa26bf026fc2
+                      - img
+              - row "MIA MCBRMIA2512090198 VERDE Pouso Alegre Caixa" [ref=e701]:
+                - cell "MIA" [ref=e702]
+                - cell "MCBRMIA2512090198" [ref=e703]
+                - cell "VERDE" [ref=e704]
+                - cell "Pouso Alegre" [ref=e705]
+                - cell "Caixa" [ref=e706]:
+                  - generic [ref=e707]:
+                    - img [ref=e708]
+                    - text: Caixa
+                - cell [ref=e712]
+                - cell [ref=e713]:
+                  - generic [ref=e714]:
+                    - button "Registrar Reserva" [ref=e715]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e716]:
+                      - img
+                    - link "Ver detalhes" [ref=e717] [cursor=pointer]:
+                      - /url: /estoque/f960e6e5-5fc4-4657-abf6-d308d321cbe9
+                      - img
+              - row "MIA TRI SXKJ22506261059 BRANCO Pouso Alegre Montada Disponível" [ref=e718]:
+                - cell "MIA TRI" [ref=e719]
+                - cell "SXKJ22506261059" [ref=e720]
+                - cell "BRANCO" [ref=e721]
+                - cell "Pouso Alegre" [ref=e722]
+                - cell "Montada" [ref=e723]:
+                  - generic [ref=e724]:
+                    - img [ref=e725]
+                    - text: Montada
+                - cell "Disponível" [ref=e727]:
+                  - generic [ref=e728]: Disponível
+                - cell [ref=e729]:
+                  - generic [ref=e730]:
+                    - button "Registrar Venda" [ref=e731]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e732]:
+                      - img
+                    - link "Ver detalhes" [ref=e733] [cursor=pointer]:
+                      - /url: /estoque/23a588e4-a1c6-4dbc-a44b-69113185e8da
+                      - img
+              - row "MIA TRI SXKJ22506120565 PRETO Pouso Alegre Caixa" [ref=e734]:
+                - cell "MIA TRI" [ref=e735]
+                - cell "SXKJ22506120565" [ref=e736]
+                - cell "PRETO" [ref=e737]
+                - cell "Pouso Alegre" [ref=e738]
+                - cell "Caixa" [ref=e739]:
+                  - generic [ref=e740]:
+                    - img [ref=e741]
+                    - text: Caixa
+                - cell [ref=e745]
+                - cell [ref=e746]:
+                  - generic [ref=e747]:
+                    - button "Registrar Reserva" [ref=e748]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e749]:
+                      - img
+                    - link "Ver detalhes" [ref=e750] [cursor=pointer]:
+                      - /url: /estoque/75b4a541-8b1d-47f7-a252-f84521f3b4b8
+                      - img
+              - row "PATINETE G5 LA20250815166 PRETO Pouso Alegre Montada Disponível" [ref=e751]:
+                - cell "PATINETE G5" [ref=e752]
+                - cell "LA20250815166" [ref=e753]
+                - cell "PRETO" [ref=e754]
+                - cell "Pouso Alegre" [ref=e755]
+                - cell "Montada" [ref=e756]:
+                  - generic [ref=e757]:
+                    - img [ref=e758]
+                    - text: Montada
+                - cell "Disponível" [ref=e760]:
+                  - generic [ref=e761]: Disponível
+                - cell [ref=e762]:
+                  - generic [ref=e763]:
+                    - button "Registrar Venda" [ref=e764]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e765]:
+                      - img
+                    - link "Ver detalhes" [ref=e766] [cursor=pointer]:
+                      - /url: /estoque/ea373a74-be86-4868-9b2a-f1500dacda5a
+                      - img
+              - row "PIX R42CP1080SA000754 AZUL Pouso Alegre Montada Disponível" [ref=e767]:
+                - cell "PIX" [ref=e768]
+                - cell "R42CP1080SA000754" [ref=e769]
+                - cell "AZUL" [ref=e770]
+                - cell "Pouso Alegre" [ref=e771]
+                - cell "Montada" [ref=e772]:
+                  - generic [ref=e773]:
+                    - img [ref=e774]
+                    - text: Montada
+                - cell "Disponível" [ref=e776]:
+                  - generic [ref=e777]: Disponível
+                - cell [ref=e778]:
+                  - generic [ref=e779]:
+                    - button "Registrar Venda" [ref=e780]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e781]:
+                      - img
+                    - link "Ver detalhes" [ref=e782] [cursor=pointer]:
+                      - /url: /estoque/09d38101-05da-40d5-a928-ed247303ab0c
+                      - img
+              - row "POP MC48V800W2025100226 BRANCO Pouso Alegre Caixa" [ref=e783]:
+                - cell "POP" [ref=e784]
+                - cell "MC48V800W2025100226" [ref=e785]
+                - cell "BRANCO" [ref=e786]
+                - cell "Pouso Alegre" [ref=e787]
+                - cell "Caixa" [ref=e788]:
+                  - generic [ref=e789]:
+                    - img [ref=e790]
+                    - text: Caixa
+                - cell [ref=e794]
+                - cell [ref=e795]:
+                  - generic [ref=e796]:
+                    - button "Registrar Reserva" [ref=e797]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e798]:
+                      - img
+                    - link "Ver detalhes" [ref=e799] [cursor=pointer]:
+                      - /url: /estoque/925204f8-8a15-4fe5-971d-47eead1413fb
+                      - img
+              - row "R10 LYDAE3832T1200188 VERDE/AMARELO Pouso Alegre Montada Disponível" [ref=e800]:
+                - cell "R10" [ref=e801]
+                - cell "LYDAE3832T1200188" [ref=e802]
+                - cell "VERDE/AMARELO" [ref=e803]
+                - cell "Pouso Alegre" [ref=e804]
+                - cell "Montada" [ref=e805]:
+                  - generic [ref=e806]:
+                    - img [ref=e807]
+                    - text: Montada
+                - cell "Disponível" [ref=e809]:
+                  - generic [ref=e810]: Disponível
+                - cell [ref=e811]:
+                  - generic [ref=e812]:
+                    - button "Registrar Venda" [ref=e813]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e814]:
+                      - img
+                    - link "Ver detalhes" [ref=e815] [cursor=pointer]:
+                      - /url: /estoque/6883eb32-8190-4bd7-844b-2464e27f2458
+                      - img
+              - row "R10 LYDAE3835T1200072 VERDE/AMARELO Pouso Alegre Montada Disponível" [ref=e816]:
+                - cell "R10" [ref=e817]
+                - cell "LYDAE3835T1200072" [ref=e818]
+                - cell "VERDE/AMARELO" [ref=e819]
+                - cell "Pouso Alegre" [ref=e820]
+                - cell "Montada" [ref=e821]:
+                  - generic [ref=e822]:
+                    - img [ref=e823]
+                    - text: Montada
+                - cell "Disponível" [ref=e825]:
+                  - generic [ref=e826]: Disponível
+                - cell [ref=e827]:
+                  - generic [ref=e828]:
+                    - button "Registrar Venda" [ref=e829]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e830]:
+                      - img
+                    - link "Ver detalhes" [ref=e831] [cursor=pointer]:
+                      - /url: /estoque/6459eb7e-690d-4d34-a901-e9ff1798defb
+                      - img
+              - row "RET LM60V1000W2025042600134 BRANCO Pouso Alegre Montada Disponível" [ref=e832]:
+                - cell "RET" [ref=e833]
+                - cell "LM60V1000W2025042600134" [ref=e834]
+                - cell "BRANCO" [ref=e835]
+                - cell "Pouso Alegre" [ref=e836]
+                - cell "Montada" [ref=e837]:
+                  - generic [ref=e838]:
+                    - img [ref=e839]
+                    - text: Montada
+                - cell "Disponível" [ref=e841]:
+                  - generic [ref=e842]: Disponível
+                - cell [ref=e843]:
+                  - generic [ref=e844]:
+                    - button "Registrar Venda" [ref=e845]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e846]:
+                      - img
+                    - link "Ver detalhes" [ref=e847] [cursor=pointer]:
+                      - /url: /estoque/9020afd4-3703-4cef-953d-00471a6576f4
+                      - img
+              - row "SOMA 172922505660556 PRETO Pouso Alegre Caixa" [ref=e848]:
+                - cell "SOMA" [ref=e849]
+                - cell "172922505660556" [ref=e850]
+                - cell "PRETO" [ref=e851]
+                - cell "Pouso Alegre" [ref=e852]
+                - cell "Caixa" [ref=e853]:
+                  - generic [ref=e854]:
+                    - img [ref=e855]
+                    - text: Caixa
+                - cell [ref=e859]
+                - cell [ref=e860]:
+                  - generic [ref=e861]:
+                    - button "Registrar Reserva" [ref=e862]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e863]:
+                      - img
+                    - link "Ver detalhes" [ref=e864] [cursor=pointer]:
+                      - /url: /estoque/c9c4b9d1-b7e0-4124-abd0-42032d094e9c
+                      - img
+              - row "SOMA 172922505661275 BRANCO Pouso Alegre Caixa" [ref=e865]:
+                - cell "SOMA" [ref=e866]
+                - cell "172922505661275" [ref=e867]
+                - cell "BRANCO" [ref=e868]
+                - cell "Pouso Alegre" [ref=e869]
+                - cell "Caixa" [ref=e870]:
+                  - generic [ref=e871]:
+                    - img [ref=e872]
+                    - text: Caixa
+                - cell [ref=e876]
+                - cell [ref=e877]:
+                  - generic [ref=e878]:
+                    - button "Registrar Reserva" [ref=e879]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e880]:
+                      - img
+                    - link "Ver detalhes" [ref=e881] [cursor=pointer]:
+                      - /url: /estoque/00e37c38-a55d-4c6d-a98e-08fec2c5a805
+                      - img
+              - row "SUPER JOY 172922506150496 VERMELHO Pouso Alegre Montada Disponível" [ref=e882]:
+                - cell "SUPER JOY" [ref=e883]
+                - cell "172922506150496" [ref=e884]
+                - cell "VERMELHO" [ref=e885]
+                - cell "Pouso Alegre" [ref=e886]
+                - cell "Montada" [ref=e887]:
+                  - generic [ref=e888]:
+                    - img [ref=e889]
+                    - text: Montada
+                - cell "Disponível" [ref=e891]:
+                  - generic [ref=e892]: Disponível
+                - cell [ref=e893]:
+                  - generic [ref=e894]:
+                    - button "Registrar Venda" [ref=e895]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e896]:
+                      - img
+                    - link "Ver detalhes" [ref=e897] [cursor=pointer]:
+                      - /url: /estoque/4ad1965f-9d3c-44be-9dc9-ac3c01c3ae25
+                      - img
+              - row "SUPER JOY 172922506150514 BRANCO Pouso Alegre Caixa" [ref=e898]:
+                - cell "SUPER JOY" [ref=e899]
+                - cell "172922506150514" [ref=e900]
+                - cell "BRANCO" [ref=e901]
+                - cell "Pouso Alegre" [ref=e902]
+                - cell "Caixa" [ref=e903]:
+                  - generic [ref=e904]:
+                    - img [ref=e905]
+                    - text: Caixa
+                - cell [ref=e909]
+                - cell [ref=e910]:
+                  - generic [ref=e911]:
+                    - button "Registrar Reserva" [ref=e912]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e913]:
+                      - img
+                    - link "Ver detalhes" [ref=e914] [cursor=pointer]:
+                      - /url: /estoque/11e307dc-daa1-40ad-a82c-176d7795a58b
+                      - img
+              - row "X11 PRO R2WSP7011SA160156 VERDE Pouso Alegre Montada Disponível" [ref=e915]:
+                - cell "X11 PRO" [ref=e916]
+                - cell "R2WSP7011SA160156" [ref=e917]
+                - cell "VERDE" [ref=e918]
+                - cell "Pouso Alegre" [ref=e919]
+                - cell "Montada" [ref=e920]:
+                  - generic [ref=e921]:
+                    - img [ref=e922]
+                    - text: Montada
+                - cell "Disponível" [ref=e924]:
+                  - generic [ref=e925]: Disponível
+                - cell [ref=e926]:
+                  - generic [ref=e927]:
+                    - button "Registrar Venda" [ref=e928]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e929]:
+                      - img
+                    - link "Ver detalhes" [ref=e930] [cursor=pointer]:
+                      - /url: /estoque/d6fa1aad-7b53-4ec0-b4f7-1154195a6e51
+                      - img
+              - row "X12 MCBRX122602110023 AZUL Pouso Alegre Montada Disponível" [ref=e931]:
+                - cell "X12" [ref=e932]
+                - cell "MCBRX122602110023" [ref=e933]
+                - cell "AZUL" [ref=e934]
+                - cell "Pouso Alegre" [ref=e935]
+                - cell "Montada" [ref=e936]:
+                  - generic [ref=e937]:
+                    - img [ref=e938]
+                    - text: Montada
+                - cell "Disponível" [ref=e940]:
+                  - generic [ref=e941]: Disponível
+                - cell [ref=e942]:
+                  - generic [ref=e943]:
+                    - button "Registrar Venda" [ref=e944]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e945]:
+                      - img
+                    - link "Ver detalhes" [ref=e946] [cursor=pointer]:
+                      - /url: /estoque/8428d86d-040c-4ad4-9d1d-39dc491975f2
+                      - img
+              - row "X12 MCBRX122602050089 BRANCO Pouso Alegre Montada Disponível" [ref=e947]:
+                - cell "X12" [ref=e948]
+                - cell "MCBRX122602050089" [ref=e949]
+                - cell "BRANCO" [ref=e950]
+                - cell "Pouso Alegre" [ref=e951]
+                - cell "Montada" [ref=e952]:
+                  - generic [ref=e953]:
+                    - img [ref=e954]
+                    - text: Montada
+                - cell "Disponível" [ref=e956]:
+                  - generic [ref=e957]: Disponível
+                - cell [ref=e958]:
+                  - generic [ref=e959]:
+                    - button "Registrar Venda" [ref=e960]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e961]:
+                      - img
+                    - link "Ver detalhes" [ref=e962] [cursor=pointer]:
+                      - /url: /estoque/5640608b-a434-4316-a2f2-f9c97166944d
+                      - img
+              - row "X12 MCBRX122602100234 PRETO Pouso Alegre Montada Disponível" [ref=e963]:
+                - cell "X12" [ref=e964]
+                - cell "MCBRX122602100234" [ref=e965]
+                - cell "PRETO" [ref=e966]
+                - cell "Pouso Alegre" [ref=e967]
+                - cell "Montada" [ref=e968]:
+                  - generic [ref=e969]:
+                    - img [ref=e970]
+                    - text: Montada
+                - cell "Disponível" [ref=e972]:
+                  - generic [ref=e973]: Disponível
+                - cell [ref=e974]:
+                  - generic [ref=e975]:
+                    - button "Registrar Venda" [ref=e976]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e977]:
+                      - img
+                    - link "Ver detalhes" [ref=e978] [cursor=pointer]:
+                      - /url: /estoque/cf6687d9-8ff0-488a-a484-010bc250e18f
+                      - img
+              - row "X12 MCBRX122602090047 VERMELHO Pouso Alegre Montada Disponível" [ref=e979]:
+                - cell "X12" [ref=e980]
+                - cell "MCBRX122602090047" [ref=e981]
+                - cell "VERMELHO" [ref=e982]
+                - cell "Pouso Alegre" [ref=e983]
+                - cell "Montada" [ref=e984]:
+                  - generic [ref=e985]:
+                    - img [ref=e986]
+                    - text: Montada
+                - cell "Disponível" [ref=e988]:
+                  - generic [ref=e989]: Disponível
+                - cell [ref=e990]:
+                  - generic [ref=e991]:
+                    - button "Registrar Venda" [ref=e992]:
+                      - img
+                    - button "Solicitar Transferência" [ref=e993]:
+                      - img
+                    - link "Ver detalhes" [ref=e994] [cursor=pointer]:
+                      - /url: /estoque/8b473b0c-d80b-458f-aee1-51048fd448f8
+                      - img
+  - button "Open Next.js Dev Tools" [ref=e1000] [cursor=pointer]:
+    - img [ref=e1001]

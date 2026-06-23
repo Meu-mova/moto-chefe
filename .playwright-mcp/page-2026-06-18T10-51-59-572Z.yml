@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e100] [cursor=pointer]:
+    - img [ref=e101]
+  - alert [ref=e115]
+  - generic [ref=e131]:
+    - generic [ref=e132]:
+      - generic [ref=e133]: MOVA
+      - paragraph [ref=e134]: Gestão de Motos Elétricas
+    - generic [ref=e136]:
+      - generic [ref=e137]:
+        - generic [ref=e138]: Email
+        - textbox "Email" [ref=e139]:
+          - /placeholder: seu@email.com
+      - generic [ref=e140]:
+        - generic [ref=e141]: Senha
+        - textbox "Senha" [ref=e142]
+      - paragraph [ref=e143]: Email ou senha inválidos.
+      - button "Entrar" [ref=e144]

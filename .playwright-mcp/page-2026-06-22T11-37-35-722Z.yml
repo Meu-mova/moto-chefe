@@ -1,0 +1,86 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+        - link "Caixa" [ref=e32] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e33]
+          - text: Caixa
+    - generic [ref=e36]:
+      - banner [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - paragraph [ref=e40]: Adrielly Marques
+            - generic [ref=e41]: Aux. Administrativo
+          - button "Sair" [ref=e43]
+      - main [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - heading "Caixa" [level=1] [ref=e47]
+            - button "Novo Lançamento" [ref=e48]:
+              - img
+              - text: Novo Lançamento
+          - textbox [ref=e50]: 2026-06
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e54]: Entradas
+              - paragraph [ref=e56]: R$ 3.000,00
+            - generic [ref=e57]:
+              - generic [ref=e59]: Saídas
+              - paragraph [ref=e61]: R$ 0,00
+            - generic [ref=e62]:
+              - generic [ref=e64]: Saldo
+              - paragraph [ref=e66]: R$ 3.000,00
+          - generic [ref=e67]:
+            - generic [ref=e69]: Lançamentos
+            - table [ref=e72]:
+              - rowgroup [ref=e73]:
+                - row "Data Tipo Categoria Descrição Loja Valor Comprov. Registrado por" [ref=e74]:
+                  - columnheader "Data" [ref=e75]
+                  - columnheader "Tipo" [ref=e76]
+                  - columnheader "Categoria" [ref=e77]
+                  - columnheader "Descrição" [ref=e78]
+                  - columnheader "Loja" [ref=e79]
+                  - columnheader "Valor" [ref=e80]
+                  - columnheader "Comprov." [ref=e81]
+                  - columnheader "Registrado por" [ref=e82]
+              - rowgroup [ref=e83]:
+                - row "22/06/2026 Entrada Venda Venda dinheiro — teste Varginha +R$ 3.000,00 — Adrielly Marques" [ref=e84]:
+                  - cell "22/06/2026" [ref=e85]
+                  - cell "Entrada" [ref=e86]:
+                    - generic [ref=e87]: Entrada
+                  - cell "Venda" [ref=e88]
+                  - cell "Venda dinheiro — teste" [ref=e89]
+                  - cell "Varginha" [ref=e90]
+                  - cell "+R$ 3.000,00" [ref=e91]
+                  - cell "—" [ref=e92]
+                  - cell "Adrielly Marques" [ref=e93]
+  - button "Open Next.js Dev Tools" [ref=e99] [cursor=pointer]:
+    - img [ref=e100]

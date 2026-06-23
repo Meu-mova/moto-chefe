@@ -1,0 +1,2887 @@
+[     228ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[     360ms] [LOG] [Fast Refresh] done in 248ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1847ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1879ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    2356ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    2418ms] [LOG] [Fast Refresh] done in 183ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    6912ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    6983ms] [LOG] [Fast Refresh] done in 182ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   18007ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   18029ms] [LOG] [Fast Refresh] done in 122ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   41094ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   41124ms] [LOG] [Fast Refresh] done in 131ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   41387ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   41747ms] [LOG] [Fast Refresh] done in 464ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   41916ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/login:0
+[   57319ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   57320ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   68550ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   68595ms] [LOG] [Fast Refresh] done in 145ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   85656ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   85663ms] [LOG] [Fast Refresh] done in 108ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   86037ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   86114ms] [LOG] [Fast Refresh] done in 177ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   94631ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/login:0
+[  191395ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  191530ms] [LOG] [Fast Refresh] done in 242ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  192180ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  192600ms] [LOG] [Fast Refresh] done in 522ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  192732ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  192862ms] [LOG] [Fast Refresh] done in 238ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  214133ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  214177ms] [LOG] [Fast Refresh] done in 149ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  221037ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  221040ms] [LOG] [Fast Refresh] done in 104ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  226310ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  226375ms] [LOG] [Fast Refresh] done in 165ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  360721ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  360846ms] [LOG] [Fast Refresh] done in 230ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  378540ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  378726ms] [LOG] [Fast Refresh] done in 293ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  379283ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  379903ms] [LOG] [Fast Refresh] done in 730ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  397601ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  397685ms] [LOG] [Fast Refresh] done in 185ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  428017ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  428075ms] [LOG] [Fast Refresh] done in 109ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  428486ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  428648ms] [LOG] [Fast Refresh] done in 262ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  439290ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  439345ms] [LOG] [Fast Refresh] done in 104ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  439532ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  439697ms] [LOG] [Fast Refresh] done in 275ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  455697ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  455697ms] [LOG] [Fast Refresh] done in 111ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  475763ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  476105ms] [LOG] [Fast Refresh] done in 446ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  615296ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  615367ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  615799ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  615978ms] [LOG] [Fast Refresh] done in 281ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  627288ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  627355ms] [LOG] [Fast Refresh] done in 136ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  627534ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  627726ms] [LOG] [Fast Refresh] done in 291ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  640062ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  640852ms] [LOG] [Fast Refresh] done in 866ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  641062ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  641592ms] [LOG] [Fast Refresh] done in 637ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  652333ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  652520ms] [LOG] [Fast Refresh] done in 276ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  652649ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  652830ms] [LOG] [Fast Refresh] done in 280ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  653139ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  653139ms] [LOG] [Fast Refresh] done in 105ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  685758ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  685949ms] [LOG] [Fast Refresh] done in 289ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  686243ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  686781ms] [LOG] [Fast Refresh] done in 645ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  694707ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  695016ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  695087ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  695169ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  695229ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/estoque?_rsc=6ANTVYS1XEmUgtLR:0
+[  695258ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  695354ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/estoque:0
+[  695454ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_react-dom_0bruynb._.js:15305
+[  695509ms] Error: ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (Error: ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at Object.getCompilationErrors (file://D:\Claude\Teste\node_modules\next\dist\server\dev\hot-reloader-turbopack.js:1186:59)
+    at DevBundlerService.getCompilationError (file://D:\Claude\Teste\node_modules\next\dist\server\lib\dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file://D:\Claude\Teste\node_modules\next\dist\server\dev\next-dev-server.js:720:42)
+    at DevServer.findPageComponents (file://D:\Claude\Teste\node_modules\next\dist\server\dev\next-dev-server.js:690:43)
+    at async DevServer.renderErrorToResponseImpl (file://D:\Claude\Teste\node_modules\next\dist\server\base-server.js:1753:26)
+[  695509ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  695511ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695532ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695620ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695633ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  695717ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695796ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695875ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  695952ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696034ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696110ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696188ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696270ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696344ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696422ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696498ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696577ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696657ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696735ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696817ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696904ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  696973ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697052ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697128ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697207ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697289ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697362ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697440ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697518ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697597ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697677ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697753ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697831ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697908ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  697985ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698066ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698144ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698222ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698299ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698378ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698457ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698535ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698615ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698692ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698768ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698846ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  698924ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699001ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699081ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699158ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699235ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699315ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699391ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699469ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699547ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699626ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699703ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699781ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699859ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  699938ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700014ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700093ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700170ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700247ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700327ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700389ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700468ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700549ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700625ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700703ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700781ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700861ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  700937ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701016ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701080ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701156ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701233ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701310ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701387ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701466ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701545ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701623ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701702ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701780ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701856ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  701934ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702011ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702091ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702164ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702243ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702322ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702400ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702480ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702555ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702634ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702713ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702790ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702867ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  702945ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703025ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703104ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703181ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703260ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703355ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703432ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703511ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703588ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703669ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703746ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703823ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703902ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  703980ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704056ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704134ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704212ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704291ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704369ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704446ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704525ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704587ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704664ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704726ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704802ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704883ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  704959ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705039ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705117ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705194ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705273ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705353ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705431ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705510ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705585ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705663ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705741ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705820ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705895ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  705975ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706051ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706127ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706222ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706301ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706380ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706458ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706535ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706613ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706692ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706769ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706847ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  706925ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707003ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707082ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707159ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707237ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707315ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707393ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707470ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707549ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707625ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707702ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707781ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707861ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  707922ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708001ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708064ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708140ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708219ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708297ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708373ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708452ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708527ms] [ERROR] ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx:7:1
+Module not found: Can't resolve './resolver-garantia-button'
+   5 | import { NfSaidaButton } from '../../components/nf-saida-button'
+   6 | import { MontarButton } from '../../components/montar-button'
+>  7 | import { ResolverGarantiaButton } from './resolver-garantia-button'
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+   9 | import { ArrowLeftRight } from 'lucide-react'
+  10 |
+
+Import trace:
+  Server Component:
+    ./src/app/(dashboard)/estoque/[id]/components/moto-actions.tsx
+    ./src/app/(dashboard)/estoque/[id]/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  708637ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  709195ms] [LOG] [Fast Refresh] done in 660ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  709518ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  710240ms] [LOG] [Fast Refresh] done in 834ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  713074ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  713158ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  713325ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  713346ms] [LOG] [Fast Refresh] done in 123ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477

@@ -1,0 +1,121 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading "MOVA" [level=1] [ref=e5]
+        - paragraph [ref=e6]: Gestão de Motos Elétricas
+      - navigation [ref=e7]:
+        - link "Dashboard" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e9]
+          - text: Dashboard
+        - link "Showroom" [ref=e12] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e13]
+          - text: Showroom
+        - link "Transferências" [ref=e17] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e18]
+          - text: Transferências
+        - link "Vendas" [ref=e21] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e22]
+          - text: Vendas
+        - link "Ordens de Serviço" [ref=e26] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e27]
+          - text: Ordens de Serviço
+        - link "Garantias" [ref=e29] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e30]
+          - text: Garantias
+        - link "Caixa" [ref=e32] [cursor=pointer]:
+          - /url: /caixa
+          - img [ref=e33]
+          - text: Caixa
+    - generic [ref=e36]:
+      - banner [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - paragraph [ref=e40]: Adrielly Marques
+            - generic [ref=e41]: Aux. Administrativo
+          - button "Sair" [ref=e43]
+      - main [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - link "Voltar" [ref=e47] [cursor=pointer]:
+              - /url: /estoque
+              - img [ref=e48]
+              - text: Voltar
+            - heading "MotoChefe BIG TRI" [level=1] [ref=e51]
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - generic [ref=e55]: Informações
+              - generic [ref=e56]:
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Chassi
+                  - generic [ref=e59]: XL2025084057
+                - generic [ref=e60]:
+                  - generic [ref=e61]: Status
+                  - generic [ref=e62]: Montada
+                - generic [ref=e63]:
+                  - generic [ref=e64]: Disponibilidade
+                  - generic [ref=e65]: Disponível
+                - generic [ref=e66]:
+                  - generic [ref=e67]: Loja
+                  - generic [ref=e68]: Varginha
+                - generic [ref=e69]:
+                  - generic [ref=e70]: Cor
+                  - generic [ref=e71]: CINZA
+                - generic [ref=e72]:
+                  - generic [ref=e73]: Categoria
+                  - generic [ref=e74]: autopropelido
+                - generic [ref=e75]:
+                  - generic [ref=e76]: Potência
+                  - generic [ref=e77]: —W
+                - generic [ref=e78]:
+                  - generic [ref=e79]: Motor
+                  - generic [ref=e80]: —
+                - generic [ref=e81]:
+                  - generic [ref=e82]: NF Entrada
+                  - generic [ref=e83]: "35998"
+            - generic [ref=e84]:
+              - generic [ref=e86]: Ações
+              - generic [ref=e88]:
+                - button "Garantia" [ref=e89]:
+                  - img
+                  - text: Garantia
+                - button "Vender" [ref=e90]:
+                  - img
+                  - text: Vender
+                - button "Transferir" [ref=e91]:
+                  - img
+                  - text: Transferir
+          - generic [ref=e92]:
+            - tablist [ref=e93]:
+              - tab "Histórico" [selected] [ref=e94]
+              - tab "Ordens de Serviço" [ref=e95]
+              - tab "Garantias" [ref=e96]
+              - tab "Dados da Venda" [ref=e97]
+            - tabpanel [ref=e98]:
+              - generic [ref=e101]:
+                - generic [ref=e103]:
+                  - img [ref=e104]
+                  - generic [ref=e107]:
+                    - paragraph [ref=e108]: Nota Fiscal de Entrada
+                    - paragraph [ref=e109]: "35998"
+                - generic [ref=e110]:
+                  - generic [ref=e111]:
+                    - paragraph [ref=e112]: Mudança de status
+                    - paragraph [ref=e113]: Vendida → Montada
+                    - paragraph [ref=e114]: "Venda cancelada — Cliente: cesar — Valor: R$ 10000.00 — Motivo: teste"
+                    - paragraph [ref=e115]: por César Admin
+                  - generic [ref=e116]: 22/06/26 08:11
+                - generic [ref=e117]:
+                  - generic [ref=e118]:
+                    - paragraph [ref=e119]: Saída (Venda)
+                    - paragraph [ref=e120]: "Venda — Cliente: cesar — Total: R$ 10000.00 — Dinheiro: R$ 5000.00 + Cartão de Crédito: R$ 5000.00"
+                    - paragraph [ref=e121]: por Adrielly Marques
+                  - generic [ref=e122]: 22/06/26 08:02
+  - button "Open Next.js Dev Tools" [ref=e128] [cursor=pointer]:
+    - img [ref=e129]

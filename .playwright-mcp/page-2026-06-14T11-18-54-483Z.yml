@@ -1,0 +1,114 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - heading [level=1] [ref=e162]: Moto Elétrica
+        - paragraph [ref=e6]: Gestão de Estoque
+      - navigation [ref=e7]:
+        - link [ref=e163] [cursor=pointer]:
+          - /url: /estoque
+          - img [ref=e9]
+          - text: Estoque
+        - link [ref=e164] [cursor=pointer]:
+          - /url: /transferencias
+          - img [ref=e15]
+          - text: Transferências
+        - link [ref=e165] [cursor=pointer]:
+          - /url: /vendas
+          - img [ref=e19]
+          - text: Vendas
+        - link [ref=e166] [cursor=pointer]:
+          - /url: /compras
+          - img [ref=e24]
+          - text: Compras
+        - link [ref=e167] [cursor=pointer]:
+          - /url: /ordens-servico
+          - img [ref=e28]
+          - text: Ordens de Serviço
+        - link [ref=e168] [cursor=pointer]:
+          - /url: /garantias
+          - img [ref=e31]
+          - text: Garantias
+        - link [ref=e169] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e34]
+          - text: Admin
+    - generic [ref=e37]:
+      - banner [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - paragraph [ref=e41]: César Admin
+            - generic [ref=e42]: Admin Geral
+          - button [ref=e170]: Sair
+      - main [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - heading [level=1] [ref=e171]: Garantias
+              - paragraph [ref=e50]: Acompanhamento — uma moto pode ter múltiplas garantias ao longo do tempo
+            - button [ref=e172]: Abrir Garantia
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - img [ref=e82]
+              - textbox [ref=e173]:
+                - /placeholder: Chassi…
+            - generic [ref=e86]:
+              - img [ref=e87]
+              - textbox [ref=e174]:
+                - /placeholder: Nº pedido fábrica…
+            - button [ref=e175]:
+              - generic [ref=e93]: Modelo
+              - img [ref=e94]
+            - combobox [ref=e96]:
+              - generic [ref=e97]: __todos
+              - img: ▼
+            - textbox [ref=e98]: __todos
+            - combobox [ref=e99]:
+              - generic [ref=e100]: __todas
+              - img: ▼
+            - textbox [ref=e101]: __todas
+          - paragraph [ref=e53]: ⚠ 1 garantia requer atenção (10–19 dias)
+          - generic [ref=e54]:
+            - heading [level=2] [ref=e176]: Ativas (1)
+            - generic [ref=e57]:
+              - generic [ref=e58]:
+                - generic [ref=e59]:
+                  - paragraph [ref=e60]: MotoChefe BIGTRI
+                  - paragraph [ref=e61]: XL2025107063
+                - generic [ref=e62]: Atenção
+              - paragraph [ref=e63]: teste de garantia
+              - generic [ref=e64]:
+                - paragraph [ref=e65]: "Loja: Galpão Matriz"
+                - paragraph [ref=e66]: "Abertura: 31/05/2026 — Prazo: 30/06/2026"
+                - paragraph [ref=e67]: "Pedido peça: 31/05/2026"
+                - paragraph [ref=e68]: "Pedido fábrica: 21000"
+              - paragraph [ref=e69]: 13 dias decorridos · 17 dias restantes
+              - button [ref=e177]: Encerrar Garantia
+  - button "Open Next.js Dev Tools" [ref=e76] [cursor=pointer]:
+    - img [ref=e77]
+  - alert [ref=e102]
+  - dialog "Nova Garantia" [ref=e181]:
+    - heading "Nova Garantia" [level=2] [ref=e183]
+    - generic [ref=e184]:
+      - generic [ref=e185]:
+        - generic [ref=e186]: Moto
+        - combobox [active] [ref=e187]:
+          - generic [ref=e188]: Selecionar moto
+          - img: ▼
+        - textbox [ref=e189]
+      - generic [ref=e190]:
+        - generic [ref=e191]: Descrição
+        - textbox "Descrição do problema em garantia..." [ref=e192]
+      - generic [ref=e193]:
+        - generic [ref=e194]: Data do Pedido
+        - textbox [ref=e195]
+        - paragraph [ref=e196]: O prazo de resolução é de 30 dias a partir desta data.
+      - generic [ref=e197]:
+        - generic [ref=e198]: Número do Pedido na Fábrica (opcional)
+        - 'textbox "Ex: FAB-2026-001" [ref=e199]'
+    - generic [ref=e200]:
+      - button "Cancelar" [ref=e201]
+      - button "Abrir Garantia" [disabled]
+    - button "Close" [ref=e202]:
+      - img
+      - generic [ref=e203]: Close
