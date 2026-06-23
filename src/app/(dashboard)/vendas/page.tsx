@@ -15,12 +15,18 @@ function parseParam(v?: string): string[] {
   return v.split(',').filter(Boolean)
 }
 
+function dataDefault30Dias() {
+  const d = new Date()
+  d.setDate(d.getDate() - 30)
+  return d.toISOString().split('T')[0]
+}
+
 const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function VendasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ loja?: string; modelo?: string; vendedor?: string; q?: string; nf?: string }>
+  searchParams: Promise<{ loja?: string; modelo?: string; vendedor?: string; q?: string; nf?: string; de?: string; ate?: string }>
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
@@ -31,6 +37,10 @@ export default async function VendasPage({
     : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
   const vendedorValues = parseParam(params.vendedor)
 
+  // Últimos 30 dias como default; usuário pode alterar pelo filtro de período
+  const dataInicio = params.de  ?? dataDefault30Dias()
+  const dataFim    = params.ate ?? undefined
+
   const [pedidos, vendasList, motosDisponiveis, lojasOpts, modelosOpts, vendedoresOpts] = await Promise.all([
     isAdmin ? listarTodosPedidos() : listarPedidosPorLoja(usuario.lojaId!),
     listarVendas({
@@ -39,6 +49,8 @@ export default async function VendasPage({
       vendedorId:  vendedorValues,
       chassiBusca: params.q,
       notaFiscal:  params.nf,
+      dataInicio,
+      dataFim,
     }),
     db
       .select({
@@ -102,6 +114,8 @@ export default async function VendasPage({
           lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
           chassiInicial={params.q ?? ''}
           nfInicial={params.nf ?? ''}
+          dataInicioInicial={dataInicio}
+          dataFimInicial={params.ate ?? ''}
         />
         <div className="bg-white rounded-lg border overflow-x-auto">
           <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} />

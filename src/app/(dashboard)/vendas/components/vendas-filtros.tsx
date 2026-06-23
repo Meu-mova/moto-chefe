@@ -10,12 +10,14 @@ type Modelo    = { id: string; modelo: string }
 type Vendedor  = { id: string; nome: string }
 
 type Props = {
-  lojas:         Loja[]
-  modelos:       Modelo[]
-  vendedores:    Vendedor[]
-  lojaIdDefault: string | null
-  chassiInicial: string
-  nfInicial:     string
+  lojas:             Loja[]
+  modelos:           Modelo[]
+  vendedores:        Vendedor[]
+  lojaIdDefault:     string | null
+  chassiInicial:     string
+  nfInicial:         string
+  dataInicioInicial: string
+  dataFimInicial:    string
 }
 
 function parse(param: string | null): string[] {
@@ -36,20 +38,22 @@ function useDebounce(key: string, value: string, searchParams: URLSearchParams, 
   }, [value])
 }
 
-export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chassiInicial, nfInicial }: Props) {
+export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chassiInicial, nfInicial, dataInicioInicial, dataFimInicial }: Props) {
   const router       = useRouter()
   const pathname     = usePathname()
   const searchParams = useSearchParams()
 
-  const [chassi, setChassi] = useState(chassiInicial)
-  const [nf, setNf]         = useState(nfInicial)
+  const [chassi,     setChassi]     = useState(chassiInicial)
+  const [nf,         setNf]         = useState(nfInicial)
+  const [dataInicio, setDataInicio] = useState(dataInicioInicial)
+  const [dataFim,    setDataFim]    = useState(dataFimInicial)
 
   useDebounce('q',  chassi, searchParams, router, pathname)
   useDebounce('nf', nf,     searchParams, router, pathname)
 
-  const lojaParam    = searchParams.get('loja')
-  const lojasSel     = lojaParam !== null ? parse(lojaParam) : (lojaIdDefault ? [lojaIdDefault] : [])
-  const modelosSel   = parse(searchParams.get('modelo'))
+  const lojaParam     = searchParams.get('loja')
+  const lojasSel      = lojaParam !== null ? parse(lojaParam) : (lojaIdDefault ? [lojaIdDefault] : [])
+  const modelosSel    = parse(searchParams.get('modelo'))
   const vendedoresSel = parse(searchParams.get('vendedor'))
 
   function atualizar(chave: string, valores: string[]) {
@@ -58,9 +62,17 @@ export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chass
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  function atualizarData(chave: string, valor: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (valor) { params.set(chave, valor) } else { params.delete(chave) }
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   function limpar() {
     setChassi('')
     setNf('')
+    setDataInicio('')
+    setDataFim('')
     router.push(pathname)
   }
 
@@ -99,6 +111,23 @@ export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chass
         onChange={e => setNf(e.target.value)}
         className="h-9 w-36"
       />
+
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-slate-400">De</span>
+        <Input
+          type="date"
+          value={dataInicio}
+          onChange={e => { setDataInicio(e.target.value); atualizarData('de', e.target.value) }}
+          className="h-9 w-36"
+        />
+        <span className="text-xs text-slate-400">até</span>
+        <Input
+          type="date"
+          value={dataFim}
+          onChange={e => { setDataFim(e.target.value); atualizarData('ate', e.target.value) }}
+          className="h-9 w-36"
+        />
+      </div>
 
       {lojas.length > 0 && (
         <MultiSelectFiltro
