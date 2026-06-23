@@ -11,6 +11,7 @@ export type PrecoMinimoInfo = {
   valorMinimoPix: number
   taxas: {
     taxasCartao: Record<string, number>
+    taxasDebito: Record<string, number>
     taxasLink: Record<string, number>
     taxasFinanciamento: Record<string, number>
   }
@@ -41,6 +42,7 @@ async function buscarPrecificacao(modeloId: string) {
     valorMinimoPix: parseFloat(precRow.valorMinimo),
     taxas: {
       taxasCartao: taxasRow.taxasCartao as Record<string, number>,
+      taxasDebito: (taxasRow.taxasDebito ?? {}) as Record<string, number>,
       taxasLink: taxasRow.taxasLink as Record<string, number>,
       taxasFinanciamento: taxasRow.taxasFinanciamento as Record<string, number>,
     },

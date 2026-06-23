@@ -41,6 +41,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const taxasVenda = taxasRow[0]
     ? {
         taxasCartao: taxasRow[0].taxasCartao as Record<string, number>,
+        taxasDebito: (taxasRow[0].taxasDebito ?? {}) as Record<string, number>,
         taxasLink: taxasRow[0].taxasLink as Record<string, number>,
         taxasFinanciamento: taxasRow[0].taxasFinanciamento as Record<string, number>,
       }

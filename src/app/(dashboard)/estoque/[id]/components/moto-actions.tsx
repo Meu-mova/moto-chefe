@@ -43,6 +43,7 @@ type Moto = {
 
 type TaxasVenda = {
   taxasCartao: Record<string, number>
+  taxasDebito: Record<string, number>
   taxasLink: Record<string, number>
   taxasFinanciamento: Record<string, number>
 }
