@@ -9,7 +9,7 @@ import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeCancelar = new Set(['admin_geral', 'admin_socio'])
-const podeEditar   = new Set(['admin_geral', 'admin_socio'])
+const podeEditar   = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 
 const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])

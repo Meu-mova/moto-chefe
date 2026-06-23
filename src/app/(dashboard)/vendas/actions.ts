@@ -491,45 +491,89 @@ export async function editarVendaAction(vendaId: string, dados: {
 }) {
   const usuario = await getUsuarioLogado()
 
-  const ADMINS_EDIT = ['admin_geral', 'admin_socio']
+  const ADMINS_EDIT = ['admin_geral', 'admin_socio', 'aux_adm']
   if (!ADMINS_EDIT.includes(usuario.papel)) throw new Error('Sem permissão')
 
-  // admin_socio só pode editar vendas da própria loja
-  if (usuario.papel === 'admin_socio') {
-    const [venda] = await db
-      .select({ lojaId: vendas.lojaId })
-      .from(vendas)
-      .where(eq(vendas.id, vendaId))
-      .limit(1)
-    if (!venda || venda.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  // Busca venda atual para validações de acesso e sincronização
+  const [vendaAtual] = await db
+    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  if (!vendaAtual) throw new Error('Venda não encontrada')
+
+  // Não-admin_geral só pode editar da própria loja
+  if (usuario.papel !== 'admin_geral' && vendaAtual.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
   }
+
+  // ── Validação financeira ─────────────────────────────────────────────────────
+  const valorNum = parseFloat(dados.valor.replace(',', '.'))
+  if (!valorNum || valorNum <= 0) throw new Error('Valor da venda inválido')
+
+  for (const p of dados.pagamentos) {
+    if (!p.valor || p.valor <= 0) throw new Error('Valor de pagamento inválido')
+  }
+
+  const somaPayments = dados.pagamentos.reduce((s, p) => s + Number(p.valor), 0)
+  if (Math.abs(somaPayments - valorNum) > 0.01) {
+    throw new Error('Soma dos pagamentos não confere com o valor total')
+  }
+
+  // ── NF de saída: só permite corrigir uma NF já existente ────────────────────
+  // Para adicionar uma NF nova, use o botão "Confirmar NF de Saída"
+  const nfFinal = vendaAtual.notaFiscalSaida
+    ? (dados.notaFiscalSaida?.trim() || vendaAtual.notaFiscalSaida)
+    : vendaAtual.notaFiscalSaida
 
   const formaPagamento = dados.pagamentos.length === 1
     ? dados.pagamentos[0].tipo
     : 'multiplos'
 
-  await db.update(vendas)
-    .set({
-      valor:              dados.valor,
-      dataVenda:          new Date(dados.dataVenda),
-      notaFiscalSaida:    dados.notaFiscalSaida || null,
-      pagamentos:         dados.pagamentos,
-      formaPagamento,
-      clienteNome:        dados.clienteNome,
-      clienteCpf:         dados.clienteCpf,
-      clienteCelular:     dados.clienteCelular || null,
-      clienteEmail:       dados.clienteEmail || null,
-      clienteCep:         dados.clienteCep || null,
-      clienteLogradouro:  dados.clienteLogradouro || null,
-      clienteNumero:      dados.clienteNumero || null,
-      clienteComplemento: dados.clienteComplemento || null,
-      clienteBairro:      dados.clienteBairro || null,
-      clienteCidade:      dados.clienteCidade || null,
-      clienteEstado:      dados.clienteEstado || null,
-    })
-    .where(eq(vendas.id, vendaId))
+  await db.transaction(async tx => {
+    // Atualiza a venda
+    await tx.update(vendas)
+      .set({
+        valor:              dados.valor,
+        dataVenda:          new Date(dados.dataVenda),
+        notaFiscalSaida:    nfFinal,
+        pagamentos:         dados.pagamentos,
+        formaPagamento,
+        clienteNome:        dados.clienteNome,
+        clienteCpf:         dados.clienteCpf,
+        clienteCelular:     dados.clienteCelular || null,
+        clienteEmail:       dados.clienteEmail || null,
+        clienteCep:         dados.clienteCep || null,
+        clienteLogradouro:  dados.clienteLogradouro || null,
+        clienteNumero:      dados.clienteNumero || null,
+        clienteComplemento: dados.clienteComplemento || null,
+        clienteBairro:      dados.clienteBairro || null,
+        clienteCidade:      dados.clienteCidade || null,
+        clienteEstado:      dados.clienteEstado || null,
+      })
+      .where(eq(vendas.id, vendaId))
+
+    // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria
+    await tx.delete(lancamentosCaixa)
+      .where(and(eq(lancamentosCaixa.vendaId, vendaId), eq(lancamentosCaixa.tipo, 'entrada')))
+
+    const pagamentosDinheiro = dados.pagamentos.filter(p => p.tipo === 'dinheiro')
+    for (const pgto of pagamentosDinheiro) {
+      await tx.insert(lancamentosCaixa).values({
+        lojaId:    vendaAtual.lojaId,
+        usuarioId: usuario.id,
+        tipo:      'entrada',
+        categoria: 'Venda',
+        descricao: `Venda dinheiro (editado) — ${dados.clienteNome}`,
+        valor:     pgto.valor.toFixed(2),
+        data:      dados.dataVenda,
+        vendaId,
+      })
+    }
+  })
 
   revalidatePath('/vendas')
+  revalidatePath('/caixa')
 }
 
 export async function buscarHistoricoMotoAction(motoId: string) {

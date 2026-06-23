@@ -168,7 +168,11 @@ export function EditarVendaDialog({ venda: v }: Props) {
                 </div>
                 <div className="space-y-1.5">
                   <Label>NF de Saída</Label>
-                  <Input value={nf} onChange={e => setNf(e.target.value)} placeholder="Número da NF" />
+                  {v.notaFiscalSaida ? (
+                    <Input value={nf} onChange={e => setNf(e.target.value)} placeholder="Número da NF" />
+                  ) : (
+                    <p className="text-xs text-slate-400 pt-1.5">Use o botão de NF para emitir</p>
+                  )}
                 </div>
               </div>
             </div>
