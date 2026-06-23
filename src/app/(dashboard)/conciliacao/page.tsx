@@ -22,7 +22,7 @@ export default async function ConciliacaoPage({
   searchParams: Promise<{ filtro?: string }>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
 
   const { filtro = 'pendentes' } = await searchParams
 
