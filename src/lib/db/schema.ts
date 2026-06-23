@@ -233,6 +233,25 @@ export const precificacao = pgTable('precificacao', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── conciliacoes_cartao ─────────────────────────────────────────────────────
+export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  operadora: text('operadora').notNull(),
+  dataTransacao: date('data_transacao').notNull(),
+  nsu: text('nsu'),
+  autorizacao: text('autorizacao'),
+  valorBruto: numeric('valor_bruto', { precision: 12, scale: 2 }).notNull(),
+  valorLiquido: numeric('valor_liquido', { precision: 12, scale: 2 }),
+  parcelas: integer('parcelas').notNull().default(1),
+  tipo: text('tipo').notNull().default('credito'),
+  status: text('status').notNull().default('aprovado'),
+  vendaId: uuid('venda_id').references(() => vendas.id),
+  conciliado: boolean('conciliado').notNull().default(false),
+  conciliadoEm: timestamp('conciliado_em', { withTimezone: true }),
+  rawData: jsonb('raw_data'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {
   id: uuid('id').primaryKey().defaultRandom(),
