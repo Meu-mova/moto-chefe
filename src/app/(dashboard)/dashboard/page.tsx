@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { db } from '@/lib/db'
-import { lojas, usuarios } from '@/lib/db/schema'
+import { lojas, usuarios, conciliacoesCartao } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -40,11 +40,20 @@ const getVendedoresOpts = unstable_cache(
 // ── Seções async ──────────────────────────────────────────────────────────────
 
 async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; filtrosAnt: Filtros; papel: string }) {
-  const [kpis, kpisAnt, motoMaisVendida, precoMedio] = await withTimeout(
-    Promise.all([getKPIs(filtros), getKPIs(filtrosAnt), getMotoMaisVendida(filtros), getPrecoMedioVendas(filtros)]),
+  const isAdmin = ADMINS.includes(papel)
+  const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes] = await withTimeout(
+    Promise.all([
+      getKPIs(filtros),
+      getKPIs(filtrosAnt),
+      getMotoMaisVendida(filtros),
+      getPrecoMedioVendas(filtros),
+      isAdmin
+        ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
+        : Promise.resolve(0),
+    ]),
     25000,
   )
-  return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} />
+  return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} />
 }
 
 async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {

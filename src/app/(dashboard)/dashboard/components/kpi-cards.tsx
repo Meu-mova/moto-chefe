@@ -1,4 +1,5 @@
-import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus } from 'lucide-react'
+import Link from 'next/link'
+import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus, CreditCard } from 'lucide-react'
 
 type KPIs = {
   totalVendas: number
@@ -16,6 +17,7 @@ type Props = {
   papel: string
   motoMaisVendida: { modelo: string; total: number } | null
   precoMedio: number
+  conciliacaoPendentes?: number
 }
 
 const formatCurrency = (v: number) =>
@@ -60,7 +62,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio }: Props) {
+export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, conciliacaoPendentes = 0 }: Props) {
   const isAdmin = ADMINS.includes(papel)
   const isVendedor = papel === 'vendedor'
 
@@ -71,6 +73,8 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio }: 
     color: string
     bg: string
     variacao?: { atual: number; anterior: number }
+    href?: string
+    highlight?: boolean
   }
 
   const cards: Card[] = []
@@ -103,29 +107,50 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio }: 
       { label: 'Garantias Ativas', value: kpis.garantiasAtivas, icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
       { label: 'OS Abertas', value: kpis.osAbertas, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50' },
     )
+
+    if (isAdmin) {
+      const pendentes = conciliacaoPendentes
+      cards.push({
+        label: 'Conciliação Cartão',
+        value: pendentes > 0 ? pendentes : 'Em dia',
+        icon: CreditCard,
+        color: pendentes > 0 ? 'text-amber-700' : 'text-slate-400',
+        bg: pendentes > 0 ? 'bg-amber-50' : 'bg-slate-50',
+        href: '/conciliacao',
+        highlight: pendentes > 0,
+      })
+    }
   }
 
   const gridCols = isVendedor ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
 
   return (
     <div className={`grid grid-cols-2 md:grid-cols-3 ${gridCols} gap-4`}>
-      {cards.map(({ label, value, icon: Icon, color, bg, variacao }) => (
-        <div key={label} className="bg-white rounded-lg border p-4 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">{label}</span>
-            <div className={`${bg} ${color} p-1.5 rounded-md`}>
-              <Icon size={16} />
+      {cards.map(({ label, value, icon: Icon, color, bg, variacao, href, highlight }) => {
+        const inner = (
+          <div className={`bg-white rounded-lg border p-4 flex flex-col gap-2 ${highlight ? 'border-amber-300 ring-1 ring-amber-200' : ''} ${href ? 'hover:shadow-sm transition-shadow' : ''}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">{label}</span>
+              <div className={`${bg} ${color} p-1.5 rounded-md`}>
+                <Icon size={16} />
+              </div>
             </div>
+            <span className={`font-bold ${highlight ? 'text-amber-700' : ''} ${String(value).length > 15 ? 'text-lg' : 'text-2xl'}`}>{value}</span>
+            {variacao && (
+              <div className="flex items-center gap-1">
+                <VariacaoBadge atual={variacao.atual} anterior={variacao.anterior} />
+                <span className="text-[10px] text-slate-400">vs mês anterior</span>
+              </div>
+            )}
+            {href && (
+              <span className="text-[10px] text-slate-400 mt-auto">Clique para ver →</span>
+            )}
           </div>
-          <span className={`font-bold ${String(value).length > 15 ? 'text-lg' : 'text-2xl'}`}>{value}</span>
-          {variacao && (
-            <div className="flex items-center gap-1">
-              <VariacaoBadge atual={variacao.atual} anterior={variacao.anterior} />
-              <span className="text-[10px] text-slate-400">vs mês anterior</span>
-            </div>
-          )}
-        </div>
-      ))}
+        )
+        return href
+          ? <Link key={label} href={href}>{inner}</Link>
+          : <div key={label}>{inner}</div>
+      })}
     </div>
   )
 }
