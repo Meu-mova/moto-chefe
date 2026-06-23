@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X, Plus, Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2 } from 'lucide-react'
-import { registrarVendaCompletaAction, registrarReservaAction } from '../../vendas/actions'
+import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 
 const FORMAS = [
@@ -102,11 +102,15 @@ function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   return []
 }
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix, taxasVenda }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
   const [vendedorSelecionado, setVendedorSelecionado] = useState(vendedorId)
+
+  // Dados de precificação — podem vir via props (detalhe) ou buscados ao abrir (lista)
+  const [precoMinimoPix, setPrecoMinimoPix] = useState<number | null>(precoMinimoPixProp ?? null)
+  const [taxasVenda, setTaxasVenda] = useState<TaxasVenda | null>(taxasVendaProp ?? null)
 
   // ── Dados do cliente ──
   const [clienteNome, setClienteNome] = useState('')
@@ -174,9 +178,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
   }
 
-  function abrir(tipoInicial: 'venda' | 'reserva') {
+  async function abrir(tipoInicial: 'venda' | 'reserva') {
     resetForm(tipoInicial)
     setOpen(true)
+    // Busca dados de precificação se não vieram via props (ex: aberto da listagem)
+    if (!precoMinimoPixProp) {
+      const info = await buscarPrecoMinimoAction(motoId)
+      if (info) {
+        setPrecoMinimoPix(info.valorMinimoPix)
+        setTaxasVenda(info.taxas)
+      }
+    }
   }
 
   // ── Máscaras ──

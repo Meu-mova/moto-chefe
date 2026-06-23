@@ -7,6 +7,21 @@ import { eq, and, isNull, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 
+export type PrecoMinimoInfo = {
+  valorMinimoPix: number
+  taxas: {
+    taxasCartao: Record<string, number>
+    taxasLink: Record<string, number>
+    taxasFinanciamento: Record<string, number>
+  }
+}
+
+export async function buscarPrecoMinimoAction(motoId: string): Promise<PrecoMinimoInfo | null> {
+  const [moto] = await db.select({ modeloId: motos.modeloId }).from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) return null
+  return buscarPrecificacao(moto.modeloId)
+}
+
 async function buscarPrecificacao(modeloId: string) {
   const [modeloRow] = await db
     .select({ modelo: modelos.modelo })
