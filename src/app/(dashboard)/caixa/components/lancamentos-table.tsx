@@ -1,8 +1,9 @@
 'use client'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2, Paperclip } from 'lucide-react'
+import { Trash2, Paperclip, ExternalLink, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirLancamentoAction, getComprovanteUrlAction } from '../actions'
 import { useRouter } from 'next/navigation'
@@ -26,13 +27,33 @@ type Props = {
   isAdmin: boolean
 }
 
+type Preview = { signedUrl: string; isPdf: boolean; path: string }
+
 function formatCurrency(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function isPdfPath(path: string) {
+  return path.toLowerCase().endsWith('.pdf')
+}
+
 export function LancamentosTable({ lancamentos, isAdmin }: Props) {
   const router = useRouter()
-  const [excluindo, setExcluindo] = useState<string | null>(null)
+  const [excluindo,    setExcluindo]    = useState<string | null>(null)
+  const [abrindo,      setAbrindo]      = useState<string | null>(null)
+  const [preview,      setPreview]      = useState<Preview | null>(null)
+
+  async function handleVerComprovante(path: string) {
+    setAbrindo(path)
+    try {
+      const url = await getComprovanteUrlAction(path)
+      setPreview({ signedUrl: url, isPdf: isPdfPath(path), path })
+    } catch {
+      toast.error('Erro ao carregar comprovante')
+    } finally {
+      setAbrindo(null)
+    }
+  }
 
   async function handleExcluir(id: string) {
     if (!confirm('Excluir este lançamento?')) return
@@ -53,75 +74,118 @@ export function LancamentosTable({ lancamentos, isAdmin }: Props) {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Data</TableHead>
-          <TableHead>Tipo</TableHead>
-          <TableHead>Categoria</TableHead>
-          <TableHead>Descrição</TableHead>
-          <TableHead>Loja</TableHead>
-          <TableHead className="text-right">Valor</TableHead>
-          <TableHead className="text-center">Comprov.</TableHead>
-          <TableHead>Registrado por</TableHead>
-          {isAdmin && <TableHead className="w-10" />}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {lancamentos.map(l => (
-          <TableRow key={l.id}>
-            <TableCell className="whitespace-nowrap">
-              {new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR')}
-            </TableCell>
-            <TableCell>
-              <Badge variant={l.tipo === 'entrada' ? 'default' : 'destructive'}>
-                {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-              </Badge>
-            </TableCell>
-            <TableCell>{l.categoria}</TableCell>
-            <TableCell className="max-w-[200px] truncate text-slate-500">{l.descricao ?? '—'}</TableCell>
-            <TableCell>{l.lojaNome}</TableCell>
-            <TableCell className={`text-right font-mono ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-              {l.tipo === 'entrada' ? '+' : '-'}{formatCurrency(l.valor)}
-            </TableCell>
-            <TableCell className="text-center">
-              {l.comprovanteUrl ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700"
-                  title="Ver comprovante"
-                  onClick={async () => {
-                    try {
-                      const url = await getComprovanteUrlAction(l.comprovanteUrl!)
-                      window.open(url, '_blank')
-                    } catch {
-                      toast.error('Erro ao abrir comprovante')
-                    }
-                  }}
-                >
-                  <Paperclip size={14} />
-                </button>
-              ) : (
-                <span className="text-slate-300">—</span>
-              )}
-            </TableCell>
-            <TableCell className="text-xs text-slate-400">{l.usuarioNome}</TableCell>
-            {isAdmin && (
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-400 hover:text-red-600"
-                  onClick={() => handleExcluir(l.id)}
-                  disabled={excluindo === l.id}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </TableCell>
-            )}
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead>Descrição</TableHead>
+            <TableHead>Loja</TableHead>
+            <TableHead className="text-right">Valor</TableHead>
+            <TableHead className="text-center">Comprov.</TableHead>
+            <TableHead>Registrado por</TableHead>
+            {isAdmin && <TableHead className="w-10" />}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {lancamentos.map(l => (
+            <TableRow key={l.id}>
+              <TableCell className="whitespace-nowrap">
+                {new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+              </TableCell>
+              <TableCell>
+                <Badge variant={l.tipo === 'entrada' ? 'default' : 'destructive'}>
+                  {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                </Badge>
+              </TableCell>
+              <TableCell>{l.categoria}</TableCell>
+              <TableCell className="max-w-[200px] truncate text-slate-500">{l.descricao ?? '—'}</TableCell>
+              <TableCell>{l.lojaNome}</TableCell>
+              <TableCell className={`text-right font-mono ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                {l.tipo === 'entrada' ? '+' : '-'}{formatCurrency(l.valor)}
+              </TableCell>
+              <TableCell className="text-center">
+                {l.comprovanteUrl ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700 disabled:opacity-40"
+                    title="Ver comprovante"
+                    disabled={abrindo === l.comprovanteUrl}
+                    onClick={() => handleVerComprovante(l.comprovanteUrl!)}
+                  >
+                    {abrindo === l.comprovanteUrl
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <Paperclip size={14} />
+                    }
+                  </button>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-xs text-slate-400">{l.usuarioNome}</TableCell>
+              {isAdmin && (
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-400 hover:text-red-600"
+                    onClick={() => handleExcluir(l.id)}
+                    disabled={excluindo === l.id}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {/* Modal de preview do comprovante */}
+      <Dialog open={!!preview} onOpenChange={open => { if (!open) setPreview(null) }}>
+        <DialogContent className="max-w-3xl w-full">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-8">
+              <DialogTitle>Comprovante</DialogTitle>
+              {preview && (
+                <a
+                  href={preview.signedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700"
+                >
+                  <ExternalLink size={13} />
+                  Abrir em nova aba
+                </a>
+              )}
+            </div>
+          </DialogHeader>
+
+          {preview && (
+            <div className="mt-2">
+              {preview.isPdf ? (
+                <iframe
+                  src={preview.signedUrl}
+                  className="w-full rounded border"
+                  style={{ height: '70vh' }}
+                  title="Comprovante PDF"
+                />
+              ) : (
+                <div className="flex justify-center bg-slate-50 rounded border p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={preview.signedUrl}
+                    alt="Comprovante"
+                    className="max-h-[70vh] max-w-full object-contain rounded"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
