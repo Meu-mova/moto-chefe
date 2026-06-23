@@ -10,6 +10,7 @@ import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp } from 'lucid
 
 type Taxas = {
   taxasCartao: Record<string, number>
+  taxasDebito: Record<string, number>
   taxasLink: Record<string, number>
   taxasFinanciamento: Record<string, number>
 }

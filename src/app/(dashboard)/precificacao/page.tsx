@@ -18,6 +18,7 @@ export default async function PrecificacaoPage() {
 
   const taxas = taxasRow[0] ?? {
     taxasCartao: {} as Record<string, number>,
+    taxasDebito: {} as Record<string, number>,
     taxasLink: {} as Record<string, number>,
     taxasFinanciamento: {} as Record<string, number>,
   }
@@ -33,6 +34,7 @@ export default async function PrecificacaoPage() {
       <PrecificacaoClient
         taxas={{
           taxasCartao: (taxas.taxasCartao ?? {}) as Record<string, number>,
+          taxasDebito: (taxas.taxasDebito ?? {}) as Record<string, number>,
           taxasLink: (taxas.taxasLink ?? {}) as Record<string, number>,
           taxasFinanciamento: (taxas.taxasFinanciamento ?? {}) as Record<string, number>,
         }}

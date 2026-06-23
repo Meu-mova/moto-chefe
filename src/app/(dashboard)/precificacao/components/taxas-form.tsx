@@ -8,11 +8,13 @@ import { salvarTaxasAction } from '../actions'
 import { Save } from 'lucide-react'
 
 const PARCELAS_CARTAO = Array.from({ length: 21 }, (_, i) => i + 1)
+const PARCELAS_DEBITO = [1]
 const PARCELAS_LINK = Array.from({ length: 18 }, (_, i) => i + 1)
 const PARCELAS_FINANCIAMENTO = [12, 24, 36, 48]
 
 type Taxas = {
   taxasCartao: Record<string, number>
+  taxasDebito: Record<string, number>
   taxasLink: Record<string, number>
   taxasFinanciamento: Record<string, number>
 }
@@ -100,11 +102,13 @@ function TaxaGrid({
 
 export function TaxasForm({ taxas }: { taxas: Taxas }) {
   const [cartao, setCartao] = useState<RateMap>(() => initMap(taxas.taxasCartao, PARCELAS_CARTAO))
+  const [debito, setDebito] = useState<RateMap>(() => initMap(taxas.taxasDebito, PARCELAS_DEBITO))
   const [link, setLink] = useState<RateMap>(() => initMap(taxas.taxasLink, PARCELAS_LINK))
   const [financiamento, setFinanciamento] = useState<RateMap>(() => initMap(taxas.taxasFinanciamento, PARCELAS_FINANCIAMENTO))
   const [loading, setLoading] = useState(false)
 
   function setCartaoRate(n: number, v: string) { setCartao(prev => ({ ...prev, [String(n)]: v })) }
+  function setDebitoRate(n: number, v: string) { setDebito(prev => ({ ...prev, [String(n)]: v })) }
   function setLinkRate(n: number, v: string) { setLink(prev => ({ ...prev, [String(n)]: v })) }
   function setFinancRate(n: number, v: string) { setFinanciamento(prev => ({ ...prev, [String(n)]: v })) }
 
@@ -113,6 +117,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
     try {
       await salvarTaxasAction({
         taxasCartao: buildDecimalMap(cartao),
+        taxasDebito: buildDecimalMap(debito),
         taxasLink: buildDecimalMap(link),
         taxasFinanciamento: buildDecimalMap(financiamento),
       })
@@ -141,12 +146,20 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
         <Tabs defaultValue="cartao">
           <TabsList>
             <TabsTrigger value="cartao">Cartão de Crédito (1–21x)</TabsTrigger>
+            <TabsTrigger value="debito">Cartão de Débito</TabsTrigger>
             <TabsTrigger value="link">Link de Pagamento (1–18x)</TabsTrigger>
             <TabsTrigger value="financiamento">Financiamento</TabsTrigger>
           </TabsList>
 
           <TabsContent value="cartao" className="mt-4">
             <TaxaGrid parcelas={PARCELAS_CARTAO} rates={cartao} onChange={setCartaoRate} />
+          </TabsContent>
+
+          <TabsContent value="debito" className="mt-4">
+            <div className="max-w-xs">
+              <p className="text-xs text-slate-400 mb-3">Taxa aplicada em transações à vista no cartão de débito.</p>
+              <TaxaGrid parcelas={PARCELAS_DEBITO} rates={debito} onChange={setDebitoRate} />
+            </div>
           </TabsContent>
 
           <TabsContent value="link" className="mt-4">

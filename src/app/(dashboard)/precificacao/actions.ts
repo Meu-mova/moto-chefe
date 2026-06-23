@@ -14,6 +14,7 @@ async function checarAdmin() {
 
 export type TaxasPayload = {
   taxasCartao: Record<string, number>
+  taxasDebito: Record<string, number>
   taxasLink: Record<string, number>
   taxasFinanciamento: Record<string, number>
 }
@@ -27,6 +28,7 @@ export async function salvarTaxasAction(data: TaxasPayload) {
       target: configuracaoTaxas.id,
       set: {
         taxasCartao: data.taxasCartao,
+        taxasDebito: data.taxasDebito,
         taxasLink: data.taxasLink,
         taxasFinanciamento: data.taxasFinanciamento,
         atualizadoEm: sql`NOW()`,
