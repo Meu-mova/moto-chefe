@@ -94,10 +94,11 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
     }
 
     if (podeAlterar && podeVender.has(papel)) {
-      const podeVenderMoto = moto.status !== 'caixa' && (
-        moto.disponibilidade === 'disponivel' ||
-        moto.status === 'em_garantia'
-      )
+      const podeVenderMoto = moto.status !== 'caixa' &&
+        moto.disponibilidade !== 'reservada' && (
+          moto.disponibilidade === 'disponivel' ||
+          moto.status === 'em_garantia'
+        )
       if (podeVenderMoto) {
         acoes.push(
           <VenderButton
