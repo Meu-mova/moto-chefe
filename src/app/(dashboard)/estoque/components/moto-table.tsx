@@ -173,7 +173,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                             {podeAlterar && podeVender.has(papel) && (
                               <>
                                 {/* Montada/Garantia disponível: venda + reserva */}
-                                {moto.status !== 'caixa' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (
+                                {moto.status !== 'caixa' && moto.disponibilidade !== 'reservada' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (
                                   <VenderButton
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
