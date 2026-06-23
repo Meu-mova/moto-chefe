@@ -38,7 +38,7 @@ export function Sidebar({ papel }: Props) {
     ...(isAdmin ? [{ href: '/entrada',    label: 'Entrada',    icon: PackagePlus }] : []),
     ...(isAdmin ? [{ href: '/compras',    label: 'Compras',    icon: ShoppingBag }] : []),
     ...(isAdmin ? [{ href: '/precificacao', label: 'Precificação', icon: Tag }] : []),
-    ...(isAdmin ? [{ href: '/conciliacao',  label: 'Conciliação',  icon: CreditCard }] : []),
+    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao',  label: 'Conciliação',  icon: CreditCard }] : []),
     ...(papel === 'admin_geral' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ]
 

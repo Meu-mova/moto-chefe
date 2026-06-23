@@ -477,6 +477,7 @@ export async function editarVendaAction(vendaId: string, dados: {
   dataVenda:          string
   notaFiscalSaida?:   string | null
   pagamentos:         PagamentoEditar[]
+  vendedorId?:        string
   clienteNome:        string
   clienteCpf:         string
   clienteCelular?:    string | null
@@ -502,9 +503,9 @@ export async function editarVendaAction(vendaId: string, dados: {
     .limit(1)
   if (!vendaAtual) throw new Error('Venda não encontrada')
 
-  // Não-admin_geral só pode editar da própria loja
-  if (usuario.papel !== 'admin_geral' && vendaAtual.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
+  // Todos os papéis só podem editar vendas da própria loja
+  if (usuario.lojaId && vendaAtual.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão para editar vendas de outra loja')
   }
 
   // ── Validação financeira ─────────────────────────────────────────────────────
@@ -539,6 +540,7 @@ export async function editarVendaAction(vendaId: string, dados: {
         notaFiscalSaida:    nfFinal,
         pagamentos:         dados.pagamentos,
         formaPagamento,
+        ...(dados.vendedorId ? { vendedorId: dados.vendedorId } : {}),
         clienteNome:        dados.clienteNome,
         clienteCpf:         dados.clienteCpf,
         clienteCelular:     dados.clienteCelular || null,

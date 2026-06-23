@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios } from '@/lib/db/schema'
+import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao } from '@/lib/db/schema'
 import { eq, and, gte, lte, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 
@@ -10,12 +10,24 @@ type Filtros = {
   vendedorId?: string
 }
 
+// Valor líquido por venda: usa valor_liquido da conciliação se existir, senão valor bruto da venda
+function valorLiquidoExpr() {
+  return sql`COALESCE(
+    (SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
+     FROM ${conciliacoesCartao}
+     WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+       AND ${conciliacoesCartao.conciliado} = true),
+    ${vendas.valor}::numeric
+  )`
+}
+
 function lojaFilter(col: Column, ids: string[]) {
   return ids.length === 1 ? eq(col, ids[0]) : inArray(col, ids)
 }
 
-export async function getKPIs(filtros: Filtros) {
+export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
+  const useLiquido = opts?.useLiquidoValue ?? false
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
 
@@ -50,8 +62,9 @@ export async function getKPIs(filtros: Filtros) {
   )
 
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
+  const valorV = useLiquido ? valorLiquidoExpr() : sql`${vendas.valor}`
   const rows = await db.execute(sql`
-    SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${vendas.valor}),       0)::numeric AS val FROM ${vendas}         WHERE ${vendasCond}
+    SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${valorV}), 0)::numeric AS val FROM ${vendas} WHERE ${vendasCond}
     UNION ALL
     SELECT 'e',        count(*)::int,     coalesce(sum(${motos.precoCompra}),  0)::numeric        FROM ${motos}          WHERE ${estoqueCond}
     UNION ALL
@@ -299,7 +312,7 @@ export async function getMotoMaisVendida(filtros: Filtros) {
   return result ?? null
 }
 
-export async function getPrecoMedioVendas(filtros: Filtros) {
+export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
@@ -311,10 +324,12 @@ export async function getPrecoMedioVendas(filtros: Filtros) {
   if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
+  const mediaExpr = opts?.useLiquidoValue
+    ? sql<number>`AVG(${valorLiquidoExpr()})`
+    : avg(vendas.valor)
+
   const [result] = await db
-    .select({
-      media: avg(vendas.valor),
-    })
+    .select({ media: mediaExpr })
     .from(vendas)
     .where(and(...conditions))
 

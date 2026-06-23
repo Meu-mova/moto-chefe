@@ -41,6 +41,7 @@ function parseBRL(v: string): number {
 type Props = {
   venda: VendaComDetalhes
   papel: string
+  vendedores: { id: string; nome: string }[]
 }
 
 const TIPOS_CARTAO  = new Set(['cartao_credito', 'cartao_debito'])
@@ -51,13 +52,14 @@ const TIPO_LABEL: Record<string, string> = {
   transferencia: 'Transferência Bancária',
 }
 
-export function EditarVendaDialog({ venda: v }: Props) {
+export function EditarVendaDialog({ venda: v, vendedores }: Props) {
   const [open, setOpen] = useState(false)
 
   // Venda
-  const [valor,    setValor]    = useState(Number(v.valor).toFixed(2).replace('.', ','))
-  const [dataVenda, setDataVenda] = useState(new Date(v.dataVenda).toISOString().split('T')[0])
-  const [nf,       setNf]       = useState(v.notaFiscalSaida ?? '')
+  const [valor,      setValor]      = useState(Number(v.valor).toFixed(2).replace('.', ','))
+  const [dataVenda,  setDataVenda]  = useState(new Date(v.dataVenda).toISOString().split('T')[0])
+  const [nf,         setNf]         = useState(v.notaFiscalSaida ?? '')
+  const [vendedorId, setVendedorId] = useState(v.vendedorId)
 
   // Pagamentos
   const pgtosSrc = (v.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[] | null) ?? []
@@ -107,6 +109,7 @@ export function EditarVendaDialog({ venda: v }: Props) {
           valor:              parseBRL(valor).toFixed(2),
           dataVenda,
           notaFiscalSaida:    nf.trim() || null,
+          vendedorId,
           pagamentos:         pgtos.map(p => ({
             tipo:        p.tipo,
             valor:       parseBRL(p.valor),
@@ -174,6 +177,19 @@ export function EditarVendaDialog({ venda: v }: Props) {
                     <p className="text-xs text-slate-400 pt-1.5">Use o botão de NF para emitir</p>
                   )}
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Vendedor</Label>
+                <Select value={vendedorId} onValueChange={setVendedorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o vendedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendedores.map(vend => (
+                      <SelectItem key={vend.id} value={vend.id}>{vend.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

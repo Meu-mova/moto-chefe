@@ -96,7 +96,7 @@ export default async function VendasPage({
           Vendas Realizadas ({vendasList.length})
         </h2>
         <VendasFiltros
-          lojas={isAdmin ? lojasOpts : []}
+          lojas={isAdmin || usuario.papel === 'aux_adm' ? lojasOpts : []}
           modelos={modelosOpts}
           vendedores={vendedoresOpts}
           lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
@@ -104,7 +104,7 @@ export default async function VendasPage({
           nfInicial={params.nf ?? ''}
         />
         <div className="bg-white rounded-lg border overflow-x-auto">
-          <VendasTable vendas={vendasList} papel={usuario.papel} />
+          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} />
         </div>
       </section>
     </div>

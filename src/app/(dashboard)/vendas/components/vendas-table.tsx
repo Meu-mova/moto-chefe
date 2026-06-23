@@ -62,13 +62,16 @@ function formatarData(d: Date) {
 type Props = {
   vendas: VendaComDetalhes[]
   papel: string
+  lojaIdUsuario?: string | null
+  vendedores: { id: string; nome: string }[]
 }
 
-export function VendasTable({ vendas, papel }: Props) {
-  const podeFazerGarantia = podeGarantia.has(papel)
-  const isAdmin           = ADMINS.has(papel)
-  const podeEditarVenda   = podeEditar.has(papel)
-  const colSpan = podeFazerGarantia ? (isAdmin ? 11 : 10) : (isAdmin ? 10 : 9)
+export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props) {
+  const podeFazerGarantia  = podeGarantia.has(papel)
+  const isAdmin            = ADMINS.has(papel)
+  const podeEditarVenda    = podeEditar.has(papel)
+  const podeConciliacao    = isAdmin || papel === 'aux_adm'
+  const colSpan = podeFazerGarantia ? (podeConciliacao ? 11 : 10) : (podeConciliacao ? 10 : 9)
 
   return (
     <Table>
@@ -83,7 +86,7 @@ export function VendasTable({ vendas, papel }: Props) {
           <TableHead>Vendedor</TableHead>
           <TableHead>NF Saída</TableHead>
           <TableHead>Valor</TableHead>
-          {isAdmin && <TableHead>Conciliação</TableHead>}
+          {podeConciliacao && <TableHead>Conciliação</TableHead>}
           <TableHead className="text-right">Ações</TableHead>
         </TableRow>
       </TableHeader>
@@ -105,7 +108,7 @@ export function VendasTable({ vendas, papel }: Props) {
               <TableCell>{v.vendedorNome}</TableCell>
               <TableCell className="text-slate-500">{v.notaFiscalSaida ?? '—'}</TableCell>
               <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
-              {isAdmin && (
+              {podeConciliacao && (
                 <TableCell>
                   <ConcBadge status={status} />
                 </TableCell>
@@ -113,7 +116,7 @@ export function VendasTable({ vendas, papel }: Props) {
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
                   <DetalhesVendaDialog venda={v} isAdmin={isAdmin} />
-                  {podeEditarVenda && <EditarVendaDialog venda={v} papel={papel} />}
+                  {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton
                       motoId={v.motoId}

@@ -11,7 +11,7 @@ export type PgtoCalc = {
 }
 
 // Tipos que não têm taxa — vendedor recebe o valor integral
-const SEM_TAXA = new Set(['pix', 'dinheiro', 'transferencia', 'cartao_debito'])
+const SEM_TAXA = new Set(['pix', 'dinheiro', 'transferencia', 'cartao_debito', 'financiamento'])
 
 // Líquido que o vendedor recebe de um pagamento (após taxa da operadora/financeira)
 function liquidoDePgto(p: PgtoCalc, taxas: TaxasVenda): number {

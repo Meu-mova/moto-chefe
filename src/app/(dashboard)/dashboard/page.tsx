@@ -41,12 +41,13 @@ const getVendedoresOpts = unstable_cache(
 
 async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; filtrosAnt: Filtros; papel: string }) {
   const isAdmin = ADMINS.includes(papel)
+  const kpiOpts = papel === 'vendedor' ? { useLiquidoValue: true } : undefined
   const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes] = await withTimeout(
     Promise.all([
-      getKPIs(filtros),
-      getKPIs(filtrosAnt),
+      getKPIs(filtros, kpiOpts),
+      getKPIs(filtrosAnt, kpiOpts),
       getMotoMaisVendida(filtros),
-      getPrecoMedioVendas(filtros),
+      getPrecoMedioVendas(filtros, kpiOpts),
       isAdmin
         ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
         : Promise.resolve(0),
