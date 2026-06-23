@@ -75,12 +75,40 @@ function parsePagueVeloz(text: string) {
   return rows
 }
 
+function parseStone(text: string) {
+  const lines = text.trim().split(/\r?\n/)
+  const rows = []
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue
+    const c = lines[i].split(';')
+    if (c[15]?.trim() !== 'Aprovada') continue
+
+    const [dataPart] = (c[2] ?? '').split(' ')
+    const [dd, mm, yyyy] = (dataPart ?? '').split('/')
+    const produto = (c[4] ?? '').toLowerCase()
+
+    rows.push({
+      dataTransacao: `${yyyy}-${mm}-${dd}`,
+      tipo:          produto.includes('debito') ? 'debito' as const : 'credito' as const,
+      bandeira:      (c[3] ?? '').toLowerCase(),
+      parcelas:      parseInt(c[6] ?? '1', 10) || 1,
+      autorizacao:   c[5]?.trim() || null,   // STONE ID — aparece no comprovante
+      valorBruto:    parseBRL(c[7] ?? '0'),
+      valorLiquido:  parseBRL(c[8] ?? '0'),
+      nsu:           c[5]?.trim() || null,   // STONE ID para deduplicação
+      portador:      c[12]?.trim() || null,  // número do cartão mascarado
+    })
+  }
+  return rows
+}
+
 // ── Actions ──────────────────────────────────────────────────────────────────
 
 function detectarFormato(primeiraLinha: string): string | null {
-  if (primeiraLinha.startsWith('Data e hora'))      return 'infinitypay'
+  if (primeiraLinha.startsWith('Data e hora'))        return 'infinitypay'
   if (primeiraLinha.startsWith('Cod PagueVeloz') ||
-      primeiraLinha.startsWith('Cod Pague'))         return 'pagueveloz'
+      primeiraLinha.startsWith('Cod Pague'))           return 'pagueveloz'
+  if (primeiraLinha.startsWith('DOCUMENTO;STONECODE')) return 'stone'
   return null
 }
 
@@ -114,6 +142,7 @@ export async function importarRelatorioAction(formData: FormData) {
   let rows: ReturnType<typeof parseInfinityPay> = []
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
+  else if (operadora === 'stone')       rows = parseStone(text)
   else throw new Error(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
 
   let importadas = 0
