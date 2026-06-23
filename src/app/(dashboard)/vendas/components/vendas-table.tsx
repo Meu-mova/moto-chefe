@@ -112,7 +112,7 @@ export function VendasTable({ vendas, papel }: Props) {
               )}
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
-                  <DetalhesVendaDialog venda={v} />
+                  <DetalhesVendaDialog venda={v} isAdmin={isAdmin} />
                   {podeEditarVenda && <EditarVendaDialog venda={v} papel={papel} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton

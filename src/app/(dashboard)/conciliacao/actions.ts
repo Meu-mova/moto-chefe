@@ -246,6 +246,32 @@ export async function buscarConciliacoesDaVenda(vendaId: string) {
     .where(and(eq(conciliacoesCartao.vendaId, vendaId), eq(conciliacoesCartao.conciliado, true)))
 }
 
+export async function buscarConciliacoesPorValor(valor: number) {
+  const usuario = await getUsuarioLogado()
+  const ADMINS  = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão')
+
+  return db
+    .select({
+      id:            conciliacoesCartao.id,
+      operadora:     conciliacoesCartao.operadora,
+      autorizacao:   conciliacoesCartao.autorizacao,
+      valorBruto:    conciliacoesCartao.valorBruto,
+      dataTransacao: conciliacoesCartao.dataTransacao,
+      tipo:          conciliacoesCartao.tipo,
+      rawData:       conciliacoesCartao.rawData,
+    })
+    .from(conciliacoesCartao)
+    .where(
+      and(
+        sql`${conciliacoesCartao.vendaId} IS NULL`,
+        sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 0.05`,
+      )
+    )
+    .orderBy(desc(conciliacoesCartao.dataTransacao))
+    .limit(10)
+}
+
 export async function buscarPixDaVenda(vendaId: string) {
   const usuario = await getUsuarioLogado()
 
