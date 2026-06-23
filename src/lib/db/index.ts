@@ -9,11 +9,12 @@ declare global {
 
 function makeClient() {
   return postgres(process.env.DATABASE_URL!, {
-    max: 2,
+    max: 8,
     prepare: false,
+    fetch_types: false,
     idle_timeout: 20,
-    max_lifetime: 60,
-    connect_timeout: 15,
+    max_lifetime: 120,
+    connect_timeout: 10,
   })
 }
 
