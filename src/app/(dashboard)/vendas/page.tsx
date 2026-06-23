@@ -7,8 +7,10 @@ import { PedidoCard } from './components/pedido-card'
 import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
 import { VendasTable } from './components/vendas-table'
+import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const ADMINS = ['admin_geral', 'admin_socio']
+const TIPOS_CARTAO_CONC = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
 
 function parseParam(v?: string): string[] {
   if (!v) return []
@@ -21,6 +23,34 @@ function dataDefault30Dias() {
   return d.toISOString().split('T')[0]
 }
 
+function calcConcStats(vendas: VendaComDetalhes[]) {
+  return vendas.reduce(
+    (acc, v) => {
+      const pgtos = (v.pagamentos ?? []) as { tipo: string; valor: number }[]
+      const totalCartao = pgtos.filter(p => TIPOS_CARTAO_CONC.has(p.tipo)).reduce((a, p) => a + (Number(p.valor) || 0), 0)
+      const totalPix    = pgtos.filter(p => p.tipo === 'pix').reduce((a, p) => a + (Number(p.valor) || 0), 0)
+      const totalNecessa = totalCartao + totalPix
+      if (totalNecessa < 0.01) return acc
+      const conciliado = (Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)
+      if (conciliado < 0.01) {
+        acc.pendente++
+        acc.valorPendente += totalNecessa
+      } else if (conciliado >= totalNecessa - 0.05) {
+        acc.conciliada++
+      } else {
+        acc.parcial++
+        acc.valorParcial += (totalNecessa - conciliado)
+      }
+      return acc
+    },
+    { pendente: 0, parcial: 0, conciliada: 0, valorPendente: 0, valorParcial: 0 }
+  )
+}
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function VendasPage({
@@ -31,13 +61,13 @@ export default async function VendasPage({
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
+  const podeConciliacao = isAdmin || usuario.papel === 'aux_adm'
 
   const lojaValues     = params.loja !== undefined
     ? parseParam(params.loja)
     : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
   const vendedorValues = parseParam(params.vendedor)
 
-  // Últimos 30 dias como default; usuário pode alterar pelo filtro de período
   const dataInicio = params.de  ?? dataDefault30Dias()
   const dataFim    = params.ate ?? undefined
 
@@ -74,7 +104,8 @@ export default async function VendasPage({
       .orderBy(asc(usuarios.nome)),
   ])
 
-  const pendentes = pedidos.filter(p => p.status === 'pendente')
+  const pendentes  = pedidos.filter(p => p.status === 'pendente')
+  const concStats  = podeConciliacao ? calcConcStats(vendasList) : null
 
   return (
     <div className="space-y-6">
@@ -107,6 +138,31 @@ export default async function VendasPage({
         <h2 className="font-semibold text-sm text-slate-700">
           Vendas Realizadas ({vendasList.length})
         </h2>
+
+        {concStats && (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Pendentes</p>
+              <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
+              {concStats.valorPendente > 0 && (
+                <p className="text-xs text-red-500 mt-0.5">{fmt(concStats.valorPendente)} em aberto</p>
+              )}
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Parciais</p>
+              <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
+              {concStats.valorParcial > 0 && (
+                <p className="text-xs text-amber-500 mt-0.5">{fmt(concStats.valorParcial)} restante</p>
+              )}
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+              <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
+              <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
+              <p className="text-xs text-green-500 mt-0.5">sem pendências</p>
+            </div>
+          </div>
+        )}
+
         <VendasFiltros
           lojas={isAdmin || usuario.papel === 'aux_adm' ? lojasOpts : []}
           modelos={modelosOpts}
