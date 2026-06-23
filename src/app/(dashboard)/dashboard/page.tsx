@@ -42,30 +42,43 @@ const getVendedoresOpts = unstable_cache(
 async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; filtrosAnt: Filtros; papel: string }) {
   const isAdmin = ADMINS.includes(papel)
   const kpiOpts = papel === 'vendedor' ? { useLiquidoValue: true } : undefined
-  const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes] = await withTimeout(
-    Promise.all([
-      getKPIs(filtros, kpiOpts),
-      getKPIs(filtrosAnt, kpiOpts),
-      getMotoMaisVendida(filtros),
-      getPrecoMedioVendas(filtros, kpiOpts),
-      isAdmin
-        ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
-        : Promise.resolve(0),
-    ]),
-    25000,
-  )
-  return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} />
+  try {
+    const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes] = await withTimeout(
+      Promise.all([
+        getKPIs(filtros, kpiOpts),
+        getKPIs(filtrosAnt, kpiOpts),
+        getMotoMaisVendida(filtros),
+        getPrecoMedioVendas(filtros, kpiOpts),
+        isAdmin
+          ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
+          : Promise.resolve(0),
+      ]),
+      25000,
+    )
+    return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} />
+  } catch (e) {
+    console.error('[KpiSection] erro:', e)
+    throw e
+  }
 }
 
 async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
-  const [vendasDia, estoqueLoja, vendasLoja] = await withTimeout(
-    Promise.all([
-      getVendasPorDia(filtros),
-      getEstoquePorLoja(filtros.lojaId),
-      isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([] as Awaited<ReturnType<typeof getVendasPorLoja>>),
-    ]),
-    25000,
-  )
+  let vendasDia: Awaited<ReturnType<typeof getVendasPorDia>>,
+      estoqueLoja: Awaited<ReturnType<typeof getEstoquePorLoja>>,
+      vendasLoja: Awaited<ReturnType<typeof getVendasPorLoja>>
+  try {
+    ;[vendasDia, estoqueLoja, vendasLoja] = await withTimeout(
+      Promise.all([
+        getVendasPorDia(filtros),
+        getEstoquePorLoja(filtros.lojaId),
+        isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([] as Awaited<ReturnType<typeof getVendasPorLoja>>),
+      ]),
+      25000,
+    )
+  } catch (e) {
+    console.error('[GraficosSection] erro:', e)
+    throw e
+  }
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -80,10 +93,18 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
 async function RankingSection({
   filtros, filtrosRanking,
 }: { filtros: Filtros; filtrosRanking: { dataInicio: string; dataFim: string } }) {
-  const [rankingVendedores, rankingLojas, modelosMaisVendidos] = await withTimeout(
-    Promise.all([getRankingVendedores(filtrosRanking), getRankingLojas(filtrosRanking), getModelosMaisVendidos(filtros)]),
-    25000,
-  )
+  let rankingVendedores: Awaited<ReturnType<typeof getRankingVendedores>>,
+      rankingLojas: Awaited<ReturnType<typeof getRankingLojas>>,
+      modelosMaisVendidos: Awaited<ReturnType<typeof getModelosMaisVendidos>>
+  try {
+    ;[rankingVendedores, rankingLojas, modelosMaisVendidos] = await withTimeout(
+      Promise.all([getRankingVendedores(filtrosRanking), getRankingLojas(filtrosRanking), getModelosMaisVendidos(filtros)]),
+      25000,
+    )
+  } catch (e) {
+    console.error('[RankingSection] erro:', e)
+    throw e
+  }
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -98,15 +119,24 @@ async function RankingSection({
 async function TabelasSection({
   filtros, lojaId, mecanicoId,
 }: { filtros: Filtros; lojaId?: string[]; mecanicoId?: string }) {
-  const [ultimasVendas, transfPendentes, garantiasVencendo, osAbertas] = await withTimeout(
-    Promise.all([
-      getUltimasVendas(filtros),
-      getTransferenciasPendentes(lojaId),
-      getGarantiasProxVencimento(lojaId),
-      getOsAbertas(lojaId, mecanicoId),
-    ]),
-    25000,
-  )
+  let ultimasVendas: Awaited<ReturnType<typeof getUltimasVendas>>,
+      transfPendentes: Awaited<ReturnType<typeof getTransferenciasPendentes>>,
+      garantiasVencendo: Awaited<ReturnType<typeof getGarantiasProxVencimento>>,
+      osAbertas: Awaited<ReturnType<typeof getOsAbertas>>
+  try {
+    ;[ultimasVendas, transfPendentes, garantiasVencendo, osAbertas] = await withTimeout(
+      Promise.all([
+        getUltimasVendas(filtros),
+        getTransferenciasPendentes(lojaId),
+        getGarantiasProxVencimento(lojaId),
+        getOsAbertas(lojaId, mecanicoId),
+      ]),
+      25000,
+    )
+  } catch (e) {
+    console.error('[TabelasSection] erro:', e)
+    throw e
+  }
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
