@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, modelos, motos } from '@/lib/db/schema'
-import { eq, and, between, or, ilike, desc } from 'drizzle-orm'
+import { eq, and, between, desc, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -118,6 +118,7 @@ export async function importarRelatorioAction(formData: FormData) {
 
   let importadas = 0
   let duplicadas = 0
+  let conciliadas = 0
 
   for (const r of rows) {
     if (!r.valorBruto || r.valorBruto <= 0) continue
@@ -132,6 +133,17 @@ export async function importarRelatorioAction(formData: FormData) {
       if (ex) { duplicadas++; continue }
     }
 
+    // Tenta auto-conciliar pela autorização registrada na venda
+    let vendaId: string | null = null
+    if (r.autorizacao) {
+      const [match] = await db
+        .select({ id: vendas.id })
+        .from(vendas)
+        .where(sql`${vendas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`)
+        .limit(1)
+      if (match) vendaId = match.id
+    }
+
     await db.insert(conciliacoesCartao).values({
       operadora,
       dataTransacao:  r.dataTransacao,
@@ -143,12 +155,15 @@ export async function importarRelatorioAction(formData: FormData) {
       tipo:           r.tipo,
       status:         'aprovado',
       rawData:        { bandeira: r.bandeira, portador: r.portador },
+      ...(vendaId ? { vendaId, conciliado: true, conciliadoEm: new Date() } : {}),
     })
-    importadas++
+
+    if (vendaId) conciliadas++
+    else importadas++
   }
 
   revalidatePath('/conciliacao')
-  return { importadas, duplicadas }
+  return { importadas, duplicadas, conciliadas }
 }
 
 export async function vincularVendaAction(conciliacaoId: string, vendaId: string) {

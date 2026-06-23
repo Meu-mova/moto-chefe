@@ -22,7 +22,10 @@ export function UploadRelatorio() {
       fd.set('operadora', operadora)
       fd.set('file', file)
       const result = await importarRelatorioAction(fd)
-      toast.success(`${result.importadas} transações importadas${result.duplicadas ? ` · ${result.duplicadas} duplicatas ignoradas` : ''}`)
+      const partes = [`${result.importadas} importadas`]
+      if (result.conciliadas) partes.push(`${result.conciliadas} conciliadas automaticamente`)
+      if (result.duplicadas)  partes.push(`${result.duplicadas} duplicatas ignoradas`)
+      toast.success(partes.join(' · '))
       if (fileRef.current) fileRef.current.value = ''
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao importar')

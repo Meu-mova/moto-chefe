@@ -127,7 +127,7 @@ type DadosVendaCompleta = {
   clienteEstado: string
   valorTotal: string
   dataVenda?: string
-  pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number }[]
+  pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
 }
 
 export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {

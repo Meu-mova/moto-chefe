@@ -45,7 +45,7 @@ function validarCpf(cpf: string): boolean {
   return dig2 === +d[10]
 }
 
-type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string }
+type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
 
 type Usuario = { id: string; nome: string }
 
@@ -248,7 +248,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
     setPgtos(p => p.filter(x => x.id !== id))
   const updatePgto = (id: string, field: keyof Pgto, val: string) =>
     setPgtos(p => p.map(x => x.id === id
-      ? { ...x, [field]: val, ...(field === 'tipo' ? { operadora: undefined, parcelas: undefined } : {}) }
+      ? { ...x, [field]: val, ...(field === 'tipo' ? { operadora: undefined, parcelas: undefined, autorizacao: undefined } : {}) }
       : x
     ))
 
@@ -314,6 +314,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             tipo: p.tipo, valor: parseFloat(p.valor),
             ...(p.tipo === 'cartao_credito' ? { operadora: p.operadora, parcelas: parseInt(p.parcelas!) } : {}),
             ...(TIPOS_COM_PARCELAS.has(p.tipo) && p.tipo !== 'cartao_credito' && p.parcelas ? { parcelas: parseInt(p.parcelas) } : {}),
+            ...((p.tipo === 'cartao_credito' || p.tipo === 'cartao_debito') && p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim() } : {}),
           })),
         })
         toast.success('Venda registrada com sucesso!')
@@ -593,6 +594,16 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                               </SelectContent>
                             </Select>
                           </div>
+                        )}
+
+                        {/* Autorização: aparece para cartão crédito e débito */}
+                        {(p.tipo === 'cartao_credito' || p.tipo === 'cartao_debito') && (
+                          <Input
+                            placeholder="Autorização (impresso no comprovante) — opcional"
+                            value={p.autorizacao ?? ''}
+                            onChange={e => updatePgto(p.id, 'autorizacao', e.target.value.toUpperCase())}
+                            className="font-mono text-sm"
+                          />
                         )}
 
                         {/* Link e Financiamento: apenas parcelas */}
