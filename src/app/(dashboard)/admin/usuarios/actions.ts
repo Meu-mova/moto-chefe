@@ -11,36 +11,75 @@ async function assertAdmin() {
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
 }
 
-export async function criarUsuarioAction(formData: FormData) {
+export async function criarUsuarioAction(dados: {
+  nome: string
+  email: string
+  senha: string
+  papel: string
+  lojaId: string | null
+}) {
   await assertAdmin()
   const supabase = await createClient()
 
-  const email = formData.get('email') as string
-  const nome = formData.get('nome') as string
-  const papel = formData.get('papel') as string
-  const lojaId = (formData.get('loja_id') as string) || null
-  const senha = formData.get('senha') as string
-
   const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password: senha,
+    email: dados.email,
+    password: dados.senha,
     email_confirm: true,
   })
   if (error) throw new Error(error.message)
 
   await db.insert(usuarios).values({
     id: data.user.id,
-    nome,
-    email,
-    papel: papel as any,
-    lojaId,
+    nome: dados.nome,
+    email: dados.email,
+    papel: dados.papel as any,
+    lojaId: dados.lojaId,
   })
 
   revalidatePath('/admin/usuarios')
 }
 
-export async function editarPapelAction(id: string, papel: string, lojaId: string | null) {
+export async function editarUsuarioAction(id: string, dados: {
+  nome: string
+  email: string
+  novaSenha?: string
+  papel: string
+  lojaId: string | null
+}) {
   await assertAdmin()
-  await db.update(usuarios).set({ papel: papel as any, lojaId }).where(eq(usuarios.id, id))
+  const supabase = await createClient()
+
+  await db.update(usuarios).set({
+    nome: dados.nome,
+    email: dados.email,
+    papel: dados.papel as any,
+    lojaId: dados.lojaId,
+  }).where(eq(usuarios.id, id))
+
+  if (dados.novaSenha?.trim()) {
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+      email: dados.email,
+      password: dados.novaSenha,
+    })
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+      email: dados.email,
+    })
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath('/admin/usuarios')
+}
+
+export async function excluirUsuarioAction(id: string) {
+  await assertAdmin()
+  const supabase = await createClient()
+
+  await db.delete(usuarios).where(eq(usuarios.id, id))
+
+  const { error } = await supabase.auth.admin.deleteUser(id)
+  if (error) throw new Error(error.message)
+
   revalidatePath('/admin/usuarios')
 }
