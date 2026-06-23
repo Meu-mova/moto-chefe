@@ -333,24 +333,25 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
                                     disabled={vinculando}
                                     className="w-full text-left rounded px-2.5 py-2 bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs disabled:opacity-50"
                                   >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <span className="font-medium text-slate-800">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0 space-y-0.5">
+                                        <p className="font-medium text-slate-800">
                                           {operadoraLabel[c.operadora] ?? c.operadora}
                                           {raw?.bandeira ? ` · ${raw.bandeira}` : ''}
-                                          {c.tipo === 'debito' ? ' (Débito)' : ''}
-                                        </span>
-                                        {c.autorizacao && (
-                                          <span className="ml-1.5 font-mono text-slate-500">#{c.autorizacao}</span>
-                                        )}
+                                          {c.tipo === 'debito' ? ' (Débito)' : ' (Crédito)'}
+                                        </p>
                                         {raw?.portador && (
-                                          <span className="ml-1.5 text-slate-400">{raw.portador}</span>
+                                          <p className="text-slate-700 font-medium">
+                                            Portador: <span className="font-normal">{raw.portador}</span>
+                                          </p>
                                         )}
-                                        <p className="text-slate-400 mt-0.5">
+                                        <p className="text-slate-400 font-mono">
+                                          {c.autorizacao ? `Aut: #${c.autorizacao}` : 'Sem autorização'}
+                                          {' · '}
                                           {c.dataTransacao ? new Date(c.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
                                         </p>
                                       </div>
-                                      <div className="flex items-center gap-1 text-blue-600 shrink-0">
+                                      <div className="flex items-center gap-1 text-blue-600 shrink-0 mt-0.5">
                                         {vinculando
                                           ? <Loader2 size={11} className="animate-spin" />
                                           : <Link2 size={11} />}
