@@ -186,7 +186,7 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {vendedores.map(vend => (
-                      <SelectItem key={vend.id} value={vend.id} textValue={vend.nome}>{vend.nome}</SelectItem>
+                      <SelectItem key={vend.id} value={vend.id}>{vend.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

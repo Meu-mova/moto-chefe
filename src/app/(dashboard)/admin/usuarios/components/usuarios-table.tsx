@@ -109,7 +109,7 @@ function FormUsuario({
             </SelectTrigger>
             <SelectContent>
               {PAPEIS.map(p => (
-                <SelectItem key={p.value} value={p.value} textValue={p.label}>{p.label}</SelectItem>
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -121,9 +121,9 @@ function FormUsuario({
               <SelectValue placeholder="Sem loja (Admin Geral)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="" textValue="Sem loja">— Sem loja (Admin Geral) —</SelectItem>
+              <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
               {lojas.map(l => (
-                <SelectItem key={l.id} value={l.id} textValue={l.nome}>{l.nome}</SelectItem>
+                <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
