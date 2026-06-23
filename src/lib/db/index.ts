@@ -12,6 +12,7 @@ function makeClient() {
     max: 2,
     prepare: false,
     idle_timeout: 20,
+    max_lifetime: 60,
     connect_timeout: 15,
   })
 }
