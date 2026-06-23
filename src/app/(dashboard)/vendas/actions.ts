@@ -533,7 +533,20 @@ export async function editarVendaAction(vendaId: string, dados: {
 }
 
 export async function buscarHistoricoMotoAction(motoId: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
+
+  const [moto] = await db
+    .select({ lojaId: motos.lojaId })
+    .from(motos)
+    .where(eq(motos.id, motoId))
+    .limit(1)
+  if (!moto) return []
+
+  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel) && moto.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
+
   return db
     .select({
       id:            historicoEstoque.id,
