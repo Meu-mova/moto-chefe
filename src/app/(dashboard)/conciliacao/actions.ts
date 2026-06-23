@@ -51,6 +51,30 @@ function parseInfinityPay(text: string) {
   return rows
 }
 
+function parsePagueVeloz(text: string) {
+  const lines = text.trim().split(/\r?\n/)
+  const rows = []
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue
+    const c = lines[i].split(';')
+    if (c[14]?.trim() !== 'Pago') continue
+
+    const [dd, mm, yyyy] = (c[7] ?? '').split('/')
+    rows.push({
+      dataTransacao: `${yyyy}-${mm}-${dd}`,
+      tipo:          'credito' as const,
+      bandeira:      (c[10] ?? '').toLowerCase(),
+      parcelas:      parseInt(c[11] ?? '1', 10) || 1,
+      autorizacao:   c[3]?.trim() || null,
+      valorBruto:    parseBRL(c[12] ?? '0'),
+      valorLiquido:  parseBRL(c[13] ?? '0'),
+      nsu:           c[0]?.trim() || null,  // Cod PagueVeloz é o ID único
+      portador:      c[5]?.trim() || null,
+    })
+  }
+  return rows
+}
+
 // ── Actions ──────────────────────────────────────────────────────────────────
 
 export async function importarRelatorioAction(formData: FormData) {
@@ -64,8 +88,9 @@ export async function importarRelatorioAction(formData: FormData) {
   const text = await file.text()
 
   let rows: ReturnType<typeof parseInfinityPay> = []
-  if (operadora === 'infinitypay') rows = parseInfinityPay(text)
-  // stone e pagueveloz: parsers adicionados quando tivermos amostras
+  if (operadora === 'infinitypay')  rows = parseInfinityPay(text)
+  else if (operadora === 'pagueveloz') rows = parsePagueVeloz(text)
+  // stone: parser adicionado quando tivermos amostra
   else throw new Error(`Parser para ${operadora} ainda não implementado`)
 
   let importadas = 0
