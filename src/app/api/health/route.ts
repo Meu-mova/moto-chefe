@@ -10,15 +10,8 @@ export async function GET() {
       new Promise((_, rej) => setTimeout(() => rej(new Error('DB timeout after 8s')), 8000)),
     ])
     return NextResponse.json({ db: 'ok', ms: Date.now() - start })
-  } catch (e: unknown) {
-    const err = e instanceof Error ? e : new Error(String(e))
-    const cause = (err as NodeJS.ErrnoException & { cause?: unknown }).cause
-    return NextResponse.json({
-      db: 'error',
-      ms: Date.now() - start,
-      message: err.message,
-      cause: cause instanceof Error ? cause.message : String(cause ?? ''),
-      stack: err.stack?.split('\n').slice(0, 5).join('\n'),
-    }, { status: 500 })
+  } catch (e) {
+    console.error('health: db check failed', e)
+    return NextResponse.json({ db: 'error', ms: Date.now() - start }, { status: 500 })
   }
 }
