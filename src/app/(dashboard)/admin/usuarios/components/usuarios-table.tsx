@@ -105,7 +105,9 @@ function FormUsuario({
           <Label>Função</Label>
           <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecione a função" />
+              <SelectValue placeholder="Selecione a função">
+                {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {PAPEIS.map(p => (
@@ -118,7 +120,9 @@ function FormUsuario({
           <Label>Loja</Label>
           <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
             <SelectTrigger>
-              <SelectValue placeholder="Sem loja (Admin Geral)" />
+              <SelectValue placeholder="Sem loja (Admin Geral)">
+                {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
@@ -250,7 +254,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
       </div>
 
       {/* Dialog Criar */}
-      <Dialog open={criando} onOpenChange={v => { if (!pending) setCriando(v) }}>
+      <Dialog open={criando} onOpenChange={setCriando}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Novo usuário</DialogTitle>
@@ -265,7 +269,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
       </Dialog>
 
       {/* Dialog Editar */}
-      <Dialog open={!!editando} onOpenChange={v => { if (!pending && !v) setEditando(null) }}>
+      <Dialog open={!!editando} onOpenChange={open => { if (!open) setEditando(null) }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar usuário</DialogTitle>
@@ -284,7 +288,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
       </Dialog>
 
       {/* Dialog Excluir */}
-      <Dialog open={!!excluindo} onOpenChange={v => { if (!pending && !v) setExcluindo(null) }}>
+      <Dialog open={!!excluindo} onOpenChange={open => { if (!open) setExcluindo(null) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Excluir usuário</DialogTitle>

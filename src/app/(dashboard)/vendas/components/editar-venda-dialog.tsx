@@ -182,7 +182,15 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
                 <Label>Vendedor</Label>
                 <Select value={vendedorId} onValueChange={v => { if (v) setVendedorId(v) }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o vendedor" />
+                    <SelectValue placeholder="Selecione o vendedor">
+                      {(val: string | null) => {
+                        if (!val) return undefined
+                        const found = vendedores.find(vd => vd.id === val)
+                        if (found) return found.nome
+                        if (val === v.vendedorId) return v.vendedorNome ?? val
+                        return val
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {vendedores.map(vend => (
