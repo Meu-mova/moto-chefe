@@ -180,7 +180,7 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>Vendedor</Label>
-                <Select value={vendedorId} onValueChange={setVendedorId}>
+                <Select value={vendedorId} onValueChange={v => { if (v) setVendedorId(v) }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o vendedor" />
                   </SelectTrigger>
