@@ -4,10 +4,12 @@ import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
 import { CancelarVendaButton } from './cancelar-venda-button'
 import { DetalhesVendaDialog } from './detalhes-venda-dialog'
+import { EditarVendaDialog } from './editar-venda-dialog'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeCancelar = new Set(['admin_geral', 'admin_socio'])
+const podeEditar   = new Set(['admin_geral', 'admin_socio'])
 const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 
 const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
@@ -65,6 +67,7 @@ type Props = {
 export function VendasTable({ vendas, papel }: Props) {
   const podeFazerGarantia = podeGarantia.has(papel)
   const isAdmin           = ADMINS.has(papel)
+  const podeEditarVenda   = podeEditar.has(papel)
   const colSpan = podeFazerGarantia ? (isAdmin ? 11 : 10) : (isAdmin ? 10 : 9)
 
   return (
@@ -110,6 +113,7 @@ export function VendasTable({ vendas, papel }: Props) {
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
                   <DetalhesVendaDialog venda={v} />
+                  {podeEditarVenda && <EditarVendaDialog venda={v} papel={papel} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton
                       motoId={v.motoId}

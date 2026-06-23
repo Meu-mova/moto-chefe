@@ -464,6 +464,74 @@ export async function registrarReservaAction(data: DadosReserva) {
   revalidatePath('/estoque')
 }
 
+export type PagamentoEditar = {
+  tipo: string
+  valor: number
+  operadora?: string
+  parcelas?: number
+  autorizacao?: string
+}
+
+export async function editarVendaAction(vendaId: string, dados: {
+  valor:              string
+  dataVenda:          string
+  notaFiscalSaida?:   string | null
+  pagamentos:         PagamentoEditar[]
+  clienteNome:        string
+  clienteCpf:         string
+  clienteCelular?:    string | null
+  clienteEmail?:      string | null
+  clienteCep?:        string | null
+  clienteLogradouro?: string | null
+  clienteNumero?:     string | null
+  clienteComplemento?:string | null
+  clienteBairro?:     string | null
+  clienteCidade?:     string | null
+  clienteEstado?:     string | null
+}) {
+  const usuario = await getUsuarioLogado()
+
+  const ADMINS_EDIT = ['admin_geral', 'admin_socio']
+  if (!ADMINS_EDIT.includes(usuario.papel)) throw new Error('Sem permissão')
+
+  // admin_socio só pode editar vendas da própria loja
+  if (usuario.papel === 'admin_socio') {
+    const [venda] = await db
+      .select({ lojaId: vendas.lojaId })
+      .from(vendas)
+      .where(eq(vendas.id, vendaId))
+      .limit(1)
+    if (!venda || venda.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  }
+
+  const formaPagamento = dados.pagamentos.length === 1
+    ? dados.pagamentos[0].tipo
+    : 'multiplos'
+
+  await db.update(vendas)
+    .set({
+      valor:              dados.valor,
+      dataVenda:          new Date(dados.dataVenda),
+      notaFiscalSaida:    dados.notaFiscalSaida || null,
+      pagamentos:         dados.pagamentos,
+      formaPagamento,
+      clienteNome:        dados.clienteNome,
+      clienteCpf:         dados.clienteCpf,
+      clienteCelular:     dados.clienteCelular || null,
+      clienteEmail:       dados.clienteEmail || null,
+      clienteCep:         dados.clienteCep || null,
+      clienteLogradouro:  dados.clienteLogradouro || null,
+      clienteNumero:      dados.clienteNumero || null,
+      clienteComplemento: dados.clienteComplemento || null,
+      clienteBairro:      dados.clienteBairro || null,
+      clienteCidade:      dados.clienteCidade || null,
+      clienteEstado:      dados.clienteEstado || null,
+    })
+    .where(eq(vendas.id, vendaId))
+
+  revalidatePath('/vendas')
+}
+
 export async function buscarHistoricoMotoAction(motoId: string) {
   await getUsuarioLogado()
   return db
