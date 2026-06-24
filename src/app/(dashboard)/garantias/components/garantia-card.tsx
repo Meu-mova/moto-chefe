@@ -55,6 +55,27 @@ function formatDate(d: unknown) {
   return new Date(d as string).toLocaleDateString('pt-BR')
 }
 
+const STATUS_FABRICA_CLS: Record<string, string> = {
+  'Aguardando Separação':          'bg-blue-50 text-blue-700 border-blue-200',
+  'Aguardando Reposição':          'bg-amber-50 text-amber-700 border-amber-200',
+  'Em Separação':                  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'Em Exigência':                  'bg-red-50 text-red-700 border-red-300',
+  'Em auditoria':                  'bg-purple-50 text-purple-700 border-purple-200',
+  'Em avaliação SAC':              'bg-purple-50 text-purple-700 border-purple-200',
+  'Em avaliação do técnico':       'bg-purple-50 text-purple-700 border-purple-200',
+  'Em conferência':                'bg-yellow-50 text-yellow-700 border-yellow-200',
+  'Separado':                      'bg-teal-50 text-teal-700 border-teal-200',
+  'Pedido enviado':                'bg-green-50 text-green-700 border-green-200',
+  'Entregue':                      'bg-green-100 text-green-800 border-green-300',
+  'Garantia concluída':            'bg-green-100 text-green-800 border-green-300',
+  'Aguardando Postagem Reversa':   'bg-orange-50 text-orange-700 border-orange-200',
+  'Aguardando devolução':          'bg-orange-50 text-orange-700 border-orange-200',
+  'Rejeitado':                     'bg-red-100 text-red-800 border-red-400',
+  'Cancelado':                     'bg-gray-100 text-gray-600 border-gray-300',
+}
+
+const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardando Postagem Reversa'])
+
 export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
   const [open, setOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
@@ -110,12 +131,37 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
 
         <p className="text-sm text-slate-700">{g.descricao}</p>
 
+        {/* Status da fábrica */}
+        {g.numeroPedidoFabrica && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={`https://motochefebrasil.store/clientes/trocas/detalhes/${g.numeroPedidoFabrica}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+            >
+              Pedido #{g.numeroPedidoFabrica}
+            </a>
+            {g.statusFabrica && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${STATUS_FABRICA_CLS[g.statusFabrica] ?? 'bg-slate-50 text-slate-600 border-slate-200'} ${STATUS_FABRICA_CRITICOS.has(g.statusFabrica) ? 'ring-1 ring-red-400' : ''}`}>
+                {STATUS_FABRICA_CRITICOS.has(g.statusFabrica) && '⚠ '}
+                {g.statusFabrica}
+              </span>
+            )}
+            {!g.statusFabrica && (
+              <span className="text-xs text-slate-400">status não sincronizado</span>
+            )}
+          </div>
+        )}
+
         <div className="text-xs text-slate-500 space-y-1">
           <p>Loja: <span className="text-slate-700">{g.lojaNome}</span></p>
           <p>Abertura: {formatDate(g.dataInicio)} — Prazo: {formatDate(g.dataFim)}</p>
           {g.dataEncerramento && <p>Encerrada em: <span className="text-slate-700 font-medium">{formatDate(g.dataEncerramento)}</span></p>}
           {g.dataPedidoPeca && <p>Pedido peça: {formatDate(g.dataPedidoPeca)}</p>}
-          {g.numeroPedidoFabrica && <p>Pedido fábrica: <span className="text-slate-700">{g.numeroPedidoFabrica}</span></p>}
+          {g.statusFabricaSyncEm && (
+            <p>Última sync: {new Date(g.statusFabricaSyncEm as unknown as string).toLocaleString('pt-BR')}</p>
+          )}
         </div>
 
         {g.status === 'ativa' && dias !== null && urgencia && (

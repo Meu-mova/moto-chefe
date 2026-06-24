@@ -7,6 +7,9 @@ import { eq, inArray } from 'drizzle-orm'
 import { GarantiaCard } from './components/garantia-card'
 import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
 import { GarantiasFiltros } from './components/garantias-filtros'
+import { SincronizarFabricaButton } from './components/sincronizar-button'
+
+const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardando Postagem Reversa'])
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -52,8 +55,9 @@ export default async function GarantiasPage({
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
   ])
 
-  const ativas     = lista.filter(g => g.status === 'ativa')
-  const encerradas = lista.filter(g => g.status === 'encerrada')
+  const ativas      = lista.filter(g => g.status === 'ativa')
+  const encerradas  = lista.filter(g => g.status === 'encerrada')
+  const criticas    = ativas.filter(g => g.statusFabrica && STATUS_FABRICA_CRITICOS.has(g.statusFabrica))
 
   // Conta urgências nas ativas (para o banner)
   const agora      = Date.now()
@@ -72,7 +76,10 @@ export default async function GarantiasPage({
             Acompanhamento — uma moto pode ter múltiplas garantias ao longo do tempo
           </p>
         </div>
-        <AbrirGarantiaDialog motos={motosParaGarantia} ordens={ordensAbertas} papel={usuario.papel} />
+        <div className="flex items-center gap-2">
+          {(isAdmin || usuario.papel === 'aux_adm') && <SincronizarFabricaButton />}
+          <AbrirGarantiaDialog motos={motosParaGarantia} ordens={ordensAbertas} papel={usuario.papel} />
+        </div>
       </div>
 
       {/* Filtros */}
@@ -85,6 +92,30 @@ export default async function GarantiasPage({
           nfInicial={params.nf ?? ''}
         />
       </Suspense>
+
+      {/* Banner fábrica — status críticos */}
+      {!statusFiltro && criticas.length > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm space-y-1">
+          <p className="font-semibold text-red-800">
+            🚨 {criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
+          </p>
+          {criticas.map(g => (
+            <p key={g.id} className="text-red-700 text-xs">
+              · {g.marca} {g.modelo} ({g.chassi.slice(-6)}) — <strong>{g.statusFabrica}</strong>
+              {g.numeroPedidoFabrica && (
+                <a
+                  href={`https://motochefebrasil.store/clientes/trocas/detalhes/${g.numeroPedidoFabrica}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 underline"
+                >
+                  Ver #{ g.numeroPedidoFabrica}
+                </a>
+              )}
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Banner de urgência — só quando não há filtro de status */}
       {!statusFiltro && ativas.length > 0 && (urgentes.length > 0 || atencao.length > 0) && (

@@ -193,6 +193,8 @@ export const garantias = pgTable('garantias', {
   status: garantiaStatusEnum('status').notNull().default('ativa'),
   dataPedidoPeca: date('data_pedido_peca'),
   numeroPedidoFabrica: text('numero_pedido_fabrica'),
+  statusFabrica: text('status_fabrica'),
+  statusFabricaSyncEm: timestamp('status_fabrica_sync_em', { withTimezone: true }),
 })
 
 // ─── lancamentos_caixa ──────────────────────────────────────────────────────

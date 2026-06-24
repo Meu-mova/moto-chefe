@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { motos } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { motos, garantias } from '@/lib/db/schema'
+import { eq, isNotNull } from 'drizzle-orm'
+import { loginFabrica, buscarStatusGarantiaFabrica } from '@/lib/fabrica-scraper'
 
 export async function abrirGarantiaAction(params: {
   motoId: string
@@ -49,6 +50,42 @@ export async function abrirGarantiaAction(params: {
   revalidatePath('/garantias')
   revalidatePath('/vendas')
   revalidatePath(`/estoque/${params.motoId}`)
+}
+
+export async function sincronizarFabricaAction() {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const lista = await db
+    .select({ id: garantias.id, numeroPedidoFabrica: garantias.numeroPedidoFabrica })
+    .from(garantias)
+    .where(isNotNull(garantias.numeroPedidoFabrica))
+
+  if (lista.length === 0) return { atualizadas: 0, erros: 0 }
+
+  const session = await loginFabrica()
+  const agora = new Date()
+  let atualizadas = 0
+  let erros = 0
+
+  for (const g of lista) {
+    if (!g.numeroPedidoFabrica) continue
+    try {
+      const status = await buscarStatusGarantiaFabrica(session, g.numeroPedidoFabrica)
+      await db
+        .update(garantias)
+        .set({ statusFabrica: status, statusFabricaSyncEm: agora })
+        .where(eq(garantias.id, g.id))
+      atualizadas++
+    } catch {
+      erros++
+    }
+  }
+
+  revalidatePath('/garantias')
+  return { atualizadas, erros }
 }
 
 export async function encerrarGarantiaAction(garantiaId: string, observacao?: string, dataEncerramento?: string) {

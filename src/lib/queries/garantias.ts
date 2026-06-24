@@ -11,6 +11,8 @@ const CAMPOS_SELECT = {
   dataEncerramento: garantias.dataEncerramento,
   dataPedidoPeca: garantias.dataPedidoPeca,
   numeroPedidoFabrica: garantias.numeroPedidoFabrica,
+  statusFabrica: garantias.statusFabrica,
+  statusFabricaSyncEm: garantias.statusFabricaSyncEm,
   lojaId: garantias.lojaId,
   motoId: garantias.motoId,
   chassi: motos.chassi,
