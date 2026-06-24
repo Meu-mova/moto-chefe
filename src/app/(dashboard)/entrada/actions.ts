@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque, modelos } from '@/lib/db/schema'
-import { eq, ilike } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -16,6 +16,7 @@ export async function registrarEntrada(formData: {
   notaFiscal: string
   modeloId: string
   precoCompra: string
+  lojaId: string
   motos: MotoEntrada[]
 }) {
   const usuario = await getUsuarioLogado()
@@ -23,20 +24,20 @@ export async function registrarEntrada(formData: {
     return { error: 'Sem permissão' }
   }
 
-  if (!formData.notaFiscal || !formData.modeloId || !formData.precoCompra || !formData.motos.length) {
+  if (!formData.notaFiscal || !formData.modeloId || !formData.precoCompra || !formData.lojaId || !formData.motos.length) {
     return { error: 'Preencha todos os campos obrigatórios' }
   }
 
   const precoCompra = formData.precoCompra.replace(',', '.')
 
-  const [galpao] = await db
+  const [loja] = await db
     .select({ id: lojas.id })
     .from(lojas)
-    .where(ilike(lojas.nome, '%galpão%'))
+    .where(eq(lojas.id, formData.lojaId))
     .limit(1)
 
-  if (!galpao) {
-    return { error: 'Loja Galpão não encontrada no sistema' }
+  if (!loja) {
+    return { error: 'Loja não encontrada' }
   }
 
   const chassisExistentes = new Set<string>()
@@ -66,7 +67,7 @@ export async function registrarEntrada(formData: {
       const [novaMoto] = await db.insert(motos).values({
         chassi,
         modeloId: formData.modeloId,
-        lojaId: galpao.id,
+        lojaId: loja.id,
         status: 'caixa',
         cor: moto.cor.trim().toUpperCase(),
         notaFiscalEntrada: formData.notaFiscal.trim(),
@@ -76,7 +77,7 @@ export async function registrarEntrada(formData: {
 
       await db.insert(historicoEstoque).values({
         motoId: novaMoto.id,
-        lojaDestinoId: galpao.id,
+        lojaDestinoId: loja.id,
         usuarioId: usuario.id,
         tipo: 'entrada',
         statusNovo: 'caixa',
@@ -117,6 +118,7 @@ type MotoEntradaLote = {
 }
 
 export async function registrarEntradaLote(formData: {
+  lojaId: string
   motos: MotoEntradaLote[]
 }) {
   const usuario = await getUsuarioLogado()
@@ -124,18 +126,22 @@ export async function registrarEntradaLote(formData: {
     return { error: 'Sem permissão' }
   }
 
+  if (!formData.lojaId) {
+    return { error: 'Selecione a loja de destino' }
+  }
+
   if (!formData.motos.length) {
     return { error: 'Importe as motos da planilha' }
   }
 
-  const [galpao] = await db
+  const [loja] = await db
     .select({ id: lojas.id })
     .from(lojas)
-    .where(ilike(lojas.nome, '%galpão%'))
+    .where(eq(lojas.id, formData.lojaId))
     .limit(1)
 
-  if (!galpao) {
-    return { error: 'Loja Galpão não encontrada no sistema' }
+  if (!loja) {
+    return { error: 'Loja não encontrada' }
   }
 
   const allModelos = await db
@@ -183,7 +189,7 @@ export async function registrarEntradaLote(formData: {
       const [novaMoto] = await db.insert(motos).values({
         chassi,
         modeloId: modeloInfo.id,
-        lojaId: galpao.id,
+        lojaId: loja.id,
         status: 'caixa',
         cor: moto.cor.trim().toUpperCase(),
         notaFiscalEntrada: nf,
@@ -193,7 +199,7 @@ export async function registrarEntradaLote(formData: {
 
       await db.insert(historicoEstoque).values({
         motoId: novaMoto.id,
-        lojaDestinoId: galpao.id,
+        lojaDestinoId: loja.id,
         usuarioId: usuario.id,
         tipo: 'entrada',
         statusNovo: 'caixa',

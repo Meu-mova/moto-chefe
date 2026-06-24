@@ -1,10 +1,17 @@
 'use server'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import { createClient } from '@/lib/supabase/server'
+import { eq, sql } from 'drizzle-orm'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+
+function getAdminClient() {
+  return createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -19,7 +26,7 @@ export async function criarUsuarioAction(dados: {
   lojaId: string | null
 }) {
   await assertAdmin()
-  const supabase = await createClient()
+  const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
     email: dados.email,
@@ -47,34 +54,41 @@ export async function editarUsuarioAction(id: string, dados: {
   lojaId: string | null
 }) {
   await assertAdmin()
-  const supabase = await createClient()
 
-  await db.update(usuarios).set({
-    nome: dados.nome,
-    email: dados.email,
-    papel: dados.papel as any,
-    lojaId: dados.lojaId,
-  }).where(eq(usuarios.id, id))
+  await db.transaction(async (tx) => {
+    await tx.update(usuarios).set({
+      nome: dados.nome,
+      email: dados.email,
+      papel: dados.papel as any,
+      lojaId: dados.lojaId,
+    }).where(eq(usuarios.id, id))
 
-  if (dados.novaSenha?.trim()) {
-    const { error } = await supabase.auth.admin.updateUserById(id, {
-      email: dados.email,
-      password: dados.novaSenha,
-    })
-    if (error) throw new Error(error.message)
-  } else {
-    const { error } = await supabase.auth.admin.updateUserById(id, {
-      email: dados.email,
-    })
-    if (error) throw new Error(error.message)
-  }
+    if (dados.novaSenha?.trim()) {
+      await tx.execute(sql`
+        UPDATE auth.users
+        SET email = ${dados.email},
+            encrypted_password = crypt(${dados.novaSenha}, gen_salt('bf')),
+            email_confirmed_at = COALESCE(email_confirmed_at, now()),
+            updated_at = now()
+        WHERE id = ${id}::uuid
+      `)
+    } else {
+      await tx.execute(sql`
+        UPDATE auth.users
+        SET email = ${dados.email},
+            email_confirmed_at = COALESCE(email_confirmed_at, now()),
+            updated_at = now()
+        WHERE id = ${id}::uuid
+      `)
+    }
+  })
 
   revalidatePath('/admin/usuarios')
 }
 
 export async function excluirUsuarioAction(id: string) {
   await assertAdmin()
-  const supabase = await createClient()
+  const supabase = getAdminClient()
 
   await db.delete(usuarios).where(eq(usuarios.id, id))
 

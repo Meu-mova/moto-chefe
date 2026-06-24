@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CurrencyInput } from '@/components/ui/currency-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { editarVendaAction } from '../actions'
@@ -35,7 +34,13 @@ function pgtoFromSchema(p: { tipo: string; valor: number; operadora?: string; pa
 }
 
 function parseBRL(v: string): number {
-  return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0
+  if (!v) return 0
+  // Se contém vírgula, está no formato pt-BR (ex: "10.950,00" ou "10950,00")
+  if (v.includes(',')) {
+    return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0
+  }
+  // Caso contrário já está em decimal com ponto (retorno do CurrencyInput via toFixed)
+  return parseFloat(v) || 0
 }
 
 type Props = {
@@ -163,7 +168,14 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Valor Total (R$)</Label>
-                  <CurrencyInput value={valor} onChange={setValor} />
+                  <Input
+                    value={valor}
+                    onChange={e => {
+                      setValor(e.target.value)
+                      setPgtos(prev => prev.length === 1 ? [{ ...prev[0], valor: e.target.value }] : prev)
+                    }}
+                    placeholder="0,00"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Data da Venda</Label>
@@ -237,7 +249,7 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Valor (R$)</Label>
-                      <CurrencyInput value={p.valor} onChange={v => updatePgto(p.id, 'valor', v)} className="h-8 text-xs" />
+                      <Input value={p.valor} onChange={e => updatePgto(p.id, 'valor', e.target.value)} className="h-8 text-xs" placeholder="0,00" />
                     </div>
                   </div>
 

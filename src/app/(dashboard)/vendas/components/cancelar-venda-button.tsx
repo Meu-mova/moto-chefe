@@ -74,7 +74,7 @@ export function CancelarVendaButton({ vendaId, descricao }: Props) {
             <Button
               variant="destructive"
               onClick={handleConfirm}
-              disabled={loading || !motivo.trim()}
+              disabled={loading}
             >
               {loading ? 'Cancelando...' : 'Confirmar Cancelamento'}
             </Button>

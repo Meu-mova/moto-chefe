@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { CreditCard, Link2, Building2, Printer, ChevronDown } from 'lucide-react'
+import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'lucide-react'
 
 type Modelo = {
   id: string
@@ -181,9 +181,11 @@ function gerarHtmlPrint(
   entrada: number,
   linhasCartaoSemEntrada: Linha[],
   linhasCartaoComEntrada: Linha[],
+  linhasDebito: Linha[],
   linhasLink: Linha[],
   linhasFinanciamento: Linha[],
   selCartao: Set<number>,
+  selDebito: Set<number>,
   selLink: Set<number>,
   selFinanciamento: Set<number>,
 ) {
@@ -204,6 +206,7 @@ function gerarHtmlPrint(
 
   const tabelasSelecionadas = [
     gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Crédito', corLabel: '#3b82f6', corBg: '#eff6ff', corBorder: '#bfdbfe', corValor: '#1d4ed8', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
+    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Débito', corLabel: '#0d9488', corBg: '#f0fdfa', corBorder: '#99f6e4', corValor: '#0f766e', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
     gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Link de Pagamento', corLabel: '#7c3aed', corBg: '#f5f3ff', corBorder: '#ddd6fe', corValor: '#6d28d9', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
     gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Financiamento', corLabel: '#d97706', corBg: '#fffbeb', corBorder: '#fde68a', corValor: '#b45309', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
@@ -391,8 +394,9 @@ function PrecosDestaque({
 export function SimuladorClient({ modelos, taxas }: Props) {
   const [modeloId, setModeloId] = useState('')
   const [entrada, setEntrada] = useState('')
-  const [aberto, setAberto] = useState<Record<string, boolean>>({ cartao: false, link: false, financiamento: false })
+  const [aberto, setAberto] = useState<Record<string, boolean>>({ cartao: false, debito: false, link: false, financiamento: false })
   const [selCartao, setSelCartao] = useState<Set<number>>(new Set())
+  const [selDebito, setSelDebito] = useState<Set<number>>(new Set())
   const [selLink, setSelLink] = useState<Set<number>>(new Set())
   const [selFinanciamento, setSelFinanciamento] = useState<Set<number>>(new Set())
   const toggle = (k: string) => setAberto(prev => ({ ...prev, [k]: !prev[k] }))
@@ -405,6 +409,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
     })
   }
   const toggleCartao = makeToggle(setSelCartao)
+  const toggleDebito = makeToggle(setSelDebito)
   const toggleLink = makeToggle(setSelLink)
   const toggleFinanciamento = makeToggle(setSelFinanciamento)
 
@@ -420,6 +425,10 @@ export function SimuladorClient({ modelos, taxas }: Props) {
   const linhasCartao = useMemo(
     () => modelo && !entradaInvalida ? calcularLinhas(taxas.taxasCartao, base, entradaNum) : [],
     [modelo, base, entradaNum, entradaInvalida, taxas.taxasCartao]
+  )
+  const linhasDebito = useMemo(
+    () => modelo && !entradaInvalida ? calcularLinhas(taxas.taxasDebito, base, entradaNum) : [],
+    [modelo, base, entradaNum, entradaInvalida, taxas.taxasDebito]
   )
   const linhasLink = useMemo(
     () => modelo && !entradaInvalida ? calcularLinhas(taxas.taxasLink, base, entradaNum) : [],
@@ -437,9 +446,11 @@ export function SimuladorClient({ modelos, taxas }: Props) {
       entradaNum,
       linhasCartaoDestaque,
       linhasCartao,
+      linhasDebito,
       linhasLink,
       linhasFinanciamento,
       selCartao,
+      selDebito,
       selLink,
       selFinanciamento,
     )
@@ -538,6 +549,38 @@ export function SimuladorClient({ modelos, taxas }: Props) {
                   )}
                 </div>
 
+                {/* Débito — colapsável com checkboxes */}
+                {linhasDebito.length > 0 && (
+                  <div className="rounded-xl border overflow-hidden">
+                    <button
+                      onClick={() => toggle('debito')}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 hover:bg-teal-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Wallet size={15} className="text-teal-600" />
+                        <span className="font-semibold text-sm text-teal-800">Cartão de Débito</span>
+                        <span className="text-xs text-teal-400">{linhasDebito.length} opções</span>
+                        {selDebito.size > 0 && (
+                          <span className="text-xs bg-teal-600 text-white px-1.5 py-0.5 rounded-full">
+                            {selDebito.size} selecionada(s)
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown size={16} className={`text-teal-500 transition-transform ${aberto.debito ? 'rotate-180' : ''}`} />
+                    </button>
+                    {aberto.debito && (
+                      <TabelaOpcoes
+                        linhas={linhasDebito}
+                        cor="text-teal-700"
+                        entrada={entradaNum}
+                        mostrarTotal
+                        selecionados={selDebito}
+                        onToggle={toggleDebito}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {/* Link — colapsável com checkboxes */}
                 <div className="rounded-xl border overflow-hidden">
                   <button
@@ -599,7 +642,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
                 </div>
 
                 {(() => {
-                  const total = selCartao.size + selLink.size + selFinanciamento.size
+                  const total = selCartao.size + selDebito.size + selLink.size + selFinanciamento.size
                   return (
                     <div className="flex items-center justify-end gap-3 pt-2">
                       {total > 0 && (

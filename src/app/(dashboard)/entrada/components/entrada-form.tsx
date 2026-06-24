@@ -8,15 +8,17 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 
 type Modelo = { id: string; modelo: string; marca: string; precoCompraPadrao: string | null }
+type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
 type MotoLinhaPlanilha = { chassi: string; cor: string; motor: string; modelo: string; nf: string }
 
-export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
+export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
 
   const [notaFiscal, setNotaFiscal] = useState('')
   const [modeloId, setModeloId] = useState('')
   const [precoCompra, setPrecoCompra] = useState('')
+  const [lojaId, setLojaId] = useState('')
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
@@ -118,8 +120,8 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
   // --- Submit manual ---
   async function handleSubmitManual(e: React.FormEvent) {
     e.preventDefault()
-    if (!notaFiscal || !modeloId || !precoCompra) {
-      toast.error('Preencha a nota fiscal, modelo e preço de compra')
+    if (!notaFiscal || !modeloId || !precoCompra || !lojaId) {
+      toast.error('Preencha a nota fiscal, modelo, preço de compra e loja de destino')
       return
     }
 
@@ -135,6 +137,7 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
         notaFiscal,
         modeloId,
         precoCompra,
+        lojaId,
         motos: motosValidas,
       })
 
@@ -145,6 +148,7 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
         setNotaFiscal('')
         setPrecoCompra('')
         setModeloId('')
+        setLojaId('')
         setLinhas([{ chassi: '', cor: '', motor: '' }])
       }
     } finally {
@@ -155,6 +159,11 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
   // --- Submit planilha ---
   async function handleSubmitPlanilha(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!lojaId) {
+      toast.error('Selecione a loja de destino')
+      return
+    }
 
     if (linhasPlanilha.length === 0) {
       toast.error('Importe uma planilha primeiro')
@@ -170,6 +179,7 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
     setLoading(true)
     try {
       const result = await registrarEntradaLote({
+        lojaId,
         motos: linhasPlanilha.map(l => ({
           chassi: l.chassi,
           cor: l.cor,
@@ -184,6 +194,7 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
       } else {
         toast.success(result.success)
         setLinhasPlanilha([])
+        setLojaId('')
       }
     } finally {
       setLoading(false)
@@ -232,6 +243,21 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
             <p className="text-xs text-slate-400">
               Formato: NF ENTRADA, MODELO, POTÊNCIA, CHASSI, MOTOR, COR, CATEGORIA, MARCA
             </p>
+
+            <div>
+              <label className="block text-sm text-slate-500 mb-1">Loja de Destino *</label>
+              <select
+                value={lojaId}
+                onChange={e => setLojaId(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione a loja...</option>
+                {lojas.map(l => (
+                  <option key={l.id} value={l.id}>{l.nome}</option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-sm text-slate-500 mb-1">Arquivo XLSX *</label>
@@ -350,7 +376,7 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
         <form onSubmit={handleSubmitManual} className="space-y-6">
           <div className="bg-white rounded-lg border p-4 space-y-4">
             <h3 className="font-semibold text-slate-700">Dados da Nota Fiscal</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-slate-500 mb-1">Nº Nota Fiscal *</label>
                 <input
@@ -361,6 +387,20 @@ export function EntradaForm({ modelos }: { modelos: Modelo[] }) {
                   className="w-full border rounded-md px-3 py-2 text-sm"
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-500 mb-1">Loja de Destino *</label>
+                <select
+                  value={lojaId}
+                  onChange={e => setLojaId(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">Selecione a loja...</option>
+                  {lojas.map(l => (
+                    <option key={l.id} value={l.id}>{l.nome}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm text-slate-500 mb-1">Modelo *</label>

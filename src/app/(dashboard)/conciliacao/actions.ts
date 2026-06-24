@@ -212,7 +212,7 @@ export async function importarRelatorioAction(formData: FormData) {
 
 export async function vincularVendaAction(conciliacaoId: string, vendaId: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
 
   await db.update(conciliacoesCartao)
     .set({ vendaId, conciliado: true, conciliadoEm: new Date() })
@@ -223,7 +223,7 @@ export async function vincularVendaAction(conciliacaoId: string, vendaId: string
 
 export async function desvincularVendaAction(conciliacaoId: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
 
   await db.update(conciliacoesCartao)
     .set({ vendaId: null, conciliado: false, conciliadoEm: null })
