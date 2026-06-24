@@ -86,7 +86,9 @@ export async function registrarEntrada(formData: {
 
       inseridos++
     } catch (e: any) {
-      if (e.message?.includes('unique') || e.code === '23505') {
+      const isDup = e.code === '23505' || e.cause?.code === '23505' ||
+        e.message?.includes('unique') || e.message?.includes('duplicate key')
+      if (isDup) {
         erros.push(`${chassi}: chassi já existe no sistema`)
       } else {
         erros.push(`${chassi}: ${e.message}`)
@@ -208,7 +210,9 @@ export async function registrarEntradaLote(formData: {
 
       inseridos++
     } catch (e: any) {
-      if (e.message?.includes('unique') || e.code === '23505') {
+      const isDup = e.code === '23505' || e.cause?.code === '23505' ||
+        e.message?.includes('unique') || e.message?.includes('duplicate key')
+      if (isDup) {
         erros.push(`${chassi}: chassi já existe no sistema`)
       } else {
         erros.push(`${chassi}: ${e.message}`)

@@ -237,6 +237,7 @@ export default async function DashboardPage({
 
   const filtrosRanking = { dataInicio, dataFim }
   const mecanicoId = usuario.papel === 'mecanico' ? usuario.id : undefined
+  const filtroKey = `${mesSelecionado}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
 
   const [lojasOpts, vendedoresOpts] = await withTimeout(
     Promise.all([getLojasOpts(), getVendedoresOpts()]),
@@ -263,25 +264,25 @@ export default async function DashboardPage({
         />
       </div>
 
-      <SectionErrorBoundary label="os KPIs">
+      <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
         <Suspense fallback={<KpiSkeleton />}>
           <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} papel={usuario.papel} />
         </Suspense>
       </SectionErrorBoundary>
 
-      <SectionErrorBoundary label="os gráficos">
+      <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
           <GraficosSection filtros={filtros} isAdmin={isAdmin} />
         </Suspense>
       </SectionErrorBoundary>
 
-      <SectionErrorBoundary label="o ranking">
+      <SectionErrorBoundary key={`ranking-${filtroKey}`} label="o ranking">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
           <RankingSection filtros={filtros} filtrosRanking={filtrosRanking} />
         </Suspense>
       </SectionErrorBoundary>
 
-      <SectionErrorBoundary label="as tabelas">
+      <SectionErrorBoundary key={`tabelas-${filtroKey}`} label="as tabelas">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
           <TabelasSection filtros={filtros} lojaId={filtros.lojaId} mecanicoId={mecanicoId} />
         </Suspense>
