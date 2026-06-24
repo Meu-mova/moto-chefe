@@ -13,26 +13,19 @@ import Link from 'next/link'
 
 type Loja = { id: string; nome: string }
 
-const categoriasEntrada = [
-  'Venda',
-  'Entrada de sinal',
-  'Recebimento parcela',
-  'Aporte sócio',
-  'Outros',
-]
-
-const categoriasSaida = [
-  'Depósito',
-  'Água',
-  'Luz',
-  'Internet',
-  'Material escritório',
-  'Material oficina',
-  'Manutenção',
-  'Outros',
-]
-
-export function NovoLancamentoForm({ lojas, lojaUsuarioId, isAdmin }: { lojas: Loja[]; lojaUsuarioId: string | null; isAdmin: boolean }) {
+export function NovoLancamentoForm({
+  lojas,
+  lojaUsuarioId,
+  isAdmin,
+  categoriasEntrada,
+  categoriasSaida,
+}: {
+  lojas: Loja[]
+  lojaUsuarioId: string | null
+  isAdmin: boolean
+  categoriasEntrada: string[]
+  categoriasSaida: string[]
+}) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 

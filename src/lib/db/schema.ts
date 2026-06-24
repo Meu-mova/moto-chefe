@@ -213,6 +213,16 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── categorias_caixa ────────────────────────────────────────────────────────
+export const categoriasCaixa = pgTable('categorias_caixa', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  tipo: text('tipo').notNull(), // 'entrada' | 'saida' | 'ambos'
+  ativo: boolean('ativo').notNull().default(true),
+  ordem: integer('ordem').notNull().default(0),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── configuracao_taxas (singleton) ──────────────────────────────────────────
 export const configuracaoTaxas = pgTable('configuracao_taxas', {
   id: integer('id').primaryKey().default(1),
