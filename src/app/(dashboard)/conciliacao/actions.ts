@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, isNull } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -152,12 +152,27 @@ export async function importarRelatorioAction(formData: FormData) {
   for (const r of rows) {
     if (!r.valorBruto || r.valorBruto <= 0) continue
 
-    // Evita duplicata por NSU
+    // Evita duplicata por NSU (Stone, PagueVeloz)
     if (r.nsu) {
       const [ex] = await db
         .select({ id: conciliacoesCartao.id })
         .from(conciliacoesCartao)
         .where(and(eq(conciliacoesCartao.operadora, operadora), eq(conciliacoesCartao.nsu, r.nsu)))
+        .limit(1)
+      if (ex) { duplicadas++; continue }
+    } else {
+      // InfinityPay: NSU mascarado — deduplica por (operadora, data, valor_bruto, tipo, parcelas)
+      const [ex] = await db
+        .select({ id: conciliacoesCartao.id })
+        .from(conciliacoesCartao)
+        .where(and(
+          eq(conciliacoesCartao.operadora,      operadora),
+          isNull(conciliacoesCartao.nsu),
+          eq(conciliacoesCartao.dataTransacao,  r.dataTransacao),
+          sql`${conciliacoesCartao.valorBruto}::numeric = ${r.valorBruto}`,
+          eq(conciliacoesCartao.tipo,           r.tipo),
+          eq(conciliacoesCartao.parcelas,       r.parcelas),
+        ))
         .limit(1)
       if (ex) { duplicadas++; continue }
     }

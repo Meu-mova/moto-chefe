@@ -16,7 +16,13 @@ const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento
 
 type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
 
-function calcStatus(pagamentos: unknown, conciliadoValor: number, pixConciliadoValor: number): StatusConc {
+function calcStatus(
+  pagamentos: unknown,
+  conciliadoValor: number,
+  pixConciliadoValor: number,
+  valorVenda: string,
+  statusConciliacao: string,
+): StatusConc {
   const pgtos = (pagamentos ?? []) as { tipo: string; valor: number }[]
   const totalCartao = pgtos
     .filter(p => TIPOS_CARTAO.has(p.tipo))
@@ -24,9 +30,21 @@ function calcStatus(pagamentos: unknown, conciliadoValor: number, pixConciliadoV
   const totalPix = pgtos
     .filter(p => p.tipo === 'pix')
     .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  const totalLancado = pgtos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
+
+  // Sem pagamentos lançados: usa o status salvo no banco
+  if (totalLancado < 0.01) {
+    if (statusConciliacao === 'pendente')   return 'pendente'
+    if (statusConciliacao === 'parcial')    return 'parcial'
+    if (statusConciliacao === 'aprovado')   return 'conciliada'
+    return 'na'
+  }
+
+  // pagamentos lançados não cobrem o valor total da venda → parcial
+  if (totalLancado < Number(valorVenda) - 0.05) return 'parcial'
 
   const totalNecessa = totalCartao + totalPix
-  if (totalNecessa < 0.01) return 'na'
+  if (totalNecessa < 0.01) return 'conciliada' // só dinheiro/financiamento
 
   const conciliado = (Number(conciliadoValor) || 0) + (Number(pixConciliadoValor) || 0)
   if (conciliado < 0.01) return 'pendente'
@@ -92,7 +110,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
       </TableHeader>
       <TableBody>
         {vendas.map(v => {
-          const status = calcStatus(v.pagamentos, v.conciliadoValor as number, v.pixConciliadoValor as number)
+          const status = calcStatus(v.pagamentos, v.conciliadoValor as number, v.pixConciliadoValor as number, v.valor, v.statusConciliacao)
           return (
             <TableRow key={v.id}>
               <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>

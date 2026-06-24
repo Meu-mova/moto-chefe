@@ -133,6 +133,7 @@ export const vendas = pgTable('vendas', {
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   reservaId: uuid('reserva_id').references(() => reservas.id),
   notaFiscalSaida: text('nota_fiscal_saida'),
+  statusConciliacao: text('status_conciliacao').notNull().default('pendente'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
 })
 

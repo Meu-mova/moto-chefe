@@ -36,7 +36,8 @@ export async function listarVendas(filtros?: {
       clienteBairro:    vendas.clienteBairro,
       clienteCidade:    vendas.clienteCidade,
       clienteEstado:    vendas.clienteEstado,
-      notaFiscalSaida:  vendas.notaFiscalSaida,
+      notaFiscalSaida:     vendas.notaFiscalSaida,
+      statusConciliacao:   vendas.statusConciliacao,
       conciliadoValor:  sql<number>`COALESCE((
         SELECT SUM(valor_bruto::numeric)
         FROM conciliacoes_cartao

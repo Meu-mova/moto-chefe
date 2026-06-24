@@ -27,10 +27,26 @@ function calcConcStats(vendas: VendaComDetalhes[]) {
   return vendas.reduce(
     (acc, v) => {
       const pgtos = (v.pagamentos ?? []) as { tipo: string; valor: number }[]
-      const totalCartao = pgtos.filter(p => TIPOS_CARTAO_CONC.has(p.tipo)).reduce((a, p) => a + (Number(p.valor) || 0), 0)
-      const totalPix    = pgtos.filter(p => p.tipo === 'pix').reduce((a, p) => a + (Number(p.valor) || 0), 0)
+      const totalCartao  = pgtos.filter(p => TIPOS_CARTAO_CONC.has(p.tipo)).reduce((a, p) => a + (Number(p.valor) || 0), 0)
+      const totalPix     = pgtos.filter(p => p.tipo === 'pix').reduce((a, p) => a + (Number(p.valor) || 0), 0)
+      const totalLancado = pgtos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
       const totalNecessa = totalCartao + totalPix
-      if (totalNecessa < 0.01) return acc
+      const valorVenda   = Number(v.valor) || 0
+
+      if (totalLancado < 0.01) return acc
+
+      // pagamentos lançados não cobrem o valor total da venda → parcial
+      if (totalLancado < valorVenda - 0.05) {
+        acc.parcial++
+        acc.valorParcial += (valorVenda - totalLancado)
+        return acc
+      }
+
+      if (totalNecessa < 0.01) {
+        acc.conciliada++
+        return acc
+      }
+
       const conciliado = (Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)
       if (conciliado < 0.01) {
         acc.pendente++
