@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos } from '@/lib/db/schema'
-import { eq, and, desc, sql, isNull } from 'drizzle-orm'
+import { eq, and, desc, sql, isNull, ilike } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -336,4 +336,29 @@ export async function buscarVendasParaVincular(valorRef: number) {
     )
     .orderBy(desc(vendas.dataVenda))
     .limit(50)
+}
+
+export async function buscarVendaManual(query: string) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const isNumero = /^\d{1,7}$/.test(q)
+
+  return db
+    .select({
+      id:             vendas.id,
+      numero:         vendas.numero,
+      dataVenda:      vendas.dataVenda,
+      clienteNome:    vendas.clienteNome,
+      valor:          vendas.valor,
+      formaPagamento: vendas.formaPagamento,
+      pagamentos:     vendas.pagamentos,
+    })
+    .from(vendas)
+    .where(isNumero ? eq(vendas.numero, parseInt(q, 10)) : ilike(vendas.clienteNome, `%${q}%`))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(15)
 }
