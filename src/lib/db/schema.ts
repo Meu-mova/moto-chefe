@@ -282,6 +282,16 @@ export const pixRecebimentos = pgTable('pix_recebimentos', {
   createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── demandas ────────────────────────────────────────────────────────────────
+export const demandas = pgTable('demandas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  modelo: text('modelo').notNull(),
+  cor: text('cor').notNull(),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  solicitanteId: uuid('solicitante_id').notNull().references(() => usuarios.id),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {
   id: uuid('id').primaryKey().defaultRandom(),
