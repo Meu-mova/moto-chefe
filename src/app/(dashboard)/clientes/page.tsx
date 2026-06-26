@@ -29,7 +29,7 @@ export default async function ClientesPage({
     )
   }
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const isAdmin = usuario.papel === 'admin_geral'
 
   const [lista, cidades] = await Promise.all([
     listarClientesAction({

@@ -59,6 +59,9 @@ export async function listarClientesAction(params: {
 }
 
 export async function buscarClientesAction(termo: string) {
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+
   if (termo.length < 3) return []
   const termoCpf = termo.replace(/\D/g, '')
   return db.select({
@@ -76,11 +79,17 @@ export async function buscarClientesAction(termo: string) {
 }
 
 export async function buscarClientePorIdAction(id: string) {
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+
   const [cliente] = await db.select().from(clientes).where(eq(clientes.id, id)).limit(1)
   return cliente ?? null
 }
 
 export async function listarCidadesAction() {
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+
   const rows = await db.selectDistinct({ cidade: clientes.cidade })
     .from(clientes)
     .orderBy(clientes.cidade)
@@ -136,6 +145,9 @@ export async function excluirClienteAction(id: string) {
 }
 
 export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string | null) {
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+
   const condicaoVendas = cpfCnpj
     ? or(eq(vendas.clienteId, id), eq(vendas.clienteCpf, cpfCnpj))!
     : eq(vendas.clienteId, id)
