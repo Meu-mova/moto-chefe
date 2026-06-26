@@ -3,6 +3,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { db } from '../src/lib/db'
 import { clientes } from '../src/lib/db/schema'
 
+// AVISO: Requer DATABASE_URL com acesso direto ao Postgres (porta 5432).
+// Se o DATABASE_URL local usar PgBouncer (porta 6543), use os scripts alternativos:
+// 1. npx tsx scripts/classificar-clientes-bling.ts  (gera clientes.json)
+// 2. npx tsx scripts/inserir-clientes-json.ts        (insere via Supabase REST)
+
 const CSV_PATH = 'D:\\ECOMOV\\exportar clientes Bling.csv'
 
 function parseCSV(content: string): Record<string, string>[] {

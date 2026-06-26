@@ -12,7 +12,6 @@
     "db:studio": "dotenv-cli -e .env.local -- drizzle-kit studio"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.106.0",
     "@base-ui/react": "^1.5.0",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-label": "^2.1.8",
@@ -38,6 +37,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.100.14",
     "@types/node": "^20",

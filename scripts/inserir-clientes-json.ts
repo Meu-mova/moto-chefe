@@ -1,6 +1,9 @@
 import fs from 'fs'
 import { createClient } from '@supabase/supabase-js'
 
+// Workaround para ambientes onde DATABASE_URL usa PgBouncer (porta 6543, SASL incompatível).
+// Lê o arquivo clientes.json gerado por classificar-clientes-bling.ts e insere via Supabase REST API.
+
 const JSON_PATH = 'D:\\ECOMOV\\clientes-classificados.json'
 
 interface ClienteRecord {
