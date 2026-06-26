@@ -48,7 +48,7 @@ export default async function ClientesPage({
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-slate-500 text-sm">Cadastro e histórico de clientes</p>
         </div>
-        <ClienteForm />
+        <ClienteForm trigger={<Button>Novo Cliente</Button>} />
       </div>
 
       <Card>
