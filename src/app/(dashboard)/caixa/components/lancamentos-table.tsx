@@ -3,11 +3,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Paperclip, ExternalLink, Loader2, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirLancamentoAction, getComprovanteUrlAction, aprovarLancamentoAction, reprovarLancamentoAction } from '../actions'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 type Lancamento = {
   id: string
@@ -54,12 +56,47 @@ function fmtDateTime(d: Date | null) {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+type Filtros = {
+  tipo: string
+  categoria: string
+  descricao: string
+  loja: string
+  aprovacao: string
+  registradoPor: string
+}
+
 export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
   const router = useRouter()
   const [excluindo, setExcluindo] = useState<string | null>(null)
   const [abrindo,   setAbrindo]   = useState<string | null>(null)
-  const [agindo,    setAgindo]    = useState<string | null>(null) // id do lancamento em ação
+  const [agindo,    setAgindo]    = useState<string | null>(null)
   const [preview,   setPreview]   = useState<Preview | null>(null)
+  const [filtros, setFiltros] = useState<Filtros>({
+    tipo: '', categoria: '', descricao: '', loja: '', aprovacao: '', registradoPor: '',
+  })
+
+  function setFiltro(campo: keyof Filtros, valor: string) {
+    setFiltros(f => ({ ...f, [campo]: valor === 'todos' ? '' : valor }))
+  }
+
+  const categorias = useMemo(() =>
+    [...new Set(lancamentos.map(l => l.categoria))].sort(),
+    [lancamentos]
+  )
+  const lojas = useMemo(() =>
+    [...new Set(lancamentos.map(l => l.lojaNome))].sort(),
+    [lancamentos]
+  )
+
+  const dados = useMemo(() => lancamentos.filter(l => {
+    if (filtros.tipo && l.tipo !== filtros.tipo) return false
+    if (filtros.categoria && l.categoria !== filtros.categoria) return false
+    if (filtros.descricao && !l.descricao?.toLowerCase().includes(filtros.descricao.toLowerCase())) return false
+    if (filtros.loja && l.lojaNome !== filtros.loja) return false
+    if (filtros.aprovacao && l.statusAprovacao !== filtros.aprovacao) return false
+    if (filtros.registradoPor && !l.usuarioNome.toLowerCase().includes(filtros.registradoPor.toLowerCase())) return false
+    return true
+  }), [lancamentos, filtros])
 
   async function handleVerComprovante(l: Lancamento) {
     setAbrindo(l.comprovanteUrl!)
@@ -147,9 +184,85 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
             <TableHead>Registrado por</TableHead>
             {isAdmin && <TableHead className="w-10" />}
           </TableRow>
+          <TableRow className="bg-slate-50 hover:bg-slate-50">
+            <TableHead className="py-1" />
+            <TableHead className="py-1">
+              <Select value={filtros.tipo || 'todos'} onValueChange={v => setFiltro('tipo', v)}>
+                <SelectTrigger className="h-7 text-xs w-full">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="entrada">Entrada</SelectItem>
+                  <SelectItem value="saida">Saída</SelectItem>
+                </SelectContent>
+              </Select>
+            </TableHead>
+            <TableHead className="py-1">
+              <Select value={filtros.categoria || 'todos'} onValueChange={v => setFiltro('categoria', v)}>
+                <SelectTrigger className="h-7 text-xs w-full">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </TableHead>
+            <TableHead className="py-1">
+              <Input
+                className="h-7 text-xs"
+                placeholder="Filtrar..."
+                value={filtros.descricao}
+                onChange={e => setFiltro('descricao', e.target.value)}
+              />
+            </TableHead>
+            <TableHead className="py-1">
+              <Select value={filtros.loja || 'todos'} onValueChange={v => setFiltro('loja', v)}>
+                <SelectTrigger className="h-7 text-xs w-full">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas</SelectItem>
+                  {lojas.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </TableHead>
+            <TableHead className="py-1" />
+            <TableHead className="py-1" />
+            <TableHead className="py-1">
+              <Select value={filtros.aprovacao || 'todos'} onValueChange={v => setFiltro('aprovacao', v)}>
+                <SelectTrigger className="h-7 text-xs w-full">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="aprovado">Aprovado</SelectItem>
+                  <SelectItem value="reprovado">Reprovado</SelectItem>
+                </SelectContent>
+              </Select>
+            </TableHead>
+            <TableHead className="py-1">
+              <Input
+                className="h-7 text-xs"
+                placeholder="Filtrar..."
+                value={filtros.registradoPor}
+                onChange={e => setFiltro('registradoPor', e.target.value)}
+              />
+            </TableHead>
+            {isAdmin && <TableHead className="py-1" />}
+          </TableRow>
         </TableHeader>
         <TableBody>
-          {lancamentos.map(l => (
+          {dados.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={isAdmin ? 10 : 9} className="py-8 text-center text-sm text-slate-400">
+                Nenhum lançamento encontrado para os filtros aplicados.
+              </TableCell>
+            </TableRow>
+          )}
+          {dados.map(l => (
             <TableRow key={l.id}>
               <TableCell className="whitespace-nowrap">
                 {new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR')}
