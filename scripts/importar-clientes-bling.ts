@@ -1,6 +1,6 @@
 import { db } from '../src/lib/db'
 import { clientes } from '../src/lib/db/schema'
-import { primeiroNome, classificarSexo, lerCSVBling } from './lib/csv-utils'
+import { primeiroNome, classificarSexo, lerCSVBling, transformarRegistros } from './lib/csv-utils'
 
 // AVISO: Requer DATABASE_URL com acesso direto ao Postgres (porta 5432).
 // Se o DATABASE_URL local usar PgBouncer (porta 6543), use os scripts alternativos:
@@ -16,21 +16,7 @@ async function main() {
   console.log(`Primeiros nomes únicos: ${nomesUnicos.length}`)
   const sexoMap = await classificarSexo(nomesUnicos)
   console.log('Classificação de sexo concluída.')
-  const registros = rows.map(r => ({
-    nome: r['Nome'],
-    tipoPessoa: (r['Tipo pessoa']?.includes('ur') ? 'juridica' : 'fisica') as 'fisica' | 'juridica',
-    cpfCnpj: r['CNPJ / CPF']?.replace(/\D/g, '') || null,
-    sexo: (sexoMap[primeiroNome(r['Nome'])] ?? 'nao_identificado') as 'masculino' | 'feminino' | 'nao_identificado',
-    email: r['E-mail'] || null,
-    celular: r['Celular'] || null,
-    endereco: r['Endereço'] || null,
-    numero: r['Número'] || null,
-    complemento: r['Complemento'] || null,
-    bairro: r['Bairro'] || null,
-    cep: r['CEP'] || null,
-    cidade: r['Cidade'] || null,
-    uf: r['UF'] || null,
-  }))
+  const registros = transformarRegistros(rows, sexoMap)
   const BATCH_INSERT = 100
   let total = 0
   for (let i = 0; i < registros.length; i += BATCH_INSERT) {

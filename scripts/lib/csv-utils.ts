@@ -61,3 +61,40 @@ export function lerCSVBling(csvPath: string): Record<string, string>[] {
   const content = fs.readFileSync(csvPath, 'latin1')
   return parseCSV(content).filter(r => r['Nome'])
 }
+
+export type ClienteRegistro = {
+  nome: string
+  tipoPessoa: 'fisica' | 'juridica'
+  cpfCnpj: string | null
+  sexo: 'masculino' | 'feminino' | 'nao_identificado'
+  email: string | null
+  celular: string | null
+  endereco: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cep: string | null
+  cidade: string | null
+  uf: string | null
+}
+
+export function transformarRegistros(
+  rows: Record<string, string>[],
+  sexoMap: Record<string, 'masculino' | 'feminino' | 'nao_identificado'>
+): ClienteRegistro[] {
+  return rows.map(r => ({
+    nome: r['Nome'],
+    tipoPessoa: (r['Tipo pessoa']?.includes('ur') ? 'juridica' : 'fisica') as 'fisica' | 'juridica',
+    cpfCnpj: r['CNPJ / CPF']?.replace(/\D/g, '') || null,
+    sexo: (sexoMap[primeiroNome(r['Nome'])] ?? 'nao_identificado') as 'masculino' | 'feminino' | 'nao_identificado',
+    email: r['E-mail'] || null,
+    celular: r['Celular'] || null,
+    endereco: r['Endereço'] || null,
+    numero: r['Número'] || null,
+    complemento: r['Complemento'] || null,
+    bairro: r['Bairro'] || null,
+    cep: r['CEP'] || null,
+    cidade: r['Cidade'] || null,
+    uf: r['UF'] || null,
+  }))
+}
