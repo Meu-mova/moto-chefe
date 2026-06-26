@@ -99,16 +99,22 @@ export async function efetivarVendaAction(
     throw new Error('Sem permissão para efetivar venda')
   }
   const supabase = await createClient()
-  const { error } = await supabase.rpc('efetivar_venda', {
+  const { data: vendaId, error } = await supabase.rpc('efetivar_venda', {
     p_pedido_id: pedidoId,
     p_efetivado_por: usuario.id,
     p_cliente_nome: clienteNome,
     p_cliente_cpf: clienteCpf,
     p_valor: parseFloat(valor),
     p_forma_pagamento: formaPagamento,
-    p_cliente_id: clienteId ?? null,
   })
   if (error) throw new Error(error.message)
+  if (clienteId && vendaId) {
+    const { error: updateError } = await supabase
+      .from('vendas')
+      .update({ cliente_id: clienteId })
+      .eq('id', vendaId as string)
+    if (updateError) throw new Error(updateError.message)
+  }
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
