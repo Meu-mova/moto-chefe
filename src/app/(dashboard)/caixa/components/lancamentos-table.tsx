@@ -187,7 +187,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="py-1" />
             <TableHead className="py-1">
-              <Select value={filtros.tipo || 'todos'} onValueChange={v => setFiltro('tipo', v)}>
+              <Select value={filtros.tipo || 'todos'} onValueChange={v => setFiltro('tipo', v ?? '')}>
                 <SelectTrigger className="h-7 text-xs w-full">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
@@ -199,7 +199,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
               </Select>
             </TableHead>
             <TableHead className="py-1">
-              <Select value={filtros.categoria || 'todos'} onValueChange={v => setFiltro('categoria', v)}>
+              <Select value={filtros.categoria || 'todos'} onValueChange={v => setFiltro('categoria', v ?? '')}>
                 <SelectTrigger className="h-7 text-xs w-full">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
@@ -218,7 +218,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
               />
             </TableHead>
             <TableHead className="py-1">
-              <Select value={filtros.loja || 'todos'} onValueChange={v => setFiltro('loja', v)}>
+              <Select value={filtros.loja || 'todos'} onValueChange={v => setFiltro('loja', v ?? '')}>
                 <SelectTrigger className="h-7 text-xs w-full">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
@@ -231,7 +231,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
             <TableHead className="py-1" />
             <TableHead className="py-1" />
             <TableHead className="py-1">
-              <Select value={filtros.aprovacao || 'todos'} onValueChange={v => setFiltro('aprovacao', v)}>
+              <Select value={filtros.aprovacao || 'todos'} onValueChange={v => setFiltro('aprovacao', v ?? '')}>
                 <SelectTrigger className="h-7 text-xs w-full">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
