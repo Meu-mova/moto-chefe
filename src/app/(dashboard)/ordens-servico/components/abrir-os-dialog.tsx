@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { abrirOSAction } from '../actions'
+import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string }
 type Mecanico = { id: string; nome: string }
@@ -18,16 +19,34 @@ export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
   const [mecanicoId, setMecanicoId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [loading, setLoading] = useState(false)
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
+
+  function handleClienteSelect(id: string, nome: string, _cpfCnpj: string | null) {
+    setClienteId(id)
+    setClienteSelecionado({ id, nome })
+  }
+
+  function handleClienteClear() {
+    setClienteId(null)
+    setClienteSelecionado(null)
+  }
+
+  function resetForm() {
+    setMotoId('')
+    setMecanicoId('')
+    setDescricao('')
+    setClienteId(null)
+    setClienteSelecionado(null)
+  }
 
   async function handleAbrir() {
     if (!motoId || !descricao) return
     setLoading(true)
     try {
-      await abrirOSAction(motoId, mecanicoId || null, descricao)
+      await abrirOSAction(motoId, mecanicoId || null, descricao, clienteId)
       setOpen(false)
-      setMotoId('')
-      setMecanicoId('')
-      setDescricao('')
+      resetForm()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao abrir OS')
     } finally {
@@ -35,12 +54,17 @@ export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
     }
   }
 
+  function handleOpenChange(value: boolean) {
+    setOpen(value)
+    if (!value) resetForm()
+  }
+
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(papel)) return null
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>Abrir OS</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent>
           <DialogHeader><DialogTitle>Nova Ordem de Serviço</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -69,6 +93,14 @@ export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
               </Select>
             </div>
             <div className="space-y-2">
+              <ClienteBusca
+                label="Cliente (opcional)"
+                clienteSelecionado={clienteSelecionado}
+                onSelect={handleClienteSelect}
+                onClear={handleClienteClear}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Descrição</Label>
               <Textarea
                 value={descricao}
@@ -78,7 +110,7 @@ export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
             <Button onClick={handleAbrir} disabled={loading || !motoId || !descricao}>
               {loading ? 'Abrindo...' : 'Abrir OS'}
             </Button>

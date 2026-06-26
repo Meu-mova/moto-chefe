@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache'
 export async function abrirOSAction(
   motoId: string,
   mecanicoId: string | null,
-  descricao: string
+  descricao: string,
+  clienteId?: string | null
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
@@ -16,7 +17,7 @@ export async function abrirOSAction(
     throw new Error('Usuário sem loja associada')
   }
   const supabase = await createClient()
-  const { error } = await supabase.rpc('abrir_ordem_servico', {
+  const { data: osId, error } = await supabase.rpc('abrir_ordem_servico', {
     p_moto_id: motoId,
     p_loja_id: usuario.lojaId,
     p_aberta_por: usuario.id,
@@ -24,6 +25,13 @@ export async function abrirOSAction(
     p_descricao: descricao,
   })
   if (error) throw new Error(error.message)
+  if (clienteId && osId) {
+    const { error: updateError } = await supabase
+      .from('ordens_servico')
+      .update({ cliente_id: clienteId })
+      .eq('id', osId as string)
+    if (updateError) throw new Error(updateError.message)
+  }
   revalidatePath('/ordens-servico')
   revalidatePath(`/estoque/${motoId}`)
 }
