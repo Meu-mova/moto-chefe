@@ -32,6 +32,8 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
   function handleClienteClear() {
     setClienteId(null)
     setClienteSelecionado(null)
+    setClienteNome('')
+    setClienteCpf('')
   }
 
   async function handleEfetivar() {

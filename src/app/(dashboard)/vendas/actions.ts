@@ -106,11 +106,9 @@ export async function efetivarVendaAction(
     p_cliente_cpf: clienteCpf,
     p_valor: parseFloat(valor),
     p_forma_pagamento: formaPagamento,
+    p_cliente_id: clienteId ?? null,
   })
   if (error) throw new Error(error.message)
-  if (clienteId) {
-    await db.update(vendas).set({ clienteId }).where(eq(vendas.pedidoVendaId, pedidoId))
-  }
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
