@@ -8,22 +8,37 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { efetivarVendaAction } from '../actions'
+import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
 
 type Props = { pedidoId: string; chassi: string; modelo: string }
 
 export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
   const [open, setOpen] = useState(false)
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [clienteNome, setClienteNome] = useState('')
   const [clienteCpf, setClienteCpf] = useState('')
   const [valor, setValor] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('')
   const [loading, setLoading] = useState(false)
 
+  function handleClienteSelect(id: string, nome: string, cpfCnpj: string | null) {
+    setClienteId(id)
+    setClienteSelecionado({ id, nome })
+    setClienteNome(nome)
+    setClienteCpf(cpfCnpj ?? '')
+  }
+
+  function handleClienteClear() {
+    setClienteId(null)
+    setClienteSelecionado(null)
+  }
+
   async function handleEfetivar() {
     if (!clienteNome || !clienteCpf || !valor || !formaPagamento) return
     setLoading(true)
     try {
-      await efetivarVendaAction(pedidoId, clienteNome, clienteCpf, valor, formaPagamento)
+      await efetivarVendaAction(pedidoId, clienteNome, clienteCpf, valor, formaPagamento, clienteId ?? undefined)
       setOpen(false)
     } catch (e: any) {
       toast.error(e.message)
@@ -39,6 +54,14 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
         <DialogContent>
           <DialogHeader><DialogTitle>Efetivar Venda — {modelo} ({chassi})</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Cliente (opcional — busque pelo nome ou CPF/CNPJ)</Label>
+              <ClienteBusca
+                onSelect={handleClienteSelect}
+                clienteSelecionado={clienteSelecionado}
+                onClear={handleClienteClear}
+              />
+            </div>
             <div className="space-y-2">
               <Label>Nome do Cliente</Label>
               <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder="Nome completo" />

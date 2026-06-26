@@ -91,7 +91,8 @@ export async function efetivarVendaAction(
   clienteNome: string,
   clienteCpf: string,
   valor: string,
-  formaPagamento: string
+  formaPagamento: string,
+  clienteId?: string
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
@@ -107,6 +108,9 @@ export async function efetivarVendaAction(
     p_forma_pagamento: formaPagamento,
   })
   if (error) throw new Error(error.message)
+  if (clienteId) {
+    await db.update(vendas).set({ clienteId }).where(eq(vendas.pedidoVendaId, pedidoId))
+  }
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
