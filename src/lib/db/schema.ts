@@ -18,6 +18,8 @@ export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada
 export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
 export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda'])
 export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
+export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
+export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {
@@ -135,6 +137,7 @@ export const vendas = pgTable('vendas', {
   notaFiscalSaida: text('nota_fiscal_saida'),
   statusConciliacao: text('status_conciliacao').notNull().default('pendente'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
+  clienteId: uuid('cliente_id').references(() => clientes.id),
 })
 
 // ─── transferencias ──────────────────────────────────────────────────────────
@@ -178,6 +181,7 @@ export const ordensServico = pgTable('ordens_servico', {
   descricao: text('descricao').notNull(),
   dataAbertura: timestamp('data_abertura', { withTimezone: true }).notNull().defaultNow(),
   dataConclusao: timestamp('data_conclusao', { withTimezone: true }),
+  clienteId: uuid('cliente_id').references(() => clientes.id),
 })
 
 // ─── garantias ───────────────────────────────────────────────────────────────
@@ -290,6 +294,26 @@ export const demandas = pgTable('demandas', {
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   solicitanteId: uuid('solicitante_id').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── clientes ────────────────────────────────────────────────────────────────
+export const clientes = pgTable('clientes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  tipoPessoa: tipoPessoaEnum('tipo_pessoa').notNull().default('fisica'),
+  cpfCnpj: text('cpf_cnpj').unique(),
+  sexo: sexoEnum('sexo').notNull().default('nao_identificado'),
+  email: text('email'),
+  celular: text('celular'),
+  endereco: text('endereco'),
+  numero: text('numero'),
+  complemento: text('complemento'),
+  bairro: text('bairro'),
+  cep: text('cep'),
+  cidade: text('cidade'),
+  uf: text('uf'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── simulador_precos ─────────────────────────────────────────────────────────
