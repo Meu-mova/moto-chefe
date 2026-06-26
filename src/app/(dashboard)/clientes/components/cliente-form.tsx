@@ -103,7 +103,10 @@ export function ClienteForm({ trigger, clienteInicial }: Props) {
       <div onClick={handleOpen} className="inline-flex cursor-pointer">
         {trigger}
       </div>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => {
+        setOpen(v)
+        if (!v && !clienteInicial) setForm(FORM_VAZIO)
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>

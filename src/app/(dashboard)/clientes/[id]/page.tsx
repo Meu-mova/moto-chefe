@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { getUsuarioLogado } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buscarClientePorIdAction, buscarHistoricoClienteAction } from '../actions'
@@ -46,6 +47,9 @@ const osStatusVariant: Record<string, 'outline' | 'secondary' | 'default'> = {
 
 export default async function ClienteDetalhePage({ params }: Props) {
   const { id } = await params
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') redirect('/dashboard')
+
   const cliente = await buscarClientePorIdAction(id)
   if (!cliente) notFound()
 
