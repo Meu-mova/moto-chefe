@@ -8,6 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag,
   Wallet, BarChart3, Home, Package, PackagePlus, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, Tag, CreditCard, ClipboardList, Users,
+  Radar,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -18,6 +19,7 @@ const baseNavItems = [
   { href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench         },
   { href: '/garantias',      label: 'Garantias',         icon: Shield         },
   { href: '/simulador',      label: 'Simulador',         icon: Calculator     },
+  { href: '/radar',          label: 'RADAR',             icon: Radar          },
 ]
 
 const adminPapeis = ['admin_geral', 'admin_socio']
