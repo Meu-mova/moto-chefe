@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
-import { eq, ilike, or, and, desc, SQL } from 'drizzle-orm'
+import { eq, ilike, or, and, desc, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -25,14 +25,20 @@ function limparCpfCnpj(v?: string | null) {
   return v?.replace(/\D/g, '') || null
 }
 
+const PAGE_SIZE = 50
+
 export async function listarClientesAction(params: {
   busca?: string
   tipoPessoa?: string
   sexo?: string
   cidade?: string
+  page?: number
 }) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+
+  const page = Math.max(1, params.page ?? 1)
+  const offset = (page - 1) * PAGE_SIZE
 
   const conds: SQL[] = []
   if (params.busca) {
@@ -52,10 +58,18 @@ export async function listarClientesAction(params: {
     conds.push(eq(clientes.cidade, params.cidade))
   }
 
-  return db.select().from(clientes)
-    .where(conds.length > 0 ? and(...conds) : undefined)
-    .orderBy(clientes.nome)
-    .limit(200)
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  const [rows, [{ total }]] = await Promise.all([
+    db.select().from(clientes)
+      .where(where)
+      .orderBy(clientes.nome)
+      .limit(PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: sql<number>`count(*)::int` }).from(clientes).where(where),
+  ])
+
+  return { clientes: rows, total, page, pageSize: PAGE_SIZE }
 }
 
 export async function buscarClientesAction(termo: string) {

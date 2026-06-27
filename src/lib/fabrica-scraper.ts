@@ -127,6 +127,65 @@ export async function loginFabrica(): Promise<FabricaSession> {
   return { cookie: finalCookie }
 }
 
+// "25/06/2026 11:57" → "2026-06-25"
+function parseFabricaDate(dateStr: string): string {
+  const [datePart] = dateStr.trim().split(' ')
+  const [day, month, year] = datePart.split('/')
+  return `${year}-${month}-${day}`
+}
+
+export async function listarPedidosGarantiaFabrica(
+  session: FabricaSession,
+): Promise<{ numeroPedido: string; dataAbertura: string }[]> {
+  const resp = await fetch(`${BASE}/clientes/trocas`, {
+    headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+  })
+  const html = await resp.text()
+
+  // Extrai números de pedido pelos links para /trocas/detalhes/NUMBER
+  const numerosLinks = [...html.matchAll(/\/trocas\/detalhes\/(\d+)/g)].map(m => m[1])
+  const numeros = [...new Set(numerosLinks)]
+
+  // Extrai todas as datas no formato DD/MM/YYYY HH:MM presentes na página
+  const datas = [...html.matchAll(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/g)].map(m => m[1])
+
+  console.log('[fabrica-v2] status:', resp.status, '| numeros:', numeros.slice(0, 5), '| datas:', datas.slice(0, 3))
+  // Contexto ao redor de "detalhes" para ver o padrão de URL real
+  const idxDet = html.indexOf('detalhes')
+  if (idxDet >= 0) console.log('[fabrica-v2] ctx detalhes:', JSON.stringify(html.substring(idxDet - 50, idxDet + 80)))
+  else console.log('[fabrica-v2] "detalhes" NÃO encontrado no HTML')
+
+  return numeros.map((num, i) => ({
+    numeroPedido: num,
+    dataAbertura: datas[i] ? parseFabricaDate(datas[i]) : new Date().toISOString().split('T')[0],
+  }))
+}
+
+export async function buscarDetalhePedidoGarantia(
+  session: FabricaSession,
+  numeroPedido: string,
+): Promise<{ chassi: string | null; peca: string | null; status: string | null }> {
+  const resp = await fetch(`${BASE}/clientes/trocas/detalhes/${numeroPedido}`, {
+    headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+    redirect: 'follow',
+  })
+  const html = await resp.text()
+
+  const chassi = html
+    .match(/<p class="text-gray-400 text-sm">Chassi<\/p>\s*<p class="text-white">([^<]+)<\/p>/)?.[1]
+    ?.trim() ?? null
+
+  const peca = html
+    .match(/<h3 class="text-white font-semibold text-lg mb-2">\s*([^<]+?)\s*<\/h3>/)?.[1]
+    ?.trim() ?? null
+
+  const status = html
+    .match(/rounded-lg text-sm font-semibold[^>]*>\s*([^<\n]+?)\s*<\/span>/)?.[1]
+    ?.trim() ?? null
+
+  return { chassi, peca, status }
+}
+
 export async function buscarStatusGarantiaFabrica(
   session: FabricaSession,
   numeroPedido: string,

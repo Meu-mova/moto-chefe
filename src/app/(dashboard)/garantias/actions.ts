@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
 import { eq, isNotNull } from 'drizzle-orm'
-import { loginFabrica, buscarStatusGarantiaFabrica } from '@/lib/fabrica-scraper'
+import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 
 export async function abrirGarantiaAction(params: {
   motoId: string
@@ -86,6 +86,77 @@ export async function sincronizarFabricaAction() {
 
   revalidatePath('/garantias')
   return { atualizadas, erros }
+}
+
+export async function importarUltimaGarantiaFabricaAction(): Promise<{
+  resultado: 'importada' | 'ja_existe' | 'nenhum_chassi_encontrado' | 'lista_vazia'
+  chassi?: string
+  numeroPedido?: string
+}> {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const session = await loginFabrica()
+
+  const lista = await listarPedidosGarantiaFabrica(session)
+  if (lista.length === 0) return { resultado: 'lista_vazia' }
+
+  const supabase = await createClient()
+
+  // Itera pelos pedidos do mais recente ao mais antigo até achar um chassi no nosso sistema
+  for (const { numeroPedido, dataAbertura } of lista) {
+    // Pula se já existe no sistema
+    const [jaExiste] = await db
+      .select({ id: garantias.id })
+      .from(garantias)
+      .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+      .limit(1)
+    if (jaExiste) return { resultado: 'ja_existe', numeroPedido }
+
+    const { chassi, peca, status } = await buscarDetalhePedidoGarantia(session, numeroPedido)
+    if (!chassi) continue
+
+    // Busca moto pelo chassi — cobre showroom (status disponivel/montada/etc) e vendidas
+    const [moto] = await db
+      .select({ id: motos.id, lojaId: motos.lojaId })
+      .from(motos)
+      .where(eq(motos.chassi, chassi))
+      .limit(1)
+    if (!moto) continue
+
+    // Encontrou — importa
+    const inicio = new Date(dataAbertura)
+    const fim = new Date(inicio)
+    fim.setDate(fim.getDate() + 30)
+    const dataFim = fim.toISOString().split('T')[0]
+
+    const { error } = await supabase.rpc('abrir_garantia', {
+      p_moto_id: moto.id,
+      p_loja_id: moto.lojaId,
+      p_aberta_por: usuario.id,
+      p_os_id: null,
+      p_descricao: peca ?? `Pedido fábrica #${numeroPedido}`,
+      p_data_inicio: dataAbertura,
+      p_data_fim: dataFim,
+      p_data_pedido_peca: null,
+      p_numero_pedido_fabrica: numeroPedido,
+    })
+    if (error) throw new Error(error.message)
+
+    if (status) {
+      await db
+        .update(garantias)
+        .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
+        .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+    }
+
+    revalidatePath('/garantias')
+    return { resultado: 'importada', chassi, numeroPedido }
+  }
+
+  return { resultado: 'nenhum_chassi_encontrado' }
 }
 
 export async function encerrarGarantiaAction(garantiaId: string, observacao?: string, dataEncerramento?: string) {

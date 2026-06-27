@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
@@ -12,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
+function buildUrl(params: Record<string, string | undefined>, overrides: Record<string, string>) {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries({ ...params, ...overrides })) {
+    if (v) p.set(k, v)
+  }
+  return `/clientes?${p.toString()}`
+}
 
 export default async function ClientesPage({
   searchParams,
@@ -30,16 +39,23 @@ export default async function ClientesPage({
   }
 
   const isAdmin = usuario.papel === 'admin_geral'
+  const pagina = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
 
-  const [lista, cidades] = await Promise.all([
+  const [resultado, cidades] = await Promise.all([
     listarClientesAction({
       busca: params.busca,
       tipoPessoa: params.tipoPessoa,
       sexo: params.sexo,
       cidade: params.cidade,
+      page: pagina,
     }),
     listarCidadesAction(),
   ])
+
+  const { clientes: lista, total, pageSize } = resultado
+  const totalPaginas = Math.max(1, Math.ceil(total / pageSize))
+  const inicio = (pagina - 1) * pageSize + 1
+  const fim = Math.min(pagina * pageSize, total)
 
   return (
     <div className="space-y-6">
@@ -118,10 +134,33 @@ export default async function ClientesPage({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">
-            {lista.length} cliente{lista.length !== 1 ? 's' : ''} encontrado{lista.length !== 1 ? 's' : ''}
+            {total === 0
+              ? 'Nenhum cliente encontrado'
+              : `${inicio}–${fim} de ${total} cliente${total !== 1 ? 's' : ''}`}
           </CardTitle>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-2">
+              {pagina <= 1 ? (
+                <Button variant="outline" size="sm" disabled>Anterior</Button>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={buildUrl(params, { page: String(pagina - 1) })}>Anterior</Link>
+                </Button>
+              )}
+              <span className="text-sm text-slate-500">
+                Página {pagina} de {totalPaginas}
+              </span>
+              {pagina >= totalPaginas ? (
+                <Button variant="outline" size="sm" disabled>Próxima</Button>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={buildUrl(params, { page: String(pagina + 1) })}>Próxima</Link>
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <ClientesTable clientes={lista} isAdmin={isAdmin} />
