@@ -50,6 +50,7 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
+  blingCodigo: text('bling_codigo'),
 })
 
 // ─── motos ───────────────────────────────────────────────────────────────────
@@ -337,6 +338,15 @@ export const comunicados = pgTable('comunicados', {
   dataPostagem: timestamp('data_postagem', { withTimezone: true }),
   criadoPorId: uuid('criado_por_id').references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── bling_config (singleton) ────────────────────────────────────────────────
+export const blingConfig = pgTable('bling_config', {
+  id: integer('id').primaryKey().default(1),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── comunicados_lidos ───────────────────────────────────────────────────────

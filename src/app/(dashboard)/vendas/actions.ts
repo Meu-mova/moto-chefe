@@ -304,6 +304,93 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
   revalidatePath('/estoque')
 }
 
+// ─── Emitir NF-e no Bling ───────────────────────────────────────────────────
+
+export async function emitirNFBlingAction(motoId: string): Promise<void> {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão para emitir NF')
+  }
+
+  const [venda] = await db
+    .select({
+      id: vendas.id,
+      valor: vendas.valor,
+      formaPagamento: vendas.formaPagamento,
+      pagamentos: vendas.pagamentos,
+      clienteNome: vendas.clienteNome,
+      clienteCpf: vendas.clienteCpf,
+      clienteCelular: vendas.clienteCelular,
+      clienteEmail: vendas.clienteEmail,
+      clienteCep: vendas.clienteCep,
+      clienteLogradouro: vendas.clienteLogradouro,
+      clienteNumero: vendas.clienteNumero,
+      clienteComplemento: vendas.clienteComplemento,
+      clienteBairro: vendas.clienteBairro,
+      clienteCidade: vendas.clienteCidade,
+      clienteEstado: vendas.clienteEstado,
+    })
+    .from(vendas)
+    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+
+  const [motoRow] = await db
+    .select({ chassi: motos.chassi, modeloId: motos.modeloId })
+    .from(motos)
+    .where(eq(motos.id, motoId))
+    .limit(1)
+
+  if (!motoRow) throw new Error('Moto não encontrada')
+
+  const [modelo] = await db
+    .select({ marca: modelos.marca, modelo: modelos.modelo, blingCodigo: modelos.blingCodigo })
+    .from(modelos)
+    .where(eq(modelos.id, motoRow.modeloId))
+    .limit(1)
+
+  if (!modelo) throw new Error('Modelo não encontrado')
+  if (!modelo.blingCodigo) {
+    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.`)
+  }
+
+  const { emitirNFe } = await import('@/lib/bling')
+  const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
+
+  const numeroNF = await emitirNFe({
+    clienteNome: venda.clienteNome,
+    clienteCpf: venda.clienteCpf,
+    clienteCelular: venda.clienteCelular,
+    clienteEmail: venda.clienteEmail,
+    clienteCep: venda.clienteCep,
+    clienteLogradouro: venda.clienteLogradouro,
+    clienteNumero: venda.clienteNumero,
+    clienteComplemento: venda.clienteComplemento,
+    clienteBairro: venda.clienteBairro,
+    clienteCidade: venda.clienteCidade,
+    clienteEstado: venda.clienteEstado,
+    valor: venda.valor,
+    pagamentos,
+    blingCodigo: modelo.blingCodigo,
+    descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
+    chassi: motoRow.chassi,
+  })
+
+  await db.transaction(async (tx) => {
+    await tx.update(vendas)
+      .set({ notaFiscalSaida: numeroNF })
+      .where(eq(vendas.id, venda.id))
+    await tx.update(motos)
+      .set({ disponibilidade: 'vendida' as any })
+      .where(eq(motos.id, motoId))
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+}
+
 // ─── Cancelar Venda ─────────────────────────────────────────────────────────
 
 export async function cancelarVendaCompletaAction(vendaId: string, motivo: string) {

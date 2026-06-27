@@ -1,11 +1,11 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { FileCheck } from 'lucide-react'
+import { Zap, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { confirmarNFSaidaAction } from '../../vendas/actions'
+import { confirmarNFSaidaAction, emitirNFBlingAction } from '../../vendas/actions'
 
 type Props = {
   motoId: string
@@ -13,47 +13,73 @@ type Props = {
 }
 
 export function NfSaidaButton({ motoId, descricao }: Props) {
-  const [aberto, setAberto] = useState(false)
+  const [modalManual, setModalManual] = useState(false)
   const [nf, setNf] = useState('')
   const [erro, setErro] = useState('')
-  const [pending, startTransition] = useTransition()
+  const [pendingManual, startManual] = useTransition()
+  const [pendingBling, startBling] = useTransition()
 
-  function abrir() {
+  function abrirManual() {
     setNf('')
     setErro('')
-    setAberto(true)
+    setModalManual(true)
   }
 
-  function confirmar() {
-    if (!nf.trim()) {
-      setErro('Informe o número da NF')
-      return
-    }
+  function confirmarManual() {
+    if (!nf.trim()) { setErro('Informe o número da NF'); return }
     setErro('')
-    startTransition(async () => {
+    startManual(async () => {
       try {
         await confirmarNFSaidaAction(motoId, nf.trim())
-        setAberto(false)
+        setModalManual(false)
       } catch (e: any) {
         setErro(e.message ?? 'Erro ao confirmar NF')
       }
     })
   }
 
+  function emitirBling() {
+    setErro('')
+    startBling(async () => {
+      try {
+        await emitirNFBlingAction(motoId)
+      } catch (e: any) {
+        setErro(e.message ?? 'Erro ao emitir NF no Bling')
+      }
+    })
+  }
+
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={abrir}
-        className="h-8 gap-1.5 text-xs border-teal-300 text-teal-700 hover:bg-teal-50"
-        title="Inserir NF de saída"
-      >
-        <FileCheck size={14} />
-        NF Saída
-      </Button>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Button
+          size="sm"
+          onClick={emitirBling}
+          disabled={pendingBling || pendingManual}
+          className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          title="Emitir NF-e automaticamente no Bling"
+        >
+          <Zap size={13} />
+          {pendingBling ? 'Emitindo…' : 'Emitir no Bling'}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={abrirManual}
+          disabled={pendingBling || pendingManual}
+          className="h-8 gap-1 text-xs border-slate-300 text-slate-600"
+          title="Inserir número de NF manualmente"
+        >
+          <Pencil size={12} />
+          Manual
+        </Button>
+      </div>
 
-      <Dialog open={aberto} onOpenChange={setAberto}>
+      {erro && !modalManual && (
+        <p className="text-xs text-red-600 mt-1 max-w-xs">{erro}</p>
+      )}
+
+      <Dialog open={modalManual} onOpenChange={setModalManual}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Inserir NF de Saída</DialogTitle>
@@ -66,7 +92,7 @@ export function NfSaidaButton({ motoId, descricao }: Props) {
               id="nf-input"
               value={nf}
               onChange={e => setNf(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && confirmar()}
+              onKeyDown={e => e.key === 'Enter' && confirmarManual()}
               placeholder="Ex: 001234"
               autoFocus
             />
@@ -74,11 +100,11 @@ export function NfSaidaButton({ motoId, descricao }: Props) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAberto(false)} disabled={pending}>
+            <Button variant="outline" onClick={() => setModalManual(false)} disabled={pendingManual}>
               Cancelar
             </Button>
-            <Button onClick={confirmar} disabled={pending || !nf.trim()}>
-              {pending ? 'Confirmando…' : 'Confirmar e Finalizar'}
+            <Button onClick={confirmarManual} disabled={pendingManual || !nf.trim()}>
+              {pendingManual ? 'Confirmando…' : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>

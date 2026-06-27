@@ -35,3 +35,11 @@ export async function editarModeloAction(id: string, formData: FormData) {
   }).where(eq(modelos.id, id))
   revalidatePath('/admin/modelos')
 }
+
+export async function atualizarBlingCodigoAction(id: string, blingCodigo: string) {
+  await assertAdmin()
+  await db.update(modelos)
+    .set({ blingCodigo: blingCodigo || null })
+    .where(eq(modelos.id, id))
+  revalidatePath('/admin/modelos')
+}
