@@ -1,5 +1,5 @@
 import { AdminGuard } from '../components/admin-guard'
-import { getBlingStatusAction, getBlingAuthUrlAction } from './actions'
+import { getBlingStatusAction } from './actions'
 import { BlingConnectButton } from './components/bling-connect-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, XCircle, FileText } from 'lucide-react'
@@ -8,8 +8,7 @@ import { ptBR } from 'date-fns/locale'
 
 export default async function BlingPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
   const params = await searchParams
-  const status  = await getBlingStatusAction()
-  const authUrl = await getBlingAuthUrlAction()
+  const status = await getBlingStatusAction()
 
   return (
     <AdminGuard>
@@ -56,7 +55,7 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
               </div>
             </div>
 
-            <BlingConnectButton conectado={status.conectado} authUrl={authUrl} />
+            <BlingConnectButton conectado={status.conectado} />
           </CardContent>
         </Card>
 

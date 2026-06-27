@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { blingConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getBlingStatus, blingAuthUrl } from '@/lib/bling'
+import { getBlingStatus } from '@/lib/bling'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -14,11 +14,6 @@ async function assertAdmin() {
 export async function getBlingStatusAction() {
   await assertAdmin()
   return getBlingStatus()
-}
-
-export async function getBlingAuthUrlAction(): Promise<string> {
-  await assertAdmin()
-  return blingAuthUrl('mova-bling')
 }
 
 export async function desconectarBlingAction() {

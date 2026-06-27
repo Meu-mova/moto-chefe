@@ -4,15 +4,15 @@ import { desconectarBlingAction } from '../actions'
 import { useTransition } from 'react'
 import { Plug, PlugZap } from 'lucide-react'
 
-type Props = { conectado: boolean; authUrl: string }
+type Props = { conectado: boolean }
 
-export function BlingConnectButton({ conectado, authUrl }: Props) {
+export function BlingConnectButton({ conectado }: Props) {
   const [pending, start] = useTransition()
 
   if (conectado) {
     return (
       <div className="flex gap-2">
-        <a href={authUrl}>
+        <a href="/api/bling/connect">
           <Button variant="outline" size="sm" className="gap-1.5">
             <PlugZap size={15} /> Reconectar
           </Button>
@@ -31,7 +31,7 @@ export function BlingConnectButton({ conectado, authUrl }: Props) {
   }
 
   return (
-    <a href={authUrl}>
+    <a href="/api/bling/connect">
       <Button size="sm" className="gap-1.5">
         <Plug size={15} /> Conectar ao Bling
       </Button>
