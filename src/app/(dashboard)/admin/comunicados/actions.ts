@@ -19,14 +19,20 @@ export async function listarComunicadosAction() {
       titulo: comunicados.titulo,
       conteudo: comunicados.conteudo,
       ativo: comunicados.ativo,
+      dataPostagem: comunicados.dataPostagem,
       criadoEm: comunicados.criadoEm,
       totalLidos: sql<number>`(SELECT COUNT(*) FROM comunicados_lidos WHERE comunicado_id = ${comunicados.id})::int`,
     })
     .from(comunicados)
-    .orderBy(sql`${comunicados.criadoEm} DESC`)
+    .orderBy(sql`COALESCE(${comunicados.dataPostagem}, ${comunicados.criadoEm}) DESC`)
 }
 
-export async function criarComunicadoAction(dados: { titulo: string; conteudo: string; ativo: boolean }) {
+export async function criarComunicadoAction(dados: {
+  titulo: string
+  conteudo: string
+  ativo: boolean
+  dataPostagem: string | null
+}) {
   const u = await requireAdmin()
   if (!dados.titulo.trim()) throw new Error('Título obrigatório')
   if (!dados.conteudo.trim()) throw new Error('Conteúdo obrigatório')
@@ -34,8 +40,30 @@ export async function criarComunicadoAction(dados: { titulo: string; conteudo: s
     titulo: dados.titulo.trim(),
     conteudo: dados.conteudo.trim(),
     ativo: dados.ativo,
+    dataPostagem: dados.dataPostagem ? new Date(dados.dataPostagem) : null,
     criadoPorId: u.id,
   })
+  revalidatePath('/admin/comunicados')
+  revalidatePath('/', 'layout')
+}
+
+export async function importarComunicadosAction(itens: {
+  titulo: string
+  conteudo: string
+  ativo: boolean
+  dataPostagem: string | null
+}[]) {
+  const u = await requireAdmin()
+  if (!itens.length) throw new Error('Nenhum item para importar')
+  await db.insert(comunicados).values(
+    itens.map(i => ({
+      titulo: i.titulo.trim(),
+      conteudo: i.conteudo.trim(),
+      ativo: i.ativo,
+      dataPostagem: i.dataPostagem ? new Date(i.dataPostagem) : null,
+      criadoPorId: u.id,
+    }))
+  )
   revalidatePath('/admin/comunicados')
   revalidatePath('/', 'layout')
 }
@@ -71,10 +99,11 @@ export async function buscarComunicadosNaoLidosAction() {
     .where(
       and(
         eq(comunicados.ativo, true),
+        sql`(${comunicados.dataPostagem} IS NULL OR ${comunicados.dataPostagem} <= now())`,
         sql`${comunicados.id} NOT IN (
           SELECT comunicado_id FROM comunicados_lidos WHERE usuario_id = ${u.id}
         )`
       )
     )
-    .orderBy(comunicados.criadoEm)
+    .orderBy(sql`COALESCE(${comunicados.dataPostagem}, ${comunicados.criadoEm})`)
 }

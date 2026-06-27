@@ -2,6 +2,7 @@ import { AdminGuard } from '../components/admin-guard'
 import { listarComunicadosAction } from './actions'
 import { ComunicadoForm } from './components/comunicado-form'
 import { ComunicadosTable } from './components/comunicados-table'
+import { ImportarCsv } from './components/importar-csv'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function ComunicadosPage() {
@@ -21,6 +22,15 @@ export default async function ComunicadosPage() {
           </CardHeader>
           <CardContent>
             <ComunicadoForm />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Importar via CSV</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImportarCsv />
           </CardContent>
         </Card>
 

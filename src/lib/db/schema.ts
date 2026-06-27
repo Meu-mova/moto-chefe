@@ -334,6 +334,7 @@ export const comunicados = pgTable('comunicados', {
   titulo: text('titulo').notNull(),
   conteudo: text('conteudo').notNull(),
   ativo: boolean('ativo').notNull().default(true),
+  dataPostagem: timestamp('data_postagem', { withTimezone: true }),
   criadoPorId: uuid('criado_por_id').references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
