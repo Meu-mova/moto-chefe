@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer,
+  timestamp, date, numeric, jsonb, pgView, integer, primaryKey,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -327,3 +327,22 @@ export const simuladorPrecos = pgTable('simulador_precos', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── comunicados ─────────────────────────────────────────────────────────────
+export const comunicados = pgTable('comunicados', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  titulo: text('titulo').notNull(),
+  conteudo: text('conteudo').notNull(),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoPorId: uuid('criado_por_id').references(() => usuarios.id),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── comunicados_lidos ───────────────────────────────────────────────────────
+export const comunicadosLidos = pgTable('comunicados_lidos', {
+  comunicadoId: uuid('comunicado_id').notNull().references(() => comunicados.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  lidoEm: timestamp('lido_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.comunicadoId, t.usuarioId] }),
+}))
