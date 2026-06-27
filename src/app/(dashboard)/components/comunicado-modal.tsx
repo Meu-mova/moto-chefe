@@ -27,12 +27,8 @@ export function ComunicadoModal({ comunicados }: { comunicados: Comunicado[] }) 
   }
 
   return (
-    <Dialog open={aberto} onOpenChange={() => {}}>
-      <DialogContent
-        className="max-w-lg [&>button]:hidden"
-        onPointerDownOutside={e => e.preventDefault()}
-        onEscapeKeyDown={e => e.preventDefault()}
-      >
+    <Dialog open={aberto} onOpenChange={() => {}} disablePointerDismissal>
+      <DialogContent className="max-w-lg" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle className="text-lg">{atual.titulo}</DialogTitle>
           {comunicados.length > 1 && (
@@ -43,7 +39,7 @@ export function ComunicadoModal({ comunicados }: { comunicados: Comunicado[] }) 
           {atual.conteudo}
         </div>
         <DialogFooter>
-          <Button onClick={handleLido} disabled={loading} className="w-full">
+          <Button onClick={handleLido} disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Registrando...' : 'LIDO'}
           </Button>
         </DialogFooter>
