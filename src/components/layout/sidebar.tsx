@@ -5,9 +5,9 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import {
-  ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings, ShoppingBag,
-  Wallet, BarChart3, Home, Package, PackagePlus, QrCode, Calculator,
-  ChevronLeft, ChevronRight, Zap, Tag, CreditCard, ClipboardList, Users,
+  ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
+  Wallet, Home, Package, QrCode, Calculator,
+  ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
   Radar,
 } from 'lucide-react'
 
@@ -34,16 +34,12 @@ export function Sidebar({ papel }: Props) {
   const isAdmin = adminPapeis.includes(papel)
   const navItems = [
     ...baseNavItems,
-    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',      label: 'Caixa',      icon: Wallet     }] : []),
-    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/pix',        label: 'PIX',        icon: QrCode     }] : []),
-    ...(isAdmin ? [{ href: '/financeiro', label: 'Financeiro', icon: BarChart3  }] : []),
-    ...(isAdmin ? [{ href: '/entrada',    label: 'Entrada',    icon: PackagePlus }] : []),
-    ...(isAdmin ? [{ href: '/compras',    label: 'Compras',    icon: ShoppingBag }] : []),
-    ...(isAdmin ? [{ href: '/precificacao', label: 'Precificação', icon: Tag }] : []),
-    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao',  label: 'Conciliação',  icon: CreditCard }] : []),
-    ...(papel !== 'mecanico' ? [{ href: '/demandas', label: 'Demandas', icon: ClipboardList }] : []),
+    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',       label: 'Caixa',       icon: Wallet       }] : []),
+    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/pix',         label: 'PIX',         icon: QrCode       }] : []),
+    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao', label: 'Conciliação', icon: CreditCard   }] : []),
+    ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/clientes', label: 'Clientes', icon: Users }] : []),
-    ...(papel === 'admin_geral' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ]
 
   return (
