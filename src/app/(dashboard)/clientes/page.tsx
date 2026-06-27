@@ -4,7 +4,7 @@ import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
 import { ClienteForm } from './components/cliente-form'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -145,9 +145,7 @@ export default async function ClientesPage({
               {pagina <= 1 ? (
                 <Button variant="outline" size="sm" disabled>Anterior</Button>
               ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={buildUrl(params, { page: String(pagina - 1) })}>Anterior</Link>
-                </Button>
+                <Link href={buildUrl(params, { page: String(pagina - 1) })} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Anterior</Link>
               )}
               <span className="text-sm text-slate-500">
                 Página {pagina} de {totalPaginas}
@@ -155,9 +153,7 @@ export default async function ClientesPage({
               {pagina >= totalPaginas ? (
                 <Button variant="outline" size="sm" disabled>Próxima</Button>
               ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={buildUrl(params, { page: String(pagina + 1) })}>Próxima</Link>
-                </Button>
+                <Link href={buildUrl(params, { page: String(pagina + 1) })} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Próxima</Link>
               )}
             </div>
           )}
