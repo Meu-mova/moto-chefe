@@ -12,6 +12,7 @@ async function requireAdmin() {
 }
 
 export async function listarComunicadosAction() {
+  await requireAdmin()
   return db
     .select({
       id: comunicados.id,
@@ -62,7 +63,8 @@ export async function marcarComoLidoAction(comunicadoId: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function buscarComunicadosNaoLidosAction(usuarioId: string) {
+export async function buscarComunicadosNaoLidosAction() {
+  const u = await getUsuarioLogado()
   return db
     .select({ id: comunicados.id, titulo: comunicados.titulo, conteudo: comunicados.conteudo })
     .from(comunicados)
@@ -70,7 +72,7 @@ export async function buscarComunicadosNaoLidosAction(usuarioId: string) {
       and(
         eq(comunicados.ativo, true),
         sql`${comunicados.id} NOT IN (
-          SELECT comunicado_id FROM comunicados_lidos WHERE usuario_id = ${usuarioId}
+          SELECT comunicado_id FROM comunicados_lidos WHERE usuario_id = ${u.id}
         )`
       )
     )

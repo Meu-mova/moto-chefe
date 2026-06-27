@@ -7,7 +7,7 @@ import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
-  const comunicadosNaoLidos = await buscarComunicadosNaoLidosAction(usuario.id)
+  const comunicadosNaoLidos = await buscarComunicadosNaoLidosAction()
 
   return (
     <Providers>
