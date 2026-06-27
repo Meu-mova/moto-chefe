@@ -2,9 +2,13 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
+import { ComunicadoModal } from './components/comunicado-modal'
+import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
+  const comunicadosNaoLidos = await buscarComunicadosNaoLidosAction(usuario.id)
+
   return (
     <Providers>
       <div className="flex min-h-screen">
@@ -16,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </main>
         </div>
       </div>
+      <ComunicadoModal comunicados={comunicadosNaoLidos} />
     </Providers>
   )
 }
