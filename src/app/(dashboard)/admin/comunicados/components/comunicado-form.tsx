@@ -6,15 +6,30 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { criarComunicadoAction } from '../actions'
 
+const PAPEIS = [
+  { value: 'admin_geral',  label: 'Admin Geral' },
+  { value: 'admin_socio',  label: 'Admin / Sócio' },
+  { value: 'aux_adm',      label: 'Aux. Administrativo' },
+  { value: 'vendedor',     label: 'Vendedor' },
+  { value: 'mecanico',     label: 'Mecânico' },
+]
+
 export function ComunicadoForm() {
   const [titulo, setTitulo] = useState('')
   const [conteudo, setConteudo] = useState('')
   const [ativo, setAtivo] = useState(true)
   const [agendar, setAgendar] = useState(false)
   const [dataPostagem, setDataPostagem] = useState('')
+  const [papeisSelecionados, setPapeisSelecionados] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState(false)
+
+  function togglePapel(papel: string) {
+    setPapeisSelecionados(prev =>
+      prev.includes(papel) ? prev.filter(p => p !== papel) : [...prev, papel]
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -30,6 +45,7 @@ export function ComunicadoForm() {
         titulo,
         conteudo,
         ativo,
+        papeis: papeisSelecionados,
         dataPostagem: agendar ? dataPostagem : null,
       })
       setTitulo('')
@@ -37,6 +53,7 @@ export function ComunicadoForm() {
       setAtivo(true)
       setAgendar(false)
       setDataPostagem('')
+      setPapeisSelecionados([])
       setSucesso(true)
       setTimeout(() => setSucesso(false), 3000)
     } catch (e: any) {
@@ -66,6 +83,34 @@ export function ComunicadoForm() {
           placeholder="Escreva a mensagem completa..."
           required
         />
+      </div>
+
+      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
+        <p className="text-sm font-medium text-slate-700">Destinatários</p>
+        <p className="text-xs text-slate-500">
+          {papeisSelecionados.length === 0
+            ? 'Nenhuma função selecionada — enviará para todos os usuários'
+            : `Apenas: ${papeisSelecionados.map(p => PAPEIS.find(r => r.value === p)?.label ?? p).join(', ')}`}
+        </p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {PAPEIS.map(p => {
+            const selecionado = papeisSelecionados.includes(p.value)
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => togglePapel(p.value)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  selecionado
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
+                }`}
+              >
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="space-y-3 border rounded-lg p-3 bg-slate-50">

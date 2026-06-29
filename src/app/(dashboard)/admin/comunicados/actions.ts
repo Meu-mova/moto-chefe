@@ -19,6 +19,7 @@ export async function listarComunicadosAction() {
       titulo: comunicados.titulo,
       conteudo: comunicados.conteudo,
       ativo: comunicados.ativo,
+      papeis: comunicados.papeis,
       dataPostagem: comunicados.dataPostagem,
       criadoEm: comunicados.criadoEm,
       totalLidos: sql<number>`(SELECT COUNT(*) FROM comunicados_lidos WHERE comunicado_id = ${comunicados.id})::int`,
@@ -31,6 +32,7 @@ export async function criarComunicadoAction(dados: {
   titulo: string
   conteudo: string
   ativo: boolean
+  papeis: string[]
   dataPostagem: string | null
 }) {
   const u = await requireAdmin()
@@ -40,6 +42,7 @@ export async function criarComunicadoAction(dados: {
     titulo: dados.titulo.trim(),
     conteudo: dados.conteudo.trim(),
     ativo: dados.ativo,
+    papeis: dados.papeis,
     dataPostagem: dados.dataPostagem ? new Date(dados.dataPostagem) : null,
     criadoPorId: u.id,
   })
@@ -60,6 +63,7 @@ export async function importarComunicadosAction(itens: {
       titulo: i.titulo.trim(),
       conteudo: i.conteudo.trim(),
       ativo: i.ativo,
+      papeis: [] as string[],
       dataPostagem: i.dataPostagem ? new Date(i.dataPostagem) : null,
       criadoPorId: u.id,
     }))
@@ -100,6 +104,8 @@ export async function buscarComunicadosNaoLidosAction() {
       and(
         eq(comunicados.ativo, true),
         sql`(${comunicados.dataPostagem} IS NULL OR ${comunicados.dataPostagem} <= now())`,
+        // papeis vazio = para todos; senão filtra pelo papel do usuário
+        sql`(array_length(${comunicados.papeis}, 1) IS NULL OR ${u.papel} = ANY(${comunicados.papeis}))`,
         sql`${comunicados.id} NOT IN (
           SELECT comunicado_id FROM comunicados_lidos WHERE usuario_id = ${u.id}
         )`

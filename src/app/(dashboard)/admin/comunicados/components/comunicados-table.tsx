@@ -5,11 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Clock } from 'lucide-react'
 import { toggleAtivoAction, excluirComunicadoAction } from '../actions'
 
+const PAPEIS_LABEL: Record<string, string> = {
+  admin_geral: 'Admin Geral',
+  admin_socio: 'Admin/Sócio',
+  aux_adm: 'Aux. Adm.',
+  vendedor: 'Vendedor',
+  mecanico: 'Mecânico',
+}
+
 type Comunicado = {
   id: string
   titulo: string
   conteudo: string
   ativo: boolean
+  papeis: string[] | null
   dataPostagem: Date | null
   criadoEm: Date
   totalLidos: number
@@ -68,6 +77,11 @@ export function ComunicadosTable({ comunicados }: { comunicados: Comunicado[] })
                 <span className="text-xs text-slate-400">
                   · {c.totalLidos} confirmação{c.totalLidos !== 1 ? 'ões' : ''}
                 </span>
+                {c.papeis && c.papeis.length > 0 && (
+                  <span className="text-xs text-blue-600 font-medium">
+                    · {c.papeis.map(p => PAPEIS_LABEL[p] ?? p).join(', ')}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
