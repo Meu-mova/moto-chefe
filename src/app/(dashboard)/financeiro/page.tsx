@@ -134,8 +134,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         COUNT(DISTINCT v.id)::int AS qtd_vendas
       FROM ${vendas} v,
       LATERAL jsonb_to_recordset(COALESCE(v.pagamentos, '[]'::jsonb)) AS p(tipo text, valor numeric)
-      WHERE v.data_venda >= ${inicioTs}
-        AND v.data_venda < ${fimTs}
+      WHERE v.data_venda >= ${inicioTs.toISOString()}
+        AND v.data_venda < ${fimTs.toISOString()}
         ${lojaCondPagamento}
       GROUP BY p.tipo
       ORDER BY SUM(p.valor::numeric) DESC
