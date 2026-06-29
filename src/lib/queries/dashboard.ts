@@ -358,14 +358,14 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
       nome: usuarios.nome,
       loja: lojaVendedor.nome,
       totalVendas: count(),
-      faturamento: sum(vendas.valor),
+      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
     })
     .from(vendas)
     .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
     .leftJoin(lojaVendedor, eq(usuarios.lojaId, lojaVendedor.id))
     .where(and(...conditions))
     .groupBy(vendas.vendedorId, usuarios.nome, lojaVendedor.nome)
-    .orderBy(sql`sum(${vendas.valor}::numeric) DESC`)
+    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
 }
 
 export async function getModelosMaisVendidos(filtros: Filtros) {
