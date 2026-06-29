@@ -120,8 +120,9 @@ export default async function VendasPage({
       .orderBy(asc(usuarios.nome)),
   ])
 
-  const pendentes  = pedidos.filter(p => p.status === 'pendente')
-  const concStats  = podeConciliacao ? calcConcStats(vendasList) : null
+  const pendentes   = pedidos.filter(p => p.status === 'pendente')
+  const concStats   = podeConciliacao ? calcConcStats(vendasList) : null
+  const semNfSaida  = vendasList.filter(v => !v.notaFiscalSaida).length
 
   return (
     <div className="space-y-6">
@@ -155,27 +156,41 @@ export default async function VendasPage({
           Vendas Realizadas ({vendasList.length})
         </h2>
 
-        {concStats && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-              <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Pendentes</p>
-              <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
-              {concStats.valorPendente > 0 && (
-                <p className="text-xs text-red-500 mt-0.5">{fmt(concStats.valorPendente)} em aberto</p>
-              )}
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-              <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Parciais</p>
-              <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
-              {concStats.valorParcial > 0 && (
-                <p className="text-xs text-amber-500 mt-0.5">{fmt(concStats.valorParcial)} restante</p>
-              )}
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-              <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
-              <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
-              <p className="text-xs text-green-500 mt-0.5">sem pendências</p>
-            </div>
+        {(concStats || semNfSaida > 0) && (
+          <div className={`grid gap-3 ${concStats ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-1 max-w-xs'}`}>
+            {/* NF Saída pendente — sempre visível quando há pendências */}
+            {semNfSaida > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                <p className="text-xs font-medium text-orange-500 uppercase tracking-wide">Sem NF Saída</p>
+                <p className="text-2xl font-bold text-orange-700 mt-0.5">{semNfSaida}</p>
+                <p className="text-xs text-orange-500 mt-0.5">venda{semNfSaida !== 1 ? 's' : ''} sem nota fiscal</p>
+              </div>
+            )}
+
+            {/* Conciliação — apenas para admin/aux_adm */}
+            {concStats && (
+              <>
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Conc. Pendentes</p>
+                  <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
+                  {concStats.valorPendente > 0 && (
+                    <p className="text-xs text-red-500 mt-0.5">{fmt(concStats.valorPendente)} em aberto</p>
+                  )}
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Conc. Parciais</p>
+                  <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
+                  {concStats.valorParcial > 0 && (
+                    <p className="text-xs text-amber-500 mt-0.5">{fmt(concStats.valorParcial)} restante</p>
+                  )}
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                  <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
+                  <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
+                  <p className="text-xs text-green-500 mt-0.5">sem pendências</p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
