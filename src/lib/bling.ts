@@ -90,6 +90,25 @@ async function blingRequest(method: string, path: string, body?: unknown) {
   })
   if (!res.ok) {
     const texto = await res.text()
+    try {
+      const json = JSON.parse(texto)
+      const fields: { msg: string }[] = json?.error?.fields ?? []
+      if (fields.length > 0) {
+        const msgs = fields.map((f) => f.msg).join('; ')
+        const municipioErro = fields.some((f) => /municipio|munic/i.test(f.msg ?? ''))
+        if (municipioErro) {
+          throw new Error(
+            `${msgs}. Para corrigir: edite a venda, ajuste o campo Cidade para o nome exato do município (ex: "Poços de Caldas") e tente novamente. Se persistir, deixe o campo Cidade em branco.`
+          )
+        }
+        throw new Error(msgs)
+      }
+      if (json?.error?.message) {
+        throw new Error(json.error.message)
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message && !e.message.startsWith('Bling API')) throw e
+    }
     throw new Error(`Bling API ${method} ${path} → ${res.status}: ${texto}`)
   }
   return res.json()

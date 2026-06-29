@@ -45,27 +45,27 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   function criarNoBling() {
     setErro('')
     startTransition(async () => {
-      try {
-        const resultado = await criarRascunhoBlingAction(motoId)
-        setBlingUrl(resultado.url)
-        setEtapa('aguardando')
-        window.open(resultado.url, '_blank')
-      } catch (e: any) {
-        setErro(e.message ?? 'Erro ao criar NF-e no Bling')
+      const resultado = await criarRascunhoBlingAction(motoId)
+      if (!resultado.ok) {
+        setErro(resultado.error)
+        return
       }
+      setBlingUrl(resultado.url)
+      setEtapa('aguardando')
+      window.open(resultado.url, '_blank')
     })
   }
 
   function atualizarNoBling() {
     setErro('')
     startTransition(async () => {
-      try {
-        const resultado = await atualizarRascunhoBlingAction(motoId)
-        setBlingUrl(resultado.url)
-        window.open(resultado.url, '_blank')
-      } catch (e: any) {
-        setErro(e.message ?? 'Erro ao atualizar NF-e no Bling')
+      const resultado = await atualizarRascunhoBlingAction(motoId)
+      if (!resultado.ok) {
+        setErro(resultado.error)
+        return
       }
+      setBlingUrl(resultado.url)
+      window.open(resultado.url, '_blank')
     })
   }
 

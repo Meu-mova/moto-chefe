@@ -346,10 +346,11 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
 
 // ─── Criar rascunho NF-e no Bling (sem transmitir) ──────────────────────────
 
-export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingId: number; url: string }> {
+export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: true; blingId: number; url: string } | { ok: false; error: string }> {
+  try {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para emitir NF')
+    return { ok: false, error: 'Sem permissão para emitir NF' }
   }
 
   const [venda] = await db
@@ -376,11 +377,12 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingI
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
 
   // Rascunho já criado — retorna URL sem criar novo
   if (venda.blingNfeId) {
     return {
+      ok: true,
       blingId: Number(venda.blingNfeId),
       url: `https://www.bling.com.br/notas.fiscais.php#edit/${venda.blingNfeId}`,
     }
@@ -392,7 +394,7 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingI
     .where(eq(motos.id, motoId))
     .limit(1)
 
-  if (!motoRow) throw new Error('Moto não encontrada')
+  if (!motoRow) return { ok: false, error: 'Moto não encontrada' }
 
   const [modelo] = await db
     .select({
@@ -407,9 +409,9 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingI
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
 
-  if (!modelo) throw new Error('Modelo não encontrado')
+  if (!modelo) return { ok: false, error: 'Modelo não encontrado' }
   if (!modelo.blingCodigo) {
-    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.`)
+    return { ok: false, error: `Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.` }
   }
 
   const [vendedorRow] = await db
@@ -452,15 +454,19 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingI
     .set({ blingNfeId: String(resultado.blingId) })
     .where(eq(vendas.id, venda.id))
 
-  return resultado
+  return { ok: true, ...resultado }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message ?? 'Erro ao criar rascunho no Bling' }
+  }
 }
 
 // ─── Atualizar rascunho NF-e existente no Bling ─────────────────────────────
 
-export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ blingId: number; url: string }> {
+export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok: true; blingId: number; url: string } | { ok: false; error: string }> {
+  try {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para emitir NF')
+    return { ok: false, error: 'Sem permissão para emitir NF' }
   }
 
   const [venda] = await db
@@ -487,8 +493,8 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ bl
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
-  if (!venda.blingNfeId) throw new Error('Nenhum rascunho Bling encontrado para esta venda')
+  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+  if (!venda.blingNfeId) return { ok: false, error: 'Nenhum rascunho Bling encontrado para esta venda' }
 
   const [motoRow] = await db
     .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
@@ -496,7 +502,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ bl
     .where(eq(motos.id, motoId))
     .limit(1)
 
-  if (!motoRow) throw new Error('Moto não encontrada')
+  if (!motoRow) return { ok: false, error: 'Moto não encontrada' }
 
   const [modelo] = await db
     .select({
@@ -511,7 +517,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ bl
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
 
-  if (!modelo || !modelo.blingCodigo) throw new Error('Modelo ou código Bling não encontrado')
+  if (!modelo || !modelo.blingCodigo) return { ok: false, error: 'Modelo ou código Bling não encontrado' }
 
   const [vendedorRow] = await db
     .select({ nome: usuarios.nome })
@@ -522,7 +528,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ bl
   const { atualizarRascunhoNFe } = await import('@/lib/bling')
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
-  return atualizarRascunhoNFe(Number(venda.blingNfeId), {
+  const resultado = await atualizarRascunhoNFe(Number(venda.blingNfeId), {
     clienteNome: venda.clienteNome,
     clienteCpf: venda.clienteCpf,
     clienteCelular: venda.clienteCelular,
@@ -548,6 +554,10 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ bl
     potencia: modelo.potenciaW,
     vendedorNome: vendedorRow?.nome ?? 'N/I',
   })
+  return { ok: true, ...resultado }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message ?? 'Erro ao atualizar rascunho no Bling' }
+  }
 }
 
 // ─── Emitir NF-e no Bling ───────────────────────────────────────────────────
