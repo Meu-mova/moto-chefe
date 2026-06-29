@@ -427,7 +427,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[95vw] max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="w-[95vw] sm:w-[95vw] sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0">
           {/* ── Cabeçalho ── */}
           <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-4">
