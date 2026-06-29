@@ -136,6 +136,7 @@ export const vendas = pgTable('vendas', {
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   reservaId: uuid('reserva_id').references(() => reservas.id),
   notaFiscalSaida: text('nota_fiscal_saida'),
+  blingNfeId: text('bling_nfe_id'),
   statusConciliacao: text('status_conciliacao').notNull().default('pendente'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
   clienteId: uuid('cliente_id').references(() => clientes.id),
@@ -174,15 +175,73 @@ export const historicoEstoque = pgTable('historico_estoque', {
 // ─── ordens_servico ──────────────────────────────────────────────────────────
 export const ordensServico = pgTable('ordens_servico', {
   id: uuid('id').primaryKey().defaultRandom(),
-  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  numero: integer('numero'),
+  motoId: uuid('moto_id').references(() => motos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   abertaPor: uuid('aberta_por').notNull().references(() => usuarios.id),
   mecanicoId: uuid('mecanico_id').references(() => usuarios.id),
   status: osStatusEnum('status').notNull().default('aberta'),
+  tipoOs: text('tipo_os').notNull().default('interna'),
   descricao: text('descricao').notNull(),
+  diagnostico: text('diagnostico'),
+  observacoesFinais: text('observacoes_finais'),
+  valorTotal: numeric('valor_total', { precision: 10, scale: 2 }),
+  formaPagamento: text('forma_pagamento'),
+  dataPrevisao: timestamp('data_previsao', { withTimezone: true }),
+  marcaExterna: text('marca_externa'),
+  modeloExterno: text('modelo_externo'),
+  placa: text('placa'),
+  km: integer('km'),
+  clienteNomeExterno: text('cliente_nome_externo'),
+  clienteFoneExterno: text('cliente_fone_externo'),
   dataAbertura: timestamp('data_abertura', { withTimezone: true }).notNull().defaultNow(),
   dataConclusao: timestamp('data_conclusao', { withTimezone: true }),
   clienteId: uuid('cliente_id').references(() => clientes.id),
+  agendamentoId: uuid('agendamento_id'),  // FK: agendamentos.id (sem ref Drizzle — circular)
+  origem: text('origem').notNull().default('walk_in'),
+  chassiOs: text('chassi_os'),             // chassi real do veículo na OS
+})
+
+// ─── agendamentos ─────────────────────────────────────────────────────────────
+export const agendamentos = pgTable('agendamentos', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  lojaId:           uuid('loja_id').notNull().references(() => lojas.id),
+  mecanicoId:       uuid('mecanico_id').references(() => usuarios.id),
+  clienteId:        uuid('cliente_id').references(() => clientes.id),
+  clienteNome:      text('cliente_nome').notNull(),
+  clienteFone:      text('cliente_fone').notNull(),
+  tipoServico:      text('tipo_servico').notNull(),
+  descricaoCliente: text('descricao_cliente'),
+  dataHoraInicio:   timestamp('data_hora_inicio', { withTimezone: true }).notNull(),
+  duracaoMinutos:   integer('duracao_minutos').notNull().default(60),
+  status:           text('status').notNull().default('pendente'),
+  osId:             uuid('os_id'),  // FK: ordens_servico.id (sem ref Drizzle — circular)
+  criadoPor:        uuid('criado_por').references(() => usuarios.id),
+  criadoEm:         timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── veiculos_historico ───────────────────────────────────────────────────────
+export const veiculosHistorico = pgTable('veiculos_historico', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  chassi:       text('chassi').notNull().unique(),
+  numeroMotor:  text('numero_motor'),
+  marca:        text('marca').notNull().default(''),
+  modelo:       text('modelo').notNull().default(''),
+  cor:          text('cor'),
+  ano:          integer('ano'),
+  nfEntrada:    text('nf_entrada'),
+  importadoEm:  timestamp('importado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── os_itens ────────────────────────────────────────────────────────────────
+export const osItens = pgTable('os_itens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  osId: uuid('os_id').notNull().references(() => ordensServico.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull().default('servico'),
+  descricao: text('descricao').notNull(),
+  quantidade: numeric('quantidade', { precision: 10, scale: 3 }).notNull().default('1'),
+  valorUnitario: numeric('valor_unitario', { precision: 10, scale: 2 }).notNull().default('0'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow(),
 })
 
 // ─── garantias ───────────────────────────────────────────────────────────────

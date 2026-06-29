@@ -157,6 +157,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                               <NfSaidaButton
                                 motoId={moto.id}
                                 descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                blingNfeId={moto.blingNfeId}
                               />
                             </>
                           )

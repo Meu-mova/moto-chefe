@@ -1,6 +1,6 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas } from '@/lib/db/schema'
+import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas } from '@/lib/db/schema'
 import { eq, and, or, isNull, ilike, sql, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
@@ -136,6 +136,11 @@ export async function listarMotos(filtros?: {
         SELECT r.cartao_parcelas::text FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1
+      )`,
+      blingNfeId: sql<string | null>`(
+        SELECT v.bling_nfe_id FROM vendas v
+        WHERE v.moto_id = ${motos.id} AND v.nota_fiscal_saida IS NULL
+        ORDER BY v.data_venda DESC LIMIT 1
       )`,
     })
     .from(motos)

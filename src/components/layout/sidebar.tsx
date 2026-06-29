@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar,
+  Radar, CalendarDays,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -16,6 +16,7 @@ const baseNavItems = [
   { href: '/estoque',        label: 'Showroom',          icon: Package        },
   { href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight },
   { href: '/vendas',         label: 'Vendas',            icon: ShoppingCart   },
+  { href: '/agenda',         label: 'Agenda',            icon: CalendarDays   },
   { href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench         },
   { href: '/garantias',      label: 'Garantias',         icon: Shield         },
   { href: '/simulador',      label: 'Simulador',         icon: Calculator     },

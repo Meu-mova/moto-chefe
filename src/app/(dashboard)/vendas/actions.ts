@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios } from '@/lib/db/schema'
+import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -197,12 +197,52 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
       dataPedido: dataVendaFinal,
       dataAtualizacao: dataVendaFinal,
     }).returning({ id: pedidosVenda.id })
+    // Upsert cliente por CPF — cria se não existir, atualiza se existir
+    const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
+    let clienteVinculadoId: string | null = null
+    if (cpfLimpo.length >= 11) {
+      const [clienteUpsert] = await tx
+        .insert(clientes)
+        .values({
+          nome:        data.clienteNome.trim(),
+          cpfCnpj:     cpfLimpo,
+          email:       data.clienteEmail        || null,
+          celular:     data.clienteCelular       || null,
+          endereco:    data.clienteLogradouro    || null,
+          numero:      data.clienteNumero        || null,
+          complemento: data.clienteComplemento   || null,
+          bairro:      data.clienteBairro        || null,
+          cep:         data.clienteCep           || null,
+          cidade:      data.clienteCidade        || null,
+          uf:          data.clienteEstado        || null,
+        })
+        .onConflictDoUpdate({
+          target: clientes.cpfCnpj,
+          set: {
+            nome:        sql`excluded.nome`,
+            email:       sql`excluded.email`,
+            celular:     sql`excluded.celular`,
+            endereco:    sql`excluded.endereco`,
+            numero:      sql`excluded.numero`,
+            complemento: sql`excluded.complemento`,
+            bairro:      sql`excluded.bairro`,
+            cep:         sql`excluded.cep`,
+            cidade:      sql`excluded.cidade`,
+            uf:          sql`excluded.uf`,
+            atualizadoEm: sql`now()`,
+          },
+        })
+        .returning({ id: clientes.id })
+      clienteVinculadoId = clienteUpsert?.id ?? null
+    }
+
     const [venda] = await tx.insert(vendas).values({
       pedidoVendaId: pedido.id,
       motoId: data.motoId,
       lojaId: moto.lojaId,
       vendedorId,
       efetivadoPor: usuario.id,
+      clienteId:    clienteVinculadoId,
       clienteNome: data.clienteNome,
       clienteCpf: data.clienteCpf,
       clienteCelular: data.clienteCelular,
@@ -304,6 +344,212 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
   revalidatePath('/estoque')
 }
 
+// ─── Criar rascunho NF-e no Bling (sem transmitir) ──────────────────────────
+
+export async function criarRascunhoBlingAction(motoId: string): Promise<{ blingId: number; url: string }> {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão para emitir NF')
+  }
+
+  const [venda] = await db
+    .select({
+      id: vendas.id,
+      valor: vendas.valor,
+      pagamentos: vendas.pagamentos,
+      vendedorId: vendas.vendedorId,
+      blingNfeId: vendas.blingNfeId,
+      clienteNome: vendas.clienteNome,
+      clienteCpf: vendas.clienteCpf,
+      clienteCelular: vendas.clienteCelular,
+      clienteEmail: vendas.clienteEmail,
+      clienteCep: vendas.clienteCep,
+      clienteLogradouro: vendas.clienteLogradouro,
+      clienteNumero: vendas.clienteNumero,
+      clienteComplemento: vendas.clienteComplemento,
+      clienteBairro: vendas.clienteBairro,
+      clienteCidade: vendas.clienteCidade,
+      clienteEstado: vendas.clienteEstado,
+    })
+    .from(vendas)
+    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+
+  // Rascunho já criado — retorna URL sem criar novo
+  if (venda.blingNfeId) {
+    return {
+      blingId: Number(venda.blingNfeId),
+      url: `https://www.bling.com.br/notas.fiscais.php#edit/${venda.blingNfeId}`,
+    }
+  }
+
+  const [motoRow] = await db
+    .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
+    .from(motos)
+    .where(eq(motos.id, motoId))
+    .limit(1)
+
+  if (!motoRow) throw new Error('Moto não encontrada')
+
+  const [modelo] = await db
+    .select({
+      marca: modelos.marca,
+      modelo: modelos.modelo,
+      blingCodigo: modelos.blingCodigo,
+      categoria: modelos.categoria,
+      potenciaW: modelos.potenciaW,
+      tipoMotor: modelos.motor,
+    })
+    .from(modelos)
+    .where(eq(modelos.id, motoRow.modeloId))
+    .limit(1)
+
+  if (!modelo) throw new Error('Modelo não encontrado')
+  if (!modelo.blingCodigo) {
+    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.`)
+  }
+
+  const [vendedorRow] = await db
+    .select({ nome: usuarios.nome })
+    .from(usuarios)
+    .where(eq(usuarios.id, venda.vendedorId))
+    .limit(1)
+
+  const { criarRascunhoNFe } = await import('@/lib/bling')
+  const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
+
+  const resultado = await criarRascunhoNFe({
+    clienteNome: venda.clienteNome,
+    clienteCpf: venda.clienteCpf,
+    clienteCelular: venda.clienteCelular,
+    clienteEmail: venda.clienteEmail,
+    clienteCep: venda.clienteCep,
+    clienteLogradouro: venda.clienteLogradouro,
+    clienteNumero: venda.clienteNumero,
+    clienteComplemento: venda.clienteComplemento,
+    clienteBairro: venda.clienteBairro,
+    clienteCidade: venda.clienteCidade,
+    clienteEstado: venda.clienteEstado,
+    valor: venda.valor,
+    pagamentos,
+    blingCodigo: modelo.blingCodigo,
+    descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
+    chassi: motoRow.chassi,
+    marca: modelo.marca,
+    modeloNome: modelo.modelo,
+    cor: motoRow.cor,
+    motor: motoRow.motor,
+    tipoMotor: modelo.tipoMotor,
+    categoria: modelo.categoria,
+    potencia: modelo.potenciaW,
+    vendedorNome: vendedorRow?.nome ?? 'N/I',
+  })
+
+  await db.update(vendas)
+    .set({ blingNfeId: String(resultado.blingId) })
+    .where(eq(vendas.id, venda.id))
+
+  return resultado
+}
+
+// ─── Atualizar rascunho NF-e existente no Bling ─────────────────────────────
+
+export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ blingId: number; url: string }> {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+    throw new Error('Sem permissão para emitir NF')
+  }
+
+  const [venda] = await db
+    .select({
+      id: vendas.id,
+      valor: vendas.valor,
+      pagamentos: vendas.pagamentos,
+      vendedorId: vendas.vendedorId,
+      blingNfeId: vendas.blingNfeId,
+      clienteNome: vendas.clienteNome,
+      clienteCpf: vendas.clienteCpf,
+      clienteCelular: vendas.clienteCelular,
+      clienteEmail: vendas.clienteEmail,
+      clienteCep: vendas.clienteCep,
+      clienteLogradouro: vendas.clienteLogradouro,
+      clienteNumero: vendas.clienteNumero,
+      clienteComplemento: vendas.clienteComplemento,
+      clienteBairro: vendas.clienteBairro,
+      clienteCidade: vendas.clienteCidade,
+      clienteEstado: vendas.clienteEstado,
+    })
+    .from(vendas)
+    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+  if (!venda.blingNfeId) throw new Error('Nenhum rascunho Bling encontrado para esta venda')
+
+  const [motoRow] = await db
+    .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
+    .from(motos)
+    .where(eq(motos.id, motoId))
+    .limit(1)
+
+  if (!motoRow) throw new Error('Moto não encontrada')
+
+  const [modelo] = await db
+    .select({
+      marca: modelos.marca,
+      modelo: modelos.modelo,
+      blingCodigo: modelos.blingCodigo,
+      categoria: modelos.categoria,
+      potenciaW: modelos.potenciaW,
+      tipoMotor: modelos.motor,
+    })
+    .from(modelos)
+    .where(eq(modelos.id, motoRow.modeloId))
+    .limit(1)
+
+  if (!modelo || !modelo.blingCodigo) throw new Error('Modelo ou código Bling não encontrado')
+
+  const [vendedorRow] = await db
+    .select({ nome: usuarios.nome })
+    .from(usuarios)
+    .where(eq(usuarios.id, venda.vendedorId))
+    .limit(1)
+
+  const { atualizarRascunhoNFe } = await import('@/lib/bling')
+  const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
+
+  return atualizarRascunhoNFe(Number(venda.blingNfeId), {
+    clienteNome: venda.clienteNome,
+    clienteCpf: venda.clienteCpf,
+    clienteCelular: venda.clienteCelular,
+    clienteEmail: venda.clienteEmail,
+    clienteCep: venda.clienteCep,
+    clienteLogradouro: venda.clienteLogradouro,
+    clienteNumero: venda.clienteNumero,
+    clienteComplemento: venda.clienteComplemento,
+    clienteBairro: venda.clienteBairro,
+    clienteCidade: venda.clienteCidade,
+    clienteEstado: venda.clienteEstado,
+    valor: venda.valor,
+    pagamentos,
+    blingCodigo: modelo.blingCodigo,
+    descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
+    chassi: motoRow.chassi,
+    marca: modelo.marca,
+    modeloNome: modelo.modelo,
+    cor: motoRow.cor,
+    motor: motoRow.motor,
+    tipoMotor: modelo.tipoMotor,
+    categoria: modelo.categoria,
+    potencia: modelo.potenciaW,
+    vendedorNome: vendedorRow?.nome ?? 'N/I',
+  })
+}
+
 // ─── Emitir NF-e no Bling ───────────────────────────────────────────────────
 
 export async function emitirNFBlingAction(motoId: string): Promise<void> {
@@ -318,6 +564,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
       valor: vendas.valor,
       formaPagamento: vendas.formaPagamento,
       pagamentos: vendas.pagamentos,
+      vendedorId: vendas.vendedorId,
       clienteNome: vendas.clienteNome,
       clienteCpf: vendas.clienteCpf,
       clienteCelular: vendas.clienteCelular,
@@ -338,7 +585,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
   if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
 
   const [motoRow] = await db
-    .select({ chassi: motos.chassi, modeloId: motos.modeloId })
+    .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
     .from(motos)
     .where(eq(motos.id, motoId))
     .limit(1)
@@ -346,7 +593,14 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
   if (!motoRow) throw new Error('Moto não encontrada')
 
   const [modelo] = await db
-    .select({ marca: modelos.marca, modelo: modelos.modelo, blingCodigo: modelos.blingCodigo })
+    .select({
+      marca: modelos.marca,
+      modelo: modelos.modelo,
+      blingCodigo: modelos.blingCodigo,
+      categoria: modelos.categoria,
+      potenciaW: modelos.potenciaW,
+      tipoMotor: modelos.motor,
+    })
     .from(modelos)
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
@@ -355,6 +609,12 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
   if (!modelo.blingCodigo) {
     throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.`)
   }
+
+  const [vendedorRow] = await db
+    .select({ nome: usuarios.nome })
+    .from(usuarios)
+    .where(eq(usuarios.id, venda.vendedorId))
+    .limit(1)
 
   const { emitirNFe } = await import('@/lib/bling')
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
@@ -376,6 +636,14 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     blingCodigo: modelo.blingCodigo,
     descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
     chassi: motoRow.chassi,
+    marca: modelo.marca,
+    modeloNome: modelo.modelo,
+    cor: motoRow.cor,
+    motor: motoRow.motor,
+    tipoMotor: modelo.tipoMotor,
+    categoria: modelo.categoria,
+    potencia: modelo.potenciaW,
+    vendedorNome: vendedorRow?.nome ?? 'N/I',
   })
 
   await db.transaction(async (tx) => {
@@ -675,6 +943,57 @@ export async function editarVendaAction(vendaId: string, dados: {
   revalidatePath('/caixa')
 }
 
+// ─── Buscar cliente por CPF ──────────────────────────────────────────────────
+
+export async function buscarClientePorCpfAction(cpf: string) {
+  await getUsuarioLogado()
+  const cpfLimpo = cpf.replace(/\D/g, '')
+  if (cpfLimpo.length !== 11) return null
+
+  // 1. Busca na tabela de clientes
+  const [cliente] = await db
+    .select({
+      nome: clientes.nome,
+      celular: clientes.celular,
+      email: clientes.email,
+      cep: clientes.cep,
+      logradouro: clientes.endereco,
+      numero: clientes.numero,
+      complemento: clientes.complemento,
+      bairro: clientes.bairro,
+      cidade: clientes.cidade,
+      estado: clientes.uf,
+    })
+    .from(clientes)
+    .where(eq(clientes.cpfCnpj, cpfLimpo))
+    .limit(1)
+
+  if (cliente) return { source: 'clientes' as const, ...cliente }
+
+  // 2. Fallback: última venda com esse CPF
+  const [venda] = await db
+    .select({
+      nome: vendas.clienteNome,
+      celular: vendas.clienteCelular,
+      email: vendas.clienteEmail,
+      cep: vendas.clienteCep,
+      logradouro: vendas.clienteLogradouro,
+      numero: vendas.clienteNumero,
+      complemento: vendas.clienteComplemento,
+      bairro: vendas.clienteBairro,
+      cidade: vendas.clienteCidade,
+      estado: vendas.clienteEstado,
+    })
+    .from(vendas)
+    .where(eq(vendas.clienteCpf, cpf))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  if (venda) return { source: 'vendas' as const, ...venda }
+
+  return null
+}
+
 export async function buscarHistoricoMotoAction(motoId: string) {
   const usuario = await getUsuarioLogado()
 
@@ -705,3 +1024,26 @@ export async function buscarHistoricoMotoAction(motoId: string) {
     .where(eq(historicoEstoque.motoId, motoId))
     .orderBy(sql`${historicoEstoque.data} DESC`)
 }
+
+// ─── Baixar DANFE da NF-e autorizada ─────────────────────────────────────────
+
+export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
+  await getUsuarioLogado()
+
+  const [venda] = await db
+    .select({ blingNfeId: vendas.blingNfeId })
+    .from(vendas)
+    .where(and(eq(vendas.motoId, motoId)))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  if (!venda?.blingNfeId) throw new Error('ID da NF-e não encontrado. Verifique se o rascunho foi criado pelo MOVA.')
+
+  const { buscarLinksDanfe } = await import('@/lib/bling')
+  const links = await buscarLinksDanfe(venda.blingNfeId)
+
+  if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
+
+  return links
+}
+

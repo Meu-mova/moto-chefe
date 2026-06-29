@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { abrirGarantiaAction } from '../actions'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string }
-type OS = { id: string; descricao: string; motoId: string }
+type OS = { id: string; descricao: string; motoId: string | null }
 type Props = { motos: Moto[]; ordens: OS[]; papel: string }
 
 export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {

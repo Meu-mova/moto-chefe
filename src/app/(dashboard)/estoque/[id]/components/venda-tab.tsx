@@ -3,6 +3,7 @@ import { vendas, pedidosVenda, usuarios } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { DanfeButton } from './danfe-button'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -26,6 +27,7 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
       formaPagamento: vendas.formaPagamento,
       pagamentos: vendas.pagamentos,
       notaFiscalSaida: vendas.notaFiscalSaida,
+      blingNfeId: vendas.blingNfeId,
       clienteNome: vendas.clienteNome,
       clienteCpf: vendas.clienteCpf,
       clienteCelular: vendas.clienteCelular,
@@ -79,7 +81,12 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
             <div className="grid grid-cols-2 gap-1.5 text-slate-600">
               <p>Data: <span className="text-slate-900">{format(new Date(venda.dataVenda), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></p>
               <p>Vendedor: <span className="text-slate-900">{venda.vendedorNome}</span></p>
-              <p>NF Saída: <span className="text-slate-900">{venda.notaFiscalSaida ?? '—'}</span></p>
+              <p className="flex items-center gap-2">
+                NF Saída: <span className="text-slate-900">{venda.notaFiscalSaida ?? '—'}</span>
+                {venda.notaFiscalSaida && venda.blingNfeId && (
+                  <DanfeButton motoId={motoId} />
+                )}
+              </p>
               <p>Valor: <span className="text-green-700 font-bold">{formatCurrency(venda.valor)}</span></p>
             </div>
           </div>

@@ -1,119 +1,212 @@
 'use client'
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Plus } from 'lucide-react'
 import { abrirOSAction } from '../actions'
-import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
+import { ChassiLookup } from './chassi-lookup'
+import type { VeiculoEncontrado } from '../buscar-veiculo-action'
+import { toast } from 'sonner'
 
-type Moto = { id: string; chassi: string; marca: string; modelo: string }
-type Mecanico = { id: string; nome: string }
-type Props = { motos: Moto[]; mecanicos: Mecanico[]; papel: string }
+type Props = {
+  mecanicos: { id: string; nome: string }[]
+  lojas: { id: string; nome: string }[]
+  papel: string
+  lojaIdUsuario: string | null
+}
 
-export function AbrirOSDialog({ motos, mecanicos, papel }: Props) {
-  const [open, setOpen] = useState(false)
-  const [motoId, setMotoId] = useState('')
-  const [mecanicoId, setMecanicoId] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [clienteId, setClienteId] = useState<string | null>(null)
-  const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
+type ClienteInfo = { id: string; nome: string; cpfCnpj: string | null; celular: string | null; email: string | null }
 
-  function handleClienteSelect(id: string, nome: string, _cpfCnpj: string | null) {
-    setClienteId(id)
-    setClienteSelecionado({ id, nome })
+const TIPOS = [
+  { value: 'pos_venda', label: 'Pós-venda' },
+  { value: 'externa',   label: 'Oficina externa' },
+  { value: 'interna',   label: 'Interna (estoque)' },
+]
+
+const FORM_VAZIO = {
+  lojaId: '', mecanicoId: '', descricao: '', dataPrevisao: '',
+  placa: '', km: '', clienteNomeExterno: '', clienteFoneExterno: '',
+}
+
+export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props) {
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
+  const [open, setOpen]  = useState(false)
+  const [tipo, setTipo]  = useState<'pos_venda'|'externa'|'interna'>('pos_venda')
+  const [pending, start] = useTransition()
+
+  const [form, setForm] = useState({ ...FORM_VAZIO, lojaId: lojaIdUsuario ?? '' })
+  const [veiculo, setVeiculo] = useState<VeiculoEncontrado | null>(null)
+  const [cliente, setCliente] = useState<ClienteInfo | null>(null)
+
+  function set(k: keyof typeof form, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  function resetar() {
+    setVeiculo(null); setCliente(null)
+    setForm({ ...FORM_VAZIO, lojaId: lojaIdUsuario ?? '' })
+    setTipo('pos_venda')
   }
 
-  function handleClienteClear() {
-    setClienteId(null)
-    setClienteSelecionado(null)
-  }
-
-  function resetForm() {
-    setMotoId('')
-    setMecanicoId('')
-    setDescricao('')
-    setClienteId(null)
-    setClienteSelecionado(null)
-  }
-
-  async function handleAbrir() {
-    if (!motoId || !descricao) return
-    setLoading(true)
-    try {
-      await abrirOSAction(motoId, mecanicoId || null, descricao, clienteId)
-      setOpen(false)
-      resetForm()
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao abrir OS')
-    } finally {
-      setLoading(false)
+  function salvar() {
+    if (!veiculo?.chassi.trim()) {
+      toast.error('Informe o chassi do veículo'); return
     }
-  }
+    if (!form.descricao.trim()) {
+      toast.error('Informe a descrição / reclamação'); return
+    }
 
-  function handleOpenChange(value: boolean) {
-    setOpen(value)
-    if (!value) resetForm()
+    start(async () => {
+      try {
+        await abrirOSAction({
+          tipoOs:             tipo,
+          lojaId:             form.lojaId,
+          chassiOs:           veiculo.chassi,
+          motoId:             veiculo?.motoId || null,
+          clienteId:          cliente?.id || null,
+          mecanicoId:         form.mecanicoId || null,
+          descricao:          form.descricao,
+          dataPrevisao:       form.dataPrevisao || null,
+          // Para externa: marca/modelo vêm do veiculo encontrado, ou vazios
+          marcaExterna:       tipo === 'externa' ? (veiculo?.marca || null) : null,
+          modeloExterno:      tipo === 'externa' ? (veiculo?.modelo || null) : null,
+          placa:              form.placa || null,
+          km:                 form.km ? parseInt(form.km) : null,
+          clienteNomeExterno: tipo === 'externa' ? (cliente?.nome || form.clienteNomeExterno || null) : null,
+          clienteFoneExterno: tipo === 'externa' ? (cliente?.celular || form.clienteFoneExterno || null) : null,
+        })
+        toast.success('OS aberta com sucesso')
+        setOpen(false)
+        resetar()
+      } catch (e: any) {
+        toast.error(e.message ?? 'Erro ao abrir OS')
+      }
+    })
   }
-
-  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(papel)) return null
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Abrir OS</Button>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Nova Ordem de Serviço</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Moto</Label>
-              <Select value={motoId} onValueChange={v => setMotoId(v ?? '')}>
-                <SelectTrigger><SelectValue placeholder="Selecionar moto" /></SelectTrigger>
-                <SelectContent>
-                  {motos.map(m => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.marca} {m.modelo} — {m.chassi}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
+        <Plus size={15} /> Nova OS
+      </Button>
+
+      <Dialog open={open} onOpenChange={o => { if (!pending) { setOpen(o); if (!o) resetar() } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nova Ordem de Serviço</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-1">
+            {/* Tipo */}
+            <div className="space-y-1.5">
+              <Label>Tipo de OS</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {TIPOS.map(t => (
+                  <button key={t.value} type="button" onClick={() => setTipo(t.value as any)}
+                    className={`rounded-lg border p-2.5 text-xs font-medium text-left transition-colors ${
+                      tipo === t.value
+                        ? 'border-slate-800 bg-slate-800 text-white'
+                        : 'border-slate-200 hover:border-slate-400 text-slate-700'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Mecânico Responsável (opcional)</Label>
-              <Select value={mecanicoId} onValueChange={v => setMecanicoId(v ?? '')}>
-                <SelectTrigger><SelectValue placeholder="Selecionar mecânico" /></SelectTrigger>
-                <SelectContent>
-                  {mecanicos.map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <ClienteBusca
-                label="Cliente (opcional)"
-                clienteSelecionado={clienteSelecionado}
-                onSelect={handleClienteSelect}
-                onClear={handleClienteClear}
+
+            {/* Loja (admin) */}
+            {isAdmin && (
+              <div className="space-y-1.5">
+                <Label>Loja</Label>
+                <select value={form.lojaId} onChange={e => set('lojaId', e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  <option value="">Selecione...</option>
+                  {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Busca chassi + CPF */}
+            <div className="border border-slate-200 rounded-xl p-4 space-y-1 bg-slate-50">
+              <ChassiLookup
+                onVeiculoEncontrado={setVeiculo}
+                onClienteEncontrado={setCliente}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea
-                value={descricao}
-                onChange={e => setDescricao(e.target.value)}
-                placeholder="Descreva o problema ou serviço..."
-              />
+
+            {/* Info do veículo não encontrado — campos manuais (apenas externa) */}
+            {!veiculo && tipo === 'externa' && (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+                  Dados do veículo (preenchimento manual)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Placa</Label>
+                    <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>KM atual</Label>
+                    <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Placa + KM quando veiculo encontrado */}
+            {veiculo && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Placa</Label>
+                  <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>KM atual</Label>
+                  <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
+                </div>
+              </div>
+            )}
+
+            {/* Cliente externo quando não encontrado por CPF */}
+            {tipo === 'externa' && !cliente && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Nome do cliente</Label>
+                  <Input value={form.clienteNomeExterno} onChange={e => set('clienteNomeExterno', e.target.value)} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefone</Label>
+                  <Input value={form.clienteFoneExterno} onChange={e => set('clienteFoneExterno', e.target.value)} placeholder="(35) 99999-9999" />
+                </div>
+              </div>
+            )}
+
+            {/* Mecânico */}
+            <div className="space-y-1.5">
+              <Label>Mecânico responsável</Label>
+              <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                <option value="">Sem mecânico definido</option>
+                {mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Previsão de entrega</Label>
+              <Input type="datetime-local" value={form.dataPrevisao} onChange={e => set('dataPrevisao', e.target.value)} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Descrição / Reclamação do cliente <span className="text-red-500">*</span></Label>
+              <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
+                placeholder="Descreva o que o cliente relatou..." rows={3} />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleAbrir} disabled={loading || !motoId || !descricao}>
-              {loading ? 'Abrindo...' : 'Abrir OS'}
-            </Button>
+            <Button variant="outline" onClick={() => { setOpen(false); resetar() }} disabled={pending}>Cancelar</Button>
+            <Button onClick={salvar} disabled={pending}>{pending ? 'Salvando…' : 'Abrir OS'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

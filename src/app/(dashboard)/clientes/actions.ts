@@ -185,17 +185,20 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
 
     db.select({
       id: ordensServico.id,
+      numero: ordensServico.numero,
       dataAbertura: ordensServico.dataAbertura,
       dataConclusao: ordensServico.dataConclusao,
       status: ordensServico.status,
       descricao: ordensServico.descricao,
+      valorTotal: ordensServico.valorTotal,
+      tipoOs: ordensServico.tipoOs,
       marca: modelos.marca,
       modelo: modelos.modelo,
       chassi: motos.chassi,
     })
       .from(ordensServico)
-      .innerJoin(motos, eq(ordensServico.motoId, motos.id))
-      .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+      .leftJoin(motos, eq(ordensServico.motoId, motos.id))
+      .leftJoin(modelos, eq(motos.modeloId, modelos.id))
       .where(eq(ordensServico.clienteId, id))
       .orderBy(desc(ordensServico.dataAbertura)),
   ])

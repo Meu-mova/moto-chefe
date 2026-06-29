@@ -2,8 +2,8 @@ import { db } from '@/lib/db'
 import { blingConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-const AUTH_URL   = 'https://www.bling.com.br/OAuth2/Authorization'
-const TOKEN_URL  = 'https://www.bling.com.br/OAuth2/token'
+const AUTH_URL   = 'https://www.bling.com.br/Api/v3/oauth/authorize'
+const TOKEN_URL  = 'https://www.bling.com.br/Api/v3/oauth/token'
 const API_BASE   = 'https://api.bling.com.br/Api/v3'
 
 function basicHeader() {
@@ -17,6 +17,7 @@ export function blingAuthUrl(state: string): string {
     response_type: 'code',
     client_id: process.env.BLING_CLIENT_ID!,
     state,
+    redirect_uri: process.env.BLING_REDIRECT_URI!,
   })
   return `${AUTH_URL}?${params}`
 }
@@ -28,7 +29,7 @@ export async function trocarCodePorTokens(code: string) {
       Authorization: basicHeader(),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ grant_type: 'authorization_code', code }),
+    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: process.env.BLING_REDIRECT_URI! }),
   })
   if (!res.ok) throw new Error(`Bling token error: ${await res.text()}`)
   return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
@@ -94,6 +95,24 @@ async function blingRequest(method: string, path: string, body?: unknown) {
   return res.json()
 }
 
+async function buscarVendedorBlingId(nome: string): Promise<number | null> {
+  try {
+    const res = await blingRequest('GET', `/vendedores?nomeContato=${encodeURIComponent(nome)}&limite=10`, undefined)
+    const lista: { id?: number; contato?: { nome?: string } }[] = Array.isArray(res?.data) ? res.data : []
+    const normalizar = (s: string) => s.toLowerCase().trim()
+    const nomeNorm = normalizar(nome)
+    const match = lista.find(v => {
+      const blingNome = normalizar(v.contato?.nome ?? '')
+      return blingNome === nomeNorm ||
+             blingNome.startsWith(nomeNorm + ' ') ||
+             nomeNorm.startsWith(blingNome + ' ')
+    })
+    return match?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 export type DadosNFe = {
   clienteNome: string
   clienteCpf: string
@@ -111,6 +130,14 @@ export type DadosNFe = {
   blingCodigo: string
   descricaoProduto: string
   chassi: string
+  marca: string
+  modeloNome: string
+  cor: string
+  motor: string | null
+  tipoMotor: string
+  categoria: string
+  potencia: string
+  vendedorNome: string
 }
 
 const tipoLabel: Record<string, string> = {
@@ -119,8 +146,8 @@ const tipoLabel: Record<string, string> = {
   link_pagamento: 'Link de Pagamento', transferencia: 'Transferência Bancária',
 }
 
-export async function emitirNFe(dados: DadosNFe): Promise<string> {
-  const dataHoje = new Date().toISOString().slice(0, 10)
+function montarPayloadNFe(dados: DadosNFe, vendedorBlingId?: number | null) {
+  const dataHoje = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   const valorTotal = parseFloat(dados.valor)
 
   const parcelas = dados.pagamentos.length > 0
@@ -132,27 +159,47 @@ export async function emitirNFe(dados: DadosNFe): Promise<string> {
       }))
     : [{ dias: 0, data: dataHoje, valor: valorTotal, observacoes: 'À vista' }]
 
-  const payload = {
+  const motorDesc = dados.motor || dados.tipoMotor || 'N/I'
+
+  const garantia =
+    'GARANTIA DE 90 DIAS CONFORME CDC + 9 MESES PARA MOTOR, BATERIA E MODULO ' +
+    '(TOTALIZANDO 1 ANO) MANTENDO AS REVISÕES EM DIA. AS REVISÕES DEVERÃO SER ' +
+    'REALIZADAS NO PERÍODO DE 3 MESES OU 2000KM RODADOS. OS DEMAIS COMPONENTES ' +
+    'A GARANTIA É DE 90 DIAS CONFORME CDC. Garantia não cobre danos causados por ' +
+    'mau uso da parte do cliente.'
+
+  const dadosVeiculo = [
+    `Marca: ${dados.marca || 'N/I'}`,
+    `Modelo: ${dados.modeloNome || 'N/I'}`,
+    `Chassi: ${dados.chassi || 'N/I'}`,
+    `Motor: ${motorDesc}`,
+    `Categoria: ${dados.categoria || 'N/I'}`,
+    `Potência: ${dados.potencia || 'N/I'}`,
+    `Cor: ${dados.cor || 'N/I'}`,
+  ].join('\n')
+
+  const observacoes = `${garantia}\n\n${dadosVeiculo}`
+
+  return {
     tipo: 1,
-    // Natureza de operação configurável via env var; padrão: VENDA
+    dataOperacao: dataHoje,
     naturezaOperacao: process.env.BLING_NATUREZA_OPERACAO ?? 'VENDA',
+    observacoes,
+    ...(vendedorBlingId ? { vendedor: { id: vendedorBlingId } } : {}),
     contato: {
-      id: 0,
       nome: dados.clienteNome.toUpperCase(),
       tipoPessoa: 'F',
-      cpfCnpj: dados.clienteCpf.replace(/\D/g, ''),
+      numeroDocumento: dados.clienteCpf.replace(/\D/g, ''),
       email: dados.clienteEmail ?? '',
       telefone: (dados.clienteCelular ?? '').replace(/\D/g, ''),
       endereco: {
-        geral: {
-          logradouro: dados.clienteLogradouro ?? '',
-          numero: dados.clienteNumero ?? '',
-          complemento: dados.clienteComplemento ?? '',
-          bairro: dados.clienteBairro ?? '',
-          municipio: dados.clienteCidade ?? '',
-          uf: dados.clienteEstado ?? '',
-          cep: (dados.clienteCep ?? '').replace(/\D/g, ''),
-        },
+        endereco: dados.clienteLogradouro ?? '',
+        numero: dados.clienteNumero ?? '',
+        complemento: dados.clienteComplemento ?? '',
+        bairro: dados.clienteBairro ?? '',
+        municipio: dados.clienteCidade ?? '',
+        uf: dados.clienteEstado ?? '',
+        cep: (dados.clienteCep ?? '').replace(/\D/g, ''),
       },
     },
     itens: [
@@ -174,7 +221,59 @@ export async function emitirNFe(dados: DadosNFe): Promise<string> {
     },
     parcelas,
   }
+}
 
+export async function criarRascunhoNFe(dados: DadosNFe): Promise<{ blingId: number; url: string }> {
+  if (!dados.clienteCpf?.replace(/\D/g, '')) {
+    throw new Error('CPF do cliente não informado. Edite a venda e adicione o CPF antes de emitir a NF-e.')
+  }
+  const vendedorBlingId = dados.vendedorNome ? await buscarVendedorBlingId(dados.vendedorNome) : null
+  const payload = montarPayloadNFe(dados, vendedorBlingId)
+  const criacao = await blingRequest('POST', '/nfe', payload)
+  const blingId: number = criacao?.data?.id
+  if (!blingId) throw new Error('Bling não retornou ID da NF-e criada.')
+  return {
+    blingId,
+    url: `https://www.bling.com.br/notas.fiscais.php#edit/${blingId}`,
+  }
+}
+
+export async function atualizarRascunhoNFe(blingId: number, dados: DadosNFe): Promise<{ blingId: number; url: string }> {
+  if (!dados.clienteCpf?.replace(/\D/g, '')) {
+    throw new Error('CPF do cliente não informado.')
+  }
+  const nfeAtual = await blingRequest('GET', `/nfe/${blingId}`, undefined)
+  const numero: number = nfeAtual?.data?.numero ?? 0
+
+  // PUT /nfe não aceita o campo vendedor — só é definido na criação (POST)
+  const payload = { ...montarPayloadNFe(dados, null), numero }
+  await blingRequest('PUT', `/nfe/${blingId}`, payload)
+  return {
+    blingId,
+    url: `https://www.bling.com.br/notas.fiscais.php#edit/${blingId}`,
+  }
+}
+
+export async function buscarNfeIdPorNumero(numero: string): Promise<string | null> {
+  try {
+    const res = await blingRequest('GET', `/nfe?numero=${encodeURIComponent(numero)}&limite=1`, undefined)
+    const item = Array.isArray(res?.data) ? res.data[0] : null
+    return item?.id ? String(item.id) : null
+  } catch {
+    return null
+  }
+}
+
+export async function buscarLinksDanfe(blingNfeId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
+  const res = await blingRequest('GET', `/nfe/${blingNfeId}`, undefined)
+  return {
+    linkDanfe: res?.data?.linkDanfe ?? null,
+    linkPDF:   res?.data?.linkPDF   ?? null,
+  }
+}
+
+export async function emitirNFe(dados: DadosNFe): Promise<string> {
+  const payload = montarPayloadNFe(dados)
   const criacao = await blingRequest('POST', '/nfe', payload)
   const nfeId: number = criacao?.data?.id
   if (!nfeId) throw new Error('Bling não retornou ID da NF-e criada.')

@@ -157,18 +157,27 @@ export default async function ClienteDetalhePage({ params }: Props) {
                 </div>
               ))}
               {historico.os.map(o => (
-                <div key={o.id} className="flex items-start justify-between rounded-lg border p-3">
+                <Link key={o.id} href={`/ordens-servico/${o.id}`}
+                  className="flex items-start justify-between rounded-lg border p-3 hover:border-slate-400 hover:shadow-sm transition-all">
                   <div className="flex-1 min-w-0 pr-3">
-                    <p className="text-sm font-medium">OS — {o.marca} {o.modelo}</p>
-                    <p className="text-xs text-slate-500 line-clamp-1">{o.descricao ?? '—'}</p>
-                    <p className="text-xs text-slate-400">
-                      Chassi: {o.chassi ?? '—'} · Aberta em {formatarData(o.dataAbertura)}
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {o.numero && <span className="text-xs font-bold text-slate-500">OS #{o.numero}</span>}
+                      <Badge variant={osStatusVariant[o.status ?? 'aberta'] ?? 'outline'}>
+                        {osStatusLabel[o.status ?? 'aberta'] ?? o.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium">
+                      {o.marca && o.modelo ? `${o.marca} ${o.modelo}` : 'Moto externa'}
                     </p>
+                    <p className="text-xs text-slate-500 line-clamp-1">{o.descricao ?? '—'}</p>
+                    <p className="text-xs text-slate-400">Aberta em {formatarData(o.dataAbertura)}</p>
                   </div>
-                  <Badge variant={osStatusVariant[o.status ?? 'aberta'] ?? 'outline'}>
-                    {osStatusLabel[o.status ?? 'aberta'] ?? o.status}
-                  </Badge>
-                </div>
+                  {o.valorTotal && parseFloat(String(o.valorTotal)) > 0 && (
+                    <span className="text-sm font-semibold text-green-700 shrink-0">
+                      {formatarMoeda(o.valorTotal)}
+                    </span>
+                  )}
+                </Link>
               ))}
             </div>
           )}
