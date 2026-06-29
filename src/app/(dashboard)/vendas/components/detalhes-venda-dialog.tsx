@@ -238,7 +238,23 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
                   <p>Loja: <span className="text-slate-900">{v.lojaNome}</span></p>
                   <p>Vendedor: <span className="text-slate-900">{v.vendedorNome}</span></p>
                   <p>NF Saída: <span className="text-slate-900">{v.notaFiscalSaida ?? '—'}</span></p>
-                  <p className="col-span-2">Valor: <span className="text-green-700 font-bold text-base">{formatCurrency(v.valor)}</span></p>
+                  <p className="col-span-2">Valor Bruto: <span className="text-green-700 font-bold text-base">{formatCurrency(v.valor)}</span></p>
+                  {(() => {
+                    if (loading || concs.length === 0) return null
+                    const taxas = concs.reduce((s, c) =>
+                      s + (Number(c.valorBruto) - Number(c.valorLiquido ?? c.valorBruto)), 0)
+                    if (taxas <= 0) return null
+                    const liquido = Number(v.valor) - taxas
+                    return (
+                      <>
+                        <p className="col-span-2">
+                          Valor Líquido:{' '}
+                          <span className="text-blue-700 font-bold text-base">{formatCurrency(liquido)}</span>
+                          <span className="ml-2 text-xs text-red-500">({formatCurrency(taxas)} em taxas)</span>
+                        </p>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
 

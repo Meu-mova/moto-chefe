@@ -1,12 +1,24 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FinanceiroFiltros } from './components/financeiro-filtros'
 import { VendasTable } from './components/vendas-table'
 import { ResumoLojas } from './components/resumo-lojas'
+import { ResumoVendedores } from './components/resumo-vendedores'
+import { ResumoPagamentos } from './components/resumo-pagamentos'
+
+function valorLiquidoExpr() {
+  return sql`COALESCE(
+    (SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
+     FROM ${conciliacoesCartao}
+     WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+       AND ${conciliacoesCartao.conciliado} = true),
+    ${vendas.valor}::numeric
+  )`
+}
 
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const usuario = await getUsuarioLogado()
@@ -24,8 +36,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const lojaFiltroVendas = lojaParam ? eq(vendas.lojaId, lojaParam) : undefined
   const lojaFiltroCaixa = lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : undefined
+  const lojaCondPagamento = lojaParam ? sql`AND ${vendas.lojaId} = ${lojaParam}` : sql``
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -56,6 +69,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     db
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
+        totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), '0')`,
         qtdVendas: count(),
       })
       .from(vendas)
@@ -95,13 +109,52 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .orderBy(lojas.nome),
 
     db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+
+    db
+      .select({
+        vendedorNome: usuarios.nome,
+        qtdVendas: count(),
+        totalBruto: sql<string>`COALESCE(SUM(${vendas.valor}::numeric), 0)`,
+        totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
+      })
+      .from(vendas)
+      .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
+      .where(and(
+        gte(vendas.dataVenda, inicioTs),
+        lte(vendas.dataVenda, fimTs),
+        lojaFiltroVendas,
+      ))
+      .groupBy(vendas.vendedorId, usuarios.nome)
+      .orderBy(sql`SUM(${vendas.valor}::numeric) DESC`),
+
+    db.execute(sql`
+      SELECT
+        p.tipo,
+        COALESCE(SUM(p.valor::numeric), 0)::text AS total,
+        COUNT(DISTINCT v.id)::int AS qtd_vendas
+      FROM ${vendas} v,
+      LATERAL jsonb_to_recordset(COALESCE(v.pagamentos, '[]'::jsonb)) AS p(tipo text, valor numeric)
+      WHERE v.data_venda >= ${inicioTs}
+        AND v.data_venda < ${fimTs}
+        ${lojaCondPagamento}
+      GROUP BY p.tipo
+      ORDER BY SUM(p.valor::numeric) DESC
+    `),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
+  const receitaLiquida = Number(totaisVendas[0]?.totalLiquido ?? 0)
   const qtdVendas = Number(totaisVendas[0]?.qtdVendas ?? 0)
   const entradasCaixa = Number(totaisCaixa.find(t => t.tipo === 'entrada')?.total ?? 0)
   const saidasCaixa = Number(totaisCaixa.find(t => t.tipo === 'saida')?.total ?? 0)
   const saldoCaixa = entradasCaixa - saidasCaixa
+  const taxasCartao = receitaVendas - receitaLiquida
+
+  const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
+    tipo: r.tipo as string,
+    total: r.total as string,
+    qtdVendas: Number(r.qtd_vendas),
+  }))
 
   function fmt(v: number) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -113,21 +166,37 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <FinanceiroFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Vendas no Período</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{qtdVendas}</p>
-            <p className="text-sm text-slate-400">{fmt(receitaVendas)} em receita</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Faturamento Bruto</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{fmt(receitaVendas)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Receita Líquida</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-green-600">{fmt(receitaLiquida)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Taxas Cartão</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">-{fmt(taxasCartao)}</p>
+            {receitaVendas > 0 && (
+              <p className="text-xs text-slate-400">{((taxasCartao / receitaVendas) * 100).toFixed(1)}% do bruto</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Entradas (Caixa)</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold text-green-600">{fmt(entradasCaixa)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saídas (Caixa)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-red-600">{fmt(saidasCaixa)}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Caixa</CardTitle></CardHeader>
@@ -139,7 +208,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         </Card>
       </div>
 
-      <ResumoLojas resumo={resumoPorLoja} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ResumoLojas resumo={resumoPorLoja} />
+        <ResumoPagamentos resumo={resumoPorPagamento} />
+      </div>
+
+      <ResumoVendedores resumo={resumoPorVendedor} />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Vendas Realizadas</CardTitle></CardHeader>

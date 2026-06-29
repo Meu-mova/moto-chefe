@@ -253,6 +253,7 @@ export async function buscarConciliacoesDaVenda(vendaId: string) {
       id:            conciliacoesCartao.id,
       autorizacao:   conciliacoesCartao.autorizacao,
       valorBruto:    conciliacoesCartao.valorBruto,
+      valorLiquido:  conciliacoesCartao.valorLiquido,
       operadora:     conciliacoesCartao.operadora,
       tipo:          conciliacoesCartao.tipo,
       dataTransacao: conciliacoesCartao.dataTransacao,
