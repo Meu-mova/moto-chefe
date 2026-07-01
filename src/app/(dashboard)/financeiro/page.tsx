@@ -1,6 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { VendasTable } from './components/vendas-table'
 import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
+import { ResumoDespesas } from './components/resumo-despesas'
 
 function valorLiquidoExpr() {
   return sql`COALESCE(
@@ -38,7 +39,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const lojaFiltroCaixa = lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : undefined
   const lojaCondPagamento = lojaParam ? sql`AND ${vendas.lojaId} = ${lojaParam}` : sql``
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -140,6 +141,37 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       GROUP BY p.tipo
       ORDER BY SUM(p.valor::numeric) DESC
     `),
+
+    // Total de despesas do período (loja filtrada + gerais)
+    db
+      .select({
+        total: sql<string>`COALESCE(SUM(${despesas.valor}), '0')`,
+      })
+      .from(despesas)
+      .where(and(
+        gte(despesas.data, inicioMes),
+        lte(despesas.data, ultimoDia),
+        lojaParam
+          ? sql`(${despesas.lojaId} = ${lojaParam} OR ${despesas.lojaId} IS NULL)`
+          : undefined,
+      )),
+
+    // Despesas agrupadas por categoria
+    db
+      .select({
+        categoria: despesas.categoria,
+        total:     sql<string>`COALESCE(SUM(${despesas.valor}), '0')`,
+      })
+      .from(despesas)
+      .where(and(
+        gte(despesas.data, inicioMes),
+        lte(despesas.data, ultimoDia),
+        lojaParam
+          ? sql`(${despesas.lojaId} = ${lojaParam} OR ${despesas.lojaId} IS NULL)`
+          : undefined,
+      ))
+      .groupBy(despesas.categoria)
+      .orderBy(sql`SUM(${despesas.valor}) DESC`),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
@@ -149,6 +181,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const saidasCaixa = Number(totaisCaixa.find(t => t.tipo === 'saida')?.total ?? 0)
   const saldoCaixa = entradasCaixa - saidasCaixa
   const taxasCartao = receitaVendas - receitaLiquida
+  const totalDespesas = Number(totalDespesasRaw[0]?.total ?? 0)
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
@@ -206,6 +239,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesas Operac.</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">-{fmt(totalDespesas)}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -214,6 +253,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       </div>
 
       <ResumoVendedores resumo={resumoPorVendedor} />
+
+      <ResumoDespesas total={totalDespesas} porCategoria={despesasPorCategoria} />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Vendas Realizadas</CardTitle></CardHeader>
