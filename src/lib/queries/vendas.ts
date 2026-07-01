@@ -65,7 +65,7 @@ export async function listarVendas(filtros?: {
     .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
     .where(
       and(
-        filtros?.lojaId?.length      ? inArray(vendas.lojaId,       filtros.lojaId)                         : undefined,
+        filtros?.lojaId !== undefined ? inArray(vendas.lojaId,      filtros.lojaId)                         : undefined,
         filtros?.modeloId?.length    ? inArray(motos.modeloId,      filtros.modeloId)                       : undefined,
         filtros?.vendedorId?.length  ? inArray(vendas.vendedorId,   filtros.vendedorId)                     : undefined,
         filtros?.chassiBusca?.trim() ? ilike(motos.chassi,          `%${filtros.chassiBusca.trim()}%`)      : undefined,
@@ -127,7 +127,7 @@ export async function listarTodosPedidos(lojaIds?: string[]) {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(pedidosVenda.lojaId, lojas.id))
     .innerJoin(usuarios, eq(pedidosVenda.vendedorId, usuarios.id))
-    .where(lojaIds?.length ? inArray(pedidosVenda.lojaId, lojaIds) : undefined)
+    .where(lojaIds !== undefined ? inArray(pedidosVenda.lojaId, lojaIds) : undefined)
     .orderBy(pedidosVenda.dataPedido)
 }
 
