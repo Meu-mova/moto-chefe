@@ -39,6 +39,7 @@ export async function criarComunicadoAction(dados: {
   if (!dados.titulo.trim()) throw new Error('Título obrigatório')
   if (!dados.conteudo.trim()) throw new Error('Conteúdo obrigatório')
   await db.insert(comunicados).values({
+    grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
     titulo: dados.titulo.trim(),
     conteudo: dados.conteudo.trim(),
     ativo: dados.ativo,
@@ -60,6 +61,7 @@ export async function importarComunicadosAction(itens: {
   if (!itens.length) throw new Error('Nenhum item para importar')
   await db.insert(comunicados).values(
     itens.map(i => ({
+      grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
       titulo: i.titulo.trim(),
       conteudo: i.conteudo.trim(),
       ativo: i.ativo,

@@ -35,6 +35,7 @@ export async function criarDespesaAction(dados: DespesaInput) {
   parseValor(dados.valor)
 
   await db.insert(despesas).values({
+    grupoId:        '00000000-0000-4000-8000-000000000001', // Sul de Minas
     lojaId:         dados.lojaId || null,
     usuarioId:      usuario.id,
     categoria:      dados.categoria,

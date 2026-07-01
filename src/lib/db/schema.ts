@@ -21,6 +21,18 @@ export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida']
 export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
 
+// ─── grupos ──────────────────────────────────────────────────────────────────
+export const grupos = pgTable('grupos', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  nome:               text('nome').notNull(),
+  cnpj:               text('cnpj').notNull(),
+  ativo:              boolean('ativo').notNull().default(true),
+  validapixEmail:     text('validapix_email'),
+  validapixPassword:  text('validapix_password'),
+  fabricaEmail:       text('fabrica_email'),
+  fabricaSenha:       text('fabrica_senha'),
+})
+
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -28,6 +40,7 @@ export const lojas = pgTable('lojas', {
   cidade: text('cidade').notNull(),
   endereco: text('endereco').notNull(),
   ativa: boolean('ativa').notNull().default(true),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
 })
 
 // ─── usuarios ────────────────────────────────────────────────────────────────
@@ -292,6 +305,7 @@ export const categoriasCaixa = pgTable('categorias_caixa', {
 // ─── despesas ─────────────────────────────────────────────────────────────────
 export const despesas = pgTable('despesas', {
   id:             uuid('id').primaryKey().defaultRandom(),
+  grupoId:        uuid('grupo_id').notNull().references(() => grupos.id),
   lojaId:         uuid('loja_id').references(() => lojas.id),           // null = empresa geral
   usuarioId:      uuid('usuario_id').notNull().references(() => usuarios.id),
   categoria:      text('categoria').notNull(),
@@ -405,6 +419,7 @@ export const simuladorPrecos = pgTable('simulador_precos', {
 // ─── comunicados ─────────────────────────────────────────────────────────────
 export const comunicados = pgTable('comunicados', {
   id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   titulo: text('titulo').notNull(),
   conteudo: text('conteudo').notNull(),
   ativo: boolean('ativo').notNull().default(true),

@@ -17,6 +17,7 @@ export async function criarLojaAction(formData: FormData) {
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
+    grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
   })
   revalidatePath('/admin/lojas')
 }
