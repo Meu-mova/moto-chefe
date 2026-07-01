@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql, ne } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, lt, sql, ne } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,7 +34,13 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
 
   const aprovadoresTbl = alias(usuarios, 'aprovadores')
 
-  const [lancamentos, lojasOpts, totais] = await Promise.all([
+  // Filtro de loja para saldo anterior (sem restrição de data)
+  const filtroLojaSaldoAnterior = and(
+    lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : (!isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined),
+    ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
+  )
+
+  const [lancamentos, lojasOpts, totais, saldoAnteriorRaw, saidasPorCategoria] = await Promise.all([
     db
       .select({
         id: lancamentosCaixa.id,
@@ -68,11 +74,37 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
       .from(lancamentosCaixa)
       .where(and(filtros, ne(lancamentosCaixa.statusAprovacao, 'reprovado')))
       .groupBy(lancamentosCaixa.tipo),
+
+    // Saldo acumulado de todos os meses anteriores
+    db
+      .select({
+        total: sql<string>`COALESCE(SUM(
+          CASE WHEN ${lancamentosCaixa.tipo} = 'entrada'
+            THEN ${lancamentosCaixa.valor}::numeric
+            ELSE -${lancamentosCaixa.valor}::numeric
+          END
+        ), 0)`,
+      })
+      .from(lancamentosCaixa)
+      .where(and(lt(lancamentosCaixa.data, inicioMes), filtroLojaSaldoAnterior)),
+
+    // Saídas do período agrupadas por categoria
+    db
+      .select({
+        categoria: lancamentosCaixa.categoria,
+        total: sql<string>`COALESCE(SUM(${lancamentosCaixa.valor}), '0')`,
+      })
+      .from(lancamentosCaixa)
+      .where(and(filtros, eq(lancamentosCaixa.tipo, 'saida'), ne(lancamentosCaixa.statusAprovacao, 'reprovado')))
+      .groupBy(lancamentosCaixa.categoria)
+      .orderBy(sql`SUM(${lancamentosCaixa.valor}) DESC`),
   ])
 
   const totalEntradas = Number(totais.find(t => t.tipo === 'entrada')?.total ?? 0)
   const totalSaidas = Number(totais.find(t => t.tipo === 'saida')?.total ?? 0)
-  const saldo = totalEntradas - totalSaidas
+  const saldoMes = totalEntradas - totalSaidas
+  const saldoAnterior = Number(saldoAnteriorRaw[0]?.total ?? 0)
+  const saldoTotal = saldoAnterior + saldoMes
 
   function fmt(v: number) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -92,20 +124,50 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
 
       <CaixaFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} isAdmin={isAdmin} />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Entradas</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Anterior</CardTitle></CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${saldoAnterior >= 0 ? 'text-slate-700' : 'text-red-600'}`}>{fmt(saldoAnterior)}</p>
+            <p className="text-xs text-slate-400 mt-1">acumulado até {new Date(inicioMes + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Entradas do Mês</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold text-green-600">{fmt(totalEntradas)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saídas</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saídas do Mês</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold text-red-600">{fmt(totalSaidas)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo</CardTitle></CardHeader>
-          <CardContent><p className={`text-2xl font-bold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(saldo)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Total</CardTitle></CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${saldoTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(saldoTotal)}</p>
+            <p className="text-xs text-slate-400 mt-1">anterior + mês atual</p>
+          </CardContent>
         </Card>
       </div>
+
+      {saidasPorCategoria.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Saídas por Categoria</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {saidasPorCategoria.map(c => (
+                <div key={c.categoria} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">{c.categoria}</span>
+                  <span className="font-mono text-red-600">{fmt(Number(c.total))}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between text-sm font-semibold border-t pt-2 mt-2">
+                <span className="text-slate-700">Total saídas</span>
+                <span className="font-mono text-red-700">{fmt(totalSaidas)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
