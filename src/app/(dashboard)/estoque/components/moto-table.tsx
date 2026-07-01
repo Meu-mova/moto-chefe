@@ -168,6 +168,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                               <GarantiaButton
                                 motoId={moto.id}
                                 descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                disabled={moto.status === 'caixa'}
                               />
                             )}
 

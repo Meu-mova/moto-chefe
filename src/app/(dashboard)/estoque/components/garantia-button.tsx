@@ -13,9 +13,10 @@ type Props = {
   motoId: string
   descricao: string
   showLabel?: boolean
+  disabled?: boolean
 }
 
-export function GarantiaButton({ motoId, descricao, showLabel }: Props) {
+export function GarantiaButton({ motoId, descricao, showLabel, disabled }: Props) {
   const [open, setOpen] = useState(false)
   const [descricaoGarantia, setDescricaoGarantia] = useState('')
   const [dataPedido, setDataPedido] = useState('')
@@ -54,8 +55,9 @@ export function GarantiaButton({ motoId, descricao, showLabel }: Props) {
       <Button
         variant={showLabel ? 'outline' : 'ghost'}
         size={showLabel ? 'sm' : 'icon'}
-        title="Abrir Garantia"
+        title={disabled ? 'Moto ainda não montada — não é possível abrir garantia' : 'Abrir Garantia'}
         onClick={() => setOpen(true)}
+        disabled={disabled}
         className={showLabel
           ? 'h-8 gap-1.5 text-xs border-orange-300 text-orange-600 hover:bg-orange-50'
           : 'h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50'}
