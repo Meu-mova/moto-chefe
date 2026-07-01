@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
@@ -20,11 +21,17 @@ export async function exportarRelatorioGarantiasAction(filtros: {
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(u.papel)) {
     throw new Error('Sem permissão')
   }
-  const lojaId = ['admin_geral', 'admin_socio'].includes(u.papel)
-    ? filtros.lojaId
-    : (u.lojaId ?? undefined)
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(u.papel)
 
-  return exportarRelatorioGarantias({ ...filtros, lojaId })
+  if (!isAdmin) {
+    const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: u.lojaId ?? undefined })
+    return rows
+  }
+
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(u)
+  const lojaIdValido = filtros.lojaId && lojaIdsGrupo.includes(filtros.lojaId) ? filtros.lojaId : undefined
+  const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: lojaIdValido })
+  return lojaIdValido ? rows : rows.filter(r => lojaIdsGrupo.includes(r.lojaId))
 }
 
 export async function abrirGarantiaAction(params: {

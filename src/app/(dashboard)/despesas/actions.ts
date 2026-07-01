@@ -1,9 +1,9 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
@@ -30,15 +30,22 @@ function parseValor(v: string) {
   return v
 }
 
+async function lojaIdValidaNoGrupo(usuario: { papel: string; lojaId: string | null }, lojaId: string | null) {
+  if (!lojaId) return null
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  return lojaIdsGrupo.includes(lojaId) ? lojaId : null
+}
+
 export async function criarDespesaAction(dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
   const grupo = await getGrupoAtivo(usuario)
+  const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
   await db.insert(despesas).values({
     grupoId:        grupo.id,
-    lojaId:         dados.lojaId || null,
+    lojaId,
     usuarioId:      usuario.id,
     categoria:      dados.categoria,
     descricao:      dados.descricao?.trim() || null,
@@ -56,16 +63,21 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  await db.update(despesas).set({
-    lojaId:         dados.lojaId || null,
+  const res = await db.update(despesas).set({
+    lojaId,
     categoria:      dados.categoria,
     descricao:      dados.descricao?.trim() || null,
     valor:          dados.valor,
     data:           dados.data,
     formaPagamento: dados.formaPagamento,
     banco:          dados.banco,
-  }).where(eq(despesas.id, id))
+  }).where(and(eq(despesas.id, id), eq(despesas.grupoId, grupo.id)))
+    .returning({ id: despesas.id })
+
+  if (!res.length) throw new Error('Despesa não encontrada')
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
@@ -74,8 +86,13 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
 export async function excluirDespesaAction(id: string) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
+  const grupo = await getGrupoAtivo(usuario)
 
-  await db.delete(despesas).where(eq(despesas.id, id))
+  const res = await db.delete(despesas)
+    .where(and(eq(despesas.id, id), eq(despesas.grupoId, grupo.id)))
+    .returning({ id: despesas.id })
+
+  if (!res.length) throw new Error('Despesa não encontrada')
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
