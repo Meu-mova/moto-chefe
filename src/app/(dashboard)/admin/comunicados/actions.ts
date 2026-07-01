@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { comunicados, comunicadosLidos } from '@/lib/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 async function requireAdmin() {
@@ -12,7 +13,8 @@ async function requireAdmin() {
 }
 
 export async function listarComunicadosAction() {
-  await requireAdmin()
+  const u = await requireAdmin()
+  const grupo = await getGrupoAtivo(u)
   return db
     .select({
       id: comunicados.id,
@@ -25,6 +27,7 @@ export async function listarComunicadosAction() {
       totalLidos: sql<number>`(SELECT COUNT(*) FROM comunicados_lidos WHERE comunicado_id = ${comunicados.id})::int`,
     })
     .from(comunicados)
+    .where(eq(comunicados.grupoId, grupo.id))
     .orderBy(sql`COALESCE(${comunicados.dataPostagem}, ${comunicados.criadoEm}) DESC`)
 }
 
@@ -36,10 +39,11 @@ export async function criarComunicadoAction(dados: {
   dataPostagem: string | null
 }) {
   const u = await requireAdmin()
+  const grupo = await getGrupoAtivo(u)
   if (!dados.titulo.trim()) throw new Error('Título obrigatório')
   if (!dados.conteudo.trim()) throw new Error('Conteúdo obrigatório')
   await db.insert(comunicados).values({
-    grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
+    grupoId: grupo.id,
     titulo: dados.titulo.trim(),
     conteudo: dados.conteudo.trim(),
     ativo: dados.ativo,
@@ -58,10 +62,11 @@ export async function importarComunicadosAction(itens: {
   dataPostagem: string | null
 }[]) {
   const u = await requireAdmin()
+  const grupo = await getGrupoAtivo(u)
   if (!itens.length) throw new Error('Nenhum item para importar')
   await db.insert(comunicados).values(
     itens.map(i => ({
-      grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
+      grupoId: grupo.id,
       titulo: i.titulo.trim(),
       conteudo: i.conteudo.trim(),
       ativo: i.ativo,
@@ -99,14 +104,15 @@ export async function marcarComoLidoAction(comunicadoId: string) {
 
 export async function buscarComunicadosNaoLidosAction() {
   const u = await getUsuarioLogado()
+  const grupo = await getGrupoAtivo(u)
   return db
     .select({ id: comunicados.id, titulo: comunicados.titulo, conteudo: comunicados.conteudo })
     .from(comunicados)
     .where(
       and(
+        eq(comunicados.grupoId, grupo.id),
         eq(comunicados.ativo, true),
         sql`(${comunicados.dataPostagem} IS NULL OR ${comunicados.dataPostagem} <= now())`,
-        // papeis vazio = para todos; senão filtra pelo papel do usuário
         sql`(array_length(${comunicados.papeis}, 1) IS NULL OR ${u.papel} = ANY(${comunicados.papeis}))`,
         sql`${comunicados.id} NOT IN (
           SELECT comunicado_id FROM comunicados_lidos WHERE usuario_id = ${u.id}
