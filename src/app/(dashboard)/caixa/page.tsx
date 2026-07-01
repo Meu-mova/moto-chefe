@@ -1,7 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, lt, sql, ne } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, lt, sql, ne, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,20 +25,23 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
   const ultimoDia = new Date(ano, mes, 0).toISOString().split('T')[0]
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+
+  const lojaFiltroPadrao = lojaParam
+    ? eq(lancamentosCaixa.lojaId, lojaParam)
+    : (isAdmin ? inArray(lancamentosCaixa.lojaId, lojaIdsGrupo) : eq(lancamentosCaixa.lojaId, usuario.lojaId!))
 
   const filtros = and(
     gte(lancamentosCaixa.data, inicioMes),
     lte(lancamentosCaixa.data, ultimoDia),
-    lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : (isAdmin ? undefined : eq(lancamentosCaixa.lojaId, usuario.lojaId!)),
-    !isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined,
+    lojaFiltroPadrao,
   )
 
   const aprovadoresTbl = alias(usuarios, 'aprovadores')
 
   // Filtro de loja para saldo anterior (sem restrição de data) — mesma proteção de `filtros`
   const filtroLojaSaldoAnterior = and(
-    lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : (isAdmin ? undefined : eq(lancamentosCaixa.lojaId, usuario.lojaId!)),
-    !isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined,
+    lojaFiltroPadrao,
     ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
   )
 
@@ -65,7 +69,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
       .where(filtros)
       .orderBy(desc(lancamentosCaixa.data), desc(lancamentosCaixa.criadoEm)),
 
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
 
     db
       .select({

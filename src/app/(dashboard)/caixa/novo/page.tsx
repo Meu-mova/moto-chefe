@@ -1,6 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { lojas, categoriasCaixa } from '@/lib/db/schema'
+import { categoriasCaixa } from '@/lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { NovoLancamentoForm } from './components/novo-lancamento-form'
@@ -10,7 +11,7 @@ export default async function NovoLancamentoPage() {
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
 
   const [lojasOpts, cats] = await Promise.all([
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
     db.select({ nome: categoriasCaixa.nome, tipo: categoriasCaixa.tipo })
       .from(categoriasCaixa)
       .where(eq(categoriasCaixa.ativo, true))
