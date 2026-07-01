@@ -158,7 +158,7 @@ export async function listarMotos(filtros?: {
         filtros?.chassiBusca?.trim()
           ? ilike(motos.chassi, `%${filtros.chassiBusca.trim()}%`)
           : undefined,
-        filtros?.lojaId?.length          ? inArray(motos.lojaId, filtros.lojaId)                            : undefined,
+        filtros?.lojaId !== undefined    ? inArray(motos.lojaId, filtros.lojaId)                            : undefined,
         filtros?.modeloId?.length        ? inArray(motos.modeloId, filtros.modeloId)                        : undefined,
         filtros?.cor?.length             ? inArray(motos.cor, filtros.cor)                                  : undefined,
       )

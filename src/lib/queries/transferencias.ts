@@ -49,8 +49,8 @@ export async function listarTransferencias(filtros?: {
         filtros?.lojaId
           ? or(eq(transferencias.lojaOrigemId, filtros.lojaId), eq(transferencias.lojaDestinoId, filtros.lojaId))
           : undefined,
-        filtros?.lojaOrigemId?.length   ? inArray(transferencias.lojaOrigemId,  filtros.lojaOrigemId)              : undefined,
-        filtros?.lojaDestinoId?.length  ? inArray(transferencias.lojaDestinoId, filtros.lojaDestinoId)             : undefined,
+        filtros?.lojaOrigemId !== undefined   ? inArray(transferencias.lojaOrigemId,  filtros.lojaOrigemId)              : undefined,
+        filtros?.lojaDestinoId !== undefined  ? inArray(transferencias.lojaDestinoId, filtros.lojaDestinoId)             : undefined,
         filtros?.modeloId?.length       ? inArray(motos.modeloId,               filtros.modeloId)                  : undefined,
         filtros?.status?.length         ? inArray(transferencias.status,         filtros.status as any[])           : undefined,
         filtros?.chassiBusca?.trim()    ? ilike(motos.chassi,                   `%${filtros.chassiBusca.trim()}%`) : undefined,

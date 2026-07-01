@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { lojas, modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,7 +28,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
 
   const [mecanicos, lojasOpts, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.select({ valorMinimo: precificacao.valorMinimo })

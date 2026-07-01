@@ -1,8 +1,9 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarTransferencias } from '@/lib/queries/transferencias'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { lojas, motos, modelos } from '@/lib/db/schema'
-import { eq, inArray, asc } from 'drizzle-orm'
+import { motos, modelos } from '@/lib/db/schema'
+import { eq, inArray, asc, and } from 'drizzle-orm'
 import { TransferenciaCard } from './components/transferencia-card'
 import { SolicitarDialog } from './components/solicitar-dialog'
 import { TransferenciasFiltros } from './components/transferencias-filtros'
@@ -23,21 +24,35 @@ export default async function TransferenciasPage({
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+
+  // Valida origem/destino informados na URL contra o grupo ativo do admin — um id
+  // fora do grupo (estranho ou de outro tenant) é descartado, nunca vaza como filtro.
+  const origemValida  = parseParam(params.origem).filter(id => lojaIdsGrupo.includes(id))
+  const destinoValida = parseParam(params.destino).filter(id => lojaIdsGrupo.includes(id))
+
   const [lista, todasLojas, motosTransferiveis, modelosOpts] = await Promise.all([
     listarTransferencias({
       lojaId:        !isAdmin ? (usuario.lojaId ?? undefined) : undefined,
-      lojaOrigemId:  isAdmin ? parseParam(params.origem)  : undefined,
-      lojaDestinoId: isAdmin ? parseParam(params.destino) : undefined,
+      lojaOrigemId:  isAdmin ? (origemValida.length  ? origemValida  : lojaIdsGrupo) : undefined,
+      lojaDestinoId: isAdmin ? (destinoValida.length ? destinoValida : lojaIdsGrupo) : undefined,
       modeloId:      parseParam(params.modelo),
       status:        parseParam(params.status),
       chassiBusca:   params.q,
     }),
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(eq(lojas.ativa, true)).orderBy(asc(lojas.nome)),
+    listarLojasDoGrupoAtivo(usuario),
     db
       .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia'])),
+      .where(
+        isAdmin
+          ? and(
+              inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
+              inArray(motos.lojaId, lojaIdsGrupo),
+            )
+          : inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
+      ),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
   ])
 

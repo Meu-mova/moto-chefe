@@ -1,12 +1,13 @@
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { lojas, modelos, motos, usuarios } from '@/lib/db/schema'
+import { modelos, motos, usuarios } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -28,10 +29,19 @@ export default async function EstoquePage({
   // Vendidas nunca aparecem no estoque — sempre excluídas
   const dispValues = parseParam(params.disponibilidade)
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+
+  // Não-admin: sempre restrito à própria loja — valor de params.loja na URL é
+  // ignorado para evitar bypass (ex.: vendedor forjando /estoque?loja=<outra-loja>).
+  // Admin: valida params.loja contra o grupo ativo; id fora do grupo (ou ausente)
+  // cai para o grupo inteiro, nunca vaza lojas de outro grupo.
   const lojaParam = parseParam(params.loja)
-  const lojaValues = lojaParam.length > 0
-    ? lojaParam
-    : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaValues = isAdmin
+    ? (() => {
+        const validos = lojaParam.filter(id => lojaIdsGrupo.includes(id))
+        return validos.length > 0 ? validos : lojaIdsGrupo
+      })()
+    : (usuario.lojaId ? [usuario.lojaId] : [])
 
   const validOrds = ['modelo', 'cor', 'loja', 'status', 'disponibilidade'] as const
   type Ord = typeof validOrds[number]
@@ -50,7 +60,7 @@ export default async function EstoquePage({
       ord,
       dir,
     }),
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
