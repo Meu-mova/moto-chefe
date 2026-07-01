@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
+import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
 import { ComunicadoModal } from './components/comunicado-modal'
@@ -15,6 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar papel={usuario.papel} />
         <div className="flex-1 flex flex-col">
           <Header />
+          <GroupSelector usuario={usuario} />
           <main className="flex-1 p-6 bg-slate-50">
             {children}
           </main>
