@@ -117,6 +117,7 @@ export async function importarRelatorioAction(formData: FormData) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const operadoraSelecionada = formData.get('operadora') as string
   const file = formData.get('file') as File
@@ -184,13 +185,16 @@ export async function importarRelatorioAction(formData: FormData) {
       if (ex) { duplicadas++; continue }
     }
 
-    // Tenta auto-conciliar pela autorização registrada na venda
+    // Tenta auto-conciliar pela autorização registrada na venda, restrito ao grupo ativo
     let vendaId: string | null = null
     if (r.autorizacao) {
       const [match] = await db
         .select({ id: vendas.id })
         .from(vendas)
-        .where(sql`${vendas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`)
+        .where(and(
+          sql`${vendas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`,
+          inArray(vendas.lojaId, lojaIdsGrupo),
+        ))
         .limit(1)
       if (match) vendaId = match.id
     }

@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { fetchAllPix, parseObservation } from '@/lib/validapix'
 import { db } from '@/lib/db'
 import { vendas, pedidosVenda, lojas, motos, modelos, pixRecebimentos } from '@/lib/db/schema'
-import { inArray, eq, sql } from 'drizzle-orm'
+import { inArray, eq, sql, and } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -46,6 +46,7 @@ export default async function PixPage({
 
   // ── Buscar PIX ──────────────────────────────────────────────────────────────
   const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   if (!grupo.validapixEmail || !grupo.validapixPassword) {
     return (
@@ -95,7 +96,10 @@ export default async function PixPage({
           })
           .from(vendas)
           .leftJoin(lojas, eq(vendas.lojaId, lojas.id))
-          .where(inArray(vendas.notaFiscalSaida, [...nfNumeros]))
+          .where(and(
+            inArray(vendas.notaFiscalSaida, [...nfNumeros]),
+            inArray(vendas.lojaId, lojaIdsGrupo),
+          ))
       : Promise.resolve([] as { id: string; numero: number; clienteNome: string; valor: string; notaFiscalSaida: string | null; lojaNome: string | null }[]),
 
     pvNumeros.size > 0
