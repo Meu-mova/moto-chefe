@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas } from '@/lib/db/schema'
 import { eq, desc, and, isNull, isNotNull } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { UploadRelatorio } from './components/upload-relatorio'
@@ -25,11 +26,17 @@ export default async function ConciliacaoPage({
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
 
   const { filtro = 'pendentes' } = await searchParams
+  const grupo = await getGrupoAtivo(usuario)
 
-  const whereClause =
+  const filtroStatus =
     filtro === 'conciliadas' ? eq(conciliacoesCartao.conciliado, true) :
     filtro === 'todas'       ? undefined :
     eq(conciliacoesCartao.conciliado, false)
+
+  const whereClause = and(
+    eq(conciliacoesCartao.grupoId, grupo.id),
+    filtroStatus,
+  )
 
   const transacoes = await db
     .select({
@@ -61,8 +68,8 @@ export default async function ConciliacaoPage({
   }
 
   const [totalPendentes, totalConciliadas] = await Promise.all([
-    db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false)),
-    db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, true)),
+    db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.grupoId, grupo.id), eq(conciliacoesCartao.conciliado, false))),
+    db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.grupoId, grupo.id), eq(conciliacoesCartao.conciliado, true))),
   ])
 
   return (
