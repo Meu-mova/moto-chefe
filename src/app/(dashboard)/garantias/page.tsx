@@ -9,6 +9,7 @@ import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
 import { GarantiasFiltros } from './components/garantias-filtros'
 import { SincronizarFabricaButton } from './components/sincronizar-button'
 import { ImportarFabricaButton } from './components/importar-fabrica-button'
+import { RelatorioGarantiasButton } from './components/relatorio-garantias-button'
 
 const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardando Postagem Reversa'])
 
@@ -80,6 +81,13 @@ export default async function GarantiasPage({
         <div className="flex items-center gap-2">
           {isAdmin && <ImportarFabricaButton />}
           {(isAdmin || usuario.papel === 'aux_adm') && <SincronizarFabricaButton />}
+          {(isAdmin || usuario.papel === 'aux_adm') && (
+            <RelatorioGarantiasButton
+              lojas={lojasOpts}
+              modelos={modelosOpts}
+              isAdmin={isAdmin}
+            />
+          )}
           <AbrirGarantiaDialog motos={motosParaGarantia} ordens={ordensAbertas} papel={usuario.papel} />
         </div>
       </div>

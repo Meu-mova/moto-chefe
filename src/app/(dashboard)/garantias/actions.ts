@@ -6,6 +6,26 @@ import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
 import { eq, isNotNull } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
+import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
+
+export async function exportarRelatorioGarantiasAction(filtros: {
+  lojaId?: string
+  status?: string
+  modeloId?: string
+  statusFabrica?: string
+  dataInicio?: string
+  dataFim?: string
+}) {
+  const u = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(u.papel)) {
+    throw new Error('Sem permissão')
+  }
+  const lojaId = ['admin_geral', 'admin_socio'].includes(u.papel)
+    ? filtros.lojaId
+    : (u.lojaId ?? undefined)
+
+  return exportarRelatorioGarantias({ ...filtros, lojaId })
+}
 
 export async function abrirGarantiaAction(params: {
   motoId: string

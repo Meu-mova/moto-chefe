@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { garantias, motos, lojas, modelos } from '@/lib/db/schema'
-import { eq, and, ilike, desc } from 'drizzle-orm'
+import { eq, and, ilike, desc, gte, lte, isNull, isNotNull } from 'drizzle-orm'
 
 const CAMPOS_SELECT = {
   id: garantias.id,
@@ -47,6 +47,51 @@ export async function listarGarantias(filtros?: {
       filtros?.numeroPedidoFabrica?.trim()
         ? ilike(garantias.numeroPedidoFabrica, `%${filtros.numeroPedidoFabrica.trim()}%`)                   : undefined,
       filtros?.modeloId           ? eq(motos.modeloId, filtros.modeloId)                                    : undefined,
+    ))
+    .orderBy(desc(garantias.dataInicio))
+}
+
+export async function exportarRelatorioGarantias(filtros: {
+  lojaId?: string
+  status?: string
+  modeloId?: string
+  statusFabrica?: string
+  semPedidoFabrica?: boolean
+  dataInicio?: string
+  dataFim?: string
+}) {
+  return db
+    .select({
+      id:                  garantias.id,
+      status:              garantias.status,
+      descricao:           garantias.descricao,
+      dataInicio:          garantias.dataInicio,
+      dataFim:             garantias.dataFim,
+      dataEncerramento:    garantias.dataEncerramento,
+      dataPedidoPeca:      garantias.dataPedidoPeca,
+      numeroPedidoFabrica: garantias.numeroPedidoFabrica,
+      statusFabrica:       garantias.statusFabrica,
+      chassi:              motos.chassi,
+      cor:                 motos.cor,
+      marca:               modelos.marca,
+      modelo:              modelos.modelo,
+      lojaNome:            lojas.nome,
+    })
+    .from(garantias)
+    .innerJoin(motos,   eq(garantias.motoId,    motos.id))
+    .innerJoin(modelos, eq(motos.modeloId,       modelos.id))
+    .innerJoin(lojas,   eq(garantias.lojaId,     lojas.id))
+    .where(and(
+      filtros.lojaId      ? eq(garantias.lojaId, filtros.lojaId)                          : undefined,
+      filtros.status      ? eq(garantias.status, filtros.status as any)                   : undefined,
+      filtros.modeloId    ? eq(motos.modeloId, filtros.modeloId)                          : undefined,
+      filtros.statusFabrica === '__sem'
+        ? isNull(garantias.numeroPedidoFabrica)
+        : filtros.statusFabrica
+          ? ilike(garantias.statusFabrica, filtros.statusFabrica)
+          : undefined,
+      filtros.dataInicio  ? gte(garantias.dataInicio, filtros.dataInicio)                 : undefined,
+      filtros.dataFim     ? lte(garantias.dataInicio, filtros.dataFim)                    : undefined,
     ))
     .orderBy(desc(garantias.dataInicio))
 }
