@@ -34,9 +34,10 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
 
   const aprovadoresTbl = alias(usuarios, 'aprovadores')
 
-  // Filtro de loja para saldo anterior (sem restrição de data)
+  // Filtro de loja para saldo anterior (sem restrição de data) — mesma proteção de `filtros`
   const filtroLojaSaldoAnterior = and(
-    lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : (!isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined),
+    lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : (isAdmin ? undefined : eq(lancamentosCaixa.lojaId, usuario.lojaId!)),
+    !isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined,
     ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
   )
 
