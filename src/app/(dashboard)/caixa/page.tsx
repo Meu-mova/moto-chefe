@@ -27,9 +27,12 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
 
-  const lojaFiltroPadrao = lojaParam
-    ? eq(lancamentosCaixa.lojaId, lojaParam)
-    : (isAdmin ? inArray(lancamentosCaixa.lojaId, lojaIdsGrupo) : eq(lancamentosCaixa.lojaId, usuario.lojaId!))
+  const lojaFiltroPadrao = and(
+    lojaParam
+      ? eq(lancamentosCaixa.lojaId, lojaParam)
+      : (isAdmin ? inArray(lancamentosCaixa.lojaId, lojaIdsGrupo) : eq(lancamentosCaixa.lojaId, usuario.lojaId!)),
+    !isAdmin ? eq(lancamentosCaixa.lojaId, usuario.lojaId!) : undefined,
+  )
 
   const filtros = and(
     gte(lancamentosCaixa.data, inicioMes),
