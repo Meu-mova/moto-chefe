@@ -289,6 +289,20 @@ export const categoriasCaixa = pgTable('categorias_caixa', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── despesas ─────────────────────────────────────────────────────────────────
+export const despesas = pgTable('despesas', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  lojaId:         uuid('loja_id').references(() => lojas.id),           // null = empresa geral
+  usuarioId:      uuid('usuario_id').notNull().references(() => usuarios.id),
+  categoria:      text('categoria').notNull(),
+  descricao:      text('descricao'),
+  valor:          numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  data:           date('data').notNull(),
+  formaPagamento: text('forma_pagamento').notNull(),
+  banco:          text('banco').notNull(),
+  criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── configuracao_taxas (singleton) ──────────────────────────────────────────
 export const configuracaoTaxas = pgTable('configuracao_taxas', {
   id: integer('id').primaryKey().default(1),
