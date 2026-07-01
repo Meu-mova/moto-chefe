@@ -104,7 +104,7 @@ export async function listarPedidosPorLoja(lojaId: string) {
     .orderBy(pedidosVenda.dataPedido)
 }
 
-export async function listarTodosPedidos() {
+export async function listarTodosPedidos(lojaIds?: string[]) {
   return db
     .select({
       id: pedidosVenda.id,
@@ -127,6 +127,7 @@ export async function listarTodosPedidos() {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(pedidosVenda.lojaId, lojas.id))
     .innerJoin(usuarios, eq(pedidosVenda.vendedorId, usuarios.id))
+    .where(lojaIds?.length ? inArray(pedidosVenda.lojaId, lojaIds) : undefined)
     .orderBy(pedidosVenda.dataPedido)
 }
 

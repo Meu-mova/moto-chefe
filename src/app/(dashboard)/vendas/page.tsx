@@ -1,8 +1,9 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { db } from '@/lib/db'
 import { motos, modelos, lojas, usuarios } from '@/lib/db/schema'
-import { eq, asc, inArray } from 'drizzle-orm'
+import { eq, asc, inArray, and } from 'drizzle-orm'
 import { PedidoCard } from './components/pedido-card'
 import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
@@ -79,16 +80,17 @@ export default async function VendasPage({
   const isAdmin = ADMINS.includes(usuario.papel)
   const podeConciliacao = isAdmin || usuario.papel === 'aux_adm'
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
   const lojaValues     = params.loja !== undefined
     ? parseParam(params.loja)
-    : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
+    : (isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : []))
   const vendedorValues = parseParam(params.vendedor)
 
   const dataInicio = params.de  ?? dataDefault30Dias()
   const dataFim    = params.ate ?? undefined
 
   const [pedidos, vendasList, motosDisponiveis, lojasOpts, modelosOpts, vendedoresOpts] = await Promise.all([
-    isAdmin ? listarTodosPedidos() : listarPedidosPorLoja(usuario.lojaId!),
+    isAdmin ? listarTodosPedidos(lojaIdsGrupo) : listarPedidosPorLoja(usuario.lojaId!),
     listarVendas({
       lojaId:      lojaValues,
       modeloId:    parseParam(params.modelo),
@@ -111,8 +113,8 @@ export default async function VendasPage({
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
-      .where(eq(motos.disponibilidade, 'disponivel')),
-    db.select({ id: lojas.id,   nome: lojas.nome    }).from(lojas).orderBy(asc(lojas.nome)),
+      .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
+    listarLojasDoGrupoAtivo(usuario),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
