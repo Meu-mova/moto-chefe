@@ -104,7 +104,12 @@ export async function marcarComoLidoAction(comunicadoId: string) {
 
 export async function buscarComunicadosNaoLidosAction() {
   const u = await getUsuarioLogado()
-  const grupo = await getGrupoAtivo(u)
+  let grupo
+  try {
+    grupo = await getGrupoAtivo(u)
+  } catch {
+    return []
+  }
   return db
     .select({ id: comunicados.id, titulo: comunicados.titulo, conteudo: comunicados.conteudo })
     .from(comunicados)

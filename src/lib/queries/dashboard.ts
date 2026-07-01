@@ -138,7 +138,7 @@ export async function getEstoquePorLoja(lojaId?: string[]) {
 }
 
 export async function getVendasPorLoja(filtros: Filtros) {
-  const { dataInicio, dataFim, vendedorId } = filtros
+  const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
 
@@ -146,6 +146,7 @@ export async function getVendasPorLoja(filtros: Filtros) {
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   return db

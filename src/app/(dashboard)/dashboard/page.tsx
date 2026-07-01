@@ -215,9 +215,10 @@ export default async function DashboardPage({
   const { inicio: dataInicioAnt, fim: dataFimAnt } = mesParaDatas(mesAnterior(mesSelecionado))
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
-  const lojaIds: string[] = params.loja
+  const lojaIdsPermitidos = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaIds: string[] = params.loja && lojaIdsPermitidos.includes(params.loja)
     ? [params.loja]
-    : (isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : []))
+    : lojaIdsPermitidos
 
   const filtros: Filtros = {
     dataInicio,

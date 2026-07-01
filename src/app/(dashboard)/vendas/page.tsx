@@ -81,9 +81,11 @@ export default async function VendasPage({
   const podeConciliacao = isAdmin || usuario.papel === 'aux_adm'
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
-  const lojaValues     = params.loja !== undefined
-    ? parseParam(params.loja)
-    : (isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : []))
+  const lojaIdsPermitidos = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaParamBruto = params.loja !== undefined ? parseParam(params.loja) : []
+  const lojaValues     = lojaParamBruto.length && lojaParamBruto.every(id => lojaIdsPermitidos.includes(id))
+    ? lojaParamBruto
+    : lojaIdsPermitidos
   const vendedorValues = parseParam(params.vendedor)
 
   const dataInicio = params.de  ?? dataDefault30Dias()
