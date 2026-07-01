@@ -1,6 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { modelos, lojas } from '@/lib/db/schema'
+import { modelos } from '@/lib/db/schema'
+import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { EntradaForm } from './components/entrada-form'
 
@@ -13,10 +14,7 @@ export default async function EntradaPage() {
       .select({ id: modelos.id, modelo: modelos.modelo, marca: modelos.marca, precoCompraPadrao: modelos.precoCompraPadrao })
       .from(modelos)
       .orderBy(modelos.marca, modelos.modelo),
-    db
-      .select({ id: lojas.id, nome: lojas.nome })
-      .from(lojas)
-      .orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
   ])
 
   return (

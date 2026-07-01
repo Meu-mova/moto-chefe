@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { agendamentos, usuarios, lojas, clientes, ordensServico } from '@/lib/db/schema'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { startOfDay, endOfDay } from 'date-fns'
 
@@ -29,7 +29,7 @@ function buildAgendamentoSelect(mecanico: ReturnType<typeof alias<typeof usuario
 }
 
 export async function listarAgendamentos(filtros: {
-  lojaId?: string
+  lojaId?: string[]
   dataInicio: Date
   dataFim: Date
   mecanicoId?: string
@@ -43,7 +43,7 @@ export async function listarAgendamentos(filtros: {
     .leftJoin(clientes,   eq(agendamentos.clienteId,  clientes.id))
     .leftJoin(ordensServico, eq(agendamentos.osId,    ordensServico.id))
     .where(and(
-      filtros.lojaId ? eq(agendamentos.lojaId, filtros.lojaId) : undefined,
+      filtros.lojaId !== undefined ? inArray(agendamentos.lojaId, filtros.lojaId) : undefined,
       filtros.mecanicoId ? eq(agendamentos.mecanicoId, filtros.mecanicoId) : undefined,
       gte(agendamentos.dataHoraInicio, filtros.dataInicio),
       lte(agendamentos.dataHoraInicio, filtros.dataFim),

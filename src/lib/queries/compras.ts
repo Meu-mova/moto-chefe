@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { motos, vendas, modelos } from '@/lib/db/schema'
-import { eq, and, gte, sql } from 'drizzle-orm'
+import { eq, and, gte, sql, inArray } from 'drizzle-orm'
 
 export type ItemCompra = {
   modeloId: string
@@ -29,9 +29,11 @@ const URGENCIA_ORDER: Record<ItemCompra['urgencia'], number> = {
   critico: 0, atencao: 1, ok: 2, sem_saida: 3,
 }
 
-export async function listarDadosCompras(lojaId?: string): Promise<GrupoCompra[]> {
+export async function listarDadosCompras(lojaId: string | undefined, grupoLojaIds: string[]): Promise<GrupoCompra[]> {
   const quinzeDiasAtras = new Date()
   quinzeDiasAtras.setDate(quinzeDiasAtras.getDate() - 15)
+
+  const lojaCond = lojaId ? eq(motos.lojaId, lojaId) : inArray(motos.lojaId, grupoLojaIds)
 
   const [estoqueRows, vendasRows] = await Promise.all([
     db
@@ -47,7 +49,7 @@ export async function listarDadosCompras(lojaId?: string): Promise<GrupoCompra[]
       .where(and(
         // Exclui motos vendidas (status=vendida ou disponibilidade=vendida)
         sql`(${motos.status}::text != 'vendida' AND ${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`,
-        lojaId ? eq(motos.lojaId, lojaId) : undefined,
+        lojaCond,
       ))
       .groupBy(motos.modeloId, modelos.modelo, modelos.marca, motos.cor),
 
@@ -64,7 +66,7 @@ export async function listarDadosCompras(lojaId?: string): Promise<GrupoCompra[]
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .where(and(
         gte(vendas.dataVenda, quinzeDiasAtras),
-        lojaId ? eq(motos.lojaId, lojaId) : undefined,
+        lojaCond,
       ))
       .groupBy(motos.modeloId, modelos.modelo, modelos.marca, motos.cor),
   ])

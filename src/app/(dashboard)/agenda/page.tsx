@@ -1,8 +1,9 @@
 import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarAgendamentos } from '@/lib/queries/agendamentos'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, lojas } from '@/lib/db/schema'
+import { usuarios } from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
 import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, addDays, format, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -26,7 +27,10 @@ export default async function AgendaPage({
 
   const dataParam = params.data ? parseISO(params.data) : new Date()
   const modo      = (params.modo === 'semana' ? 'semana' : 'dia') as 'dia' | 'semana'
-  const lojaFiltro = isAdmin ? (params.loja || null) : usuario.lojaId
+
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : (usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaParamValido = isAdmin && params.loja && lojaIdsGrupo.includes(params.loja) ? params.loja : null
+  const lojaFiltroIds = lojaParamValido ? [lojaParamValido] : lojaIdsGrupo
 
   const dataInicio = modo === 'semana'
     ? startOfWeek(dataParam, { weekStartsOn: 1 })
@@ -36,11 +40,11 @@ export default async function AgendaPage({
     : endOfDay(dataParam)
 
   const [lista, mecanicos, lojasOpts] = await Promise.all([
-    listarAgendamentos({ lojaId: lojaFiltro ?? undefined, dataInicio, dataFim }),
+    listarAgendamentos({ lojaId: lojaFiltroIds, dataInicio, dataFim }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
       .where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
-    isAdmin ? db.select({ id: lojas.id, nome: lojas.nome }).from(lojas) : Promise.resolve([]),
+    isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
   ])
 
   // Contadores rápidos

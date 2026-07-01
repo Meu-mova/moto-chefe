@@ -1,9 +1,8 @@
 import { Suspense } from 'react'
-import { db } from '@/lib/db'
-import { lojas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarDadosCompras } from '@/lib/queries/compras'
 import type { ItemCompra, GrupoCompra } from '@/lib/queries/compras'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { LojaFilter } from './components/loja-filter'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Package, ShoppingBag, TrendingUp } from 'lucide-react'
@@ -118,15 +117,16 @@ export default async function ComprasPage({
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : (usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaParamValido = isAdmin && params.loja && lojaIdsGrupo.includes(params.loja) ? params.loja : undefined
+
   const lojaFiltro = isAdmin
-    ? params.loja
+    ? lojaParamValido
     : (usuario.lojaId ?? undefined)
 
   const [grupos, lojasOpts] = await Promise.all([
-    listarDadosCompras(lojaFiltro),
-    isAdmin
-      ? db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome)
-      : Promise.resolve([]),
+    listarDadosCompras(lojaFiltro, lojaIdsGrupo),
+    isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
   ])
 
   // Métricas de resumo
