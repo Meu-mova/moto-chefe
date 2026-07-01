@@ -1,8 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
-import { db } from '@/lib/db'
-import { lojas } from '@/lib/db/schema'
 import { PrintButtons } from './print-buttons'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -43,9 +42,13 @@ export default async function GarantiasRelatorioPage({
 
   const params = await searchParams
   const isAdmin = ADMINS.includes(usuario.papel)
-  const lojaIdFiltro = isAdmin ? params.lojaId : (usuario.lojaId ?? undefined)
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const lojaIdFiltro = isAdmin
+    ? (params.lojaId && lojaIdsGrupo.includes(params.lojaId) ? params.lojaId : undefined)
+    : (usuario.lojaId ?? undefined)
+  const grupo = await getGrupoAtivo(usuario)
 
-  const [rows, lojasDb] = await Promise.all([
+  const [rowsBrutas, lojasDb] = await Promise.all([
     exportarRelatorioGarantias({
       status:        params.status        || undefined,
       lojaId:        lojaIdFiltro,
@@ -54,8 +57,12 @@ export default async function GarantiasRelatorioPage({
       dataInicio:    params.dataInicio    || undefined,
       dataFim:       params.dataFim       || undefined,
     }),
-    isAdmin ? db.select({ id: lojas.id, nome: lojas.nome }).from(lojas) : Promise.resolve([]),
+    isAdmin ? listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }) : Promise.resolve([]),
   ])
+
+  const rows = isAdmin && !lojaIdFiltro
+    ? rowsBrutas.filter(r => lojasDb.some(l => l.nome === r.lojaNome))
+    : rowsBrutas
 
   const agora = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -66,7 +73,7 @@ export default async function GarantiasRelatorioPage({
   const encerradas = rows.filter(r => r.status === 'encerrada')
   const comPedido  = rows.filter(r => r.numeroPedidoFabrica)
 
-  const lojaNomeFiltro = lojasDb.find(l => l.id === params.lojaId)?.nome
+  const lojaNomeFiltro = lojasDb.find(l => l.id === lojaIdFiltro)?.nome
 
   const filtrosAtivos: string[] = []
   if (params.status === 'ativa')      filtrosAtivos.push('Apenas ativas')
@@ -216,7 +223,7 @@ export default async function GarantiasRelatorioPage({
           <div className="brand">
             <div className="brand-icon">MC</div>
             <div>
-              <div className="brand-name">Moto Chefe Sul de Minas</div>
+              <div className="brand-name">Moto Chefe {grupo.nome}</div>
               <div className="brand-sub">MOVA — Sistema de Gestão</div>
             </div>
           </div>
@@ -349,7 +356,7 @@ export default async function GarantiasRelatorioPage({
 
         {/* Rodapé */}
         <div className="report-footer">
-          <span>MOVA — Sistema de Gestão · Moto Chefe Sul de Minas</span>
+          <span>MOVA — Sistema de Gestão · Moto Chefe {grupo.nome}</span>
           <span>Gerado em {agora}</span>
         </div>
       </div>

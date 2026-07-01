@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarGarantias } from '@/lib/queries/garantias'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { motos, modelos, ordensServico, lojas } from '@/lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { motos, modelos, ordensServico } from '@/lib/db/schema'
+import { eq, and, inArray } from 'drizzle-orm'
 import { GarantiaCard } from './components/garantia-card'
 import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
 import { GarantiasFiltros } from './components/garantias-filtros'
@@ -25,11 +26,14 @@ export default async function GarantiasPage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   // Filtros de busca
-  const lojaFiltro   = isAdmin ? params.loja : (usuario.lojaId ?? undefined)
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const lojaFiltro   = isAdmin
+    ? (params.loja && lojaIdsGrupo.includes(params.loja) ? params.loja : undefined)
+    : (usuario.lojaId ?? undefined)
   const statusFiltro = params.status  // 'ativa' | 'encerrada' | undefined = todos
   const modeloFiltro = params.modelo
 
-  const [lista, motosParaGarantia, ordensAbertas, lojasOpts, modelosOpts] = await Promise.all([
+  const [listaBruta, motosParaGarantia, ordensAbertas, lojasOpts, modelosOpts] = await Promise.all([
     listarGarantias({
       lojaId:               lojaFiltro,
       status:               statusFiltro,
@@ -41,7 +45,10 @@ export default async function GarantiasPage({
     isAdmin
       ? db.select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo })
           .from(motos).innerJoin(modelos, eq(motos.modeloId, modelos.id))
-          .where(inArray(motos.status, ['faturada', 'montada', 'disponivel', 'em_garantia']))
+          .where(and(
+            inArray(motos.status, ['faturada', 'montada', 'disponivel', 'em_garantia']),
+            inArray(motos.lojaId, lojaIdsGrupo),
+          ))
       : db.select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo })
           .from(motos).innerJoin(modelos, eq(motos.modeloId, modelos.id))
           .where(eq(motos.lojaId, usuario.lojaId!)),
@@ -50,12 +57,14 @@ export default async function GarantiasPage({
       .from(ordensServico)
       .where(inArray(ordensServico.status, ['aberta', 'em_andamento'])),
 
-    isAdmin
-      ? db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome)
-      : Promise.resolve([]),
+    isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
 
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
   ])
+
+  const lista = isAdmin && !lojaFiltro
+    ? listaBruta.filter(g => lojaIdsGrupo.includes(g.lojaId))
+    : listaBruta
 
   const ativas      = lista.filter(g => g.status === 'ativa')
   const encerradas  = lista.filter(g => g.status === 'encerrada')
