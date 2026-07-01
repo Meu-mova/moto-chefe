@@ -1,9 +1,10 @@
 import { Suspense } from 'react'
 import { db } from '@/lib/db'
-import { lojas, usuarios, conciliacoesCartao } from '@/lib/db/schema'
+import { usuarios, conciliacoesCartao } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import {
   getKPIs, getVendasPorDia, getEstoquePorLoja, getVendasPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
@@ -28,10 +29,6 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
-const getLojasOpts = unstable_cache(
-  () => db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
-  ['lojas-opts'], { revalidate: 300 },
-)
 const getVendedoresOpts = unstable_cache(
   () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'vendedor')).orderBy(usuarios.nome),
   ['vendedores-opts'], { revalidate: 300 },
@@ -217,9 +214,10 @@ export default async function DashboardPage({
   const { inicio: dataInicio, fim: dataFim } = mesParaDatas(mesSelecionado)
   const { inicio: dataInicioAnt, fim: dataFimAnt } = mesParaDatas(mesAnterior(mesSelecionado))
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
   const lojaIds: string[] = params.loja
     ? [params.loja]
-    : (!isAdmin && usuario.lojaId ? [usuario.lojaId] : [])
+    : (isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : []))
 
   const filtros: Filtros = {
     dataInicio,
@@ -235,12 +233,12 @@ export default async function DashboardPage({
     vendedorId: filtros.vendedorId,
   }
 
-  const filtrosRanking = { dataInicio, dataFim }
+  const filtrosRanking = { dataInicio, dataFim, lojaId: filtros.lojaId }
   const mecanicoId = usuario.papel === 'mecanico' ? usuario.id : undefined
   const filtroKey = `${mesSelecionado}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
 
   const [lojasOpts, vendedoresOpts] = await withTimeout(
-    Promise.all([getLojasOpts(), getVendedoresOpts()]),
+    Promise.all([listarLojasDoGrupoAtivo(usuario), getVendedoresOpts()]),
     8000,
   )
 

@@ -396,9 +396,12 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
 }
 
 export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
-  const { dataInicio, dataFim } = filtros
+  const { dataInicio, dataFim, lojaId } = filtros
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)]
+  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
 
   return db
     .select({
@@ -409,7 +412,7 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
-    .where(and(gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)))
+    .where(and(...conditions))
     .groupBy(vendas.lojaId, lojas.nome)
     .orderBy(desc(sum(vendas.valor)))
 }
