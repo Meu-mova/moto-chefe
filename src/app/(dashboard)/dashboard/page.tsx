@@ -222,7 +222,10 @@ export default async function DashboardPage({
   const filtros: Filtros = {
     dataInicio,
     dataFim,
-    lojaId: lojaIds.length ? lojaIds : undefined,
+    // Admin sempre recebe o array concreto (mesmo vazio, quando o grupo ativo não tem lojas) para
+    // que os filtros das queries apliquem "inArray([])" e não vazem dados de outros grupos.
+    // Não-admin sem loja associada (caso legado/defensivo) preserva undefined = sem filtro.
+    lojaId: (isAdmin || usuario.lojaId) ? lojaIds : undefined,
     vendedorId: isAdmin ? params.vendedor : (isVendedor ? usuario.id : undefined),
   }
 

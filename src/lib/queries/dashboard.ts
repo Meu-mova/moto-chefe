@@ -34,31 +34,31 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   const vendasCond = and(
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
-    lojaId?.length ? lojaFilter(vendas.lojaId, lojaId) : undefined,
+    lojaId !== undefined ? lojaFilter(vendas.lojaId, lojaId) : undefined,
     vendedorId ? eq(vendas.vendedorId, vendedorId) : undefined,
   )
 
   const estoqueCond = and(
     sql`${motos.status} != 'vendida'`,
     sql`(${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida')`,
-    lojaId?.length ? lojaFilter(motos.lojaId, lojaId) : undefined,
+    lojaId !== undefined ? lojaFilter(motos.lojaId, lojaId) : undefined,
   )
 
   const transfCond = and(
     eq(transferencias.status, 'pendente'),
-    lojaId?.length
+    lojaId !== undefined
       ? or(lojaFilter(transferencias.lojaOrigemId, lojaId)!, lojaFilter(transferencias.lojaDestinoId, lojaId)!)
       : undefined,
   )
 
   const garantiaCond = and(
     eq(garantias.status, 'ativa'),
-    lojaId?.length ? lojaFilter(garantias.lojaId, lojaId) : undefined,
+    lojaId !== undefined ? lojaFilter(garantias.lojaId, lojaId) : undefined,
   )
 
   const osCond = and(
     or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
-    lojaId?.length ? lojaFilter(ordensServico.lojaId, lojaId) : undefined,
+    lojaId !== undefined ? lojaFilter(ordensServico.lojaId, lojaId) : undefined,
   )
 
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
@@ -98,7 +98,7 @@ export async function getVendasPorDia(filtros: Filtros) {
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   const rows = await db
@@ -123,7 +123,7 @@ export async function getEstoquePorLoja(lojaId?: string[]) {
   const conditions: any[] = [
     sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'`,
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(motos.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(motos.lojaId, lojaId)!)
 
   return db
     .select({
@@ -170,7 +170,7 @@ export async function getUltimasVendas(filtros: Filtros, limite = 5) {
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   return db
@@ -196,7 +196,7 @@ export async function getUltimasVendas(filtros: Filtros, limite = 5) {
 
 export async function getTransferenciasPendentes(lojaId?: string[], limite = 5) {
   const conditions = [eq(transferencias.status, 'pendente')]
-  if (lojaId?.length) {
+  if (lojaId !== undefined) {
     conditions.push(
       or(
         lojaFilter(transferencias.lojaOrigemId, lojaId)!,
@@ -238,7 +238,7 @@ export async function getGarantiasProxVencimento(lojaId?: string[], limite = 5) 
   const conditions = [
     eq(garantias.status, 'ativa'),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(garantias.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(garantias.lojaId, lojaId)!)
 
   return db
     .select({
@@ -262,7 +262,7 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
   const conditions = [
     or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
   if (mecanicoId) conditions.push(eq(ordensServico.mecanicoId, mecanicoId))
 
   return db
@@ -293,7 +293,7 @@ export async function getMotoMaisVendida(filtros: Filtros) {
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   const [result] = await db
@@ -321,7 +321,7 @@ export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoV
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   const mediaExpr = opts?.useLiquidoValue
@@ -345,7 +345,7 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
 
   const lojaVendedor = db
     .select({ id: lojas.id, nome: lojas.nome })
@@ -377,7 +377,7 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
     gte(vendas.dataVenda, inicio),
     lte(vendas.dataVenda, fim),
   ]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   return db
@@ -401,7 +401,7 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
   const fim = new Date(dataFim + 'T23:59:59.999Z')
 
   const conditions = [gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)]
-  if (lojaId?.length) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
+  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
 
   return db
     .select({
