@@ -1,7 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { demandas, lojas, usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
 
@@ -11,15 +12,11 @@ export default async function DemandasPage() {
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
-  const lojasOpts = await db
-    .select({ id: lojas.id, nome: lojas.nome })
-    .from(lojas)
-    .where(eq(lojas.ativa, true))
-    .orderBy(lojas.nome)
+  const lojasOpts = await listarLojasDoGrupoAtivo(usuario)
 
-  const where = isAdmin || !usuario.lojaId
-    ? undefined
-    : eq(demandas.lojaId, usuario.lojaId)
+  const where = isAdmin
+    ? inArray(demandas.lojaId, await listarLojaIdsDoGrupoAtivo(usuario))
+    : (usuario.lojaId ? eq(demandas.lojaId, usuario.lojaId) : undefined)
 
   const lista = await db
     .select({

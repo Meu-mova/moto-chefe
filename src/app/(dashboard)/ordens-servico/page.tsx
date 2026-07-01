@@ -1,8 +1,9 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarOSPorLoja, listarTodasOS } from '@/lib/queries/ordens-servico'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, lojas } from '@/lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { usuarios } from '@/lib/db/schema'
+import { inArray } from 'drizzle-orm'
 import { OSCard } from './components/os-card'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
@@ -26,13 +27,15 @@ export default async function OrdensServicoPage({
   const statusFiltro = parseParam(params.status)
   const tipoFiltro   = parseParam(params.tipo)
 
+  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+
   const [lista, mecanicos, lojasOpts] = await Promise.all([
     isAdmin
-      ? listarTodasOS({ status: statusFiltro, tipoOs: tipoFiltro, busca: params.q })
+      ? listarTodasOS({ status: statusFiltro, tipoOs: tipoFiltro, busca: params.q, lojaId: lojaIdsGrupo })
       : listarOSPorLoja(usuario.lojaId!),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas),
+    listarLojasDoGrupoAtivo(usuario),
   ])
 
   const abertas      = lista.filter(o => o.status === 'aberta')

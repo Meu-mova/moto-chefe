@@ -62,6 +62,7 @@ export async function listarTodasOS(filtros?: {
   status?: string[]
   tipoOs?: string[]
   busca?: string
+  lojaId?: string[]
 }) {
   const mecanico = alias(usuarios, 'mecanico')
   return db
@@ -76,6 +77,7 @@ export async function listarTodasOS(filtros?: {
     .where(and(
       filtros?.status?.length   ? inArray(ordensServico.status, filtros.status as any[]) : undefined,
       filtros?.tipoOs?.length   ? inArray(ordensServico.tipoOs, filtros.tipoOs) : undefined,
+      filtros?.lojaId !== undefined ? inArray(ordensServico.lojaId, filtros.lojaId) : undefined,
       filtros?.busca?.trim()    ? or(
         ilike(motos.chassi,             `%${filtros.busca}%`),
         ilike(ordensServico.marcaExterna,  `%${filtros.busca}%`),
