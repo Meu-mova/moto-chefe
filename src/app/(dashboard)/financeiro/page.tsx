@@ -199,7 +199,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <FinanceiroFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Vendas no Período</CardTitle></CardHeader>
           <CardContent>
@@ -242,7 +242,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesas Operac.</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">-{fmt(totalDespesas)}</p>
+            <p className="text-2xl font-bold text-red-600">{totalDespesas > 0 ? '-' : ''}{fmt(totalDespesas)}</p>
           </CardContent>
         </Card>
       </div>
