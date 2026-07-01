@@ -61,7 +61,7 @@ export default async function GarantiasRelatorioPage({
   ])
 
   const rows = isAdmin && !lojaIdFiltro
-    ? rowsBrutas.filter(r => lojasDb.some(l => l.nome === r.lojaNome))
+    ? rowsBrutas.filter(r => lojaIdsGrupo.includes(r.lojaId))
     : rowsBrutas
 
   const agora = new Date().toLocaleString('pt-BR', {

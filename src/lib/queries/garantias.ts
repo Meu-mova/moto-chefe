@@ -75,6 +75,7 @@ export async function exportarRelatorioGarantias(filtros: {
       cor:                 motos.cor,
       marca:               modelos.marca,
       modelo:              modelos.modelo,
+      lojaId:              garantias.lojaId,
       lojaNome:            lojas.nome,
     })
     .from(garantias)
