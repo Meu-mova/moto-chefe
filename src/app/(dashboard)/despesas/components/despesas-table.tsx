@@ -9,21 +9,7 @@ import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirDespesaAction } from '../actions'
 import { EditarDespesaButton } from './despesa-dialog'
-
-type Loja = { id: string; nome: string }
-
-type DespesaRow = {
-  id: string
-  lojaId: string | null
-  lojaNome: string | null
-  categoria: string
-  descricao: string | null
-  valor: string
-  data: string
-  formaPagamento: string
-  banco: string
-  usuarioNome: string
-}
+import type { Loja, DespesaRow } from '../types'
 
 type Props = { despesas: DespesaRow[]; lojas: Loja[] }
 
@@ -110,7 +96,7 @@ export function DespesasTable({ despesas, lojas }: Props) {
 
         <Input
           className="h-8 text-xs w-48"
-          placeholder="Buscar descrição / banco..."
+          placeholder="Buscar descrição / categoria / banco..."
           value={filtroBusca}
           onChange={e => setFiltroBusca(e.target.value)}
         />

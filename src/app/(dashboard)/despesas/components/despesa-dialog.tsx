@@ -10,19 +10,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Plus, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { criarDespesaAction, editarDespesaAction } from '../actions'
-
-type Loja = { id: string; nome: string }
-
-type DespesaRow = {
-  id: string
-  lojaId: string | null
-  categoria: string
-  descricao: string | null
-  valor: string
-  data: string
-  formaPagamento: string
-  banco: string
-}
+import type { Loja, DespesaRow } from '../types'
 
 const CATEGORIAS = [
   'Aluguel', 'Energia elétrica', 'Água', 'Internet', 'Combustível',
@@ -229,7 +217,10 @@ export function EditarDespesaButton({ lojas, despesa }: { lojas: Loja[]; despesa
       >
         <Pencil size={14} />
       </button>
-      <DespesaDialog lojas={lojas} modo="editar" inicial={despesa} open={open} onOpenChange={setOpen} />
+      <DespesaDialog
+        key={`${despesa.id}-${despesa.valor}-${despesa.data}`}
+        lojas={lojas} modo="editar" inicial={despesa} open={open} onOpenChange={setOpen}
+      />
     </>
   )
 }
