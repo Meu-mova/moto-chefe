@@ -221,10 +221,25 @@ export async function importarRelatorioAction(formData: FormData) {
 export async function vincularVendaAction(conciliacaoId: string, vendaId: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
 
-  await db.update(conciliacoesCartao)
+  // Garante que a venda a ser vinculada pertence a uma loja do grupo ativo
+  const [venda] = await db
+    .select({ lojaId: vendas.lojaId })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  if (!venda || !lojaIdsGrupo.includes(venda.lojaId)) {
+    throw new Error('Venda não pertence ao grupo ativo')
+  }
+
+  const atualizadas = await db.update(conciliacoesCartao)
     .set({ vendaId, conciliado: true, conciliadoEm: new Date() })
-    .where(eq(conciliacoesCartao.id, conciliacaoId))
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+    .returning({ id: conciliacoesCartao.id })
+
+  if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
 
   revalidatePath('/conciliacao')
 }
@@ -232,10 +247,14 @@ export async function vincularVendaAction(conciliacaoId: string, vendaId: string
 export async function desvincularVendaAction(conciliacaoId: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
 
-  await db.update(conciliacoesCartao)
+  const atualizadas = await db.update(conciliacoesCartao)
     .set({ vendaId: null, conciliado: false, conciliadoEm: null })
-    .where(eq(conciliacoesCartao.id, conciliacaoId))
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+    .returning({ id: conciliacoesCartao.id })
+
+  if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
 
   revalidatePath('/conciliacao')
 }
