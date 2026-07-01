@@ -67,3 +67,20 @@ export async function listarLojaIdsDoGrupoAtivo(usuario: { papel: string; lojaId
   const rows = await db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupo.id))
   return rows.map(r => r.id)
 }
+
+// ─── Exceção pontual: transferência entre grupos ──────────────────────────────
+// Liberado apenas para este usuário, por decisão explícita — não é uma role
+// genérica. Ver docs/superpowers/specs/2026-07-01-transferencia-entre-grupos-design.md
+const EMAIL_ACESSO_MULTI_GRUPO = 'cesar.rodrigues@motochefesuldeminas.com.br'
+
+export function podeTransferirEntreGrupos(usuario: { email: string }): boolean {
+  return usuario.email === EMAIL_ACESSO_MULTI_GRUPO
+}
+
+export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: string }[]> {
+  return db
+    .select({ id: lojas.id, nome: lojas.nome })
+    .from(lojas)
+    .where(eq(lojas.ativa, true))
+    .orderBy(lojas.nome)
+}

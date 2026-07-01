@@ -1,6 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarTransferencias } from '@/lib/queries/transferencias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { motos, modelos } from '@/lib/db/schema'
 import { eq, inArray, asc, and } from 'drizzle-orm'
@@ -25,13 +25,14 @@ export default async function TransferenciasPage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
   // Valida origem/destino informados na URL contra o grupo ativo do admin — um id
   // fora do grupo (estranho ou de outro tenant) é descartado, nunca vaza como filtro.
   const origemValida  = parseParam(params.origem).filter(id => lojaIdsGrupo.includes(id))
   const destinoValida = parseParam(params.destino).filter(id => lojaIdsGrupo.includes(id))
 
-  const [lista, todasLojas, motosTransferiveis, modelosOpts] = await Promise.all([
+  const [lista, todasLojas, lojasParaSolicitar, motosTransferiveis, modelosOpts] = await Promise.all([
     listarTransferencias({
       lojaId:        !isAdmin ? (usuario.lojaId ?? undefined) : undefined,
       lojaOrigemId:  isAdmin ? (origemValida.length  ? origemValida  : lojaIdsGrupo) : undefined,
@@ -41,17 +42,20 @@ export default async function TransferenciasPage({
       chassiBusca:   params.q,
     }),
     listarLojasDoGrupoAtivo(usuario),
+    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
     db
       .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .where(
-        isAdmin
-          ? and(
-              inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
-              inArray(motos.lojaId, lojaIdsGrupo),
-            )
-          : inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
+        acessoMultiGrupo
+          ? inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia'])
+          : isAdmin
+            ? and(
+                inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
+                inArray(motos.lojaId, lojaIdsGrupo),
+              )
+            : inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
       ),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
   ])
@@ -75,7 +79,7 @@ export default async function TransferenciasPage({
           <p className="text-slate-500 text-sm">Movimentações entre lojas</p>
         </div>
         <SolicitarDialog
-          lojas={todasLojas}
+          lojas={lojasParaSolicitar}
           motos={motosTransferiveis}
           lojaUsuarioId={usuario.lojaId ?? null}
           papel={usuario.papel}
