@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, lojas, usuarios } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
@@ -18,6 +19,8 @@ export default async function DespesasPage({
 }) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
+
+  const grupo = await getGrupoAtivo(usuario)
 
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
@@ -43,12 +46,13 @@ export default async function DespesasPage({
       .leftJoin(lojas,    eq(despesas.lojaId,    lojas.id))
       .innerJoin(usuarios, eq(despesas.usuarioId, usuarios.id))
       .where(and(
+        eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
       ))
       .orderBy(desc(despesas.data), desc(despesas.criadoEm)),
 
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }),
 
     db
       .select({
@@ -59,6 +63,7 @@ export default async function DespesasPage({
       .from(despesas)
       .leftJoin(lojas, eq(despesas.lojaId, lojas.id))
       .where(and(
+        eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
       ))

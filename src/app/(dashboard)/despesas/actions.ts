@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -33,9 +34,10 @@ export async function criarDespesaAction(dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
+  const grupo = await getGrupoAtivo(usuario)
 
   await db.insert(despesas).values({
-    grupoId:        '00000000-0000-4000-8000-000000000001', // Sul de Minas
+    grupoId:        grupo.id,
     lojaId:         dados.lojaId || null,
     usuarioId:      usuario.id,
     categoria:      dados.categoria,
