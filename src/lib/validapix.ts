@@ -18,18 +18,17 @@ interface PixSession {
   expiresAt: number
 }
 
-let session: PixSession | null = null
+// Cache de sessão por conta — cada grupo pode ter credenciais ValidaPix diferentes.
+const sessions = new Map<string, PixSession>()
 
-async function getSession(): Promise<PixSession> {
-  if (session && Date.now() < session.expiresAt - 60_000) return session
+async function getSession(email: string, password: string): Promise<PixSession> {
+  const cached = sessions.get(email)
+  if (cached && Date.now() < cached.expiresAt - 60_000) return cached
 
   const res = await fetch('https://api.validapix.tech/api/v2/auth/signIn', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: process.env.VALIDAPIX_EMAIL,
-      password: process.env.VALIDAPIX_PASSWORD,
-    }),
+    body: JSON.stringify({ email, password }),
     cache: 'no-store',
   })
 
@@ -37,17 +36,18 @@ async function getSession(): Promise<PixSession> {
 
   const data = await res.json()
 
-  session = {
+  const novaSession: PixSession = {
     accessToken: data.accessToken,
     deviceKey: data.deviceKey,
     teamId: data.teams[0].id,
     expiresAt: new Date(data.accessTokenExp).getTime(),
   }
+  sessions.set(email, novaSession)
 
-  return session
+  return novaSession
 }
 
-async function fetchPage(s: PixSession, from: Date, to: Date, page: number): Promise<{ list: PixTransaction[]; totalPage: number }> {
+async function fetchPage(s: PixSession, from: Date, to: Date, page: number, email: string): Promise<{ list: PixTransaction[]; totalPage: number }> {
   const params = new URLSearchParams({
     page: String(page),
     limit: '100',
@@ -70,7 +70,7 @@ async function fetchPage(s: PixSession, from: Date, to: Date, page: number): Pro
   })
 
   if (res.status === 401) {
-    session = null
+    sessions.delete(email)
     throw new Error('Sessão ValidaPix expirada, recarregue a página')
   }
   if (!res.ok) throw new Error(`ValidaPix erro ${res.status}`)
@@ -78,13 +78,13 @@ async function fetchPage(s: PixSession, from: Date, to: Date, page: number): Pro
   return res.json()
 }
 
-export async function fetchAllPix(from: Date, to: Date): Promise<PixTransaction[]> {
-  const s = await getSession()
-  const first = await fetchPage(s, from, to, 1)
+export async function fetchAllPix(from: Date, to: Date, credenciais: { email: string; password: string }): Promise<PixTransaction[]> {
+  const s = await getSession(credenciais.email, credenciais.password)
+  const first = await fetchPage(s, from, to, 1, credenciais.email)
   const all = [...first.list]
 
   for (let p = 2; p <= first.totalPage; p++) {
-    const next = await fetchPage(s, from, to, p)
+    const next = await fetchPage(s, from, to, p, credenciais.email)
     all.push(...next.list)
   }
 

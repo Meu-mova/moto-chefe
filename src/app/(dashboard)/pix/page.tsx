@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { fetchAllPix, parseObservation } from '@/lib/validapix'
 import { db } from '@/lib/db'
 import { vendas, pedidosVenda, lojas, motos, modelos, pixRecebimentos } from '@/lib/db/schema'
-import { inArray, eq, sql } from 'drizzle-orm'
+import { inArray, eq, sql, and } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -44,7 +45,29 @@ export default async function PixPage({
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
   // ── Buscar PIX ──────────────────────────────────────────────────────────────
-  let pixList = await fetchAllPix(fromDate, toDate)
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+
+  if (!grupo.validapixEmail || !grupo.validapixPassword) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">PIX Recebidos</h1>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center">
+          <p className="text-sm text-amber-800">
+            O grupo <strong>{grupo.nome}</strong> ainda não tem credenciais do ValidaPix configuradas.
+          </p>
+          <p className="text-xs text-amber-600 mt-1">
+            Cadastre em Admin → Grupos → editar o grupo.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  let pixList = await fetchAllPix(fromDate, toDate, {
+    email: grupo.validapixEmail,
+    password: grupo.validapixPassword,
+  })
 
   // Ordenar mais recentes primeiro
   pixList = pixList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -73,7 +96,10 @@ export default async function PixPage({
           })
           .from(vendas)
           .leftJoin(lojas, eq(vendas.lojaId, lojas.id))
-          .where(inArray(vendas.notaFiscalSaida, [...nfNumeros]))
+          .where(and(
+            inArray(vendas.notaFiscalSaida, [...nfNumeros]),
+            inArray(vendas.lojaId, lojaIdsGrupo),
+          ))
       : Promise.resolve([] as { id: string; numero: number; clienteNome: string; valor: string; notaFiscalSaida: string | null; lojaNome: string | null }[]),
 
     pvNumeros.size > 0
@@ -121,6 +147,7 @@ export default async function PixPage({
         const { tipo, numero } = parseObservation(pix.observation)
         return {
           id:               pix.endToEndId,
+          grupoId:          grupo.id,
           dataPagamento:    new Date(pix.date),
           valor:            pix.price,
           pagadorNome:      pix.name || null,

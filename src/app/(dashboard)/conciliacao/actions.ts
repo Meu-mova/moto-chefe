@@ -1,8 +1,9 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos } from '@/lib/db/schema'
-import { eq, and, desc, sql, isNull, ilike } from 'drizzle-orm'
+import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
@@ -115,6 +116,8 @@ function detectarFormato(primeiraLinha: string): string | null {
 export async function importarRelatorioAction(formData: FormData) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const operadoraSelecionada = formData.get('operadora') as string
   const file = formData.get('file') as File
@@ -157,7 +160,11 @@ export async function importarRelatorioAction(formData: FormData) {
       const [ex] = await db
         .select({ id: conciliacoesCartao.id })
         .from(conciliacoesCartao)
-        .where(and(eq(conciliacoesCartao.operadora, operadora), eq(conciliacoesCartao.nsu, r.nsu)))
+        .where(and(
+          eq(conciliacoesCartao.grupoId, grupo.id),
+          eq(conciliacoesCartao.operadora, operadora),
+          eq(conciliacoesCartao.nsu, r.nsu),
+        ))
         .limit(1)
       if (ex) { duplicadas++; continue }
     } else {
@@ -166,6 +173,7 @@ export async function importarRelatorioAction(formData: FormData) {
         .select({ id: conciliacoesCartao.id })
         .from(conciliacoesCartao)
         .where(and(
+          eq(conciliacoesCartao.grupoId,        grupo.id),
           eq(conciliacoesCartao.operadora,      operadora),
           isNull(conciliacoesCartao.nsu),
           eq(conciliacoesCartao.dataTransacao,  r.dataTransacao),
@@ -177,18 +185,22 @@ export async function importarRelatorioAction(formData: FormData) {
       if (ex) { duplicadas++; continue }
     }
 
-    // Tenta auto-conciliar pela autorização registrada na venda
+    // Tenta auto-conciliar pela autorização registrada na venda, restrito ao grupo ativo
     let vendaId: string | null = null
     if (r.autorizacao) {
       const [match] = await db
         .select({ id: vendas.id })
         .from(vendas)
-        .where(sql`${vendas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`)
+        .where(and(
+          sql`${vendas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`,
+          inArray(vendas.lojaId, lojaIdsGrupo),
+        ))
         .limit(1)
       if (match) vendaId = match.id
     }
 
     await db.insert(conciliacoesCartao).values({
+      grupoId:        grupo.id,
       operadora,
       dataTransacao:  r.dataTransacao,
       nsu:            r.nsu,
@@ -213,10 +225,25 @@ export async function importarRelatorioAction(formData: FormData) {
 export async function vincularVendaAction(conciliacaoId: string, vendaId: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
 
-  await db.update(conciliacoesCartao)
+  // Garante que a venda a ser vinculada pertence a uma loja do grupo ativo
+  const [venda] = await db
+    .select({ lojaId: vendas.lojaId })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  if (!venda || !lojaIdsGrupo.includes(venda.lojaId)) {
+    throw new Error('Venda não pertence ao grupo ativo')
+  }
+
+  const atualizadas = await db.update(conciliacoesCartao)
     .set({ vendaId, conciliado: true, conciliadoEm: new Date() })
-    .where(eq(conciliacoesCartao.id, conciliacaoId))
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+    .returning({ id: conciliacoesCartao.id })
+
+  if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
 
   revalidatePath('/conciliacao')
 }
@@ -224,10 +251,14 @@ export async function vincularVendaAction(conciliacaoId: string, vendaId: string
 export async function desvincularVendaAction(conciliacaoId: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
 
-  await db.update(conciliacoesCartao)
+  const atualizadas = await db.update(conciliacoesCartao)
     .set({ vendaId: null, conciliado: false, conciliadoEm: null })
-    .where(eq(conciliacoesCartao.id, conciliacaoId))
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+    .returning({ id: conciliacoesCartao.id })
+
+  if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
 
   revalidatePath('/conciliacao')
 }
@@ -266,6 +297,7 @@ export async function buscarConciliacoesPorValor(valor: number) {
   const usuario = await getUsuarioLogado()
   const ADMINS  = ['admin_geral', 'admin_socio', 'aux_adm']
   if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
 
   return db
     .select({
@@ -280,6 +312,7 @@ export async function buscarConciliacoesPorValor(valor: number) {
     .from(conciliacoesCartao)
     .where(
       and(
+        eq(conciliacoesCartao.grupoId, grupo.id),
         sql`${conciliacoesCartao.vendaId} IS NULL`,
         sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 0.05`,
       )
@@ -316,7 +349,11 @@ export async function buscarPixDaVenda(vendaId: string) {
 }
 
 export async function buscarVendasParaVincular(valorRef: number) {
-  // Busca vendas onde algum lançamento de cartão tem valor exato (tolerância de R$0,01)
+  const usuario = await getUsuarioLogado()
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+
+  // Busca vendas onde algum lançamento de cartão tem valor exato (tolerância de R$0,01),
+  // restrito às lojas do grupo ativo do usuário.
   return db
     .select({
       id:             vendas.id,
@@ -329,11 +366,14 @@ export async function buscarVendasParaVincular(valorRef: number) {
     })
     .from(vendas)
     .where(
-      sql`EXISTS (
-        SELECT 1 FROM jsonb_array_elements(${vendas.pagamentos}) AS p
-        WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
-        AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
-      )`
+      and(
+        inArray(vendas.lojaId, lojaIdsGrupo),
+        sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements(${vendas.pagamentos}) AS p
+          WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
+          AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
+        )`,
+      )
     )
     .orderBy(desc(vendas.dataVenda))
     .limit(50)
@@ -342,6 +382,7 @@ export async function buscarVendasParaVincular(valorRef: number) {
 export async function buscarVendaManual(query: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const q = query.trim()
   if (q.length < 2) return []
@@ -359,7 +400,12 @@ export async function buscarVendaManual(query: string) {
       pagamentos:     vendas.pagamentos,
     })
     .from(vendas)
-    .where(isNumero ? eq(vendas.numero, parseInt(q, 10)) : ilike(vendas.clienteNome, `%${q}%`))
+    .where(
+      and(
+        inArray(vendas.lojaId, lojaIdsGrupo),
+        isNumero ? eq(vendas.numero, parseInt(q, 10)) : ilike(vendas.clienteNome, `%${q}%`),
+      )
+    )
     .orderBy(desc(vendas.dataVenda))
     .limit(15)
 }
