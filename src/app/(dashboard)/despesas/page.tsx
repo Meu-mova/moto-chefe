@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DespesasTable } from './components/despesas-table'
 import { NovaDespesaButton } from './components/despesa-dialog'
 import { MesSelector } from './components/mes-selector'
+import { Suspense } from 'react'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -82,7 +83,7 @@ export default async function DespesasPage({
           <p className="text-sm text-slate-500 mt-0.5 capitalize">{mesExibicao}</p>
         </div>
         <div className="flex items-center gap-3">
-          <MesSelector mesAtual={mesParam} />
+          <Suspense fallback={null}><MesSelector mesAtual={mesParam} /></Suspense>
           <NovaDespesaButton lojas={lojasOpts} />
         </div>
       </div>
