@@ -61,15 +61,17 @@ export default async function AdminPage() {
               <CardContent><p className="text-sm text-slate-500">Gerenciar lojas da rede</p></CardContent>
             </Card>
           </Link>
-          <Link href="/admin/grupos">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="flex-row gap-3 items-center pb-2">
-                <Layers className="text-slate-600" size={20} />
-                <CardTitle className="text-base">Grupos</CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-sm text-slate-500">Empresas (CNPJs) e integrações</p></CardContent>
-            </Card>
-          </Link>
+          {isSuperAdmin && (
+            <Link href="/admin/grupos">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardHeader className="flex-row gap-3 items-center pb-2">
+                  <Layers className="text-slate-600" size={20} />
+                  <CardTitle className="text-base">Grupos</CardTitle>
+                </CardHeader>
+                <CardContent><p className="text-sm text-slate-500">Empresas (CNPJs) e integrações</p></CardContent>
+              </Card>
+            </Link>
+          )}
           <Link href="/admin/usuarios">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="flex-row gap-3 items-center pb-2">
