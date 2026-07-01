@@ -1,7 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql, count } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FinanceiroFiltros } from './components/financeiro-filtros'
@@ -25,9 +26,13 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
 
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const grupo = await getGrupoAtivo(usuario)
+
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
   const lojaParam = params.loja ?? ''
+  const lojaParamValido = lojaParam && lojaIdsGrupo.includes(lojaParam) ? lojaParam : ''
 
   const [ano, mes] = mesParam.split('-').map(Number)
   const inicioMes = `${mesParam}-01`
@@ -35,9 +40,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const inicioTs = new Date(`${inicioMes}T00:00:00Z`)
   const fimTs = new Date(`${ano}-${String(mes + 1).padStart(2, '0')}-01T00:00:00Z`)
 
-  const lojaFiltroVendas = lojaParam ? eq(vendas.lojaId, lojaParam) : undefined
-  const lojaFiltroCaixa = lojaParam ? eq(lancamentosCaixa.lojaId, lojaParam) : undefined
-  const lojaCondPagamento = lojaParam ? sql`AND ${vendas.lojaId} = ${lojaParam}` : sql``
+  const lojaFiltroVendas = lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)
+  const lojaFiltroCaixa = lojaParamValido ? eq(lancamentosCaixa.lojaId, lojaParamValido) : inArray(lancamentosCaixa.lojaId, lojaIdsGrupo)
+  const lojaCondPagamento = sql`AND ${lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)}`
 
   const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria] = await Promise.all([
     db
@@ -106,10 +111,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         gte(vendas.dataVenda, inicioTs),
         lte(vendas.dataVenda, fimTs),
       ))
+      .where(inArray(lojas.id, lojaIdsGrupo))
       .groupBy(lojas.id, lojas.nome)
       .orderBy(lojas.nome),
 
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).orderBy(lojas.nome),
+    listarLojasDoGrupoAtivo(usuario),
 
     db
       .select({
@@ -149,10 +155,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       })
       .from(despesas)
       .where(and(
+        eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
-        lojaParam
-          ? sql`(${despesas.lojaId} = ${lojaParam} OR ${despesas.lojaId} IS NULL)`
+        lojaParamValido
+          ? sql`(${despesas.lojaId} = ${lojaParamValido} OR ${despesas.lojaId} IS NULL)`
           : undefined,
       )),
 
@@ -164,10 +171,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       })
       .from(despesas)
       .where(and(
+        eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
-        lojaParam
-          ? sql`(${despesas.lojaId} = ${lojaParam} OR ${despesas.lojaId} IS NULL)`
+        lojaParamValido
+          ? sql`(${despesas.lojaId} = ${lojaParamValido} OR ${despesas.lojaId} IS NULL)`
           : undefined,
       ))
       .groupBy(despesas.categoria)
