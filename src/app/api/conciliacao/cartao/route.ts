@@ -74,7 +74,11 @@ export async function POST(req: NextRequest) {
       if (pgtoCartao) { vendaId = v.id; break }
     }
 
+    // Endpoint sem sessão de usuário (autenticado por secret) — não é possível
+    // derivar o grupo ativo. Fixo em Sul de Minas até este endpoint ser
+    // religado a uma automação específica de grupo.
     await db.insert(conciliacoesCartao).values({
+      grupoId: '00000000-0000-4000-8000-000000000001',
       operadora,
       dataTransacao: t.dataTransacao,
       nsu: t.nsu ?? null,

@@ -345,6 +345,7 @@ export const precificacao = pgTable('precificacao', {
 // ─── conciliacoes_cartao ─────────────────────────────────────────────────────
 export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
   id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   operadora: text('operadora').notNull(),
   dataTransacao: date('data_transacao').notNull(),
   nsu: text('nsu'),
@@ -364,6 +365,7 @@ export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
 // ─── pix_recebimentos ────────────────────────────────────────────────────────
 export const pixRecebimentos = pgTable('pix_recebimentos', {
   id:               text('id').primaryKey(),  // endToEndId do ValidaPix
+  grupoId:          uuid('grupo_id').notNull().references(() => grupos.id),
   dataPagamento:    timestamp('data_pagamento', { withTimezone: true }).notNull(),
   valor:            numeric('valor', { precision: 12, scale: 2 }).notNull(),
   pagadorNome:      text('pagador_nome'),
