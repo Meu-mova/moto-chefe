@@ -13,11 +13,13 @@ async function assertAdmin() {
 
 export async function criarLojaAction(formData: FormData) {
   await assertAdmin()
+  const grupoId = formData.get('grupoId') as string
+  if (!grupoId) throw new Error('Selecione o grupo')
   await db.insert(lojas).values({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
-    grupoId: '00000000-0000-4000-8000-000000000001', // Sul de Minas
+    grupoId,
   })
   revalidatePath('/admin/lojas')
 }
