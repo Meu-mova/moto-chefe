@@ -29,19 +29,19 @@ export default async function EstoquePage({
   // Vendidas nunca aparecem no estoque — sempre excluídas
   const dispValues = parseParam(params.disponibilidade)
 
-  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
-  // Não-admin: sempre restrito à própria loja — valor de params.loja na URL é
-  // ignorado para evitar bypass (ex.: vendedor forjando /estoque?loja=<outra-loja>).
-  // Admin: valida params.loja contra o grupo ativo; id fora do grupo (ou ausente)
-  // cai para o grupo inteiro, nunca vaza lojas de outro grupo.
+  // params.loja é validado contra as lojas do grupo ativo (nunca vaza loja de
+  // outro grupo/CNPJ). Se a seleção for válida, vale tanto pra admin quanto
+  // pra não-admin — vendedor/mecânico/aux_adm podem consultar o estoque de
+  // outra loja da MESMA rede (filtro "Loja" já é exibido pra todo mundo).
+  // Sem seleção válida: admin cai pro grupo inteiro, não-admin cai pra própria loja.
   const lojaParam = parseParam(params.loja)
-  const lojaValues = isAdmin
-    ? (() => {
-        const validos = lojaParam.filter(id => lojaIdsGrupo.includes(id))
-        return validos.length > 0 ? validos : lojaIdsGrupo
-      })()
-    : (usuario.lojaId ? [usuario.lojaId] : [])
+  const lojaValues = (() => {
+    const validos = lojaParam.filter(id => lojaIdsGrupo.includes(id))
+    if (validos.length > 0) return validos
+    return isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
+  })()
 
   const validOrds = ['modelo', 'cor', 'loja', 'status', 'disponibilidade'] as const
   type Ord = typeof validOrds[number]
