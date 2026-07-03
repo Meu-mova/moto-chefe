@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { MotoStatusIcon } from '@/components/moto-status-icon'
 import { aceitarTransferenciaAction, recusarTransferenciaAction } from '../actions'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -19,6 +20,7 @@ export type TransferenciaCardData = {
   chassi: string
   modelo: string
   cor: string | null
+  motoStatus: string
   lojaOrigemId: string
   lojaOrigemNome: string
   lojaDestinoId: string
@@ -92,6 +94,11 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
             <p className="text-xs font-mono text-slate-500">
               {t.chassi}{t.cor ? ` · ${t.cor}` : ''}
             </p>
+            {t.status === 'pendente' && (
+              <div className="mt-1">
+                <MotoStatusIcon status={t.motoStatus} />
+              </div>
+            )}
           </div>
           <Badge variant={statusBadge[t.status] ?? 'secondary'}>
             {statusLabel[t.status] ?? t.status}
