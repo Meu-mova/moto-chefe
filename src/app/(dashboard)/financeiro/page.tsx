@@ -42,7 +42,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const lojaFiltroVendas = lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)
   const lojaFiltroCaixa = lojaParamValido ? eq(lancamentosCaixa.lojaId, lojaParamValido) : inArray(lancamentosCaixa.lojaId, lojaIdsGrupo)
-  const lojaCondPagamento = sql`AND ${lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)}`
+  const lojaCondPagamento = lojaParamValido
+    ? sql`AND v.loja_id = ${lojaParamValido}`
+    : sql`AND v.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
   const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria] = await Promise.all([
     db
