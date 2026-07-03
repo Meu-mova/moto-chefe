@@ -27,6 +27,7 @@ export async function listarTransferencias(filtros?: {
       observacao:         transferencias.observacao,
       motoId:             transferencias.motoId,
       chassi:             motos.chassi,
+      motoStatus:         motos.status,
       cor:                motos.cor,
       modelo:             modelos.modelo,
       modeloId:           motos.modeloId,
