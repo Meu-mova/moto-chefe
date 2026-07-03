@@ -7,6 +7,10 @@ export type Grupo = typeof grupos.$inferSelect
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
+// Grupo legado, criado na migração multi-grupo (0011) a partir dos dados que já existiam.
+// Usado como padrão de fallback para não cair num grupo novo sem dados por ordem alfabética.
+const GRUPO_PADRAO_ID = '00000000-0000-4000-8000-000000000001'
+
 export async function getGrupoAtivo(usuario: { papel: string; lojaId: string | null }): Promise<Grupo> {
   if (ADMIN_PAPEIS.includes(usuario.papel)) {
     const cookieStore = await cookies()
@@ -21,14 +25,13 @@ export async function getGrupoAtivo(usuario: { papel: string; lojaId: string | n
       if (grupo) return grupo
     }
 
-    const [primeiro] = await db
+    const candidatos = await db
       .select()
       .from(grupos)
       .where(eq(grupos.ativo, true))
       .orderBy(grupos.nome)
-      .limit(1)
-    if (!primeiro) throw new Error('Nenhum grupo ativo cadastrado')
-    return primeiro
+    if (!candidatos.length) throw new Error('Nenhum grupo ativo cadastrado')
+    return candidatos.find(g => g.id === GRUPO_PADRAO_ID) ?? candidatos[0]
   }
 
   if (!usuario.lojaId) throw new Error('Usuário sem loja associada')
