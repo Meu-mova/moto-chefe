@@ -302,6 +302,15 @@ export const categoriasCaixa = pgTable('categorias_caixa', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── categorias_despesa ───────────────────────────────────────────────────────
+export const categoriasDespesa = pgTable('categorias_despesa', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  ativo: boolean('ativo').notNull().default(true),
+  ordem: integer('ordem').notNull().default(0),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── despesas ─────────────────────────────────────────────────────────────────
 export const despesas = pgTable('despesas', {
   id:             uuid('id').primaryKey().defaultRandom(),
