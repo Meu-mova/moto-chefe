@@ -61,6 +61,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         marca: modelos.marca,
         cor: motos.cor,
         chassi: motos.chassi,
+        precoCompra: motos.precoCompra,
+        valorLiquido: valorLiquidoExpr(),
       })
       .from(vendas)
       .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
@@ -78,9 +80,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
         totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), '0')`,
+        totalCusto: sql<string>`COALESCE(SUM(${motos.precoCompra}), '0')`,
+        qtdSemCusto: sql<string>`COUNT(*) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
         qtdVendas: count(),
       })
       .from(vendas)
+      .innerJoin(motos, eq(vendas.motoId, motos.id))
       .where(and(
         gte(vendas.dataVenda, inicioTs),
         lte(vendas.dataVenda, fimTs),
@@ -192,6 +197,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const saldoCaixa = entradasCaixa - saidasCaixa
   const taxasCartao = receitaVendas - receitaLiquida
   const totalDespesas = Number(totalDespesasRaw[0]?.total ?? 0)
+  const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
+  const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)
+  const lucroBruto = receitaLiquida - totalCusto
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
@@ -255,7 +263,27 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             <p className="text-2xl font-bold text-red-600">{totalDespesas > 0 ? '-' : ''}{fmt(totalDespesas)}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Custo Total (Motos Vendidas)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">{totalCusto > 0 ? '-' : ''}{fmt(totalCusto)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lucro Bruto</CardTitle></CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${lucroBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {fmt(lucroBruto)}
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {qtdSemCusto > 0 && (
+        <p className="text-xs text-amber-600">
+          ⚠ {qtdSemCusto} venda{qtdSemCusto > 1 ? 's' : ''} sem custo de moto registrado (conta{qtdSemCusto > 1 ? 'm' : ''} como R$ 0,00 no cálculo).
+        </p>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ResumoLojas resumo={resumoPorLoja} />
