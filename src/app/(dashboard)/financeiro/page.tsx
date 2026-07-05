@@ -13,7 +13,7 @@ import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
 
 function valorLiquidoExpr() {
-  return sql`COALESCE(
+  return sql<string>`COALESCE(
     (SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
      FROM ${conciliacoesCartao}
      WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
