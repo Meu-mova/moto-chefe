@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, TrendingDown,
+  Radar, CalendarDays,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -36,7 +36,6 @@ export function Sidebar({ papel }: Props) {
   const navItems = [
     ...baseNavItems,
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',       label: 'Caixa',       icon: Wallet       }] : []),
-    ...(isAdmin                        ? [{ href: '/despesas',    label: 'Despesas',    icon: TrendingDown }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/pix',         label: 'PIX',         icon: QrCode       }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao', label: 'Conciliação', icon: CreditCard   }] : []),
     ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),

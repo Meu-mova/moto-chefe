@@ -2,7 +2,7 @@ import { AdminGuard } from './components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers } from 'lucide-react'
+import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers, TrendingDown } from 'lucide-react'
 
 export default async function AdminPage() {
   const usuario = await getUsuarioLogado()
@@ -97,6 +97,15 @@ export default async function AdminPage() {
                 <CardTitle className="text-base">Categorias</CardTitle>
               </CardHeader>
               <CardContent><p className="text-sm text-slate-500">Categorias de caixa e de despesa</p></CardContent>
+            </Card>
+          </Link>
+          <Link href="/despesas">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex-row gap-3 items-center pb-2">
+                <TrendingDown className="text-slate-600" size={20} />
+                <CardTitle className="text-base">Despesas</CardTitle>
+              </CardHeader>
+              <CardContent><p className="text-sm text-slate-500">Despesas operacionais da empresa</p></CardContent>
             </Card>
           </Link>
           <Link href="/admin/comunicados">
