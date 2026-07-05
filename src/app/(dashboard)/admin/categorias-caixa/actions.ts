@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { categoriasCaixa } from '@/lib/db/schema'
+import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -58,4 +58,51 @@ export async function toggleAtivoAction(id: string, ativo: boolean) {
     .where(eq(categoriasCaixa.id, id))
   revalidatePath('/admin/categorias-caixa')
   revalidatePath('/caixa')
+}
+
+export async function listarCategoriasDespesaAction() {
+  return db
+    .select()
+    .from(categoriasDespesa)
+    .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
+}
+
+export async function criarCategoriaDespesaAction(dados: { nome: string }) {
+  await requireAdmin()
+  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
+
+  await db.insert(categoriasDespesa).values({
+    nome: dados.nome.trim(),
+  })
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
+}
+
+export async function editarCategoriaDespesaAction(id: string, dados: { nome: string }) {
+  await requireAdmin()
+  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
+
+  await db
+    .update(categoriasDespesa)
+    .set({ nome: dados.nome.trim() })
+    .where(eq(categoriasDespesa.id, id))
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
+}
+
+export async function excluirCategoriaDespesaAction(id: string) {
+  await requireAdmin()
+  await db.delete(categoriasDespesa).where(eq(categoriasDespesa.id, id))
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
+}
+
+export async function toggleAtivoDespesaAction(id: string, ativo: boolean) {
+  await requireAdmin()
+  await db
+    .update(categoriasDespesa)
+    .set({ ativo })
+    .where(eq(categoriasDespesa.id, id))
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
 }
