@@ -94,9 +94,9 @@ export default async function AdminPage() {
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="flex-row gap-3 items-center pb-2">
                 <Tags className="text-slate-600" size={20} />
-                <CardTitle className="text-base">Categorias Caixa</CardTitle>
+                <CardTitle className="text-base">Categorias</CardTitle>
               </CardHeader>
-              <CardContent><p className="text-sm text-slate-500">Categorias de entrada e saída</p></CardContent>
+              <CardContent><p className="text-sm text-slate-500">Categorias de caixa e de despesa</p></CardContent>
             </Card>
           </Link>
           <Link href="/admin/comunicados">
