@@ -1,8 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, lojas, usuarios } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
+import { despesas, lojas, usuarios, categoriasDespesa } from '@/lib/db/schema'
+import { eq, desc, and, gte, lte, sql, asc } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DespesasTable } from './components/despesas-table'
@@ -28,7 +28,7 @@ export default async function DespesasPage({
   const inicioMes = `${mesParam}-01`
   const ultimoDia = new Date(ano, mes, 0).toISOString().split('T')[0]
 
-  const [rows, lojasOpts, totaisPorLoja] = await Promise.all([
+  const [rows, lojasOpts, totaisPorLoja, categoriasAtivas] = await Promise.all([
     db
       .select({
         id:             despesas.id,
@@ -68,6 +68,13 @@ export default async function DespesasPage({
         lte(despesas.data, ultimoDia),
       ))
       .groupBy(despesas.lojaId, lojas.nome),
+
+    db
+      .select({ nome: categoriasDespesa.nome })
+      .from(categoriasDespesa)
+      .where(eq(categoriasDespesa.ativo, true))
+      .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
+      .then(rows => rows.map(r => r.nome)),
   ])
 
   const totalGeral   = rows.reduce((s, r) => s + Number(r.valor), 0)
@@ -89,7 +96,7 @@ export default async function DespesasPage({
         </div>
         <div className="flex items-center gap-3">
           <Suspense fallback={null}><MesSelector mesAtual={mesParam} /></Suspense>
-          <NovaDespesaButton lojas={lojasOpts} />
+          <NovaDespesaButton lojas={lojasOpts} categorias={categoriasAtivas} />
         </div>
       </div>
 
@@ -112,7 +119,7 @@ export default async function DespesasPage({
       <Card>
         <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
         <CardContent>
-          <DespesasTable despesas={rows} lojas={lojasOpts} />
+          <DespesasTable despesas={rows} lojas={lojasOpts} categorias={categoriasAtivas} />
         </CardContent>
       </Card>
     </div>

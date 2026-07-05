@@ -11,7 +11,7 @@ import { excluirDespesaAction } from '../actions'
 import { EditarDespesaButton } from './despesa-dialog'
 import type { Loja, DespesaRow } from '../types'
 
-type Props = { despesas: DespesaRow[]; lojas: Loja[] }
+type Props = { despesas: DespesaRow[]; lojas: Loja[]; categorias: string[] }
 
 function fmt(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -21,14 +21,14 @@ function fmtData(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
 }
 
-export function DespesasTable({ despesas, lojas }: Props) {
+export function DespesasTable({ despesas, lojas, categorias }: Props) {
   const router = useRouter()
   const [excluindo, setExcluindo] = useState<string | null>(null)
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroLoja, setFiltroLoja]           = useState('')
   const [filtroBusca, setFiltroBusca]         = useState('')
 
-  const categorias = useMemo(() =>
+  const categoriasFiltro = useMemo(() =>
     [...new Set(despesas.map(d => d.categoria))].sort(),
     [despesas]
   )
@@ -79,7 +79,7 @@ export function DespesasTable({ despesas, lojas }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__todas">Todas as categorias</SelectItem>
-            {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {categoriasFiltro.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -138,7 +138,7 @@ export function DespesasTable({ despesas, lojas }: Props) {
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <EditarDespesaButton lojas={lojas} despesa={d} />
+                  <EditarDespesaButton lojas={lojas} despesa={d} categorias={categorias} />
                   <Button
                     variant="ghost"
                     size="icon"

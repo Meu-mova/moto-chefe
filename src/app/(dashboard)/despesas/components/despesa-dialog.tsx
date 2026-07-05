@@ -12,11 +12,6 @@ import { toast } from 'sonner'
 import { criarDespesaAction, editarDespesaAction } from '../actions'
 import type { Loja, DespesaRow } from '../types'
 
-const CATEGORIAS = [
-  'Aluguel', 'Energia elétrica', 'Água', 'Internet', 'Combustível',
-  'Compra de veículos', 'Marketing', 'Salários', 'Impostos', 'Manutenção', 'Outros',
-]
-
 const FORMAS_PAGAMENTO = ['PIX', 'Transferência', 'Boleto', 'Dinheiro', 'Cartão']
 
 const BANCOS = [
@@ -26,13 +21,14 @@ const BANCOS = [
 
 type Props = {
   lojas: Loja[]
+  categorias: string[]
   modo: 'criar' | 'editar'
   inicial?: DespesaRow
   open?: boolean
   onOpenChange?: (v: boolean) => void
 }
 
-export function DespesaDialog({ lojas, modo, inicial, open, onOpenChange }: Props) {
+export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenChange }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -121,7 +117,7 @@ export function DespesaDialog({ lojas, modo, inicial, open, onOpenChange }: Prop
               className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none"
             >
               <option value="">Selecione...</option>
-              {CATEGORIAS.map(c => (
+              {categorias.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -193,19 +189,19 @@ export function DespesaDialog({ lojas, modo, inicial, open, onOpenChange }: Prop
   )
 }
 
-export function NovaDespesaButton({ lojas }: { lojas: Loja[] }) {
+export function NovaDespesaButton({ lojas, categorias }: { lojas: Loja[]; categorias: string[] }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
         <Plus size={15} /> Nova Despesa
       </Button>
-      <DespesaDialog lojas={lojas} modo="criar" open={open} onOpenChange={setOpen} />
+      <DespesaDialog lojas={lojas} categorias={categorias} modo="criar" open={open} onOpenChange={setOpen} />
     </>
   )
 }
 
-export function EditarDespesaButton({ lojas, despesa }: { lojas: Loja[]; despesa: DespesaRow }) {
+export function EditarDespesaButton({ lojas, despesa, categorias }: { lojas: Loja[]; despesa: DespesaRow; categorias: string[] }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -219,7 +215,7 @@ export function EditarDespesaButton({ lojas, despesa }: { lojas: Loja[]; despesa
       </button>
       <DespesaDialog
         key={`${despesa.id}-${despesa.valor}-${despesa.data}`}
-        lojas={lojas} modo="editar" inicial={despesa} open={open} onOpenChange={setOpen}
+        lojas={lojas} categorias={categorias} modo="editar" inicial={despesa} open={open} onOpenChange={setOpen}
       />
     </>
   )
