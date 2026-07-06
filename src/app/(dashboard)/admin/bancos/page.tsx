@@ -4,8 +4,6 @@ import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarSaldosBancarios } from '@/lib/mcpai'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const TIPO_LABEL = { corrente: 'Conta Corrente', poupanca: 'Poupança' } as const
-
 function fmt(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -34,7 +32,7 @@ async function BancosConteudo() {
           <Card key={c.id}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{c.banco}</CardTitle>
-              <p className="text-xs text-slate-400">{TIPO_LABEL[c.tipo]} — {c.numero}</p>
+              <p className="text-xs text-slate-400">Conta Corrente — {c.numero}</p>
             </CardHeader>
             <CardContent>
               <p className="text-xl font-bold">{fmt(c.saldo)}</p>

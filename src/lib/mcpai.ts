@@ -1,7 +1,7 @@
 type ContaBancaria = {
   id: string
   banco: string
-  tipo: 'corrente' | 'poupanca'
+  tipo: 'corrente'
   numero: string
   saldo: string
 }
@@ -37,10 +37,40 @@ async function chamarMcp(sessionId: string | null, body: Record<string, unknown>
   return { json, sessionId: res.headers.get('mcp-session-id') }
 }
 
-const SUBTYPE_LABEL: Record<string, 'corrente' | 'poupanca'> = {
-  CHECKING_ACCOUNT: 'corrente',
-  SAVINGS_ACCOUNT: 'poupanca',
+async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Promise<Map<string, string>> {
+  const saldos = new Map<string, string>()
+  if (!sessionId || ids.length === 0) return saldos
+
+  try {
+    const chamada = await chamarMcp(sessionId, {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'openfinance_get_account_balance',
+        arguments: { account_ids: ids },
+      },
+    })
+    if (chamada.json.error) return saldos
+
+    const result = chamada.json.result as { content?: { text?: string }[] } | undefined
+    const conteudo = result?.content?.[0]?.text
+    if (!conteudo) return saldos
+
+    const payload = JSON.parse(conteudo) as { results?: Array<{
+      account_id: string
+      balance: { balance: string }
+    }> }
+    for (const r of payload.results ?? []) {
+      saldos.set(r.account_id, r.balance.balance)
+    }
+  } catch {
+    // saldo ao vivo é um refinamento; se falhar, usamos o saldo do list_accounts
+  }
+
+  return saldos
 }
+
 
 export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
   try {
@@ -85,14 +115,16 @@ export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
       number: string
       balance: string
     }> }
-    const resultados = payload.results ?? []
+    const resultados = (payload.results ?? []).filter(r => r.subtype !== 'SAVINGS_ACCOUNT')
+
+    const saldosAoVivo = await buscarSaldosAoVivo(init.sessionId, resultados.map(r => r.id))
 
     const contas: ContaBancaria[] = resultados.map(r => ({
       id: r.id,
       banco: r.bank,
-      tipo: SUBTYPE_LABEL[r.subtype] ?? 'corrente',
+      tipo: 'corrente',
       numero: r.number,
-      saldo: r.balance,
+      saldo: saldosAoVivo.get(r.id) ?? r.balance,
     }))
 
     return { ok: true, contas }
