@@ -133,9 +133,10 @@ export async function cadastrarVeiculoHistoricoAction(input: {
       cor:         novo.cor,
       ano:         novo.ano,
     }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : ''
-    if (msg.includes('chassi')) throw new Error('Já existe um veículo cadastrado com esse chassi')
+  } catch (e: any) {
+    const isDup = e.code === '23505' || e.cause?.code === '23505' ||
+      e.message?.includes('unique') || e.message?.includes('duplicate key')
+    if (isDup) throw new Error('Já existe um veículo cadastrado com esse chassi')
     throw e
   }
 }
