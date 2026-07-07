@@ -17,15 +17,6 @@ import { OSPagamentoPanel } from './components/os-pagamento-panel'
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
 }
-const tipoLabel: Record<string, string> = {
-  interna: 'Interna', pos_venda: 'Pós-venda', externa: 'Externa',
-}
-const tipoCor: Record<string, string> = {
-  interna:   'bg-slate-100 text-slate-600',
-  pos_venda: 'bg-teal-100 text-teal-700',
-  externa:   'bg-purple-100 text-purple-700',
-}
-
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const [os, itens, usuario, mecanicos] = await Promise.all([
@@ -69,9 +60,6 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">OS #{os.numero}</h1>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${tipoCor[os.tipoOs] ?? ''}`}>
-                {tipoLabel[os.tipoOs] ?? os.tipoOs}
-              </span>
             </div>
             <p className="text-sm text-slate-500 mt-0.5">
               Aberta em {format(new Date(os.dataAbertura), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} · {os.lojaNome}
@@ -139,7 +127,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         km={os.km ?? undefined}
         clienteNomeExterno={os.clienteNomeExterno ?? ''}
         clienteFoneExterno={os.clienteFoneExterno ?? ''}
-        tipoOs={os.tipoOs}
+        temCliente={Boolean(os.clienteId)}
         podeEditar={podeEditar}
       />
 

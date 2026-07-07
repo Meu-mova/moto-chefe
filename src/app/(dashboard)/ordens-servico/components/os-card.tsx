@@ -15,15 +15,6 @@ const statusColor: Record<string, string> = {
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
 }
-const tipoLabel: Record<string, string> = {
-  interna: 'Interna', pos_venda: 'Pós-venda', externa: 'Externa',
-}
-const tipoCor: Record<string, string> = {
-  interna:  'bg-slate-100 text-slate-600',
-  pos_venda: 'bg-teal-100 text-teal-700',
-  externa:  'bg-purple-100 text-purple-700',
-}
-
 type Props = { os: OSComDetalhes; papel: string; lojaIdUsuario: string | null }
 
 export function OSCard({ os }: Props) {
@@ -44,9 +35,6 @@ export function OSCard({ os }: Props) {
                 <span className="text-sm font-bold text-slate-800">OS #{os.numero ?? '—'}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${statusColor[os.status] ?? ''}`}>
                   {statusLabel[os.status] ?? os.status}
-                </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${tipoCor[os.tipoOs] ?? ''}`}>
-                  {tipoLabel[os.tipoOs] ?? os.tipoOs}
                 </span>
               </div>
 

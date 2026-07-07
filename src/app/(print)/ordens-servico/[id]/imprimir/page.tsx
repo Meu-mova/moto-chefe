@@ -7,9 +7,6 @@ import { PrintTrigger } from './print-trigger'
 
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-const tipoLabel: Record<string, string> = {
-  interna: 'Interna', pos_venda: 'Pós-venda', externa: 'Externa (Oficina)',
-}
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
 }
@@ -84,7 +81,6 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         <div style={{ textAlign: 'right' }}>
           <div className="os-n">OS #{os.numero}</div>
           <div className="badges">
-            <span className="badge bt">{tipoLabel[os.tipoOs] ?? os.tipoOs}</span>
             <span className={`badge ${os.status === 'concluida' ? 'bs-c' : os.status === 'em_andamento' ? 'bs-e' : 'bs-a'}`}>
               {statusLabel[os.status] ?? os.status}
             </span>

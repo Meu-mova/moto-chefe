@@ -8,12 +8,6 @@ const STATUS_OPTS = [
   { value: 'em_andamento', label: 'Em Andamento' },
   { value: 'concluida',    label: 'Concluída' },
 ]
-const TIPO_OPTS = [
-  { value: 'pos_venda', label: 'Pós-venda' },
-  { value: 'externa',   label: 'Externa' },
-  { value: 'interna',   label: 'Interna' },
-]
-
 function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -34,7 +28,6 @@ export function OSFiltros() {
   const searchParams = useSearchParams()
 
   const status = searchParams.get('status')?.split(',').filter(Boolean) ?? []
-  const tipo   = searchParams.get('tipo')?.split(',').filter(Boolean) ?? []
   const busca  = searchParams.get('q') ?? ''
 
   const update = useCallback((key: string, value: string) => {
@@ -63,16 +56,6 @@ export function OSFiltros() {
             label={o.label}
             active={status.includes(o.value)}
             onClick={() => toggleMulti('status', status, o.value)}
-          />
-        ))}
-      </div>
-      <div className="flex gap-1.5">
-        {TIPO_OPTS.map(o => (
-          <ToggleChip
-            key={o.value}
-            label={o.label}
-            active={tipo.includes(o.value)}
-            onClick={() => toggleMulti('tipo', tipo, o.value)}
           />
         ))}
       </div>

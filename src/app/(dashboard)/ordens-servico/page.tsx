@@ -18,20 +18,19 @@ function parseParam(v?: string): string[] {
 export default async function OrdensServicoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tipo?: string; q?: string }>
+  searchParams: Promise<{ status?: string; q?: string }>
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const statusFiltro = parseParam(params.status)
-  const tipoFiltro   = parseParam(params.tipo)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
 
   const [lista, mecanicos, lojasOpts] = await Promise.all([
     isAdmin
-      ? listarTodasOS({ status: statusFiltro, tipoOs: tipoFiltro, busca: params.q, lojaId: lojaIdsGrupo })
+      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaIdsGrupo })
       : listarOSPorLoja(usuario.lojaId!),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),

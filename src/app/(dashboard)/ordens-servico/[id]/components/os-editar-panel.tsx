@@ -21,7 +21,7 @@ type Props = {
   km?: number
   clienteNomeExterno: string
   clienteFoneExterno: string
-  tipoOs: string
+  temCliente: boolean
   podeEditar: boolean
 }
 
@@ -117,8 +117,8 @@ export function OSEditarPanel(props: Props) {
           </div>
         )}
 
-        {/* Moto externa: placa e km */}
-        {editing && props.tipoOs === 'externa' && (
+        {/* Placa e KM — sempre visíveis */}
+        {editing && (
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Placa</Label>
@@ -128,6 +128,12 @@ export function OSEditarPanel(props: Props) {
               <Label className="text-xs">KM</Label>
               <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} className="text-sm" />
             </div>
+          </div>
+        )}
+
+        {/* Cliente externo — só quando não há cliente cadastrado vinculado */}
+        {editing && !props.temCliente && (
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome do cliente</Label>
               <Input value={form.clienteNomeExterno} onChange={e => set('clienteNomeExterno', e.target.value)} className="text-sm" />
