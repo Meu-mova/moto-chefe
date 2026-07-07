@@ -8,16 +8,44 @@ import { adicionarItemOSAction, removerItemOSAction } from '../../actions'
 import { toast } from 'sonner'
 import type { OSItem } from '@/lib/queries/ordens-servico'
 
-type Props = { osId: string; itens: OSItem[]; podeEditar: boolean }
+type CatalogoServico = { id: string; nome: string; valor: string; tempoPrevistoMinutos: number | null }
+type CatalogoPeca    = { id: string; nome: string; valor: string }
+
+type Props = {
+  osId: string
+  itens: OSItem[]
+  podeEditar: boolean
+  servicos: CatalogoServico[]
+  pecas: CatalogoPeca[]
+}
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function OSItensPanel({ osId, itens, podeEditar }: Props) {
+export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props) {
   const [pending, start] = useTransition()
   const [tipo, setTipo]  = useState<'servico'|'peca'>('servico')
+  const [catalogoId, setCatalogoId] = useState('')
   const [form, setForm]  = useState({ descricao: '', quantidade: '1', valorUnitario: '' })
 
   function setF(k: keyof typeof form, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  function trocarTipo(t: 'servico' | 'peca') {
+    setTipo(t)
+    setCatalogoId('')
+    setForm({ descricao: '', quantidade: '1', valorUnitario: '' })
+  }
+
+  function selecionarDoCatalogo(id: string) {
+    setCatalogoId(id)
+    if (!id) return
+    if (tipo === 'servico') {
+      const s = servicos.find(s => s.id === id)
+      if (s) setForm(f => ({ ...f, descricao: s.nome, valorUnitario: s.valor }))
+    } else {
+      const p = pecas.find(p => p.id === id)
+      if (p) setForm(f => ({ ...f, descricao: p.nome, valorUnitario: p.valor }))
+    }
+  }
 
   function adicionar() {
     if (!form.descricao.trim()) { toast.error('Informe a descrição'); return }
@@ -26,8 +54,16 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
     if (!qty || !val) { toast.error('Quantidade e valor devem ser maiores que zero'); return }
     start(async () => {
       try {
-        await adicionarItemOSAction(osId, { tipo, descricao: form.descricao, quantidade: qty, valorUnitario: val })
+        await adicionarItemOSAction(osId, {
+          tipo,
+          descricao: form.descricao,
+          quantidade: qty,
+          valorUnitario: val,
+          servicoId: tipo === 'servico' ? (catalogoId || null) : null,
+          pecaId:    tipo === 'peca'    ? (catalogoId || null) : null,
+        })
         setForm({ descricao: '', quantidade: '1', valorUnitario: '' })
+        setCatalogoId('')
       } catch (e: any) { toast.error(e.message) }
     })
   }
@@ -39,8 +75,8 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
     })
   }
 
-  const servicos = itens.filter(i => i.tipo === 'servico')
-  const pecas    = itens.filter(i => i.tipo === 'peca')
+  const servicosItens = itens.filter(i => i.tipo === 'servico')
+  const pecasItens     = itens.filter(i => i.tipo === 'peca')
 
   function ItemRow({ item }: { item: OSItem }) {
     const subtotal = parseFloat(item.quantidade) * parseFloat(item.valorUnitario)
@@ -65,6 +101,8 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
     )
   }
 
+  const opcoesCatalogo = tipo === 'servico' ? servicos : pecas
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -72,22 +110,22 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Serviços */}
-        {servicos.length > 0 && (
+        {servicosItens.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Wrench size={12} /> Mão de obra
             </p>
-            {servicos.map(i => <ItemRow key={i.id} item={i} />)}
+            {servicosItens.map(i => <ItemRow key={i.id} item={i} />)}
           </div>
         )}
 
         {/* Peças */}
-        {pecas.length > 0 && (
+        {pecasItens.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Package size={12} /> Peças
             </p>
-            {pecas.map(i => <ItemRow key={i.id} item={i} />)}
+            {pecasItens.map(i => <ItemRow key={i.id} item={i} />)}
           </div>
         )}
 
@@ -102,7 +140,7 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
 
             <div className="flex gap-2">
               {(['servico', 'peca'] as const).map(t => (
-                <button key={t} onClick={() => setTipo(t)}
+                <button key={t} onClick={() => trocarTipo(t)}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                     tipo === t
                       ? 'bg-slate-800 text-white border-slate-800'
@@ -112,6 +150,21 @@ export function OSItensPanel({ osId, itens, podeEditar }: Props) {
                 </button>
               ))}
             </div>
+
+            <select
+              value={catalogoId}
+              onChange={e => selecionarDoCatalogo(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+            >
+              <option value="">
+                {tipo === 'servico' ? 'Escolher serviço do catálogo (opcional)' : 'Escolher peça do catálogo (opcional)'}
+              </option>
+              {opcoesCatalogo.map(o => (
+                <option key={o.id} value={o.id}>
+                  {o.nome} — {fmt(parseFloat(o.valor))}
+                </option>
+              ))}
+            </select>
 
             <Input placeholder="Descrição" value={form.descricao} onChange={e => setF('descricao', e.target.value)} />
             <div className="grid grid-cols-2 gap-2">

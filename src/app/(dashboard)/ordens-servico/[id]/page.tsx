@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { usuarios } from '@/lib/db/schema'
-import { inArray } from 'drizzle-orm'
+import { usuarios, servicosCatalogo, pecasCatalogo } from '@/lib/db/schema'
+import { inArray, eq, asc } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -20,13 +20,15 @@ const statusLabel: Record<string, string> = {
 
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [os, itens, usuario, mecanicos] = await Promise.all([
+  const [os, itens, usuario, mecanicos, servicos, pecas] = await Promise.all([
     buscarOS(id),
     listarItensOS(id),
     getUsuarioLogado(),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
       .where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
+    db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
+    db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
   ])
 
   if (!os) notFound()
@@ -133,7 +135,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
       />
 
       {/* Itens */}
-      <OSItensPanel osId={id} itens={itens} podeEditar={podeEditar} />
+      <OSItensPanel osId={id} itens={itens} podeEditar={podeEditar} servicos={servicos} pecas={pecas} />
 
       {/* Totais e pagamento */}
       <Card>
