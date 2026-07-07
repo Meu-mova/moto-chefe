@@ -246,10 +246,22 @@ export const veiculosHistorico = pgTable('veiculos_historico', {
   importadoEm:  timestamp('importado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── servicos_catalogo ─────────────────────────────────────────────────────────
+export const servicosCatalogo = pgTable('servicos_catalogo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  tempoPrevistoMinutos: integer('tempo_previsto_minutos'),
+  valor: numeric('valor', { precision: 10, scale: 2 }).notNull().default('0'),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── os_itens ────────────────────────────────────────────────────────────────
 export const osItens = pgTable('os_itens', {
   id: uuid('id').primaryKey().defaultRandom(),
   osId: uuid('os_id').notNull().references(() => ordensServico.id, { onDelete: 'cascade' }),
+  servicoId: uuid('servico_id').references(() => servicosCatalogo.id),
   tipo: text('tipo').notNull().default('servico'),
   descricao: text('descricao').notNull(),
   quantidade: numeric('quantidade', { precision: 10, scale: 3 }).notNull().default('1'),
