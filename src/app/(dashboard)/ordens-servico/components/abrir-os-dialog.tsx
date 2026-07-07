@@ -22,7 +22,7 @@ type ClienteInfo = { id: string; nome: string; cpfCnpj: string | null; celular: 
 
 const FORM_VAZIO = {
   lojaId: '', mecanicoId: '', descricao: '', dataPrevisao: '',
-  placa: '', km: '', clienteNomeExterno: '', clienteFoneExterno: '',
+  km: '', clienteNomeExterno: '', clienteFoneExterno: '',
 }
 
 export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props) {
@@ -61,7 +61,6 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           dataPrevisao:       form.dataPrevisao || null,
           marcaExterna:       !veiculo?.motoId ? (veiculo?.marca || null) : null,
           modeloExterno:      !veiculo?.motoId ? (veiculo?.modelo || null) : null,
-          placa:              form.placa || null,
           km:                 form.km ? parseInt(form.km) : null,
           clienteNomeExterno: !cliente ? (form.clienteNomeExterno || null) : null,
           clienteFoneExterno: !cliente ? (form.clienteFoneExterno || null) : null,
@@ -108,16 +107,10 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
               />
             </div>
 
-            {/* Placa e KM — sempre visíveis */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Placa</Label>
-                <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>KM atual</Label>
-                <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
-              </div>
+            {/* KM — sempre visível */}
+            <div className="space-y-1.5">
+              <Label>KM atual</Label>
+              <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
             </div>
 
             {/* Cliente externo — só quando não encontrado/cadastrado */}

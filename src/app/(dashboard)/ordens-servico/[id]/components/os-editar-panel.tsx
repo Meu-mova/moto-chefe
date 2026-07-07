@@ -17,7 +17,6 @@ type Props = {
   mecanicos: { id: string; nome: string }[]
   mecanicoId: string
   dataPrevisao: string
-  placa: string
   km?: number
   clienteNomeExterno: string
   clienteFoneExterno: string
@@ -35,7 +34,6 @@ export function OSEditarPanel(props: Props) {
     observacoesFinais:  props.observacoesFinais,
     mecanicoId:         props.mecanicoId,
     dataPrevisao:       props.dataPrevisao,
-    placa:              props.placa,
     km:                 props.km?.toString() ?? '',
     clienteNomeExterno: props.clienteNomeExterno,
     clienteFoneExterno: props.clienteFoneExterno,
@@ -52,7 +50,6 @@ export function OSEditarPanel(props: Props) {
           diagnostico:        form.diagnostico,
           observacoesFinais:  form.observacoesFinais,
           dataPrevisao:       form.dataPrevisao || null,
-          placa:              form.placa || null,
           km:                 form.km ? parseInt(form.km) : null,
           clienteNomeExterno: form.clienteNomeExterno || null,
           clienteFoneExterno: form.clienteFoneExterno || null,
@@ -70,7 +67,6 @@ export function OSEditarPanel(props: Props) {
       observacoesFinais:  props.observacoesFinais,
       mecanicoId:         props.mecanicoId,
       dataPrevisao:       props.dataPrevisao,
-      placa:              props.placa,
       km:                 props.km?.toString() ?? '',
       clienteNomeExterno: props.clienteNomeExterno,
       clienteFoneExterno: props.clienteFoneExterno,
@@ -117,17 +113,11 @@ export function OSEditarPanel(props: Props) {
           </div>
         )}
 
-        {/* Placa e KM — sempre visíveis */}
+        {/* KM — sempre visível */}
         {editing && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Placa</Label>
-              <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} className="text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">KM</Label>
-              <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} className="text-sm" />
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">KM</Label>
+            <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} className="text-sm" />
           </div>
         )}
 

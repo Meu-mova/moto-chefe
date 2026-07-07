@@ -37,7 +37,6 @@ type AbrirOSInput = {
   dataPrevisao?: string | null
   marcaExterna?: string | null
   modeloExterno?: string | null
-  placa?: string | null
   km?: number | null
   clienteNomeExterno?: string | null
   clienteFoneExterno?: string | null
@@ -65,7 +64,6 @@ export async function abrirOSAction(input: AbrirOSInput) {
     dataPrevisao:       input.dataPrevisao ? new Date(input.dataPrevisao) : null,
     marcaExterna:       input.marcaExterna  || null,
     modeloExterno:      input.modeloExterno || null,
-    placa:              input.placa  || null,
     km:                 input.km     || null,
     clienteNomeExterno: input.clienteNomeExterno || null,
     clienteFoneExterno: input.clienteFoneExterno || null,
@@ -92,7 +90,6 @@ export async function atualizarOSAction(osId: string, dados: {
   diagnostico?: string
   observacoesFinais?: string
   dataPrevisao?: string | null
-  placa?: string | null
   km?: number | null
   clienteNomeExterno?: string | null
   clienteFoneExterno?: string | null
@@ -105,7 +102,6 @@ export async function atualizarOSAction(osId: string, dados: {
     observacoesFinais:  dados.observacoesFinais !== undefined ? dados.observacoesFinais : undefined,
     dataPrevisao:       dados.dataPrevisao !== undefined
       ? (dados.dataPrevisao ? new Date(dados.dataPrevisao) : null) : undefined,
-    placa:              dados.placa !== undefined ? (dados.placa || null)            : undefined,
     km:                 dados.km   !== undefined ? (dados.km   || null)             : undefined,
     clienteNomeExterno: dados.clienteNomeExterno !== undefined ? (dados.clienteNomeExterno || null) : undefined,
     clienteFoneExterno: dados.clienteFoneExterno !== undefined ? (dados.clienteFoneExterno || null) : undefined,

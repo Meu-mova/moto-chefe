@@ -45,7 +45,7 @@ export function OSFiltros() {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Input
-        placeholder="Buscar OS, chassi, cliente, placa..."
+        placeholder="Buscar OS, chassi, cliente..."
         defaultValue={busca}
         onChange={e => update('q', e.target.value)}
         className="h-8 text-sm w-64"

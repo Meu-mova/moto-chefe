@@ -26,7 +26,6 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
   const totalGeral   = os.valorTotal ? parseFloat(os.valorTotal) : totServ + totPecas
 
   const motoDesc     = os.chassi ? `${os.marca ?? ''} ${os.modelo ?? ''}` : `${os.marcaExterna ?? ''} ${os.modeloExterno ?? ''}`
-  const chassiOuPlaca = os.chassi ?? os.placa ?? null
   const clienteDesc  = os.clienteNome ?? os.clienteNomeExterno ?? 'Não informado'
   const clienteFone  = os.clienteTelefone ?? os.clienteFoneExterno ?? null
   const abertura     = format(new Date(os.dataAbertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
@@ -99,14 +98,11 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         <div className="card">
           <h2>Veículo</h2>
           <div className="f"><span className="fl">Marca / Modelo</span><span className="fv">{motoDesc.trim() || '—'}</span></div>
-          {chassiOuPlaca && (
+          {os.chassi && (
             <div className="f">
-              <span className="fl">{os.chassi ? 'Chassi' : 'Placa'}</span>
-              <span className="fv" style={{ fontFamily: 'monospace' }}>{chassiOuPlaca}</span>
+              <span className="fl">Chassi</span>
+              <span className="fv" style={{ fontFamily: 'monospace' }}>{os.chassi}</span>
             </div>
-          )}
-          {os.placa && os.chassi && (
-            <div className="f"><span className="fl">Placa</span><span className="fv">{os.placa}</span></div>
           )}
           {os.km && (
             <div className="f"><span className="fl">KM</span><span className="fv">{os.km.toLocaleString('pt-BR')}</span></div>

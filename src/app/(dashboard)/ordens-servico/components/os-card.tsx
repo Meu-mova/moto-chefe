@@ -20,7 +20,7 @@ type Props = { os: OSComDetalhes; papel: string; lojaIdUsuario: string | null }
 export function OSCard({ os }: Props) {
   const motoDesc = os.chassi
     ? `${os.marca ?? ''} ${os.modelo ?? ''} · ${os.chassi}`
-    : `${os.marcaExterna ?? ''} ${os.modeloExterno ?? ''}${os.placa ? ` · ${os.placa}` : ''}`
+    : `${os.marcaExterna ?? ''} ${os.modeloExterno ?? ''}`
 
   const clienteDesc = os.clienteNome ?? os.clienteNomeExterno ?? null
 

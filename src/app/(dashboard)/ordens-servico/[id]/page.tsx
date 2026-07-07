@@ -90,7 +90,6 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           <CardContent className="space-y-1 text-sm">
             <p className="font-semibold text-base text-slate-800">{motoDesc.trim() || '—'}</p>
             {os.chassi  && <p className="font-mono text-xs text-slate-500">{os.chassi}</p>}
-            {os.placa   && <p>Placa: <span className="font-medium font-mono">{os.placa}</span></p>}
             {os.km      && <p>KM: <span className="font-medium">{os.km.toLocaleString('pt-BR')}</span></p>}
             {os.cor     && <p>Cor: <span className="font-medium">{os.cor}</span></p>}
           </CardContent>
@@ -126,7 +125,6 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         mecanicos={mecanicos}
         mecanicoId={os.mecanicoId ?? ''}
         dataPrevisao={os.dataPrevisao ? new Date(os.dataPrevisao).toISOString().slice(0, 16) : ''}
-        placa={os.placa ?? ''}
         km={os.km ?? undefined}
         clienteNomeExterno={os.clienteNomeExterno ?? ''}
         clienteFoneExterno={os.clienteFoneExterno ?? ''}
