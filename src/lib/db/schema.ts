@@ -257,11 +257,22 @@ export const servicosCatalogo = pgTable('servicos_catalogo', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── pecas_catalogo ────────────────────────────────────────────────────────────
+export const pecasCatalogo = pgTable('pecas_catalogo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  valor: numeric('valor', { precision: 10, scale: 2 }).notNull().default('0'),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── os_itens ────────────────────────────────────────────────────────────────
 export const osItens = pgTable('os_itens', {
   id: uuid('id').primaryKey().defaultRandom(),
   osId: uuid('os_id').notNull().references(() => ordensServico.id, { onDelete: 'cascade' }),
   servicoId: uuid('servico_id').references(() => servicosCatalogo.id),
+  pecaId: uuid('peca_id').references(() => pecasCatalogo.id),
   tipo: text('tipo').notNull().default('servico'),
   descricao: text('descricao').notNull(),
   quantidade: numeric('quantidade', { precision: 10, scale: 3 }).notNull().default('1'),
