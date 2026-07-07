@@ -65,6 +65,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
     setVeiculo(v)
     setResultados([])
     setListaAberta(false)
+    setCadastrandoVeiculo(false)
     onVeiculoEncontrado(v)
     if (v.clienteId && v.clienteNome) {
       const c: ClienteInfo = {
@@ -200,7 +201,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                 {chassi.trim().length >= 3 && (
                   <button
                     type="button"
-                    onClick={() => setCadastrandoVeiculo(true)}
+                    onClick={() => { setCadastrandoVeiculo(true); setErroChassi(null) }}
                     className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                   >
                     <UserPlus size={12} /> Cadastrar este veículo
@@ -214,6 +215,11 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                   Cadastrar veículo — chassi {chassi}
                 </p>
+                {erroChassi && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertCircle size={12} /> {erroChassi}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     value={novoVeiculo.marca}
@@ -251,7 +257,11 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCadastrandoVeiculo(false)}
+                    onClick={() => {
+                      setCadastrandoVeiculo(false)
+                      setErroChassi(null)
+                      setNovoVeiculo({ marca: '', modelo: '', cor: '', numeroMotor: '' })
+                    }}
                     disabled={pendingCadastro}
                     className="text-xs text-slate-500 hover:text-slate-700 px-2"
                   >

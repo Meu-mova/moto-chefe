@@ -106,7 +106,8 @@ export async function cadastrarVeiculoHistoricoAction(input: {
   cor?: string | null
   numeroMotor?: string | null
 }): Promise<VeiculoEncontrado> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
 
   const chassi = input.chassi.trim().toUpperCase()
   const marca  = input.marca.trim()
