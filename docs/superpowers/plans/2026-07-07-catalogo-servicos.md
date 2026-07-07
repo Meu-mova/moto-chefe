@@ -15,7 +15,7 @@
 - Catálogo é único para o grupo (não há coluna de loja em `servicos_catalogo`).
 - `os_itens.servico_id` não usa `onDelete: 'cascade'` — excluir um serviço do catálogo não pode apagar itens de OS já lançados. A UI não expõe exclusão física, só inativar/reativar (`ativo: boolean`).
 - Este projeto não tem suíte de testes automatizada (só `tsc --noEmit` via `npm run type-check`). O "ciclo de teste" de cada tarefa abaixo é: type-check limpo + verificação manual no navegador com passos exatos — não pule os passos manuais achando que o type-check basta.
-- Migração de schema: `npm run db:generate` cria o arquivo SQL localmente (seguro, não toca no banco). `npm run db:migrate` aplica no banco real apontado por `DATABASE_URL` — **nunca rode sem confirmação explícita do usuário**, isso é tratado como a última tarefa do plano, não como parte da Tarefa 1.
+- Migração de schema — **correção pós-Task 1**: `npm run db:generate` não é confiável neste repo — o journal local do Drizizle (`meta/_journal.json`) está desatualizado (só conhece até `0003`), então `db:generate` tenta recriar dezenas de tabelas já existentes num único arquivo bundled. A prática real do projeto (confirmada via Supabase MCP: `drizzle.__drizzle_migrations` nem existe no banco; `list_migrations` do Supabase mostra as 24 migrações já aplicadas por outro caminho) é escrever o SQL manualmente, no estilo enxuto dos arquivos existentes (ex. `0013_categorias_despesa.sql`), e aplicar via **Supabase MCP `apply_migration`** — não `npm run db:migrate`. `0014_catalogo_servicos.sql` já foi escrito e commitado dessa forma; só falta aplicá-lo (Tarefa 7). **Nunca aplique no banco sem confirmação explícita do usuário.**
 - Sem uso de props Radix (`asChild`, `onPointerDownOutside`) nos componentes de Dialog — seguir o padrão já usado em `cliente-form.tsx`: trigger é um `<div onClick=...>` envolvendo o elemento passado via prop, não `<DialogTrigger asChild>`.
 
 ---
@@ -29,7 +29,7 @@
 **Interfaces:**
 - Produces: `servicosCatalogo` (tabela Drizzle) com colunas `id`, `nome`, `tempoPrevistoMinutos`, `valor` (numeric string), `ativo` (boolean), `criadoEm`, `atualizadoEm`. Tarefas seguintes importam `servicosCatalogo` de `@/lib/db/schema`.
 
-- [ ] **Step 1: Adicionar a tabela `servicosCatalogo` ao schema**
+- [x] **Step 1: Adicionar a tabela `servicosCatalogo` ao schema**
 
 Abra `src/lib/db/schema.ts` e localize o comentário `// ─── os_itens ─────` (atualmente por volta da linha 249). Insira o bloco abaixo **imediatamente antes** dele:
 
@@ -49,7 +49,7 @@ export const servicosCatalogo = pgTable('servicos_catalogo', {
 
 Todos os tipos usados (`pgTable`, `uuid`, `text`, `integer`, `numeric`, `boolean`, `timestamp`) já estão importados no topo do arquivo — não precisa mexer no bloco de `import`.
 
-- [ ] **Step 2: Adicionar `servico_id` em `os_itens`**
+- [x] **Step 2: Adicionar `servico_id` em `os_itens`**
 
 No mesmo arquivo, dentro da definição de `osItens` (a que já existe, logo após o bloco que você acabou de inserir), adicione a coluna `servicoId` logo depois de `osId`:
 
@@ -68,22 +68,39 @@ export const osItens = pgTable('os_itens', {
 
 (Só a linha `servicoId: uuid(...)` é nova — o resto do bloco já existe, não duplique.)
 
-- [ ] **Step 3: Type-check**
+- [x] **Step 3: Type-check**
 
 Run: `npm run type-check`
 Expected: sem erros.
 
-- [ ] **Step 4: Gerar a migração**
+- [x] **Step 4 (corrigido): Escrever a migração manualmente**
 
-Run: `npm run db:generate`
-Expected: cria `src/lib/db/migrations/0014_<nome-gerado>.sql` contendo `CREATE TABLE "servicos_catalogo"` e `ALTER TABLE "os_itens" ADD COLUMN "servico_id" uuid`. Abra o arquivo gerado e confirme visualmente que é isso — não rode `db:migrate` ainda (isso é a Tarefa 7, com confirmação do usuário).
+`npm run db:generate` **não deve ser usado neste repo** — o journal local do Drizzle está desatualizado e gera um arquivo bundled com dezenas de tabelas que já existem no banco (achado durante a execução real desta tarefa). Em vez disso, crie `src/lib/db/migrations/0014_catalogo_servicos.sql` manualmente, no mesmo estilo dos arquivos existentes (ex. `0013_categorias_despesa.sql` — sem comentários, DDL puro):
 
-- [ ] **Step 5: Commit**
+```sql
+CREATE TABLE "servicos_catalogo" (
+  "id"                      uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "nome"                    text NOT NULL,
+  "tempo_previsto_minutos"  integer,
+  "valor"                   numeric(10, 2) DEFAULT '0' NOT NULL,
+  "ativo"                   boolean DEFAULT true NOT NULL,
+  "criado_em"               timestamp with time zone DEFAULT now() NOT NULL,
+  "atualizado_em"           timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE "os_itens" ADD COLUMN "servico_id" uuid REFERENCES "servicos_catalogo"("id");
+```
+
+Não rode `db:generate` nem `db:migrate` — a aplicação real acontece na Tarefa 7, via Supabase MCP `apply_migration`, com confirmação do usuário. Este arquivo já foi criado e commitado durante a execução desta tarefa.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/db/schema.ts src/lib/db/migrations/
 git commit -m "feat: schema do catálogo de serviços (servicos_catalogo + os_itens.servico_id)"
 ```
+
+Commits reais desta tarefa (schema original + 2 commits de correção após achado do journal desatualizado): `98daf9f`, `a465928`, `426e048`.
 
 ---
 
@@ -599,12 +616,15 @@ Expected: servidor sobe sem erro em `http://localhost:3000`.
 
 - [ ] **Step 2: Confirmar com o usuário antes de migrar**
 
-Pare aqui e pergunte ao usuário: "Vou aplicar a migração `0014_*` (cria `servicos_catalogo`, adiciona `os_itens.servico_id`) no banco real via `npm run db:migrate`. Confirma?" — só prossiga com o Step 3 após confirmação explícita.
+Pare aqui e pergunte ao usuário: "Vou aplicar `0014_catalogo_servicos.sql` (cria `servicos_catalogo`, adiciona `os_itens.servico_id`) no banco real via Supabase MCP `apply_migration`. Confirma?" — só prossiga com o Step 3 após confirmação explícita.
 
 - [ ] **Step 3: Aplicar a migração**
 
-Run: `npm run db:migrate`
-Expected: log confirma a aplicação da migração `0014_*` sem erro.
+**Não use `npm run db:migrate`** — o journal local do Drizzle está desatualizado e essa tabela de rastreamento (`drizzle.__drizzle_migrations`) nem existe no banco (confirmado via consulta direta durante a Tarefa 1). A prática real deste projeto é aplicar via Supabase MCP.
+
+Use a ferramenta MCP `mcp__plugin_supabase_supabase__apply_migration` com `project_id: "bzlaradpofaecqzawyym"`, `name: "catalogo_servicos"`, e o conteúdo exato de `src/lib/db/migrations/0014_catalogo_servicos.sql` como `query`.
+
+Expected: retorno de sucesso da ferramenta. Confirme com `mcp__plugin_supabase_supabase__list_migrations` (mesmo `project_id`) que a migração `catalogo_servicos` aparece na lista.
 
 - [ ] **Step 4: Verificação manual — criar serviço**
 
