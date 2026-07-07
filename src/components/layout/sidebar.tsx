@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, ListChecks,
+  Radar, CalendarDays, ListChecks, Package2,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -41,6 +41,7 @@ export function Sidebar({ papel }: Props) {
     ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/clientes', label: 'Clientes', icon: Users }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/servicos', label: 'Serviços', icon: ListChecks }] : []),
+    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/pecas', label: 'Peças', icon: Package2 }] : []),
     ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
   ]
 
