@@ -85,7 +85,6 @@ export async function agendamentoVirarOSAction(agendamentoId: string) {
     lojaId:       ag.lojaId,
     abertaPor:    usuario.id,
     mecanicoId:   ag.mecanicoId || null,
-    tipoOs:       'externa',
     origem:       'agendamento',
     descricao:    ag.descricaoCliente || ag.tipoServico,
     agendamentoId,

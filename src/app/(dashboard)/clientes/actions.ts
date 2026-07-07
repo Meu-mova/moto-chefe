@@ -191,7 +191,6 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       status: ordensServico.status,
       descricao: ordensServico.descricao,
       valorTotal: ordensServico.valorTotal,
-      tipoOs: ordensServico.tipoOs,
       marca: modelos.marca,
       modelo: modelos.modelo,
       chassi: motos.chassi,

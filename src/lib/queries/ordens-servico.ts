@@ -12,7 +12,6 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     id:                  ordensServico.id,
     numero:              ordensServico.numero,
     status:              ordensServico.status,
-    tipoOs:              ordensServico.tipoOs,
     descricao:           ordensServico.descricao,
     diagnostico:         ordensServico.diagnostico,
     observacoesFinais:   ordensServico.observacoesFinais,
@@ -60,7 +59,6 @@ export async function listarOSPorLoja(lojaId: string) {
 
 export async function listarTodasOS(filtros?: {
   status?: string[]
-  tipoOs?: string[]
   busca?: string
   lojaId?: string[]
 }) {
@@ -76,7 +74,6 @@ export async function listarTodasOS(filtros?: {
     .leftJoin(clientes,  eq(ordensServico.clienteId,  clientes.id))
     .where(and(
       filtros?.status?.length   ? inArray(ordensServico.status, filtros.status as any[]) : undefined,
-      filtros?.tipoOs?.length   ? inArray(ordensServico.tipoOs, filtros.tipoOs) : undefined,
       filtros?.lojaId !== undefined ? inArray(ordensServico.lojaId, filtros.lojaId) : undefined,
       filtros?.busca?.trim()    ? or(
         ilike(motos.chassi,             `%${filtros.busca}%`),
@@ -122,7 +119,6 @@ export async function listarOSPorMoto(motoId: string) {
       id:            ordensServico.id,
       numero:        ordensServico.numero,
       status:        ordensServico.status,
-      tipoOs:        ordensServico.tipoOs,
       descricao:     ordensServico.descricao,
       dataAbertura:  ordensServico.dataAbertura,
       dataConclusao: ordensServico.dataConclusao,

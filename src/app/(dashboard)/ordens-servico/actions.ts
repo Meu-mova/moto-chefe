@@ -28,7 +28,6 @@ async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
 }
 
 type AbrirOSInput = {
-  tipoOs: 'interna' | 'pos_venda' | 'externa'
   lojaId: string
   chassiOs?: string | null
   motoId?: string | null
@@ -56,7 +55,6 @@ export async function abrirOSAction(input: AbrirOSInput) {
   if (!lojaId) throw new Error('Loja não identificada')
 
   await db.insert(ordensServico).values({
-    tipoOs:             input.tipoOs,
     lojaId,
     abertaPor:          usuario.id,
     chassiOs:           input.chassiOs?.trim().toUpperCase() || null,
@@ -132,6 +130,8 @@ export async function adicionarItemOSAction(osId: string, item: {
   descricao: string
   quantidade: number
   valorUnitario: number
+  servicoId?: string | null
+  pecaId?: string | null
 }) {
   await verificarAcessoOS(osId, EDITORES)
   await db.insert(osItens).values({
@@ -140,6 +140,8 @@ export async function adicionarItemOSAction(osId: string, item: {
     descricao:     item.descricao,
     quantidade:    String(item.quantidade),
     valorUnitario: String(item.valorUnitario),
+    servicoId:     item.servicoId || null,
+    pecaId:        item.pecaId || null,
   })
   await recalcularTotal(osId)
   revalidatePath(`/ordens-servico/${osId}`)
