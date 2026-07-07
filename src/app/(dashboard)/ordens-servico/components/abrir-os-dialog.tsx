@@ -20,12 +20,6 @@ type Props = {
 
 type ClienteInfo = { id: string; nome: string; cpfCnpj: string | null; celular: string | null; email: string | null }
 
-const TIPOS = [
-  { value: 'pos_venda', label: 'Pós-venda' },
-  { value: 'externa',   label: 'Oficina externa' },
-  { value: 'interna',   label: 'Interna (estoque)' },
-]
-
 const FORM_VAZIO = {
   lojaId: '', mecanicoId: '', descricao: '', dataPrevisao: '',
   placa: '', km: '', clienteNomeExterno: '', clienteFoneExterno: '',
@@ -34,7 +28,6 @@ const FORM_VAZIO = {
 export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props) {
   const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
   const [open, setOpen]  = useState(false)
-  const [tipo, setTipo]  = useState<'pos_venda'|'externa'|'interna'>('pos_venda')
   const [pending, start] = useTransition()
 
   const [form, setForm] = useState({ ...FORM_VAZIO, lojaId: lojaIdUsuario ?? '' })
@@ -46,7 +39,6 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
   function resetar() {
     setVeiculo(null); setCliente(null)
     setForm({ ...FORM_VAZIO, lojaId: lojaIdUsuario ?? '' })
-    setTipo('pos_venda')
   }
 
   function salvar() {
@@ -60,7 +52,6 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
     start(async () => {
       try {
         await abrirOSAction({
-          tipoOs:             tipo,
           lojaId:             form.lojaId,
           chassiOs:           veiculo.chassi,
           motoId:             veiculo?.motoId || null,
@@ -68,13 +59,12 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           mecanicoId:         form.mecanicoId || null,
           descricao:          form.descricao,
           dataPrevisao:       form.dataPrevisao || null,
-          // Para externa: marca/modelo vêm do veiculo encontrado, ou vazios
-          marcaExterna:       tipo === 'externa' ? (veiculo?.marca || null) : null,
-          modeloExterno:      tipo === 'externa' ? (veiculo?.modelo || null) : null,
+          marcaExterna:       !veiculo?.motoId ? (veiculo?.marca || null) : null,
+          modeloExterno:      !veiculo?.motoId ? (veiculo?.modelo || null) : null,
           placa:              form.placa || null,
           km:                 form.km ? parseInt(form.km) : null,
-          clienteNomeExterno: tipo === 'externa' ? (cliente?.nome || form.clienteNomeExterno || null) : null,
-          clienteFoneExterno: tipo === 'externa' ? (cliente?.celular || form.clienteFoneExterno || null) : null,
+          clienteNomeExterno: !cliente ? (form.clienteNomeExterno || null) : null,
+          clienteFoneExterno: !cliente ? (form.clienteFoneExterno || null) : null,
         })
         toast.success('OS aberta com sucesso')
         setOpen(false)
@@ -98,23 +88,6 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           </DialogHeader>
 
           <div className="space-y-5 py-1">
-            {/* Tipo */}
-            <div className="space-y-1.5">
-              <Label>Tipo de OS</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {TIPOS.map(t => (
-                  <button key={t.value} type="button" onClick={() => setTipo(t.value as any)}
-                    className={`rounded-lg border p-2.5 text-xs font-medium text-left transition-colors ${
-                      tipo === t.value
-                        ? 'border-slate-800 bg-slate-800 text-white'
-                        : 'border-slate-200 hover:border-slate-400 text-slate-700'
-                    }`}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Loja (admin) */}
             {isAdmin && (
               <div className="space-y-1.5">
@@ -135,41 +108,20 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
               />
             </div>
 
-            {/* Info do veículo não encontrado — campos manuais (apenas externa) */}
-            {!veiculo && tipo === 'externa' && (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  Dados do veículo (preenchimento manual)
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Placa</Label>
-                    <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>KM atual</Label>
-                    <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
-                  </div>
-                </div>
+            {/* Placa e KM — sempre visíveis */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Placa</Label>
+                <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
               </div>
-            )}
-
-            {/* Placa + KM quando veiculo encontrado */}
-            {veiculo && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Placa</Label>
-                  <Input value={form.placa} onChange={e => set('placa', e.target.value.toUpperCase())} placeholder="ABC-1234" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>KM atual</Label>
-                  <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
-                </div>
+              <div className="space-y-1.5">
+                <Label>KM atual</Label>
+                <Input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 15000" />
               </div>
-            )}
+            </div>
 
-            {/* Cliente externo quando não encontrado por CPF */}
-            {tipo === 'externa' && !cliente && (
+            {/* Cliente externo — só quando não encontrado/cadastrado */}
+            {!cliente && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Nome do cliente</Label>
