@@ -194,7 +194,6 @@ export const ordensServico = pgTable('ordens_servico', {
   abertaPor: uuid('aberta_por').notNull().references(() => usuarios.id),
   mecanicoId: uuid('mecanico_id').references(() => usuarios.id),
   status: osStatusEnum('status').notNull().default('aberta'),
-  tipoOs: text('tipo_os').notNull().default('interna'),
   descricao: text('descricao').notNull(),
   diagnostico: text('diagnostico'),
   observacoesFinais: text('observacoes_finais'),
