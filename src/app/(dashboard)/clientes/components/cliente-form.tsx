@@ -17,6 +17,7 @@ import { criarClienteAction, atualizarClienteAction, type ClienteInput } from '.
 type Props = {
   trigger: React.ReactNode
   clienteInicial?: ClienteInput & { id: string }
+  onCreated?: (id: string) => void
 }
 
 const FORM_VAZIO: ClienteInput = {
@@ -35,7 +36,7 @@ const FORM_VAZIO: ClienteInput = {
   uf: '',
 }
 
-export function ClienteForm({ trigger, clienteInicial }: Props) {
+export function ClienteForm({ trigger, clienteInicial, onCreated }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -86,8 +87,9 @@ export function ClienteForm({ trigger, clienteInicial }: Props) {
         await atualizarClienteAction(clienteInicial.id, form)
         toast.success('Cliente atualizado!')
       } else {
-        await criarClienteAction(form)
+        const id = await criarClienteAction(form)
         toast.success('Cliente cadastrado!')
+        onCreated?.(id)
       }
       setOpen(false)
       router.refresh()
