@@ -98,3 +98,44 @@ export async function buscarClientePorCpfAction(cpf: string) {
 
   return cliente ?? null
 }
+
+export async function cadastrarVeiculoHistoricoAction(input: {
+  chassi: string
+  marca: string
+  modelo: string
+  cor?: string | null
+  numeroMotor?: string | null
+}): Promise<VeiculoEncontrado> {
+  await getUsuarioLogado()
+
+  const chassi = input.chassi.trim().toUpperCase()
+  const marca  = input.marca.trim()
+  const modelo = input.modelo.trim()
+  if (!chassi) throw new Error('Chassi é obrigatório')
+  if (!marca)  throw new Error('Marca é obrigatória')
+  if (!modelo) throw new Error('Modelo é obrigatório')
+
+  try {
+    const [novo] = await db.insert(veiculosHistorico).values({
+      chassi,
+      marca,
+      modelo,
+      cor:         input.cor?.trim() || null,
+      numeroMotor: input.numeroMotor?.trim() || null,
+    }).returning()
+
+    return {
+      fonte:       'historico',
+      chassi:      novo.chassi,
+      numeroMotor: novo.numeroMotor,
+      marca:       novo.marca,
+      modelo:      novo.modelo,
+      cor:         novo.cor,
+      ano:         novo.ano,
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : ''
+    if (msg.includes('chassi')) throw new Error('Já existe um veículo cadastrado com esse chassi')
+    throw e
+  }
+}
