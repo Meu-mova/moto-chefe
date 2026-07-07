@@ -808,19 +808,26 @@ git commit -m "feat: remover seletor de tipo do formulário de abertura de OS; p
 - Modify: `src/app/(dashboard)/ordens-servico/[id]/page.tsx` (buscar catálogos e repassar como props)
 
 **Interfaces:**
-- Consumes: `listarServicosAction({ apenasAtivos: true })` de `@/app/(dashboard)/servicos/actions`; `listarPecasAction({ apenasAtivos: true })` de `@/app/(dashboard)/pecas/actions`; `adicionarItemOSAction` com `servicoId`/`pecaId` (Task 2).
+- Consumes: `servicosCatalogo`/`pecasCatalogo` de `@/lib/db/schema` (consulta direta ao banco); `adicionarItemOSAction` com `servicoId`/`pecaId` (Task 2).
 - Produces: `OSItensPanel` ganha props `servicos: { id: string; nome: string; valor: string; tempoPrevistoMinutos: number | null }[]` e `pecas: { id: string; nome: string; valor: string }[]`.
 
-- [ ] **Step 1: `[id]/page.tsx` — buscar os catálogos ativos**
+> **Correção pós-execução:** a versão original deste passo mandava usar `listarServicosAction`/`listarPecasAction`. Essas actions são restritas a `GESTORES` (admin_geral/admin_socio/aux_adm) — mas `mecanico` também acessa `/ordens-servico/[id]` e edita itens (`podeEditar`/`EDITORES` já incluem `mecanico`). Chamá-las incondicionalmente no `Promise.all` da página quebraria a página para `mecanico`. Corrigido para consulta direta ao banco, mesmo padrão já usado nas páginas `/servicos` e `/pecas`.
 
-No topo do arquivo, adicione os imports:
+- [ ] **Step 1: `[id]/page.tsx` — buscar os catálogos ativos direto do banco**
+
+No topo do arquivo, troque a linha `import { inArray } from 'drizzle-orm'` por:
 
 ```ts
-import { listarServicosAction } from '@/app/(dashboard)/servicos/actions'
-import { listarPecasAction } from '@/app/(dashboard)/pecas/actions'
+import { inArray, eq, asc } from 'drizzle-orm'
 ```
 
-No `Promise.all` que busca `os, itens, usuario, mecanicos` (atualmente linhas 31-38), adicione as duas novas chamadas:
+Troque a linha `import { usuarios } from '@/lib/db/schema'` por:
+
+```ts
+import { usuarios, servicosCatalogo, pecasCatalogo } from '@/lib/db/schema'
+```
+
+No `Promise.all` que busca `os, itens, usuario, mecanicos` (atualmente linhas 31-38), adicione duas consultas diretas ao final do array:
 
 ```ts
   const [os, itens, usuario, mecanicos, servicos, pecas] = await Promise.all([
@@ -830,8 +837,8 @@ No `Promise.all` que busca `os, itens, usuario, mecanicos` (atualmente linhas 31
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
       .where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
-    listarServicosAction({ apenasAtivos: true }),
-    listarPecasAction({ apenasAtivos: true }),
+    db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
+    db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
   ])
 ```
 
