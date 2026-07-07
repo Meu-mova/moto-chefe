@@ -73,9 +73,13 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
 
       {/* Cabeçalho */}
       <div className="hdr">
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>Moto Chefe Sul de Minas</p>
-          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{os.lojaNome}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/motochefe-logo.png" alt="Moto Chefe" style={{ height: 44, width: 'auto' }} />
+          <div>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>Moto Chefe Sul de Minas</p>
+            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{os.lojaNome}</p>
+          </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="os-n">OS #{os.numero}</div>

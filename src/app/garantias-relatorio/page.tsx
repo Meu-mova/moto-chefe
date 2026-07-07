@@ -114,9 +114,7 @@ export default async function GarantiasRelatorioPage({
         }
         .brand { display: flex; align-items: center; gap: 14px; }
         .brand-icon {
-          width: 48px; height: 48px; background: #1e293b; border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          color: #fff; font-size: 22px; font-weight: 800; letter-spacing: -1px;
+          height: 48px; width: auto; object-fit: contain;
         }
         .brand-name { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.2; }
         .brand-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
@@ -207,7 +205,6 @@ export default async function GarantiasRelatorioPage({
           thead th { background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           tbody tr:nth-child(even) { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .summary-card { border: 1px solid #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .brand-icon { background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           @page { margin: 15mm 12mm; size: A4 landscape; }
           table { font-size: 10.5px; }
           td { padding: 6px 10px; }
@@ -221,7 +218,8 @@ export default async function GarantiasRelatorioPage({
         {/* Cabeçalho */}
         <div className="report-header">
           <div className="brand">
-            <div className="brand-icon">MC</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/motochefe-logo.png" alt="Moto Chefe" className="brand-icon" />
             <div>
               <div className="brand-name">Moto Chefe {grupo.nome}</div>
               <div className="brand-sub">MOVA — Sistema de Gestão</div>
