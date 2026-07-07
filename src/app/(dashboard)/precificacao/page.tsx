@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
-import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { precificacao, configuracaoTaxas, motos, modelos as modelosTable } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { PrecificacaoClient } from './components/precificacao-client'
 import { redirect } from 'next/navigation'
 
@@ -11,10 +11,20 @@ export default async function PrecificacaoPage() {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
 
-  const [taxasRow, modelos] = await Promise.all([
+  const [taxasRow, modelos, estoqueDisponivel] = await Promise.all([
     db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
     db.select().from(precificacao).orderBy(asc(precificacao.nome)),
+    db
+      .select({ nome: modelosTable.modelo, qtd: sql<number>`count(*)::int` })
+      .from(motos)
+      .innerJoin(modelosTable, eq(motos.modeloId, modelosTable.id))
+      .where(eq(motos.disponibilidade, 'disponivel'))
+      .groupBy(modelosTable.modelo),
   ])
+
+  const estoquePorNome = Object.fromEntries(
+    estoqueDisponivel.map(e => [e.nome.trim().toUpperCase(), e.qtd])
+  )
 
   const taxas = taxasRow[0] ?? {
     taxasCartao: {} as Record<string, number>,
@@ -44,6 +54,7 @@ export default async function PrecificacaoPage() {
           valorMinimo: m.valorMinimo,
           custo: m.custo,
           ativo: m.ativo,
+          estoqueDisponivel: estoquePorNome[m.nome.trim().toUpperCase()] ?? 0,
         }))}
       />
     </div>

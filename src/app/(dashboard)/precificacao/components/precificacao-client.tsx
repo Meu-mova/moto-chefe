@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { TaxasForm } from './taxas-form'
 import { ModeloDialog } from './modelo-dialog'
 import { toggleAtivoAction, excluirModeloAction } from '../actions'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp, AlertTriangle } from 'lucide-react'
 
 type Taxas = {
   taxasCartao: Record<string, number>
@@ -21,6 +21,7 @@ type Modelo = {
   valorMinimo: string
   custo: string | null
   ativo: boolean
+  estoqueDisponivel: number
 }
 
 type Props = {
@@ -58,6 +59,12 @@ export function PrecificacaoClient({ taxas, modelos }: Props) {
   const [modeloEdicao, setModeloEdicao] = useState<Modelo | null>(null)
 
   async function handleToggle(m: Modelo) {
+    if (m.ativo && m.estoqueDisponivel > 0) {
+      const confirmado = confirm(
+        `"${m.nome}" tem ${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} disponíve${m.estoqueDisponivel !== 1 ? 'is' : 'l'} em estoque.\n\nDesativar remove o modelo do Simulador, mas o estoque continua disponível para venda. Deseja continuar?`
+      )
+      if (!confirmado) return
+    }
     try {
       await toggleAtivoAction(m.id, !m.ativo)
       toast.success(m.ativo ? 'Modelo desativado' : 'Modelo ativado')
@@ -155,9 +162,20 @@ export function PrecificacaoClient({ taxas, modelos }: Props) {
                         </>
                       )}
                       <td className="px-4 py-3 text-center">
-                        <Badge variant={m.ativo ? 'default' : 'secondary'}>
-                          {m.ativo ? 'Ativo' : 'Inativo'}
-                        </Badge>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Badge variant={m.ativo ? 'default' : 'secondary'}>
+                            {m.ativo ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                          {!m.ativo && m.estoqueDisponivel > 0 && (
+                            <span
+                              title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} disponíve${m.estoqueDisponivel !== 1 ? 'is' : 'l'} em estoque, mas fora do Simulador`}
+                              className="inline-flex items-center gap-1 text-amber-600 text-xs font-medium"
+                            >
+                              <AlertTriangle size={12} />
+                              {m.estoqueDisponivel} em estoque
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
