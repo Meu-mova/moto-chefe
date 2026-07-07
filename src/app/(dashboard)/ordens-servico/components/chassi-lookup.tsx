@@ -1,7 +1,9 @@
 'use client'
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { Search, CheckCircle2, AlertCircle, Loader2, X, Bike, Archive } from 'lucide-react'
-import { buscarVeiculoPorChassisAction, buscarClientePorCpfAction } from '../buscar-veiculo-action'
+import { Search, CheckCircle2, AlertCircle, Loader2, X, Bike, Archive, UserPlus } from 'lucide-react'
+import { buscarVeiculoPorChassisAction, buscarClientePorCpfAction, cadastrarVeiculoHistoricoAction } from '../buscar-veiculo-action'
+import { buscarClientePorIdAction } from '@/app/(dashboard)/clientes/actions'
+import { ClienteForm } from '@/app/(dashboard)/clientes/components/cliente-form'
 import type { VeiculoEncontrado } from '../buscar-veiculo-action'
 
 type ClienteInfo = {
@@ -25,6 +27,9 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
   const [listaAberta, setListaAberta] = useState(false)
   const [pendingC, startC] = useTransition()
   const [pendingV, startV] = useTransition()
+  const [cadastrandoVeiculo, setCadastrandoVeiculo] = useState(false)
+  const [novoVeiculo, setNovoVeiculo] = useState({ marca: '', modelo: '', cor: '', numeroMotor: '' })
+  const [pendingCadastro, startCadastro] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
   const listaRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +83,29 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
       const c = await buscarClientePorCpfAction(cpf)
       if (c) { setCliente(c); onClienteEncontrado(c) }
       else    { setErroCpf('CPF não encontrado no cadastro') }
+    })
+  }
+
+  function cadastrarVeiculo() {
+    if (!novoVeiculo.marca.trim() || !novoVeiculo.modelo.trim()) {
+      setErroChassi('Informe marca e modelo')
+      return
+    }
+    startCadastro(async () => {
+      try {
+        const v = await cadastrarVeiculoHistoricoAction({
+          chassi: chassi,
+          marca: novoVeiculo.marca,
+          modelo: novoVeiculo.modelo,
+          cor: novoVeiculo.cor || null,
+          numeroMotor: novoVeiculo.numeroMotor || null,
+        })
+        selecionarVeiculo(v)
+        setCadastrandoVeiculo(false)
+        setNovoVeiculo({ marca: '', modelo: '', cor: '', numeroMotor: '' })
+      } catch (e: unknown) {
+        setErroChassi(e instanceof Error ? e.message : 'Erro ao cadastrar veículo')
+      }
     })
   }
 
@@ -164,10 +192,73 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
               </div>
             )}
 
-            {erroChassi && (
-              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle size={12} /> {erroChassi}
-              </p>
+            {erroChassi && !cadastrandoVeiculo && (
+              <div className="mt-1 space-y-1.5">
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertCircle size={12} /> {erroChassi}
+                </p>
+                {chassi.trim().length >= 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setCadastrandoVeiculo(true)}
+                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus size={12} /> Cadastrar este veículo
+                  </button>
+                )}
+              </div>
+            )}
+
+            {cadastrandoVeiculo && (
+              <div className="mt-2 border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  Cadastrar veículo — chassi {chassi}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={novoVeiculo.marca}
+                    onChange={e => setNovoVeiculo(v => ({ ...v, marca: e.target.value }))}
+                    placeholder="Marca *"
+                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={novoVeiculo.modelo}
+                    onChange={e => setNovoVeiculo(v => ({ ...v, modelo: e.target.value }))}
+                    placeholder="Modelo *"
+                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={novoVeiculo.cor}
+                    onChange={e => setNovoVeiculo(v => ({ ...v, cor: e.target.value }))}
+                    placeholder="Cor"
+                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={novoVeiculo.numeroMotor}
+                    onChange={e => setNovoVeiculo(v => ({ ...v, numeroMotor: e.target.value }))}
+                    placeholder="Motor"
+                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={cadastrarVeiculo}
+                    disabled={pendingCadastro}
+                    className="flex-1 bg-slate-800 text-white text-xs font-medium rounded-md py-1.5 hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {pendingCadastro ? 'Salvando…' : 'Salvar veículo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCadastrandoVeiculo(false)}
+                    disabled={pendingCadastro}
+                    className="text-xs text-slate-500 hover:text-slate-700 px-2"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -201,9 +292,27 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
               </button>
             </div>
             {erroCpf && (
-              <p className="text-xs text-slate-500 flex items-center gap-1">
-                <AlertCircle size={12} /> {erroCpf}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {erroCpf}
+                </p>
+                <ClienteForm
+                  trigger={
+                    <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 shrink-0">
+                      <UserPlus size={12} /> Cadastrar cliente
+                    </span>
+                  }
+                  onCreated={async (id) => {
+                    const c = await buscarClientePorIdAction(id)
+                    if (c) {
+                      const info = { id: c.id, nome: c.nome, cpfCnpj: c.cpfCnpj, celular: c.celular, email: c.email }
+                      setCliente(info)
+                      onClienteEncontrado(info)
+                      setErroCpf(null)
+                    }
+                  }}
+                />
+              </div>
             )}
           </>
         )}
