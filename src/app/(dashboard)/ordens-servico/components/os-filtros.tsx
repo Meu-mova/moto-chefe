@@ -8,6 +8,7 @@ const STATUS_OPTS = [
   { value: 'em_andamento', label: 'Em Andamento' },
   { value: 'concluida',    label: 'Concluída' },
 ]
+
 function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button

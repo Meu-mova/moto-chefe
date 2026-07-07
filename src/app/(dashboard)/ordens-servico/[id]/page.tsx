@@ -17,6 +17,7 @@ import { OSPagamentoPanel } from './components/os-pagamento-panel'
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
 }
+
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const [os, itens, usuario, mecanicos] = await Promise.all([
