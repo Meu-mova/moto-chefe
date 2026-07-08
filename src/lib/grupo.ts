@@ -48,6 +48,12 @@ export async function getGrupoAtivo(usuario: { papel: string; lojaId: string | n
   return grupo
 }
 
+export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {
+  const [loja] = await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
+  if (!loja) throw new Error('Loja não encontrada')
+  return loja.grupoId
+}
+
 export async function listarGruposAtivos(): Promise<Grupo[]> {
   return db.select().from(grupos).where(eq(grupos.ativo, true)).orderBy(grupos.nome)
 }

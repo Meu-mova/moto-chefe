@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -26,6 +26,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
 
   if (!moto) notFound()
 
+  const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
+
   const [mecanicos, lojasOpts, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
@@ -33,9 +35,9 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.select({ valorMinimo: precificacao.valorMinimo })
       .from(precificacao)
-      .where(and(eq(precificacao.nome, moto.modelo), eq(precificacao.ativo, true)))
+      .where(and(eq(precificacao.nome, moto.modelo), eq(precificacao.ativo, true), eq(precificacao.grupoId, grupoIdDaMoto)))
       .limit(1),
-    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupoIdDaMoto)),
   ])
 
   const precoMinimoPix = precRow[0] ? parseFloat(precRow[0].valorMinimo) : null

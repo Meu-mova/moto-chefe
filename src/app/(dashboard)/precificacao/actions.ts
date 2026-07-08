@@ -2,7 +2,8 @@
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { eq, sql } from 'drizzle-orm'
+import { getGrupoAtivo } from '@/lib/grupo'
+import { eq, and, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -10,6 +11,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 async function checarAdmin() {
   const u = await getUsuarioLogado()
   if (!ADMINS.includes(u.papel)) throw new Error('Sem permissão')
+  return getGrupoAtivo(u)
 }
 
 export type TaxasPayload = {
@@ -20,12 +22,12 @@ export type TaxasPayload = {
 }
 
 export async function salvarTaxasAction(data: TaxasPayload) {
-  await checarAdmin()
+  const grupo = await checarAdmin()
   await db
     .insert(configuracaoTaxas)
-    .values({ id: 1, ...data })
+    .values({ grupoId: grupo.id, ...data })
     .onConflictDoUpdate({
-      target: configuracaoTaxas.id,
+      target: configuracaoTaxas.grupoId,
       set: {
         taxasCartao: data.taxasCartao,
         taxasDebito: data.taxasDebito,
@@ -39,8 +41,9 @@ export async function salvarTaxasAction(data: TaxasPayload) {
 }
 
 export async function criarModeloAction(data: { nome: string; valorMinimo: string; custo?: string }) {
-  await checarAdmin()
+  const grupo = await checarAdmin()
   await db.insert(precificacao).values({
+    grupoId: grupo.id,
     nome: data.nome.toUpperCase(),
     valorMinimo: data.valorMinimo,
     custo: data.custo || null,
@@ -54,26 +57,26 @@ export async function criarModeloAction(data: { nome: string; valorMinimo: strin
 }
 
 export async function editarModeloAction(id: string, data: { nome: string; valorMinimo: string; custo?: string }) {
-  await checarAdmin()
+  const grupo = await checarAdmin()
   await db.update(precificacao).set({
     nome: data.nome.toUpperCase(),
     valorMinimo: data.valorMinimo,
     custo: data.custo || null,
-  }).where(eq(precificacao.id, id))
+  }).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
 }
 
 export async function toggleAtivoAction(id: string, ativo: boolean) {
-  await checarAdmin()
-  await db.update(precificacao).set({ ativo }).where(eq(precificacao.id, id))
+  const grupo = await checarAdmin()
+  await db.update(precificacao).set({ ativo }).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
 }
 
 export async function excluirModeloAction(id: string) {
-  await checarAdmin()
-  await db.delete(precificacao).where(eq(precificacao.id, id))
+  const grupo = await checarAdmin()
+  await db.delete(precificacao).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
 }

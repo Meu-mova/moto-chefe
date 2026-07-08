@@ -6,6 +6,7 @@ import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lanca
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 
 export type PrecoMinimoInfo = {
   valorMinimoPix: number
@@ -18,23 +19,24 @@ export type PrecoMinimoInfo = {
 }
 
 export async function buscarPrecoMinimoAction(motoId: string): Promise<PrecoMinimoInfo | null> {
-  const [moto] = await db.select({ modeloId: motos.modeloId }).from(motos).where(eq(motos.id, motoId)).limit(1)
+  const [moto] = await db.select({ modeloId: motos.modeloId, lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) return null
-  return buscarPrecificacao(moto.modeloId)
+  return buscarPrecificacao(moto.modeloId, moto.lojaId)
 }
 
-async function buscarPrecificacao(modeloId: string) {
-  const [modeloRow] = await db
-    .select({ modelo: modelos.modelo })
-    .from(modelos).where(eq(modelos.id, modeloId)).limit(1)
+async function buscarPrecificacao(modeloId: string, lojaId: string) {
+  const [modeloRow, grupoId] = await Promise.all([
+    db.select({ modelo: modelos.modelo }).from(modelos).where(eq(modelos.id, modeloId)).limit(1).then(r => r[0]),
+    getGrupoIdDaLoja(lojaId),
+  ])
   if (!modeloRow) return null
 
   const [[precRow], [taxasRow]] = await Promise.all([
     db.select({ valorMinimo: precificacao.valorMinimo })
       .from(precificacao)
-      .where(and(eq(precificacao.nome, modeloRow.modelo), eq(precificacao.ativo, true)))
+      .where(and(eq(precificacao.nome, modeloRow.modelo), eq(precificacao.ativo, true), eq(precificacao.grupoId, grupoId)))
       .limit(1),
-    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupoId)),
   ])
 
   if (!precRow || !taxasRow) return null
@@ -163,7 +165,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
-  const prec = await buscarPrecificacao(moto.modeloId)
+  const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
   if (prec) {
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido < prec.valorMinimoPix - 0.01) {
@@ -774,7 +776,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
 
-  const prec = await buscarPrecificacao(moto.modeloId)
+  const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
   if (prec) {
     const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     const valorTotalNum = parseFloat(data.valorTotalVenda)

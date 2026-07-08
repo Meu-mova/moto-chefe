@@ -1,7 +1,8 @@
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { asc, eq } from 'drizzle-orm'
+import { getGrupoAtivo } from '@/lib/grupo'
+import { asc, eq, and } from 'drizzle-orm'
 import { SimuladorClient } from './components/simulador-client'
 import { redirect } from 'next/navigation'
 
@@ -11,9 +12,11 @@ export default async function SimuladorPage() {
   const usuario = await getUsuarioLogado()
   if (BLOQUEADOS.includes(usuario.papel)) redirect('/dashboard')
 
+  const grupo = await getGrupoAtivo(usuario)
+
   const [taxasRow, modelos] = await Promise.all([
-    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.id, 1)),
-    db.select().from(precificacao).where(eq(precificacao.ativo, true)).orderBy(asc(precificacao.nome)),
+    db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
+    db.select().from(precificacao).where(and(eq(precificacao.grupoId, grupo.id), eq(precificacao.ativo, true))).orderBy(asc(precificacao.nome)),
   ])
 
   const taxas = taxasRow[0]

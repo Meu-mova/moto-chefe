@@ -355,9 +355,9 @@ export const despesas = pgTable('despesas', {
   criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// ─── configuracao_taxas (singleton) ──────────────────────────────────────────
+// ─── configuracao_taxas (uma linha por grupo) ────────────────────────────────
 export const configuracaoTaxas = pgTable('configuracao_taxas', {
-  id: integer('id').primaryKey().default(1),
+  grupoId: uuid('grupo_id').primaryKey().references(() => grupos.id),
   taxasCartao: jsonb('taxas_cartao').$type<Record<string, number>>().notNull().default({}),
   taxasDebito: jsonb('taxas_debito').$type<Record<string, number>>().notNull().default({}),
   taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
@@ -368,6 +368,7 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
 // ─── precificacao ─────────────────────────────────────────────────────────────
 export const precificacao = pgTable('precificacao', {
   id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   nome: text('nome').notNull(),
   valorMinimo: numeric('valor_minimo', { precision: 12, scale: 2 }).notNull(),
   taxaPix: numeric('taxa_pix', { precision: 8, scale: 6 }).notNull().default('0'),
