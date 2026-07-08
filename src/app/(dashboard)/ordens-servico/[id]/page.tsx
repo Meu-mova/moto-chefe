@@ -157,7 +157,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         </CardContent>
       </Card>
 
-      {podeFechar && (
+      {podeFechar && ['pendente_pagamento', 'concluida'].includes(os.status) && (
         <OSPagamentoPanel
           osId={id}
           valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
