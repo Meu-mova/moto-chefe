@@ -3,7 +3,7 @@ import { listarOSPorLoja, listarTodasOS } from '@/lib/queries/ordens-servico'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
-import { inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { OSCard } from './components/os-card'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
@@ -33,7 +33,7 @@ export default async function OrdensServicoPage({
       ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaIdsGrupo })
       : listarOSPorLoja(usuario.lojaId!),
     db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios).where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
+      .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
   ])
 

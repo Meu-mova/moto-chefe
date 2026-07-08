@@ -4,7 +4,7 @@ import { listarAgendamentos } from '@/lib/queries/agendamentos'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
-import { inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, addDays, format, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { AgendaNav } from './components/agenda-nav'
@@ -43,7 +43,7 @@ export default async function AgendaPage({
     listarAgendamentos({ lojaId: lojaFiltroIds, dataInicio, dataFim }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
-      .where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
+      .where(eq(usuarios.papel, 'mecanico')),
     isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
   ])
 

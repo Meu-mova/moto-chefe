@@ -3,7 +3,7 @@ import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { usuarios, servicosCatalogo, pecasCatalogo } from '@/lib/db/schema'
-import { inArray, eq, asc } from 'drizzle-orm'
+import { eq, asc } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -27,7 +27,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
     getUsuarioLogado(),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
-      .where(inArray(usuarios.papel, ['mecanico', 'aux_adm', 'admin_geral', 'admin_socio'] as any[])),
+      .where(eq(usuarios.papel, 'mecanico')),
     db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
     db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
   ])
