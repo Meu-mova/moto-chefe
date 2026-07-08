@@ -72,6 +72,113 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
 }
 
 
+type TransacaoPix = {
+  contaId: string
+  banco: string
+  transacaoId: string
+  data: string
+  valor: string
+  pagadorNome: string | null
+  descricao: string | null
+}
+
+type ResultadoPix =
+  | { ok: true; transacoes: TransacaoPix[] }
+  | { ok: false; erro: string }
+
+export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date): Promise<ResultadoPix> {
+  try {
+    const init = await chamarMcp(null, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'moto-chefe', version: '1.0' },
+      },
+    })
+    if (init.json.error) {
+      return { ok: false, erro: init.json.error.message ?? 'Erro ao iniciar sessão com mcp.ai' }
+    }
+    if (!init.sessionId) {
+      return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
+    }
+
+    const contasChamada = await chamarMcp(init.sessionId, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'openfinance_list_accounts',
+        arguments: { type: 'BANK' },
+      },
+    })
+    if (contasChamada.json.error) {
+      return { ok: false, erro: contasChamada.json.error.message ?? 'Erro ao buscar contas no mcp.ai' }
+    }
+    const contasResult = contasChamada.json.result as { content?: { text?: string }[] } | undefined
+    const contasConteudo = contasResult?.content?.[0]?.text
+    if (!contasConteudo) return { ok: false, erro: 'Resposta inesperada do mcp.ai ao listar contas' }
+
+    const contasPayload = JSON.parse(contasConteudo) as { results?: Array<{ id: string; bank: string }> }
+    const contas = contasPayload.results ?? []
+
+    const inicioMs = dataInicio.getTime()
+    const fimMs = dataFim.getTime()
+    const transacoes: TransacaoPix[] = []
+
+    for (const conta of contas) {
+      const txChamada = await chamarMcp(init.sessionId, {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: {
+          name: 'openfinance_list_transactions',
+          arguments: { account_id: conta.id },
+        },
+      })
+      if (txChamada.json.error) continue
+
+      const txResult = txChamada.json.result as { content?: { text?: string }[] } | undefined
+      const txConteudo = txResult?.content?.[0]?.text
+      if (!txConteudo) continue
+
+      const txPayload = JSON.parse(txConteudo) as {
+        results?: Array<{
+          id: string
+          date: string
+          amount: string
+          type: string
+          operationType: string
+          description: string
+          paymentData?: { payer?: string }
+        }>
+      }
+
+      for (const tx of txPayload.results ?? []) {
+        if (tx.type !== 'CREDIT' || tx.operationType !== 'PIX') continue
+        const dataMs = new Date(tx.date).getTime()
+        if (dataMs < inicioMs || dataMs > fimMs) continue
+
+        transacoes.push({
+          contaId: conta.id,
+          banco: conta.bank,
+          transacaoId: tx.id,
+          data: tx.date,
+          valor: tx.amount,
+          pagadorNome: tx.paymentData?.payer ?? null,
+          descricao: tx.description ?? null,
+        })
+      }
+    }
+
+    return { ok: true, transacoes }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
+  }
+}
+
 export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
   try {
     const init = await chamarMcp(null, {

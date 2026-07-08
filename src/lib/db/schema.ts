@@ -22,6 +22,7 @@ export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedid
 export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
 export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
+export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os'])
 
 // ─── grupos ──────────────────────────────────────────────────────────────────
 export const grupos = pgTable('grupos', {
@@ -411,6 +412,24 @@ export const pixRecebimentos = pgTable('pix_recebimentos', {
   vendaId:          uuid('venda_id').references(() => vendas.id),
   pedidoId:         uuid('pedido_id').references(() => pedidosVenda.id),
   createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── pix_recebimentos_mcp (teste — Open Finance via mcp.ai, sem ValidaPix) ────
+export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
+  id:                  uuid('id').primaryKey().defaultRandom(),
+  contaId:             text('conta_id').notNull(),
+  banco:               text('banco').notNull(),
+  transacaoId:         text('transacao_id').notNull().unique(),
+  data:                timestamp('data', { withTimezone: true }).notNull(),
+  valor:               numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  pagadorNome:         text('pagador_nome'),
+  descricao:           text('descricao'),
+  tipoCorrespondencia: tipoCorrespondenciaPixEnum('tipo_correspondencia'),
+  vendaId:             uuid('venda_id').references(() => vendas.id),
+  osId:                uuid('os_id').references(() => ordensServico.id),
+  lancadoPorId:        uuid('lancado_por_id').references(() => usuarios.id),
+  lancadoEm:           timestamp('lancado_em', { withTimezone: true }),
+  criadoEm:            timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── demandas ────────────────────────────────────────────────────────────────

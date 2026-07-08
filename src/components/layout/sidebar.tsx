@@ -24,6 +24,7 @@ const baseNavItems = [
 ]
 
 const adminPapeis = ['admin_geral', 'admin_socio']
+const PAPEIS_PIX_MCP = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 type Props = { papel: string }
 
@@ -37,6 +38,7 @@ export function Sidebar({ papel }: Props) {
     ...baseNavItems,
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',       label: 'Caixa',       icon: Wallet       }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/pix',         label: 'PIX',         icon: QrCode       }] : []),
+    ...(PAPEIS_PIX_MCP.includes(papel) ? [{ href: '/pix-mcp',     label: 'PIX (teste)', icon: QrCode       }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao', label: 'Conciliação', icon: CreditCard   }] : []),
     ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/clientes', label: 'Clientes', icon: Users }] : []),
