@@ -129,6 +129,18 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date): Promi
     const transacoes: TransacaoPix[] = []
 
     for (const conta of contas) {
+      // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
+      // sync, transações PIX recebidas nas últimas horas não aparecem ainda.
+      await chamarMcp(init.sessionId, {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'openfinance_force_sync',
+          arguments: { account_id: conta.id },
+        },
+      }).catch(() => {})
+
       const txChamada = await chamarMcp(init.sessionId, {
         jsonrpc: '2.0',
         id: 3,
