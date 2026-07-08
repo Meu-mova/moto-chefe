@@ -12,6 +12,8 @@ type Correspondencia = {
   tipo: 'venda' | 'os' | null
   vendaNumero: number | null
   osNumero: number | null
+  lancadoPorNome: string | null
+  lancadoEm: string | null
 }
 
 type Props = { id: string; correspondencia: Correspondencia }
@@ -37,11 +39,18 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
       })
     }
 
+    const quemQuando = correspondencia.lancadoPorNome
+      ? `${correspondencia.lancadoPorNome}${correspondencia.lancadoEm ? ` · ${new Date(correspondencia.lancadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}`
+      : null
+
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
-          {label}
-        </span>
+        <div>
+          <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+            {label}
+          </span>
+          {quemQuando && <p className="text-[11px] text-slate-400 mt-0.5">{quemQuando}</p>}
+        </div>
         <button onClick={remover} disabled={pending} title="Remover correspondência" className="text-slate-400 hover:text-red-600">
           <X size={14} />
         </button>

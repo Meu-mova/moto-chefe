@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
-import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico } from '@/lib/db/schema'
+import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios } from '@/lib/db/schema'
 import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -108,17 +108,22 @@ export default async function PixMcpPage({
 
   const vendaIds = linhas.map(l => l.vendaId).filter((id): id is string => !!id)
   const osIds = linhas.map(l => l.osId).filter((id): id is string => !!id)
+  const lancadoPorIds = linhas.map(l => l.lancadoPorId).filter((id): id is string => !!id)
 
-  const [vendasDb, osDb] = await Promise.all([
+  const [vendasDb, osDb, usuariosDb] = await Promise.all([
     vendaIds.length > 0
       ? db.select({ id: vendas.id, numero: vendas.numero }).from(vendas).where(inArray(vendas.id, vendaIds))
       : Promise.resolve([] as { id: string; numero: number }[]),
     osIds.length > 0
       ? db.select({ id: ordensServico.id, numero: ordensServico.numero }).from(ordensServico).where(inArray(ordensServico.id, osIds))
       : Promise.resolve([] as { id: string; numero: number | null }[]),
+    lancadoPorIds.length > 0
+      ? db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(inArray(usuarios.id, lancadoPorIds))
+      : Promise.resolve([] as { id: string; nome: string }[]),
   ])
   const vendaNumeroById = new Map(vendasDb.map(v => [v.id, v.numero]))
   const osNumeroById = new Map(osDb.map(o => [o.id, o.numero]))
+  const usuarioNomeById = new Map(usuariosDb.map(u => [u.id, u.nome]))
 
   const total = linhas.reduce((s, l) => s + Number(l.valor), 0)
   const totalVinculado = linhas.filter(l => l.tipoCorrespondencia).reduce((s, l) => s + Number(l.valor), 0)
@@ -207,6 +212,8 @@ export default async function PixMcpPage({
                         tipo: l.tipoCorrespondencia,
                         vendaNumero: l.vendaId ? vendaNumeroById.get(l.vendaId) ?? null : null,
                         osNumero: l.osId ? osNumeroById.get(l.osId) ?? null : null,
+                        lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
+                        lancadoEm: l.lancadoEm ? l.lancadoEm.toISOString() : null,
                       }}
                     />
                   </TableCell>
