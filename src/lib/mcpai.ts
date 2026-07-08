@@ -72,15 +72,23 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
 }
 
 
-// Descrição do PIX recebido vem como pseudo-CSV separado por "|@", ex:
-// "PIX RECEBIDO - OUTRA IF - Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@"
-// segmento [1] = nome do pagador. Mais confiável que paymentData.payer, que
-// vem vazio na maioria das transações do Sicoob.
+// Formato da descrição do PIX recebido muda por banco:
+// - Sicoob: pseudo-CSV separado por "|@", ex. "PIX RECEBIDO - OUTRA IF -
+//   Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@" — nome
+//   é o segmento [1].
+// - Sicredi: "RECEBIMENTO PIX <documento sem pontuação> <NOME>" — nome é
+//   tudo depois do documento (que costuma vir truncado/abreviado quando
+//   comparado ao paymentData.payer, por isso só usamos como fallback).
 function extrairPagadorDaDescricao(descricao: string | null | undefined): string | null {
   if (!descricao) return null
-  const partes = descricao.split('|@')
-  const nome = partes[1]?.trim()
-  return nome || null
+
+  if (descricao.includes('|@')) {
+    const nome = descricao.split('|@')[1]?.trim()
+    return nome || null
+  }
+
+  const match = descricao.match(/^RECEBIMENTO PIX\s+\S+\s+(.+)$/i)
+  return match?.[1]?.trim() || null
 }
 
 type TransacaoPix = {
@@ -202,7 +210,7 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
           transacaoId: tx.id,
           data: tx.date,
           valor: tx.amount,
-          pagadorNome: extrairPagadorDaDescricao(tx.description) ?? tx.paymentData?.payer ?? null,
+          pagadorNome: tx.paymentData?.payer?.trim() || extrairPagadorDaDescricao(tx.description),
           descricao: tx.description ?? null,
         })
       }
