@@ -37,9 +37,12 @@ export default async function OrdensServicoPage({
     listarLojasDoGrupoAtivo(usuario),
   ])
 
-  const abertas      = lista.filter(o => o.status === 'aberta')
-  const emAndamento  = lista.filter(o => o.status === 'em_andamento')
-  const concluidas   = lista.filter(o => o.status === 'concluida')
+  const abertas             = lista.filter(o => o.status === 'aberta')
+  const oficina              = lista.filter(o => o.status === 'oficina')
+  const emAndamento         = lista.filter(o => o.status === 'em_andamento')
+  const finalizadas         = lista.filter(o => o.status === 'finalizada')
+  const pendentePagamento   = lista.filter(o => o.status === 'pendente_pagamento')
+  const concluidas          = lista.filter(o => o.status === 'concluida')
 
   return (
     <div className="space-y-6">
@@ -57,9 +60,21 @@ export default async function OrdensServicoPage({
           <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">Abertas</p>
           <p className="text-3xl font-bold text-amber-700 mt-0.5">{abertas.length}</p>
         </div>
+        <div className="bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-sky-600 uppercase tracking-wide">Oficina</p>
+          <p className="text-3xl font-bold text-sky-700 mt-0.5">{oficina.length}</p>
+        </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
           <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Em Andamento</p>
           <p className="text-3xl font-bold text-blue-700 mt-0.5">{emAndamento.length}</p>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Finalizadas</p>
+          <p className="text-3xl font-bold text-indigo-700 mt-0.5">{finalizadas.length}</p>
+        </div>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">Pend. Pagamento</p>
+          <p className="text-3xl font-bold text-orange-700 mt-0.5">{pendentePagamento.length}</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
           <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Concluídas</p>
@@ -83,6 +98,16 @@ export default async function OrdensServicoPage({
         </section>
       )}
 
+      {oficina.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
+            Oficina ({oficina.length})
+          </h2>
+          {oficina.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
+        </section>
+      )}
+
       {emAndamento.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
@@ -90,6 +115,26 @@ export default async function OrdensServicoPage({
             Em Andamento ({emAndamento.length})
           </h2>
           {emAndamento.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
+        </section>
+      )}
+
+      {finalizadas.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+            Finalizadas ({finalizadas.length})
+          </h2>
+          {finalizadas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
+        </section>
+      )}
+
+      {pendentePagamento.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
+            Pendente de Pagamento ({pendentePagamento.length})
+          </h2>
+          {pendentePagamento.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
         </section>
       )}
 
