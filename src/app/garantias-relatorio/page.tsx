@@ -219,9 +219,9 @@ export default async function GarantiasRelatorioPage({
         <div className="report-header">
           <div className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/motochefe-logo.png" alt="Moto Chefe" className="brand-icon" />
+            <img src="/motochefe-logo.png" alt="MotoChefe" className="brand-icon" />
             <div>
-              <div className="brand-name">Moto Chefe {grupo.nome}</div>
+              <div className="brand-name">MotoChefe {grupo.nome}</div>
               <div className="brand-sub">MOVA — Sistema de Gestão</div>
             </div>
           </div>
@@ -354,7 +354,7 @@ export default async function GarantiasRelatorioPage({
 
         {/* Rodapé */}
         <div className="report-footer">
-          <span>MOVA — Sistema de Gestão · Moto Chefe {grupo.nome}</span>
+          <span>MOVA — Sistema de Gestão · MotoChefe {grupo.nome}</span>
           <span>Gerado em {agora}</span>
         </div>
       </div>

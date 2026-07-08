@@ -17,7 +17,7 @@ export default async function AgendarPage({ params }: { params: Promise<{ lojaId
       <header className="bg-slate-900 text-white px-6 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <div>
-            <h1 className="font-bold text-lg">Moto Chefe Sul de Minas</h1>
+            <h1 className="font-bold text-lg">MotoChefe Sul de Minas</h1>
             <p className="text-slate-400 text-sm">{loja.nome}</p>
           </div>
         </div>
@@ -36,7 +36,7 @@ export default async function AgendarPage({ params }: { params: Promise<{ lojaId
       </main>
 
       <footer className="text-center text-xs text-slate-400 py-4">
-        MOVA — Sistema de Gestão Moto Chefe Sul de Minas
+        MOVA — Sistema de Gestão MotoChefe Sul de Minas
       </footer>
     </div>
   )
