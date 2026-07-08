@@ -79,7 +79,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Status bar */}
-      <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} />
+      <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} papel={usuario.papel} />
 
       <div className="grid grid-cols-2 gap-4">
         {/* Moto */}

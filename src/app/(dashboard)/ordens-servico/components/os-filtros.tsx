@@ -4,9 +4,12 @@ import { useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 
 const STATUS_OPTS = [
-  { value: 'aberta',       label: 'Aberta' },
-  { value: 'em_andamento', label: 'Em Andamento' },
-  { value: 'concluida',    label: 'Concluída' },
+  { value: 'aberta',              label: 'Aberta' },
+  { value: 'oficina',             label: 'Oficina' },
+  { value: 'em_andamento',        label: 'Em Andamento' },
+  { value: 'finalizada',          label: 'Finalizada' },
+  { value: 'pendente_pagamento',  label: 'Pendente de Pagamento' },
+  { value: 'concluida',           label: 'Concluída' },
 ]
 
 function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {

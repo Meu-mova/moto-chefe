@@ -8,12 +8,16 @@ import { Wrench, Car, ArrowRight, User, Clock } from 'lucide-react'
 import type { OSComDetalhes } from '@/lib/queries/ordens-servico'
 
 const statusColor: Record<string, string> = {
-  aberta:       'bg-amber-100 text-amber-700 border-amber-200',
-  em_andamento: 'bg-blue-100 text-blue-700 border-blue-200',
-  concluida:    'bg-green-100 text-green-700 border-green-200',
+  aberta:              'bg-amber-100 text-amber-700 border-amber-200',
+  oficina:             'bg-sky-100 text-sky-700 border-sky-200',
+  em_andamento:        'bg-blue-100 text-blue-700 border-blue-200',
+  finalizada:          'bg-indigo-100 text-indigo-700 border-indigo-200',
+  pendente_pagamento:  'bg-orange-100 text-orange-700 border-orange-200',
+  concluida:           'bg-green-100 text-green-700 border-green-200',
 }
 const statusLabel: Record<string, string> = {
-  aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
+  aberta: 'Aberta', oficina: 'Oficina', em_andamento: 'Em Andamento',
+  finalizada: 'Finalizada', pendente_pagamento: 'Pendente de Pagamento', concluida: 'Concluída',
 }
 type Props = { os: OSComDetalhes; papel: string; lojaIdUsuario: string | null }
 
