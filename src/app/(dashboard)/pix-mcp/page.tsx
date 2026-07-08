@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
 import { pixRecebimentosMcp, vendas, ordensServico } from '@/lib/db/schema'
-import { inArray, and, gte, lte, desc } from 'drizzle-orm'
+import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TrendingUp } from 'lucide-react'
@@ -35,6 +36,8 @@ export default async function PixMcpPage({
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) redirect('/dashboard')
 
+  const grupo = await getGrupoAtivo(usuario)
+
   const params = await searchParams
   const hoje = new Date()
   const seteDiasAtras = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -42,7 +45,7 @@ export default async function PixMcpPage({
   const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(seteDiasAtras) + 'T00:00:00.000Z')
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
-  const resultado = await buscarPixRecebidos(fromDate, toDate)
+  const resultado = await buscarPixRecebidos(fromDate, toDate, grupo.cnpj)
 
   if (!resultado.ok) {
     return (
@@ -58,6 +61,7 @@ export default async function PixMcpPage({
   if (resultado.transacoes.length > 0) {
     await db.insert(pixRecebimentosMcp)
       .values(resultado.transacoes.map(tx => ({
+        grupoId: grupo.id,
         contaId: tx.contaId,
         banco: tx.banco,
         transacaoId: tx.transacaoId,
@@ -72,7 +76,11 @@ export default async function PixMcpPage({
   const linhas = await db
     .select()
     .from(pixRecebimentosMcp)
-    .where(and(gte(pixRecebimentosMcp.data, fromDate), lte(pixRecebimentosMcp.data, toDate)))
+    .where(and(
+      eq(pixRecebimentosMcp.grupoId, grupo.id),
+      gte(pixRecebimentosMcp.data, fromDate),
+      lte(pixRecebimentosMcp.data, toDate),
+    ))
     .orderBy(desc(pixRecebimentosMcp.data))
 
   const vendaIds = linhas.map(l => l.vendaId).filter((id): id is string => !!id)
@@ -98,7 +106,7 @@ export default async function PixMcpPage({
         <div>
           <h1 className="text-2xl font-bold">PIX Recebidos (teste — Open Finance)</h1>
           <p className="text-slate-500 text-sm">
-            Direto das contas conectadas via mcp.ai, sem passar pelo ValidaPix. Correspondência lançada manualmente.
+            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai, sem passar pelo ValidaPix. Correspondência lançada manualmente.
           </p>
         </div>
         <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} />

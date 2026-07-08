@@ -86,7 +86,7 @@ type ResultadoPix =
   | { ok: true; transacoes: TransacaoPix[] }
   | { ok: false; erro: string }
 
-export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date): Promise<ResultadoPix> {
+export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
   try {
     const init = await chamarMcp(null, {
       jsonrpc: '2.0',
@@ -121,8 +121,15 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date): Promi
     const contasConteudo = contasResult?.content?.[0]?.text
     if (!contasConteudo) return { ok: false, erro: 'Resposta inesperada do mcp.ai ao listar contas' }
 
-    const contasPayload = JSON.parse(contasConteudo) as { results?: Array<{ id: string; bank: string }> }
-    const contas = contasPayload.results ?? []
+    const contasPayload = JSON.parse(contasConteudo) as {
+      results?: Array<{ id: string; bank: string; subtype: string; taxNumber: string }>
+    }
+    // Cada CNPJ conectado aparece como um "item" próprio no mcp.ai — filtramos
+    // pelo CNPJ do grupo ativo pra não misturar contas de grupos diferentes
+    // (ex: Sicredi do Sul de Minas vs Sicredi da BH, ambas com o mesmo nome de banco).
+    const contas = (contasPayload.results ?? []).filter(
+      c => c.subtype !== 'SAVINGS_ACCOUNT' && c.taxNumber === cnpjGrupo,
+    )
 
     const inicioMs = dataInicio.getTime()
     const fimMs = dataFim.getTime()

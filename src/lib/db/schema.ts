@@ -417,6 +417,7 @@ export const pixRecebimentos = pgTable('pix_recebimentos', {
 // ─── pix_recebimentos_mcp (teste — Open Finance via mcp.ai, sem ValidaPix) ────
 export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   id:                  uuid('id').primaryKey().defaultRandom(),
+  grupoId:             uuid('grupo_id').notNull().references(() => grupos.id),
   contaId:             text('conta_id').notNull(),
   banco:               text('banco').notNull(),
   transacaoId:         text('transacao_id').notNull().unique(),
