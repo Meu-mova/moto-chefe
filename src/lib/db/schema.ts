@@ -210,6 +210,10 @@ export const ordensServico = pgTable('ordens_servico', {
   clienteFoneExterno: text('cliente_fone_externo'),
   dataAbertura: timestamp('data_abertura', { withTimezone: true }).notNull().defaultNow(),
   dataConclusao: timestamp('data_conclusao', { withTimezone: true }),
+  oficinaEm: timestamp('oficina_em', { withTimezone: true }),
+  emAndamentoEm: timestamp('em_andamento_em', { withTimezone: true }),
+  finalizadaEm: timestamp('finalizada_em', { withTimezone: true }),
+  pendentePagamentoEm: timestamp('pendente_pagamento_em', { withTimezone: true }),
   clienteId: uuid('cliente_id').references(() => clientes.id),
   agendamentoId: uuid('agendamento_id'),  // FK: agendamentos.id (sem ref Drizzle — circular)
   origem: text('origem').notNull().default('walk_in'),

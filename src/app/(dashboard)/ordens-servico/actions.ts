@@ -81,6 +81,13 @@ const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
   pendente_pagamento: GESTORES,
 }
 
+const COLUNA_TIMESTAMP_TRANSICAO: Record<string, 'oficinaEm' | 'emAndamentoEm' | 'finalizadaEm' | 'pendentePagamentoEm'> = {
+  oficina:            'oficinaEm',
+  em_andamento:       'emAndamentoEm',
+  finalizada:         'finalizadaEm',
+  pendente_pagamento: 'pendentePagamentoEm',
+}
+
 export async function atualizarStatusOSAction(osId: string, novoStatus: string) {
   const usuario = await getUsuarioLogado()
 
@@ -105,8 +112,13 @@ export async function atualizarStatusOSAction(osId: string, novoStatus: string) 
     throw new Error('Sem permissão')
   }
 
+  const colunaTempo = COLUNA_TIMESTAMP_TRANSICAO[novoStatus]
+
   await db.update(ordensServico)
-    .set({ status: novoStatus as any })
+    .set({
+      status: novoStatus as any,
+      ...(colunaTempo ? { [colunaTempo]: new Date() } : {}),
+    })
     .where(eq(ordensServico.id, osId))
   revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)

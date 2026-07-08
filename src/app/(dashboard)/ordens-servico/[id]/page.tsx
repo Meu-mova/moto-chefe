@@ -14,6 +14,7 @@ import { OSItensPanel } from './components/os-itens-panel'
 import { OSEditarPanel } from './components/os-editar-panel'
 import { OSPagamentoPanel } from './components/os-pagamento-panel'
 import { ExcluirOSButton } from './components/excluir-os-button'
+import { OSTemposPanel } from './components/os-tempos-panel'
 
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
@@ -84,6 +85,16 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
 
       {/* Status bar */}
       <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} papel={usuario.papel} />
+
+      {/* Tempos por etapa */}
+      <OSTemposPanel
+        dataAbertura={new Date(os.dataAbertura)}
+        oficinaEm={os.oficinaEm ? new Date(os.oficinaEm) : null}
+        emAndamentoEm={os.emAndamentoEm ? new Date(os.emAndamentoEm) : null}
+        finalizadaEm={os.finalizadaEm ? new Date(os.finalizadaEm) : null}
+        pendentePagamentoEm={os.pendentePagamentoEm ? new Date(os.pendentePagamentoEm) : null}
+        dataConclusao={os.dataConclusao ? new Date(os.dataConclusao) : null}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         {/* Moto */}
