@@ -13,6 +13,7 @@ import { OSStatusBar } from './components/os-status-bar'
 import { OSItensPanel } from './components/os-itens-panel'
 import { OSEditarPanel } from './components/os-editar-panel'
 import { OSPagamentoPanel } from './components/os-pagamento-panel'
+import { ExcluirOSButton } from './components/excluir-os-button'
 
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
@@ -69,13 +70,16 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
             </p>
           </div>
         </div>
-        <Link
-          href={`/ordens-servico/${id}/imprimir`}
-          target="_blank"
-          className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
-        >
-          <Printer size={15} /> Imprimir OS
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/ordens-servico/${id}/imprimir`}
+            target="_blank"
+            className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
+          >
+            <Printer size={15} /> Imprimir OS
+          </Link>
+          {isAdmin && <ExcluirOSButton osId={id} numero={os.numero} />}
+        </div>
       </div>
 
       {/* Status bar */}

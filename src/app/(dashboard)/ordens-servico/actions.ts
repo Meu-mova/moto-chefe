@@ -198,6 +198,30 @@ export async function removerItemOSAction(itemId: string, osId: string) {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
+export async function excluirOSAction(osId: string) {
+  const usuario = await getUsuarioLogado()
+  if (!(ADMINS as readonly string[]).includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
+  const [os] = await db
+    .select({ id: ordensServico.id })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) throw new Error('OS não encontrada')
+
+  try {
+    await db.delete(ordensServico).where(eq(ordensServico.id, osId))
+  } catch (e: any) {
+    const isFk = e.code === '23503' || e.cause?.code === '23503'
+    if (isFk) throw new Error('Não é possível excluir — existe uma garantia ou agendamento vinculado a esta OS')
+    throw e
+  }
+
+  revalidatePath('/ordens-servico')
+}
+
 async function recalcularTotal(osId: string) {
   const itens = await db
     .select({ quantidade: osItens.quantidade, valorUnitario: osItens.valorUnitario })
