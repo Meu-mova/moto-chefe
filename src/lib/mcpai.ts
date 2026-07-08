@@ -127,8 +127,13 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
     // Cada CNPJ conectado aparece como um "item" próprio no mcp.ai — filtramos
     // pelo CNPJ do grupo ativo pra não misturar contas de grupos diferentes
     // (ex: Sicredi do Sul de Minas vs Sicredi da BH, ambas com o mesmo nome de banco).
+    // Sicredi do Sul de Minas não é usada pra receber PIX de venda — só a Sicoob.
+    const BANCOS_EXCLUIDOS_POR_CNPJ: Record<string, string[]> = {
+      '57.113.017/0001-72': ['Sicredi Empresas'],
+    }
+    const bancosExcluidos = BANCOS_EXCLUIDOS_POR_CNPJ[cnpjGrupo] ?? []
     const contas = (contasPayload.results ?? []).filter(
-      c => c.subtype !== 'SAVINGS_ACCOUNT' && c.taxNumber === cnpjGrupo,
+      c => c.subtype !== 'SAVINGS_ACCOUNT' && c.taxNumber === cnpjGrupo && !bancosExcluidos.includes(c.bank),
     )
 
     const inicioMs = dataInicio.getTime()
