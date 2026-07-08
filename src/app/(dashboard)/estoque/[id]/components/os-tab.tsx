@@ -5,12 +5,16 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 
 const statusCor: Record<string, string> = {
-  aberta:        'bg-amber-100 text-amber-700',
-  em_andamento:  'bg-blue-100 text-blue-700',
-  concluida:     'bg-green-100 text-green-700',
+  aberta:              'bg-amber-100 text-amber-700',
+  oficina:             'bg-sky-100 text-sky-700',
+  em_andamento:        'bg-blue-100 text-blue-700',
+  finalizada:          'bg-indigo-100 text-indigo-700',
+  pendente_pagamento:  'bg-orange-100 text-orange-700',
+  concluida:           'bg-green-100 text-green-700',
 }
 const statusLabel: Record<string, string> = {
-  aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
+  aberta: 'Aberta', oficina: 'Oficina', em_andamento: 'Em Andamento',
+  finalizada: 'Finalizada', pendente_pagamento: 'Pendente de Pagamento', concluida: 'Concluída',
 }
 
 export async function OSTab({ motoId }: { motoId: string }) {

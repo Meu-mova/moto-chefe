@@ -35,13 +35,19 @@ function formatarFormaPagamento(fp: string | null | undefined) {
 
 const osStatusLabel: Record<string, string> = {
   aberta: 'Aberta',
+  oficina: 'Oficina',
   em_andamento: 'Em andamento',
+  finalizada: 'Finalizada',
+  pendente_pagamento: 'Pendente de Pagamento',
   concluida: 'Concluída',
 }
 
 const osStatusVariant: Record<string, 'outline' | 'secondary' | 'default'> = {
   aberta: 'outline',
+  oficina: 'outline',
   em_andamento: 'secondary',
+  finalizada: 'secondary',
+  pendente_pagamento: 'secondary',
   concluida: 'default',
 }
 

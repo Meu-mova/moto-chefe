@@ -8,7 +8,12 @@ import { PrintTrigger } from './print-trigger'
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const statusLabel: Record<string, string> = {
-  aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
+  aberta: 'Aberta', oficina: 'Oficina', em_andamento: 'Em Andamento',
+  finalizada: 'Finalizada', pendente_pagamento: 'Pendente de Pagamento', concluida: 'Concluída',
+}
+const statusBadgeClass: Record<string, string> = {
+  aberta: 'bs-a', oficina: 'bs-o', em_andamento: 'bs-e',
+  finalizada: 'bs-f', pendente_pagamento: 'bs-p', concluida: 'bs-c',
 }
 
 export default async function ImprimirOSPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +48,10 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         .badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
         .bt  { background: #f1f5f9; color: #475569; }
         .bs-a { background: #fef9c3; color: #854d0e; }
+        .bs-o { background: #e0f2fe; color: #0369a1; }
         .bs-e { background: #dbeafe; color: #1d4ed8; }
+        .bs-f { background: #e0e7ff; color: #4338ca; }
+        .bs-p { background: #ffedd5; color: #c2410c; }
         .bs-c { background: #dcfce7; color: #166534; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .card  { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
@@ -84,7 +92,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         <div style={{ textAlign: 'right' }}>
           <div className="os-n">OS #{os.numero}</div>
           <div className="badges">
-            <span className={`badge ${os.status === 'concluida' ? 'bs-c' : os.status === 'em_andamento' ? 'bs-e' : 'bs-a'}`}>
+            <span className={`badge ${statusBadgeClass[os.status] ?? 'bs-a'}`}>
               {statusLabel[os.status] ?? os.status}
             </span>
           </div>

@@ -57,7 +57,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   )
 
   const osCond = and(
-    or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
+    inArray(ordensServico.status, ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento']),
     lojaId !== undefined ? lojaFilter(ordensServico.lojaId, lojaId) : undefined,
   )
 
@@ -261,7 +261,7 @@ export async function getGarantiasProxVencimento(lojaId?: string[], limite = 5) 
 
 export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limite = 5) {
   const conditions = [
-    or(eq(ordensServico.status, 'aberta'), eq(ordensServico.status, 'em_andamento'))!,
+    inArray(ordensServico.status, ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento']),
   ]
   if (lojaId !== undefined) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
   if (mecanicoId) conditions.push(eq(ordensServico.mecanicoId, mecanicoId))
