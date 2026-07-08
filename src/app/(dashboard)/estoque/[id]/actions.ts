@@ -3,8 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { motos, usuarios, reservas } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import {
   getTransicoesStatusPermitidas,
   getTransicoesDisponibilidadePermitidas,
@@ -67,11 +67,19 @@ export async function alterarStatusAction(
   if (error) throw new Error(error.message)
 
   if (novoStatus === 'montada' && mecanicoId) {
+    // Uma moto em "caixa" pode já ter sido reservada antes de montar — não
+    // pisar nessa reserva forçando disponibilidade pra 'disponivel'.
+    const [reservaAtiva] = await db
+      .select({ id: reservas.id })
+      .from(reservas)
+      .where(and(eq(reservas.motoId, motoId), eq(reservas.status, 'ativa')))
+      .limit(1)
+
     await db.update(motos)
       .set({
         responsavelMontagemId: mecanicoId,
         dataMontagem: dataMontagem ?? new Date().toISOString().split('T')[0],
-        disponibilidade: 'disponivel',
+        disponibilidade: reservaAtiva ? 'reservada' : 'disponivel',
       })
       .where(eq(motos.id, motoId))
   }
