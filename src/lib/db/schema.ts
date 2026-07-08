@@ -13,7 +13,9 @@ export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'dis
 export const disponibilidadeEnum = pgEnum('disponibilidade_moto', ['disponivel', 'reservada', 'vendida'])
 export const pedidoStatusEnum = pgEnum('pedido_status', ['pendente', 'efetivado', 'cancelado'])
 export const transferenciaStatusEnum = pgEnum('transferencia_status', ['pendente', 'aceita', 'recusada'])
-export const osStatusEnum = pgEnum('os_status', ['aberta', 'em_andamento', 'concluida'])
+export const osStatusEnum = pgEnum('os_status', [
+  'aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida',
+])
 export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada'])
 export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
 export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda'])
