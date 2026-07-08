@@ -3,25 +3,38 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
-import { pixRecebimentosMcp, vendas, ordensServico } from '@/lib/db/schema'
+import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico } from '@/lib/db/schema'
 import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, RefreshCw } from 'lucide-react'
 import { PixFiltros } from '../pix/components/pix-filtros'
 import { CorrespondenciaForm } from './components/correspondencia-form'
+import Link from 'next/link'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
+
+// Enquanto a última sincronização com o mcp.ai for mais recente que isso, a
+// página lê só do nosso banco — evita bater no mcp.ai (lento, baixa o
+// histórico inteiro da conta) a cada carregamento.
+const JANELA_CACHE_MS = 10 * 60 * 1000
 
 function formatValor(v: string) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
 }
 
 function formatData(d: Date) {
-  return d.toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
+  // O Sicoob não informa horário real via Open Finance (sempre 00:00) —
+  // mostrar só a data evita passar uma precisão que os dados não têm.
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
+function formatAtras(d: Date) {
+  const minutos = Math.round((Date.now() - d.getTime()) / 60000)
+  if (minutos < 1) return 'agora mesmo'
+  if (minutos < 60) return `há ${minutos} min`
+  const horas = Math.round(minutos / 60)
+  return `há ${horas}h`
 }
 
 function toInputDate(d: Date) {
@@ -31,7 +44,7 @@ function toInputDate(d: Date) {
 export default async function PixMcpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>
+  searchParams: Promise<{ from?: string; to?: string; sync?: string }>
 }) {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) redirect('/dashboard')
@@ -44,34 +57,44 @@ export default async function PixMcpPage({
 
   const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(seteDiasAtras) + 'T00:00:00.000Z')
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
+  const forcarSync = params.sync === '1'
 
-  const resultado = await buscarPixRecebidos(fromDate, toDate, grupo.cnpj)
+  const [syncStatus] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
+  const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
-  if (!resultado.ok) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">PIX Recebidos (teste — Open Finance)</h1>
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-6 text-center">
-          <p className="text-sm text-red-700">Não foi possível buscar os PIX: {resultado.erro}</p>
-        </div>
-      </div>
-    )
+  let erroSync: string | null = null
+
+  if (!cacheValido) {
+    // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
+    // mcp.ai — ver nota em buscarPixRecebidos), então usamos uma janela bem
+    // ampla aqui pra não perder PIX antigos na primeira sincronização.
+    const desde = new Date('2025-01-01T00:00:00.000Z')
+    const resultado = await buscarPixRecebidos(desde, hoje, grupo.cnpj)
+
+    if (!resultado.ok) {
+      erroSync = resultado.erro
+    } else {
+      if (resultado.transacoes.length > 0) {
+        await db.insert(pixRecebimentosMcp)
+          .values(resultado.transacoes.map(tx => ({
+            grupoId: grupo.id,
+            contaId: tx.contaId,
+            banco: tx.banco,
+            transacaoId: tx.transacaoId,
+            data: new Date(tx.data),
+            valor: tx.valor,
+            pagadorNome: tx.pagadorNome,
+            descricao: tx.descricao,
+          })))
+          .onConflictDoNothing({ target: pixRecebimentosMcp.transacaoId })
+      }
+      await db.insert(pixMcpSyncStatus)
+        .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
+        .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+    }
   }
 
-  if (resultado.transacoes.length > 0) {
-    await db.insert(pixRecebimentosMcp)
-      .values(resultado.transacoes.map(tx => ({
-        grupoId: grupo.id,
-        contaId: tx.contaId,
-        banco: tx.banco,
-        transacaoId: tx.transacaoId,
-        data: new Date(tx.data),
-        valor: tx.valor,
-        pagadorNome: tx.pagadorNome,
-        descricao: tx.descricao,
-      })))
-      .onConflictDoNothing({ target: pixRecebimentosMcp.transacaoId })
-  }
+  const [syncStatusAtual] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
 
   const linhas = await db
     .select()
@@ -100,6 +123,8 @@ export default async function PixMcpPage({
   const total = linhas.reduce((s, l) => s + Number(l.valor), 0)
   const totalVinculado = linhas.filter(l => l.tipoCorrespondencia).reduce((s, l) => s + Number(l.valor), 0)
 
+  const hrefAtualizar = `/pix-mcp?from=${toInputDate(fromDate)}&to=${toInputDate(toDate)}&sync=1`
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -108,9 +133,23 @@ export default async function PixMcpPage({
           <p className="text-slate-500 text-sm">
             Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai, sem passar pelo ValidaPix. Correspondência lançada manualmente.
           </p>
+          <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+            {syncStatusAtual
+              ? <>Sincronizado {formatAtras(syncStatusAtual.ultimaSincronizacao)}</>
+              : 'Ainda não sincronizado'}
+            <Link href={hrefAtualizar} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 underline">
+              <RefreshCw size={11} /> Atualizar agora
+            </Link>
+          </p>
         </div>
         <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} />
       </div>
+
+      {erroSync && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Não foi possível sincronizar com o mcp.ai agora ({erroSync}) — mostrando os dados já salvos.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Card>
@@ -141,10 +180,9 @@ export default async function PixMcpPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Data/Hora</TableHead>
+                <TableHead className="pl-4">Data</TableHead>
                 <TableHead>Banco</TableHead>
                 <TableHead>Pagador</TableHead>
-                <TableHead>Descrição</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="pr-4">Correspondência</TableHead>
               </TableRow>
@@ -157,10 +195,7 @@ export default async function PixMcpPage({
                   </TableCell>
                   <TableCell className="text-sm">{l.banco}</TableCell>
                   <TableCell>
-                    <p className="font-medium text-sm">{l.pagadorNome || '—'}</p>
-                  </TableCell>
-                  <TableCell className="max-w-[260px]">
-                    <p className="text-xs text-slate-400 truncate" title={l.descricao ?? ''}>{l.descricao}</p>
+                    <p className="font-medium text-sm" title={l.descricao ?? ''}>{l.pagadorNome || '—'}</p>
                   </TableCell>
                   <TableCell className="text-right font-medium tabular-nums text-slate-900">
                     {formatValor(l.valor)}
@@ -179,7 +214,7 @@ export default async function PixMcpPage({
               ))}
               {linhas.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-slate-400 py-12">
+                  <TableCell colSpan={5} className="text-center text-slate-400 py-12">
                     <TrendingUp size={32} className="mx-auto mb-2 opacity-20" />
                     Nenhum PIX recebido no período
                   </TableCell>

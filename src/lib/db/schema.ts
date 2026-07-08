@@ -434,6 +434,12 @@ export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   criadoEm:            timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── pix_mcp_sync_status (controla staleness do cache de /pix-mcp) ───────────
+export const pixMcpSyncStatus = pgTable('pix_mcp_sync_status', {
+  grupoId:             uuid('grupo_id').primaryKey().references(() => grupos.id),
+  ultimaSincronizacao: timestamp('ultima_sincronizacao', { withTimezone: true }).notNull(),
+})
+
 // ─── demandas ────────────────────────────────────────────────────────────────
 export const demandas = pgTable('demandas', {
   id: uuid('id').primaryKey().defaultRandom(),

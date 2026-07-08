@@ -72,6 +72,17 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
 }
 
 
+// Descrição do PIX recebido vem como pseudo-CSV separado por "|@", ex:
+// "PIX RECEBIDO - OUTRA IF - Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@"
+// segmento [1] = nome do pagador. Mais confiável que paymentData.payer, que
+// vem vazio na maioria das transações do Sicoob.
+function extrairPagadorDaDescricao(descricao: string | null | undefined): string | null {
+  if (!descricao) return null
+  const partes = descricao.split('|@')
+  const nome = partes[1]?.trim()
+  return nome || null
+}
+
 type TransacaoPix = {
   contaId: string
   banco: string
@@ -191,7 +202,7 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
           transacaoId: tx.id,
           data: tx.date,
           valor: tx.amount,
-          pagadorNome: tx.paymentData?.payer ?? null,
+          pagadorNome: extrairPagadorDaDescricao(tx.description) ?? tx.paymentData?.payer ?? null,
           descricao: tx.description ?? null,
         })
       }
