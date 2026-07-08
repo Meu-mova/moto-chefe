@@ -72,13 +72,41 @@ export async function abrirOSAction(input: AbrirOSInput) {
   revalidatePath('/ordens-servico')
 }
 
+const SEQUENCIA_STATUS = ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida'] as const
+
+const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
+  oficina:            ['mecanico'],
+  em_andamento:       ['mecanico'],
+  finalizada:         ['mecanico'],
+  pendente_pagamento: GESTORES,
+}
+
 export async function atualizarStatusOSAction(osId: string, novoStatus: string) {
-  await verificarAcessoOS(osId, EDITORES)
+  const usuario = await getUsuarioLogado()
+
+  const [os] = await db
+    .select({ status: ordensServico.status, lojaId: ordensServico.lojaId })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) throw new Error('OS não encontrada')
+
+  const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
+  if (!isAdmin && os.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+
+  const idxAtual = SEQUENCIA_STATUS.indexOf(os.status as typeof SEQUENCIA_STATUS[number])
+  const proximoEsperado = SEQUENCIA_STATUS[idxAtual + 1]
+  if (novoStatus !== proximoEsperado) {
+    throw new Error('Transição de status inválida')
+  }
+
+  const responsaveis = RESPONSAVEL_TRANSICAO[novoStatus]
+  if (!responsaveis || !responsaveis.includes(usuario.papel)) {
+    throw new Error('Sem permissão')
+  }
+
   await db.update(ordensServico)
-    .set({
-      status: novoStatus as any,
-      ...(novoStatus === 'concluida' ? { dataConclusao: new Date() } : {}),
-    })
+    .set({ status: novoStatus as any })
     .where(eq(ordensServico.id, osId))
   revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)
@@ -114,10 +142,21 @@ export async function registrarPagamentoOSAction(osId: string, dados: {
   formaPagamento: string
 }) {
   await verificarAcessoOS(osId, GESTORES)
+
+  const [osAtual] = await db
+    .select({ status: ordensServico.status })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+
   await db.update(ordensServico).set({
     valorTotal:     String(dados.valorTotal),
     formaPagamento: dados.formaPagamento,
+    ...(osAtual?.status === 'pendente_pagamento'
+      ? { status: 'concluida' as any, dataConclusao: new Date() }
+      : {}),
   }).where(eq(ordensServico.id, osId))
+  revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
