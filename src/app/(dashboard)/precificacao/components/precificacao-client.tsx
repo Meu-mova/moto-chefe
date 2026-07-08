@@ -45,7 +45,7 @@ function calcMargem(valorMinimo: string, custo: string | null): Margem | null {
   const vMin = parseFloat(valorMinimo)
   const vCusto = parseFloat(custo)
   if (!vCusto || !vMin) return null
-  return { reais: vMin - vCusto, pct: ((vMin - vCusto) / vCusto) * 100 }
+  return { reais: vMin - vCusto, pct: ((vMin - vCusto) / vMin) * 100 }
 }
 
 function corMargem(pct: number) {

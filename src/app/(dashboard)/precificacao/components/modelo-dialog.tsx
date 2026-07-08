@@ -30,7 +30,7 @@ export function ModeloDialog({ modelo, onClose }: Props) {
   const vMin = parseFloat(valorMinimo || '0')
   const vCusto = parseFloat(custo || '0')
   const margemR = vMin > 0 && vCusto > 0 ? vMin - vCusto : null
-  const margemPct = vCusto > 0 && margemR !== null ? (margemR / vCusto) * 100 : null
+  const margemPct = vMin > 0 && margemR !== null ? (margemR / vMin) * 100 : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
