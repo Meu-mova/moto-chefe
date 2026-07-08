@@ -37,8 +37,9 @@ export default async function PixMcpPage({
 
   const params = await searchParams
   const hoje = new Date()
+  const seteDiasAtras = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-  const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(hoje) + 'T00:00:00.000Z')
+  const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(seteDiasAtras) + 'T00:00:00.000Z')
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
   const resultado = await buscarPixRecebidos(fromDate, toDate)
