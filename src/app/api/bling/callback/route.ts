@@ -21,17 +21,17 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  // 2. Validar state (proteção CSRF) e recuperar o grupo que iniciou o fluxo
-  const storedState = req.cookies.get('bling_oauth_state')?.value
-  const grupoId = req.cookies.get('bling_oauth_grupo')?.value
-  if (!storedState || !state || state !== storedState || !grupoId) {
-    return NextResponse.redirect(new URL('/admin/bling?erro=state_invalido', req.url))
-  }
-
   function limparCookies(res: NextResponse) {
     res.cookies.set('bling_oauth_state', '', { maxAge: 0, path: '/' })
     res.cookies.set('bling_oauth_grupo', '', { maxAge: 0, path: '/' })
     return res
+  }
+
+  // 2. Validar state (proteção CSRF) e recuperar o grupo que iniciou o fluxo
+  const storedState = req.cookies.get('bling_oauth_state')?.value
+  const grupoId = req.cookies.get('bling_oauth_grupo')?.value
+  if (!storedState || !state || state !== storedState || !grupoId) {
+    return limparCookies(NextResponse.redirect(new URL('/admin/bling?erro=state_invalido', req.url)))
   }
 
   if (error || !code) {
