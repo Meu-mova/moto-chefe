@@ -23,6 +23,8 @@ type GrupoInput = {
   validapixPassword?: string
   fabricaEmail?: string
   fabricaSenha?: string
+  blingClientId?: string
+  blingClientSecret?: string
 }
 
 export async function criarGrupoAction(dados: GrupoInput) {
@@ -38,6 +40,8 @@ export async function criarGrupoAction(dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     fabricaEmail: dados.fabricaEmail?.trim() || null,
     fabricaSenha: dados.fabricaSenha?.trim() || null,
+    blingClientId: dados.blingClientId?.trim() || null,
+    blingClientSecret: dados.blingClientSecret?.trim() || null,
   })
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
@@ -56,6 +60,8 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     fabricaEmail: dados.fabricaEmail?.trim() || null,
     fabricaSenha: dados.fabricaSenha?.trim() || null,
+    blingClientId: dados.blingClientId?.trim() || null,
+    blingClientSecret: dados.blingClientSecret?.trim() || null,
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')

@@ -18,6 +18,8 @@ type Grupo = {
   validapixPassword: string | null
   fabricaEmail: string | null
   fabricaSenha: string | null
+  blingClientId: string | null
+  blingClientSecret: string | null
 }
 
 type Props = {
@@ -38,6 +40,8 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
   const [fabricaEmail, setFabricaEmail] = useState(inicial?.fabricaEmail ?? '')
   const [fabricaSenha, setFabricaSenha] = useState(inicial?.fabricaSenha ?? '')
+  const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
+  const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
 
   async function handleSalvar() {
     if (!nome.trim() || !cnpj.trim()) {
@@ -46,7 +50,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha }
+      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -98,6 +102,16 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               <div className="space-y-1.5">
                 <Label className="text-xs">Fábrica — Senha</Label>
                 <Input type="password" value={fabricaSenha} onChange={e => setFabricaSenha(e.target.value)} className="h-9 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Bling — Client ID</Label>
+                <Input value={blingClientId} onChange={e => setBlingClientId(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Bling — Client Secret</Label>
+                <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
               </div>
             </div>
             <p className="text-xs text-slate-400">
