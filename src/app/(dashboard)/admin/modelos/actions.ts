@@ -1,13 +1,15 @@
 'use server'
 import { db } from '@/lib/db'
-import { modelos } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
+  return u
 }
 
 export async function criarModeloAction(formData: FormData) {
@@ -36,10 +38,20 @@ export async function editarModeloAction(id: string, formData: FormData) {
   revalidatePath('/admin/modelos')
 }
 
-export async function atualizarBlingCodigoAction(id: string, blingCodigo: string) {
-  await assertAdmin()
-  await db.update(modelos)
-    .set({ blingCodigo: blingCodigo || null })
-    .where(eq(modelos.id, id))
+export async function atualizarBlingCodigoAction(modeloId: string, codigo: string) {
+  const u = await assertAdmin()
+  const grupo = await getGrupoAtivo(u)
+
+  if (!codigo.trim()) {
+    await db.delete(modeloBlingCodigos)
+      .where(and(eq(modeloBlingCodigos.modeloId, modeloId), eq(modeloBlingCodigos.grupoId, grupo.id)))
+  } else {
+    await db.insert(modeloBlingCodigos)
+      .values({ modeloId, grupoId: grupo.id, codigo: codigo.trim() })
+      .onConflictDoUpdate({
+        target: [modeloBlingCodigos.modeloId, modeloBlingCodigos.grupoId],
+        set: { codigo: codigo.trim() },
+      })
+  }
   revalidatePath('/admin/modelos')
 }

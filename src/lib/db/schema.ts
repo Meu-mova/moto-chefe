@@ -68,8 +68,16 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
-  blingCodigo: text('bling_codigo'),
 })
+
+// ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────
+export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
+  modeloId: uuid('modelo_id').notNull().references(() => modelos.id),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  codigo: text('codigo').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.modeloId, t.grupoId] }),
+}))
 
 // ─── motos ───────────────────────────────────────────────────────────────────
 export const motos = pgTable('motos', {

@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -399,11 +399,12 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
 
   if (!motoRow) return { ok: false, error: 'Moto não encontrada' }
 
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+
   const [modelo] = await db
     .select({
       marca: modelos.marca,
       modelo: modelos.modelo,
-      blingCodigo: modelos.blingCodigo,
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       tipoMotor: modelos.motor,
@@ -413,8 +414,15 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .limit(1)
 
   if (!modelo) return { ok: false, error: 'Modelo não encontrado' }
-  if (!modelo.blingCodigo) {
-    return { ok: false, error: `Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.` }
+
+  const [codigoRow] = await db
+    .select({ codigo: modeloBlingCodigos.codigo })
+    .from(modeloBlingCodigos)
+    .where(and(eq(modeloBlingCodigos.modeloId, motoRow.modeloId), eq(modeloBlingCodigos.grupoId, grupoId)))
+    .limit(1)
+
+  if (!codigoRow?.codigo) {
+    return { ok: false, error: `Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.` }
   }
 
   const [vendedorRow] = await db
@@ -424,7 +432,6 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .limit(1)
 
   const { criarRascunhoNFe } = await import('@/lib/bling')
-  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
   const resultado = await criarRascunhoNFe(grupoId, {
@@ -441,7 +448,7 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     clienteEstado: venda.clienteEstado,
     valor: venda.valor,
     pagamentos,
-    blingCodigo: modelo.blingCodigo,
+    blingCodigo: codigoRow.codigo,
     descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
     chassi: motoRow.chassi,
     marca: modelo.marca,
@@ -509,11 +516,12 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
 
   if (!motoRow) return { ok: false, error: 'Moto não encontrada' }
 
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+
   const [modelo] = await db
     .select({
       marca: modelos.marca,
       modelo: modelos.modelo,
-      blingCodigo: modelos.blingCodigo,
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       tipoMotor: modelos.motor,
@@ -522,7 +530,15 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
 
-  if (!modelo || !modelo.blingCodigo) return { ok: false, error: 'Modelo ou código Bling não encontrado' }
+  if (!modelo) return { ok: false, error: 'Modelo não encontrado' }
+
+  const [codigoRow] = await db
+    .select({ codigo: modeloBlingCodigos.codigo })
+    .from(modeloBlingCodigos)
+    .where(and(eq(modeloBlingCodigos.modeloId, motoRow.modeloId), eq(modeloBlingCodigos.grupoId, grupoId)))
+    .limit(1)
+
+  if (!codigoRow?.codigo) return { ok: false, error: 'Código Bling não encontrado para este modelo neste grupo' }
 
   const [vendedorRow] = await db
     .select({ nome: usuarios.nome })
@@ -531,7 +547,6 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     .limit(1)
 
   const { atualizarRascunhoNFe } = await import('@/lib/bling')
-  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
   const resultado = await atualizarRascunhoNFe(grupoId, Number(venda.blingNfeId), {
@@ -548,7 +563,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     clienteEstado: venda.clienteEstado,
     valor: venda.valor,
     pagamentos,
-    blingCodigo: modelo.blingCodigo,
+    blingCodigo: codigoRow.codigo,
     descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
     chassi: motoRow.chassi,
     marca: modelo.marca,
@@ -609,11 +624,12 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
 
   if (!motoRow) throw new Error('Moto não encontrada')
 
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+
   const [modelo] = await db
     .select({
       marca: modelos.marca,
       modelo: modelos.modelo,
-      blingCodigo: modelos.blingCodigo,
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       tipoMotor: modelos.motor,
@@ -623,8 +639,15 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .limit(1)
 
   if (!modelo) throw new Error('Modelo não encontrado')
-  if (!modelo.blingCodigo) {
-    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}". Configure em Admin → Modelos.`)
+
+  const [codigoRow] = await db
+    .select({ codigo: modeloBlingCodigos.codigo })
+    .from(modeloBlingCodigos)
+    .where(and(eq(modeloBlingCodigos.modeloId, motoRow.modeloId), eq(modeloBlingCodigos.grupoId, grupoId)))
+    .limit(1)
+
+  if (!codigoRow?.codigo) {
+    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.`)
   }
 
   const [vendedorRow] = await db
@@ -634,7 +657,6 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .limit(1)
 
   const { emitirNFe } = await import('@/lib/bling')
-  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
   const numeroNF = await emitirNFe(grupoId, {
@@ -651,7 +673,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     clienteEstado: venda.clienteEstado,
     valor: venda.valor,
     pagamentos,
-    blingCodigo: modelo.blingCodigo,
+    blingCodigo: codigoRow.codigo,
     descricaoProduto: `${modelo.marca} ${modelo.modelo}`,
     chassi: motoRow.chassi,
     marca: modelo.marca,
