@@ -10,7 +10,7 @@ import { lancarCorrespondenciaAction, removerCorrespondenciaAction } from '../ac
 
 type Correspondencia = {
   tipo: 'venda' | 'os' | null
-  vendaNumero: number | null
+  vendaNf: string | null
   osNumero: number | null
   lancadoPorNome: string | null
   lancadoEm: string | null
@@ -25,7 +25,7 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
 
   if (correspondencia.tipo) {
     const label = correspondencia.tipo === 'venda'
-      ? `Venda #${correspondencia.vendaNumero}`
+      ? `NF ${correspondencia.vendaNf}`
       : `OS #${correspondencia.osNumero}`
 
     function remover() {
@@ -76,7 +76,7 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
       <Select value={tipo} onValueChange={v => setTipo(v as 'venda' | 'os')}>
         <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="venda">Venda</SelectItem>
+          <SelectItem value="venda">NF</SelectItem>
           <SelectItem value="os">OS</SelectItem>
         </SelectContent>
       </Select>

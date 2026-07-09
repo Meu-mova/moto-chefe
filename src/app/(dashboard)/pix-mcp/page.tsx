@@ -112,8 +112,8 @@ export default async function PixMcpPage({
 
   const [vendasDb, osDb, usuariosDb] = await Promise.all([
     vendaIds.length > 0
-      ? db.select({ id: vendas.id, numero: vendas.numero }).from(vendas).where(inArray(vendas.id, vendaIds))
-      : Promise.resolve([] as { id: string; numero: number }[]),
+      ? db.select({ id: vendas.id, notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(inArray(vendas.id, vendaIds))
+      : Promise.resolve([] as { id: string; notaFiscalSaida: string | null }[]),
     osIds.length > 0
       ? db.select({ id: ordensServico.id, numero: ordensServico.numero }).from(ordensServico).where(inArray(ordensServico.id, osIds))
       : Promise.resolve([] as { id: string; numero: number | null }[]),
@@ -121,7 +121,7 @@ export default async function PixMcpPage({
       ? db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(inArray(usuarios.id, lancadoPorIds))
       : Promise.resolve([] as { id: string; nome: string }[]),
   ])
-  const vendaNumeroById = new Map(vendasDb.map(v => [v.id, v.numero]))
+  const vendaNfById = new Map(vendasDb.map(v => [v.id, v.notaFiscalSaida]))
   const osNumeroById = new Map(osDb.map(o => [o.id, o.numero]))
   const usuarioNomeById = new Map(usuariosDb.map(u => [u.id, u.nome]))
 
@@ -210,7 +210,7 @@ export default async function PixMcpPage({
                       id={l.id}
                       correspondencia={{
                         tipo: l.tipoCorrespondencia,
-                        vendaNumero: l.vendaId ? vendaNumeroById.get(l.vendaId) ?? null : null,
+                        vendaNf: l.vendaId ? vendaNfById.get(l.vendaId) ?? null : null,
                         osNumero: l.osId ? osNumeroById.get(l.osId) ?? null : null,
                         lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
                         lancadoEm: l.lancadoEm ? l.lancadoEm.toISOString() : null,

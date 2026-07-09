@@ -19,17 +19,16 @@ export async function lancarCorrespondenciaAction(
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
-  const numeroInt = parseInt(numero, 10)
-  if (!numeroInt || numeroInt <= 0) throw new Error('Número inválido')
-
   let vendaId: string | null = null
   let osId: string | null = null
 
   if (tipo === 'venda') {
-    const [venda] = await db.select({ id: vendas.id, lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.numero, numeroInt)).limit(1)
-    if (!venda || !lojaIdsGrupo.includes(venda.lojaId)) throw new Error(`Venda #${numeroInt} não encontrada no grupo ${grupo.nome}`)
+    const [venda] = await db.select({ id: vendas.id, lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.notaFiscalSaida, numero)).limit(1)
+    if (!venda || !lojaIdsGrupo.includes(venda.lojaId)) throw new Error(`NF ${numero} não encontrada no grupo ${grupo.nome}`)
     vendaId = venda.id
   } else {
+    const numeroInt = parseInt(numero, 10)
+    if (!numeroInt || numeroInt <= 0) throw new Error('Número inválido')
     const [os] = await db.select({ id: ordensServico.id, lojaId: ordensServico.lojaId }).from(ordensServico).where(eq(ordensServico.numero, numeroInt)).limit(1)
     if (!os || !lojaIdsGrupo.includes(os.lojaId)) throw new Error(`OS #${numeroInt} não encontrada no grupo ${grupo.nome}`)
     osId = os.id
