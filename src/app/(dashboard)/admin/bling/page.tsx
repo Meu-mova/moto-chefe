@@ -15,7 +15,7 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
       <div className="space-y-6 max-w-xl">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText size={22} /> Bling NF-e
+            <FileText size={22} /> Bling NF-e — {status.grupoNome}
           </h1>
           <p className="text-slate-500 text-sm">Integração para emissão automática de NF-e de saída</p>
         </div>
@@ -28,7 +28,9 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
         {params.erro && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
             <XCircle size={16} />
-            {params.erro === 'acesso_negado' ? 'Autorização negada no Bling.' : 'Erro ao obter tokens. Tente novamente.'}
+            {params.erro === 'acesso_negado' && 'Autorização negada no Bling.'}
+            {params.erro === 'sem_credenciais' && `Client ID/Secret do Bling não configurados para o grupo ${status.grupoNome}. Configure em Admin → Grupos.`}
+            {params.erro !== 'acesso_negado' && params.erro !== 'sem_credenciais' && 'Erro ao obter tokens. Tente novamente.'}
           </div>
         )}
 
@@ -66,8 +68,8 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
           <CardContent className="space-y-2 text-sm text-slate-600">
             <p>Antes de conectar, verifique:</p>
             <ol className="list-decimal list-inside space-y-1.5 text-slate-600">
-              <li>Acesse o <strong>Portal do Desenvolvedor Bling</strong> → Aplicações → criar app com URL de retorno: <code className="bg-slate-100 px-1 rounded text-xs">https://moto-chefe.vercel.app/api/bling/callback</code></li>
-              <li>Adicione as variáveis <code className="bg-slate-100 px-1 rounded text-xs">BLING_CLIENT_ID</code> e <code className="bg-slate-100 px-1 rounded text-xs">BLING_CLIENT_SECRET</code> no Vercel (Settings → Environment Variables)</li>
+              <li>Acesse o <strong>Portal do Desenvolvedor Bling</strong> (logado com a conta Bling deste grupo) → Aplicações → criar app com URL de retorno: <code className="bg-slate-100 px-1 rounded text-xs">https://moto-chefe.vercel.app/api/bling/callback</code></li>
+              <li>Cadastre o <strong>Client ID e Client Secret</strong> desse app em <strong>Admin → Grupos</strong>, editando o grupo <strong>{status.grupoNome}</strong></li>
               <li>Configure o <strong>código do produto Bling</strong> em cada modelo em Admin → Modelos</li>
               <li>Certifique-se que o certificado digital está ativo no Bling</li>
             </ol>
