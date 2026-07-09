@@ -1,45 +1,55 @@
 import { db } from '@/lib/db'
-import { blingConfig } from '@/lib/db/schema'
+import { blingConfig, grupos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 const AUTH_URL   = 'https://www.bling.com.br/Api/v3/oauth/authorize'
 const TOKEN_URL  = 'https://www.bling.com.br/Api/v3/oauth/token'
 const API_BASE   = 'https://api.bling.com.br/Api/v3'
 
-function basicHeader() {
-  const id     = process.env.BLING_CLIENT_ID!
-  const secret = process.env.BLING_CLIENT_SECRET!
-  return 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64')
+async function getCredenciaisGrupo(grupoId: string): Promise<{ clientId: string; clientSecret: string }> {
+  const [grupo] = await db
+    .select({ blingClientId: grupos.blingClientId, blingClientSecret: grupos.blingClientSecret })
+    .from(grupos)
+    .where(eq(grupos.id, grupoId))
+    .limit(1)
+  if (!grupo?.blingClientId || !grupo?.blingClientSecret) {
+    throw new Error('Client ID/Secret do Bling não configurados para este grupo. Configure em Admin → Grupos.')
+  }
+  return { clientId: grupo.blingClientId, clientSecret: grupo.blingClientSecret }
 }
 
-export function blingAuthUrl(state: string): string {
+function basicHeader(clientId: string, clientSecret: string) {
+  return 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+}
+
+export function blingAuthUrl(clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: process.env.BLING_CLIENT_ID!,
+    client_id: clientId,
     state,
-    redirect_uri: process.env.BLING_REDIRECT_URI!,
+    redirect_uri: redirectUri,
   })
   return `${AUTH_URL}?${params}`
 }
 
-export async function trocarCodePorTokens(code: string) {
+export async function trocarCodePorTokens(clientId: string, clientSecret: string, redirectUri: string, code: string) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: {
-      Authorization: basicHeader(),
+      Authorization: basicHeader(clientId, clientSecret),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: process.env.BLING_REDIRECT_URI! }),
+    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
   })
   if (!res.ok) throw new Error(`Bling token error: ${await res.text()}`)
   return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
 }
 
-async function refreshAccessToken(refreshToken: string) {
+async function refreshAccessToken(clientId: string, clientSecret: string, refreshToken: string) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: {
-      Authorization: basicHeader(),
+      Authorization: basicHeader(clientId, clientSecret),
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
@@ -48,37 +58,39 @@ async function refreshAccessToken(refreshToken: string) {
   return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
 }
 
-export async function salvarTokens(access: string, refresh: string, expiresIn: number) {
+export async function salvarTokens(grupoId: string, access: string, refresh: string, expiresIn: number) {
   const expiresAt = new Date(Date.now() + expiresIn * 1000)
-  await db.update(blingConfig).set({
-    accessToken: access,
-    refreshToken: refresh,
-    expiresAt,
-    atualizadoEm: new Date(),
-  }).where(eq(blingConfig.id, 1))
+  await db.insert(blingConfig)
+    .values({ grupoId, accessToken: access, refreshToken: refresh, expiresAt, atualizadoEm: new Date() })
+    .onConflictDoUpdate({
+      target: blingConfig.grupoId,
+      set: { accessToken: access, refreshToken: refresh, expiresAt, atualizadoEm: new Date() },
+    })
 }
 
-export async function getBlingStatus() {
-  const [cfg] = await db.select().from(blingConfig).where(eq(blingConfig.id, 1)).limit(1)
+export async function getBlingStatus(grupoId: string) {
+  const [cfg] = await db.select().from(blingConfig).where(eq(blingConfig.grupoId, grupoId)).limit(1)
   return { conectado: !!cfg?.refreshToken, atualizadoEm: cfg?.atualizadoEm ?? null }
 }
 
-async function getToken(): Promise<string> {
-  const [cfg] = await db.select().from(blingConfig).where(eq(blingConfig.id, 1)).limit(1)
+async function getToken(grupoId: string): Promise<string> {
+  const [cfg] = await db.select().from(blingConfig).where(eq(blingConfig.grupoId, grupoId)).limit(1)
   if (!cfg?.refreshToken) throw new Error('Bling não conectado. Configure em Admin → Bling NF-e.')
+
+  const { clientId, clientSecret } = await getCredenciaisGrupo(grupoId)
 
   const agora = new Date()
   // Refresh se o access token expirar nos próximos 5 minutos
   if (!cfg.accessToken || !cfg.expiresAt || cfg.expiresAt <= new Date(agora.getTime() + 5 * 60 * 1000)) {
-    const tokens = await refreshAccessToken(cfg.refreshToken)
-    await salvarTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in)
+    const tokens = await refreshAccessToken(clientId, clientSecret, cfg.refreshToken)
+    await salvarTokens(grupoId, tokens.access_token, tokens.refresh_token, tokens.expires_in)
     return tokens.access_token
   }
   return cfg.accessToken
 }
 
-async function blingRequest(method: string, path: string, body?: unknown) {
-  const token = await getToken()
+async function blingRequest(grupoId: string, method: string, path: string, body?: unknown) {
+  const token = await getToken(grupoId)
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
@@ -114,9 +126,9 @@ async function blingRequest(method: string, path: string, body?: unknown) {
   return res.json()
 }
 
-async function buscarVendedorBlingId(nome: string): Promise<number | null> {
+async function buscarVendedorBlingId(grupoId: string, nome: string): Promise<number | null> {
   try {
-    const res = await blingRequest('GET', `/vendedores?nomeContato=${encodeURIComponent(nome)}&limite=10`, undefined)
+    const res = await blingRequest(grupoId, 'GET', `/vendedores?nomeContato=${encodeURIComponent(nome)}&limite=10`, undefined)
     const lista: { id?: number; contato?: { nome?: string } }[] = Array.isArray(res?.data) ? res.data : []
     const normalizar = (s: string) => s.toLowerCase().trim()
     const nomeNorm = normalizar(nome)
@@ -242,13 +254,13 @@ function montarPayloadNFe(dados: DadosNFe, vendedorBlingId?: number | null) {
   }
 }
 
-export async function criarRascunhoNFe(dados: DadosNFe): Promise<{ blingId: number; url: string }> {
+export async function criarRascunhoNFe(grupoId: string, dados: DadosNFe): Promise<{ blingId: number; url: string }> {
   if (!dados.clienteCpf?.replace(/\D/g, '')) {
     throw new Error('CPF do cliente não informado. Edite a venda e adicione o CPF antes de emitir a NF-e.')
   }
-  const vendedorBlingId = dados.vendedorNome ? await buscarVendedorBlingId(dados.vendedorNome) : null
+  const vendedorBlingId = dados.vendedorNome ? await buscarVendedorBlingId(grupoId, dados.vendedorNome) : null
   const payload = montarPayloadNFe(dados, vendedorBlingId)
-  const criacao = await blingRequest('POST', '/nfe', payload)
+  const criacao = await blingRequest(grupoId, 'POST', '/nfe', payload)
   const blingId: number = criacao?.data?.id
   if (!blingId) throw new Error('Bling não retornou ID da NF-e criada.')
   return {
@@ -257,25 +269,25 @@ export async function criarRascunhoNFe(dados: DadosNFe): Promise<{ blingId: numb
   }
 }
 
-export async function atualizarRascunhoNFe(blingId: number, dados: DadosNFe): Promise<{ blingId: number; url: string }> {
+export async function atualizarRascunhoNFe(grupoId: string, blingId: number, dados: DadosNFe): Promise<{ blingId: number; url: string }> {
   if (!dados.clienteCpf?.replace(/\D/g, '')) {
     throw new Error('CPF do cliente não informado.')
   }
-  const nfeAtual = await blingRequest('GET', `/nfe/${blingId}`, undefined)
+  const nfeAtual = await blingRequest(grupoId, 'GET', `/nfe/${blingId}`, undefined)
   const numero: number = nfeAtual?.data?.numero ?? 0
 
   // PUT /nfe não aceita o campo vendedor — só é definido na criação (POST)
   const payload = { ...montarPayloadNFe(dados, null), numero }
-  await blingRequest('PUT', `/nfe/${blingId}`, payload)
+  await blingRequest(grupoId, 'PUT', `/nfe/${blingId}`, payload)
   return {
     blingId,
     url: `https://www.bling.com.br/notas.fiscais.php#edit/${blingId}`,
   }
 }
 
-export async function buscarNfeIdPorNumero(numero: string): Promise<string | null> {
+export async function buscarNfeIdPorNumero(grupoId: string, numero: string): Promise<string | null> {
   try {
-    const res = await blingRequest('GET', `/nfe?numero=${encodeURIComponent(numero)}&limite=1`, undefined)
+    const res = await blingRequest(grupoId, 'GET', `/nfe?numero=${encodeURIComponent(numero)}&limite=1`, undefined)
     const item = Array.isArray(res?.data) ? res.data[0] : null
     return item?.id ? String(item.id) : null
   } catch {
@@ -283,22 +295,22 @@ export async function buscarNfeIdPorNumero(numero: string): Promise<string | nul
   }
 }
 
-export async function buscarLinksDanfe(blingNfeId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
-  const res = await blingRequest('GET', `/nfe/${blingNfeId}`, undefined)
+export async function buscarLinksDanfe(grupoId: string, blingNfeId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
+  const res = await blingRequest(grupoId, 'GET', `/nfe/${blingNfeId}`, undefined)
   return {
     linkDanfe: res?.data?.linkDanfe ?? null,
     linkPDF:   res?.data?.linkPDF   ?? null,
   }
 }
 
-export async function emitirNFe(dados: DadosNFe): Promise<string> {
+export async function emitirNFe(grupoId: string, dados: DadosNFe): Promise<string> {
   const payload = montarPayloadNFe(dados)
-  const criacao = await blingRequest('POST', '/nfe', payload)
+  const criacao = await blingRequest(grupoId, 'POST', '/nfe', payload)
   const nfeId: number = criacao?.data?.id
   if (!nfeId) throw new Error('Bling não retornou ID da NF-e criada.')
 
   // Transmite a NF-e
-  const transmissao = await blingRequest('POST', `/nfe/${nfeId}/transmitir`, {})
+  const transmissao = await blingRequest(grupoId, 'POST', `/nfe/${nfeId}/transmitir`, {})
 
   // Número da NF pode vir na transmissão ou já estava na criação
   const numero: string | number =
