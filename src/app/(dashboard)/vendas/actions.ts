@@ -358,6 +358,7 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
   const [venda] = await db
     .select({
       id: vendas.id,
+      lojaId: vendas.lojaId,
       valor: vendas.valor,
       pagamentos: vendas.pagamentos,
       vendedorId: vendas.vendedorId,
@@ -423,9 +424,10 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .limit(1)
 
   const { criarRascunhoNFe } = await import('@/lib/bling')
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
-  const resultado = await criarRascunhoNFe({
+  const resultado = await criarRascunhoNFe(grupoId, {
     clienteNome: venda.clienteNome,
     clienteCpf: venda.clienteCpf,
     clienteCelular: venda.clienteCelular,
@@ -474,6 +476,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
   const [venda] = await db
     .select({
       id: vendas.id,
+      lojaId: vendas.lojaId,
       valor: vendas.valor,
       pagamentos: vendas.pagamentos,
       vendedorId: vendas.vendedorId,
@@ -528,9 +531,10 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     .limit(1)
 
   const { atualizarRascunhoNFe } = await import('@/lib/bling')
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
-  const resultado = await atualizarRascunhoNFe(Number(venda.blingNfeId), {
+  const resultado = await atualizarRascunhoNFe(grupoId, Number(venda.blingNfeId), {
     clienteNome: venda.clienteNome,
     clienteCpf: venda.clienteCpf,
     clienteCelular: venda.clienteCelular,
@@ -573,6 +577,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
   const [venda] = await db
     .select({
       id: vendas.id,
+      lojaId: vendas.lojaId,
       valor: vendas.valor,
       formaPagamento: vendas.formaPagamento,
       pagamentos: vendas.pagamentos,
@@ -629,9 +634,10 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .limit(1)
 
   const { emitirNFe } = await import('@/lib/bling')
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const pagamentos = (venda.pagamentos as { tipo: string; valor: number; parcelas?: number }[]) ?? []
 
-  const numeroNF = await emitirNFe({
+  const numeroNF = await emitirNFe(grupoId, {
     clienteNome: venda.clienteNome,
     clienteCpf: venda.clienteCpf,
     clienteCelular: venda.clienteCelular,
@@ -1043,7 +1049,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   await getUsuarioLogado()
 
   const [venda] = await db
-    .select({ blingNfeId: vendas.blingNfeId })
+    .select({ blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
@@ -1052,7 +1058,8 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   if (!venda?.blingNfeId) throw new Error('ID da NF-e não encontrado. Verifique se o rascunho foi criado pelo MOVA.')
 
   const { buscarLinksDanfe } = await import('@/lib/bling')
-  const links = await buscarLinksDanfe(venda.blingNfeId)
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+  const links = await buscarLinksDanfe(grupoId, venda.blingNfeId)
 
   if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
 
