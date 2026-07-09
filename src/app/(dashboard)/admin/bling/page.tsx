@@ -68,7 +68,7 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
           <CardContent className="space-y-2 text-sm text-slate-600">
             <p>Antes de conectar, verifique:</p>
             <ol className="list-decimal list-inside space-y-1.5 text-slate-600">
-              <li>Acesse o <strong>Portal do Desenvolvedor Bling</strong> (logado com a conta Bling deste grupo) → Aplicações → criar app com URL de retorno: <code className="bg-slate-100 px-1 rounded text-xs">https://moto-chefe.vercel.app/api/bling/callback</code></li>
+              <li>Acesse o <strong>Portal do Desenvolvedor Bling</strong> (logado com a conta Bling deste grupo) → Aplicações → criar app com URL de retorno: <code className="bg-slate-100 px-1 rounded text-xs">{process.env.BLING_REDIRECT_URI}</code></li>
               <li>Cadastre o <strong>Client ID e Client Secret</strong> desse app em <strong>Admin → Grupos</strong>, editando o grupo <strong>{status.grupoNome}</strong></li>
               <li>Configure o <strong>código do produto Bling</strong> em cada modelo em Admin → Modelos</li>
               <li>Certifique-se que o certificado digital está ativo no Bling</li>
