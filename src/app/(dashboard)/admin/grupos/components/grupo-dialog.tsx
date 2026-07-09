@@ -115,7 +115,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               </div>
             </div>
             <p className="text-xs text-slate-400">
-              Estas credenciais ainda não são usadas pelo sistema — serão ativadas em uma etapa futura.
+              ValidaPix e Fábrica ainda não são usadas pelo sistema — serão ativadas em uma etapa futura. Bling já está em uso (emissão de NF-e).
             </p>
           </div>
 
