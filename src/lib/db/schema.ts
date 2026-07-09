@@ -34,6 +34,8 @@ export const grupos = pgTable('grupos', {
   validapixPassword:  text('validapix_password'),
   fabricaEmail:       text('fabrica_email'),
   fabricaSenha:       text('fabrica_senha'),
+  blingClientId:      text('bling_client_id'),
+  blingClientSecret:  text('bling_client_secret'),
 })
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
@@ -495,9 +497,9 @@ export const comunicados = pgTable('comunicados', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// ─── bling_config (singleton) ────────────────────────────────────────────────
+// ─── bling_config (uma linha por grupo) ──────────────────────────────────────
 export const blingConfig = pgTable('bling_config', {
-  id: integer('id').primaryKey().default(1),
+  grupoId: uuid('grupo_id').primaryKey().references(() => grupos.id),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
