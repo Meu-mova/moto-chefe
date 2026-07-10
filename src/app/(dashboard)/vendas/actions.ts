@@ -2,11 +2,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor } from '@/lib/grupo'
 
 export type PrecoMinimoInfo = {
   valorMinimoPix: number
@@ -1108,5 +1108,139 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
 
   return links
+}
+
+// ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
+
+export async function solicitarAprovacaoVendaAction(data: DadosVendaCompleta, motivo: string) {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
+    throw new Error('Sem permissão para registrar venda')
+  }
+  if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')
+
+  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+  if (moto.status === 'caixa') throw new Error('Moto ainda não foi montada — não pode ser vendida')
+  if (moto.status === 'vendida') throw new Error('Moto já foi vendida')
+  if (moto.disponibilidade === 'aguardando_aprovacao') throw new Error('Esta moto já tem uma venda aguardando aprovação')
+  if (moto.disponibilidade === 'reservada') throw new Error('Moto está reservada — finalize ou cancele a reserva antes')
+
+  const valorNum = parseFloat(data.valorTotal)
+  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+
+  const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
+  if (Math.abs(soma - valorNum) > 0.01) {
+    throw new Error('Somatório das formas de pagamento difere do valor da venda')
+  }
+
+  const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
+  if (!prec) throw new Error('Sem preço mínimo configurado para este modelo — use o fluxo normal de venda')
+  const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
+  if (liquido >= prec.valorMinimoPix - 0.01) {
+    throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
+  }
+
+  const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
+  const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+
+  await db.transaction(async (tx) => {
+    await tx.insert(aprovacoesVenda).values({
+      motoId: moto.id,
+      lojaId: moto.lojaId,
+      vendedorId,
+      valor: data.valorTotal,
+      dadosVenda: data,
+      motivo: motivo.trim(),
+      disponibilidadeAnterior: moto.disponibilidade,
+      status: 'pendente',
+    })
+
+    await tx.update(motos)
+      .set({ disponibilidade: 'aguardando_aprovacao' })
+      .where(eq(motos.id, moto.id))
+
+    await tx.insert(historicoEstoque).values({
+      motoId: moto.id,
+      lojaOrigemId: moto.lojaId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      referenciaTipo: 'aprovacao_venda',
+      observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorNum.toFixed(2)} — Motivo: ${motivo.trim()}`,
+    })
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${data.motoId}`)
+}
+
+export async function aprovarVendaAction(aprovacaoId: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
+  if (!aprovacao) throw new Error('Solicitação não encontrada')
+  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+
+  if (!(await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId))) {
+    throw new Error('Sem permissão para aprovar esta venda')
+  }
+
+  const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+
+  const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
+  const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
+
+  await db.transaction(async (tx) => {
+    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
+
+    await tx.update(aprovacoesVenda)
+      .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(eq(aprovacoesVenda.id, aprovacaoId))
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${aprovacao.motoId}`)
+  revalidatePath('/caixa')
+}
+
+export async function recusarVendaAction(aprovacaoId: string, observacao?: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
+  if (!aprovacao) throw new Error('Solicitação não encontrada')
+  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+
+  if (!(await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId))) {
+    throw new Error('Sem permissão para recusar esta venda')
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(motos)
+      .set({ disponibilidade: aprovacao.disponibilidadeAnterior })
+      .where(eq(motos.id, aprovacao.motoId))
+
+    await tx.update(aprovacoesVenda)
+      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(eq(aprovacoesVenda.id, aprovacaoId))
+
+    await tx.insert(historicoEstoque).values({
+      motoId: aprovacao.motoId,
+      lojaOrigemId: aprovacao.lojaId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      referenciaTipo: 'aprovacao_venda',
+      referenciaId: aprovacaoId,
+      observacao: observacao?.trim()
+        ? `Venda recusada — Motivo: ${observacao.trim()}`
+        : 'Venda recusada',
+    })
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${aprovacao.motoId}`)
 }
 
