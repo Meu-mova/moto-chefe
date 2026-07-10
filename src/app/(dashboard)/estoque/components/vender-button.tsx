@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X, Plus, Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
-import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction } from '../../vendas/actions'
+import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 
 const FORMAS = [
@@ -74,6 +75,7 @@ type Props = {
   descricao: string
   vendedorId: string
   vendedorNome: string
+  papel: string
   usuarios: Usuario[]
   soReserva?: boolean
   reservaAtiva?: DadosReservaAtiva
@@ -102,7 +104,7 @@ function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   return []
 }
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
@@ -132,6 +134,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
   const [valorVenda, setValorVenda] = useState('')
   const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
+  const [motivo, setMotivo] = useState('')
 
   // Quando o total da venda muda numa finalização de reserva, atualiza o restante automaticamente
   useEffect(() => {
@@ -189,6 +192,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
     }
     setDataVenda(new Date().toISOString().split('T')[0])
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
+    setMotivo('')
   }
 
   async function abrir(tipoInicial: 'venda' | 'reserva') {
@@ -334,6 +338,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
     ? calcLiquidoRecebido(pgtoCalc, taxasVenda)
     : null
   const liquidoOk = !precoMinimoPix || liquidoEstimado === null || liquidoEstimado >= precoMinimoPix - 0.01
+  const bypassMinimo = ['admin_geral', 'admin_socio'].includes(papel)
+  const precisaAprovacao = !liquidoOk && !bypassMinimo
+  const valorOk = liquidoOk || bypassMinimo || (precisaAprovacao && motivo.trim().length > 0)
   const todosPgtosComParcelas = pgtos.filter(p => TIPOS_COM_PARCELAS.has(p.tipo)).every(p => !!p.parcelas)
 
   // ── Validação de preço mínimo (reserva) ──
@@ -345,7 +352,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
 
   const vendaValida = clientePreenchido && (
     tipo === 'venda'
-      ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && liquidoOk)
+      ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && valorOk)
       : !!(valorReserva && valorTotalVenda && meioPgto && dataPrevista && !reservaCartaoIncompleto
           && (reservaValidacao ? reservaValidacao.entradaOk : true))
   )
@@ -362,7 +369,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
       }
 
       if (tipo === 'venda') {
-        await registrarVendaCompletaAction({
+        const payload = {
           motoId, ...clienteBase, valorTotal: valorVenda,
           vendedorId: vendedorSelecionado,
           dataVenda: dataVenda || undefined,
@@ -372,8 +379,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
             ...(TIPOS_COM_PARCELAS.has(p.tipo) && p.tipo !== 'cartao_credito' && p.parcelas ? { parcelas: parseInt(p.parcelas) } : {}),
             ...((p.tipo === 'cartao_credito' || p.tipo === 'cartao_debito') && p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim() } : {}),
           })),
-        })
-        toast.success('Venda registrada com sucesso!')
+        }
+        if (precisaAprovacao) {
+          await solicitarAprovacaoVendaAction(payload, motivo)
+          toast.success('Pedido de aprovação enviado!')
+        } else {
+          await registrarVendaCompletaAction(payload)
+          toast.success('Venda registrada com sucesso!')
+        }
       } else {
         await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda, meioPagamento: meioPgto,
@@ -724,6 +737,18 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
                       </div>
                     </div>
                   )}
+
+                  {precisaAprovacao && (
+                    <div className="space-y-1">
+                      <Label>Motivo do pedido de aprovação <span className="text-red-500">*</span></Label>
+                      <Textarea
+                        value={motivo}
+                        onChange={e => setMotivo(e.target.value)}
+                        placeholder="Explique por que está vendendo abaixo do valor mínimo..."
+                        rows={3}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* ── RESERVA ── */
@@ -811,7 +836,13 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, usua
           <DialogFooter className="px-6 py-4 border-t shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading || !vendaValida}>
-              {loading ? 'Salvando...' : tipo === 'venda' ? 'Confirmar Venda' : 'Confirmar Reserva'}
+              {loading
+                ? 'Salvando...'
+                : tipo === 'reserva'
+                  ? 'Confirmar Reserva'
+                  : precisaAprovacao
+                    ? 'Pedir aprovação'
+                    : 'Confirmar Venda'}
             </Button>
           </DialogFooter>
         </DialogContent>
