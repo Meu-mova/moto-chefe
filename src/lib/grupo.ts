@@ -93,3 +93,22 @@ export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: stri
     .where(eq(lojas.ativa, true))
     .orderBy(lojas.nome)
 }
+
+// ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
+// admin_geral aprova de qualquer grupo; admin_socio só do próprio grupo,
+// determinado pela loja fixa dele (usuarios.lojaId), não pelo cookie
+// grupoAtivo — a permissão de aprovar não deve depender de qual grupo o
+// sócio está "olhando" no momento.
+export async function podeAprovarVendaBaixoValor(
+  usuario: { papel: string; lojaId: string | null },
+  lojaIdVenda: string,
+): Promise<boolean> {
+  if (usuario.papel === 'admin_geral') return true
+  if (usuario.papel !== 'admin_socio' || !usuario.lojaId) return false
+
+  const [grupoVenda, grupoSocio] = await Promise.all([
+    getGrupoIdDaLoja(lojaIdVenda),
+    getGrupoIdDaLoja(usuario.lojaId),
+  ])
+  return grupoVenda === grupoSocio
+}
