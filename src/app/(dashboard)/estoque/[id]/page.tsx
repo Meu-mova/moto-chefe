@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
+import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
@@ -27,6 +28,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   if (!moto) notFound()
 
   const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
+  const podeAprovarAprovacao = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
 
   const [mecanicos, lojasOpts, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
@@ -120,6 +122,17 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         taxasVenda={taxasVenda}
       />
       </div>
+
+      {moto.disponibilidade === 'aguardando_aprovacao' && moto.aprovacaoPendenteId && (
+        <AprovacaoVendaCard
+          aprovacaoId={moto.aprovacaoPendenteId}
+          valor={parseFloat(moto.aprovacaoPendenteValor ?? '0')}
+          motivo={moto.aprovacaoPendenteMotivo ?? ''}
+          vendedorNome={usuariosOpts.find(u => u.id === moto.aprovacaoPendenteVendedorId)?.nome ?? 'Desconhecido'}
+          dataSolicitacao={moto.aprovacaoPendenteDataSolicitacao ?? new Date().toISOString()}
+          podeAprovar={podeAprovarAprovacao}
+        />
+      )}
 
       <Tabs defaultValue="historico">
         <TabsList>
