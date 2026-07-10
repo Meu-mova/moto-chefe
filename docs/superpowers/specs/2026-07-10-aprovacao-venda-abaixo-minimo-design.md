@@ -48,15 +48,17 @@ export const aprovacoesVenda = pgTable('aprovacoes_venda', {
 
 Nenhuma linha em `pedidos_venda`/`vendas` é criada enquanto a solicitação está pendente — só no momento da aprovação, exatamente como já acontece hoje no fluxo direto (que cria pedido "efetivado" + venda juntos). Isso preserva a garantia de que uma linha em `vendas` sempre representa uma venda confirmada (importante para Bling, caixa e relatórios).
 
+**Correção em relação à primeira versão deste documento:** o campo que trava a moto no fluxo direto é `motos.disponibilidade`, não `motos.status` (o `status` só é tocado pelo fluxo legado de pedido pendente). `disponibilidade` já tem um valor `'reservada'`, mas ele pertence ao fluxo de sinal/reserva (`reservas`) — reaproveitá-lo aqui misturaria os dois conceitos. Por isso o `disponibilidadeEnum` ganha um valor novo, `'aguardando_aprovacao'`, usado só por este fluxo.
+
 ### Fluxo
 
 1. **Vendedor pede aprovação** (`solicitarAprovacaoVendaAction`): mesmas validações de hoje (moto disponível/montada, soma dos pagamentos bate com o total). Se o líquido calculado ficar abaixo do mínimo:
-   - Papel `vendedor`/`aux_adm` → exige `motivo` preenchido, marca moto como `reservada` (mesmo status já usado para pedido pendente), grava linha em `aprovacoes_venda` com `status: 'pendente'`, grava `historico_estoque` (`mudanca_status`, disponível → reservada, `referencia_tipo: 'aprovacao_venda'`).
+   - Papel `vendedor`/`aux_adm` → exige `motivo` preenchido, marca `motos.disponibilidade = 'aguardando_aprovacao'` (guardando o valor anterior para poder reverter em caso de recusa), grava linha em `aprovacoes_venda` com `status: 'pendente'`, grava `historico_estoque` (`mudanca_status`, `referencia_tipo: 'aprovacao_venda'`).
    - Papel `admin_geral`/`admin_socio` → **não** entra nesse caminho: `registrarVendaCompletaAction` já deixa esses papéis venderem abaixo do mínimo direto (auto-aprovação), sem criar linha em `aprovacoes_venda`.
 
 2. **Admin/sócio aprova** (`aprovarVendaAction`): lê a linha pendente, roda a mesma transação de criação de venda que `registrarVendaCompletaAction` já faz hoje (extraída para um helper compartilhado `criarVendaTx`) — cria `pedidos_venda` efetivado, `vendas`, upsert de cliente, moto vira `vendida`, histórico, lançamento de caixa se houver pagamento em dinheiro. `efetivadoPor` = quem aprovou, `vendedorId` = quem pediu (preservado). Marca `aprovacoes_venda.status = 'aprovada'`.
 
-3. **Admin/sócio recusa** (`recusarVendaAction`): moto volta para `disponivel`, `aprovacoes_venda.status = 'recusada'`, histórico registrado (reservada → disponível).
+3. **Admin/sócio recusa** (`recusarVendaAction`): `motos.disponibilidade` volta para o valor guardado antes do pedido (normalmente `disponivel`), `aprovacoes_venda.status = 'recusada'`, histórico registrado.
 
 ### Permissões
 
@@ -73,10 +75,10 @@ Nenhuma linha em `pedidos_venda`/`vendas` é criada enquanto a solicitação est
 - `valor < mínimo` e papel `vendedor`/`aux_adm` → aparece um campo de texto obrigatório "Motivo", botão vira **"Pedir aprovação"**, chama `solicitarAprovacaoVendaAction`.
 - `valor < mínimo` e papel `admin_geral`/`admin_socio` → continua "Confirmar Venda" normal.
 
-**Estoque (`estoque/[id]/...` e/ou `moto-table.tsx`)**: quando a moto está `reservada` por causa de uma `aprovacoes_venda` pendente:
-- Para `admin_geral`/`admin_socio` autorizados (ver regra de escopo acima): card com dados da venda pendente (cliente, valor, motivo, quem pediu) e dois botões — **"Aprovar"** e **"Recusar"**.
-- Para os demais (inclusive o vendedor que pediu): selo "Aguardando aprovação", sem ação.
-- A tela precisa diferenciar visualmente uma moto `reservada` por pedido de venda normal pendente, por sinal de reserva (`reservas`), ou por aprovação de venda pendente (`aprovacoes_venda`) — hoje o status por si só não distingue a origem. Isso é detalhe de implementação a resolver no plano, consultando como a tela já lida com esses casos hoje.
+**Estoque (`estoque/[id]/...` e `moto-table.tsx`)**: quando `motos.disponibilidade = 'aguardando_aprovacao'`:
+- Na lista (`moto-table.tsx`): badge "Aguardando aprovação", sem ação — o botão de vender não aparece.
+- Na página de detalhe da moto: card com dados da venda pendente (cliente, valor, motivo, quem pediu). Para `admin_geral`/`admin_socio` autorizados (ver regra de escopo acima), o card tem dois botões — **"Aprovar"** e **"Recusar"**. Para os demais (inclusive o vendedor que pediu), o card aparece sem ação.
+- Como `'aguardando_aprovacao'` é um valor próprio de `disponibilidade` (distinto de `'reservada'`, que é do fluxo de sinal), não há ambiguidade entre os dois casos.
 
 ## Fora de escopo
 
