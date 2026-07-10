@@ -142,6 +142,150 @@ type DadosVendaCompleta = {
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
 }
 
+async function criarVendaTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  params: {
+    moto: { id: string; lojaId: string }
+    data: DadosVendaCompleta
+    vendedorId: string
+    efetivadoPor: string
+    dataVendaFinal: Date
+  }
+): Promise<{ vendaId: string }> {
+  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal } = params
+  const valorNum = parseFloat(data.valorTotal)
+
+  // Verificar reserva ativa para linkar
+  const [reservaAtiva] = await tx
+    .select({ id: reservas.id })
+    .from(reservas)
+    .where(and(eq(reservas.motoId, moto.id), eq(reservas.status, 'ativa')))
+    .limit(1)
+
+  // Criar pedido já efetivado
+  const [pedido] = await tx.insert(pedidosVenda).values({
+    motoId: moto.id,
+    lojaId: moto.lojaId,
+    vendedorId,
+    status: 'efetivado',
+    observacao: null,
+    dataPedido: dataVendaFinal,
+    dataAtualizacao: dataVendaFinal,
+  }).returning({ id: pedidosVenda.id })
+
+  // Upsert cliente por CPF — cria se não existir, atualiza se existir
+  const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
+  let clienteVinculadoId: string | null = null
+  if (cpfLimpo.length >= 11) {
+    const [clienteUpsert] = await tx
+      .insert(clientes)
+      .values({
+        nome:        data.clienteNome.trim(),
+        cpfCnpj:     cpfLimpo,
+        email:       data.clienteEmail        || null,
+        celular:     data.clienteCelular       || null,
+        endereco:    data.clienteLogradouro    || null,
+        numero:      data.clienteNumero        || null,
+        complemento: data.clienteComplemento   || null,
+        bairro:      data.clienteBairro        || null,
+        cep:         data.clienteCep           || null,
+        cidade:      data.clienteCidade        || null,
+        uf:          data.clienteEstado        || null,
+      })
+      .onConflictDoUpdate({
+        target: clientes.cpfCnpj,
+        set: {
+          nome:        sql`excluded.nome`,
+          email:       sql`excluded.email`,
+          celular:     sql`excluded.celular`,
+          endereco:    sql`excluded.endereco`,
+          numero:      sql`excluded.numero`,
+          complemento: sql`excluded.complemento`,
+          bairro:      sql`excluded.bairro`,
+          cep:         sql`excluded.cep`,
+          cidade:      sql`excluded.cidade`,
+          uf:          sql`excluded.uf`,
+          atualizadoEm: sql`now()`,
+        },
+      })
+      .returning({ id: clientes.id })
+    clienteVinculadoId = clienteUpsert?.id ?? null
+  }
+
+  const [venda] = await tx.insert(vendas).values({
+    pedidoVendaId: pedido.id,
+    motoId: moto.id,
+    lojaId: moto.lojaId,
+    vendedorId,
+    efetivadoPor,
+    clienteId:    clienteVinculadoId,
+    clienteNome: data.clienteNome,
+    clienteCpf: data.clienteCpf,
+    clienteCelular: data.clienteCelular,
+    clienteEmail: data.clienteEmail,
+    clienteCep: data.clienteCep,
+    clienteLogradouro: data.clienteLogradouro,
+    clienteNumero: data.clienteNumero,
+    clienteComplemento: data.clienteComplemento,
+    clienteBairro: data.clienteBairro,
+    clienteCidade: data.clienteCidade,
+    clienteEstado: data.clienteEstado,
+    valor: data.valorTotal,
+    formaPagamento: data.pagamentos[0].tipo,
+    pagamentos: data.pagamentos,
+    reservaId: reservaAtiva?.id ?? null,
+    dataVenda: dataVendaFinal,
+  }).returning({ id: vendas.id })
+
+  // Marcar reserva como convertida
+  if (reservaAtiva) {
+    await tx.update(reservas)
+      .set({ status: 'convertida' })
+      .where(eq(reservas.id, reservaAtiva.id))
+  }
+
+  // Moto fica em estoque com status 'vendida' até a NF de saída ser confirmada
+  await tx.update(motos)
+    .set({ status: 'vendida' as any, disponibilidade: null })
+    .where(eq(motos.id, moto.id))
+
+  // Histórico
+  const tipoLabel: Record<string, string> = {
+    pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
+    cartao_debito: 'Cartão de Débito', financiamento: 'Financiamento',
+    link_pagamento: 'Link de Pagamento', transferencia: 'Transferência',
+  }
+  const descPagamentos = data.pagamentos
+    .map(p => `${tipoLabel[p.tipo] ?? p.tipo}: R$ ${p.valor.toFixed(2)}`)
+    .join(' + ')
+  await tx.insert(historicoEstoque).values({
+    motoId: moto.id,
+    lojaOrigemId: moto.lojaId,
+    usuarioId: efetivadoPor,
+    tipo: 'saida',
+    referenciaTipo: 'pedido_venda',
+    referenciaId: pedido.id,
+    observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${valorNum.toFixed(2)} — ${descPagamentos}`,
+  })
+
+  // Registrar pagamentos em dinheiro no caixa automaticamente
+  const pagamentosDinheiro = data.pagamentos.filter(p => p.tipo === 'dinheiro')
+  for (const pgto of pagamentosDinheiro) {
+    await tx.insert(lancamentosCaixa).values({
+      lojaId: moto.lojaId,
+      usuarioId: efetivadoPor,
+      tipo: 'entrada',
+      categoria: 'Venda',
+      descricao: `Venda dinheiro — ${data.clienteNome}`,
+      valor: pgto.valor.toFixed(2),
+      data: dataVendaFinal.toISOString().split('T')[0],
+      vendaId: venda.id,
+    })
+  }
+
+  return { vendaId: venda.id }
+}
+
 export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
@@ -165,13 +309,16 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
+  // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
+  // os demais papéis devem usar solicitarAprovacaoVendaAction nesse caso.
+  const podeVenderAbaixoDoMinimo = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-  if (prec) {
+  if (prec && !podeVenderAbaixoDoMinimo) {
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido < prec.valorMinimoPix - 0.01) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       throw new Error(
-        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)} — mínimo PIX ${fmt(prec.valorMinimoPix)}`
+        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)} — mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
       )
     }
   }
@@ -182,132 +329,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
 
   await db.transaction(async (tx) => {
-    // Verificar reserva ativa para linkar
-    const [reservaAtiva] = await tx
-      .select({ id: reservas.id })
-      .from(reservas)
-      .where(and(eq(reservas.motoId, data.motoId), eq(reservas.status, 'ativa')))
-      .limit(1)
-
-    // Criar pedido já efetivado
-    const [pedido] = await tx.insert(pedidosVenda).values({
-      motoId: data.motoId,
-      lojaId: moto.lojaId,
-      vendedorId,
-      status: 'efetivado',
-      observacao: null,
-      dataPedido: dataVendaFinal,
-      dataAtualizacao: dataVendaFinal,
-    }).returning({ id: pedidosVenda.id })
-    // Upsert cliente por CPF — cria se não existir, atualiza se existir
-    const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
-    let clienteVinculadoId: string | null = null
-    if (cpfLimpo.length >= 11) {
-      const [clienteUpsert] = await tx
-        .insert(clientes)
-        .values({
-          nome:        data.clienteNome.trim(),
-          cpfCnpj:     cpfLimpo,
-          email:       data.clienteEmail        || null,
-          celular:     data.clienteCelular       || null,
-          endereco:    data.clienteLogradouro    || null,
-          numero:      data.clienteNumero        || null,
-          complemento: data.clienteComplemento   || null,
-          bairro:      data.clienteBairro        || null,
-          cep:         data.clienteCep           || null,
-          cidade:      data.clienteCidade        || null,
-          uf:          data.clienteEstado        || null,
-        })
-        .onConflictDoUpdate({
-          target: clientes.cpfCnpj,
-          set: {
-            nome:        sql`excluded.nome`,
-            email:       sql`excluded.email`,
-            celular:     sql`excluded.celular`,
-            endereco:    sql`excluded.endereco`,
-            numero:      sql`excluded.numero`,
-            complemento: sql`excluded.complemento`,
-            bairro:      sql`excluded.bairro`,
-            cep:         sql`excluded.cep`,
-            cidade:      sql`excluded.cidade`,
-            uf:          sql`excluded.uf`,
-            atualizadoEm: sql`now()`,
-          },
-        })
-        .returning({ id: clientes.id })
-      clienteVinculadoId = clienteUpsert?.id ?? null
-    }
-
-    const [venda] = await tx.insert(vendas).values({
-      pedidoVendaId: pedido.id,
-      motoId: data.motoId,
-      lojaId: moto.lojaId,
-      vendedorId,
-      efetivadoPor: usuario.id,
-      clienteId:    clienteVinculadoId,
-      clienteNome: data.clienteNome,
-      clienteCpf: data.clienteCpf,
-      clienteCelular: data.clienteCelular,
-      clienteEmail: data.clienteEmail,
-      clienteCep: data.clienteCep,
-      clienteLogradouro: data.clienteLogradouro,
-      clienteNumero: data.clienteNumero,
-      clienteComplemento: data.clienteComplemento,
-      clienteBairro: data.clienteBairro,
-      clienteCidade: data.clienteCidade,
-      clienteEstado: data.clienteEstado,
-      valor: data.valorTotal,
-      formaPagamento: data.pagamentos[0].tipo,
-      pagamentos: data.pagamentos,
-      reservaId: reservaAtiva?.id ?? null,
-      dataVenda: dataVendaFinal,
-    }).returning({ id: vendas.id })
-
-    // Marcar reserva como convertida
-    if (reservaAtiva) {
-      await tx.update(reservas)
-        .set({ status: 'convertida' })
-        .where(eq(reservas.id, reservaAtiva.id))
-    }
-
-    // Moto fica em estoque com status 'vendida' até a NF de saída ser confirmada
-    await tx.update(motos)
-      .set({ status: 'vendida' as any, disponibilidade: null })
-      .where(eq(motos.id, data.motoId))
-
-    // Histórico
-    const tipoLabel: Record<string, string> = {
-      pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
-      cartao_debito: 'Cartão de Débito', financiamento: 'Financiamento',
-      link_pagamento: 'Link de Pagamento', transferencia: 'Transferência',
-    }
-    const descPagamentos = data.pagamentos
-      .map(p => `${tipoLabel[p.tipo] ?? p.tipo}: R$ ${p.valor.toFixed(2)}`)
-      .join(' + ')
-    await tx.insert(historicoEstoque).values({
-      motoId: data.motoId,
-      lojaOrigemId: moto.lojaId,
-      usuarioId: usuario.id,
-      tipo: 'saida',
-      referenciaTipo: 'pedido_venda',
-      referenciaId: pedido.id,
-      observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${valorNum.toFixed(2)} — ${descPagamentos}`,
-    })
-
-    // Registrar pagamentos em dinheiro no caixa automaticamente
-    const pagamentosDinheiro = data.pagamentos.filter(p => p.tipo === 'dinheiro')
-    for (const pgto of pagamentosDinheiro) {
-      await tx.insert(lancamentosCaixa).values({
-        lojaId: moto.lojaId,
-        usuarioId: usuario.id,
-        tipo: 'entrada',
-        categoria: 'Venda',
-        descricao: `Venda dinheiro — ${data.clienteNome}`,
-        valor: pgto.valor.toFixed(2),
-        data: dataVendaFinal.toISOString().split('T')[0],
-        vendaId: venda.id,
-      })
-    }
+    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
   })
 
   revalidatePath('/vendas')
