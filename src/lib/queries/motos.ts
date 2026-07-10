@@ -288,6 +288,31 @@ export async function buscarMoto(id: string) {
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1
       )`,
+      aprovacaoPendenteId: sql<string | null>`(
+        SELECT a.id FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
+      aprovacaoPendenteValor: sql<string | null>`(
+        SELECT a.valor::text FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
+      aprovacaoPendenteMotivo: sql<string | null>`(
+        SELECT a.motivo FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
+      aprovacaoPendenteVendedorId: sql<string | null>`(
+        SELECT a.vendedor_id FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
+      aprovacaoPendenteDataSolicitacao: sql<string | null>`(
+        SELECT a.data_solicitacao::text FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
     })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
