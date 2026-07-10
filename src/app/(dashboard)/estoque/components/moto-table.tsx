@@ -15,6 +15,7 @@ const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary
   disponivel: { label: 'Disponível', variant: 'default' },
   reservada:  { label: 'Reservada',  variant: 'outline' },
   vendida:    { label: 'Vendida',    variant: 'secondary' },
+  aguardando_aprovacao: { label: 'Aguardando aprovação', variant: 'destructive' },
 }
 
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
@@ -143,12 +144,13 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                             {podeAlterar && podeVender.has(papel) && (
                               <>
                                 {/* Montada/Garantia disponível: venda + reserva */}
-                                {moto.status !== 'caixa' && moto.disponibilidade !== 'reservada' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (
+                                {moto.status !== 'caixa' && moto.disponibilidade !== 'reservada' && moto.disponibilidade !== 'aguardando_aprovacao' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (
                                   <VenderButton
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
+                                    papel={papel}
                                     usuarios={usuarios}
                                   />
                                 )}
@@ -159,6 +161,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
+                                    papel={papel}
                                     usuarios={usuarios}
                                     reservaAtiva={{
                                       valorEntrada: moto.reservaValorEntrada,
@@ -188,6 +191,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
+                                    papel={papel}
                                     usuarios={usuarios}
                                     soReserva
                                   />

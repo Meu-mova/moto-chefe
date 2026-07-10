@@ -96,7 +96,8 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
 
     if (podeAlterar && podeVender.has(papel)) {
       const podeVenderMoto = moto.status !== 'caixa' &&
-        moto.disponibilidade !== 'reservada' && (
+        moto.disponibilidade !== 'reservada' &&
+        moto.disponibilidade !== 'aguardando_aprovacao' && (
           moto.disponibilidade === 'disponivel' ||
           moto.status === 'em_garantia'
         )
@@ -108,6 +109,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             descricao={descricao}
             vendedorId={vendedorId}
             vendedorNome={vendedorNome}
+            papel={papel}
             usuarios={usuarios}
             showLabel
             precoMinimoPix={precoMinimoPix}
@@ -123,6 +125,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             descricao={descricao}
             vendedorId={vendedorId}
             vendedorNome={vendedorNome}
+            papel={papel}
             usuarios={usuarios}
             showLabel
             precoMinimoPix={precoMinimoPix}
@@ -157,6 +160,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             descricao={descricao}
             vendedorId={vendedorId}
             vendedorNome={vendedorNome}
+            papel={papel}
             usuarios={usuarios}
             soReserva
             showLabel
