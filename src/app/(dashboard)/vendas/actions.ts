@@ -300,6 +300,9 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   if (moto.status === 'vendida') {
     throw new Error('Moto já foi vendida')
   }
+  if (moto.disponibilidade === 'aguardando_aprovacao') {
+    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de vender')
+  }
 
   const valorNum = parseFloat(data.valorTotal)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
@@ -822,6 +825,9 @@ export async function registrarReservaAction(data: DadosReserva) {
   if (moto.disponibilidade === 'reservada') {
     throw new Error('Moto já está reservada')
   }
+  if (moto.disponibilidade === 'aguardando_aprovacao') {
+    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de reservar')
+  }
 
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
@@ -1193,11 +1199,15 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
 
   await db.transaction(async (tx) => {
-    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
-
-    await tx.update(aprovacoesVenda)
+    // UPDATE condicionado a status = 'pendente' — evita duplicar a venda se
+    // dois aprovadores confirmarem ao mesmo tempo.
+    const [claimed] = await tx.update(aprovacoesVenda)
       .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
-      .where(eq(aprovacoesVenda.id, aprovacaoId))
+      .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+      .returning({ id: aprovacoesVenda.id })
+    if (!claimed) throw new Error('Solicitação não está mais pendente')
+
+    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
   })
 
   revalidatePath('/vendas')
@@ -1218,13 +1228,17 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
   }
 
   await db.transaction(async (tx) => {
+    // UPDATE condicionado a status = 'pendente' — evita recusar duas vezes
+    // (ou recusar depois de já aprovada) se dois aprovadores agirem juntos.
+    const [claimed] = await tx.update(aprovacoesVenda)
+      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+      .returning({ id: aprovacoesVenda.id })
+    if (!claimed) throw new Error('Solicitação não está mais pendente')
+
     await tx.update(motos)
       .set({ disponibilidade: aprovacao.disponibilidadeAnterior })
       .where(eq(motos.id, aprovacao.motoId))
-
-    await tx.update(aprovacoesVenda)
-      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
-      .where(eq(aprovacoesVenda.id, aprovacaoId))
 
     await tx.insert(historicoEstoque).values({
       motoId: aprovacao.motoId,
