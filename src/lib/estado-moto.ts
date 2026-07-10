@@ -1,6 +1,6 @@
 // src/lib/estado-moto.ts
 export type Status = 'caixa' | 'montada' | 'em_garantia'
-export type Disponibilidade = 'disponivel' | 'reservada' | 'vendida'
+export type Disponibilidade = 'disponivel' | 'reservada' | 'vendida' | 'aguardando_aprovacao'
 type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico'
 
 const isAdmin = (p: Papel) => p === 'admin_geral' || p === 'admin_socio'
@@ -62,9 +62,10 @@ export const statusLabel: Record<Status, string> = {
 }
 
 export const disponibilidadeLabel: Record<Disponibilidade, string> = {
-  disponivel: 'Disponível',
-  reservada:  'Reservada',
-  vendida:    'Vendida',
+  disponivel:            'Disponível',
+  reservada:             'Reservada',
+  vendida:               'Vendida',
+  aguardando_aprovacao:  'Aguardando aprovação',
 }
 
 // Compat: usado em lugares que ainda esperam a string antiga

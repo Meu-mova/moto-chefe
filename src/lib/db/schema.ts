@@ -10,15 +10,16 @@ export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm
 export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
 export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
 export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
-export const disponibilidadeEnum = pgEnum('disponibilidade_moto', ['disponivel', 'reservada', 'vendida'])
+export const disponibilidadeEnum = pgEnum('disponibilidade_moto', ['disponivel', 'reservada', 'vendida', 'aguardando_aprovacao'])
 export const pedidoStatusEnum = pgEnum('pedido_status', ['pendente', 'efetivado', 'cancelado'])
 export const transferenciaStatusEnum = pgEnum('transferencia_status', ['pendente', 'aceita', 'recusada'])
+export const aprovacaoVendaStatusEnum = pgEnum('aprovacao_venda_status', ['pendente', 'aprovada', 'recusada'])
 export const osStatusEnum = pgEnum('os_status', [
   'aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida',
 ])
 export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada'])
 export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
-export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda'])
+export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedido_venda', 'aprovacao_venda'])
 export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
 export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
@@ -166,6 +167,22 @@ export const vendas = pgTable('vendas', {
   statusConciliacao: text('status_conciliacao').notNull().default('pendente'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
   clienteId: uuid('cliente_id').references(() => clientes.id),
+})
+
+// ─── aprovacoes_venda ────────────────────────────────────────────────────────
+export const aprovacoesVenda = pgTable('aprovacoes_venda', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  dadosVenda: jsonb('dados_venda').notNull(),
+  motivo: text('motivo').notNull(),
+  disponibilidadeAnterior: disponibilidadeEnum('disponibilidade_anterior'),
+  status: aprovacaoVendaStatusEnum('status').notNull().default('pendente'),
+  respondidoPor: uuid('respondido_por').references(() => usuarios.id),
+  dataSolicitacao: timestamp('data_solicitacao', { withTimezone: true }).notNull().defaultNow(),
+  dataResposta: timestamp('data_resposta', { withTimezone: true }),
 })
 
 // ─── transferencias ──────────────────────────────────────────────────────────
