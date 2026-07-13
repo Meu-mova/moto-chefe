@@ -3,8 +3,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { salvarTaxasAction } from '../actions'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Save } from 'lucide-react'
 
 const PARCELAS_CARTAO = Array.from({ length: 21 }, (_, i) => i + 1)
@@ -17,6 +19,8 @@ type Taxas = {
   taxasDebito: Record<string, number>
   taxasLink: Record<string, number>
   taxasFinanciamento: Record<string, number>
+  freteValorKm: string
+  freteKmGratis: number
 }
 
 type RateMap = Record<string, string>
@@ -105,6 +109,8 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
   const [debito, setDebito] = useState<RateMap>(() => initMap(taxas.taxasDebito, PARCELAS_DEBITO))
   const [link, setLink] = useState<RateMap>(() => initMap(taxas.taxasLink, PARCELAS_LINK))
   const [financiamento, setFinanciamento] = useState<RateMap>(() => initMap(taxas.taxasFinanciamento, PARCELAS_FINANCIAMENTO))
+  const [freteValorKm, setFreteValorKm] = useState(taxas.freteValorKm)
+  const [freteKmGratis, setFreteKmGratis] = useState(String(taxas.freteKmGratis))
   const [loading, setLoading] = useState(false)
 
   function setCartaoRate(n: number, v: string) { setCartao(prev => ({ ...prev, [String(n)]: v })) }
@@ -120,6 +126,8 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
         taxasDebito: buildDecimalMap(debito),
         taxasLink: buildDecimalMap(link),
         taxasFinanciamento: buildDecimalMap(financiamento),
+        freteValorKm: freteValorKm || '3.00',
+        freteKmGratis: parseInt(freteKmGratis, 10) || 40,
       })
       toast.success('Taxas salvas com sucesso')
     } catch {
@@ -149,6 +157,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
             <TabsTrigger value="debito">Cartão de Débito</TabsTrigger>
             <TabsTrigger value="link">Link de Pagamento (1–18x)</TabsTrigger>
             <TabsTrigger value="financiamento">Financiamento</TabsTrigger>
+            <TabsTrigger value="frete">Frete</TabsTrigger>
           </TabsList>
 
           <TabsContent value="cartao" className="mt-4">
@@ -168,6 +177,29 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
 
           <TabsContent value="financiamento" className="mt-4">
             <TaxaGrid parcelas={PARCELAS_FINANCIAMENTO} rates={financiamento} onChange={setFinancRate} />
+          </TabsContent>
+
+          <TabsContent value="frete" className="mt-4">
+            <div className="max-w-xs space-y-4">
+              <p className="text-xs text-slate-400">
+                Usado na simulação de frete de entrega (Simulador), calculado sobre a distância ida e volta entre a loja e o CEP de destino.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor por km (R$)</Label>
+                <CurrencyInput value={freteValorKm} onChange={setFreteValorKm} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Km grátis (ida e volta)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="h-9 text-sm"
+                  value={freteKmGratis}
+                  onChange={e => setFreteKmGratis(e.target.value)}
+                />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
