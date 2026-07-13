@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'lucide-react'
+import { FreteSimulador } from './frete-simulador'
+import type { ResultadoFrete } from '../actions'
 
 type Modelo = {
   id: string
@@ -23,6 +25,9 @@ type Taxas = {
 type Props = {
   modelos: Modelo[]
   taxas: Taxas
+  lojasFrete: { id: string; nome: string; temCep: boolean }[]
+  isAdmin: boolean
+  lojaUsuarioId: string | null
 }
 
 function fmt(v: number) {
@@ -188,6 +193,7 @@ function gerarHtmlPrint(
   selDebito: Set<number>,
   selLink: Set<number>,
   selFinanciamento: Set<number>,
+  frete: { kmIdaEVolta: number; custo: number } | null,
 ) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
   const nomeEsc = esc(modelo.nome)
@@ -210,6 +216,12 @@ function gerarHtmlPrint(
     gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Link de Pagamento', corLabel: '#7c3aed', corBg: '#f5f3ff', corBorder: '#ddd6fe', corValor: '#6d28d9', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
     gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Financiamento', corLabel: '#d97706', corBg: '#fffbeb', corBorder: '#fde68a', corValor: '#b45309', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
+
+  const blocoFrete = frete ? `
+  <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0">
+    <div style="font-size:11px;color:#64748b">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
+    <div style="font-size:13px;font-weight:700;color:#334155;margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
+  </div>` : ''
 
   // "Com entrada" subsections — só aparecem quando há entrada
   const c21Entrada = entrada > 0 ? linhasCartaoComEntrada.find(l => l.parcelas === 21) : null
@@ -297,6 +309,8 @@ function gerarHtmlPrint(
   </div>
 
   ${tabelasSelecionadas}
+
+  ${blocoFrete}
 
   <div class="footer">MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio · Financiamento sujeito a aprovação de crédito</div>
 </body>
@@ -391,9 +405,10 @@ function PrecosDestaque({
   )
 }
 
-export function SimuladorClient({ modelos, taxas }: Props) {
+export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuarioId }: Props) {
   const [modeloId, setModeloId] = useState('')
   const [entrada, setEntrada] = useState('')
+  const [freteResultado, setFreteResultado] = useState<ResultadoFrete | null>(null)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ cartao: false, debito: false, link: false, financiamento: false })
   const [selCartao, setSelCartao] = useState<Set<number>>(new Set())
   const [selDebito, setSelDebito] = useState<Set<number>>(new Set())
@@ -453,6 +468,7 @@ export function SimuladorClient({ modelos, taxas }: Props) {
       selDebito,
       selLink,
       selFinanciamento,
+      freteResultado?.ok ? freteResultado : null,
     )
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -507,6 +523,19 @@ export function SimuladorClient({ modelos, taxas }: Props) {
               linhasCartaoComEntrada={linhasCartao}
               entrada={entradaInvalida ? 0 : entradaNum}
             />
+
+            <FreteSimulador
+              lojas={lojasFrete}
+              isAdmin={isAdmin}
+              lojaUsuarioId={lojaUsuarioId}
+              onResultado={setFreteResultado}
+            />
+
+            {freteResultado?.ok && (
+              <p className="text-sm font-medium text-slate-700">
+                Total com frete (PIX): {fmt(base + freteResultado.custo)}
+              </p>
+            )}
 
             {/* Entrada */}
             <div className="max-w-xs space-y-1.5">

@@ -1,11 +1,56 @@
 'use server'
 import { db } from '@/lib/db'
-import { simuladorPrecos } from '@/lib/db/schema'
+import { simuladorPrecos, lojas, configuracaoTaxas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { geocodificarCep, calcularDistanciaKm, calcularCustoFrete } from '@/lib/frete'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio']
+const BLOQUEADOS_FRETE = ['mecanico']
+
+export type ResultadoFrete =
+  | { ok: true; distanciaKmIda: number; kmIdaEVolta: number; custo: number; gratis: boolean }
+  | { ok: false; motivo: 'cep_invalido' | 'geocodificacao_falhou' }
+
+export async function simularFreteAction(lojaId: string, cepDestino: string): Promise<ResultadoFrete> {
+  const usuario = await getUsuarioLogado()
+  if (BLOQUEADOS_FRETE.includes(usuario.papel)) throw new Error('Sem permissão')
+
+  const cepLimpo = cepDestino.replace(/\D/g, '')
+  if (cepLimpo.length !== 8) return { ok: false, motivo: 'cep_invalido' }
+
+  const [loja] = await db
+    .select({ latitude: lojas.latitude, longitude: lojas.longitude })
+    .from(lojas)
+    .where(eq(lojas.id, lojaId))
+    .limit(1)
+  if (!loja || loja.latitude === null || loja.longitude === null) {
+    return { ok: false, motivo: 'geocodificacao_falhou' }
+  }
+
+  const coordDestino = await geocodificarCep(cepLimpo)
+  if (!coordDestino) return { ok: false, motivo: 'geocodificacao_falhou' }
+
+  const distanciaKmIda = calcularDistanciaKm(
+    { latitude: Number(loja.latitude), longitude: Number(loja.longitude) },
+    coordDestino,
+  )
+
+  const grupoId = await getGrupoIdDaLoja(lojaId)
+  const [taxas] = await db
+    .select({ freteValorKm: configuracaoTaxas.freteValorKm, freteKmGratis: configuracaoTaxas.freteKmGratis })
+    .from(configuracaoTaxas)
+    .where(eq(configuracaoTaxas.grupoId, grupoId))
+    .limit(1)
+  const valorPorKm = taxas ? Number(taxas.freteValorKm) : 3
+  const kmGratis = taxas ? Number(taxas.freteKmGratis) : 40
+
+  const { kmIdaEVolta, custo } = calcularCustoFrete(distanciaKmIda, valorPorKm, kmGratis)
+
+  return { ok: true, distanciaKmIda, kmIdaEVolta, custo, gratis: custo === 0 }
+}
 
 export async function criarSimuladorAction(data: {
   nome: string
