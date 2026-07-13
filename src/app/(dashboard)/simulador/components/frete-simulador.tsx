@@ -25,6 +25,7 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
   const [cep, setCep] = useState('')
   const [loading, setLoading] = useState(false)
   const [resultado, setResultado] = useState<ResultadoFrete | null>(null)
+  const [erroInesperado, setErroInesperado] = useState(false)
 
   const lojaSelecionada = lojas.find(l => l.id === lojaId) ?? null
 
@@ -33,14 +34,20 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
     const lojaAlvo = lojas.find(l => l.id === lojaAtual)
     if (cepLimpo.length !== 8 || !lojaAtual || !lojaAlvo?.temCep) {
       setResultado(null)
+      setErroInesperado(false)
       onResultado(null)
       return
     }
     setLoading(true)
+    setErroInesperado(false)
     try {
       const r = await simularFreteAction(lojaAtual, cepLimpo)
       setResultado(r)
       onResultado(r)
+    } catch {
+      setResultado(null)
+      onResultado(null)
+      setErroInesperado(true)
     } finally {
       setLoading(false)
     }
@@ -50,6 +57,7 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
     const lojaAtual = lojas.find(l => l.id === lojaId)
     if (lojaAtual && !lojaAtual.temCep) {
       setResultado(null)
+      setErroInesperado(false)
       onResultado(null)
       return
     }
@@ -108,6 +116,12 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
           {!loading && resultado && !resultado.ok && (
             <p className="text-xs text-red-500">
               {resultado.motivo === 'cep_invalido' ? 'CEP inválido.' : 'Não foi possível calcular a distância para este CEP.'}
+            </p>
+          )}
+
+          {!loading && erroInesperado && (
+            <p className="text-xs text-red-500">
+              Erro ao calcular o frete. Tente novamente.
             </p>
           )}
 
