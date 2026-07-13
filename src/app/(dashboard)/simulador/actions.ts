@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { simuladorPrecos, lojas, configuracaoTaxas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { getGrupoIdDaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { geocodificarCep, calcularDistanciaKm, calcularCustoFrete } from '@/lib/frete'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -17,6 +17,13 @@ export type ResultadoFrete =
 export async function simularFreteAction(lojaId: string, cepDestino: string): Promise<ResultadoFrete> {
   const usuario = await getUsuarioLogado()
   if (BLOQUEADOS_FRETE.includes(usuario.papel)) throw new Error('Sem permissão')
+
+  if (ADMINS.includes(usuario.papel)) {
+    const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+    if (!lojaIdsGrupo.includes(lojaId)) throw new Error('Sem permissão')
+  } else if (lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
 
   const cepLimpo = cepDestino.replace(/\D/g, '')
   if (cepLimpo.length !== 8) return { ok: false, motivo: 'cep_invalido' }

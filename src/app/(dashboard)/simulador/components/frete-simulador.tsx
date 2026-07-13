@@ -30,7 +30,8 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
 
   async function calcular(cepAtual: string, lojaAtual: string) {
     const cepLimpo = cepAtual.replace(/\D/g, '')
-    if (cepLimpo.length !== 8 || !lojaAtual) {
+    const lojaAlvo = lojas.find(l => l.id === lojaAtual)
+    if (cepLimpo.length !== 8 || !lojaAtual || !lojaAlvo?.temCep) {
       setResultado(null)
       onResultado(null)
       return
@@ -46,6 +47,12 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
   }
 
   useEffect(() => {
+    const lojaAtual = lojas.find(l => l.id === lojaId)
+    if (lojaAtual && !lojaAtual.temCep) {
+      setResultado(null)
+      onResultado(null)
+      return
+    }
     if (cep.replace(/\D/g, '').length === 8) {
       calcular(cep, lojaId)
     }
