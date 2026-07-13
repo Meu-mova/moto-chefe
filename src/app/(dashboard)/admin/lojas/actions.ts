@@ -4,6 +4,7 @@ import { lojas, motos, usuarios } from '@/lib/db/schema'
 import { eq, and, ne, count } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { geocodificarCep } from '@/lib/frete'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -11,27 +12,42 @@ async function assertAdmin() {
   return u
 }
 
+async function geocodificarSeInformado(cep: string | null) {
+  if (!cep || !cep.trim()) return { cep: null, latitude: null, longitude: null }
+  const coord = await geocodificarCep(cep)
+  return {
+    cep: cep.trim(),
+    latitude: coord ? String(coord.latitude) : null,
+    longitude: coord ? String(coord.longitude) : null,
+  }
+}
+
 export async function criarLojaAction(formData: FormData) {
   await assertAdmin()
   const grupoId = formData.get('grupoId') as string
   if (!grupoId) throw new Error('Selecione o grupo')
+  const geo = await geocodificarSeInformado(formData.get('cep') as string | null)
   await db.insert(lojas).values({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
     grupoId,
+    ...geo,
   })
   revalidatePath('/admin/lojas')
 }
 
 export async function editarLojaAction(id: string, formData: FormData) {
   await assertAdmin()
+  const geo = await geocodificarSeInformado(formData.get('cep') as string | null)
   await db.update(lojas).set({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
+    ...geo,
   }).where(eq(lojas.id, id))
   revalidatePath('/admin/lojas')
+  revalidatePath('/simulador')
 }
 
 export async function desativarLojaAction(id: string) {

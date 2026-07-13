@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DesativarLojaButton } from './components/desativar-loja-button'
 import { NovaLojaDialog } from './components/nova-loja-dialog'
+import { EditarLojaDialog } from './components/editar-loja-dialog'
 
 export default async function LojasPage() {
   const usuario = await getUsuarioLogado()
@@ -17,7 +18,7 @@ export default async function LojasPage() {
     db
       .select({
         id: lojas.id, nome: lojas.nome, cidade: lojas.cidade, endereco: lojas.endereco,
-        ativa: lojas.ativa, grupoNome: grupos.nome,
+        ativa: lojas.ativa, grupoNome: grupos.nome, cep: lojas.cep,
       })
       .from(lojas)
       .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
@@ -64,7 +65,10 @@ export default async function LojasPage() {
                   </TableCell>
                   {isSuperAdmin && (
                     <TableCell>
-                      {loja.ativa && <DesativarLojaButton lojaId={loja.id} />}
+                      <div className="flex items-center gap-2">
+                        <EditarLojaDialog loja={{ id: loja.id, nome: loja.nome, cidade: loja.cidade, endereco: loja.endereco, cep: loja.cep }} />
+                        {loja.ativa && <DesativarLojaButton lojaId={loja.id} />}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>

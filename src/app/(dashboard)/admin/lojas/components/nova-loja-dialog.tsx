@@ -18,6 +18,7 @@ export function NovaLojaDialog({ grupos, grupoIdDefault }: { grupos: Grupo[]; gr
   const [nome, setNome] = useState('')
   const [cidade, setCidade] = useState('')
   const [endereco, setEndereco] = useState('')
+  const [cep, setCep] = useState('')
   const [grupoId, setGrupoId] = useState(grupoIdDefault)
 
   async function handleSalvar() {
@@ -31,11 +32,12 @@ export function NovaLojaDialog({ grupos, grupoIdDefault }: { grupos: Grupo[]; gr
       formData.set('nome', nome)
       formData.set('cidade', cidade)
       formData.set('endereco', endereco)
+      formData.set('cep', cep)
       formData.set('grupoId', grupoId)
       await criarLojaAction(formData)
       toast.success('Loja criada!')
       setOpen(false)
-      setNome(''); setCidade(''); setEndereco('')
+      setNome(''); setCidade(''); setEndereco(''); setCep('')
       router.refresh()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -74,6 +76,15 @@ export function NovaLojaDialog({ grupos, grupoIdDefault }: { grupos: Grupo[]; gr
             <div className="space-y-1.5">
               <Label className="text-xs">Endereço *</Label>
               <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CEP</Label>
+              <Input
+                value={cep}
+                onChange={e => setCep(e.target.value)}
+                className="h-9 text-sm"
+                placeholder="00000-000"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
