@@ -9,6 +9,7 @@ import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
 import { NfSaidaButton } from './nf-saida-button'
 import { MontarButton } from './montar-button'
+import { podeVendedorReservarForaDaLoja } from '@/lib/grupo'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
 
 const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -112,6 +113,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
               <div className="flex items-center gap-1 justify-end">
                 {(() => {
                   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
+                  const podeVenderAqui = podeAlterar || (papel === 'vendedor' && podeVendedorReservarForaDaLoja(moto.lojaId))
                   return (
                     <>
                       {moto.status === 'vendida' && moto.disponibilidade === null
@@ -141,7 +143,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                               />
                             )}
 
-                            {podeAlterar && podeVender.has(papel) && (
+                            {podeVenderAqui && podeVender.has(papel) && (
                               <>
                                 {/* Montada/Garantia disponível: venda + reserva */}
                                 {moto.status !== 'caixa' && moto.disponibilidade !== 'reservada' && moto.disponibilidade !== 'aguardando_aprovacao' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (

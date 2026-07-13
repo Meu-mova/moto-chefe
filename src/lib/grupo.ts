@@ -94,6 +94,18 @@ export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: stri
     .orderBy(lojas.nome)
 }
 
+// ─── Exceção pontual: reserva/venda no Galpão Matriz por qualquer vendedor ────
+// Galpão Matriz é o estoque central de chegada do Sul de Minas — motos passam
+// por lá antes de serem distribuídas pras lojas. Vendedor normalmente só age
+// (reservar/vender) sobre moto da própria loja; aqui abrimos exceção só pra essa
+// loja, só pro papel vendedor, e só pra reserva/venda — garantia, montagem e
+// transferência continuam exigindo lotação na loja da moto.
+const LOJA_GALPAO_MATRIZ_ID = 'f154c1a5-c5ed-4bdc-af14-b1dea024beae'
+
+export function podeVendedorReservarForaDaLoja(lojaIdMoto: string): boolean {
+  return lojaIdMoto === LOJA_GALPAO_MATRIZ_ID
+}
+
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
 // admin_geral aprova de qualquer grupo; admin_socio só do próprio grupo,
 // determinado pela loja fixa dele (usuarios.lojaId), não pelo cookie

@@ -7,6 +7,7 @@ import { MontarButton } from '../../components/montar-button'
 import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight } from 'lucide-react'
+import { podeVendedorReservarForaDaLoja } from '@/lib/grupo'
 
 type Usuario = { id: string; nome: string }
 type Mecanico = { id: string; nome: string }
@@ -70,6 +71,7 @@ const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda }: Props) {
   const isAdmin = ADMINS.has(papel)
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
+  const podeVenderAqui = podeAlterar || (papel === 'vendedor' && podeVendedorReservarForaDaLoja(moto.lojaId))
   const descricao = `${moto.modelo} — ${moto.cor} (${moto.lojaNome})`
 
   const acoes: React.ReactNode[] = []
@@ -94,7 +96,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
       )
     }
 
-    if (podeAlterar && podeVender.has(papel)) {
+    if (podeVenderAqui && podeVender.has(papel)) {
       const podeVenderMoto = moto.status !== 'caixa' &&
         moto.disponibilidade !== 'reservada' &&
         moto.disponibilidade !== 'aguardando_aprovacao' && (
