@@ -9,6 +9,9 @@ export async function listarTransferencias(filtros?: {
   lojaId?: string        // non-admin: scope a loja origem OU destino do usuário
   lojaOrigemId?: string[]
   lojaDestinoId?: string[]
+  // admin: escopo padrão (sem filtro explícito de origem/destino) — usa OR, não AND,
+  // para não esconder transferências entre grupos (que têm só uma ponta no grupo ativo)
+  lojaOrigemOuDestinoId?: string[]
   modeloId?: string[]
   status?: string[]
   chassiBusca?: string
@@ -52,6 +55,12 @@ export async function listarTransferencias(filtros?: {
           : undefined,
         filtros?.lojaOrigemId !== undefined   ? inArray(transferencias.lojaOrigemId,  filtros.lojaOrigemId)              : undefined,
         filtros?.lojaDestinoId !== undefined  ? inArray(transferencias.lojaDestinoId, filtros.lojaDestinoId)             : undefined,
+        filtros?.lojaOrigemOuDestinoId?.length
+          ? or(
+              inArray(transferencias.lojaOrigemId,  filtros.lojaOrigemOuDestinoId),
+              inArray(transferencias.lojaDestinoId, filtros.lojaOrigemOuDestinoId),
+            )
+          : undefined,
         filtros?.modeloId?.length       ? inArray(motos.modeloId,               filtros.modeloId)                  : undefined,
         filtros?.status?.length         ? inArray(transferencias.status,         filtros.status as any[])           : undefined,
         filtros?.chassiBusca?.trim()    ? ilike(motos.chassi,                   `%${filtros.chassiBusca.trim()}%`) : undefined,

@@ -35,8 +35,12 @@ export default async function TransferenciasPage({
   const [lista, todasLojas, lojasParaSolicitar, motosTransferiveis, modelosOpts] = await Promise.all([
     listarTransferencias({
       lojaId:        !isAdmin ? (usuario.lojaId ?? undefined) : undefined,
-      lojaOrigemId:  isAdmin ? (origemValida.length  ? origemValida  : lojaIdsGrupo) : undefined,
-      lojaDestinoId: isAdmin ? (destinoValida.length ? destinoValida : lojaIdsGrupo) : undefined,
+      lojaOrigemId:  isAdmin && origemValida.length  ? origemValida  : undefined,
+      lojaDestinoId: isAdmin && destinoValida.length ? destinoValida : undefined,
+      // Sem filtro explícito: mostra o que toca o grupo ativo (origem OU destino),
+      // não só o que está inteiramente dentro dele — senão transferências entre
+      // grupos nunca aparecem para aceitar, de nenhum dos dois lados.
+      lojaOrigemOuDestinoId: isAdmin && !origemValida.length && !destinoValida.length ? lojaIdsGrupo : undefined,
       modeloId:      parseParam(params.modelo),
       status:        parseParam(params.status),
       chassiBusca:   params.q,
