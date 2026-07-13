@@ -7,7 +7,7 @@ import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -30,6 +30,7 @@ export default async function EstoquePage({
   const dispValues = parseParam(params.disponibilidade)
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
   // params.loja é validado contra as lojas do grupo ativo (nunca vaza loja de
   // outro grupo/CNPJ). Se a seleção for válida, vale tanto pra admin quanto
@@ -48,7 +49,7 @@ export default async function EstoquePage({
   const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
   const dir = params.dir === 'desc' ? 'desc' : 'asc'
 
-  const [motosList, lojasOpts, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await Promise.all([
+  const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await Promise.all([
     listarMotos({
       status:          parseParam(params.status),
       disponibilidade: dispValues.length ? dispValues : undefined,
@@ -61,6 +62,10 @@ export default async function EstoquePage({
       dir,
     }),
     listarLojasDoGrupoAtivo(usuario),
+    // Lojas oferecidas como destino no botão "Transferir" — igual a /transferencias,
+    // o usuário com a exceção multi-grupo vê lojas de todos os grupos aqui; o filtro
+    // "Loja" acima (lojasOpts) continua escopado ao grupo ativo pra todo mundo.
+    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
@@ -102,7 +107,7 @@ export default async function EstoquePage({
           vendedorId={usuario.id}
           vendedorNome={usuario.nome}
           usuarios={usuariosOpts}
-          lojas={lojasOpts}
+          lojas={lojasTransferencia}
           mecanicos={mecanicosOpts}
           lojaUsuarioId={usuario.lojaId ?? null}
           ord={ord}

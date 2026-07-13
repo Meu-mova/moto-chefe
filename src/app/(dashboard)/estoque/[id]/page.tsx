@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -29,10 +29,15 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
 
   const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
   const podeAprovarAprovacao = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
-  const [mecanicos, lojasOpts, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
+  const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
+    // Igual a /transferencias e /estoque: destino do botão "Transferir" inclui todos
+    // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
+    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.select({ valorMinimo: precificacao.valorMinimo })
@@ -116,7 +121,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         vendedorNome={usuario.nome}
         usuarios={usuariosOpts}
         mecanicos={mecanicos}
-        lojas={lojasOpts}
+        lojas={lojasTransferencia}
         lojaUsuarioId={usuario.lojaId ?? null}
         precoMinimoPix={precoMinimoPix}
         taxasVenda={taxasVenda}
