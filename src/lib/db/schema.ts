@@ -47,6 +47,9 @@ export const lojas = pgTable('lojas', {
   endereco: text('endereco').notNull(),
   ativa: boolean('ativa').notNull().default(true),
   grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  cep: text('cep'),
+  latitude: numeric('latitude', { precision: 9, scale: 6 }),
+  longitude: numeric('longitude', { precision: 9, scale: 6 }),
 })
 
 // ─── usuarios ────────────────────────────────────────────────────────────────
@@ -389,6 +392,8 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
   taxasDebito: jsonb('taxas_debito').$type<Record<string, number>>().notNull().default({}),
   taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
+  freteValorKm: numeric('frete_valor_km', { precision: 6, scale: 2 }).notNull().default('3.00'),
+  freteKmGratis: integer('frete_km_gratis').notNull().default(40),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
