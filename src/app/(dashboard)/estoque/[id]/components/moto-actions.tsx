@@ -7,7 +7,7 @@ import { MontarButton } from '../../components/montar-button'
 import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight } from 'lucide-react'
-import { podeVendedorReservarForaDaLoja } from '@/lib/grupo'
+import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 
 type Usuario = { id: string; nome: string }
 type Mecanico = { id: string; nome: string }

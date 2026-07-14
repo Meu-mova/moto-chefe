@@ -9,7 +9,7 @@ import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
 import { NfSaidaButton } from './nf-saida-button'
 import { MontarButton } from './montar-button'
-import { podeVendedorReservarForaDaLoja } from '@/lib/grupo'
+import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
 
 const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
