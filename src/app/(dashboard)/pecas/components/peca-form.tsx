@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { criarPecaAction, atualizarPecaAction, type PecaInput } from '../actions'
 
-type PecaInicial = { id: string; nome: string; valor: string }
+type PecaInicial = { id: string; nome: string; valor: string; quantidadeEstoque: number }
 
 type Props = {
   trigger: React.ReactNode
@@ -22,13 +22,13 @@ type Props = {
   onSaved?: () => void
 }
 
-type FormState = { nome: string; valor: string }
+type FormState = { nome: string; valor: string; quantidadeEstoque: string }
 
-const FORM_VAZIO: FormState = { nome: '', valor: '' }
+const FORM_VAZIO: FormState = { nome: '', valor: '', quantidadeEstoque: '0' }
 
 function paraFormState(p?: PecaInicial): FormState {
   if (!p) return FORM_VAZIO
-  return { nome: p.nome, valor: p.valor }
+  return { nome: p.nome, valor: p.valor, quantidadeEstoque: String(p.quantidadeEstoque) }
 }
 
 export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
@@ -55,6 +55,7 @@ export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
     const input: PecaInput = {
       nome: form.nome,
       valor: form.valor ? parseFloat(form.valor) : 0,
+      quantidadeEstoque: form.quantidadeEstoque ? parseInt(form.quantidadeEstoque, 10) : 0,
     }
     setLoading(true)
     try {
@@ -100,6 +101,16 @@ export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
                 value={form.valor}
                 onChange={v => setCampo('valor', v)}
                 placeholder="0,00"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Estoque (unidades)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={form.quantidadeEstoque}
+                onChange={e => setCampo('quantidadeEstoque', e.target.value)}
               />
             </div>
           </div>

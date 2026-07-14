@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
-import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios } from '@/lib/db/schema'
+import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
 import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -108,21 +108,31 @@ export default async function PixMcpPage({
 
   const vendaIds = linhas.map(l => l.vendaId).filter((id): id is string => !!id)
   const osIds = linhas.map(l => l.osId).filter((id): id is string => !!id)
+  const pedidoIds = linhas.map(l => l.pedidoId).filter((id): id is string => !!id)
+  const pecaVendaIds = linhas.map(l => l.pecaVendaId).filter((id): id is string => !!id)
   const lancadoPorIds = linhas.map(l => l.lancadoPorId).filter((id): id is string => !!id)
 
-  const [vendasDb, osDb, usuariosDb] = await Promise.all([
+  const [vendasDb, osDb, pedidosDb, pecasVendaDb, usuariosDb] = await Promise.all([
     vendaIds.length > 0
       ? db.select({ id: vendas.id, notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(inArray(vendas.id, vendaIds))
       : Promise.resolve([] as { id: string; notaFiscalSaida: string | null }[]),
     osIds.length > 0
       ? db.select({ id: ordensServico.id, numero: ordensServico.numero }).from(ordensServico).where(inArray(ordensServico.id, osIds))
       : Promise.resolve([] as { id: string; numero: number | null }[]),
+    pedidoIds.length > 0
+      ? db.select({ id: pedidosVenda.id, numero: pedidosVenda.numero }).from(pedidosVenda).where(inArray(pedidosVenda.id, pedidoIds))
+      : Promise.resolve([] as { id: string; numero: number }[]),
+    pecaVendaIds.length > 0
+      ? db.select({ id: vendasPecas.id, numero: vendasPecas.numero }).from(vendasPecas).where(inArray(vendasPecas.id, pecaVendaIds))
+      : Promise.resolve([] as { id: string; numero: number }[]),
     lancadoPorIds.length > 0
       ? db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(inArray(usuarios.id, lancadoPorIds))
       : Promise.resolve([] as { id: string; nome: string }[]),
   ])
   const vendaNfById = new Map(vendasDb.map(v => [v.id, v.notaFiscalSaida]))
   const osNumeroById = new Map(osDb.map(o => [o.id, o.numero]))
+  const pedidoNumeroById = new Map(pedidosDb.map(p => [p.id, p.numero]))
+  const pecaNumeroById = new Map(pecasVendaDb.map(p => [p.id, p.numero]))
   const usuarioNomeById = new Map(usuariosDb.map(u => [u.id, u.nome]))
 
   const total = linhas.reduce((s, l) => s + Number(l.valor), 0)
@@ -212,6 +222,8 @@ export default async function PixMcpPage({
                         tipo: l.tipoCorrespondencia,
                         vendaNf: l.vendaId ? vendaNfById.get(l.vendaId) ?? null : null,
                         osNumero: l.osId ? osNumeroById.get(l.osId) ?? null : null,
+                        pedidoNumero: l.pedidoId ? pedidoNumeroById.get(l.pedidoId) ?? null : null,
+                        pecaNumero: l.pecaVendaId ? pecaNumeroById.get(l.pecaVendaId) ?? null : null,
                         lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
                         lancadoEm: l.lancadoEm ? l.lancadoEm.toISOString() : null,
                       }}

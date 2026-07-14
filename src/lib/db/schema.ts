@@ -23,7 +23,7 @@ export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedid
 export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
 export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
-export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os'])
+export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os', 'pedido', 'peca'])
 
 // ─── grupos ──────────────────────────────────────────────────────────────────
 export const grupos = pgTable('grupos', {
@@ -298,9 +298,34 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   valor: numeric('valor', { precision: 10, scale: 2 }).notNull().default('0'),
+  quantidadeEstoque: integer('quantidade_estoque').notNull().default(0),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────
+export const vendasPecas = pgTable('vendas_pecas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  numero: integer('numero').notNull().default(sql`nextval('numero_venda_seq')`),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
+  clienteNome: text('cliente_nome'),
+  formaPagamento: text('forma_pagamento').notNull(),
+  pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
+  valorTotal: numeric('valor_total', { precision: 12, scale: 2 }).notNull(),
+  dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── vendas_pecas_itens ────────────────────────────────────────────────────────
+export const vendasPecasItens = pgTable('vendas_pecas_itens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  vendaPecaId: uuid('venda_peca_id').notNull().references(() => vendasPecas.id, { onDelete: 'cascade' }),
+  pecaId: uuid('peca_id').notNull().references(() => pecasCatalogo.id),
+  descricao: text('descricao').notNull(),
+  quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('1'),
+  valorUnitario: numeric('valor_unitario', { precision: 10, scale: 2 }).notNull().default('0'),
 })
 
 // ─── os_itens ────────────────────────────────────────────────────────────────
@@ -428,6 +453,7 @@ export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
   tipo: text('tipo').notNull().default('credito'),
   status: text('status').notNull().default('aprovado'),
   vendaId: uuid('venda_id').references(() => vendas.id),
+  pecaVendaId: uuid('peca_venda_id').references(() => vendasPecas.id),
   conciliado: boolean('conciliado').notNull().default(false),
   conciliadoEm: timestamp('conciliado_em', { withTimezone: true }),
   rawData: jsonb('raw_data'),
@@ -462,6 +488,8 @@ export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   tipoCorrespondencia: tipoCorrespondenciaPixEnum('tipo_correspondencia'),
   vendaId:             uuid('venda_id').references(() => vendas.id),
   osId:                uuid('os_id').references(() => ordensServico.id),
+  pedidoId:            uuid('pedido_id').references(() => pedidosVenda.id),
+  pecaVendaId:         uuid('peca_venda_id').references(() => vendasPecas.id),
   lancadoPorId:        uuid('lancado_por_id').references(() => usuarios.id),
   lancadoEm:           timestamp('lancado_em', { withTimezone: true }),
   criadoEm:            timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),

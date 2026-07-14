@@ -20,9 +20,10 @@ type Props = {
   dataRef: string
   valorRef: number
   vendaVinculada?: { id: string; numero: number; clienteNome: string; valor: string } | null
+  tipoVinculado?: 'moto' | 'peca'
 }
 
-export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVinculada }: Props) {
+export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVinculada, tipoVinculado }: Props) {
   const [open, setOpen]               = useState(false)
   const [vendas, setVendas]           = useState<Venda[]>([])
   const [carregando, setCarregando]   = useState(false)
@@ -60,10 +61,10 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
     }
   }
 
-  function vincular(vendaId: string) {
+  function vincular(alvoId: string, tipo: 'moto' | 'peca') {
     startTransition(async () => {
       try {
-        await vincularVendaAction(conciliacaoId, vendaId)
+        await vincularVendaAction(conciliacaoId, alvoId, tipo)
         toast.success('Venda vinculada')
         setOpen(false)
       } catch {
@@ -90,7 +91,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
     return (
       <button
         key={v.id}
-        onClick={() => vincular(v.id)}
+        onClick={() => vincular(v.id, v.tipo)}
         disabled={pending}
         className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors text-sm ${
           force
@@ -99,7 +100,12 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="font-medium text-slate-800">Venda #{v.numero} — {v.clienteNome}</span>
+          <span className="font-medium text-slate-800">
+            {v.tipo === 'peca' && (
+              <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1.5 py-0.5 mr-1.5">PA</span>
+            )}
+            Venda #{v.numero} — {v.clienteNome}
+          </span>
           <span className="font-semibold text-slate-900">
             {parseFloat(v.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </span>
@@ -135,6 +141,9 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
       <div className="flex items-center gap-1.5">
         <span className="flex items-center gap-1 text-xs text-emerald-700 font-medium">
           <CheckCircle2 size={12} />
+          {tipoVinculado === 'peca' && (
+            <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1 py-0.5">PA</span>
+          )}
           #{vendaVinculada.numero} — {vendaVinculada.clienteNome.split(' ')[0]}
         </span>
         <button

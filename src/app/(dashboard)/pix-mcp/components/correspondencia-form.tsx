@@ -2,31 +2,38 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 import { lancarCorrespondenciaAction, removerCorrespondenciaAction } from '../actions'
 
 type Correspondencia = {
-  tipo: 'venda' | 'os' | null
+  tipo: 'venda' | 'os' | 'pedido' | 'peca' | null
   vendaNf: string | null
   osNumero: number | null
+  pedidoNumero: number | null
+  pecaNumero: number | null
   lancadoPorNome: string | null
   lancadoEm: string | null
 }
 
 type Props = { id: string; correspondencia: Correspondencia }
 
+const labelPorTipo = {
+  venda: (c: Correspondencia) => `NF ${c.vendaNf}`,
+  os: (c: Correspondencia) => `OS #${c.osNumero}`,
+  pedido: (c: Correspondencia) => `Pedido #${c.pedidoNumero}`,
+  peca: (c: Correspondencia) => `PA #${c.pecaNumero}`,
+}
+
 export function CorrespondenciaForm({ id, correspondencia }: Props) {
   const [pending, start] = useTransition()
-  const [tipo, setTipo] = useState<'venda' | 'os'>('venda')
+  const [tipo, setTipo] = useState<'venda' | 'os' | 'pedido' | 'peca'>('venda')
   const [numero, setNumero] = useState('')
 
   if (correspondencia.tipo) {
-    const label = correspondencia.tipo === 'venda'
-      ? `NF ${correspondencia.vendaNf}`
-      : `OS #${correspondencia.osNumero}`
+    const label = labelPorTipo[correspondencia.tipo](correspondencia)
 
     function remover() {
       start(async () => {
@@ -73,11 +80,15 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <Select value={tipo} onValueChange={v => setTipo(v as 'venda' | 'os')}>
-        <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+      <Select value={tipo} onValueChange={v => setTipo(v as 'venda' | 'os' | 'pedido' | 'peca')}>
+        <SelectTrigger className="h-8 w-20 text-xs">
+          <span>{{ venda: 'NF', os: 'OS', pedido: 'Pedido', peca: 'PA' }[tipo]}</span>
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="venda">NF</SelectItem>
           <SelectItem value="os">OS</SelectItem>
+          <SelectItem value="pedido">Pedido</SelectItem>
+          <SelectItem value="peca">PA</SelectItem>
         </SelectContent>
       </Select>
       <Input

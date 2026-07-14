@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos } from '@/lib/db/schema'
+import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos, vendasPecas } from '@/lib/db/schema'
 import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -185,10 +185,11 @@ export async function importarRelatorioAction(formData: FormData) {
       if (ex) { duplicadas++; continue }
     }
 
-    // Tenta auto-conciliar pela autorização registrada na venda, restrito ao grupo ativo
+    // Tenta auto-conciliar pela autorização registrada na venda (moto ou peça), restrito ao grupo ativo
     let vendaId: string | null = null
+    let pecaVendaId: string | null = null
     if (r.autorizacao) {
-      const [match] = await db
+      const [matchVenda] = await db
         .select({ id: vendas.id })
         .from(vendas)
         .where(and(
@@ -196,9 +197,22 @@ export async function importarRelatorioAction(formData: FormData) {
           inArray(vendas.lojaId, lojaIdsGrupo),
         ))
         .limit(1)
-      if (match) vendaId = match.id
+      if (matchVenda) {
+        vendaId = matchVenda.id
+      } else {
+        const [matchPeca] = await db
+          .select({ id: vendasPecas.id })
+          .from(vendasPecas)
+          .where(and(
+            sql`${vendasPecas.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`,
+            inArray(vendasPecas.lojaId, lojaIdsGrupo),
+          ))
+          .limit(1)
+        if (matchPeca) pecaVendaId = matchPeca.id
+      }
     }
 
+    const matched = vendaId ?? pecaVendaId
     await db.insert(conciliacoesCartao).values({
       grupoId:        grupo.id,
       operadora,
@@ -211,10 +225,10 @@ export async function importarRelatorioAction(formData: FormData) {
       tipo:           r.tipo,
       status:         'aprovado',
       rawData:        { bandeira: r.bandeira, portador: r.portador },
-      ...(vendaId ? { vendaId, conciliado: true, conciliadoEm: new Date() } : {}),
+      ...(matched ? { vendaId, pecaVendaId, conciliado: true, conciliadoEm: new Date() } : {}),
     })
 
-    if (vendaId) conciliadas++
+    if (matched) conciliadas++
     else importadas++
   }
 
@@ -222,24 +236,38 @@ export async function importarRelatorioAction(formData: FormData) {
   return { importadas, duplicadas, conciliadas }
 }
 
-export async function vincularVendaAction(conciliacaoId: string, vendaId: string) {
+export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' = 'moto') {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+
+  if (tipo === 'peca') {
+    const [pecaVenda] = await db.select({ lojaId: vendasPecas.lojaId }).from(vendasPecas).where(eq(vendasPecas.id, alvoId)).limit(1)
+    if (!pecaVenda || !lojaIdsGrupo.includes(pecaVenda.lojaId)) {
+      throw new Error('Venda de peça não pertence ao grupo ativo')
+    }
+    const atualizadas = await db.update(conciliacoesCartao)
+      .set({ pecaVendaId: alvoId, vendaId: null, conciliado: true, conciliadoEm: new Date() })
+      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+      .returning({ id: conciliacoesCartao.id })
+    if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
+    revalidatePath('/conciliacao')
+    return
+  }
 
   // Garante que a venda a ser vinculada pertence a uma loja do grupo ativo
   const [venda] = await db
     .select({ lojaId: vendas.lojaId })
     .from(vendas)
-    .where(eq(vendas.id, vendaId))
+    .where(eq(vendas.id, alvoId))
     .limit(1)
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!venda || !lojaIdsGrupo.includes(venda.lojaId)) {
     throw new Error('Venda não pertence ao grupo ativo')
   }
 
   const atualizadas = await db.update(conciliacoesCartao)
-    .set({ vendaId, conciliado: true, conciliadoEm: new Date() })
+    .set({ vendaId: alvoId, pecaVendaId: null, conciliado: true, conciliadoEm: new Date() })
     .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
     .returning({ id: conciliacoesCartao.id })
 
@@ -254,7 +282,7 @@ export async function desvincularVendaAction(conciliacaoId: string) {
   const grupo = await getGrupoAtivo(usuario)
 
   const atualizadas = await db.update(conciliacoesCartao)
-    .set({ vendaId: null, conciliado: false, conciliadoEm: null })
+    .set({ vendaId: null, pecaVendaId: null, conciliado: false, conciliadoEm: null })
     .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
     .returning({ id: conciliacoesCartao.id })
 
@@ -352,31 +380,60 @@ export async function buscarVendasParaVincular(valorRef: number) {
   const usuario = await getUsuarioLogado()
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
-  // Busca vendas onde algum lançamento de cartão tem valor exato (tolerância de R$0,01),
-  // restrito às lojas do grupo ativo do usuário.
-  return db
-    .select({
-      id:             vendas.id,
-      numero:         vendas.numero,
-      dataVenda:      vendas.dataVenda,
-      clienteNome:    vendas.clienteNome,
-      valor:          vendas.valor,
-      formaPagamento: vendas.formaPagamento,
-      pagamentos:     vendas.pagamentos,
-    })
-    .from(vendas)
-    .where(
-      and(
-        inArray(vendas.lojaId, lojaIdsGrupo),
-        sql`EXISTS (
-          SELECT 1 FROM jsonb_array_elements(${vendas.pagamentos}) AS p
-          WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
-          AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
-        )`,
+  // Busca vendas (motos e peças/acessórios) onde algum lançamento de cartão tem valor
+  // exato (tolerância de R$0,01), restrito às lojas do grupo ativo do usuário.
+  const [motosRows, pecasRows] = await Promise.all([
+    db
+      .select({
+        id:             vendas.id,
+        tipo:           sql<'moto'>`'moto'`,
+        numero:         vendas.numero,
+        dataVenda:      vendas.dataVenda,
+        clienteNome:    vendas.clienteNome,
+        valor:          vendas.valor,
+        formaPagamento: vendas.formaPagamento,
+        pagamentos:     vendas.pagamentos,
+      })
+      .from(vendas)
+      .where(
+        and(
+          inArray(vendas.lojaId, lojaIdsGrupo),
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements(${vendas.pagamentos}) AS p
+            WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
+            AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
+          )`,
+        )
       )
-    )
-    .orderBy(desc(vendas.dataVenda))
-    .limit(50)
+      .orderBy(desc(vendas.dataVenda))
+      .limit(50),
+    db
+      .select({
+        id:             vendasPecas.id,
+        tipo:           sql<'peca'>`'peca'`,
+        numero:         vendasPecas.numero,
+        dataVenda:      vendasPecas.dataVenda,
+        clienteNome:    sql<string>`COALESCE(${vendasPecas.clienteNome}, 'Cliente não identificado')`,
+        valor:          vendasPecas.valorTotal,
+        formaPagamento: vendasPecas.formaPagamento,
+        pagamentos:     vendasPecas.pagamentos,
+      })
+      .from(vendasPecas)
+      .where(
+        and(
+          inArray(vendasPecas.lojaId, lojaIdsGrupo),
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements(${vendasPecas.pagamentos}) AS p
+            WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
+            AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
+          )`,
+        )
+      )
+      .orderBy(desc(vendasPecas.dataVenda))
+      .limit(50),
+  ])
+
+  return [...motosRows, ...pecasRows]
 }
 
 export async function buscarVendaManual(query: string) {
@@ -389,23 +446,48 @@ export async function buscarVendaManual(query: string) {
 
   const isNumero = /^\d{1,7}$/.test(q)
 
-  return db
-    .select({
-      id:             vendas.id,
-      numero:         vendas.numero,
-      dataVenda:      vendas.dataVenda,
-      clienteNome:    vendas.clienteNome,
-      valor:          vendas.valor,
-      formaPagamento: vendas.formaPagamento,
-      pagamentos:     vendas.pagamentos,
-    })
-    .from(vendas)
-    .where(
-      and(
-        inArray(vendas.lojaId, lojaIdsGrupo),
-        isNumero ? eq(vendas.numero, parseInt(q, 10)) : ilike(vendas.clienteNome, `%${q}%`),
+  const [motosRows, pecasRows] = await Promise.all([
+    db
+      .select({
+        id:             vendas.id,
+        tipo:           sql<'moto'>`'moto'`,
+        numero:         vendas.numero,
+        dataVenda:      vendas.dataVenda,
+        clienteNome:    vendas.clienteNome,
+        valor:          vendas.valor,
+        formaPagamento: vendas.formaPagamento,
+        pagamentos:     vendas.pagamentos,
+      })
+      .from(vendas)
+      .where(
+        and(
+          inArray(vendas.lojaId, lojaIdsGrupo),
+          isNumero ? eq(vendas.numero, parseInt(q, 10)) : ilike(vendas.clienteNome, `%${q}%`),
+        )
       )
-    )
-    .orderBy(desc(vendas.dataVenda))
-    .limit(15)
+      .orderBy(desc(vendas.dataVenda))
+      .limit(15),
+    db
+      .select({
+        id:             vendasPecas.id,
+        tipo:           sql<'peca'>`'peca'`,
+        numero:         vendasPecas.numero,
+        dataVenda:      vendasPecas.dataVenda,
+        clienteNome:    sql<string>`COALESCE(${vendasPecas.clienteNome}, 'Cliente não identificado')`,
+        valor:          vendasPecas.valorTotal,
+        formaPagamento: vendasPecas.formaPagamento,
+        pagamentos:     vendasPecas.pagamentos,
+      })
+      .from(vendasPecas)
+      .where(
+        and(
+          inArray(vendasPecas.lojaId, lojaIdsGrupo),
+          isNumero ? eq(vendasPecas.numero, parseInt(q, 10)) : ilike(sql`COALESCE(${vendasPecas.clienteNome}, '')`, `%${q}%`),
+        )
+      )
+      .orderBy(desc(vendasPecas.dataVenda))
+      .limit(15),
+  ])
+
+  return [...motosRows, ...pecasRows]
 }

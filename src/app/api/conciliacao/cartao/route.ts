@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas } from '@/lib/db/schema'
+import { conciliacoesCartao, vendas, vendasPecas } from '@/lib/db/schema'
 import { eq, and, between, sql } from 'drizzle-orm'
 
 export type TransacaoCartao = {
@@ -74,9 +74,29 @@ export async function POST(req: NextRequest) {
       if (pgtoCartao) { vendaId = v.id; break }
     }
 
+    // Se não casou com venda de moto, tenta venda de peças/acessórios (mesma tolerância)
+    let pecaVendaId: string | null = null
+    if (!vendaId) {
+      const pecasCandidatas = await db
+        .select({ id: vendasPecas.id, pagamentos: vendasPecas.pagamentos })
+        .from(vendasPecas)
+        .where(between(vendasPecas.dataVenda, dataMin, dataMax))
+
+      for (const v of pecasCandidatas) {
+        const pgtos = (v.pagamentos ?? []) as { tipo: string; valor: number; parcelas?: number }[]
+        const pgtoCartao = pgtos.find(p =>
+          ['cartao_credito', 'cartao_debito', 'link_pagamento'].includes(p.tipo) &&
+          Math.abs(p.valor - t.valorBruto) <= TOLERANCE &&
+          (!p.parcelas || p.parcelas === t.parcelas)
+        )
+        if (pgtoCartao) { pecaVendaId = v.id; break }
+      }
+    }
+
     // Endpoint sem sessão de usuário (autenticado por secret) — não é possível
     // derivar o grupo ativo. Fixo em Sul de Minas até este endpoint ser
     // religado a uma automação específica de grupo.
+    const matched = vendaId ?? pecaVendaId
     await db.insert(conciliacoesCartao).values({
       grupoId: '00000000-0000-4000-8000-000000000001',
       operadora,
@@ -89,13 +109,14 @@ export async function POST(req: NextRequest) {
       tipo: t.tipo,
       status: t.status,
       vendaId: vendaId ?? undefined,
-      conciliado: vendaId !== null,
-      conciliadoEm: vendaId !== null ? new Date() : null,
+      pecaVendaId: pecaVendaId ?? undefined,
+      conciliado: matched !== null,
+      conciliadoEm: matched !== null ? new Date() : null,
       rawData: t.rawData ?? null,
     })
 
     importadas++
-    if (vendaId) conciliadas++
+    if (matched) conciliadas++
   }
 
   return NextResponse.json({ importadas, duplicadas, conciliadas, pendentes: importadas - conciliadas })

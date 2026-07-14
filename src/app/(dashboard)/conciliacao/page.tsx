@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas } from '@/lib/db/schema'
-import { eq, desc, and, isNull, isNotNull } from 'drizzle-orm'
+import { conciliacoesCartao, vendas, vendasPecas } from '@/lib/db/schema'
+import { eq, desc, and, isNull, isNotNull, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
@@ -50,6 +50,7 @@ export default async function ConciliacaoPage({
       nsu:           conciliacoesCartao.nsu,
       conciliado:    conciliacoesCartao.conciliado,
       vendaId:       conciliacoesCartao.vendaId,
+      pecaVendaId:   conciliacoesCartao.pecaVendaId,
       rawData:       conciliacoesCartao.rawData,
     })
     .from(conciliacoesCartao)
@@ -57,14 +58,24 @@ export default async function ConciliacaoPage({
     .orderBy(desc(conciliacoesCartao.dataTransacao))
     .limit(200)
 
-  // Carrega dados das vendas vinculadas
+  // Carrega dados das vendas (motos e peças) vinculadas
   const vendaIds = [...new Set(transacoes.flatMap(t => t.vendaId ? [t.vendaId] : []))]
+  const pecaVendaIds = [...new Set(transacoes.flatMap(t => t.pecaVendaId ? [t.pecaVendaId] : []))]
   const vendasMap = new Map<string, { id: string; numero: number; clienteNome: string; valor: string }>()
+  const pecasVendaMap = new Map<string, { id: string; numero: number; clienteNome: string; valor: string }>()
   if (vendaIds.length > 0) {
     const rows = await db
       .select({ id: vendas.id, numero: vendas.numero, clienteNome: vendas.clienteNome, valor: vendas.valor })
       .from(vendas)
+      .where(inArray(vendas.id, vendaIds))
     rows.forEach(v => vendasMap.set(v.id, v))
+  }
+  if (pecaVendaIds.length > 0) {
+    const rows = await db
+      .select({ id: vendasPecas.id, numero: vendasPecas.numero, clienteNome: vendasPecas.clienteNome, valor: vendasPecas.valorTotal })
+      .from(vendasPecas)
+      .where(inArray(vendasPecas.id, pecaVendaIds))
+    rows.forEach(v => pecasVendaMap.set(v.id, { ...v, clienteNome: v.clienteNome ?? 'Cliente não identificado' }))
   }
 
   const [totalPendentes, totalConciliadas] = await Promise.all([
@@ -130,7 +141,12 @@ export default async function ConciliacaoPage({
                 const raw = t.rawData as Record<string, string> | null
                 const bandeira = raw?.bandeira ?? ''
                 const portador = raw?.portador ?? ''
-                const vendaVinculada = t.vendaId ? (vendasMap.get(t.vendaId) ?? null) : null
+                const vendaVinculada = t.vendaId
+                  ? (vendasMap.get(t.vendaId) ?? null)
+                  : t.pecaVendaId
+                    ? (pecasVendaMap.get(t.pecaVendaId) ?? null)
+                    : null
+                const tipoVinculado: 'moto' | 'peca' | undefined = t.vendaId ? 'moto' : t.pecaVendaId ? 'peca' : undefined
 
                 return (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -166,6 +182,7 @@ export default async function ConciliacaoPage({
                         dataRef={t.dataTransacao}
                         valorRef={parseFloat(t.valorBruto)}
                         vendaVinculada={vendaVinculada}
+                        tipoVinculado={tipoVinculado}
                       />
                     </td>
                   </tr>
