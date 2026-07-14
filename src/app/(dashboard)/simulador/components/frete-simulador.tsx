@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Truck } from 'lucide-react'
 import { simularFreteAction, type ResultadoFrete } from '../actions'
 
@@ -78,63 +78,69 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
         <span className="font-semibold text-sm text-slate-800">Frete de Entrega</span>
       </div>
 
-      {isAdmin && (
-        <div className="max-w-xs space-y-1.5">
-          <Label className="text-xs">Loja de origem</Label>
-          <Select value={lojaId} onValueChange={v => setLojaId(v ?? '')}>
-            <SelectTrigger className="h-9 text-sm w-full">
-              <SelectValue placeholder="Selecione a loja" />
-            </SelectTrigger>
-            <SelectContent>
-              {lojas.map(l => (
-                <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {lojaSelecionada && !lojaSelecionada.temCep ? (
-        <p className="text-xs text-amber-600">
-          Configure o CEP desta loja em Admin &gt; Lojas para calcular o frete.
-        </p>
-      ) : (
-        <>
-          <div className="max-w-xs space-y-1.5">
-            <Label className="text-xs">CEP de destino</Label>
-            <Input
-              value={cep}
-              onChange={e => setCep(e.target.value)}
-              onBlur={e => calcular(e.target.value, lojaId)}
-              placeholder="00000-000"
-              className="h-9 text-sm"
-            />
+      <div className="flex flex-wrap items-end gap-3">
+        {isAdmin && (
+          <div className="w-52 space-y-1.5">
+            <Label className="text-xs">Loja de origem</Label>
+            <Select value={lojaId} onValueChange={v => setLojaId(v ?? '')}>
+              <SelectTrigger className="h-9 text-sm w-full">
+                <span className={lojaId ? 'text-foreground' : 'text-muted-foreground'}>
+                  {lojaSelecionada?.nome ?? 'Selecione a loja'}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {lojas.map(l => (
+                  <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        )}
 
-          {loading && <p className="text-xs text-slate-400">Calculando frete...</p>}
-
-          {!loading && resultado && !resultado.ok && (
-            <p className="text-xs text-red-500">
-              {resultado.motivo === 'cep_invalido' ? 'CEP inválido.' : 'Não foi possível calcular a distância para este CEP.'}
-            </p>
-          )}
-
-          {!loading && erroInesperado && (
-            <p className="text-xs text-red-500">
-              Erro ao calcular o frete. Tente novamente.
-            </p>
-          )}
-
-          {!loading && resultado?.ok && (
-            <div className="text-xs text-slate-600 space-y-0.5">
-              <p>Distância: {resultado.kmIdaEVolta.toFixed(1)} km (ida e volta)</p>
-              <p className="font-semibold text-slate-800">
-                Frete: {resultado.gratis ? 'Grátis' : fmt(resultado.custo)}
-              </p>
+        {lojaSelecionada && !lojaSelecionada.temCep ? (
+          <p className="text-xs text-amber-600 pb-1.5">
+            Configure o CEP desta loja em Admin &gt; Lojas para calcular o frete.
+          </p>
+        ) : (
+          <>
+            <div className="w-36 space-y-1.5">
+              <Label className="text-xs">CEP de destino</Label>
+              <Input
+                value={cep}
+                onChange={e => setCep(e.target.value)}
+                onBlur={e => calcular(e.target.value, lojaId)}
+                placeholder="00000-000"
+                className="h-9 text-sm"
+              />
             </div>
-          )}
-        </>
-      )}
+
+            {(loading || erroInesperado || resultado) && (
+              <div className="rounded-lg bg-slate-50 border px-3 py-1.5 text-xs">
+                {loading && <p className="text-slate-400">Calculando frete...</p>}
+
+                {!loading && resultado && !resultado.ok && (
+                  <p className="text-red-500">
+                    {resultado.motivo === 'cep_invalido' ? 'CEP inválido.' : 'Não foi possível calcular a distância para este CEP.'}
+                  </p>
+                )}
+
+                {!loading && erroInesperado && (
+                  <p className="text-red-500">Erro ao calcular o frete. Tente novamente.</p>
+                )}
+
+                {!loading && resultado?.ok && (
+                  <div className="text-slate-600 space-y-0.5">
+                    <p>Distância: {resultado.kmIdaEVolta.toFixed(1)} km (ida e volta)</p>
+                    <p className="font-semibold text-slate-800">
+                      Frete: {resultado.gratis ? 'Grátis' : fmt(resultado.custo)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
