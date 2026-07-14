@@ -394,6 +394,7 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
   freteValorKm: numeric('frete_valor_km', { precision: 6, scale: 2 }).notNull().default('3.00'),
   freteKmGratis: integer('frete_km_gratis').notNull().default(40),
+  imposto: numeric('imposto', { precision: 6, scale: 4 }).notNull().default('0.06'),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

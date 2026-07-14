@@ -24,23 +24,24 @@ export default async function TransferenciasPage({
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
-  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  // Todos os papéis enxergam a movimentação entre todas as lojas do grupo ativo —
+  // permissão pra aceitar/recusar continua restrita à loja de destino (ver actions.ts).
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
-  // Valida origem/destino informados na URL contra o grupo ativo do admin — um id
+  // Valida origem/destino informados na URL contra o grupo ativo — um id
   // fora do grupo (estranho ou de outro tenant) é descartado, nunca vaza como filtro.
   const origemValida  = parseParam(params.origem).filter(id => lojaIdsGrupo.includes(id))
   const destinoValida = parseParam(params.destino).filter(id => lojaIdsGrupo.includes(id))
 
   const [lista, todasLojas, lojasParaSolicitar, motosTransferiveis, modelosOpts] = await Promise.all([
     listarTransferencias({
-      lojaId:        !isAdmin ? (usuario.lojaId ?? undefined) : undefined,
-      lojaOrigemId:  isAdmin && origemValida.length  ? origemValida  : undefined,
-      lojaDestinoId: isAdmin && destinoValida.length ? destinoValida : undefined,
+      lojaOrigemId:  origemValida.length  ? origemValida  : undefined,
+      lojaDestinoId: destinoValida.length ? destinoValida : undefined,
       // Sem filtro explícito: mostra o que toca o grupo ativo (origem OU destino),
       // não só o que está inteiramente dentro dele — senão transferências entre
       // grupos nunca aparecem para aceitar, de nenhum dos dois lados.
-      lojaOrigemOuDestinoId: isAdmin && !origemValida.length && !destinoValida.length ? lojaIdsGrupo : undefined,
+      lojaOrigemOuDestinoId: !origemValida.length && !destinoValida.length ? lojaIdsGrupo : undefined,
       modeloId:      parseParam(params.modelo),
       status:        parseParam(params.status),
       chassiBusca:   params.q,
@@ -74,6 +75,13 @@ export default async function TransferenciasPage({
   const aguardando = isAdmin
     ? []
     : pendentes.filter(t => t.lojaOrigemId === usuario.lojaId)
+
+  // Pendentes que não são nem da loja de origem nem de destino do usuário —
+  // visíveis pra todos (movimentação do grupo), mas sem ação: o card já
+  // esconde os botões de aceitar/recusar pra quem não é da loja de destino.
+  const outrasLojas = isAdmin
+    ? []
+    : pendentes.filter(t => t.lojaDestinoId !== usuario.lojaId && t.lojaOrigemId !== usuario.lojaId)
 
   return (
     <div className="space-y-6">
@@ -114,6 +122,22 @@ export default async function TransferenciasPage({
             Aguardando resposta ({aguardando.length})
           </h2>
           {aguardando.map(t => (
+            <TransferenciaCard
+              key={t.id}
+              transferencia={t}
+              papel={usuario.papel}
+              lojaIdUsuario={usuario.lojaId ?? null}
+            />
+          ))}
+        </section>
+      )}
+
+      {outrasLojas.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-semibold text-sm text-slate-700">
+            Em andamento em outras lojas ({outrasLojas.length})
+          </h2>
+          {outrasLojas.map(t => (
             <TransferenciaCard
               key={t.id}
               transferencia={t}

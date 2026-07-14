@@ -1,15 +1,13 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const formatCurrency = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 type VendasDia = { dia: string; total: number; valor: number }
 type EstoqueLoja = { loja: string; total: number }
-type VendasLoja = { loja: string; total: number; valor: string | null }
+type CaixaLoja = { loja: string; saldo: string }
 
 export function GraficoVendasPorDia({ dados }: { dados: VendasDia[] }) {
   const formatted = dados.map(d => ({
@@ -63,34 +61,23 @@ export function GraficoEstoquePorLoja({ dados }: { dados: EstoqueLoja[] }) {
   )
 }
 
-export function GraficoVendasPorLoja({ dados }: { dados: VendasLoja[] }) {
-  const pieData = dados.map(d => ({ name: d.loja, value: d.total }))
+export function GraficoCaixaPorLoja({ dados }: { dados: CaixaLoja[] }) {
+  const formatted = dados.map(d => ({ loja: d.loja, saldo: Number(d.saldo) }))
 
   return (
     <div className="bg-white rounded-lg border p-4">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">Vendas por loja</h3>
-      {pieData.length === 0 ? (
-        <p className="text-sm text-slate-400 text-center py-8">Nenhuma venda no período</p>
+      <h3 className="text-sm font-semibold text-slate-700 mb-4">Dinheiro em Caixa por loja</h3>
+      {formatted.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-8">Sem dados</p>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie
-              data={pieData}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={90}
-              paddingAngle={3}
-              dataKey="value"
-              label={({ name, value }) => `${name}: ${value}`}
-            >
-              {pieData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
+          <BarChart data={formatted} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={v => formatCurrency(Number(v))} />
+            <YAxis dataKey="loja" type="category" tick={{ fontSize: 12 }} width={100} />
+            <Tooltip formatter={value => formatCurrency(Number(value))} />
+            <Bar dataKey="saldo" fill="#10b981" radius={[0, 4, 4, 0]} name="Saldo" />
+          </BarChart>
         </ResponsiveContainer>
       )}
     </div>

@@ -15,6 +15,7 @@ type Taxas = {
   taxasFinanciamento: Record<string, number>
   freteValorKm: string
   freteKmGratis: number
+  imposto: string
 }
 
 type Modelo = {

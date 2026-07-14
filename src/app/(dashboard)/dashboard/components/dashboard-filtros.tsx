@@ -9,16 +9,18 @@ type Props = {
   vendedores: { id: string; nome: string }[]
   isAdmin: boolean
   lojaUsuarioId: string | null
-  mesDefault: string
+  deDefault: string
+  ateDefault: string
 }
 
-export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, mesDefault }: Props) {
+export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, deDefault, ateDefault }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  const mesAtual = searchParams.get('mes') ?? mesDefault
+  const deAtual = searchParams.get('de') ?? deDefault
+  const ateAtual = searchParams.get('ate') ?? ateDefault
   const lojaAtual = searchParams.get('loja') ?? ''
   const vendedorAtual = searchParams.get('vendedor') ?? ''
 
@@ -39,11 +41,19 @@ export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, me
       {isPending && <Loader2 size={14} className="animate-spin text-slate-400 shrink-0" />}
 
       <div className="flex items-center gap-2">
-        <label className="text-sm text-slate-500">Mês</label>
+        <label className="text-sm text-slate-500">De</label>
         <input
-          type="month"
-          value={mesAtual}
-          onChange={e => update('mes', e.target.value)}
+          type="date"
+          value={deAtual}
+          onChange={e => update('de', e.target.value)}
+          className="border rounded-md px-3 py-1.5 text-sm"
+          disabled={isPending}
+        />
+        <label className="text-sm text-slate-500">Até</label>
+        <input
+          type="date"
+          value={ateAtual}
+          onChange={e => update('ate', e.target.value)}
           className="border rounded-md px-3 py-1.5 text-sm"
           disabled={isPending}
         />

@@ -21,6 +21,7 @@ type Taxas = {
   taxasFinanciamento: Record<string, number>
   freteValorKm: string
   freteKmGratis: number
+  imposto: string
 }
 
 type RateMap = Record<string, string>
@@ -111,6 +112,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
   const [financiamento, setFinanciamento] = useState<RateMap>(() => initMap(taxas.taxasFinanciamento, PARCELAS_FINANCIAMENTO))
   const [freteValorKm, setFreteValorKm] = useState(taxas.freteValorKm)
   const [freteKmGratis, setFreteKmGratis] = useState(String(taxas.freteKmGratis))
+  const [imposto, setImposto] = useState(toStr(Number(taxas.imposto)))
   const [loading, setLoading] = useState(false)
 
   function setCartaoRate(n: number, v: string) { setCartao(prev => ({ ...prev, [String(n)]: v })) }
@@ -128,6 +130,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
         taxasFinanciamento: buildDecimalMap(financiamento),
         freteValorKm: freteValorKm || '3.00',
         freteKmGratis: parseInt(freteKmGratis, 10) || 40,
+        imposto: String(toDecimal(imposto || '6')),
       })
       toast.success('Taxas salvas com sucesso')
     } catch {
@@ -158,6 +161,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
             <TabsTrigger value="link">Link de Pagamento (1–18x)</TabsTrigger>
             <TabsTrigger value="financiamento">Financiamento</TabsTrigger>
             <TabsTrigger value="frete">Frete</TabsTrigger>
+            <TabsTrigger value="imposto">Imposto</TabsTrigger>
           </TabsList>
 
           <TabsContent value="cartao" className="mt-4">
@@ -197,6 +201,27 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
                   className="h-9 text-sm"
                   value={freteKmGratis}
                   onChange={e => setFreteKmGratis(e.target.value)}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="imposto" className="mt-4">
+            <div className="max-w-xs space-y-4">
+              <p className="text-xs text-slate-400">
+                Aplicado sobre o valor bruto de todas as vendas de motos no cálculo do Lucro Líquido (Financeiro).
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Imposto (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="h-9 text-sm"
+                  placeholder="6,00"
+                  value={imposto}
+                  onChange={e => setImposto(e.target.value)}
                 />
               </div>
             </div>

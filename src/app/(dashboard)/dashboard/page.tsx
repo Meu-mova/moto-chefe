@@ -6,14 +6,14 @@ import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import {
-  getKPIs, getVendasPorDia, getEstoquePorLoja, getVendasPorLoja,
+  getKPIs, getVendasPorDia, getEstoquePorLoja, getSaldoCaixaPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
-  getOsAbertas, getMotoMaisVendida, getPrecoMedioVendas,
+  getOsAbertas, getMotoMaisVendida, getPrecoMedioVendas, getFaturamentoOS,
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
 } from '@/lib/queries/dashboard'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { KpiCards } from './components/kpi-cards'
-import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoVendasPorLoja } from './components/charts'
+import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoCaixaPorLoja } from './components/charts'
 import {
   TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo,
   TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos,
@@ -40,7 +40,7 @@ async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; fi
   const isAdmin = ADMINS.includes(papel)
   const kpiOpts = papel === 'vendedor' ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes, faturamentoOS] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
@@ -49,10 +49,11 @@ async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; fi
         isAdmin
           ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
           : Promise.resolve(0),
+        papel === 'vendedor' ? Promise.resolve(0) : getFaturamentoOS(filtros),
       ]),
       25000,
     )
-    return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} />
+    return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} />
   } catch (e) {
     console.error('[KpiSection] erro:', e)
     throw e
@@ -62,13 +63,13 @@ async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; fi
 async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
   let vendasDia: Awaited<ReturnType<typeof getVendasPorDia>>,
       estoqueLoja: Awaited<ReturnType<typeof getEstoquePorLoja>>,
-      vendasLoja: Awaited<ReturnType<typeof getVendasPorLoja>>
+      saldoCaixaLoja: Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>
   try {
-    ;[vendasDia, estoqueLoja, vendasLoja] = await withTimeout(
+    ;[vendasDia, estoqueLoja, saldoCaixaLoja] = await withTimeout(
       Promise.all([
         getVendasPorDia(filtros),
         getEstoquePorLoja(filtros.lojaId),
-        isAdmin ? getVendasPorLoja(filtros) : Promise.resolve([] as Awaited<ReturnType<typeof getVendasPorLoja>>),
+        isAdmin ? getSaldoCaixaPorLoja(filtros.lojaId) : Promise.resolve([] as Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>),
       ]),
       25000,
     )
@@ -82,7 +83,7 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
         <GraficoVendasPorDia dados={vendasDia} />
         <GraficoEstoquePorLoja dados={estoqueLoja} />
       </div>
-      {isAdmin && vendasLoja.length > 0 && <GraficoVendasPorLoja dados={vendasLoja} />}
+      {isAdmin && saldoCaixaLoja.length > 0 && <GraficoCaixaPorLoja dados={saldoCaixaLoja} />}
     </>
   )
 }
@@ -178,23 +179,26 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-function getMesAtual() {
+function hojeISO() {
+  return new Date().toISOString().substring(0, 10)
+}
+
+function inicioMesAtualISO() {
   const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10)
 }
 
-function mesParaDatas(mes: string) {
-  const [ano, mesNum] = mes.split('-').map(Number)
+// Período de comparação: mesma duração do período selecionado, terminando um dia antes dele.
+function periodoAnterior(dataInicio: string, dataFim: string) {
+  const inicio = new Date(dataInicio + 'T00:00:00')
+  const fim = new Date(dataFim + 'T00:00:00')
+  const duracaoMs = fim.getTime() - inicio.getTime()
+  const fimAnterior = new Date(inicio.getTime() - 24 * 60 * 60 * 1000)
+  const inicioAnterior = new Date(fimAnterior.getTime() - duracaoMs)
   return {
-    inicio: new Date(ano, mesNum - 1, 1).toISOString().substring(0, 10),
-    fim: new Date(ano, mesNum, 0).toISOString().substring(0, 10),
+    inicio: inicioAnterior.toISOString().substring(0, 10),
+    fim: fimAnterior.toISOString().substring(0, 10),
   }
-}
-
-function mesAnterior(mes: string) {
-  const [ano, mesNum] = mes.split('-').map(Number)
-  const d = new Date(ano, mesNum - 2, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -202,17 +206,18 @@ function mesAnterior(mes: string) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; loja?: string; vendedor?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; loja?: string; vendedor?: string }>
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
   const isVendedor = usuario.papel === 'vendedor'
 
-  const mesDefault = getMesAtual()
-  const mesSelecionado = params.mes ?? mesDefault
-  const { inicio: dataInicio, fim: dataFim } = mesParaDatas(mesSelecionado)
-  const { inicio: dataInicioAnt, fim: dataFimAnt } = mesParaDatas(mesAnterior(mesSelecionado))
+  const deDefault = inicioMesAtualISO()
+  const ateDefault = hojeISO()
+  const dataInicio = params.de ?? deDefault
+  const dataFim = params.ate ?? ateDefault
+  const { inicio: dataInicioAnt, fim: dataFimAnt } = periodoAnterior(dataInicio, dataFim)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
   const lojaIdsPermitidos = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
@@ -239,7 +244,7 @@ export default async function DashboardPage({
 
   const filtrosRanking = { dataInicio, dataFim, lojaId: filtros.lojaId }
   const mecanicoId = usuario.papel === 'mecanico' ? usuario.id : undefined
-  const filtroKey = `${mesSelecionado}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
+  const filtroKey = `${dataInicio}_${dataFim}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
 
   const [lojasOpts, vendedoresOpts] = await withTimeout(
     Promise.all([listarLojasDoGrupoAtivo(usuario), getVendedoresOpts()]),
@@ -262,7 +267,8 @@ export default async function DashboardPage({
           vendedores={vendedoresOpts}
           isAdmin={isAdmin}
           lojaUsuarioId={usuario.lojaId}
-          mesDefault={mesDefault}
+          deDefault={deDefault}
+          ateDefault={ateDefault}
         />
       </div>
 

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao } from '@/lib/db/schema'
-import { eq, and, gte, lte, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
+import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 
 type Filtros = {
@@ -137,26 +137,24 @@ export async function getEstoquePorLoja(lojaId?: string[]) {
     .orderBy(lojas.nome)
 }
 
-export async function getVendasPorLoja(filtros: Filtros) {
-  const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
-
-  const conditions = [
-    gte(vendas.dataVenda, inicio),
-    lte(vendas.dataVenda, fim),
-  ]
-  if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
-  if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
+// Saldo de caixa atual (todos os tempos, não filtrado pelo período do dashboard) por loja —
+// mesma lógica de src/app/(dashboard)/caixa/page.tsx, agregada por loja em vez de uma só.
+export async function getSaldoCaixaPorLoja(lojaId?: string[]) {
+  const conditions = [ne(lancamentosCaixa.statusAprovacao, 'reprovado')]
+  if (lojaId !== undefined) conditions.push(lojaFilter(lancamentosCaixa.lojaId, lojaId)!)
 
   return db
     .select({
       loja: lojas.nome,
-      total: count(),
-      valor: sum(vendas.valor),
+      saldo: sql<string>`COALESCE(SUM(
+        CASE WHEN ${lancamentosCaixa.tipo} = 'entrada'
+          THEN ${lancamentosCaixa.valor}::numeric
+          ELSE -${lancamentosCaixa.valor}::numeric
+        END
+      ), 0)`,
     })
-    .from(vendas)
-    .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
+    .from(lancamentosCaixa)
+    .innerJoin(lojas, eq(lancamentosCaixa.lojaId, lojas.id))
     .where(and(...conditions))
     .groupBy(lojas.nome)
     .orderBy(lojas.nome)
@@ -178,7 +176,7 @@ export async function getUltimasVendas(filtros: Filtros, limite = 5) {
     .select({
       id: vendas.id,
       clienteNome: vendas.clienteNome,
-      valor: vendas.valor,
+      valor: sql<string>`${valorLiquidoExpr()}`,
       dataVenda: vendas.dataVenda,
       loja: lojas.nome,
       modelo: modelos.modelo,
@@ -386,7 +384,7 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
       modelo: modelos.modelo,
       marca: modelos.marca,
       totalVendas: count(),
-      faturamento: sum(vendas.valor),
+      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
     })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))
@@ -409,11 +407,33 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
       lojaId: vendas.lojaId,
       loja: lojas.nome,
       totalVendas: count(),
-      faturamento: sum(vendas.valor),
+      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
     .where(and(...conditions))
     .groupBy(vendas.lojaId, lojas.nome)
-    .orderBy(desc(sum(vendas.valor)))
+    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
+}
+
+// Faturamento de Ordens de Serviço — só conta OS já paga/concluída (status 'concluida'),
+// não as que ainda estão abertas/em andamento/aguardando pagamento.
+export async function getFaturamentoOS(filtros: Filtros) {
+  const { dataInicio, dataFim, lojaId } = filtros
+  const inicio = new Date(dataInicio)
+  const fim = new Date(dataFim + 'T23:59:59.999Z')
+
+  const conditions = [
+    eq(ordensServico.status, 'concluida'),
+    gte(ordensServico.dataConclusao, inicio),
+    lte(ordensServico.dataConclusao, fim),
+  ]
+  if (lojaId !== undefined) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
+
+  const [result] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${ordensServico.valorTotal}), 0)` })
+    .from(ordensServico)
+    .where(and(...conditions))
+
+  return Number(result?.total ?? 0)
 }

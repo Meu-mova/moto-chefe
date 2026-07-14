@@ -37,6 +37,7 @@ export default async function PrecificacaoPage() {
     taxasFinanciamento: {} as Record<string, number>,
     freteValorKm: '3.00',
     freteKmGratis: 40,
+    imposto: '0.06',
   }
 
   return (
@@ -55,6 +56,7 @@ export default async function PrecificacaoPage() {
           taxasFinanciamento: (taxas.taxasFinanciamento ?? {}) as Record<string, number>,
           freteValorKm: taxas.freteValorKm ?? '3.00',
           freteKmGratis: taxas.freteKmGratis ?? 40,
+          imposto: taxas.imposto ?? '0.06',
         }}
         modelos={modelos.map(m => ({
           id: m.id,

@@ -21,6 +21,7 @@ export type TaxasPayload = {
   taxasFinanciamento: Record<string, number>
   freteValorKm: string
   freteKmGratis: number
+  imposto: string
 }
 
 export async function salvarTaxasAction(data: TaxasPayload) {
@@ -37,11 +38,13 @@ export async function salvarTaxasAction(data: TaxasPayload) {
         taxasFinanciamento: data.taxasFinanciamento,
         freteValorKm: data.freteValorKm,
         freteKmGratis: data.freteKmGratis,
+        imposto: data.imposto,
         atualizadoEm: sql`NOW()`,
       },
     })
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
+  revalidatePath('/financeiro')
 }
 
 export async function criarModeloAction(data: { nome: string; valorMinimo: string; custo?: string }) {

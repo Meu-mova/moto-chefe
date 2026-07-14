@@ -185,7 +185,7 @@ export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[
               <th className="text-left px-4 py-2 font-medium">Modelo</th>
               <th className="text-right px-4 py-2 font-medium">Vendas</th>
               <th className="text-right px-4 py-2 font-medium">%</th>
-              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+              <th className="text-right px-4 py-2 font-medium">Total de Vendas</th>
             </tr>
           </thead>
           <tbody>
@@ -241,7 +241,7 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId }: { ranking:
               <th className="text-left px-4 py-2 font-medium">Vendedor</th>
               <th className="text-left px-4 py-2 font-medium">Loja</th>
               <th className="text-right px-4 py-2 font-medium">Vendas</th>
-              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+              <th className="text-right px-4 py-2 font-medium">Total de Vendas</th>
             </tr>
           </thead>
           <tbody>
@@ -288,7 +288,7 @@ export function TabelaRankingLojas({ ranking, lojaAtualId }: { ranking: RankingL
               <th className="text-center px-4 py-2 font-medium w-10">#</th>
               <th className="text-left px-4 py-2 font-medium">Loja</th>
               <th className="text-right px-4 py-2 font-medium">Vendas</th>
-              <th className="text-right px-4 py-2 font-medium">Faturamento</th>
+              <th className="text-right px-4 py-2 font-medium">Total de Vendas</th>
             </tr>
           </thead>
           <tbody>

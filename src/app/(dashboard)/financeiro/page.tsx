@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +46,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND v.loja_id = ${lojaParamValido}`
     : sql`AND v.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria, taxasRow] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -187,6 +187,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       ))
       .groupBy(despesas.categoria)
       .orderBy(sql`SUM(${despesas.valor}) DESC`),
+
+    db.select({ imposto: configuracaoTaxas.imposto }).from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
@@ -200,6 +202,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
   const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)
   const lucroBruto = receitaLiquida - totalCusto
+  const aliquotaImposto = Number(taxasRow[0]?.imposto ?? 0.06)
+  const valorImposto = receitaVendas * aliquotaImposto
+  const lucroLiquido = lucroBruto - totalDespesas - valorImposto
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
@@ -270,11 +275,26 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           </CardContent>
         </Card>
         <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Imposto ({(aliquotaImposto * 100).toFixed(1)}%)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-red-600">{valorImposto > 0 ? '-' : ''}{fmt(valorImposto)}</p>
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lucro Bruto</CardTitle></CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${lucroBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {fmt(lucroBruto)}
             </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lucro Líquido</CardTitle></CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {fmt(lucroLiquido)}
+            </p>
+            <p className="text-xs text-slate-400">líquido − despesas − imposto</p>
           </CardContent>
         </Card>
       </div>

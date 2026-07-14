@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus, CreditCard } from 'lucide-react'
+import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus, CreditCard, Receipt } from 'lucide-react'
 
 type KPIs = {
   totalVendas: number
@@ -18,6 +18,7 @@ type Props = {
   motoMaisVendida: { modelo: string; total: number } | null
   precoMedio: number
   conciliacaoPendentes?: number
+  faturamentoOS?: number
 }
 
 const formatCurrency = (v: number) =>
@@ -62,7 +63,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, conciliacaoPendentes = 0 }: Props) {
+export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, conciliacaoPendentes = 0, faturamentoOS = 0 }: Props) {
   const isAdmin = ADMINS.includes(papel)
   const isVendedor = papel === 'vendedor'
 
@@ -91,8 +92,8 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, co
     )
   } else {
     cards.push(
-      { label: 'Vendas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
-      { label: 'Faturamento', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', variacao: { atual: kpis.faturamento, anterior: kpisAnt.faturamento } },
+      { label: 'Motos Vendidas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
+      { label: 'Total de Venda', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', variacao: { atual: kpis.faturamento, anterior: kpisAnt.faturamento } },
       { label: 'Showroom', value: kpis.estoque, icon: Warehouse, color: 'text-purple-600', bg: 'bg-purple-50' },
     )
 
@@ -106,6 +107,7 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, co
       { label: 'Transf. Pendentes', value: kpis.transferenciasPendentes, icon: ArrowLeftRight, color: 'text-orange-600', bg: 'bg-orange-50' },
       { label: 'Garantias Ativas', value: kpis.garantiasAtivas, icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
       { label: 'OS Abertas', value: kpis.osAbertas, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50' },
+      { label: 'Faturamento OS', value: formatCurrency(faturamentoOS), icon: Receipt, color: 'text-teal-600', bg: 'bg-teal-50' },
     )
 
     if (isAdmin) {
@@ -122,7 +124,7 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, co
     }
   }
 
-  const gridCols = isVendedor ? 'lg:grid-cols-5' : 'lg:grid-cols-6'
+  const gridCols = isVendedor ? 'lg:grid-cols-5' : 'lg:grid-cols-7'
 
   return (
     <div className={`grid grid-cols-2 md:grid-cols-3 ${gridCols} gap-4`}>
