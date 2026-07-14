@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { ehTransferenciaInterna } from '@/lib/pix-internos'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
@@ -18,6 +19,11 @@ export async function lancarCorrespondenciaAction(
   if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) throw new Error('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+
+  const [linha] = await db.select({ pagadorNome: pixRecebimentosMcp.pagadorNome }).from(pixRecebimentosMcp).where(eq(pixRecebimentosMcp.id, id)).limit(1)
+  if (linha && ehTransferenciaInterna(linha.pagadorNome)) {
+    throw new Error('Essa transferência é interna (maquininha/conta do próprio grupo) e não pode ser conciliada com uma venda')
+  }
 
   let vendaId: string | null = null
   let osId: string | null = null

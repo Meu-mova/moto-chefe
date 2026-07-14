@@ -1,5 +1,5 @@
 'use client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { RefreshCw } from 'lucide-react'
 
 export function PixFiltros({ defaultFrom, defaultTo }: { defaultFrom: string; defaultTo: string }) {
   const router = useRouter()
+  const pathname = usePathname()
   const params = useSearchParams()
   const fromRef = useRef<HTMLInputElement>(null)
   const toRef = useRef<HTMLInputElement>(null)
@@ -16,7 +17,7 @@ export function PixFiltros({ defaultFrom, defaultTo }: { defaultFrom: string; de
     const p = new URLSearchParams(params.toString())
     if (fromRef.current?.value) p.set('from', fromRef.current.value)
     if (toRef.current?.value) p.set('to', toRef.current.value)
-    router.push(`/pix?${p.toString()}`)
+    router.push(`${pathname}?${p.toString()}`)
   }
 
   return (
