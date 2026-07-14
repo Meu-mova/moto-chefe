@@ -13,20 +13,23 @@ async function assertAdmin() {
 }
 
 async function geocodificarSeInformado(cep: string | null) {
-  if (!cep || !cep.trim()) return { cep: null, latitude: null, longitude: null }
+  if (!cep || !cep.trim()) return { geo: { cep: null, latitude: null, longitude: null }, geocodificado: true }
   const coord = await geocodificarCep(cep)
   return {
-    cep: cep.trim(),
-    latitude: coord ? String(coord.latitude) : null,
-    longitude: coord ? String(coord.longitude) : null,
+    geo: {
+      cep: cep.trim(),
+      latitude: coord ? String(coord.latitude) : null,
+      longitude: coord ? String(coord.longitude) : null,
+    },
+    geocodificado: coord !== null,
   }
 }
 
-export async function criarLojaAction(formData: FormData) {
+export async function criarLojaAction(formData: FormData): Promise<{ geocodificado: boolean }> {
   await assertAdmin()
   const grupoId = formData.get('grupoId') as string
   if (!grupoId) throw new Error('Selecione o grupo')
-  const geo = await geocodificarSeInformado(formData.get('cep') as string | null)
+  const { geo, geocodificado } = await geocodificarSeInformado(formData.get('cep') as string | null)
   await db.insert(lojas).values({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
@@ -35,11 +38,12 @@ export async function criarLojaAction(formData: FormData) {
     ...geo,
   })
   revalidatePath('/admin/lojas')
+  return { geocodificado }
 }
 
-export async function editarLojaAction(id: string, formData: FormData) {
+export async function editarLojaAction(id: string, formData: FormData): Promise<{ geocodificado: boolean }> {
   await assertAdmin()
-  const geo = await geocodificarSeInformado(formData.get('cep') as string | null)
+  const { geo, geocodificado } = await geocodificarSeInformado(formData.get('cep') as string | null)
   await db.update(lojas).set({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
@@ -48,6 +52,7 @@ export async function editarLojaAction(id: string, formData: FormData) {
   }).where(eq(lojas.id, id))
   revalidatePath('/admin/lojas')
   revalidatePath('/simulador')
+  return { geocodificado }
 }
 
 export async function desativarLojaAction(id: string) {

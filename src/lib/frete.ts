@@ -13,6 +13,22 @@ type EnderecoViaCep = {
 
 type ResultadoNominatim = { lat: string; lon: string }
 
+async function buscarNominatim(query: string): Promise<Coordenada | null> {
+  try {
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
+    const nominatimRes = await fetch(nominatimUrl, { headers: { 'User-Agent': NOMINATIM_USER_AGENT } })
+    if (!nominatimRes.ok) return null
+    const resultados = await nominatimRes.json() as ResultadoNominatim[]
+    if (resultados.length === 0) return null
+    const lat = parseFloat(resultados[0].lat)
+    const lon = parseFloat(resultados[0].lon)
+    if (isNaN(lat) || isNaN(lon)) return null
+    return { latitude: lat, longitude: lon }
+  } catch {
+    return null
+  }
+}
+
 export async function geocodificarCep(cep: string): Promise<Coordenada | null> {
   const cepLimpo = cep.replace(/\D/g, '')
   if (cepLimpo.length !== 8) return null
@@ -27,23 +43,23 @@ export async function geocodificarCep(cep: string): Promise<Coordenada | null> {
   }
   if (endereco.erro) return null
 
-  const partes = [endereco.logradouro, endereco.bairro, endereco.localidade, endereco.uf, 'Brasil'].filter(Boolean)
-  if (partes.length === 0) return null
-  const query = partes.join(', ')
+  // Nominatim costuma não achar o endereço completo (rua + bairro) em cidades
+  // menores. Tenta do mais específico pro mais genérico até achar um resultado —
+  // aproximação por bairro/cidade é melhor que não ter coordenada nenhuma.
+  const tentativas = [
+    [endereco.logradouro, endereco.bairro, endereco.localidade, endereco.uf, 'Brasil'],
+    [endereco.bairro, endereco.localidade, endereco.uf, 'Brasil'],
+    [endereco.localidade, endereco.uf, 'Brasil'],
+  ]
+    .map(partes => partes.filter(Boolean).join(', '))
+    .filter((query, i, arr) => query.length > 0 && arr.indexOf(query) === i)
 
-  try {
-    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
-    const nominatimRes = await fetch(nominatimUrl, { headers: { 'User-Agent': NOMINATIM_USER_AGENT } })
-    if (!nominatimRes.ok) return null
-    const resultados = await nominatimRes.json() as ResultadoNominatim[]
-    if (resultados.length === 0) return null
-    const lat = parseFloat(resultados[0].lat)
-    const lon = parseFloat(resultados[0].lon)
-    if (isNaN(lat) || isNaN(lon)) return null
-    return { latitude: lat, longitude: lon }
-  } catch {
-    return null
+  for (const [i, query] of tentativas.entries()) {
+    if (i > 0) await new Promise(r => setTimeout(r, 1100)) // respeita rate limit do Nominatim (1 req/s)
+    const coord = await buscarNominatim(query)
+    if (coord) return coord
   }
+  return null
 }
 
 function toRad(graus: number): number {

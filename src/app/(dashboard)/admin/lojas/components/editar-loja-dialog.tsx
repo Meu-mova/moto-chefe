@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { CepInput } from '@/components/ui/cep-input'
 import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { editarLojaAction } from '../actions'
@@ -40,8 +41,12 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
       formData.set('cidade', cidade)
       formData.set('endereco', endereco)
       formData.set('cep', cep)
-      await editarLojaAction(loja.id, formData)
-      toast.success('Loja atualizada!')
+      const { geocodificado } = await editarLojaAction(loja.id, formData)
+      if (cep.trim() && !geocodificado) {
+        toast.warning('Loja atualizada, mas não foi possível localizar o CEP no mapa. O frete não poderá ser calculado até ajustar o endereço.')
+      } else {
+        toast.success('Loja atualizada!')
+      }
       setOpen(false)
       router.refresh()
     } catch (e: unknown) {
@@ -74,7 +79,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">CEP</Label>
-              <Input value={cep} onChange={e => setCep(e.target.value)} className="h-9 text-sm" placeholder="00000-000" />
+              <CepInput value={cep} onChange={setCep} className="h-9 text-sm" />
               <p className="text-[11px] text-slate-400">Usado pra calcular frete no Simulador.</p>
             </div>
           </div>

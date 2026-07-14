@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { CepInput } from '@/components/ui/cep-input'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { criarLojaAction } from '../actions'
@@ -34,8 +35,12 @@ export function NovaLojaDialog({ grupos, grupoIdDefault }: { grupos: Grupo[]; gr
       formData.set('endereco', endereco)
       formData.set('cep', cep)
       formData.set('grupoId', grupoId)
-      await criarLojaAction(formData)
-      toast.success('Loja criada!')
+      const { geocodificado } = await criarLojaAction(formData)
+      if (cep.trim() && !geocodificado) {
+        toast.warning('Loja criada, mas não foi possível localizar o CEP no mapa. O frete não poderá ser calculado até ajustar o endereço.')
+      } else {
+        toast.success('Loja criada!')
+      }
       setOpen(false)
       setNome(''); setCidade(''); setEndereco(''); setCep('')
       router.refresh()
@@ -79,11 +84,10 @@ export function NovaLojaDialog({ grupos, grupoIdDefault }: { grupos: Grupo[]; gr
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">CEP</Label>
-              <Input
+              <CepInput
                 value={cep}
-                onChange={e => setCep(e.target.value)}
+                onChange={setCep}
                 className="h-9 text-sm"
-                placeholder="00000-000"
               />
             </div>
           </div>

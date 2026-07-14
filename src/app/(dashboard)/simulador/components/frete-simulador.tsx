@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Input } from '@/components/ui/input'
+import { CepInput } from '@/components/ui/cep-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Truck } from 'lucide-react'
@@ -105,11 +105,10 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
           <>
             <div className="w-36 space-y-1.5">
               <Label className="text-xs">CEP de destino</Label>
-              <Input
+              <CepInput
                 value={cep}
-                onChange={e => setCep(e.target.value)}
+                onChange={setCep}
                 onBlur={e => calcular(e.target.value, lojaId)}
-                placeholder="00000-000"
                 className="h-9 text-sm"
               />
             </div>
