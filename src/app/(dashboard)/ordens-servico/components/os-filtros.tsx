@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import { Input } from '@/components/ui/input'
+import { MultiSelectFiltro } from '../../estoque/components/multi-select-filtro'
 
 const STATUS_OPTS = [
   { value: 'aberta',              label: 'Aberta' },
@@ -27,12 +28,15 @@ function ToggleChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
-export function OSFiltros() {
+type Props = { lojas: { id: string; nome: string }[] }
+
+export function OSFiltros({ lojas }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
   const status = searchParams.get('status')?.split(',').filter(Boolean) ?? []
   const busca  = searchParams.get('q') ?? ''
+  const lojaSel = searchParams.get('loja')?.split(',').filter(Boolean) ?? []
 
   const update = useCallback((key: string, value: string) => {
     const p = new URLSearchParams(searchParams.toString())
@@ -53,6 +57,17 @@ export function OSFiltros() {
         onChange={e => update('q', e.target.value)}
         className="h-8 text-sm w-64"
       />
+
+      {lojas.length > 0 && (
+        <MultiSelectFiltro
+          placeholder="Loja"
+          opcoes={lojas.map(l => ({ value: l.id, label: l.nome }))}
+          selecionados={lojaSel}
+          onChange={v => update('loja', v.join(','))}
+          className="min-w-[11rem]"
+        />
+      )}
+
       <div className="flex gap-1.5">
         {STATUS_OPTS.map(o => (
           <ToggleChip

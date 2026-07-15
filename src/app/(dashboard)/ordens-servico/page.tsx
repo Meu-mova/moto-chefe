@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { OSCard } from './components/os-card'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
+import { calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -18,7 +19,7 @@ function parseParam(v?: string): string[] {
 export default async function OrdensServicoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>
+  searchParams: Promise<{ status?: string; q?: string; loja?: string }>
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
@@ -27,10 +28,14 @@ export default async function OrdensServicoPage({
   const statusFiltro = parseParam(params.status)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const lojaParamBruto = parseParam(params.loja)
+  const lojaValues = lojaParamBruto.length && lojaParamBruto.every(id => lojaIdsGrupo.includes(id))
+    ? lojaParamBruto
+    : lojaIdsGrupo
 
   const [lista, mecanicos, lojasOpts] = await Promise.all([
     isAdmin
-      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaIdsGrupo })
+      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaValues })
       : listarOSPorLoja(usuario.lojaId!),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
@@ -43,6 +48,17 @@ export default async function OrdensServicoPage({
   const finalizadas         = lista.filter(o => o.status === 'finalizada')
   const pendentePagamento   = lista.filter(o => o.status === 'pendente_pagamento')
   const concluidas          = lista.filter(o => o.status === 'concluida')
+
+  const concStats = lista.reduce(
+    (acc, o) => {
+      const status = calcStatusPagamentoUnicoOS(o.formaPagamento, o.valorTotal, o.conciliadoValor as number, o.pixConciliadoValor as number)
+      if (status === 'pendente')   acc.pendente++
+      if (status === 'parcial')    acc.parcial++
+      if (status === 'conciliada') acc.conciliada++
+      return acc
+    },
+    { pendente: 0, parcial: 0, conciliada: 0 },
+  )
 
   return (
     <div className="space-y-6">
@@ -82,7 +98,25 @@ export default async function OrdensServicoPage({
         </div>
       </div>
 
-      <OSFiltros />
+      {/* Conciliação */}
+      {(concStats.pendente + concStats.parcial + concStats.conciliada) > 0 && (
+        <div className="grid grid-cols-3 gap-3 max-w-xl">
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Conc. Pendentes</p>
+            <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Conc. Parciais</p>
+            <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
+            <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
+          </div>
+        </div>
+      )}
+
+      <OSFiltros lojas={isAdmin ? lojasOpts : []} />
 
       {lista.length === 0 && (
         <p className="text-sm text-slate-400 text-center py-16">Nenhuma ordem de serviço encontrada.</p>
