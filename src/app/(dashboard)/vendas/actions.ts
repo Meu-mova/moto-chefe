@@ -7,6 +7,8 @@ import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
+import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
@@ -1226,6 +1228,39 @@ export async function aprovarVendaAction(aprovacaoId: string) {
     throw new Error('Sem permissão para aprovar esta venda')
   }
 
+  // OS: a linha já existe (aberta antes do pagamento) — só aplica o pagamento retido.
+  if (aprovacao.origem === 'os') {
+    if (!aprovacao.osId) throw new Error('Aprovação de OS sem os_id')
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx.update(aprovacoesVenda)
+        .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+        .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+        .returning({ id: aprovacoesVenda.id })
+      if (!claimed) throw new Error('Solicitação não está mais pendente')
+    })
+    await aplicarPagamentoOS(aprovacao.osId, aprovacao.dadosVenda as unknown as DadosPagamentoOS)
+    revalidatePath('/vendas')
+    return
+  }
+
+  // Peça: a venda ainda não existe — cria de fato, atômico com o UPDATE de aprovação.
+  if (aprovacao.origem === 'peca') {
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx.update(aprovacoesVenda)
+        .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+        .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+        .returning({ id: aprovacoesVenda.id })
+      if (!claimed) throw new Error('Solicitação não está mais pendente')
+
+      await aplicarVendaPeca(tx, aprovacao.vendedorId, aprovacao.dadosVenda as unknown as DadosVendaPeca)
+    })
+    revalidatePath('/vendas')
+    revalidatePath('/pecas')
+    return
+  }
+
+  // Moto (fluxo original): a venda também não existe ainda.
+  if (!aprovacao.motoId) throw new Error('Aprovação de moto sem moto_id')
   const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
 
@@ -1264,6 +1299,21 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
     throw new Error('Sem permissão para recusar esta venda')
   }
 
+  // OS/Peça: nada foi criado/reservado ainda (a OS continua como estava, sem pagamento
+  // aplicado; a venda de peça nunca chegou a existir) — só marca a solicitação como recusada.
+  if (aprovacao.origem !== 'moto') {
+    const [claimed] = await db.update(aprovacoesVenda)
+      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+      .returning({ id: aprovacoesVenda.id })
+    if (!claimed) throw new Error('Solicitação não está mais pendente')
+
+    revalidatePath('/vendas')
+    if (aprovacao.origem === 'os')   revalidatePath(`/ordens-servico/${aprovacao.osId}`)
+    if (aprovacao.origem === 'peca') revalidatePath('/pecas')
+    return
+  }
+
   await db.transaction(async (tx) => {
     // UPDATE condicionado a status = 'pendente' — evita recusar duas vezes
     // (ou recusar depois de já aprovada) se dois aprovadores agirem juntos.
@@ -1275,10 +1325,10 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
 
     await tx.update(motos)
       .set({ disponibilidade: aprovacao.disponibilidadeAnterior })
-      .where(eq(motos.id, aprovacao.motoId))
+      .where(eq(motos.id, aprovacao.motoId!))
 
     await tx.insert(historicoEstoque).values({
-      motoId: aprovacao.motoId,
+      motoId: aprovacao.motoId!,
       lojaOrigemId: aprovacao.lojaId,
       usuarioId: usuario.id,
       tipo: 'mudanca_status',

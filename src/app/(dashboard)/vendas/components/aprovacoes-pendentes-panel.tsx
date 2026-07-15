@@ -59,9 +59,19 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
           : <TrendingDown size={16} className="text-amber-600 mt-0.5 shrink-0" />}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href={`/estoque/${aprovacao.motoId}`} className="font-medium text-slate-800 hover:underline">
-              {aprovacao.marca} {aprovacao.modelo} — {aprovacao.cor}
-            </Link>
+            {aprovacao.origem === 'os' ? (
+              <Link href={`/ordens-servico/${aprovacao.osId}`} className="font-medium text-slate-800 hover:underline">
+                OS #{aprovacao.osNumero ?? '—'} — {aprovacao.osClienteNome ?? 'Cliente não identificado'}
+              </Link>
+            ) : aprovacao.origem === 'peca' ? (
+              <span className="font-medium text-slate-800">
+                Venda de peças — {(aprovacao.dadosVenda as { clienteNome?: string })?.clienteNome || 'Cliente não identificado'}
+              </span>
+            ) : (
+              <Link href={`/estoque/${aprovacao.motoId}`} className="font-medium text-slate-800 hover:underline">
+                {aprovacao.marca} {aprovacao.modelo} — {aprovacao.cor}
+              </Link>
+            )}
             <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
               sensivel ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'
             }`}>

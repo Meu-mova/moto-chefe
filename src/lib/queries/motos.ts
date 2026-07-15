@@ -1,6 +1,6 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas, aprovacoesVenda } from '@/lib/db/schema'
+import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas, aprovacoesVenda, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
@@ -333,27 +333,37 @@ export type AprovacaoPendente = Awaited<ReturnType<typeof listarAprovacoesPenden
 
 export async function listarAprovacoesPendentes(lojaIds: string[]) {
   if (lojaIds.length === 0) return []
+  const clientesOS = alias(clientes, 'clientes_os')
   return db
     .select({
       id:              aprovacoesVenda.id,
+      origem:          aprovacoesVenda.origem,
       motoId:          aprovacoesVenda.motoId,
+      osId:            aprovacoesVenda.osId,
       lojaId:          aprovacoesVenda.lojaId,
       valor:           aprovacoesVenda.valor,
       motivo:          aprovacoesVenda.motivo,
       tipo:            aprovacoesVenda.tipo,
+      dadosVenda:      aprovacoesVenda.dadosVenda,
       dataSolicitacao: aprovacoesVenda.dataSolicitacao,
       vendedorNome:    usuarios.nome,
+      lojaNome:        lojas.nome,
+      // moto (null quando origem != 'moto')
       chassi:          motos.chassi,
       cor:             motos.cor,
       marca:           modelos.marca,
       modelo:          modelos.modelo,
-      lojaNome:        lojas.nome,
+      // os (null quando origem != 'os')
+      osNumero:        ordensServico.numero,
+      osClienteNome:   sql<string | null>`COALESCE(${clientesOS.nome}, ${ordensServico.clienteNomeExterno})`,
     })
     .from(aprovacoesVenda)
-    .innerJoin(motos,    eq(aprovacoesVenda.motoId, motos.id))
-    .innerJoin(modelos,  eq(motos.modeloId, modelos.id))
-    .innerJoin(lojas,    eq(aprovacoesVenda.lojaId, lojas.id))
-    .innerJoin(usuarios, eq(aprovacoesVenda.vendedorId, usuarios.id))
+    .leftJoin(motos,       eq(aprovacoesVenda.motoId, motos.id))
+    .leftJoin(modelos,     eq(motos.modeloId, modelos.id))
+    .leftJoin(ordensServico, eq(aprovacoesVenda.osId, ordensServico.id))
+    .leftJoin(clientesOS,  eq(ordensServico.clienteId, clientesOS.id))
+    .innerJoin(lojas,      eq(aprovacoesVenda.lojaId, lojas.id))
+    .innerJoin(usuarios,   eq(aprovacoesVenda.vendedorId, usuarios.id))
     .where(and(eq(aprovacoesVenda.status, 'pendente'), inArray(aprovacoesVenda.lojaId, lojaIds)))
     .orderBy(desc(aprovacoesVenda.dataSolicitacao))
 }

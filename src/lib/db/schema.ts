@@ -176,9 +176,14 @@ export const vendas = pgTable('vendas', {
 })
 
 // ─── aprovacoes_venda ────────────────────────────────────────────────────────
+// origem distingue o que está pendente de aprovação: 'moto' (fluxo original — venda
+// ainda não existe, só é criada quando aprovada), 'os' (a OS já existe, fica retida sem
+// o pagamento aplicado) ou 'peca' (venda de peça ainda não existe, mesmo padrão de moto).
 export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   id: uuid('id').primaryKey().defaultRandom(),
-  motoId: uuid('moto_id').notNull().references(() => motos.id),
+  origem: text('origem').notNull().default('moto'),
+  motoId: uuid('moto_id').references(() => motos.id),
+  osId: uuid('os_id'),  // FK: ordens_servico.id (sem ref Drizzle — declarada antes de ordensServico neste arquivo)
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),

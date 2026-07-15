@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { usuarios, servicosCatalogo, pecasCatalogo } from '@/lib/db/schema'
-import { eq, asc } from 'drizzle-orm'
+import { usuarios, servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
+import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -22,7 +22,7 @@ const statusLabel: Record<string, string> = {
 
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [os, itens, usuario, mecanicos, servicos, pecas] = await Promise.all([
+  const [os, itens, usuario, mecanicos, servicos, pecas, aprovacaoPendente] = await Promise.all([
     buscarOS(id),
     listarItensOS(id),
     getUsuarioLogado(),
@@ -31,6 +31,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
       .where(eq(usuarios.papel, 'mecanico')),
     db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
     db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
+    db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, id), eq(aprovacoesVenda.status, 'pendente'))).then(n => n > 0),
   ])
 
   if (!os) notFound()
@@ -177,6 +178,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           osId={id}
           valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
           formaPagamento={os.formaPagamento ?? ''}
+          aprovacaoPendente={aprovacaoPendente}
         />
       )}
     </div>

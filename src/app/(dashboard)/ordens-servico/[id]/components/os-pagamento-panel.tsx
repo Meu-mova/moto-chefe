@@ -18,9 +18,9 @@ const OPERADORAS = [
   { value: 'redecard',    label: 'Redecard' },
 ]
 
-type Props = { osId: string; valorTotal: number; formaPagamento: string }
+type Props = { osId: string; valorTotal: number; formaPagamento: string; aprovacaoPendente?: boolean }
 
-export function OSPagamentoPanel({ osId, valorTotal, formaPagamento }: Props) {
+export function OSPagamentoPanel({ osId, valorTotal, formaPagamento, aprovacaoPendente }: Props) {
   const [pending, start] = useTransition()
   const [valor, setValor] = useState(valorTotal > 0 ? valorTotal.toFixed(2) : '')
   const [forma, setForma] = useState(formaPagamento)
@@ -36,14 +36,16 @@ export function OSPagamentoPanel({ osId, valorTotal, formaPagamento }: Props) {
     if (!forma) { toast.error('Selecione a forma de pagamento'); return }
     start(async () => {
       try {
-        await registrarPagamentoOSAction(osId, {
+        const resultado = await registrarPagamentoOSAction(osId, {
           valorTotal: v,
           formaPagamento: forma,
           ...(ehCartao && operadora ? { operadora } : {}),
           ...(ehCartao && parcelas ? { parcelas: parseInt(parcelas, 10) } : {}),
           ...(ehCartao && autorizacao.trim() ? { autorizacao: autorizacao.trim().toUpperCase() } : {}),
         })
-        toast.success('Pagamento registrado')
+        toast.success(resultado.aguardandoAprovacao
+          ? 'Pagamento por transferência enviado para aprovação'
+          : 'Pagamento registrado')
       } catch (e: any) { toast.error(e.message) }
     })
   }
@@ -54,6 +56,11 @@ export function OSPagamentoPanel({ osId, valorTotal, formaPagamento }: Props) {
         <CardTitle className="text-sm">Pagamento</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {aprovacaoPendente && (
+          <p className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
+            Pagamento por transferência bancária enviado para aprovação — a OS só fica marcada como paga quando for aprovado.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Valor cobrado (R$)</Label>

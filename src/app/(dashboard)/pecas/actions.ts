@@ -1,10 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios } from '@/lib/db/schema'
+import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, asc, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivel } from '@/lib/grupo'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 const PAPEIS_VENDA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
@@ -93,13 +93,76 @@ export async function reativarPecaAction(id: string) {
 
 export type ItemVendaPecaInput = { pecaId: string; quantidade: number }
 export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
-
-export async function registrarVendaPecaAction(input: {
+export type DadosVendaPeca = {
   lojaId: string
   clienteNome?: string
   itens: ItemVendaPecaInput[]
   pagamentos: PagamentoVendaPecaInput[]
-}) {
+}
+
+// 'financiamento' precisa da mesma aprovação exigida em venda de moto/OS — só quem tem
+// podeAprovarPagamentoSensivel vê esse dado. Ver src/lib/grupo.ts.
+const TIPOS_PAGAMENTO_SENSIVEL_PECA = new Set(['financiamento'])
+function temPagamentoSensivelPeca(pagamentos: PagamentoVendaPecaInput[]): boolean {
+  return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_PECA.has(p.tipo))
+}
+
+// Cria a venda de fato — sem checagem de permissão/sensibilidade, usada tanto pelo
+// fechamento direto quanto pela aprovação de pagamento sensível. Recebe a transação de
+// fora pra poder ficar atômico com o UPDATE de aprovação (ver aprovarVendaAction).
+export async function aplicarVendaPeca(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  vendedorId: string,
+  input: DadosVendaPeca,
+) {
+  const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
+
+  const pecaIds = input.itens.map(i => i.pecaId)
+  const pecas = await tx
+    .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque })
+    .from(pecasCatalogo)
+    .where(inArray(pecasCatalogo.id, pecaIds))
+    .for('update')
+  const pecaById = new Map(pecas.map(p => [p.id, p]))
+
+  for (const item of input.itens) {
+    const peca = pecaById.get(item.pecaId)
+    if (!peca) throw new Error('Peça não encontrada')
+    if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
+    if (peca.quantidadeEstoque < item.quantidade) {
+      throw new Error(`Estoque insuficiente de ${peca.nome}: disponível ${peca.quantidadeEstoque}, pedido ${item.quantidade}`)
+    }
+  }
+
+  const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
+
+  const [venda] = await tx.insert(vendasPecas).values({
+    lojaId: input.lojaId,
+    vendedorId,
+    clienteNome: input.clienteNome?.trim() || null,
+    formaPagamento,
+    pagamentos: input.pagamentos,
+    valorTotal: valorTotal.toFixed(2),
+  }).returning({ id: vendasPecas.id })
+
+  for (const item of input.itens) {
+    const peca = pecaById.get(item.pecaId)!
+    await tx.insert(vendasPecasItens).values({
+      vendaPecaId: venda.id,
+      pecaId: item.pecaId,
+      descricao: peca.nome,
+      quantidade: String(item.quantidade),
+      valorUnitario: peca.valor,
+    })
+    await tx.update(pecasCatalogo)
+      .set({ quantidadeEstoque: peca.quantidadeEstoque - item.quantidade, atualizadoEm: new Date() })
+      .where(eq(pecasCatalogo.id, item.pecaId))
+  }
+
+  return { id: venda.id }
+}
+
+export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const usuario = await verificarAcessoVenda()
   if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
   if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
@@ -110,54 +173,24 @@ export async function registrarVendaPecaAction(input: {
   const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
   if (valorTotal <= 0) throw new Error('Valor total inválido')
 
-  const vendaId = await db.transaction(async (tx) => {
-    const pecaIds = input.itens.map(i => i.pecaId)
-    const pecas = await tx
-      .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque })
-      .from(pecasCatalogo)
-      .where(inArray(pecasCatalogo.id, pecaIds))
-      .for('update')
-    const pecaById = new Map(pecas.map(p => [p.id, p]))
-
-    for (const item of input.itens) {
-      const peca = pecaById.get(item.pecaId)
-      if (!peca) throw new Error('Peça não encontrada')
-      if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
-      if (peca.quantidadeEstoque < item.quantidade) {
-        throw new Error(`Estoque insuficiente de ${peca.nome}: disponível ${peca.quantidadeEstoque}, pedido ${item.quantidade}`)
-      }
-    }
-
-    const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
-
-    const [venda] = await tx.insert(vendasPecas).values({
+  if (temPagamentoSensivelPeca(input.pagamentos) && !podeAprovarPagamentoSensivel(usuario)) {
+    await db.insert(aprovacoesVenda).values({
+      origem: 'peca',
       lojaId: input.lojaId,
       vendedorId: usuario.id,
-      clienteNome: input.clienteNome?.trim() || null,
-      formaPagamento,
-      pagamentos: input.pagamentos,
-      valorTotal: valorTotal.toFixed(2),
-    }).returning({ id: vendasPecas.id })
+      valor: valorTotal.toFixed(2),
+      dadosVenda: input,
+      motivo: 'Pagamento via Financiamento — venda de peças',
+      tipo: 'pagamento_sensivel',
+      status: 'pendente',
+    })
+    revalidatePath('/pecas')
+    return { aguardandoAprovacao: true as const }
+  }
 
-    for (const item of input.itens) {
-      const peca = pecaById.get(item.pecaId)!
-      await tx.insert(vendasPecasItens).values({
-        vendaPecaId: venda.id,
-        pecaId: item.pecaId,
-        descricao: peca.nome,
-        quantidade: String(item.quantidade),
-        valorUnitario: peca.valor,
-      })
-      await tx.update(pecasCatalogo)
-        .set({ quantidadeEstoque: peca.quantidadeEstoque - item.quantidade, atualizadoEm: new Date() })
-        .where(eq(pecasCatalogo.id, item.pecaId))
-    }
-
-    return venda.id
-  })
-
+  const resultado = await db.transaction(tx => aplicarVendaPeca(tx, usuario.id, input))
   revalidatePath('/pecas')
-  return { id: vendaId }
+  return { aguardandoAprovacao: false as const, id: resultado.id }
 }
 
 export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]

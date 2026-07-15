@@ -1,9 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { ordensServico, osItens } from '@/lib/db/schema'
+import { ordensServico, osItens, aprovacoesVenda } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
@@ -154,15 +155,21 @@ const TIPO_CARTAO_OS: Record<string, string> = {
   'Cartão de Débito':  'cartao_debito',
 }
 
-export async function registrarPagamentoOSAction(osId: string, dados: {
+// 'Transferência' precisa da mesma aprovação exigida em venda de moto — só quem tem
+// podeAprovarPagamentoSensivel vê esse dado. Ver src/lib/grupo.ts.
+const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['Transferência'])
+
+export type DadosPagamentoOS = {
   valorTotal: number
   formaPagamento: string
   operadora?: string
   parcelas?: number
   autorizacao?: string
-}) {
-  await verificarAcessoOS(osId, GESTORES)
+}
 
+// Aplica o pagamento de fato na OS — sem checagem de permissão/sensibilidade, usada
+// tanto pelo fechamento direto quanto pela aprovação de pagamento sensível.
+export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
   const [osAtual] = await db
     .select({ status: ordensServico.status })
     .from(ordensServico)
@@ -190,6 +197,37 @@ export async function registrarPagamentoOSAction(osId: string, dados: {
   }).where(eq(ordensServico.id, osId))
   revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)
+}
+
+export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
+  const { usuario } = await verificarAcessoOS(osId, GESTORES)
+
+  if (TIPOS_PAGAMENTO_SENSIVEL_OS.has(dados.formaPagamento) && !podeAprovarPagamentoSensivel(usuario)) {
+    const [os] = await db
+      .select({ lojaId: ordensServico.lojaId, numero: ordensServico.numero })
+      .from(ordensServico)
+      .where(eq(ordensServico.id, osId))
+      .limit(1)
+    if (!os) throw new Error('OS não encontrada')
+
+    await db.insert(aprovacoesVenda).values({
+      origem: 'os',
+      osId,
+      lojaId: os.lojaId,
+      vendedorId: usuario.id,
+      valor: String(dados.valorTotal),
+      dadosVenda: dados,
+      motivo: `Pagamento via Transferência Bancária — OS #${os.numero ?? '—'}`,
+      tipo: 'pagamento_sensivel',
+      status: 'pendente',
+    })
+    revalidatePath('/ordens-servico')
+    revalidatePath(`/ordens-servico/${osId}`)
+    return { aguardandoAprovacao: true }
+  }
+
+  await aplicarPagamentoOS(osId, dados)
+  return { aguardandoAprovacao: false }
 }
 
 export async function adicionarItemOSAction(osId: string, item: {

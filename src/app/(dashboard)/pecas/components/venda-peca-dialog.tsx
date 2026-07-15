@@ -105,7 +105,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
     }
     startTransition(async () => {
       try {
-        await registrarVendaPecaAction({
+        const resultado = await registrarVendaPecaAction({
           lojaId,
           clienteNome: clienteNome.trim() || undefined,
           itens: itensValidos.map(i => ({ pecaId: i.pecaId, quantidade: parseFloat(i.quantidade) })),
@@ -117,7 +117,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
             ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
           })),
         })
-        toast.success('Venda registrada!')
+        toast.success(resultado.aguardandoAprovacao
+          ? 'Venda com financiamento enviada para aprovação'
+          : 'Venda registrada!')
         setOpen(false)
         resetForm()
       } catch (e: unknown) {
