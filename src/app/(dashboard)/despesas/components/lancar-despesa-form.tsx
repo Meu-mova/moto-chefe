@@ -82,7 +82,7 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
       <div className="flex items-center gap-1">
         <div className="text-xs">
           <span className="font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
-            Lançada — {jaLancado.lojaNome ?? 'Geral'}
+            Lançada — {jaLancado.categoria ?? '—'} · {jaLancado.lojaNome ?? 'Geral'}
           </span>
           {(jaLancado.lancadoPorNome || quando) && (
             <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
