@@ -90,5 +90,5 @@ export function calcularCustoFrete(
     return { kmIdaEVolta, custo: valorFixo }
   }
   const kmCobravel = kmIdaEVolta - kmGratis
-  return { kmIdaEVolta, custo: kmCobravel * valorPorKm }
+  return { kmIdaEVolta, custo: valorFixo + kmCobravel * valorPorKm }
 }
