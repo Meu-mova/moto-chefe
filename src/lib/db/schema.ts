@@ -608,3 +608,26 @@ export const comunicadosLidos = pgTable('comunicados_lidos', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.comunicadoId, t.usuarioId] }),
 }))
+
+// ─── funcionarios_config (folha de pagamento) ─────────────────────────────────
+// Uma linha por usuário. Sem versionamento histórico — o valor é sempre o
+// "atual"; se mudar, o admin edita in-place (mesmo padrão de configuracaoTaxas).
+export const funcionariosConfig = pgTable('funcionarios_config', {
+  usuarioId:          uuid('usuario_id').primaryKey().references(() => usuarios.id),
+  salario:            numeric('salario', { precision: 10, scale: 2 }).notNull().default('0'),
+  comissaoPercentual: numeric('comissao_percentual', { precision: 5, scale: 2 }).notNull().default('0'),
+  ajudaCusto:         numeric('ajuda_custo', { precision: 10, scale: 2 }),
+  ativo:              boolean('ativo').notNull().default(true),
+  atualizadoEm:       timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── premiacao_faixas (tabela OTE — só vendedor) ───────────────────────────────
+// Várias linhas por grupo. A premiação aplicável a um vendedor num mês é o
+// premiacao da faixa de maior valorMinimoVendas que ele atingiu ou ultrapassou.
+export const premiacaoFaixas = pgTable('premiacao_faixas', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  grupoId:           uuid('grupo_id').notNull().references(() => grupos.id),
+  valorMinimoVendas: numeric('valor_minimo_vendas', { precision: 12, scale: 2 }).notNull(),
+  premiacao:         numeric('premiacao', { precision: 10, scale: 2 }).notNull(),
+  criadoEm:          timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
