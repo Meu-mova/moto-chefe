@@ -149,9 +149,17 @@ export async function atualizarOSAction(osId: string, dados: {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
+const TIPO_CARTAO_OS: Record<string, string> = {
+  'Cartão de Crédito': 'cartao_credito',
+  'Cartão de Débito':  'cartao_debito',
+}
+
 export async function registrarPagamentoOSAction(osId: string, dados: {
   valorTotal: number
   formaPagamento: string
+  operadora?: string
+  parcelas?: number
+  autorizacao?: string
 }) {
   await verificarAcessoOS(osId, GESTORES)
 
@@ -161,9 +169,21 @@ export async function registrarPagamentoOSAction(osId: string, dados: {
     .where(eq(ordensServico.id, osId))
     .limit(1)
 
+  const tipoCartao = TIPO_CARTAO_OS[dados.formaPagamento]
+  const pagamentos = tipoCartao
+    ? [{
+        tipo:  tipoCartao,
+        valor: dados.valorTotal,
+        ...(dados.operadora   ? { operadora: dados.operadora }     : {}),
+        ...(dados.parcelas    ? { parcelas: dados.parcelas }       : {}),
+        ...(dados.autorizacao ? { autorizacao: dados.autorizacao } : {}),
+      }]
+    : null
+
   await db.update(ordensServico).set({
     valorTotal:     String(dados.valorTotal),
     formaPagamento: dados.formaPagamento,
+    pagamentos,
     ...(osAtual?.status === 'pendente_pagamento'
       ? { status: 'concluida' as any, dataConclusao: new Date() }
       : {}),
