@@ -10,7 +10,7 @@ import { DespesasTable } from './components/despesas-table'
 import { NovaDespesaButton } from './components/despesa-dialog'
 import { MesSelector } from './components/mes-selector'
 import { SaidasFiltros } from './components/saidas-filtros'
-import { LancarDespesaForm } from './components/lancar-despesa-form'
+import { SaidasTable } from './components/saidas-table'
 import { sincronizarEBuscarSaidas } from './open-finance'
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -45,6 +45,7 @@ export default async function DespesasPage({
     sfrom,
     sto,
     forcarSyncSaidas,
+    usuario.id,
   )
 
   const [rows, lojasOpts, totaisPorLoja, categoriasAtivas] = await Promise.all([
@@ -199,53 +200,21 @@ export default async function DespesasPage({
             </Card>
           </div>
 
-          <Card>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Data</th>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Favorecido / Descrição</th>
-                    <th className="text-right px-4 py-2 text-xs text-slate-500 font-medium">Valor</th>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Categoria / Loja</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {saidas.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
-                        {s.data.toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-2">
-                        <p className="font-medium">{s.favorecidoNome || '—'}</p>
-                        {s.descricao && <p className="text-xs text-slate-400 truncate max-w-xs" title={s.descricao}>{s.descricao}</p>}
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium text-red-600">{fmt(Number(s.valor))}</td>
-                      <td className="px-4 py-2">
-                        <LancarDespesaForm
-                          id={s.id}
-                          lojas={lojasOpts}
-                          categorias={categoriasAtivas}
-                          jaLancado={s.despesaId ? {
-                            lojaNome: s.lojaNome,
-                            lancadoPorNome: s.lancadoPorNome,
-                            lancadoEm: s.lancadoEm ? s.lancadoEm.toISOString() : null,
-                          } : null}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {saidas.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="text-center text-slate-400 py-8">
-                        Nenhuma saída no período.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+          <SaidasTable
+            saidas={saidas.map(s => ({
+              id: s.id,
+              data: s.data.toISOString(),
+              favorecidoNome: s.favorecidoNome,
+              descricao: s.descricao,
+              valor: s.valor,
+              despesaId: s.despesaId,
+              lojaNome: s.lojaNome,
+              lancadoPorNome: s.lancadoPorNome,
+              lancadoEm: s.lancadoEm ? s.lancadoEm.toISOString() : null,
+            }))}
+            lojas={lojasOpts}
+            categorias={categoriasAtivas}
+          />
         </TabsContent>
       </Tabs>
     </div>
