@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
-import { pedidosVenda, vendas, motos, lojas, usuarios, modelos, pixRecebimentos } from '@/lib/db/schema'
+import { pedidosVenda, vendas, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
+import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
 export type VendaComDetalhes  = Awaited<ReturnType<typeof listarVendas>>[0]
@@ -45,11 +46,12 @@ export async function listarVendas(filtros?: {
         WHERE venda_id = ${vendas.id}
         AND conciliado = true
       ), 0)`,
-      pixConciliadoValor: sql<number>`COALESCE((
-        SELECT SUM(valor::numeric)
-        FROM pix_recebimentos
-        WHERE venda_id = ${vendas.id}
-      ), 0)`,
+      // A partir do corte, concilia só pelo PIX via mcp.ai (Open Finance); vendas
+      // anteriores continuam pelo ValidaPix — ver CORTE_MIGRACAO_PIX.
+      pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
+        THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
+        ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
+      END`,
       chassi:           motos.chassi,
       cor:              motos.cor,
       modeloId:         motos.modeloId,

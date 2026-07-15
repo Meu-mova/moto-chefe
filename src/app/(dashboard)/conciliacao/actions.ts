@@ -1,9 +1,10 @@
 'use server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
+import { conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { revalidatePath } from 'next/cache'
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
@@ -380,7 +381,7 @@ export async function buscarPixDaVenda(vendaId: string) {
   const usuario = await getUsuarioLogado()
 
   const [venda] = await db
-    .select({ lojaId: vendas.lojaId })
+    .select({ lojaId: vendas.lojaId, dataVenda: vendas.dataVenda })
     .from(vendas)
     .where(eq(vendas.id, vendaId))
     .limit(1)
@@ -389,6 +390,21 @@ export async function buscarPixDaVenda(vendaId: string) {
   const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
   if (!ADMINS.includes(usuario.papel) && venda.lojaId !== usuario.lojaId) {
     throw new Error('Sem permissão')
+  }
+
+  // A partir do corte, concilia só pelo PIX via mcp.ai; vendas anteriores continuam
+  // pelo ValidaPix — ver CORTE_MIGRACAO_PIX.
+  if (new Date(venda.dataVenda) >= CORTE_MIGRACAO_PIX) {
+    return db
+      .select({
+        id:              pixRecebimentosMcp.id,
+        dataPagamento:   pixRecebimentosMcp.data,
+        valor:           pixRecebimentosMcp.valor,
+        pagadorNome:     pixRecebimentosMcp.pagadorNome,
+        observacao:      pixRecebimentosMcp.descricao,
+      })
+      .from(pixRecebimentosMcp)
+      .where(eq(pixRecebimentosMcp.vendaId, vendaId))
   }
 
   return db
