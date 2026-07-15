@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas, vendasPecas } from '@/lib/db/schema'
-import { eq, desc, and, isNull, isNotNull, inArray } from 'drizzle-orm'
+import { conciliacoesCartao, vendas, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
+import { eq, desc, and, isNull, isNotNull, inArray, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
@@ -51,6 +51,7 @@ export default async function ConciliacaoPage({
       conciliado:    conciliacoesCartao.conciliado,
       vendaId:       conciliacoesCartao.vendaId,
       pecaVendaId:   conciliacoesCartao.pecaVendaId,
+      osId:          conciliacoesCartao.osId,
       rawData:       conciliacoesCartao.rawData,
     })
     .from(conciliacoesCartao)
@@ -76,6 +77,22 @@ export default async function ConciliacaoPage({
       .from(vendasPecas)
       .where(inArray(vendasPecas.id, pecaVendaIds))
     rows.forEach(v => pecasVendaMap.set(v.id, { ...v, clienteNome: v.clienteNome ?? 'Cliente não identificado' }))
+  }
+
+  const osIds = [...new Set(transacoes.flatMap(t => t.osId ? [t.osId] : []))]
+  const osMap = new Map<string, { id: string; numero: number; clienteNome: string; valor: string }>()
+  if (osIds.length > 0) {
+    const rows = await db
+      .select({
+        id:          ordensServico.id,
+        numero:      ordensServico.numero,
+        clienteNome: sql<string>`COALESCE(${clientes.nome}, ${ordensServico.clienteNomeExterno}, 'Cliente não identificado')`,
+        valor:       ordensServico.valorTotal,
+      })
+      .from(ordensServico)
+      .leftJoin(clientes, eq(ordensServico.clienteId, clientes.id))
+      .where(inArray(ordensServico.id, osIds))
+    rows.forEach(o => osMap.set(o.id, { ...o, numero: o.numero ?? 0, valor: o.valor ?? '0' }))
   }
 
   const [totalPendentes, totalConciliadas] = await Promise.all([
@@ -145,8 +162,11 @@ export default async function ConciliacaoPage({
                   ? (vendasMap.get(t.vendaId) ?? null)
                   : t.pecaVendaId
                     ? (pecasVendaMap.get(t.pecaVendaId) ?? null)
-                    : null
-                const tipoVinculado: 'moto' | 'peca' | undefined = t.vendaId ? 'moto' : t.pecaVendaId ? 'peca' : undefined
+                    : t.osId
+                      ? (osMap.get(t.osId) ?? null)
+                      : null
+                const tipoVinculado: 'moto' | 'peca' | 'os' | undefined =
+                  t.vendaId ? 'moto' : t.pecaVendaId ? 'peca' : t.osId ? 'os' : undefined
 
                 return (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
