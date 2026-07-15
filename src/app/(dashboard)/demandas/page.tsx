@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { demandas, lojas, usuarios } from '@/lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, desc, asc } from 'drizzle-orm'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
@@ -26,12 +26,14 @@ export default async function DemandasPage() {
       lojaNome: lojas.nome,
       solicitanteNome: usuarios.nome,
       criadoEm: demandas.criadoEm,
+      sinalRecebido: demandas.sinalRecebido,
+      valorSinal: demandas.valorSinal,
     })
     .from(demandas)
     .innerJoin(lojas, eq(demandas.lojaId, lojas.id))
     .innerJoin(usuarios, eq(demandas.solicitanteId, usuarios.id))
     .where(where)
-    .orderBy(demandas.criadoEm)
+    .orderBy(desc(demandas.sinalRecebido), asc(demandas.criadoEm))
 
   return (
     <div className="space-y-6">

@@ -14,6 +14,8 @@ export function NovaDemandaForm({ lojas, lojaIdFixa }: Props) {
   const [modelo, setModelo] = useState('')
   const [cor, setCor] = useState('')
   const [lojaId, setLojaId] = useState(lojaIdFixa ?? '')
+  const [sinalRecebido, setSinalRecebido] = useState(false)
+  const [valorSinal, setValorSinal] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -21,9 +23,12 @@ export function NovaDemandaForm({ lojas, lojaIdFixa }: Props) {
     if (!modelo.trim() || !cor.trim() || !lojaId) return
     setLoading(true)
     try {
-      await criarDemandaAction(modelo, cor, lojaId)
+      const v = sinalRecebido && valorSinal.trim() ? parseFloat(valorSinal.replace(',', '.')) : null
+      await criarDemandaAction(modelo, cor, lojaId, sinalRecebido, v)
       setModelo('')
       setCor('')
+      setSinalRecebido(false)
+      setValorSinal('')
       if (!lojaIdFixa) setLojaId('')
       toast.success('Demanda registrada')
     } catch (err: unknown) {
@@ -70,6 +75,27 @@ export function NovaDemandaForm({ lojas, lojaIdFixa }: Props) {
             </Select>
           )}
         </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={sinalRecebido}
+            onChange={e => setSinalRecebido(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          Já recebi um sinal / recebimento prévio do cliente
+        </label>
+        {sinalRecebido && (
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="Valor do sinal (opcional)"
+            value={valorSinal}
+            onChange={e => setValorSinal(e.target.value)}
+            className="max-w-[180px]"
+          />
+        )}
       </div>
       <Button type="submit" disabled={loading || !modelo.trim() || !cor.trim() || !lojaId}>
         {loading ? 'Salvando…' : 'Registrar demanda'}

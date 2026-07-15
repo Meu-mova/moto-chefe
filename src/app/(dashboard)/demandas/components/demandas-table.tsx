@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { darBaixaAction } from '../actions'
+import { MarcarSinalButton } from './marcar-sinal-button'
 
 type Demanda = {
   id: string
@@ -11,6 +12,8 @@ type Demanda = {
   lojaNome: string
   solicitanteNome: string
   criadoEm: Date
+  sinalRecebido: boolean
+  valorSinal: string | null
 }
 
 type Props = { demandas: Demanda[]; isAdmin: boolean }
@@ -48,18 +51,27 @@ export function DemandasTable({ demandas, isAdmin }: Props) {
             <th className="text-left px-4 py-3 font-medium text-slate-600">Loja</th>
             <th className="text-left px-4 py-3 font-medium text-slate-600">Solicitante</th>
             <th className="text-left px-4 py-3 font-medium text-slate-600">Data</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Prioridade</th>
             {isAdmin && <th className="px-4 py-3" />}
           </tr>
         </thead>
         <tbody className="divide-y">
           {demandas.map(d => (
-            <tr key={d.id} className="hover:bg-slate-50">
+            <tr key={d.id} className={`hover:bg-slate-50 ${d.sinalRecebido ? 'bg-amber-50/60' : ''}`}>
               <td className="px-4 py-3 font-medium">{d.modelo}</td>
               <td className="px-4 py-3 text-slate-600">{d.cor}</td>
               <td className="px-4 py-3 text-slate-600">{d.lojaNome}</td>
               <td className="px-4 py-3 text-slate-600">{d.solicitanteNome}</td>
               <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                 {new Date(d.criadoEm).toLocaleDateString('pt-BR')}
+              </td>
+              <td className="px-4 py-3">
+                <MarcarSinalButton
+                  demandaId={d.id}
+                  sinalRecebido={d.sinalRecebido}
+                  valorSinal={d.valorSinal}
+                  isAdmin={isAdmin}
+                />
               </td>
               {isAdmin && (
                 <td className="px-4 py-3 text-right">
