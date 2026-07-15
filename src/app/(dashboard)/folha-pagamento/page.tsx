@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico } from '@/lib/db/schema'
+import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico, conciliacoesCartao } from '@/lib/db/schema'
 import { eq, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +22,23 @@ const PAPEL_LABEL: Record<string, string> = {
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// Valor líquido por venda: parte não paga em cartão fica como está; a parte paga em cartão e já
+// conciliada é trocada pelo valor líquido (descontada a taxa da operadora). Comissão e premiação
+// OTE de vendedor são calculadas sobre esse valor, não sobre o bruto da venda.
+function valorLiquidoExpr() {
+  return sql`(
+    ${vendas.valor}::numeric
+    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
+    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
+  )`
 }
 
 export default async function FolhaPagamentoPage({
@@ -55,7 +72,7 @@ export default async function FolhaPagamentoPage({
     db
       .select({
         vendedorId: vendas.vendedorId,
-        total: sql<string>`COALESCE(SUM(${vendas.valor}::numeric), 0)`,
+        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
       })
       .from(vendas)
       .where(and(
@@ -204,7 +221,7 @@ export default async function FolhaPagamentoPage({
               <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Base Comissão</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Base Comissão (líquido)</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Salário</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Comissão</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
