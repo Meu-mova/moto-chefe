@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FuncionariosConfigTable } from './components/funcionarios-config-table'
 import { PremiacaoFaixasTable } from './components/premiacao-faixas-table'
 import { MesSelectorFolha } from './components/mes-selector-folha'
+import { calcularPremiacao } from '@/lib/premiacao'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const PAPEL_LABEL: Record<string, string> = {
@@ -21,16 +22,6 @@ const PAPEL_LABEL: Record<string, string> = {
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-// Premiação aplicável = a faixa de maior valorMinimoVendas que o total atingiu/ultrapassou.
-function calcularPremiacao(totalVendido: number, faixas: { valorMinimoVendas: string; premiacao: string }[]): number {
-  const ordenadas = [...faixas].sort((a, b) => parseFloat(a.valorMinimoVendas) - parseFloat(b.valorMinimoVendas))
-  let melhor = 0
-  for (const f of ordenadas) {
-    if (totalVendido >= parseFloat(f.valorMinimoVendas)) melhor = parseFloat(f.premiacao)
-  }
-  return melhor
 }
 
 export default async function FolhaPagamentoPage({

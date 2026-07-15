@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Calculator, HandCoins, Minus, CreditCard, Receipt } from 'lucide-react'
+import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Trophy, HandCoins, Minus, CreditCard, Receipt } from 'lucide-react'
+import { calcularPremiacao } from '@/lib/premiacao'
 
 type KPIs = {
   totalVendas: number
@@ -16,9 +17,9 @@ type Props = {
   kpisAnt: KPIs
   papel: string
   motoMaisVendida: { modelo: string; total: number } | null
-  precoMedio: number
   conciliacaoPendentes?: number
   faturamentoOS?: number
+  faixasOTE?: { valorMinimoVendas: string; premiacao: string }[]
 }
 
 const formatCurrency = (v: number) =>
@@ -63,7 +64,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, conciliacaoPendentes = 0, faturamentoOS = 0 }: Props) {
+export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = 0, faixasOTE = [] }: Props) {
   const isAdmin = ADMINS.includes(papel)
   const isVendedor = papel === 'vendedor'
 
@@ -83,12 +84,14 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, precoMedio, co
   if (isVendedor) {
     const comissao = kpis.faturamento * 0.005
     const comissaoAnt = kpisAnt.faturamento * 0.005
+    const premiacao = calcularPremiacao(kpis.faturamento, faixasOTE)
+    const premiacaoAnt = calcularPremiacao(kpisAnt.faturamento, faixasOTE)
     cards.push(
       { label: 'Motos Vendidas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
       { label: 'Total de Vendas', value: formatCurrency(kpis.faturamento), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', variacao: { atual: kpis.faturamento, anterior: kpisAnt.faturamento } },
       { label: 'Mais Vendida', value: motoMaisVendida ? `${motoMaisVendida.modelo} (${motoMaisVendida.total})` : '—', icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
-      { label: 'Preço Médio', value: precoMedio > 0 ? formatCurrency(precoMedio) : '—', icon: Calculator, color: 'text-cyan-600', bg: 'bg-cyan-50' },
       { label: 'Comissão', value: formatCurrency(comissao), icon: HandCoins, color: 'text-emerald-600', bg: 'bg-emerald-50', variacao: { atual: comissao, anterior: comissaoAnt } },
+      { label: 'Premiação OTE', value: formatCurrency(premiacao), icon: Trophy, color: 'text-amber-700', bg: 'bg-amber-50', variacao: { atual: premiacao, anterior: premiacaoAnt } },
     )
   } else {
     cards.push(

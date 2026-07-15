@@ -1,18 +1,19 @@
 import { Suspense } from 'react'
 import { db } from '@/lib/db'
-import { usuarios, conciliacoesCartao } from '@/lib/db/schema'
+import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import {
   getKPIs, getVendasPorDia, getEstoquePorLoja, getSaldoCaixaPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
-  getOsAbertas, getMotoMaisVendida, getPrecoMedioVendas, getFaturamentoOS,
+  getOsAbertas, getMotoMaisVendida, getFaturamentoOS,
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
 } from '@/lib/queries/dashboard'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { KpiCards } from './components/kpi-cards'
+import { SimuladorComissaoOTE } from './components/simulador-comissao'
 import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoCaixaPorLoja } from './components/charts'
 import {
   TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo,
@@ -36,24 +37,37 @@ const getVendedoresOpts = unstable_cache(
 
 // ── Seções async ──────────────────────────────────────────────────────────────
 
-async function KpiSection({ filtros, filtrosAnt, papel }: { filtros: Filtros; filtrosAnt: Filtros; papel: string }) {
+async function KpiSection({
+  filtros, filtrosAnt, usuario,
+}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; lojaId: string | null } }) {
+  const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
-  const kpiOpts = papel === 'vendedor' ? { useLiquidoValue: true } : undefined
+  const isVendedor = papel === 'vendedor'
+  const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, precoMedio, conciliacaoPendentes, faturamentoOS] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
         getMotoMaisVendida(filtros),
-        getPrecoMedioVendas(filtros, kpiOpts),
         isAdmin
           ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
           : Promise.resolve(0),
-        papel === 'vendedor' ? Promise.resolve(0) : getFaturamentoOS(filtros),
+        isVendedor ? Promise.resolve(0) : getFaturamentoOS(filtros),
+        isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
+        isVendedor ? db.select().from(funcionariosConfig).where(eq(funcionariosConfig.usuarioId, usuario.id)).then(r => r[0]) : Promise.resolve(undefined),
       ]),
       25000,
     )
-    return <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} precoMedio={precoMedio} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} />
+    const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
+    return (
+      <>
+        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} />
+        {isVendedor && (
+          <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
+        )}
+      </>
+    )
   } catch (e) {
     console.error('[KpiSection] erro:', e)
     throw e
@@ -115,8 +129,8 @@ async function RankingSection({
 }
 
 async function TabelasSection({
-  filtros, lojaId, mecanicoId,
-}: { filtros: Filtros; lojaId?: string[]; mecanicoId?: string }) {
+  filtros, lojaId, mecanicoId, isVendedor,
+}: { filtros: Filtros; lojaId?: string[]; mecanicoId?: string; isVendedor: boolean }) {
   let ultimasVendas: Awaited<ReturnType<typeof getUltimasVendas>>,
       transfPendentes: Awaited<ReturnType<typeof getTransferenciasPendentes>>,
       garantiasVencendo: Awaited<ReturnType<typeof getGarantiasProxVencimento>>,
@@ -126,8 +140,8 @@ async function TabelasSection({
       Promise.all([
         getUltimasVendas(filtros),
         getTransferenciasPendentes(lojaId),
-        getGarantiasProxVencimento(lojaId),
-        getOsAbertas(lojaId, mecanicoId),
+        isVendedor ? Promise.resolve([] as Awaited<ReturnType<typeof getGarantiasProxVencimento>>) : getGarantiasProxVencimento(lojaId),
+        isVendedor ? Promise.resolve([] as Awaited<ReturnType<typeof getOsAbertas>>) : getOsAbertas(lojaId, mecanicoId),
       ]),
       25000,
     )
@@ -141,10 +155,12 @@ async function TabelasSection({
         <TabelaUltimasVendas vendas={ultimasVendas} />
         <TabelaTransferenciasPendentes transferencias={transfPendentes} />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TabelaGarantiasVencendo garantias={garantiasVencendo} />
-        <TabelaOsAbertas ordens={osAbertas} />
-      </div>
+      {!isVendedor && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TabelaGarantiasVencendo garantias={garantiasVencendo} />
+          <TabelaOsAbertas ordens={osAbertas} />
+        </div>
+      )}
     </>
   )
 }
@@ -274,7 +290,7 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
         <Suspense fallback={<KpiSkeleton />}>
-          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} papel={usuario.papel} />
+          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
         </Suspense>
       </SectionErrorBoundary>
 
@@ -292,7 +308,7 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`tabelas-${filtroKey}`} label="as tabelas">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
-          <TabelasSection filtros={filtros} lojaId={filtros.lojaId} mecanicoId={mecanicoId} />
+          <TabelasSection filtros={filtros} lojaId={filtros.lojaId} mecanicoId={mecanicoId} isVendedor={isVendedor} />
         </Suspense>
       </SectionErrorBoundary>
     </div>
