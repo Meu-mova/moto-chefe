@@ -47,8 +47,8 @@ export default async function FolhaPagamentoPage({
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
   const [ano, mes] = mesParam.split('-').map(Number)
-  const inicioTs = new Date(`${mesParam}-01T00:00:00Z`)
-  const fimTs = new Date(`${ano}-${String(mes + 1).padStart(2, '0')}-01T00:00:00Z`)
+  const inicioTs = new Date(Date.UTC(ano, mes - 1, 1))
+  const fimTs = new Date(Date.UTC(ano, mes, 1))
 
   const [funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico] = await Promise.all([
     db
