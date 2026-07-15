@@ -23,7 +23,8 @@ export function NovaDemandaForm({ lojas, lojaIdFixa }: Props) {
     if (!modelo.trim() || !cor.trim() || !lojaId) return
     setLoading(true)
     try {
-      const v = sinalRecebido && valorSinal.trim() ? parseFloat(valorSinal.replace(',', '.')) : null
+      const parsedValor = valorSinal.trim() ? parseFloat(valorSinal.trim().replace(/\./g, '').replace(',', '.')) : NaN
+      const v = sinalRecebido && !isNaN(parsedValor) ? parsedValor : null
       await criarDemandaAction(modelo, cor, lojaId, sinalRecebido, v)
       setModelo('')
       setCor('')

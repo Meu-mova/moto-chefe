@@ -21,7 +21,8 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
   const [pending, startTransition] = useTransition()
 
   function marcar() {
-    const v = valor.trim() ? parseFloat(valor.replace(',', '.')) : null
+    const parsedValor = valor.trim() ? parseFloat(valor.trim().replace(/\./g, '').replace(',', '.')) : NaN
+    const v = !isNaN(parsedValor) ? parsedValor : null
     startTransition(async () => {
       try {
         await atualizarSinalDemandaAction(demandaId, true, v)
