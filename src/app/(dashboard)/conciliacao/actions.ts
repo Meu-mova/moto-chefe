@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos, vendasPecas } from '@/lib/db/schema'
+import { conciliacoesCartao, pixRecebimentos, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -185,9 +185,10 @@ export async function importarRelatorioAction(formData: FormData) {
       if (ex) { duplicadas++; continue }
     }
 
-    // Tenta auto-conciliar pela autorização registrada na venda (moto ou peça), restrito ao grupo ativo
+    // Tenta auto-conciliar pela autorização registrada na venda (moto, peça ou OS), restrito ao grupo ativo
     let vendaId: string | null = null
     let pecaVendaId: string | null = null
+    let osId: string | null = null
     if (r.autorizacao) {
       const [matchVenda] = await db
         .select({ id: vendas.id })
@@ -208,11 +209,23 @@ export async function importarRelatorioAction(formData: FormData) {
             inArray(vendasPecas.lojaId, lojaIdsGrupo),
           ))
           .limit(1)
-        if (matchPeca) pecaVendaId = matchPeca.id
+        if (matchPeca) {
+          pecaVendaId = matchPeca.id
+        } else {
+          const [matchOs] = await db
+            .select({ id: ordensServico.id })
+            .from(ordensServico)
+            .where(and(
+              sql`${ordensServico.pagamentos} @> ${JSON.stringify([{ autorizacao: r.autorizacao }])}::jsonb`,
+              inArray(ordensServico.lojaId, lojaIdsGrupo),
+            ))
+            .limit(1)
+          if (matchOs) osId = matchOs.id
+        }
       }
     }
 
-    const matched = vendaId ?? pecaVendaId
+    const matched = vendaId ?? pecaVendaId ?? osId
     await db.insert(conciliacoesCartao).values({
       grupoId:        grupo.id,
       operadora,
@@ -225,7 +238,7 @@ export async function importarRelatorioAction(formData: FormData) {
       tipo:           r.tipo,
       status:         'aprovado',
       rawData:        { bandeira: r.bandeira, portador: r.portador },
-      ...(matched ? { vendaId, pecaVendaId, conciliado: true, conciliadoEm: new Date() } : {}),
+      ...(matched ? { vendaId, pecaVendaId, osId, conciliado: true, conciliadoEm: new Date() } : {}),
     })
 
     if (matched) conciliadas++
@@ -236,7 +249,7 @@ export async function importarRelatorioAction(formData: FormData) {
   return { importadas, duplicadas, conciliadas }
 }
 
-export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' = 'moto') {
+export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' | 'os' = 'moto') {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
@@ -248,7 +261,21 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
       throw new Error('Venda de peça não pertence ao grupo ativo')
     }
     const atualizadas = await db.update(conciliacoesCartao)
-      .set({ pecaVendaId: alvoId, vendaId: null, conciliado: true, conciliadoEm: new Date() })
+      .set({ pecaVendaId: alvoId, vendaId: null, osId: null, conciliado: true, conciliadoEm: new Date() })
+      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+      .returning({ id: conciliacoesCartao.id })
+    if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
+    revalidatePath('/conciliacao')
+    return
+  }
+
+  if (tipo === 'os') {
+    const [os] = await db.select({ lojaId: ordensServico.lojaId }).from(ordensServico).where(eq(ordensServico.id, alvoId)).limit(1)
+    if (!os || !lojaIdsGrupo.includes(os.lojaId)) {
+      throw new Error('Ordem de serviço não pertence ao grupo ativo')
+    }
+    const atualizadas = await db.update(conciliacoesCartao)
+      .set({ osId: alvoId, vendaId: null, pecaVendaId: null, conciliado: true, conciliadoEm: new Date() })
       .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
       .returning({ id: conciliacoesCartao.id })
     if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
@@ -267,7 +294,7 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
   }
 
   const atualizadas = await db.update(conciliacoesCartao)
-    .set({ vendaId: alvoId, pecaVendaId: null, conciliado: true, conciliadoEm: new Date() })
+    .set({ vendaId: alvoId, pecaVendaId: null, osId: null, conciliado: true, conciliadoEm: new Date() })
     .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
     .returning({ id: conciliacoesCartao.id })
 
@@ -282,7 +309,7 @@ export async function desvincularVendaAction(conciliacaoId: string) {
   const grupo = await getGrupoAtivo(usuario)
 
   const atualizadas = await db.update(conciliacoesCartao)
-    .set({ vendaId: null, pecaVendaId: null, conciliado: false, conciliadoEm: null })
+    .set({ vendaId: null, pecaVendaId: null, osId: null, conciliado: false, conciliadoEm: null })
     .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
     .returning({ id: conciliacoesCartao.id })
 
@@ -382,7 +409,7 @@ export async function buscarVendasParaVincular(valorRef: number) {
 
   // Busca vendas (motos e peças/acessórios) onde algum lançamento de cartão tem valor
   // exato (tolerância de R$0,01), restrito às lojas do grupo ativo do usuário.
-  const [motosRows, pecasRows] = await Promise.all([
+  const [motosRows, pecasRows, osRows] = await Promise.all([
     db
       .select({
         id:             vendas.id,
@@ -431,9 +458,34 @@ export async function buscarVendasParaVincular(valorRef: number) {
       )
       .orderBy(desc(vendasPecas.dataVenda))
       .limit(50),
+    db
+      .select({
+        id:             ordensServico.id,
+        tipo:           sql<'os'>`'os'`,
+        numero:         ordensServico.numero,
+        dataVenda:      ordensServico.dataConclusao,
+        clienteNome:    sql<string>`COALESCE(${clientes.nome}, ${ordensServico.clienteNomeExterno}, 'Cliente não identificado')`,
+        valor:          ordensServico.valorTotal,
+        formaPagamento: ordensServico.formaPagamento,
+        pagamentos:     ordensServico.pagamentos,
+      })
+      .from(ordensServico)
+      .leftJoin(clientes, eq(ordensServico.clienteId, clientes.id))
+      .where(
+        and(
+          inArray(ordensServico.lojaId, lojaIdsGrupo),
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements(${ordensServico.pagamentos}) AS p
+            WHERE (p->>'valor')::numeric BETWEEN ${valorRef - 0.01} AND ${valorRef + 0.01}
+            AND p->>'tipo' IN ('cartao_credito', 'cartao_debito', 'link_pagamento')
+          )`,
+        )
+      )
+      .orderBy(desc(ordensServico.dataConclusao))
+      .limit(50),
   ])
 
-  return [...motosRows, ...pecasRows]
+  return [...motosRows, ...pecasRows, ...osRows]
 }
 
 export async function buscarVendaManual(query: string) {
@@ -446,7 +498,7 @@ export async function buscarVendaManual(query: string) {
 
   const isNumero = /^\d{1,7}$/.test(q)
 
-  const [motosRows, pecasRows] = await Promise.all([
+  const [motosRows, pecasRows, osRows] = await Promise.all([
     db
       .select({
         id:             vendas.id,
@@ -487,7 +539,30 @@ export async function buscarVendaManual(query: string) {
       )
       .orderBy(desc(vendasPecas.dataVenda))
       .limit(15),
+    db
+      .select({
+        id:             ordensServico.id,
+        tipo:           sql<'os'>`'os'`,
+        numero:         ordensServico.numero,
+        dataVenda:      ordensServico.dataConclusao,
+        clienteNome:    sql<string>`COALESCE(${clientes.nome}, ${ordensServico.clienteNomeExterno}, 'Cliente não identificado')`,
+        valor:          ordensServico.valorTotal,
+        formaPagamento: ordensServico.formaPagamento,
+        pagamentos:     ordensServico.pagamentos,
+      })
+      .from(ordensServico)
+      .leftJoin(clientes, eq(ordensServico.clienteId, clientes.id))
+      .where(
+        and(
+          inArray(ordensServico.lojaId, lojaIdsGrupo),
+          isNumero
+            ? eq(ordensServico.numero, parseInt(q, 10))
+            : sql`(COALESCE(${clientes.nome}, ${ordensServico.clienteNomeExterno}, '') ILIKE ${'%' + q + '%'})`,
+        )
+      )
+      .orderBy(desc(ordensServico.dataConclusao))
+      .limit(15),
   ])
 
-  return [...motosRows, ...pecasRows]
+  return [...motosRows, ...pecasRows, ...osRows]
 }
