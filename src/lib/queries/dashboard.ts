@@ -10,14 +10,21 @@ type Filtros = {
   vendedorId?: string
 }
 
-// Valor líquido por venda: usa valor_liquido da conciliação se existir, senão valor bruto da venda
+// Valor líquido por venda: parte não paga em cartão fica como está (bruto = líquido);
+// a parte paga em cartão e já conciliada é trocada pelo valor líquido (descontada a taxa da operadora).
+// Cobre também vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte não-cartão não pode
+// ser descartada do total.
 function valorLiquidoExpr() {
-  return sql`COALESCE(
-    (SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-     FROM ${conciliacoesCartao}
-     WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-       AND ${conciliacoesCartao.conciliado} = true),
+  return sql`(
     ${vendas.valor}::numeric
+    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
+    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
   )`
 }
 

@@ -12,13 +12,20 @@ import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
 
+// Parte não paga em cartão fica como está; a parte paga em cartão e já conciliada é trocada
+// pelo valor líquido. Cobre vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte
+// não-cartão não pode ser descartada do total.
 function valorLiquidoExpr() {
-  return sql<string>`COALESCE(
-    (SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-     FROM ${conciliacoesCartao}
-     WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-       AND ${conciliacoesCartao.conciliado} = true),
+  return sql<string>`(
     ${vendas.valor}::numeric
+    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
+    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
+                FROM ${conciliacoesCartao}
+                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
+                  AND ${conciliacoesCartao.conciliado} = true), 0)
   )`
 }
 
