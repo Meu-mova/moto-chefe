@@ -539,6 +539,8 @@ export const demandas = pgTable('demandas', {
   id: uuid('id').primaryKey().defaultRandom(),
   modelo: text('modelo').notNull(),
   cor: text('cor').notNull(),
+  sinalRecebido: boolean('sinal_recebido').notNull().default(false),
+  valorSinal:    numeric('valor_sinal', { precision: 10, scale: 2 }),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   solicitanteId: uuid('solicitante_id').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
