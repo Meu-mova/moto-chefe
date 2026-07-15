@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, ListChecks, Package2,
+  Radar, CalendarDays, ListChecks, Package2, HandCoins,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -40,6 +40,7 @@ export function Sidebar({ papel }: Props) {
     // ValidaPix (/pix) abolido do menu — código/dados mantidos intactos, revertível.
     ...(PAPEIS_PIX_MCP.includes(papel) ? [{ href: '/pix-mcp',     label: 'PIX',         icon: QrCode       }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao', label: 'Conciliação', icon: CreditCard   }] : []),
+    ...(isAdmin ? [{ href: '/folha-pagamento', label: 'Folha de Pagamento', icon: HandCoins }] : []),
     ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/clientes', label: 'Clientes', icon: Users }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/servicos', label: 'Serviços', icon: ListChecks }] : []),
