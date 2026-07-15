@@ -220,6 +220,7 @@ export default async function VendasPage({
           nfInicial={params.nf ?? ''}
           dataInicioInicial={dataInicio}
           dataFimInicial={params.ate ?? ''}
+          podeConciliacao={podeConciliacao}
         />
         <div className="bg-white rounded-lg border overflow-x-auto">
           <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} />

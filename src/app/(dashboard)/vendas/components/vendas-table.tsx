@@ -1,4 +1,5 @@
 'use client'
+import { useSearchParams } from 'next/navigation'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
@@ -92,6 +93,17 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
   const podeConciliacao    = isAdmin || papel === 'aux_adm'
   const colSpan = podeFazerGarantia ? (podeConciliacao ? 11 : 10) : (podeConciliacao ? 10 : 9)
 
+  const searchParams = useSearchParams()
+  const concFiltro = (searchParams.get('conc') ?? '').split(',').filter(Boolean)
+
+  const vendasComStatus = vendas.map(v => ({
+    venda: v,
+    status: calcStatus(v.pagamentos, v.conciliadoValor as number, v.pixConciliadoValor as number, v.valor, v.statusConciliacao),
+  }))
+  const vendasFiltradas = concFiltro.length > 0
+    ? vendasComStatus.filter(({ status }) => concFiltro.includes(status))
+    : vendasComStatus
+
   return (
     <Table>
       <TableHeader>
@@ -110,8 +122,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
         </TableRow>
       </TableHeader>
       <TableBody>
-        {vendas.map(v => {
-          const status = calcStatus(v.pagamentos, v.conciliadoValor as number, v.pixConciliadoValor as number, v.valor, v.statusConciliacao)
+        {vendasFiltradas.map(({ venda: v, status }) => {
           return (
             <TableRow key={v.id}>
               <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>
@@ -166,7 +177,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
             </TableRow>
           )
         })}
-        {vendas.length === 0 && (
+        {vendasFiltradas.length === 0 && (
           <TableRow>
             <TableCell colSpan={colSpan} className="text-center text-slate-400 py-8">
               Nenhuma venda encontrada.
