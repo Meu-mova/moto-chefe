@@ -13,6 +13,8 @@ import { SaidasFiltros } from './components/saidas-filtros'
 import { LancarDespesaForm } from './components/lancar-despesa-form'
 import { sincronizarEBuscarSaidas } from './open-finance'
 import { Suspense } from 'react'
+import Link from 'next/link'
+import { RefreshCw } from 'lucide-react'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -109,6 +111,8 @@ export default async function DespesasPage({
 
   const mesExibicao = new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
+  const hrefAtualizarSaidas = `/despesas?sfrom=${sfrom.toISOString().split('T')[0]}&sto=${sto.toISOString().split('T')[0]}&sync=1`
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -166,10 +170,13 @@ export default async function DespesasPage({
           )}
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 flex items-center gap-2">
               {syncStatusAtual
                 ? `Sincronizado com o banco em ${syncStatusAtual.ultimaSincronizacao.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                 : 'Ainda não sincronizado'}
+              <Link href={hrefAtualizarSaidas} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 underline">
+                <RefreshCw size={11} /> Atualizar agora
+              </Link>
             </p>
             <SaidasFiltros
               defaultFrom={sfrom.toISOString().split('T')[0]}
