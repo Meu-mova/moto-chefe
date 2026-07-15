@@ -410,6 +410,28 @@ export const despesas = pgTable('despesas', {
   criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── despesas_open_finance (saídas bancárias puxadas do Open Finance) ─────────
+// Nasce sem categoria/loja; vira uma linha em `despesas` quando o usuário
+// atribui os dois campos ("lançar"). despesaId é preenchido nesse momento.
+export const despesasOpenFinance = pgTable('despesas_open_finance', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  grupoId:        uuid('grupo_id').notNull().references(() => grupos.id),
+  contaId:        text('conta_id').notNull(),
+  banco:          text('banco').notNull(),
+  transacaoId:    text('transacao_id').notNull().unique(),
+  data:           timestamp('data', { withTimezone: true }).notNull(),
+  valor:          numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  favorecidoNome: text('favorecido_nome'),
+  descricao:      text('descricao'),
+  tipoOperacao:   text('tipo_operacao'),
+  categoria:      text('categoria'),
+  lojaId:         uuid('loja_id').references(() => lojas.id),
+  despesaId:      uuid('despesa_id').references(() => despesas.id),
+  lancadoPorId:   uuid('lancado_por_id').references(() => usuarios.id),
+  lancadoEm:      timestamp('lancado_em', { withTimezone: true }),
+  criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── configuracao_taxas (uma linha por grupo) ────────────────────────────────
 export const configuracaoTaxas = pgTable('configuracao_taxas', {
   grupoId: uuid('grupo_id').primaryKey().references(() => grupos.id),
