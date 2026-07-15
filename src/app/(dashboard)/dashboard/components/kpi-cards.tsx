@@ -18,7 +18,7 @@ type Props = {
   papel: string
   motoMaisVendida: { modelo: string; total: number } | null
   conciliacaoPendentes?: number
-  faturamentoOS?: number
+  faturamentoOS?: { servicos: number; pecas: number }
   faixasOTE?: { valorMinimoVendas: string; premiacao: string }[]
 }
 
@@ -64,7 +64,7 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = 0, faixasOTE = [] }: Props) {
+export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [] }: Props) {
   const isAdmin = ADMINS.includes(papel)
   const isVendedor = papel === 'vendedor'
 
@@ -110,7 +110,8 @@ export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, conciliacaoPen
       { label: 'Transf. Pendentes', value: kpis.transferenciasPendentes, icon: ArrowLeftRight, color: 'text-orange-600', bg: 'bg-orange-50' },
       { label: 'Garantias Ativas', value: kpis.garantiasAtivas, icon: Shield, color: 'text-red-600', bg: 'bg-red-50' },
       { label: 'OS Abertas', value: kpis.osAbertas, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50' },
-      { label: 'Faturamento OS', value: formatCurrency(faturamentoOS), icon: Receipt, color: 'text-teal-600', bg: 'bg-teal-50' },
+      { label: 'OS · Serviços', value: formatCurrency(faturamentoOS.servicos), icon: Receipt, color: 'text-teal-600', bg: 'bg-teal-50' },
+      { label: 'OS · Peças', value: formatCurrency(faturamentoOS.pecas), icon: Package, color: 'text-purple-600', bg: 'bg-purple-50' },
     )
 
     if (isAdmin) {

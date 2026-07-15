@@ -66,8 +66,10 @@ export function OSCard({ os }: Props) {
                 </div>
               )}
 
-              {/* Descrição */}
-              <p className="text-xs text-slate-500 line-clamp-1">{os.descricao}</p>
+              {/* Serviços */}
+              {os.servicosResumo && (
+                <p className="text-xs text-slate-500 line-clamp-1">{os.servicosResumo}</p>
+              )}
 
               {/* Footer */}
               <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">

@@ -240,6 +240,10 @@ export const ordensServico = pgTable('ordens_servico', {
   diagnostico: text('diagnostico'),
   observacoesFinais: text('observacoes_finais'),
   valorTotal: numeric('valor_total', { precision: 10, scale: 2 }),
+  // Split persistido de valorTotal por tipo de item (os_itens.tipo) — usado pra comissionar
+  // mecanico só pela mão de obra e aux_adm só pelas peças usadas na OS (ver recalcularTotal).
+  valorServicos: numeric('valor_servicos', { precision: 10, scale: 2 }).notNull().default('0'),
+  valorPecas: numeric('valor_pecas', { precision: 10, scale: 2 }).notNull().default('0'),
   formaPagamento: text('forma_pagamento'),
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]>(),
   dataPrevisao: timestamp('data_previsao', { withTimezone: true }),

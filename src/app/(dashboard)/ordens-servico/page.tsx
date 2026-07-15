@@ -16,10 +16,15 @@ function parseParam(v?: string): string[] {
   return v.split(',').filter(Boolean)
 }
 
+function dataDefaultMesAtual() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
 export default async function OrdensServicoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; loja?: string }>
+  searchParams: Promise<{ status?: string; q?: string; loja?: string; de?: string; ate?: string }>
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
@@ -33,9 +38,12 @@ export default async function OrdensServicoPage({
     ? lojaParamBruto
     : lojaIdsGrupo
 
+  const dataInicio = params.de  ?? dataDefaultMesAtual()
+  const dataFim    = params.ate ?? undefined
+
   const [lista, mecanicos, lojasOpts] = await Promise.all([
     isAdmin
-      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaValues })
+      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaValues, dataInicio, dataFim })
       : listarOSPorLoja(usuario.lojaId!),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
@@ -59,6 +67,10 @@ export default async function OrdensServicoPage({
     },
     { pendente: 0, parcial: 0, conciliada: 0 },
   )
+
+  const totalServicos = lista.reduce((s, o) => s + (parseFloat(o.valorServicos) || 0), 0)
+  const totalPecas    = lista.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   return (
     <div className="space-y-6">
@@ -98,6 +110,20 @@ export default async function OrdensServicoPage({
         </div>
       </div>
 
+      {/* Valor: serviço x peça */}
+      <div className="grid grid-cols-2 gap-3 max-w-md">
+        <div className="bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-teal-600 uppercase tracking-wide">Total Serviços</p>
+          <p className="text-xl font-bold text-teal-700 mt-0.5">{fmt(totalServicos)}</p>
+          <p className="text-xs text-teal-500 mt-0.5">comissão do mecânico</p>
+        </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">Total Peças</p>
+          <p className="text-xl font-bold text-purple-700 mt-0.5">{fmt(totalPecas)}</p>
+          <p className="text-xs text-purple-500 mt-0.5">comissão do aux. adm.</p>
+        </div>
+      </div>
+
       {/* Conciliação */}
       {(concStats.pendente + concStats.parcial + concStats.conciliada) > 0 && (
         <div className="grid grid-cols-3 gap-3 max-w-xl">
@@ -116,7 +142,7 @@ export default async function OrdensServicoPage({
         </div>
       )}
 
-      <OSFiltros lojas={isAdmin ? lojasOpts : []} />
+      <OSFiltros lojas={isAdmin ? lojasOpts : []} dataInicioInicial={dataInicio} dataFimInicial={params.ate ?? ''} />
 
       {lista.length === 0 && (
         <p className="text-sm text-slate-400 text-center py-16">Nenhuma ordem de serviço encontrada.</p>

@@ -294,14 +294,22 @@ export async function excluirOSAction(osId: string) {
 
 async function recalcularTotal(osId: string) {
   const itens = await db
-    .select({ quantidade: osItens.quantidade, valorUnitario: osItens.valorUnitario })
+    .select({ tipo: osItens.tipo, quantidade: osItens.quantidade, valorUnitario: osItens.valorUnitario })
     .from(osItens)
     .where(eq(osItens.osId, osId))
 
-  const total = itens.reduce(
-    (acc, i) => acc + parseFloat(i.quantidade) * parseFloat(i.valorUnitario), 0,
-  )
+  const somaPorTipo = (tipo: string) => itens
+    .filter(i => i.tipo === tipo)
+    .reduce((acc, i) => acc + parseFloat(i.quantidade) * parseFloat(i.valorUnitario), 0)
+
+  const valorServicos = somaPorTipo('servico')
+  const valorPecas    = somaPorTipo('peca')
+
   await db.update(ordensServico)
-    .set({ valorTotal: String(total) })
+    .set({
+      valorTotal:    String(valorServicos + valorPecas),
+      valorServicos: String(valorServicos),
+      valorPecas:    String(valorPecas),
+    })
     .where(eq(ordensServico.id, osId))
 }

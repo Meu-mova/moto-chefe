@@ -58,7 +58,7 @@ export default async function FolhaPagamentoPage({
   const inicioTs = new Date(Date.UTC(ano, mes - 1, 1))
   const fimTs = new Date(Date.UTC(ano, mes, 1))
 
-  const [funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico] = await Promise.all([
+  const [funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor] = await Promise.all([
     db
       .select({ id: usuarios.id, nome: usuarios.nome, papel: usuarios.papel, lojaNome: lojas.nome })
       .from(usuarios)
@@ -95,10 +95,12 @@ export default async function FolhaPagamentoPage({
       ))
       .groupBy(vendasPecas.vendedorId),
 
+    // Só a mão de obra (valorServicos) entra na comissão do mecânico — peças usadas na OS
+    // vão pra base do aux_adm (ver osPecasPorAbertaPor), não pra dele.
     db
       .select({
         mecanicoId: ordensServico.mecanicoId,
-        total: sql<string>`COALESCE(SUM(${ordensServico.valorTotal}::numeric), 0)`,
+        total: sql<string>`COALESCE(SUM(${ordensServico.valorServicos}::numeric), 0)`,
       })
       .from(ordensServico)
       .where(and(
@@ -108,12 +110,35 @@ export default async function FolhaPagamentoPage({
         lte(ordensServico.dataConclusao, fimTs),
       ))
       .groupBy(ordensServico.mecanicoId),
+
+    // Peças usadas dentro de OS (os_itens tipo=peca) creditadas a quem abriu a OS — não há
+    // "vendedor" de peça em OS, e só GESTORES (que inclui aux_adm) abrem OS.
+    db
+      .select({
+        abertaPor: ordensServico.abertaPor,
+        total: sql<string>`COALESCE(SUM(${ordensServico.valorPecas}::numeric), 0)`,
+      })
+      .from(ordensServico)
+      .where(and(
+        inArray(ordensServico.lojaId, lojaIdsGrupo),
+        eq(ordensServico.status, 'concluida'),
+        gte(ordensServico.dataConclusao, inicioTs),
+        lte(ordensServico.dataConclusao, fimTs),
+      ))
+      .groupBy(ordensServico.abertaPor),
   ])
 
   const configPorUsuario = new Map(configsRaw.map(c => [c.usuarioId, c]))
   const vendasPorId = new Map(vendasPorVendedor.map(v => [v.vendedorId, parseFloat(v.total)]))
-  const pecasPorId = new Map(pecasPorVendedor.map(v => [v.vendedorId, parseFloat(v.total)]))
   const osPorId = new Map(osPorMecanico.filter(o => o.mecanicoId).map(o => [o.mecanicoId as string, parseFloat(o.total)]))
+  const osPecasPorId = new Map(osPecasPorAbertaPor.map(o => [o.abertaPor, parseFloat(o.total)]))
+  const pecasPorId = new Map(
+    pecasPorVendedor.map(v => [v.vendedorId, parseFloat(v.total) + (osPecasPorId.get(v.vendedorId) ?? 0)]),
+  )
+  // Cobre quem abriu OS com peça mas não tem venda de peça avulsa no período
+  for (const [usuarioId, valor] of osPecasPorId) {
+    if (!pecasPorId.has(usuarioId)) pecasPorId.set(usuarioId, valor)
+  }
 
   const funcionarios = funcionariosRaw.map(f => {
     const config = configPorUsuario.get(f.id)

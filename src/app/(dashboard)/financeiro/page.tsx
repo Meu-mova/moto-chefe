@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, configuracaoTaxas } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, configuracaoTaxas, ordensServico } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,7 +53,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND v.loja_id = ${lojaParamValido}`
     : sql`AND v.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria, taxasRow] = await Promise.all([
+  const lojaFiltroOS = lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
+
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria, taxasRow, totaisOS] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -196,6 +198,21 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .orderBy(sql`SUM(${despesas.valor}) DESC`),
 
     db.select({ imposto: configuracaoTaxas.imposto }).from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
+
+    // OS concluídas no período — valor de serviço (mão de obra) x peças usadas, separado
+    // porque comissiona papéis diferentes (mecânico x aux. adm.) na Folha de Pagamento.
+    db
+      .select({
+        totalServicos: sql<string>`COALESCE(SUM(${ordensServico.valorServicos}::numeric), 0)`,
+        totalPecas:    sql<string>`COALESCE(SUM(${ordensServico.valorPecas}::numeric), 0)`,
+      })
+      .from(ordensServico)
+      .where(and(
+        eq(ordensServico.status, 'concluida'),
+        gte(ordensServico.dataConclusao, inicioTs),
+        lte(ordensServico.dataConclusao, fimTs),
+        lojaFiltroOS,
+      )),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
@@ -212,6 +229,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const aliquotaImposto = Number(taxasRow[0]?.imposto ?? 0.06)
   const valorImposto = receitaVendas * aliquotaImposto
   const lucroLiquido = lucroBruto - totalDespesas - valorImposto
+
+  const totalServicosOS = Number(totaisOS[0]?.totalServicos ?? 0)
+  const totalPecasOS    = Number(totaisOS[0]?.totalPecas ?? 0)
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
@@ -302,6 +322,20 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
               {fmt(lucroLiquido)}
             </p>
             <p className="text-xs text-slate-400">líquido − despesas − imposto</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">OS · Serviços</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-teal-600">{fmt(totalServicosOS)}</p>
+            <p className="text-xs text-slate-400">comissão do mecânico</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">OS · Peças</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-purple-600">{fmt(totalPecasOS)}</p>
+            <p className="text-xs text-slate-400">comissão do aux. adm.</p>
           </CardContent>
         </Card>
       </div>

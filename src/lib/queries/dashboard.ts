@@ -438,9 +438,12 @@ export async function getFaturamentoOS(filtros: Filtros) {
   if (lojaId !== undefined) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
 
   const [result] = await db
-    .select({ total: sql<string>`COALESCE(SUM(${ordensServico.valorTotal}), 0)` })
+    .select({
+      servicos: sql<string>`COALESCE(SUM(${ordensServico.valorServicos}), 0)`,
+      pecas:    sql<string>`COALESCE(SUM(${ordensServico.valorPecas}), 0)`,
+    })
     .from(ordensServico)
     .where(and(...conditions))
 
-  return Number(result?.total ?? 0)
+  return { servicos: Number(result?.servicos ?? 0), pecas: Number(result?.pecas ?? 0) }
 }

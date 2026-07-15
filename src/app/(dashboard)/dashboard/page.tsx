@@ -53,7 +53,7 @@ async function KpiSection({
         isAdmin
           ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
           : Promise.resolve(0),
-        isVendedor ? Promise.resolve(0) : getFaturamentoOS(filtros),
+        isVendedor ? Promise.resolve({ servicos: 0, pecas: 0 }) : getFaturamentoOS(filtros),
         isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
         isVendedor ? db.select().from(funcionariosConfig).where(eq(funcionariosConfig.usuarioId, usuario.id)).then(r => r[0]) : Promise.resolve(undefined),
       ]),

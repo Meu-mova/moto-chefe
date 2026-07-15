@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { ordensServico, osItens, motos, lojas, usuarios, modelos, clientes } from '@/lib/db/schema'
-import { eq, desc, and, or, ilike, inArray, sql } from 'drizzle-orm'
+import { ordensServico, osItens, motos, lojas, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
+import { eq, desc, and, or, ilike, inArray, sql, gte, lte } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
 export type OSComDetalhes  = Awaited<ReturnType<typeof listarTodasOS>>[0]
@@ -16,6 +16,14 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     diagnostico:         ordensServico.diagnostico,
     observacoesFinais:   ordensServico.observacoesFinais,
     valorTotal:          ordensServico.valorTotal,
+    valorServicos:       ordensServico.valorServicos,
+    valorPecas:          ordensServico.valorPecas,
+    servicosResumo:      sql<string | null>`(
+      SELECT string_agg(DISTINCT COALESCE(${servicosCatalogo.nome}, ${osItens.descricao}), ', ')
+      FROM ${osItens}
+      LEFT JOIN ${servicosCatalogo} ON ${servicosCatalogo.id} = ${osItens.servicoId}
+      WHERE ${osItens.osId} = ${ordensServico.id} AND ${osItens.tipo} = 'servico'
+    )`,
     formaPagamento:      ordensServico.formaPagamento,
     conciliadoValor:     sql<number>`COALESCE((
       SELECT SUM(valor_bruto::numeric)
@@ -76,6 +84,8 @@ export async function listarTodasOS(filtros?: {
   status?: string[]
   busca?: string
   lojaId?: string[]
+  dataInicio?: string
+  dataFim?: string
 }) {
   const mecanico = alias(usuarios, 'mecanico')
   return db
@@ -90,6 +100,8 @@ export async function listarTodasOS(filtros?: {
     .where(and(
       filtros?.status?.length   ? inArray(ordensServico.status, filtros.status as any[]) : undefined,
       filtros?.lojaId !== undefined ? inArray(ordensServico.lojaId, filtros.lojaId) : undefined,
+      filtros?.dataInicio       ? gte(ordensServico.dataAbertura, new Date(filtros.dataInicio)) : undefined,
+      filtros?.dataFim          ? lte(ordensServico.dataAbertura, new Date(filtros.dataFim + 'T23:59:59.999Z')) : undefined,
       filtros?.busca?.trim()    ? or(
         ilike(motos.chassi,             `%${filtros.busca}%`),
         ilike(ordensServico.marcaExterna,  `%${filtros.busca}%`),

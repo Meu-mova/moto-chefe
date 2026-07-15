@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import { Input } from '@/components/ui/input'
+import { CalendarRange } from 'lucide-react'
 import { MultiSelectFiltro } from '../../estoque/components/multi-select-filtro'
 
 const STATUS_OPTS = [
@@ -28,9 +29,9 @@ function ToggleChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
-type Props = { lojas: { id: string; nome: string }[] }
+type Props = { lojas: { id: string; nome: string }[]; dataInicioInicial: string; dataFimInicial: string }
 
-export function OSFiltros({ lojas }: Props) {
+export function OSFiltros({ lojas, dataInicioInicial, dataFimInicial }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
@@ -77,6 +78,23 @@ export function OSFiltros({ lojas }: Props) {
             onClick={() => toggleMulti('status', status, o.value)}
           />
         ))}
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <CalendarRange size={15} className="text-slate-400 shrink-0" />
+        <Input
+          type="date"
+          defaultValue={dataInicioInicial}
+          onChange={e => update('de', e.target.value)}
+          className="h-8 text-sm w-36"
+        />
+        <span className="text-xs text-slate-400">até</span>
+        <Input
+          type="date"
+          defaultValue={dataFimInicial}
+          onChange={e => update('ate', e.target.value)}
+          className="h-8 text-sm w-36"
+        />
       </div>
     </div>
   )
