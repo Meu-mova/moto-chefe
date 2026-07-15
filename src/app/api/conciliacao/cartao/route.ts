@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas, vendasPecas } from '@/lib/db/schema'
+import { conciliacoesCartao, vendas, vendasPecas, ordensServico } from '@/lib/db/schema'
 import { eq, and, between, sql } from 'drizzle-orm'
 
 export type TransacaoCartao = {
@@ -93,10 +93,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Se também não casou com peça, tenta Ordem de Serviço (mesma tolerância)
+    let osId: string | null = null
+    if (!vendaId && !pecaVendaId) {
+      const osCandidatas = await db
+        .select({ id: ordensServico.id, pagamentos: ordensServico.pagamentos })
+        .from(ordensServico)
+        .where(between(ordensServico.dataConclusao, dataMin, dataMax))
+
+      for (const v of osCandidatas) {
+        const pgtos = (v.pagamentos ?? []) as { tipo: string; valor: number; parcelas?: number }[]
+        const pgtoCartao = pgtos.find(p =>
+          ['cartao_credito', 'cartao_debito', 'link_pagamento'].includes(p.tipo) &&
+          Math.abs(p.valor - t.valorBruto) <= TOLERANCE &&
+          (!p.parcelas || p.parcelas === t.parcelas)
+        )
+        if (pgtoCartao) { osId = v.id; break }
+      }
+    }
+
     // Endpoint sem sessão de usuário (autenticado por secret) — não é possível
     // derivar o grupo ativo. Fixo em Sul de Minas até este endpoint ser
     // religado a uma automação específica de grupo.
-    const matched = vendaId ?? pecaVendaId
+    const matched = vendaId ?? pecaVendaId ?? osId
     await db.insert(conciliacoesCartao).values({
       grupoId: '00000000-0000-4000-8000-000000000001',
       operadora,
@@ -110,6 +129,7 @@ export async function POST(req: NextRequest) {
       status: t.status,
       vendaId: vendaId ?? undefined,
       pecaVendaId: pecaVendaId ?? undefined,
+      osId: osId ?? undefined,
       conciliado: matched !== null,
       conciliadoEm: matched !== null ? new Date() : null,
       rawData: t.rawData ?? null,
