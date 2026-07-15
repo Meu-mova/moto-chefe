@@ -13,6 +13,7 @@ import { OSStatusBar } from './components/os-status-bar'
 import { OSItensPanel } from './components/os-itens-panel'
 import { OSEditarPanel } from './components/os-editar-panel'
 import { OSPagamentoPanel } from './components/os-pagamento-panel'
+import { OSConciliacaoPanel } from './components/os-conciliacao-panel'
 import { ExcluirOSButton } from './components/excluir-os-button'
 import { OSTemposPanel } from './components/os-tempos-panel'
 
@@ -179,6 +180,16 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
           formaPagamento={os.formaPagamento ?? ''}
           aprovacaoPendente={aprovacaoPendente}
+        />
+      )}
+
+      {podeFechar && os.status === 'concluida' && os.formaPagamento && (
+        <OSConciliacaoPanel
+          osId={id}
+          osNumero={os.numero}
+          formaPagamento={os.formaPagamento}
+          valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
+          isAdmin={podeFechar}
         />
       )}
     </div>

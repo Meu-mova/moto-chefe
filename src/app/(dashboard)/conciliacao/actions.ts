@@ -349,6 +349,62 @@ export async function buscarConciliacoesDaVenda(vendaId: string) {
     .where(and(eq(conciliacoesCartao.vendaId, vendaId), eq(conciliacoesCartao.conciliado, true)))
 }
 
+export async function buscarConciliacoesDaOS(osId: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [os] = await db
+    .select({ lojaId: ordensServico.lojaId })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) return []
+
+  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel) && os.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
+
+  return db
+    .select({
+      id:            conciliacoesCartao.id,
+      autorizacao:   conciliacoesCartao.autorizacao,
+      valorBruto:    conciliacoesCartao.valorBruto,
+      valorLiquido:  conciliacoesCartao.valorLiquido,
+      operadora:     conciliacoesCartao.operadora,
+      tipo:          conciliacoesCartao.tipo,
+      dataTransacao: conciliacoesCartao.dataTransacao,
+    })
+    .from(conciliacoesCartao)
+    .where(and(eq(conciliacoesCartao.osId, osId), eq(conciliacoesCartao.conciliado, true)))
+}
+
+export async function buscarPixDaOS(osId: string) {
+  const usuario = await getUsuarioLogado()
+
+  const [os] = await db
+    .select({ lojaId: ordensServico.lojaId })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) return []
+
+  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
+  if (!ADMINS.includes(usuario.papel) && os.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão')
+  }
+
+  return db
+    .select({
+      id:            pixRecebimentosMcp.id,
+      dataPagamento: pixRecebimentosMcp.data,
+      valor:         pixRecebimentosMcp.valor,
+      pagadorNome:   pixRecebimentosMcp.pagadorNome,
+      observacao:    pixRecebimentosMcp.descricao,
+    })
+    .from(pixRecebimentosMcp)
+    .where(eq(pixRecebimentosMcp.osId, osId))
+}
+
 export async function buscarConciliacoesPorValor(valor: number) {
   const usuario = await getUsuarioLogado()
   const ADMINS  = ['admin_geral', 'admin_socio', 'aux_adm']
