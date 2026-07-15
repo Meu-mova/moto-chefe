@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, despesasOpenFinance } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
@@ -125,13 +125,20 @@ export async function lancarDespesaOpenFinanceAction(id: string, categoria: stri
       banco:          linha.banco,
     }).returning({ id: despesas.id })
 
-    await tx.update(despesasOpenFinance).set({
+    const atualizados = await tx.update(despesasOpenFinance).set({
       categoria,
       lojaId: lojaIdValida,
       despesaId: despesaCriada.id,
       lancadoPorId: usuario.id,
       lancadoEm: new Date(),
-    }).where(eq(despesasOpenFinance.id, id))
+    }).where(and(
+      eq(despesasOpenFinance.id, id),
+      isNull(despesasOpenFinance.despesaId),
+    )).returning({ id: despesasOpenFinance.id })
+
+    if (atualizados.length === 0) {
+      throw new Error('Essa saída já foi lançada')
+    }
   })
 
   revalidatePath('/despesas')
