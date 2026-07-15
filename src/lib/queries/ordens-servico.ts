@@ -17,6 +17,17 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     observacoesFinais:   ordensServico.observacoesFinais,
     valorTotal:          ordensServico.valorTotal,
     formaPagamento:      ordensServico.formaPagamento,
+    conciliadoValor:     sql<number>`COALESCE((
+      SELECT SUM(valor_bruto::numeric)
+      FROM conciliacoes_cartao
+      WHERE os_id = ${ordensServico.id}
+      AND conciliado = true
+    ), 0)`,
+    pixConciliadoValor:  sql<number>`COALESCE((
+      SELECT SUM(valor::numeric)
+      FROM pix_recebimentos_mcp
+      WHERE os_id = ${ordensServico.id}
+    ), 0)`,
     dataPrevisao:        ordensServico.dataPrevisao,
     marcaExterna:        ordensServico.marcaExterna,
     modeloExterno:       ordensServico.modeloExterno,

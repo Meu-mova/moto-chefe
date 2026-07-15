@@ -177,8 +177,20 @@ export async function listarVendasPecasAction() {
       vendedorNome: usuarios.nome,
       clienteNome: vendasPecas.clienteNome,
       formaPagamento: vendasPecas.formaPagamento,
+      pagamentos: vendasPecas.pagamentos,
       valorTotal: vendasPecas.valorTotal,
       dataVenda: vendasPecas.dataVenda,
+      conciliadoValor: sql<number>`COALESCE((
+        SELECT SUM(valor_bruto::numeric)
+        FROM conciliacoes_cartao
+        WHERE peca_venda_id = ${vendasPecas.id}
+        AND conciliado = true
+      ), 0)`,
+      pixConciliadoValor: sql<number>`COALESCE((
+        SELECT SUM(valor::numeric)
+        FROM pix_recebimentos_mcp
+        WHERE peca_venda_id = ${vendasPecas.id}
+      ), 0)`,
       itens: sql<string>`(
         SELECT string_agg(${vendasPecasItens.descricao} || ' x' || ${vendasPecasItens.quantidade}, ', ')
         FROM ${vendasPecasItens}

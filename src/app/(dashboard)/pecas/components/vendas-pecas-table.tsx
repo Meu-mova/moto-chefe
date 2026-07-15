@@ -1,4 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
+import { ConcBadge } from '@/components/conciliacao-badge'
 
 type VendaPeca = {
   id: string
@@ -7,8 +9,11 @@ type VendaPeca = {
   vendedorNome: string
   clienteNome: string | null
   formaPagamento: string
+  pagamentos: unknown
   valorTotal: string
   dataVenda: Date
+  conciliadoValor: number
+  pixConciliadoValor: number
   itens: string | null
 }
 
@@ -39,26 +44,31 @@ export function VendasPecasTable({ vendas }: { vendas: VendaPeca[] }) {
             <TableHead>Vendedor</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead>Pagamento</TableHead>
+            <TableHead>Conciliação</TableHead>
             <TableHead className="text-right">Valor</TableHead>
             <TableHead className="text-right">Data</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {vendas.map(v => (
-            <TableRow key={v.id}>
-              <TableCell className="font-mono text-xs">#{v.numero}</TableCell>
-              <TableCell className="text-sm text-slate-600 max-w-[240px] truncate" title={v.itens ?? ''}>{v.itens ?? '—'}</TableCell>
-              <TableCell>{v.lojaNome}</TableCell>
-              <TableCell>{v.vendedorNome}</TableCell>
-              <TableCell>{v.clienteNome ?? '—'}</TableCell>
-              <TableCell>{TIPO_LABEL[v.formaPagamento] ?? v.formaPagamento}</TableCell>
-              <TableCell className="text-right font-medium text-green-700">{fmtBRL(v.valorTotal)}</TableCell>
-              <TableCell className="text-right text-slate-500">{fmtData(v.dataVenda)}</TableCell>
-            </TableRow>
-          ))}
+          {vendas.map(v => {
+            const statusConc = calcStatusMultiPagamento(v.pagamentos, v.conciliadoValor, v.pixConciliadoValor, v.valorTotal)
+            return (
+              <TableRow key={v.id}>
+                <TableCell className="font-mono text-xs">#{v.numero}</TableCell>
+                <TableCell className="text-sm text-slate-600 max-w-[240px] truncate" title={v.itens ?? ''}>{v.itens ?? '—'}</TableCell>
+                <TableCell>{v.lojaNome}</TableCell>
+                <TableCell>{v.vendedorNome}</TableCell>
+                <TableCell>{v.clienteNome ?? '—'}</TableCell>
+                <TableCell>{TIPO_LABEL[v.formaPagamento] ?? v.formaPagamento}</TableCell>
+                <TableCell><ConcBadge status={statusConc} /></TableCell>
+                <TableCell className="text-right font-medium text-green-700">{fmtBRL(v.valorTotal)}</TableCell>
+                <TableCell className="text-right text-slate-500">{fmtData(v.dataVenda)}</TableCell>
+              </TableRow>
+            )
+          })}
           {vendas.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-slate-400 py-8">
+              <TableCell colSpan={9} className="text-center text-slate-400 py-8">
                 Nenhuma venda de peça registrada ainda.
               </TableCell>
             </TableRow>

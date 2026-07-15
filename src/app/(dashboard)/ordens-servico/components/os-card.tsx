@@ -6,6 +6,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Wrench, Car, ArrowRight, User, Clock } from 'lucide-react'
 import type { OSComDetalhes } from '@/lib/queries/ordens-servico'
+import { calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { ConcBadge } from '@/components/conciliacao-badge'
 
 const statusColor: Record<string, string> = {
   aberta:              'bg-amber-100 text-amber-700 border-amber-200',
@@ -28,6 +30,13 @@ export function OSCard({ os }: Props) {
 
   const clienteDesc = os.clienteNome ?? os.clienteNomeExterno ?? null
 
+  const statusConc = calcStatusPagamentoUnicoOS(
+    os.formaPagamento,
+    os.valorTotal,
+    os.conciliadoValor as number,
+    os.pixConciliadoValor as number,
+  )
+
   return (
     <Link href={`/ordens-servico/${os.id}`} className="block group">
       <Card className="hover:border-slate-400 transition-colors">
@@ -40,6 +49,7 @@ export function OSCard({ os }: Props) {
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${statusColor[os.status] ?? ''}`}>
                   {statusLabel[os.status] ?? os.status}
                 </span>
+                <ConcBadge status={statusConc} />
               </div>
 
               {/* Moto */}
