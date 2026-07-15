@@ -20,7 +20,7 @@ type Props = {
   dataRef: string
   valorRef: number
   vendaVinculada?: { id: string; numero: number; clienteNome: string; valor: string } | null
-  tipoVinculado?: 'moto' | 'peca'
+  tipoVinculado?: 'moto' | 'peca' | 'os'
 }
 
 export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVinculada, tipoVinculado }: Props) {
@@ -61,7 +61,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
     }
   }
 
-  function vincular(alvoId: string, tipo: 'moto' | 'peca') {
+  function vincular(alvoId: string, tipo: 'moto' | 'peca' | 'os') {
     startTransition(async () => {
       try {
         await vincularVendaAction(conciliacaoId, alvoId, tipo)
@@ -104,14 +104,19 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
             {v.tipo === 'peca' && (
               <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1.5 py-0.5 mr-1.5">PA</span>
             )}
-            Venda #{v.numero} — {v.clienteNome}
+            {v.tipo === 'os' && (
+              <span className="text-xs font-semibold text-teal-600 bg-teal-50 rounded px-1.5 py-0.5 mr-1.5">OS</span>
+            )}
+            {v.tipo === 'os' ? `OS #${v.numero}` : `Venda #${v.numero}`} — {v.clienteNome}
           </span>
           <span className="font-semibold text-slate-900">
-            {parseFloat(v.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            {v.valor ? parseFloat(v.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
           </span>
         </div>
         <div className="text-xs text-slate-500 mt-0.5">
-          {new Date(v.dataVenda).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          {v.dataVenda
+            ? new Date(v.dataVenda).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : '—'}
           {' · '}{v.formaPagamento}
         </div>
         {pgtoCartao.length > 0 && (
@@ -143,6 +148,9 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
           <CheckCircle2 size={12} />
           {tipoVinculado === 'peca' && (
             <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1 py-0.5">PA</span>
+          )}
+          {tipoVinculado === 'os' && (
+            <span className="text-xs font-semibold text-teal-600 bg-teal-50 rounded px-1 py-0.5">OS</span>
           )}
           #{vendaVinculada.numero} — {vendaVinculada.clienteNome.split(' ')[0]}
         </span>
