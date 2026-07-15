@@ -328,14 +328,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">OS · Serviços</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-teal-600">{fmt(totalServicosOS)}</p>
-            <p className="text-xs text-slate-400">comissão do mecânico</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">OS · Peças</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-purple-600">{fmt(totalPecasOS)}</p>
-            <p className="text-xs text-slate-400">comissão do aux. adm.</p>
           </CardContent>
         </Card>
       </div>

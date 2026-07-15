@@ -115,12 +115,10 @@ export default async function OrdensServicoPage({
         <div className="bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
           <p className="text-xs font-medium text-teal-600 uppercase tracking-wide">Total Serviços</p>
           <p className="text-xl font-bold text-teal-700 mt-0.5">{fmt(totalServicos)}</p>
-          <p className="text-xs text-teal-500 mt-0.5">comissão do mecânico</p>
         </div>
         <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3">
           <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">Total Peças</p>
           <p className="text-xl font-bold text-purple-700 mt-0.5">{fmt(totalPecas)}</p>
-          <p className="text-xs text-purple-500 mt-0.5">comissão do aux. adm.</p>
         </div>
       </div>
 
