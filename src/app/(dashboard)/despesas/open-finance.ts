@@ -1,10 +1,12 @@
 import { db } from '@/lib/db'
-import { despesasOpenFinance, pixMcpSyncStatus, lojas, usuarios } from '@/lib/db/schema'
+import { despesasOpenFinance, despesasOfSyncStatus, lojas, usuarios } from '@/lib/db/schema'
 import { buscarSaidasOpenFinance } from '@/lib/mcpai'
 import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm'
 
-// Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai,
-// então reaproveita o mesmo controle de staleness (pix_mcp_sync_status).
+// Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
+// com marcador de staleness próprio (despesas_of_sync_status), separado do
+// pix_mcp_sync_status — as duas sincronizações escrevem em tabelas diferentes
+// e não podem compartilhar o mesmo controle de cache.
 const JANELA_CACHE_MS = 10 * 60 * 1000
 
 export type SaidaComDetalhes = typeof despesasOpenFinance.$inferSelect & {
@@ -18,7 +20,7 @@ export async function sincronizarEBuscarSaidas(
   toDate: Date,
   forcarSync: boolean,
 ): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
-  const [syncStatus] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
+  const [syncStatus] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
   const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
@@ -45,13 +47,13 @@ export async function sincronizarEBuscarSaidas(
           })))
           .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
       }
-      await db.insert(pixMcpSyncStatus)
+      await db.insert(despesasOfSyncStatus)
         .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
-        .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+        .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
     }
   }
 
-  const [syncStatusAtual] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
+  const [syncStatusAtual] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
 
   const linhasRaw = await db
     .select()

@@ -523,6 +523,15 @@ export const pixMcpSyncStatus = pgTable('pix_mcp_sync_status', {
   ultimaSincronizacao: timestamp('ultima_sincronizacao', { withTimezone: true }).notNull(),
 })
 
+// ─── despesas_of_sync_status (controla staleness do cache de /despesas → Importar do Banco) ──
+// Tabela própria, separada de pix_mcp_sync_status — as duas sincronizações usam a
+// mesma API do mcp.ai mas escrevem em tabelas diferentes; compartilhar o marcador
+// fazia uma sincronização "esconder" a necessidade da outra.
+export const despesasOfSyncStatus = pgTable('despesas_of_sync_status', {
+  grupoId:             uuid('grupo_id').primaryKey().references(() => grupos.id),
+  ultimaSincronizacao: timestamp('ultima_sincronizacao', { withTimezone: true }).notNull(),
+})
+
 // ─── demandas ────────────────────────────────────────────────────────────────
 export const demandas = pgTable('demandas', {
   id: uuid('id').primaryKey().defaultRandom(),
