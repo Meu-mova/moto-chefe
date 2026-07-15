@@ -113,6 +113,10 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
               />
             </div>
 
+            {!loading && resultado?.ok && (
+              <p className="text-xs text-slate-500 pb-1.5 max-w-xs">{resultado.endereco}</p>
+            )}
+
             {(loading || erroInesperado || resultado) && (
               <div className="rounded-lg bg-slate-50 border px-3 py-1.5 text-xs">
                 {loading && <p className="text-slate-400">Calculando frete...</p>}

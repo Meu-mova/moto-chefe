@@ -29,7 +29,9 @@ async function buscarNominatim(query: string): Promise<Coordenada | null> {
   }
 }
 
-export async function geocodificarCep(cep: string): Promise<Coordenada | null> {
+export type ResultadoGeocodificacao = { coordenada: Coordenada; enderecoFormatado: string }
+
+export async function geocodificarCep(cep: string): Promise<ResultadoGeocodificacao | null> {
   const cepLimpo = cep.replace(/\D/g, '')
   if (cepLimpo.length !== 8) return null
 
@@ -42,6 +44,10 @@ export async function geocodificarCep(cep: string): Promise<Coordenada | null> {
     return null
   }
   if (endereco.erro) return null
+
+  const enderecoFormatado = [endereco.logradouro, endereco.bairro, endereco.localidade, endereco.uf]
+    .filter(Boolean)
+    .join(', ')
 
   // Nominatim costuma não achar o endereço completo (rua + bairro) em cidades
   // menores. Tenta do mais específico pro mais genérico até achar um resultado —
@@ -57,7 +63,7 @@ export async function geocodificarCep(cep: string): Promise<Coordenada | null> {
   for (const [i, query] of tentativas.entries()) {
     if (i > 0) await new Promise(r => setTimeout(r, 1100)) // respeita rate limit do Nominatim (1 req/s)
     const coord = await buscarNominatim(query)
-    if (coord) return coord
+    if (coord) return { coordenada: coord, enderecoFormatado }
   }
   return null
 }

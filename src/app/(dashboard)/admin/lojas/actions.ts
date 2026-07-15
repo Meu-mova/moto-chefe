@@ -14,14 +14,14 @@ async function assertAdmin() {
 
 async function geocodificarSeInformado(cep: string | null) {
   if (!cep || !cep.trim()) return { geo: { cep: null, latitude: null, longitude: null }, geocodificado: true }
-  const coord = await geocodificarCep(cep)
+  const resultado = await geocodificarCep(cep)
   return {
     geo: {
       cep: cep.trim(),
-      latitude: coord ? String(coord.latitude) : null,
-      longitude: coord ? String(coord.longitude) : null,
+      latitude: resultado ? String(resultado.coordenada.latitude) : null,
+      longitude: resultado ? String(resultado.coordenada.longitude) : null,
     },
-    geocodificado: coord !== null,
+    geocodificado: resultado !== null,
   }
 }
 

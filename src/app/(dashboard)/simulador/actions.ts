@@ -11,7 +11,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 const BLOQUEADOS_FRETE = ['mecanico']
 
 export type ResultadoFrete =
-  | { ok: true; distanciaKmIda: number; kmIdaEVolta: number; custo: number; gratis: boolean }
+  | { ok: true; distanciaKmIda: number; kmIdaEVolta: number; custo: number; gratis: boolean; endereco: string }
   | { ok: false; motivo: 'cep_invalido' | 'geocodificacao_falhou' }
 
 export async function simularFreteAction(lojaId: string, cepDestino: string): Promise<ResultadoFrete> {
@@ -37,12 +37,12 @@ export async function simularFreteAction(lojaId: string, cepDestino: string): Pr
     return { ok: false, motivo: 'geocodificacao_falhou' }
   }
 
-  const coordDestino = await geocodificarCep(cepLimpo)
-  if (!coordDestino) return { ok: false, motivo: 'geocodificacao_falhou' }
+  const resultadoGeo = await geocodificarCep(cepLimpo)
+  if (!resultadoGeo) return { ok: false, motivo: 'geocodificacao_falhou' }
 
   const distanciaKmIda = calcularDistanciaKm(
     { latitude: Number(loja.latitude), longitude: Number(loja.longitude) },
-    coordDestino,
+    resultadoGeo.coordenada,
   )
 
   const grupoId = await getGrupoIdDaLoja(lojaId)
@@ -61,7 +61,7 @@ export async function simularFreteAction(lojaId: string, cepDestino: string): Pr
 
   const { kmIdaEVolta, custo } = calcularCustoFrete(distanciaKmIda, valorPorKm, kmGratis, valorFixo)
 
-  return { ok: true, distanciaKmIda, kmIdaEVolta, custo, gratis: custo === 0 }
+  return { ok: true, distanciaKmIda, kmIdaEVolta, custo, gratis: custo === 0, endereco: resultadoGeo.enderecoFormatado }
 }
 
 export async function criarSimuladorAction(data: {
