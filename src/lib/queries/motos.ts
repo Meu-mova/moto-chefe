@@ -1,7 +1,7 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas } from '@/lib/db/schema'
-import { eq, and, or, isNull, ilike, sql, inArray } from 'drizzle-orm'
+import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas, aprovacoesVenda } from '@/lib/db/schema'
+import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
@@ -327,6 +327,35 @@ export async function buscarMoto(id: string) {
     .limit(1)
 
   return moto ?? null
+}
+
+export type AprovacaoPendente = Awaited<ReturnType<typeof listarAprovacoesPendentes>>[0]
+
+export async function listarAprovacoesPendentes(lojaIds: string[]) {
+  if (lojaIds.length === 0) return []
+  return db
+    .select({
+      id:              aprovacoesVenda.id,
+      motoId:          aprovacoesVenda.motoId,
+      lojaId:          aprovacoesVenda.lojaId,
+      valor:           aprovacoesVenda.valor,
+      motivo:          aprovacoesVenda.motivo,
+      tipo:            aprovacoesVenda.tipo,
+      dataSolicitacao: aprovacoesVenda.dataSolicitacao,
+      vendedorNome:    usuarios.nome,
+      chassi:          motos.chassi,
+      cor:             motos.cor,
+      marca:           modelos.marca,
+      modelo:          modelos.modelo,
+      lojaNome:        lojas.nome,
+    })
+    .from(aprovacoesVenda)
+    .innerJoin(motos,    eq(aprovacoesVenda.motoId, motos.id))
+    .innerJoin(modelos,  eq(motos.modeloId, modelos.id))
+    .innerJoin(lojas,    eq(aprovacoesVenda.lojaId, lojas.id))
+    .innerJoin(usuarios, eq(aprovacoesVenda.vendedorId, usuarios.id))
+    .where(and(eq(aprovacoesVenda.status, 'pendente'), inArray(aprovacoesVenda.lojaId, lojaIds)))
+    .orderBy(desc(aprovacoesVenda.dataSolicitacao))
 }
 
 export async function buscarHistoricoMoto(motoId: string) {

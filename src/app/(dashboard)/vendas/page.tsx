@@ -1,6 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
+import { listarAprovacoesPendentes } from '@/lib/queries/motos'
 import { db } from '@/lib/db'
 import { motos, modelos, lojas, usuarios } from '@/lib/db/schema'
 import { eq, asc, inArray, and } from 'drizzle-orm'
@@ -8,6 +9,7 @@ import { PedidoCard } from './components/pedido-card'
 import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
 import { VendasTable } from './components/vendas-table'
+import { AprovacoesPendentesPanel } from './components/aprovacoes-pendentes-panel'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -91,7 +93,7 @@ export default async function VendasPage({
   const dataInicio = params.de  ?? dataDefault30Dias()
   const dataFim    = params.ate ?? undefined
 
-  const [pedidos, vendasList, motosDisponiveis, lojasOpts, modelosOpts, vendedoresOpts] = await Promise.all([
+  const [pedidos, vendasList, motosDisponiveis, lojasOpts, modelosOpts, vendedoresOpts, aprovacoesPendentes, podeAprovarValorMinimo] = await Promise.all([
     isAdmin ? listarTodosPedidos(lojaIdsGrupo) : listarPedidosPorLoja(usuario.lojaId!),
     listarVendas({
       lojaId:      lojaValues,
@@ -122,7 +124,12 @@ export default async function VendasPage({
       .from(usuarios)
       .where(inArray(usuarios.papel, PAPEIS_VENDE as any[]))
       .orderBy(asc(usuarios.nome)),
+    isAdmin ? listarAprovacoesPendentes(lojaIdsGrupo) : Promise.resolve([]),
+    // Todas as linhas de aprovacoesPendentes pertencem ao mesmo grupo ativo (lojaIdsGrupo),
+    // então uma checagem com qualquer loja do grupo já vale pra todas — ver podeAprovarVendaBaixoValor.
+    isAdmin && lojaIdsGrupo.length > 0 ? podeAprovarVendaBaixoValor(usuario, lojaIdsGrupo[0]) : Promise.resolve(false),
   ])
+  const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
 
   const pendentes   = pedidos.filter(p => p.status === 'pendente')
   const concStats   = podeConciliacao ? calcConcStats(vendasList) : null
@@ -137,6 +144,12 @@ export default async function VendasPage({
         </div>
         <CriarPedidoDialog motos={motosDisponiveis} papel={usuario.papel} />
       </div>
+
+      <AprovacoesPendentesPanel
+        aprovacoes={aprovacoesPendentes}
+        podeAprovarValorMinimo={podeAprovarValorMinimo}
+        podeAprovarSensivel={podeAprovarSensivel}
+      />
 
       {pendentes.length > 0 && (
         <section className="space-y-3">
