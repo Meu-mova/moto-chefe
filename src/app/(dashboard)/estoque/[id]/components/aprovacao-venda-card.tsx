@@ -15,10 +15,11 @@ type Props = {
   motivo: string
   vendedorNome: string
   dataSolicitacao: string
+  tipo: 'valor_minimo' | 'pagamento_sensivel'
   podeAprovar: boolean
 }
 
-export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, dataSolicitacao, podeAprovar }: Props) {
+export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, dataSolicitacao, tipo, podeAprovar }: Props) {
   const [loading, setLoading] = useState(false)
   const [recusarOpen, setRecusarOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
@@ -71,7 +72,11 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
             <Button size="sm" variant="outline" onClick={() => setRecusarOpen(true)} disabled={loading}>Recusar</Button>
           </div>
         ) : (
-          <p className="text-xs text-slate-400">Aguardando aprovação de um administrador ou sócio.</p>
+          <p className="text-xs text-slate-400">
+            {tipo === 'pagamento_sensivel'
+              ? 'Financiamento/transferência — aguardando aprovação do responsável.'
+              : 'Aguardando aprovação de um administrador ou sócio.'}
+          </p>
         )}
       </CardContent>
 

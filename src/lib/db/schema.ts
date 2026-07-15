@@ -14,6 +14,9 @@ export const disponibilidadeEnum = pgEnum('disponibilidade_moto', ['disponivel',
 export const pedidoStatusEnum = pgEnum('pedido_status', ['pendente', 'efetivado', 'cancelado'])
 export const transferenciaStatusEnum = pgEnum('transferencia_status', ['pendente', 'aceita', 'recusada'])
 export const aprovacaoVendaStatusEnum = pgEnum('aprovacao_venda_status', ['pendente', 'aprovada', 'recusada'])
+// 'valor_minimo': venda abaixo do preço mínimo, aprovada por admin_geral/admin_socio do grupo.
+// 'pagamento_sensivel': venda com financiamento/transferência, só o responsável (ver EMAIL_ACESSO_MULTI_GRUPO) aprova.
+export const aprovacaoVendaTipoEnum = pgEnum('aprovacao_venda_tipo', ['valor_minimo', 'pagamento_sensivel'])
 export const osStatusEnum = pgEnum('os_status', [
   'aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida',
 ])
@@ -181,6 +184,7 @@ export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   dadosVenda: jsonb('dados_venda').notNull(),
   motivo: text('motivo').notNull(),
+  tipo: aprovacaoVendaTipoEnum('tipo').notNull().default('valor_minimo'),
   disponibilidadeAnterior: disponibilidadeEnum('disponibilidade_anterior'),
   status: aprovacaoVendaStatusEnum('status').notNull().default('pendente'),
   respondidoPor: uuid('respondido_por').references(() => usuarios.id),

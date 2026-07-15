@@ -82,7 +82,10 @@ type Props = {
   showLabel?: boolean
   precoMinimoPix?: number | null
   taxasVenda?: TaxasVenda | null
+  podeAprovarPagamentoSensivel?: boolean
 }
+
+const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 
 function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   if (!taxas) return []
@@ -104,7 +107,7 @@ function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   return []
 }
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
@@ -343,6 +346,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const valorOk = liquidoOk || bypassMinimo || (precisaAprovacao && motivo.trim().length > 0)
   const todosPgtosComParcelas = pgtos.filter(p => TIPOS_COM_PARCELAS.has(p.tipo)).every(p => !!p.parcelas)
 
+  // ── Financiamento/transferência — só o responsável aprova, sempre (independente de valor/papel) ──
+  const temPagamentoSensivel = pgtos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
+  const precisaAprovacaoSensivel = temPagamentoSensivel && !podeAprovarPagamentoSensivel
+
   // ── Validação de preço mínimo (reserva) ──
   const valorReservaNum = parseFloat(valorReserva) || 0
   const valorTotalNum = parseFloat(valorTotalVenda) || 0
@@ -380,7 +387,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
             ...((p.tipo === 'cartao_credito' || p.tipo === 'cartao_debito') && p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim() } : {}),
           })),
         }
-        if (precisaAprovacao) {
+        if (precisaAprovacaoSensivel) {
+          await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
+          toast.success('Venda com financiamento/transferência enviada para aprovação!')
+        } else if (precisaAprovacao) {
           await solicitarAprovacaoVendaAction(payload, motivo)
           toast.success('Pedido de aprovação enviado!')
         } else {
@@ -738,6 +748,19 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     </div>
                   )}
 
+                  {temPagamentoSensivel && (
+                    <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-md border ${
+                      podeAprovarPagamentoSensivel ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                      <p className="text-xs">
+                        {podeAprovarPagamentoSensivel
+                          ? 'Pagamento por financiamento/transferência — você pode confirmar direto.'
+                          : 'Pagamento por financiamento ou transferência bancária precisa de aprovação do responsável antes de confirmar.'}
+                      </p>
+                    </div>
+                  )}
+
                   {precisaAprovacao && (
                     <div className="space-y-1">
                       <Label>Motivo do pedido de aprovação <span className="text-red-500">*</span></Label>
@@ -840,7 +863,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 ? 'Salvando...'
                 : tipo === 'reserva'
                   ? 'Confirmar Reserva'
-                  : precisaAprovacao
+                  : (precisaAprovacao || precisaAprovacaoSensivel)
                     ? 'Pedir aprovação'
                     : 'Confirmar Venda'}
             </Button>

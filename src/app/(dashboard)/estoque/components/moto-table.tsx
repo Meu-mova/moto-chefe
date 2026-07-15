@@ -40,6 +40,7 @@ type Props = {
   mecanicos: Mecanico[]
   lojas: Loja[]
   lojaUsuarioId: string | null
+  podeAprovarPagamentoSensivel: boolean
   ord: string
   dir: string
   baseParams: string
@@ -59,7 +60,7 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
   return `/estoque?${p.toString()}`
 }
 
-export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, ord, dir, baseParams }: Props) {
+export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
   const isAdmin = ADMINS.has(papel)
 
   function th(campo: Campo, label: string) {
@@ -154,6 +155,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                   />
                                 )}
                                 {/* Reservada: só finalizar venda */}
@@ -165,6 +167,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                     reservaAtiva={{
                                       valorEntrada: moto.reservaValorEntrada,
                                       valorTotal: moto.reservaValorTotal ?? '0',
@@ -195,6 +198,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                     soReserva
                                   />
                                 )}

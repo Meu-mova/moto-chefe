@@ -7,7 +7,7 @@ import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas } from '@/lib/grupo'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -31,6 +31,7 @@ export default async function EstoquePage({
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
+  const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
 
   // params.loja é validado contra as lojas do grupo ativo (nunca vaza loja de
   // outro grupo/CNPJ). Se a seleção for válida, vale tanto pra admin quanto
@@ -110,6 +111,7 @@ export default async function EstoquePage({
           lojas={lojasTransferencia}
           mecanicos={mecanicosOpts}
           lojaUsuarioId={usuario.lojaId ?? null}
+          podeAprovarPagamentoSensivel={podeAprovarSensivel}
           ord={ord}
           dir={dir}
           baseParams={(() => {

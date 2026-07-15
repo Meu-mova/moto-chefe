@@ -6,7 +6,12 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
+
+const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
+function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
+  return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
+}
 
 export type PrecoMinimoInfo = {
   valorMinimoPix: number
@@ -99,6 +104,9 @@ export async function efetivarVendaAction(
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para efetivar venda')
+  }
+  if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !podeAprovarPagamentoSensivel(usuario)) {
+    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
   }
   const supabase = await createClient()
   const { data: vendaId, error } = await supabase.rpc('efetivar_venda', {
@@ -310,6 +318,12 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
+  }
+
+  // Financiamento/transferência sempre precisam da aprovação do responsável,
+  // independente de valor ou papel — ver podeAprovarPagamentoSensivel.
+  if (temPagamentoSensivel(data.pagamentos) && !podeAprovarPagamentoSensivel(usuario)) {
+    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
   }
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
@@ -1118,12 +1132,15 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
 
-export async function solicitarAprovacaoVendaAction(data: DadosVendaCompleta, motivo: string) {
+export async function solicitarAprovacaoVendaAction(
+  data: DadosVendaCompleta,
+  motivo: string,
+  tipoAprovacao: 'valor_minimo' | 'pagamento_sensivel' = 'valor_minimo',
+) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
     throw new Error('Sem permissão para registrar venda')
   }
-  if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
@@ -1140,11 +1157,24 @@ export async function solicitarAprovacaoVendaAction(data: DadosVendaCompleta, mo
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
-  const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-  if (!prec) throw new Error('Sem preço mínimo configurado para este modelo — use o fluxo normal de venda')
-  const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
-  if (liquido >= prec.valorMinimoPix - 0.01) {
-    throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
+  let motivoFinal: string
+  if (tipoAprovacao === 'pagamento_sensivel') {
+    if (!temPagamentoSensivel(data.pagamentos)) {
+      throw new Error('Nenhum pagamento por financiamento ou transferência nesta venda')
+    }
+    const tiposUsados = data.pagamentos
+      .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
+      .map(p => p.tipo === 'financiamento' ? 'Financiamento' : 'Transferência Bancária')
+    motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
+  } else {
+    if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')
+    const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
+    if (!prec) throw new Error('Sem preço mínimo configurado para este modelo — use o fluxo normal de venda')
+    const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
+    if (liquido >= prec.valorMinimoPix - 0.01) {
+      throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
+    }
+    motivoFinal = motivo.trim()
   }
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
@@ -1157,7 +1187,8 @@ export async function solicitarAprovacaoVendaAction(data: DadosVendaCompleta, mo
       vendedorId,
       valor: data.valorTotal,
       dadosVenda: data,
-      motivo: motivo.trim(),
+      motivo: motivoFinal,
+      tipo: tipoAprovacao,
       disponibilidadeAnterior: moto.disponibilidade,
       status: 'pendente',
     })
@@ -1172,7 +1203,7 @@ export async function solicitarAprovacaoVendaAction(data: DadosVendaCompleta, mo
       usuarioId: usuario.id,
       tipo: 'mudanca_status',
       referenciaTipo: 'aprovacao_venda',
-      observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorNum.toFixed(2)} — Motivo: ${motivo.trim()}`,
+      observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorNum.toFixed(2)} — Motivo: ${motivoFinal}`,
     })
   })
 
@@ -1188,7 +1219,10 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   if (!aprovacao) throw new Error('Solicitação não encontrada')
   if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
 
-  if (!(await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId))) {
+  const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
+    ? podeAprovarPagamentoSensivel(usuario)
+    : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
+  if (!podeResponder) {
     throw new Error('Sem permissão para aprovar esta venda')
   }
 
@@ -1223,7 +1257,10 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
   if (!aprovacao) throw new Error('Solicitação não encontrada')
   if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
 
-  if (!(await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId))) {
+  const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
+    ? podeAprovarPagamentoSensivel(usuario)
+    : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
+  if (!podeResponder) {
     throw new Error('Sem permissão para recusar esta venda')
   }
 

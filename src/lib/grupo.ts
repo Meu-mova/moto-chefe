@@ -86,6 +86,14 @@ export function podeTransferirEntreGrupos(usuario: { email: string }): boolean {
   return usuario.email === EMAIL_ACESSO_MULTI_GRUPO
 }
 
+// ─── Aprovação de pagamento sensível (financiamento/transferência) ────────────
+// Mesma exceção pontual de podeTransferirEntreGrupos — só o Cesar aprova,
+// mesmo admin_socio (que aprova venda de baixo valor) fica de fora aqui,
+// por decisão dele: os demais admins não têm acesso a essas informações.
+export function podeAprovarPagamentoSensivel(usuario: { email: string }): boolean {
+  return usuario.email === EMAIL_ACESSO_MULTI_GRUPO
+}
+
 export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: string }[]> {
   return db
     .select({ id: lojas.id, nome: lojas.nome })

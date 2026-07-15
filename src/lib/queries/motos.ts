@@ -303,6 +303,11 @@ export async function buscarMoto(id: string) {
         WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
         ORDER BY a.data_solicitacao DESC LIMIT 1
       )`,
+      aprovacaoPendenteTipo: sql<string | null>`(
+        SELECT a.tipo FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
       aprovacaoPendenteVendedorId: sql<string | null>`(
         SELECT a.vendedor_id FROM aprovacoes_venda a
         WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'

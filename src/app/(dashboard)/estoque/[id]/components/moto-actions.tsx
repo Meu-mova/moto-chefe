@@ -60,6 +60,7 @@ type Props = {
   lojaUsuarioId: string | null
   precoMinimoPix: number | null
   taxasVenda: TaxasVenda | null
+  podeAprovarPagamentoSensivel: boolean
 }
 
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
@@ -68,7 +69,7 @@ const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
-export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda }: Props) {
+export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel }: Props) {
   const isAdmin = ADMINS.has(papel)
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   const podeVenderAqui = podeAlterar || (papel === 'vendedor' && podeVendedorReservarForaDaLoja(moto.lojaId))
@@ -116,6 +117,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             showLabel
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
+            podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
           />
         )
       }
@@ -132,6 +134,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             showLabel
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
+            podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
             reservaAtiva={{
               valorEntrada: moto.reservaValorEntrada,
               valorTotal: moto.reservaValorTotal ?? '0',
@@ -168,6 +171,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             showLabel
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
+            podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
           />
         )
       }

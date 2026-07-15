@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -28,7 +28,10 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   if (!moto) notFound()
 
   const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
-  const podeAprovarAprovacao = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
+  const podeAprovarValorMinimo = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
+  const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
+  const tipoAprovacaoPendente = (moto.aprovacaoPendenteTipo ?? 'valor_minimo') as 'valor_minimo' | 'pagamento_sensivel'
+  const podeAprovarAprovacao = tipoAprovacaoPendente === 'pagamento_sensivel' ? podeAprovarSensivel : podeAprovarValorMinimo
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
@@ -125,6 +128,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         lojaUsuarioId={usuario.lojaId ?? null}
         precoMinimoPix={precoMinimoPix}
         taxasVenda={taxasVenda}
+        podeAprovarPagamentoSensivel={podeAprovarSensivel}
       />
       </div>
 
@@ -135,6 +139,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           motivo={moto.aprovacaoPendenteMotivo ?? ''}
           vendedorNome={usuariosOpts.find(u => u.id === moto.aprovacaoPendenteVendedorId)?.nome ?? 'Desconhecido'}
           dataSolicitacao={moto.aprovacaoPendenteDataSolicitacao ?? new Date().toISOString()}
+          tipo={tipoAprovacaoPendente}
           podeAprovar={podeAprovarAprovacao}
         />
       )}
