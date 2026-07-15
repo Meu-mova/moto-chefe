@@ -2,36 +2,34 @@
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { lancarDespesaOpenFinanceAction } from '../actions'
+import { Pencil, X } from 'lucide-react'
+import {
+  lancarDespesaOpenFinanceAction,
+  editarCategorizacaoOpenFinanceAction,
+  cancelarCategorizacaoOpenFinanceAction,
+} from '../actions'
+
+type JaLancado = {
+  categoria: string | null
+  lojaId: string | null
+  lojaNome: string | null
+  lancadoPorNome: string | null
+  lancadoEm: string | null
+}
 
 type Props = {
   id: string
   lojas: { id: string; nome: string }[]
   categorias: string[]
-  jaLancado: { lojaNome: string | null; lancadoPorNome: string | null; lancadoEm: string | null } | null
+  jaLancado: JaLancado | null
 }
 
 export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
   const [pending, startTransition] = useTransition()
-  const [categoria, setCategoria] = useState('')
-  const [lojaId, setLojaId] = useState('')
-  const [lojaEscolhida, setLojaEscolhida] = useState(false)
-
-  if (jaLancado) {
-    const quando = jaLancado.lancadoEm
-      ? new Date(jaLancado.lancadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-      : null
-    return (
-      <div className="text-xs">
-        <span className="font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
-          Lançada — {jaLancado.lojaNome ?? 'Geral'}
-        </span>
-        {(jaLancado.lancadoPorNome || quando) && (
-          <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
-        )}
-      </div>
-    )
-  }
+  const [editando, setEditando] = useState(false)
+  const [categoria, setCategoria] = useState(jaLancado?.categoria ?? '')
+  const [lojaId, setLojaId] = useState(jaLancado?.lojaId ?? '')
+  const [lojaEscolhida, setLojaEscolhida] = useState(!!jaLancado)
 
   function lancar() {
     if (!categoria || !lojaEscolhida) {
@@ -46,6 +44,68 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
         toast.error(e instanceof Error ? e.message : 'Erro ao lançar')
       }
     })
+  }
+
+  function salvarEdicao() {
+    if (!categoria || !lojaEscolhida) {
+      toast.error('Escolha categoria e loja')
+      return
+    }
+    startTransition(async () => {
+      try {
+        await editarCategorizacaoOpenFinanceAction(id, categoria, lojaId || null)
+        toast.success('Categorização atualizada')
+        setEditando(false)
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
+      }
+    })
+  }
+
+  function cancelarCategorizacao() {
+    if (!confirm('Cancelar a categorização dessa saída? A despesa lançada será removida e ela volta para pendente.')) return
+    startTransition(async () => {
+      try {
+        await cancelarCategorizacaoOpenFinanceAction(id)
+        toast.success('Categorização cancelada')
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao cancelar')
+      }
+    })
+  }
+
+  if (jaLancado && !editando) {
+    const quando = jaLancado.lancadoEm
+      ? new Date(jaLancado.lancadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : null
+    return (
+      <div className="flex items-center gap-1">
+        <div className="text-xs">
+          <span className="font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+            Lançada — {jaLancado.lojaNome ?? 'Geral'}
+          </span>
+          {(jaLancado.lancadoPorNome || quando) && (
+            <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
+          )}
+        </div>
+        <button
+          onClick={() => setEditando(true)}
+          disabled={pending}
+          title="Editar categorização"
+          className="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-50"
+        >
+          <Pencil size={13} />
+        </button>
+        <button
+          onClick={cancelarCategorizacao}
+          disabled={pending}
+          title="Cancelar categorização"
+          className="text-slate-400 hover:text-red-600 p-1 disabled:opacity-50"
+        >
+          <X size={13} />
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -67,9 +127,25 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
         <option value="">Geral — empresa</option>
         {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
       </select>
-      <Button size="sm" className="h-8 text-xs" disabled={pending || !categoria || !lojaEscolhida} onClick={lancar}>
-        {pending ? 'Lançando…' : 'Lançar'}
+      <Button
+        size="sm"
+        className="h-8 text-xs"
+        disabled={pending || !categoria || !lojaEscolhida}
+        onClick={jaLancado ? salvarEdicao : lancar}
+      >
+        {pending ? 'Salvando…' : jaLancado ? 'Salvar' : 'Lançar'}
       </Button>
+      {jaLancado && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          disabled={pending}
+          onClick={() => setEditando(false)}
+        >
+          Voltar
+        </Button>
+      )}
     </div>
   )
 }

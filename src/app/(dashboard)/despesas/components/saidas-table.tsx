@@ -10,6 +10,8 @@ export type SaidaRow = {
   descricao: string | null
   valor: string
   despesaId: string | null
+  categoria: string | null
+  lojaId: string | null
   lojaNome: string | null
   lancadoPorNome: string | null
   lancadoEm: string | null
@@ -77,6 +79,8 @@ export function SaidasTable({ saidas, lojas, categorias }: { saidas: SaidaRow[];
                     lojas={lojas}
                     categorias={categorias}
                     jaLancado={s.despesaId ? {
+                      categoria: s.categoria,
+                      lojaId: s.lojaId,
                       lojaNome: s.lojaNome,
                       lancadoPorNome: s.lancadoPorNome,
                       lancadoEm: s.lancadoEm,

@@ -208,6 +208,8 @@ export default async function DespesasPage({
               descricao: s.descricao,
               valor: s.valor,
               despesaId: s.despesaId,
+              categoria: s.categoria,
+              lojaId: s.lojaId,
               lojaNome: s.lojaNome,
               lancadoPorNome: s.lancadoPorNome,
               lancadoEm: s.lancadoEm ? s.lancadoEm.toISOString() : null,

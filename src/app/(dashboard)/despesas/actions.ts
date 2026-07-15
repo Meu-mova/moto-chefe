@@ -144,3 +144,61 @@ export async function lancarDespesaOpenFinanceAction(id: string, categoria: stri
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
 }
+
+export async function editarCategorizacaoOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  if (!categoria.trim()) throw new Error('Categoria é obrigatória')
+
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
+
+  const [linha] = await db.select().from(despesasOpenFinance)
+    .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
+    .limit(1)
+  if (!linha) throw new Error('Saída não encontrada')
+  if (!linha.despesaId) throw new Error('Essa saída ainda não foi lançada')
+
+  await db.transaction(async (tx) => {
+    await tx.update(despesas).set({
+      lojaId: lojaIdValida,
+      categoria,
+    }).where(eq(despesas.id, linha.despesaId!))
+
+    await tx.update(despesasOpenFinance).set({
+      categoria,
+      lojaId: lojaIdValida,
+    }).where(eq(despesasOpenFinance.id, id))
+  })
+
+  revalidatePath('/despesas')
+  revalidatePath('/financeiro')
+}
+
+export async function cancelarCategorizacaoOpenFinanceAction(id: string) {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  const grupo = await getGrupoAtivo(usuario)
+
+  const [linha] = await db.select().from(despesasOpenFinance)
+    .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
+    .limit(1)
+  if (!linha) throw new Error('Saída não encontrada')
+  if (!linha.despesaId) throw new Error('Essa saída ainda não foi lançada')
+
+  await db.transaction(async (tx) => {
+    // Limpa a referência antes de excluir a despesa, pra não violar a FK.
+    await tx.update(despesasOpenFinance).set({
+      categoria: null,
+      lojaId: null,
+      despesaId: null,
+      lancadoPorId: null,
+      lancadoEm: null,
+    }).where(eq(despesasOpenFinance.id, id))
+
+    await tx.delete(despesas).where(eq(despesas.id, linha.despesaId!))
+  })
+
+  revalidatePath('/despesas')
+  revalidatePath('/financeiro')
+}
