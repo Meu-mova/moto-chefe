@@ -37,6 +37,7 @@ export default async function PrecificacaoPage() {
     taxasFinanciamento: {} as Record<string, number>,
     freteValorKm: '3.00',
     freteKmGratis: 40,
+    freteValorFixo: '0.00',
     imposto: '0.06',
   }
 
@@ -49,6 +50,7 @@ export default async function PrecificacaoPage() {
         </p>
       </div>
       <PrecificacaoClient
+        key={grupo.id}
         taxas={{
           taxasCartao: (taxas.taxasCartao ?? {}) as Record<string, number>,
           taxasDebito: (taxas.taxasDebito ?? {}) as Record<string, number>,
@@ -56,6 +58,7 @@ export default async function PrecificacaoPage() {
           taxasFinanciamento: (taxas.taxasFinanciamento ?? {}) as Record<string, number>,
           freteValorKm: taxas.freteValorKm ?? '3.00',
           freteKmGratis: taxas.freteKmGratis ?? 40,
+          freteValorFixo: taxas.freteValorFixo ?? '0.00',
           imposto: taxas.imposto ?? '0.06',
         }}
         modelos={modelos.map(m => ({

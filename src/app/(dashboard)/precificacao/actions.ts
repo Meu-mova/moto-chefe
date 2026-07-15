@@ -21,6 +21,7 @@ export type TaxasPayload = {
   taxasFinanciamento: Record<string, number>
   freteValorKm: string
   freteKmGratis: number
+  freteValorFixo: string
   imposto: string
 }
 
@@ -38,6 +39,7 @@ export async function salvarTaxasAction(data: TaxasPayload) {
         taxasFinanciamento: data.taxasFinanciamento,
         freteValorKm: data.freteValorKm,
         freteKmGratis: data.freteKmGratis,
+        freteValorFixo: data.freteValorFixo,
         imposto: data.imposto,
         atualizadoEm: sql`NOW()`,
       },

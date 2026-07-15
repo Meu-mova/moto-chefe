@@ -47,14 +47,19 @@ export async function simularFreteAction(lojaId: string, cepDestino: string): Pr
 
   const grupoId = await getGrupoIdDaLoja(lojaId)
   const [taxas] = await db
-    .select({ freteValorKm: configuracaoTaxas.freteValorKm, freteKmGratis: configuracaoTaxas.freteKmGratis })
+    .select({
+      freteValorKm: configuracaoTaxas.freteValorKm,
+      freteKmGratis: configuracaoTaxas.freteKmGratis,
+      freteValorFixo: configuracaoTaxas.freteValorFixo,
+    })
     .from(configuracaoTaxas)
     .where(eq(configuracaoTaxas.grupoId, grupoId))
     .limit(1)
   const valorPorKm = taxas ? Number(taxas.freteValorKm) : 3
   const kmGratis = taxas ? Number(taxas.freteKmGratis) : 40
+  const valorFixo = taxas ? Number(taxas.freteValorFixo) : 0
 
-  const { kmIdaEVolta, custo } = calcularCustoFrete(distanciaKmIda, valorPorKm, kmGratis)
+  const { kmIdaEVolta, custo } = calcularCustoFrete(distanciaKmIda, valorPorKm, kmGratis, valorFixo)
 
   return { ok: true, distanciaKmIda, kmIdaEVolta, custo, gratis: custo === 0 }
 }

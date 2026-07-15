@@ -442,6 +442,10 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
   freteValorKm: numeric('frete_valor_km', { precision: 6, scale: 2 }).notNull().default('3.00'),
   freteKmGratis: integer('frete_km_gratis').notNull().default(40),
+  // Valor cobrado quando a distância ida+volta fica dentro de freteKmGratis. '0.00' preserva o
+  // comportamento antigo (frete grátis abaixo do limite); grupos como o BH usam um valor fixo (ex:
+  // 250) em vez de grátis — acima do limite o cálculo continua cobrando só o km excedente.
+  freteValorFixo: numeric('frete_valor_fixo', { precision: 6, scale: 2 }).notNull().default('0.00'),
   imposto: numeric('imposto', { precision: 6, scale: 4 }).notNull().default('0.06'),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })

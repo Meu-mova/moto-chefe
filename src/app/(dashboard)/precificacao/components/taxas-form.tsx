@@ -21,6 +21,7 @@ type Taxas = {
   taxasFinanciamento: Record<string, number>
   freteValorKm: string
   freteKmGratis: number
+  freteValorFixo: string
   imposto: string
 }
 
@@ -112,6 +113,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
   const [financiamento, setFinanciamento] = useState<RateMap>(() => initMap(taxas.taxasFinanciamento, PARCELAS_FINANCIAMENTO))
   const [freteValorKm, setFreteValorKm] = useState(taxas.freteValorKm)
   const [freteKmGratis, setFreteKmGratis] = useState(String(taxas.freteKmGratis))
+  const [freteValorFixo, setFreteValorFixo] = useState(taxas.freteValorFixo)
   const [imposto, setImposto] = useState(toStr(Number(taxas.imposto)))
   const [loading, setLoading] = useState(false)
 
@@ -130,6 +132,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
         taxasFinanciamento: buildDecimalMap(financiamento),
         freteValorKm: freteValorKm || '3.00',
         freteKmGratis: parseInt(freteKmGratis, 10) || 40,
+        freteValorFixo: freteValorFixo || '0.00',
         imposto: String(toDecimal(imposto || '6')),
       })
       toast.success('Taxas salvas com sucesso')
@@ -189,11 +192,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
                 Usado na simulação de frete de entrega (Simulador), calculado sobre a distância ida e volta entre a loja e o CEP de destino.
               </p>
               <div className="space-y-1.5">
-                <Label className="text-xs">Valor por km (R$)</Label>
-                <CurrencyInput value={freteValorKm} onChange={setFreteValorKm} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Km grátis (ida e volta)</Label>
+                <Label className="text-xs">Km limite (ida e volta)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -202,6 +201,16 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
                   value={freteKmGratis}
                   onChange={e => setFreteKmGratis(e.target.value)}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor até o limite (R$)</Label>
+                <CurrencyInput value={freteValorFixo} onChange={setFreteValorFixo} className="h-9 text-sm" />
+                <p className="text-[11px] text-slate-400">Deixe 0 para frete grátis dentro do limite.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor por km excedente (R$)</Label>
+                <CurrencyInput value={freteValorKm} onChange={setFreteValorKm} className="h-9 text-sm" />
+                <p className="text-[11px] text-slate-400">Cobrado sobre o km que passar do limite acima.</p>
               </div>
             </div>
           </TabsContent>

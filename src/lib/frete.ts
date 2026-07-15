@@ -83,9 +83,12 @@ export function calcularCustoFrete(
   distanciaKmIda: number,
   valorPorKm: number,
   kmGratis: number,
+  valorFixo: number = 0,
 ): { kmIdaEVolta: number; custo: number } {
   const kmIdaEVolta = distanciaKmIda * 2
-  const kmCobravel = Math.max(0, kmIdaEVolta - kmGratis)
-  const custo = kmCobravel * valorPorKm
-  return { kmIdaEVolta, custo }
+  if (kmIdaEVolta <= kmGratis) {
+    return { kmIdaEVolta, custo: valorFixo }
+  }
+  const kmCobravel = kmIdaEVolta - kmGratis
+  return { kmIdaEVolta, custo: kmCobravel * valorPorKm }
 }
