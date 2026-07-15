@@ -72,14 +72,15 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
 }
 
 
-// Formato da descrição do PIX recebido muda por banco:
+// Formato da descrição da transação muda por banco (serve tanto pra PIX
+// recebido quanto pra saídas em geral):
 // - Sicoob: pseudo-CSV separado por "|@", ex. "PIX RECEBIDO - OUTRA IF -
 //   Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@" — nome
 //   é o segmento [1].
 // - Sicredi: "RECEBIMENTO PIX <documento sem pontuação> <NOME>" — nome é
 //   tudo depois do documento (que costuma vir truncado/abreviado quando
-//   comparado ao paymentData.payer, por isso só usamos como fallback).
-function extrairPagadorDaDescricao(descricao: string | null | undefined): string | null {
+//   comparado ao paymentData, por isso só usamos como fallback).
+function extrairContraparteDaDescricao(descricao: string | null | undefined): string | null {
   if (!descricao) return null
 
   if (descricao.includes('|@')) {
@@ -87,25 +88,31 @@ function extrairPagadorDaDescricao(descricao: string | null | undefined): string
     return nome || null
   }
 
-  const match = descricao.match(/^RECEBIMENTO PIX\s+\S+\s+(.+)$/i)
+  const match = descricao.match(/^(?:RECEBIMENTO|PAGAMENTO)\s+\S+\s+\S+\s+(.+)$/i)
   return match?.[1]?.trim() || null
 }
 
-type TransacaoPix = {
+type TransacaoBruta = {
   contaId: string
   banco: string
   transacaoId: string
   data: string
   valor: string
-  pagadorNome: string | null
+  tipo: string
+  operationType: string
   descricao: string | null
+  paymentData?: { payer?: string; recipient?: string }
 }
 
-type ResultadoPix =
-  | { ok: true; transacoes: TransacaoPix[] }
+type ResultadoTransacoesBrutas =
+  | { ok: true; transacoes: TransacaoBruta[] }
   | { ok: false; erro: string }
 
-export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
+// Busca TODAS as transações (crédito e débito) das contas do grupo no
+// período — usada tanto por buscarPixRecebidos (filtra crédito/PIX) quanto
+// por buscarSaidasOpenFinance (filtra débito), pra não bater duas vezes na
+// API do mcp.ai pra cada sincronização.
+async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoTransacoesBrutas> {
   try {
     const init = await chamarMcp(null, {
       jsonrpc: '2.0',
@@ -157,11 +164,11 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
 
     const inicioMs = dataInicio.getTime()
     const fimMs = dataFim.getTime()
-    const transacoes: TransacaoPix[] = []
+    const transacoes: TransacaoBruta[] = []
 
     for (const conta of contas) {
       // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
-      // sync, transações PIX recebidas nas últimas horas não aparecem ainda.
+      // sync, transações recebidas/enviadas nas últimas horas não aparecem ainda.
       await chamarMcp(init.sessionId, {
         jsonrpc: '2.0',
         id: 4,
@@ -195,12 +202,11 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
           type: string
           operationType: string
           description: string
-          paymentData?: { payer?: string }
+          paymentData?: { payer?: string; recipient?: string }
         }>
       }
 
       for (const tx of txPayload.results ?? []) {
-        if (tx.type !== 'CREDIT' || tx.operationType !== 'PIX') continue
         const dataMs = new Date(tx.date).getTime()
         if (dataMs < inicioMs || dataMs > fimMs) continue
 
@@ -210,8 +216,10 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
           transacaoId: tx.id,
           data: tx.date,
           valor: tx.amount,
-          pagadorNome: tx.paymentData?.payer?.trim() || extrairPagadorDaDescricao(tx.description),
+          tipo: tx.type,
+          operationType: tx.operationType,
           descricao: tx.description ?? null,
+          paymentData: tx.paymentData,
         })
       }
     }
@@ -220,6 +228,74 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
   } catch (e) {
     return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
   }
+}
+
+type TransacaoPix = {
+  contaId: string
+  banco: string
+  transacaoId: string
+  data: string
+  valor: string
+  pagadorNome: string | null
+  descricao: string | null
+}
+
+type ResultadoPix =
+  | { ok: true; transacoes: TransacaoPix[] }
+  | { ok: false; erro: string }
+
+export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
+  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
+  if (!bruto.ok) return bruto
+
+  const transacoes = bruto.transacoes
+    .filter(t => t.tipo === 'CREDIT' && t.operationType === 'PIX')
+    .map(t => ({
+      contaId: t.contaId,
+      banco: t.banco,
+      transacaoId: t.transacaoId,
+      data: t.data,
+      valor: t.valor,
+      pagadorNome: t.paymentData?.payer?.trim() || extrairContraparteDaDescricao(t.descricao),
+      descricao: t.descricao,
+    }))
+
+  return { ok: true, transacoes }
+}
+
+export type TransacaoSaida = {
+  contaId: string
+  banco: string
+  transacaoId: string
+  data: string
+  valor: string
+  favorecidoNome: string | null
+  descricao: string | null
+  tipoOperacao: string
+}
+
+type ResultadoSaidas =
+  | { ok: true; transacoes: TransacaoSaida[] }
+  | { ok: false; erro: string }
+
+export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoSaidas> {
+  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
+  if (!bruto.ok) return bruto
+
+  const transacoes = bruto.transacoes
+    .filter(t => t.tipo === 'DEBIT')
+    .map(t => ({
+      contaId: t.contaId,
+      banco: t.banco,
+      transacaoId: t.transacaoId,
+      data: t.data,
+      valor: t.valor,
+      favorecidoNome: t.paymentData?.recipient?.trim() || t.paymentData?.payer?.trim() || extrairContraparteDaDescricao(t.descricao),
+      descricao: t.descricao,
+      tipoOperacao: t.operationType,
+    }))
+
+  return { ok: true, transacoes }
 }
 
 export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
