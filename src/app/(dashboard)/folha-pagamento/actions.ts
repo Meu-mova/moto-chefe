@@ -1,9 +1,9 @@
 'use server'
 import { db } from '@/lib/db'
-import { funcionariosConfig, premiacaoFaixas } from '@/lib/db/schema'
+import { funcionariosConfig, premiacaoFaixas, usuarios } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -11,7 +11,8 @@ const ADMINS = ['admin_geral', 'admin_socio']
 async function checarAdmin() {
   const u = await getUsuarioLogado()
   if (!ADMINS.includes(u.papel)) throw new Error('Sem permissão')
-  return getGrupoAtivo(u)
+  const grupo = await getGrupoAtivo(u)
+  return { usuario: u, grupo }
 }
 
 export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
@@ -20,10 +21,17 @@ export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
   ajudaCusto: number | null
   ativo: boolean
 }) {
-  await checarAdmin()
+  const { usuario } = await checarAdmin()
   if (dados.salario < 0 || dados.comissaoPercentual < 0 || (dados.ajudaCusto ?? 0) < 0) {
     throw new Error('Valores não podem ser negativos')
   }
+
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const [alvo] = await db.select({ lojaId: usuarios.lojaId }).from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1)
+  if (!alvo || !alvo.lojaId || !lojaIdsGrupo.includes(alvo.lojaId)) {
+    throw new Error('Funcionário não pertence ao grupo ativo')
+  }
+
   await db.insert(funcionariosConfig).values({
     usuarioId,
     salario: String(dados.salario),
@@ -44,7 +52,7 @@ export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
 }
 
 export async function criarFaixaPremiacaoAction(valorMinimoVendas: number, premiacao: number) {
-  const grupo = await checarAdmin()
+  const { grupo } = await checarAdmin()
   if (valorMinimoVendas < 0 || premiacao < 0) throw new Error('Valores não podem ser negativos')
   await db.insert(premiacaoFaixas).values({
     grupoId: grupo.id,
@@ -55,7 +63,7 @@ export async function criarFaixaPremiacaoAction(valorMinimoVendas: number, premi
 }
 
 export async function editarFaixaPremiacaoAction(id: string, valorMinimoVendas: number, premiacao: number) {
-  const grupo = await checarAdmin()
+  const { grupo } = await checarAdmin()
   if (valorMinimoVendas < 0 || premiacao < 0) throw new Error('Valores não podem ser negativos')
   await db.update(premiacaoFaixas).set({
     valorMinimoVendas: String(valorMinimoVendas),
@@ -65,7 +73,7 @@ export async function editarFaixaPremiacaoAction(id: string, valorMinimoVendas: 
 }
 
 export async function excluirFaixaPremiacaoAction(id: string) {
-  const grupo = await checarAdmin()
+  const { grupo } = await checarAdmin()
   await db.delete(premiacaoFaixas).where(and(eq(premiacaoFaixas.id, id), eq(premiacaoFaixas.grupoId, grupo.id)))
   revalidatePath('/folha-pagamento')
 }
