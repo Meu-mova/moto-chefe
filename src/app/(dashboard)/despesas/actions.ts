@@ -2,7 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas } from '@/lib/db/schema'
+import { despesas, despesasOpenFinance } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -93,6 +93,46 @@ export async function excluirDespesaAction(id: string) {
     .returning({ id: despesas.id })
 
   if (!res.length) throw new Error('Despesa não encontrada')
+
+  revalidatePath('/despesas')
+  revalidatePath('/financeiro')
+}
+
+export async function lancarDespesaOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  if (!categoria.trim()) throw new Error('Categoria é obrigatória')
+
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
+
+  const [linha] = await db.select().from(despesasOpenFinance)
+    .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
+    .limit(1)
+  if (!linha) throw new Error('Saída não encontrada')
+  if (linha.despesaId) throw new Error('Essa saída já foi lançada')
+
+  await db.transaction(async (tx) => {
+    const [despesaCriada] = await tx.insert(despesas).values({
+      grupoId:        grupo.id,
+      lojaId:         lojaIdValida,
+      usuarioId:      usuario.id,
+      categoria,
+      descricao:      linha.descricao,
+      valor:          linha.valor,
+      data:           linha.data.toISOString().split('T')[0],
+      formaPagamento: linha.tipoOperacao ?? 'Outro',
+      banco:          linha.banco,
+    }).returning({ id: despesas.id })
+
+    await tx.update(despesasOpenFinance).set({
+      categoria,
+      lojaId: lojaIdValida,
+      despesaId: despesaCriada.id,
+      lancadoPorId: usuario.id,
+      lancadoEm: new Date(),
+    }).where(eq(despesasOpenFinance.id, id))
+  })
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
