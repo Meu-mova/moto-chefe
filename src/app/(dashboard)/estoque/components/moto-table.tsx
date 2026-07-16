@@ -149,6 +149,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                 {/* Montada/Garantia disponível: venda + reserva */}
                                 {moto.status !== 'caixa' && moto.disponibilidade !== 'reservada' && moto.disponibilidade !== 'aguardando_aprovacao' && (moto.disponibilidade === 'disponivel' || moto.status === 'em_garantia') && (
                                   <VenderButton
+                                    key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
@@ -161,6 +162,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                 {/* Reservada: só finalizar venda */}
                                 {moto.disponibilidade === 'reservada' && moto.reservaValorEntrada && (
                                   <VenderButton
+                                    key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
@@ -203,6 +205,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                 {/* Caixa ainda não reservada: só reserva */}
                                 {moto.status === 'caixa' && moto.disponibilidade == null && (
                                   <VenderButton
+                                    key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
                                     descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}

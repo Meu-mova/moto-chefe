@@ -108,7 +108,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
       if (podeVenderMoto) {
         acoes.push(
           <VenderButton
-            key="vender"
+            key="vender-acao"
             motoId={moto.id}
             descricao={descricao}
             vendedorId={vendedorId}
@@ -125,7 +125,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
       if (moto.disponibilidade === 'reservada' && moto.reservaValorEntrada) {
         acoes.push(
           <VenderButton
-            key="vender-reserva"
+            key="vender-acao"
             motoId={moto.id}
             descricao={descricao}
             vendedorId={vendedorId}
@@ -176,7 +176,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
       if (moto.status === 'caixa' && moto.disponibilidade == null) {
         acoes.push(
           <VenderButton
-            key="reserva-caixa"
+            key="vender-acao"
             motoId={moto.id}
             descricao={descricao}
             vendedorId={vendedorId}
