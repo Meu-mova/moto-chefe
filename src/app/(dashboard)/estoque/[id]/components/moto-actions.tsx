@@ -6,7 +6,7 @@ import { NfSaidaButton } from '../../components/nf-saida-button'
 import { MontarButton } from '../../components/montar-button'
 import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, Printer } from 'lucide-react'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 
 type Usuario = { id: string; nome: string }
@@ -23,6 +23,7 @@ type Moto = {
   modelo: string
   cor: string
   transferenciaPendente: boolean
+  reservaId: string | null
   reservaValorEntrada: string | null
   reservaValorTotal: string | null
   reservaClienteNome: string | null
@@ -156,6 +157,21 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             }}
           />
         )
+        if (moto.reservaId) {
+          acoes.push(
+            <a
+              key="imprimir-reserva"
+              href={`/reservas/${moto.reservaId}/imprimir`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Imprimir comprovante da reserva"
+              className="h-8 gap-1.5 text-xs border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md px-3 inline-flex items-center"
+            >
+              <Printer size={14} />
+              Comprovante
+            </a>
+          )
+        }
       }
       if (moto.status === 'caixa' && moto.disponibilidade == null) {
         acoes.push(

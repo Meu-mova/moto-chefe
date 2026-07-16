@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Eye, ArrowUp, ArrowDown, ArrowUpDown, ArrowLeftRight } from 'lucide-react'
+import { Eye, ArrowUp, ArrowDown, ArrowUpDown, ArrowLeftRight, Printer } from 'lucide-react'
 import { MotoStatusIcon } from '@/components/moto-status-icon'
 import { VenderButton } from './vender-button'
 import { GarantiaButton } from './garantia-button'
@@ -188,6 +188,17 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                       cartaoParcelas: moto.reservaCartaoParcelas,
                                     }}
                                   />
+                                )}
+                                {moto.disponibilidade === 'reservada' && moto.reservaId && (
+                                  <a
+                                    href={`/reservas/${moto.reservaId}/imprimir`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Imprimir comprovante da reserva"
+                                    className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-slate-500 hover:text-slate-700'}
+                                  >
+                                    <Printer size={16} />
+                                  </a>
                                 )}
                                 {/* Caixa ainda não reservada: só reserva */}
                                 {moto.status === 'caixa' && moto.disponibilidade == null && (
