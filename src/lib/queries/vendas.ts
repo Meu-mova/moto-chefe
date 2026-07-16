@@ -162,3 +162,38 @@ export async function buscarPedido(id: string) {
     .limit(1)
   return pedido ?? null
 }
+
+export type VendaComDocumento = Awaited<ReturnType<typeof buscarVenda>>
+
+export async function buscarVenda(id: string) {
+  const [venda] = await db
+    .select({
+      id: vendas.id,
+      dataVenda: vendas.dataVenda,
+      notaFiscalSaida: vendas.notaFiscalSaida,
+      motoId: vendas.motoId,
+      lojaId: vendas.lojaId,
+      lojaNome: lojas.nome,
+      lojaCidade: lojas.cidade,
+      marca: modelos.marca,
+      modelo: modelos.modelo,
+      chassi: motos.chassi,
+      cor: motos.cor,
+      motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
+      clienteNome: vendas.clienteNome,
+      clienteCpf: vendas.clienteCpf,
+      clienteLogradouro: vendas.clienteLogradouro,
+      clienteNumero: vendas.clienteNumero,
+      clienteComplemento: vendas.clienteComplemento,
+      clienteBairro: vendas.clienteBairro,
+      clienteCidade: vendas.clienteCidade,
+      clienteEstado: vendas.clienteEstado,
+    })
+    .from(vendas)
+    .innerJoin(motos, eq(vendas.motoId, motos.id))
+    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+    .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
+    .where(eq(vendas.id, id))
+    .limit(1)
+  return venda ?? null
+}
