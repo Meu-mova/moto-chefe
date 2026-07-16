@@ -52,6 +52,11 @@ export async function listarMotos(filtros?: {
         WHERE transferencias.moto_id = ${motos.id}
         AND transferencias.status = 'pendente'
       )`,
+      reservaId: sql<string | null>`(
+        SELECT r.id FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
+      )`,
       reservaValorEntrada: sql<string | null>`(
         SELECT r.valor_reserva FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
@@ -202,6 +207,11 @@ export async function buscarMoto(id: string) {
         SELECT 1 FROM transferencias
         WHERE transferencias.moto_id = ${motos.id}
         AND transferencias.status = 'pendente'
+      )`,
+      reservaId: sql<string | null>`(
+        SELECT r.id FROM reservas r
+        WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
+        ORDER BY r.criado_em DESC LIMIT 1
       )`,
       reservaValorEntrada: sql<string | null>`(
         SELECT r.valor_reserva FROM reservas r

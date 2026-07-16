@@ -863,11 +863,13 @@ export async function registrarReservaAction(data: DadosReserva) {
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
 
+  let reservaId = ''
+
   await db.transaction(async (tx) => {
     const valorTotalNum = parseFloat(data.valorTotalVenda)
 
     const dataReservaFinal = data.dataReserva ? new Date(data.dataReserva + 'T12:00:00') : new Date()
-    await tx.insert(reservas).values({
+    const [novaReserva] = await tx.insert(reservas).values({
       motoId: data.motoId,
       lojaId: moto.lojaId,
       vendedorId: vendedorIdReserva,
@@ -890,7 +892,8 @@ export async function registrarReservaAction(data: DadosReserva) {
       clienteCidade: data.clienteCidade,
       clienteEstado: data.clienteEstado,
       criadoEm: dataReservaFinal,
-    })
+    }).returning({ id: reservas.id })
+    reservaId = novaReserva.id
 
     await tx.update(motos)
       .set({ disponibilidade: 'reservada' })
@@ -911,6 +914,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   })
 
   revalidatePath('/estoque')
+  return { id: reservaId }
 }
 
 export type PagamentoEditar = {

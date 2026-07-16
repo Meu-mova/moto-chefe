@@ -112,6 +112,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
   const [vendedorSelecionado, setVendedorSelecionado] = useState(vendedorId)
+  const [reservaCriadaId, setReservaCriadaId] = useState<string | null>(null)
 
   // Dados de precificação — podem vir via props (detalhe) ou buscados ao abrir (lista)
   const [precoMinimoPix, setPrecoMinimoPix] = useState<number | null>(precoMinimoPixProp ?? null)
@@ -157,6 +158,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [dataPrevista, setDataPrevista] = useState('')
 
   function resetForm(tipoInicial: 'venda' | 'reserva') {
+    setReservaCriadaId(null)
     setTipo(reservaAtiva ? 'venda' : tipoInicial)
     if (reservaAtiva) {
       setClienteNome(reservaAtiva.clienteNome)
@@ -398,7 +400,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           toast.success('Venda registrada com sucesso!')
         }
       } else {
-        await registrarReservaAction({
+        const resultado = await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda, meioPagamento: meioPgto,
           vendedorId: vendedorSelecionado,
           ...(meioPgto === 'cartao_credito' ? {
@@ -409,6 +411,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           dataReserva: dataVenda || undefined,
         })
         toast.success('Reserva registrada com sucesso!')
+        setReservaCriadaId(resultado.id)
+        return
       }
       setOpen(false)
     } catch (e: unknown) {
@@ -450,7 +454,30 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className={reservaCriadaId ? 'sm:max-w-sm' : 'sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0'}>
+          {reservaCriadaId ? (
+            <div className="flex flex-col items-center gap-4 py-6 px-2 text-center">
+              <CheckCircle2 size={40} className="text-green-600" />
+              <div>
+                <p className="font-semibold text-slate-800">Reserva registrada com sucesso!</p>
+                <p className="text-sm text-slate-500 mt-1">Entregue o comprovante ao cliente.</p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
+                  Fechar
+                </Button>
+                <a
+                  href={`/reservas/${reservaCriadaId}/imprimir`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-900 text-white text-sm font-medium h-9 px-4 hover:bg-slate-800"
+                >
+                  Imprimir comprovante
+                </a>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* ── Cabeçalho ── */}
           <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-4">
@@ -868,6 +895,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     : 'Confirmar Venda'}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>
