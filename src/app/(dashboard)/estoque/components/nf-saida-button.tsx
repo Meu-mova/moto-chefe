@@ -24,10 +24,12 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   const [nf, setNf] = useState('')
   const [erro, setErro] = useState('')
   const [pending, startTransition] = useTransition()
+  const [vendaConfirmadaId, setVendaConfirmadaId] = useState<string | null>(null)
 
   function abrir() {
     setErro('')
     setNf('')
+    setVendaConfirmadaId(null)
     if (blingNfeId) {
       setBlingUrl(urlExistente)
       setEtapa('aguardando')
@@ -74,8 +76,8 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
     setErro('')
     startTransition(async () => {
       try {
-        await confirmarNFSaidaAction(motoId, nf.trim())
-        setAberto(false)
+        const resultado = await confirmarNFSaidaAction(motoId, nf.trim())
+        setVendaConfirmadaId(resultado.vendaId)
       } catch (e: any) {
         setErro(e.message ?? 'Erro ao confirmar NF')
       }
@@ -97,6 +99,35 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
 
       <Dialog open={aberto} onOpenChange={fechar}>
         <DialogContent className="max-w-sm">
+          {vendaConfirmadaId ? (
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              <FileCheck size={36} className="text-green-600" />
+              <div>
+                <p className="font-semibold text-slate-800">NF de saída confirmada!</p>
+                <p className="text-sm text-slate-500 mt-1">Imprima os documentos de entrega para o cliente.</p>
+              </div>
+              <div className="flex flex-col gap-2 w-full">
+                <a
+                  href={`/vendas/${vendaConfirmadaId}/checklist-entrega`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-md bg-slate-900 text-white text-sm font-medium h-9 px-4 hover:bg-slate-800"
+                >
+                  Imprimir Checklist de Entrega
+                </a>
+                <a
+                  href={`/vendas/${vendaConfirmadaId}/certificado-bateria`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-md bg-slate-900 text-white text-sm font-medium h-9 px-4 hover:bg-slate-800"
+                >
+                  Imprimir Certificado Bateria
+                </a>
+                <Button variant="outline" onClick={() => setAberto(false)}>Fechar</Button>
+              </div>
+            </div>
+          ) : (
+          <>
           <DialogHeader>
             <DialogTitle>NF-e de Saída</DialogTitle>
             <p className="text-sm text-slate-500">{descricao}</p>
@@ -220,6 +251,8 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
                 </Button>
               </DialogFooter>
             </>
+          )}
+          </>
           )}
         </DialogContent>
       </Dialog>
