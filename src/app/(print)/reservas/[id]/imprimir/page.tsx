@@ -1,0 +1,153 @@
+import { notFound } from 'next/navigation'
+import { buscarReserva } from '@/lib/queries/reservas'
+import { getUsuarioLogado } from '@/lib/auth'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { PrintTrigger } from './print-trigger'
+
+const fmtR = (v: string | null) =>
+  v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
+
+const meioLabel: Record<string, string> = {
+  pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
+  cartao_debito: 'Cartão de Débito', financiamento: 'Financiamento',
+  link_pagamento: 'Link de Pagamento', transferencia: 'Transferência Bancária',
+}
+
+export default async function ImprimirReservaPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const [reserva, usuario] = await Promise.all([buscarReserva(id), getUsuarioLogado()])
+  if (!reserva) notFound()
+
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  if (!isAdmin && reserva.lojaId !== usuario.lojaId) notFound()
+
+  const criadoEm = format(new Date(reserva.criadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+  const geradoEm = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+  const dataPrevista = format(new Date(reserva.dataPrevistaFinalizacao + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+  const endereco = [
+    reserva.clienteLogradouro,
+    reserva.clienteNumero && `nº ${reserva.clienteNumero}`,
+    reserva.clienteComplemento,
+  ].filter(Boolean).join(', ')
+  const cidadeEstado = [reserva.clienteBairro, reserva.clienteCidade, reserva.clienteEstado].filter(Boolean).join(' — ')
+
+  return (
+    <>
+      <PrintTrigger />
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 28px 32px; }
+        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 18px; }
+        .os-n { font-size: 26px; font-weight: 900; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        .card  { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
+        .f  { margin-bottom: 5px; }
+        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
+        .fv { font-size: 12px; font-weight: 600; }
+        .obs { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+        .obs h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 6px; }
+        .obs p  { font-size: 12px; line-height: 1.55; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        td { border: 1px solid #e2e8f0; padding: 7px 9px; font-size: 12px; }
+        .tr { text-align: right; }
+        .tot td { font-weight: 700; background: #f8fafc; }
+        .grand { font-size: 15px; font-weight: 900; color: #166534; }
+        .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
+        .sig  { text-align: center; }
+        .sigline { border-top: 1px solid #1e293b; padding-top: 5px; font-size: 10px; color: #64748b; }
+        .ftr { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        @media print {
+          body { padding: 0; }
+          @page { margin: 1.5cm; }
+        }
+      `}</style>
+
+      <div className="hdr">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
+          <div>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe Sul de Minas</p>
+            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{reserva.lojaNome}</p>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div className="os-n">Reserva #{reserva.numero}</div>
+          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Registrada em: {criadoEm}</p>
+          <p style={{ fontSize: 10, color: '#b45309', marginTop: 2 }}>Previsão de finalização: {dataPrevista}</p>
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <h2>Cliente</h2>
+          <div className="f"><span className="fl">Nome</span><span className="fv">{reserva.clienteNome}</span></div>
+          <div className="f"><span className="fl">CPF</span><span className="fv">{reserva.clienteCpf}</span></div>
+          <div className="f"><span className="fl">Celular</span><span className="fv">{reserva.clienteCelular}</span></div>
+          {reserva.clienteEmail && (
+            <div className="f"><span className="fl">E-mail</span><span className="fv">{reserva.clienteEmail}</span></div>
+          )}
+          {endereco && (
+            <div className="f"><span className="fl">Endereço</span><span className="fv">{endereco}{cidadeEstado && ` — ${cidadeEstado}`}</span></div>
+          )}
+        </div>
+        <div className="card">
+          <h2>Veículo</h2>
+          <div className="f"><span className="fl">Marca / Modelo</span><span className="fv">{reserva.marca} {reserva.modelo}</span></div>
+          <div className="f"><span className="fl">Cor</span><span className="fv">{reserva.cor}</span></div>
+          <div className="f">
+            <span className="fl">Chassi</span>
+            <span className="fv" style={{ fontFamily: 'monospace' }}>{reserva.chassi}</span>
+          </div>
+        </div>
+      </div>
+
+      <table>
+        <tbody>
+          <tr>
+            <td style={{ fontSize: 11, color: '#64748b' }}>Valor da entrada (sinal pago)</td>
+            <td className="tr" style={{ fontSize: 11 }}>{fmtR(reserva.valorReserva)}</td>
+          </tr>
+          <tr className="tot">
+            <td><span className="grand">Valor total negociado</span></td>
+            <td className="tr"><span className="grand">{fmtR(reserva.valorTotalVenda)}</span></td>
+          </tr>
+          <tr>
+            <td style={{ fontSize: 11, color: '#64748b' }}>Forma de pagamento da entrada</td>
+            <td className="tr" style={{ fontSize: 11 }}>
+              {meioLabel[reserva.meioPagamento] ?? reserva.meioPagamento}
+              {reserva.cartaoParcelas ? ` — ${reserva.cartaoParcelas}x` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style={{ fontSize: 11, color: '#64748b' }}>Vendedor</td>
+            <td className="tr" style={{ fontSize: 11 }}>{reserva.vendedorNome}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="obs">
+        <h2>Termos da reserva</h2>
+        <p>Este comprovante formaliza a reserva do veículo acima mediante o sinal pago. A reserva é válida até a data prevista de finalização informada, após a qual poderá ser cancelada a critério da loja.</p>
+      </div>
+
+      <div className="sigs">
+        <div className="sig">
+          <div style={{ height: 50 }} />
+          <div className="sigline">Assinatura do Cliente</div>
+        </div>
+        <div className="sig">
+          <div style={{ height: 50 }} />
+          <div className="sigline">Assinatura do Vendedor</div>
+        </div>
+      </div>
+
+      <div className="ftr">
+        <p>MOVA — Sistema de Gestão · MotoChefe Sul de Minas</p>
+        <p>Gerado em {geradoEm}</p>
+      </div>
+    </>
+  )
+}
