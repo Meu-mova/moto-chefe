@@ -358,7 +358,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
 
-export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string) {
+export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string): Promise<{ vendaId: string }> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para confirmar NF de saída')
@@ -385,6 +385,7 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
+  return { vendaId: venda.id }
 }
 
 // ─── Criar rascunho NF-e no Bling (sem transmitir) ──────────────────────────
