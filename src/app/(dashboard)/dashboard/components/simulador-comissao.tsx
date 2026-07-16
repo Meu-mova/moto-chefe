@@ -1,7 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Slider } from '@/components/ui/slider'
-import { TrendingUp, Trophy, HandCoins, Wallet } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { TrendingUp, Trophy, HandCoins, Wallet, Table2 } from 'lucide-react'
 import { calcularPremiacao } from '@/lib/premiacao'
 
 type Faixa = { valorMinimoVendas: string; premiacao: string }
@@ -29,6 +30,7 @@ export function SimuladorComissaoOTE({
     const inicial = Math.round(valorInicial / step) * step
     return Math.min(Math.max(inicial, 0), max)
   })
+  const [tabelaAberta, setTabelaAberta] = useState(false)
 
   const comissao = valor * (comissaoPercentual / 100)
   const premiacao = calcularPremiacao(valor, ordenadas)
@@ -43,6 +45,13 @@ export function SimuladorComissaoOTE({
         <div>
           <h3 className="text-sm font-semibold text-slate-700">Simulador de Ganhos</h3>
           <p className="text-xs text-slate-400">Arraste para simular o total de vendas no mês e veja sua comissão + premiação OTE</p>
+          <button
+            onClick={() => setTabelaAberta(true)}
+            className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+          >
+            <Table2 size={12} />
+            Ver tabela completa
+          </button>
         </div>
         <TrendingUp size={18} className="text-emerald-500 shrink-0" />
       </div>
@@ -95,6 +104,39 @@ export function SimuladorComissaoOTE({
           premiação para <span className="font-semibold text-amber-700">{fmt(parseFloat(proximaFaixa.premiacao))}</span>.
         </p>
       )}
+
+      <Dialog open={tabelaAberta} onOpenChange={setTabelaAberta}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Tabela de Premiação OTE</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500">
+            Premiação mensal do vendedor de acordo com o valor total vendido no mês (motos). Aplica-se a faixa de
+            maior valor mínimo que ele atingiu.
+          </p>
+          <div className="bg-white border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Venda mínima no mês</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {ordenadas.map((f, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-4 py-2">{fmt(parseFloat(f.valorMinimoVendas))}</td>
+                    <td className="px-4 py-2 font-medium">{fmt(parseFloat(f.premiacao))}</td>
+                  </tr>
+                ))}
+                {ordenadas.length === 0 && (
+                  <tr><td colSpan={2} className="text-center text-slate-400 py-6">Nenhuma faixa cadastrada.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
