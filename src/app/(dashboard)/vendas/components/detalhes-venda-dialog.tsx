@@ -13,6 +13,7 @@ import {
   vincularVendaAction,
 } from '../../conciliacao/actions'
 import { buscarHistoricoMotoAction } from '../actions'
+import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -239,6 +240,9 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
                   <p>Vendedor: <span className="text-slate-900">{v.vendedorNome}</span></p>
                   <p className="flex items-center gap-2 flex-wrap">
                     NF Saída: <span className="text-slate-900">{v.notaFiscalSaida ?? '—'}</span>
+                    {v.notaFiscalSaida && v.blingNfeId && (
+                      <DanfeButton motoId={v.motoId} />
+                    )}
                     {v.notaFiscalSaida && (
                       <>
                         <a

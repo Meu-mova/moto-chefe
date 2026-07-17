@@ -3,7 +3,6 @@ import { useSearchParams } from 'next/navigation'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { GarantiaButton } from '../../estoque/components/garantia-button'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
-import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 import { CancelarVendaButton } from './cancelar-venda-button'
 import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
@@ -137,12 +136,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
               <TableCell>{v.lojaNome}</TableCell>
               <TableCell>{v.vendedorNome}</TableCell>
               <TableCell className="text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  {v.notaFiscalSaida ?? '—'}
-                  {v.notaFiscalSaida && v.blingNfeId && (
-                    <DanfeButton motoId={v.motoId} />
-                  )}
-                </span>
+                {v.notaFiscalSaida ?? '—'}
               </TableCell>
               <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
               {podeConciliacao && (
