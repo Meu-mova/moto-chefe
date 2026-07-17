@@ -45,29 +45,29 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 28px 32px; }
-        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 14px; }
-        .titulo { font-size: 20px; font-weight: 900; }
-        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-        .card  { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
-        .f  { margin-bottom: 5px; }
-        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
-        .fv { font-size: 12px; font-weight: 600; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 9px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; }
-        td { border: 1px solid #e2e8f0; padding: 5px 9px; font-size: 11px; }
-        .chk { text-align: center; width: 46px; }
-        .box { display: inline-block; width: 12px; height: 12px; border: 1px solid #64748b; }
-        .obs { margin: 10px 0 18px; font-size: 11px; }
-        .obsline { display: inline-block; border-bottom: 1px solid #94a3b8; width: 100%; min-height: 16px; }
-        .sig  { text-align: center; margin-top: 10px; }
-        .sigline { border-top: 1px solid #1e293b; padding-top: 5px; font-size: 10px; color: #64748b; margin-top: 34px; }
-        .sigs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; }
-        .localdata { margin: 14px 0; font-size: 11px; text-align: right; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1e293b; background: #fff; padding: 20px 28px; }
+        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 8px; }
+        .titulo { font-size: 18px; font-weight: 900; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+        .card  { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 8px; }
+        .card h2 { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 4px; }
+        .f  { margin-bottom: 3px; }
+        .fl { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 0; }
+        .fv { font-size: 11px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; text-align: left; font-size: 9px; text-transform: uppercase; color: #64748b; }
+        td { border: 1px solid #e2e8f0; padding: 2px 8px; font-size: 10px; }
+        .chk { text-align: center; width: 40px; }
+        .box { display: inline-block; width: 10px; height: 10px; border: 1px solid #64748b; }
+        .obs { margin: 4px 0 8px; font-size: 10px; }
+        .obsline { display: inline-block; border-bottom: 1px solid #94a3b8; width: 100%; min-height: 12px; }
+        .sig  { text-align: center; margin-top: 4px; }
+        .sigline { border-top: 1px solid #1e293b; padding-top: 3px; font-size: 9px; color: #64748b; margin-top: 16px; }
+        .sigs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 14px; }
+        .localdata { margin: 6px 0; font-size: 10px; text-align: right; }
         @media print {
           body { padding: 0; }
-          @page { margin: 1.3cm; }
+          @page { margin: 1cm; }
         }
       `}</style>
 
@@ -131,7 +131,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
         <div className="sigline">(Nome do Cliente)</div>
       </div>
 
-      <div className="grid2" style={{ marginTop: 18 }}>
+      <div className="grid2" style={{ marginTop: 8 }}>
         <div className="card">
           <h2>Dados do Proprietário</h2>
           <div className="f"><span className="fl">Nome</span><span className="fv">{venda.clienteNome}</span></div>
@@ -147,7 +147,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
+      <div className="card" style={{ marginTop: 8 }}>
         <h2>Dados da Loja</h2>
         <div className="grid2">
           <div className="f"><span className="fl">Nome</span><span className="fv">{venda.lojaNome}</span></div>
@@ -160,11 +160,11 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
 
       <div className="sigs2">
         <div className="sig">
-          <div style={{ height: 40 }} />
+          <div style={{ height: 22 }} />
           <div className="sigline" style={{ marginTop: 0 }}>Assinatura do Cliente</div>
         </div>
         <div className="sig">
-          <div style={{ height: 40 }} />
+          <div style={{ height: 22 }} />
           <div className="sigline" style={{ marginTop: 0 }}>Assinatura da Loja</div>
         </div>
       </div>
