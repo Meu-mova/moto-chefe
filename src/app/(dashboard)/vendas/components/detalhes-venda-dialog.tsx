@@ -13,6 +13,7 @@ import {
   vincularVendaAction,
 } from '../../conciliacao/actions'
 import { buscarHistoricoMotoAction } from '../actions'
+import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -237,7 +238,32 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
                   <p>Data: <span className="text-slate-900">{formatDate(v.dataVenda)}</span></p>
                   <p>Loja: <span className="text-slate-900">{v.lojaNome}</span></p>
                   <p>Vendedor: <span className="text-slate-900">{v.vendedorNome}</span></p>
-                  <p>NF Saída: <span className="text-slate-900">{v.notaFiscalSaida ?? '—'}</span></p>
+                  <p className="flex items-center gap-2 flex-wrap">
+                    NF Saída: <span className="text-slate-900">{v.notaFiscalSaida ?? '—'}</span>
+                    {v.notaFiscalSaida && v.blingNfeId && (
+                      <DanfeButton motoId={v.motoId} />
+                    )}
+                    {v.notaFiscalSaida && (
+                      <>
+                        <a
+                          href={`/vendas/${v.id}/checklist-entrega`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Checklist de Entrega
+                        </a>
+                        <a
+                          href={`/vendas/${v.id}/certificado-bateria`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Certificado Bateria
+                        </a>
+                      </>
+                    )}
+                  </p>
                   <p className="col-span-2">Valor Bruto: <span className="text-green-700 font-bold text-base">{formatCurrency(v.valor)}</span></p>
                   {(() => {
                     if (loading || concs.length === 0) return null

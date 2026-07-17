@@ -74,7 +74,9 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
     setErro('')
     startTransition(async () => {
       try {
-        await confirmarNFSaidaAction(motoId, nf.trim())
+        const resultado = await confirmarNFSaidaAction(motoId, nf.trim())
+        window.open(`/vendas/${resultado.vendaId}/checklist-entrega`, '_blank')
+        window.open(`/vendas/${resultado.vendaId}/certificado-bateria`, '_blank')
         setAberto(false)
       } catch (e: any) {
         setErro(e.message ?? 'Erro ao confirmar NF')

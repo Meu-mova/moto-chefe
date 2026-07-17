@@ -81,10 +81,30 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
             <div className="grid grid-cols-2 gap-1.5 text-slate-600">
               <p>Data: <span className="text-slate-900">{format(new Date(venda.dataVenda), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></p>
               <p>Vendedor: <span className="text-slate-900">{venda.vendedorNome}</span></p>
-              <p className="flex items-center gap-2">
+              <p className="flex items-center gap-2 flex-wrap">
                 NF Saída: <span className="text-slate-900">{venda.notaFiscalSaida ?? '—'}</span>
                 {venda.notaFiscalSaida && venda.blingNfeId && (
                   <DanfeButton motoId={motoId} />
+                )}
+                {venda.notaFiscalSaida && (
+                  <>
+                    <a
+                      href={`/vendas/${venda.id}/checklist-entrega`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Checklist de Entrega
+                    </a>
+                    <a
+                      href={`/vendas/${venda.id}/certificado-bateria`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Certificado Bateria
+                    </a>
+                  </>
                 )}
               </p>
               <p>Valor: <span className="text-green-700 font-bold">{formatCurrency(venda.valor)}</span></p>
