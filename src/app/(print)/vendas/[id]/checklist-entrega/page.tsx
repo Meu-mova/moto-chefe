@@ -128,7 +128,8 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
       </div>
 
       <div className="sig">
-        <div className="sigline">(Nome do Cliente)</div>
+        <div style={{ height: 32 }} />
+        <div className="sigline" style={{ marginTop: 0 }}>(Nome do Cliente)</div>
       </div>
 
       <div className="grid2" style={{ marginTop: 8 }}>
