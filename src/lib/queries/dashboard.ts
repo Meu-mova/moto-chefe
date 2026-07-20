@@ -3,6 +3,7 @@ import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCai
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 
 type Filtros = {
   dataInicio: string
@@ -465,11 +466,10 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
           WHERE venda_id = ${vendas.id}
           AND conciliado = true
         ), 0)`,
-        pixConciliadoValor: sql<number>`COALESCE((
-          SELECT SUM(valor::numeric)
-          FROM pix_recebimentos_mcp
-          WHERE venda_id = ${vendas.id}
-        ), 0)`,
+        pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
+          THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
+          ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
+        END`,
       })
       .from(vendas)
       .where(and(eq(vendas.lojaId, lojaId), gte(vendas.dataVenda, desde))),
