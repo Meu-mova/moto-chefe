@@ -79,8 +79,13 @@ async function KpiSection({
 async function PendenciasSection({ lojaId }: { lojaId: string }) {
   const desde = new Date()
   desde.setDate(desde.getDate() - 30)
-  const pendencias = await getPendenciasConciliacaoLoja(lojaId, desde)
-  return <PendenciasLojaCard {...pendencias} />
+  try {
+    const pendencias = await getPendenciasConciliacaoLoja(lojaId, desde)
+    return <PendenciasLojaCard {...pendencias} />
+  } catch (e) {
+    console.error('[PendenciasSection] erro:', e)
+    throw e
+  }
 }
 
 async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
