@@ -10,8 +10,10 @@ import {
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
   getOsAbertas, getMotoMaisVendida, getFaturamentoOS,
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
+  getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
 import { DashboardFiltros } from './components/dashboard-filtros'
+import { PendenciasLojaCard } from './components/pendencias-loja-card'
 import { KpiCards } from './components/kpi-cards'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
 import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoCaixaPorLoja } from './components/charts'
@@ -70,6 +72,18 @@ async function KpiSection({
     )
   } catch (e) {
     console.error('[KpiSection] erro:', e)
+    throw e
+  }
+}
+
+async function PendenciasSection({ lojaId }: { lojaId: string }) {
+  const desde = new Date()
+  desde.setDate(desde.getDate() - 30)
+  try {
+    const pendencias = await getPendenciasConciliacaoLoja(lojaId, desde)
+    return <PendenciasLojaCard {...pendencias} />
+  } catch (e) {
+    console.error('[PendenciasSection] erro:', e)
     throw e
   }
 }
@@ -228,6 +242,7 @@ export default async function DashboardPage({
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
   const isVendedor = usuario.papel === 'vendedor'
+  const isAuxAdm = usuario.papel === 'aux_adm'
 
   const deDefault = inicioMesAtualISO()
   const ateDefault = hojeISO()
@@ -287,6 +302,14 @@ export default async function DashboardPage({
           ateDefault={ateDefault}
         />
       </div>
+
+      {isAuxAdm && usuario.lojaId && (
+        <SectionErrorBoundary label="as pendências da loja">
+          <Suspense fallback={null}>
+            <PendenciasSection lojaId={usuario.lojaId} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
 
       <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
         <Suspense fallback={<KpiSkeleton />}>

@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
-import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao } from '@/lib/db/schema'
+import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
+import { calcStatusMultiPagamento, calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 
 type Filtros = {
   dataInicio: string
@@ -446,4 +448,85 @@ export async function getFaturamentoOS(filtros: Filtros) {
     .where(and(...conditions))
 
   return { servicos: Number(result?.servicos ?? 0), pecas: Number(result?.pecas ?? 0) }
+}
+
+// Pendências de conciliação de uma loja específica, últimos N dias (parâmetro `desde`).
+// Reaproveita os mesmos helpers de status usados em /vendas, /ordens-servico e /pecas —
+// não inventa critério novo. Usado só pelo card do aux_adm no Dashboard.
+export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) {
+  const [vendasRows, osRows, pecasRows] = await Promise.all([
+    db
+      .select({
+        pagamentos: vendas.pagamentos,
+        valor: vendas.valor,
+        notaFiscalSaida: vendas.notaFiscalSaida,
+        conciliadoValor: sql<number>`COALESCE((
+          SELECT SUM(valor_bruto::numeric)
+          FROM conciliacoes_cartao
+          WHERE venda_id = ${vendas.id}
+          AND conciliado = true
+        ), 0)`,
+        pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
+          THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
+          ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
+        END`,
+      })
+      .from(vendas)
+      .where(and(eq(vendas.lojaId, lojaId), gte(vendas.dataVenda, desde))),
+    db
+      .select({
+        formaPagamento: ordensServico.formaPagamento,
+        valorTotal: ordensServico.valorTotal,
+        conciliadoValor: sql<number>`COALESCE((
+          SELECT SUM(valor_bruto::numeric)
+          FROM conciliacoes_cartao
+          WHERE os_id = ${ordensServico.id}
+          AND conciliado = true
+        ), 0)`,
+        pixConciliadoValor: sql<number>`COALESCE((
+          SELECT SUM(valor::numeric)
+          FROM pix_recebimentos_mcp
+          WHERE os_id = ${ordensServico.id}
+        ), 0)`,
+      })
+      .from(ordensServico)
+      .where(and(eq(ordensServico.lojaId, lojaId), gte(ordensServico.dataAbertura, desde))),
+    db
+      .select({
+        pagamentos: vendasPecas.pagamentos,
+        valorTotal: vendasPecas.valorTotal,
+        conciliadoValor: sql<number>`COALESCE((
+          SELECT SUM(valor_bruto::numeric)
+          FROM conciliacoes_cartao
+          WHERE peca_venda_id = ${vendasPecas.id}
+          AND conciliado = true
+        ), 0)`,
+        pixConciliadoValor: sql<number>`COALESCE((
+          SELECT SUM(valor::numeric)
+          FROM pix_recebimentos_mcp
+          WHERE peca_venda_id = ${vendasPecas.id}
+        ), 0)`,
+      })
+      .from(vendasPecas)
+      .where(and(eq(vendasPecas.lojaId, lojaId), gte(vendasPecas.dataVenda, desde))),
+  ])
+
+  const semNotaFiscal = vendasRows.filter(v => !v.notaFiscalSaida).length
+
+  const vendasPendentes = vendasRows.filter(v => {
+    const status = calcStatusMultiPagamento(v.pagamentos, v.conciliadoValor, v.pixConciliadoValor, v.valor)
+    return status === 'pendente' || status === 'parcial'
+  }).length
+
+  const osPendentes = osRows.filter(o => {
+    const status = calcStatusPagamentoUnicoOS(o.formaPagamento, o.valorTotal, o.conciliadoValor, o.pixConciliadoValor)
+    return status === 'pendente' || status === 'parcial'
+  }).length
+
+  const pecasPendentes = pecasRows.filter(p => {
+    const status = calcStatusMultiPagamento(p.pagamentos, p.conciliadoValor, p.pixConciliadoValor, p.valorTotal)
+    return status === 'pendente' || status === 'parcial'
+  }).length
+
+  return { semNotaFiscal, vendasPendentes, osPendentes, pecasPendentes }
 }
