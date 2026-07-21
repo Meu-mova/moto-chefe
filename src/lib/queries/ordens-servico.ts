@@ -25,6 +25,7 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
       WHERE ${osItens.osId} = ${ordensServico.id} AND ${osItens.tipo} = 'servico'
     )`,
     formaPagamento:      ordensServico.formaPagamento,
+    pagamentos:          ordensServico.pagamentos,
     conciliadoValor:     sql<number>`COALESCE((
       SELECT SUM(valor_bruto::numeric)
       FROM conciliacoes_cartao
@@ -53,6 +54,7 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     lojaId:              ordensServico.lojaId,
     mecanicoId:          ordensServico.mecanicoId,
     clienteId:           ordensServico.clienteId,
+    chassiOs:            ordensServico.chassiOs,
     chassi:              motos.chassi,
     cor:                 motos.cor,
     marca:               modelos.marca,
