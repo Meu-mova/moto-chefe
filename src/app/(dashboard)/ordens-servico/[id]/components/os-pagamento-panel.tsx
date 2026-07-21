@@ -1,14 +1,23 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { X, Plus } from 'lucide-react'
 import { registrarPagamentoOSAction } from '../../actions'
+import type { PgtoOS } from '@/lib/conciliacao-status'
 import { toast } from 'sonner'
 
-const FORMAS = ['PIX', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Transferência', 'Cortesia / Garantia']
-const FORMAS_CARTAO = new Set(['Cartão de Crédito', 'Cartão de Débito'])
+const FORMAS = [
+  { value: 'pix',             label: 'PIX' },
+  { value: 'dinheiro',        label: 'Dinheiro' },
+  { value: 'cartao_credito',  label: 'Cartão de Crédito' },
+  { value: 'cartao_debito',   label: 'Cartão de Débito' },
+  { value: 'transferencia',   label: 'Transferência' },
+  { value: 'cortesia',        label: 'Cortesia / Garantia' },
+]
+const FORMAS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
 const OPERADORAS = [
   { value: 'infinitypay', label: 'InfinityPay' },
   { value: 'stone',       label: 'Stone' },
@@ -18,36 +27,94 @@ const OPERADORAS = [
   { value: 'redecard',    label: 'Redecard' },
 ]
 
-type Props = { osId: string; valorTotal: number; formaPagamento: string; aprovacaoPendente?: boolean }
+type Linha = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
 
-export function OSPagamentoPanel({ osId, valorTotal, formaPagamento, aprovacaoPendente }: Props) {
+type Props = {
+  osId: string
+  valorTotal: number
+  pagamentosIniciais: PgtoOS[]
+  jaPago: boolean
+  aprovacaoPendente?: boolean
+}
+
+function linhasIniciais(pagamentos: PgtoOS[], valorTotal: number): Linha[] {
+  if (pagamentos.length > 0) {
+    return pagamentos.map((p, i) => ({
+      id: String(i),
+      tipo: p.tipo,
+      valor: String(p.valor),
+      operadora: p.operadora,
+      parcelas: p.parcelas != null ? String(p.parcelas) : undefined,
+      autorizacao: p.autorizacao,
+    }))
+  }
+  return [{ id: '1', tipo: '', valor: valorTotal > 0 ? valorTotal.toFixed(2) : '' }]
+}
+
+export function OSPagamentoPanel({ osId, valorTotal, pagamentosIniciais, jaPago, aprovacaoPendente }: Props) {
   const [pending, start] = useTransition()
-  const [valor, setValor] = useState(valorTotal > 0 ? valorTotal.toFixed(2) : '')
-  const [forma, setForma] = useState(formaPagamento)
-  const [operadora, setOperadora] = useState('')
-  const [parcelas, setParcelas] = useState('1')
-  const [autorizacao, setAutorizacao] = useState('')
+  const [linhas, setLinhas] = useState<Linha[]>(() => linhasIniciais(pagamentosIniciais, valorTotal))
 
-  const ehCartao = FORMAS_CARTAO.has(forma)
+  const addLinha = () => setLinhas(l => [...l, { id: Date.now().toString(), tipo: '', valor: '' }])
+  const removeLinha = (id: string) => setLinhas(l => l.filter(x => x.id !== id))
+  const updateLinha = (id: string, campo: keyof Linha, val: string) =>
+    setLinhas(l => l.map(x => x.id === id ? { ...x, [campo]: val } : x))
+
+  const somatorio = linhas.reduce((a, l) => a + (parseFloat(l.valor) || 0), 0)
+  const somatorioOk = Math.abs(somatorio - valorTotal) < 0.01
+  const linhasCompletas = linhas.every(l => l.tipo && l.valor)
 
   function salvar() {
-    const v = parseFloat(valor)
-    if (isNaN(v) || v < 0) { toast.error('Valor inválido'); return }
-    if (!forma) { toast.error('Selecione a forma de pagamento'); return }
+    if (!linhasCompletas) { toast.error('Preencha forma e valor de todas as linhas'); return }
+    if (!somatorioOk) { toast.error('A soma dos pagamentos precisa bater com o valor total'); return }
     start(async () => {
       try {
         const resultado = await registrarPagamentoOSAction(osId, {
-          valorTotal: v,
-          formaPagamento: forma,
-          ...(ehCartao && operadora ? { operadora } : {}),
-          ...(ehCartao && parcelas ? { parcelas: parseInt(parcelas, 10) } : {}),
-          ...(ehCartao && autorizacao.trim() ? { autorizacao: autorizacao.trim().toUpperCase() } : {}),
+          valorTotal,
+          pagamentos: linhas.map(l => ({
+            tipo: l.tipo,
+            valor: parseFloat(l.valor),
+            ...(FORMAS_CARTAO.has(l.tipo) && l.operadora   ? { operadora: l.operadora }                     : {}),
+            ...(FORMAS_CARTAO.has(l.tipo) && l.parcelas    ? { parcelas: parseInt(l.parcelas, 10) }         : {}),
+            ...(FORMAS_CARTAO.has(l.tipo) && l.autorizacao?.trim() ? { autorizacao: l.autorizacao.trim().toUpperCase() } : {}),
+          })),
         })
         toast.success(resultado.aguardandoAprovacao
           ? 'Pagamento por transferência enviado para aprovação'
           : 'Pagamento registrado')
       } catch (e: any) { toast.error(e.message) }
     })
+  }
+
+  function concluirGratuita() {
+    start(async () => {
+      try {
+        await registrarPagamentoOSAction(osId, { valorTotal: 0, pagamentos: [] })
+        toast.success('OS concluída como gratuita')
+      } catch (e: any) { toast.error(e.message) }
+    })
+  }
+
+  if (valorTotal < 0.01) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Pagamento</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {jaPago ? (
+            <p className="text-sm text-green-600">✓ OS gratuita — sem pendência de pagamento.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">Esta OS não tem cobrança (R$ 0,00).</p>
+              <Button size="sm" onClick={concluirGratuita} disabled={pending} className="w-full">
+                {pending ? 'Concluindo…' : 'Concluir OS gratuita'}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -61,56 +128,61 @@ export function OSPagamentoPanel({ osId, valorTotal, formaPagamento, aprovacaoPe
             Pagamento por transferência bancária enviado para aprovação — a OS só fica marcada como paga quando for aprovado.
           </p>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Valor cobrado (R$)</Label>
-            <Input type="number" min="0" step="0.01" value={valor}
-              onChange={e => setValor(e.target.value)} placeholder="0,00" />
+
+        {linhas.map(l => (
+          <div key={l.id} className="space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+            <div className="flex gap-2 items-center">
+              <select value={l.tipo} onChange={e => updateLinha(l.id, 'tipo', e.target.value)}
+                className="flex-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                <option value="">Selecione...</option>
+                {FORMAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+              <CurrencyInput className="w-28" placeholder="0,00" value={l.valor} onChange={v => updateLinha(l.id, 'valor', v)} />
+              {linhas.length > 1 && (
+                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeLinha(l.id)}>
+                  <X size={14} />
+                </Button>
+              )}
+            </div>
+
+            {FORMAS_CARTAO.has(l.tipo) && (
+              <div className="grid grid-cols-2 gap-2">
+                <select value={l.operadora ?? ''} onChange={e => updateLinha(l.id, 'operadora', e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  <option value="">Operadora...</option>
+                  {OPERADORAS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <select value={l.parcelas ?? ''} onChange={e => updateLinha(l.id, 'parcelas', e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  <option value="">Parcelas...</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}x</option>)}
+                </select>
+              </div>
+            )}
+            {FORMAS_CARTAO.has(l.tipo) && (
+              <Input
+                value={l.autorizacao ?? ''}
+                onChange={e => updateLinha(l.id, 'autorizacao', e.target.value)}
+                placeholder="Autorização (impresso no comprovante) — opcional"
+              />
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Forma de pagamento</Label>
-            <select value={forma} onChange={e => setForma(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
-              <option value="">Selecione...</option>
-              {FORMAS.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
+        ))}
+
+        <Button type="button" variant="outline" size="sm" className="gap-1 w-full" onClick={addLinha}>
+          <Plus size={14} /> Adicionar forma de pagamento
+        </Button>
+
+        <div className={`text-xs px-3 py-2 rounded-md border font-medium ${
+          somatorioOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+        }`}>
+          Soma: {somatorio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          {' '}/ Total: {valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </div>
 
-        {ehCartao && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Operadora</Label>
-              <select value={operadora} onChange={e => setOperadora(e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
-                <option value="">Selecione...</option>
-                {OPERADORAS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Parcelas</Label>
-              <select value={parcelas} onChange={e => setParcelas(e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}x</option>)}
-              </select>
-            </div>
-          </div>
-        )}
-        {ehCartao && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Autorização (impresso no comprovante)</Label>
-            <Input value={autorizacao} onChange={e => setAutorizacao(e.target.value)} placeholder="Opcional" />
-          </div>
-        )}
-
-        <Button size="sm" onClick={salvar} disabled={pending} className="w-full">
-          {pending ? 'Salvando…' : formaPagamento ? 'Atualizar pagamento' : 'Registrar pagamento'}
+        <Button size="sm" onClick={salvar} disabled={pending || !somatorioOk || !linhasCompletas} className="w-full">
+          {pending ? 'Salvando…' : jaPago ? 'Atualizar pagamento' : 'Registrar pagamento'}
         </Button>
-        {formaPagamento && (
-          <p className="text-xs text-green-600 text-center">
-            Pago: {formaPagamento} · {valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-          </p>
-        )}
       </CardContent>
     </Card>
   )
