@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { OSCard } from './components/os-card'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
-import { calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -59,7 +59,8 @@ export default async function OrdensServicoPage({
 
   const concStats = lista.reduce(
     (acc, o) => {
-      const status = calcStatusPagamentoUnicoOS(o.formaPagamento, o.valorTotal, o.conciliadoValor as number, o.pixConciliadoValor as number)
+      const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
+      const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor as number, o.pixConciliadoValor as number, o.valorTotal ?? '0')
       if (status === 'pendente')   acc.pendente++
       if (status === 'parcial')    acc.parcial++
       if (status === 'conciliada') acc.conciliada++

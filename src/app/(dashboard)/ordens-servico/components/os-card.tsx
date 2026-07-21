@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Wrench, Car, ArrowRight, User, Clock } from 'lucide-react'
 import type { OSComDetalhes } from '@/lib/queries/ordens-servico'
-import { calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { ConcBadge } from '@/components/conciliacao-badge'
 
 const statusColor: Record<string, string> = {
@@ -30,11 +30,11 @@ export function OSCard({ os }: Props) {
 
   const clienteDesc = os.clienteNome ?? os.clienteNomeExterno ?? null
 
-  const statusConc = calcStatusPagamentoUnicoOS(
-    os.formaPagamento,
-    os.valorTotal,
+  const statusConc = calcStatusMultiPagamento(
+    pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal),
     os.conciliadoValor as number,
     os.pixConciliadoValor as number,
+    os.valorTotal ?? '0',
   )
 
   return (

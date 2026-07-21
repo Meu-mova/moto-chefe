@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
-import { calcStatusMultiPagamento, calcStatusPagamentoUnicoOS } from '@/lib/conciliacao-status'
+import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 
 type Filtros = {
@@ -476,6 +476,7 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
     db
       .select({
         formaPagamento: ordensServico.formaPagamento,
+        pagamentos: ordensServico.pagamentos,
         valorTotal: ordensServico.valorTotal,
         conciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor_bruto::numeric)
@@ -519,7 +520,8 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
   }).length
 
   const osPendentes = osRows.filter(o => {
-    const status = calcStatusPagamentoUnicoOS(o.formaPagamento, o.valorTotal, o.conciliadoValor, o.pixConciliadoValor)
+    const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
+    const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor, o.pixConciliadoValor, o.valorTotal ?? '0')
     return status === 'pendente' || status === 'parcial'
   }).length
 
