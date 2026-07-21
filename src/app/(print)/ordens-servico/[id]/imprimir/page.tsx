@@ -110,10 +110,10 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         <div className="card">
           <h2>Veículo</h2>
           <div className="f"><span className="fl">Marca / Modelo</span><span className="fv">{motoDesc.trim() || '—'}</span></div>
-          {os.chassi && (
+          {(os.chassi ?? os.chassiOs) && (
             <div className="f">
               <span className="fl">Chassi</span>
-              <span className="fv" style={{ fontFamily: 'monospace' }}>{os.chassi}</span>
+              <span className="fv" style={{ fontFamily: 'monospace' }}>{os.chassi ?? os.chassiOs}</span>
             </div>
           )}
           {os.km && (
