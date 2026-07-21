@@ -391,7 +391,7 @@ BEGIN
     RAISE EXCEPTION 'Moto não pertence à loja do usuário';
   END IF;
 
-  IF v_moto_status NOT IN ('faturada', 'montada', 'disponivel', 'em_garantia') THEN
+  IF v_moto_status NOT IN ('faturada', 'montada', 'disponivel', 'em_garantia', 'vendida') THEN
     RAISE EXCEPTION 'Garantia não pode ser aberta para moto com status "%"', v_moto_status;
   END IF;
 

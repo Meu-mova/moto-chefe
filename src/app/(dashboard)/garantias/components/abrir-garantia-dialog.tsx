@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,33 +9,46 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { abrirGarantiaAction } from '../actions'
+import { VeiculoGarantiaLookup } from './veiculo-garantia-lookup'
+import type { VeiculoGarantia } from '../buscar-veiculo-action'
 
-type Moto = { id: string; chassi: string; marca: string; modelo: string }
-type OS = { id: string; descricao: string; motoId: string | null }
-type Props = { motos: Moto[]; ordens: OS[]; papel: string }
+type Modelo = { id: string; marca: string; modelo: string }
+type Loja   = { id: string; nome: string }
+type OS     = { id: string; descricao: string; motoId: string | null }
 
-export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
+type Props = {
+  ordens: OS[]
+  papel: string
+  modelos: Modelo[]
+  lojas: Loja[]
+  isAdmin: boolean
+  lojaUsuarioNome: string | null
+}
+
+export function AbrirGarantiaDialog({ ordens, papel, modelos, lojas, isAdmin, lojaUsuarioNome }: Props) {
   const [open, setOpen] = useState(false)
-  const [motoId, setMotoId] = useState('')
+  const [veiculo, setVeiculo] = useState<VeiculoGarantia | null>(null)
   const [osId, setOsId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [dataPedido, setDataPedido] = useState('')
   const [numeroPedidoFabrica, setNumeroPedidoFabrica] = useState('')
   const [loading, setLoading] = useState(false)
+  const [lookupKey, setLookupKey] = useState(0)
 
-  const ordensDaMoto = ordens.filter(o => o.motoId === motoId)
+  const ordensDaMoto = ordens.filter(o => o.motoId === veiculo?.motoId)
 
   function resetForm() {
-    setMotoId(''); setOsId(''); setDescricao('')
+    setVeiculo(null); setOsId(''); setDescricao('')
     setDataPedido(''); setNumeroPedidoFabrica('')
+    setLookupKey(k => k + 1)
   }
 
   async function handleAbrir() {
-    if (!motoId || !descricao || !dataPedido) return
+    if (!veiculo || !descricao || !dataPedido) return
     setLoading(true)
     try {
       await abrirGarantiaAction({
-        motoId,
+        motoId: veiculo.motoId,
         osId: osId || undefined,
         descricao,
         dataInicio: dataPedido,
@@ -56,19 +70,19 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
     <>
       <Button onClick={() => setOpen(true)}>Abrir Garantia</Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Garantia</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Moto</Label>
-              <Select value={motoId} onValueChange={v => { setMotoId(v ?? ''); setOsId('') }}>
-                <SelectTrigger><SelectValue placeholder="Selecionar moto" /></SelectTrigger>
-                <SelectContent>
-                  {motos.map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.marca} {m.modelo} — {m.chassi}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Veículo</Label>
+              <VeiculoGarantiaLookup
+                key={lookupKey}
+                modelos={modelos}
+                lojas={lojas}
+                isAdmin={isAdmin}
+                lojaUsuarioNome={lojaUsuarioNome}
+                onVeiculoSelecionado={v => { setVeiculo(v); setOsId('') }}
+              />
             </div>
             {ordensDaMoto.length > 0 && (
               <div className="space-y-2">
@@ -99,7 +113,7 @@ export function AbrirGarantiaDialog({ motos, ordens, papel }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAbrir} disabled={loading || !motoId || !descricao || !dataPedido}>
+            <Button onClick={handleAbrir} disabled={loading || !veiculo || !descricao || !dataPedido}>
               {loading ? 'Abrindo...' : 'Abrir Garantia'}
             </Button>
           </DialogFooter>
