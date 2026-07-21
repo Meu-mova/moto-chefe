@@ -59,8 +59,9 @@ export default async function OrdensServicoPage({
 
   const concStats = lista.reduce(
     (acc, o) => {
+      if (o.valorTotal == null) return acc
       const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
-      const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor as number, o.pixConciliadoValor as number, o.valorTotal ?? '0')
+      const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor as number, o.pixConciliadoValor as number, o.valorTotal)
       if (status === 'pendente')   acc.pendente++
       if (status === 'parcial')    acc.parcial++
       if (status === 'conciliada') acc.conciliada++

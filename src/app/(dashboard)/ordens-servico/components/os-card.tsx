@@ -30,12 +30,14 @@ export function OSCard({ os }: Props) {
 
   const clienteDesc = os.clienteNome ?? os.clienteNomeExterno ?? null
 
-  const statusConc = calcStatusMultiPagamento(
-    pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal),
-    os.conciliadoValor as number,
-    os.pixConciliadoValor as number,
-    os.valorTotal ?? '0',
-  )
+  const statusConc = os.valorTotal == null
+    ? 'na' as const
+    : calcStatusMultiPagamento(
+        pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal),
+        os.conciliadoValor as number,
+        os.pixConciliadoValor as number,
+        os.valorTotal,
+      )
 
   return (
     <Link href={`/ordens-servico/${os.id}`} className="block group">

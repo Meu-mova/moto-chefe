@@ -520,8 +520,9 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
   }).length
 
   const osPendentes = osRows.filter(o => {
+    if (o.valorTotal == null) return false
     const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
-    const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor, o.pixConciliadoValor, o.valorTotal ?? '0')
+    const status = calcStatusMultiPagamento(pagamentos, o.conciliadoValor, o.pixConciliadoValor, o.valorTotal)
     return status === 'pendente' || status === 'parcial'
   }).length
 

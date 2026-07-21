@@ -169,10 +169,18 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
     .where(eq(ordensServico.id, osId))
     .limit(1)
 
+  // Aprovações de pagamento sensível criadas antes da migração pra array de
+  // pagamentos guardam o formato antigo (só formaPagamento, sem `pagamentos`).
+  // Normaliza aqui pra não quebrar ao aprovar uma aprovação pendente antiga.
+  const legado = dados as unknown as { formaPagamento?: string }
+  const pagamentos = dados.pagamentos ?? (legado.formaPagamento
+    ? [{ tipo: legado.formaPagamento, valor: dados.valorTotal }]
+    : [])
+
   await db.update(ordensServico).set({
     valorTotal:     String(dados.valorTotal),
-    formaPagamento: dados.pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
-    pagamentos:     dados.pagamentos.length > 0 ? dados.pagamentos : null,
+    formaPagamento: pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
+    pagamentos:     pagamentos.length > 0 ? pagamentos : null,
     ...(osAtual?.status === 'pendente_pagamento'
       ? { status: 'concluida' as any, dataConclusao: new Date() }
       : {}),
