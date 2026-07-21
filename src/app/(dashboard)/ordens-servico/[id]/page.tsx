@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
+import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { usuarios, servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
@@ -55,6 +56,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   const totalPecas = itens.filter(i => i.tipo === 'peca')
     .reduce((a, i) => a + parseFloat(i.quantidade) * parseFloat(i.valorUnitario), 0)
   const totalGeral = totalServicos + totalPecas
+  const pagamentosOS = pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal)
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -178,17 +180,17 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         <OSPagamentoPanel
           osId={id}
           valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
-          formaPagamento={os.formaPagamento ?? ''}
+          pagamentosIniciais={pagamentosOS}
+          jaPago={os.status === 'concluida'}
           aprovacaoPendente={aprovacaoPendente}
         />
       )}
 
-      {podeFechar && os.status === 'concluida' && os.formaPagamento && (
+      {podeFechar && os.status === 'concluida' && pagamentosOS.length > 0 && (
         <OSConciliacaoPanel
           osId={id}
           osNumero={os.numero}
-          formaPagamento={os.formaPagamento}
-          valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
+          pagamentos={pagamentosOS}
           isAdmin={podeFechar}
         />
       )}
