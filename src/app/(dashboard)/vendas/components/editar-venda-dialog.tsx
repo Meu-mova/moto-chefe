@@ -274,7 +274,7 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
                         <Select value={p.parcelas ?? ''} onValueChange={v => v && updatePgto(p.id, 'parcelas', v)}>
                           <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qtd" /></SelectTrigger>
                           <SelectContent>
-                            {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                            {Array.from({ length: 21 }, (_, i) => i + 1).map(n => (
                               <SelectItem key={n} value={String(n)} className="text-xs">{n}x</SelectItem>
                             ))}
                           </SelectContent>
