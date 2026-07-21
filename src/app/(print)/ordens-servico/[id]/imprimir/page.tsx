@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
+import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -35,6 +36,12 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
   const clienteFone  = os.clienteTelefone ?? os.clienteFoneExterno ?? null
   const abertura     = format(new Date(os.dataAbertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm     = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+  const pagamentosOS = pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal)
+  const TIPO_LABEL: Record<string, string> = {
+    pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
+    cartao_debito: 'Cartão de Débito', transferencia: 'Transferência',
+    cortesia: 'Cortesia / Garantia', gratuita: 'Gratuita',
+  }
 
   return (
     <>
@@ -219,12 +226,16 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
             <td><span className="grand">TOTAL GERAL</span></td>
             <td className="tr"><span className="grand">{fmtR(totalGeral)}</span></td>
           </tr>
-          {os.formaPagamento && (
-            <tr>
-              <td style={{ fontSize: 11, color: '#64748b' }}>Forma de pagamento</td>
-              <td className="tr" style={{ fontSize: 11 }}>{os.formaPagamento}</td>
+          {pagamentosOS.map((p, i) => (
+            <tr key={i}>
+              <td style={{ fontSize: 11, color: '#64748b' }}>
+                {pagamentosOS.length > 1 ? `Pagamento ${i + 1}` : 'Forma de pagamento'}
+              </td>
+              <td className="tr" style={{ fontSize: 11 }}>
+                {TIPO_LABEL[p.tipo] ?? p.tipo} — {fmtR(p.valor)}
+              </td>
             </tr>
-          )}
+          ))}
         </tbody>
       </table>
 
