@@ -5,6 +5,7 @@ import { ordensServico, osItens, aprovacoesVenda } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import type { PgtoOS } from '@/lib/conciliacao-status'
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
@@ -150,21 +151,13 @@ export async function atualizarOSAction(osId: string, dados: {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-const TIPO_CARTAO_OS: Record<string, string> = {
-  'Cartão de Crédito': 'cartao_credito',
-  'Cartão de Débito':  'cartao_debito',
-}
-
-// 'Transferência' precisa da mesma aprovação exigida em venda de moto — só quem tem
+// 'transferencia' precisa da mesma aprovação exigida em venda de moto — só quem tem
 // podeAprovarPagamentoSensivel vê esse dado. Ver src/lib/grupo.ts.
-const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['Transferência'])
+const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
 
 export type DadosPagamentoOS = {
   valorTotal: number
-  formaPagamento: string
-  operadora?: string
-  parcelas?: number
-  autorizacao?: string
+  pagamentos: PgtoOS[]
 }
 
 // Aplica o pagamento de fato na OS — sem checagem de permissão/sensibilidade, usada
@@ -176,21 +169,10 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
     .where(eq(ordensServico.id, osId))
     .limit(1)
 
-  const tipoCartao = TIPO_CARTAO_OS[dados.formaPagamento]
-  const pagamentos = tipoCartao
-    ? [{
-        tipo:  tipoCartao,
-        valor: dados.valorTotal,
-        ...(dados.operadora   ? { operadora: dados.operadora }     : {}),
-        ...(dados.parcelas    ? { parcelas: dados.parcelas }       : {}),
-        ...(dados.autorizacao ? { autorizacao: dados.autorizacao } : {}),
-      }]
-    : null
-
   await db.update(ordensServico).set({
     valorTotal:     String(dados.valorTotal),
-    formaPagamento: dados.formaPagamento,
-    pagamentos,
+    formaPagamento: dados.pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
+    pagamentos:     dados.pagamentos.length > 0 ? dados.pagamentos : null,
     ...(osAtual?.status === 'pendente_pagamento'
       ? { status: 'concluida' as any, dataConclusao: new Date() }
       : {}),
@@ -202,7 +184,15 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
 export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
 
-  if (TIPOS_PAGAMENTO_SENSIVEL_OS.has(dados.formaPagamento) && !podeAprovarPagamentoSensivel(usuario)) {
+  const somatorio = dados.pagamentos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  if (dados.valorTotal >= 0.01 && Math.abs(somatorio - dados.valorTotal) > 0.01) {
+    throw new Error('A soma dos pagamentos precisa bater com o valor total da OS')
+  }
+  if (dados.valorTotal < 0.01 && dados.pagamentos.length > 0) {
+    throw new Error('OS gratuita não deve ter formas de pagamento lançadas')
+  }
+
+  if (dados.pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_OS.has(p.tipo)) && !podeAprovarPagamentoSensivel(usuario)) {
     const [os] = await db
       .select({ lojaId: ordensServico.lojaId, numero: ordensServico.numero })
       .from(ordensServico)
