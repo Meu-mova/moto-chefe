@@ -1,10 +1,40 @@
 export type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
 
-const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
+export const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
 
 export type PgtoOS = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
 
 type PgtoItem = { tipo: string; valor: number }
+
+type ConcMatch = { id: string; autorizacao: string | null; valorBruto: string | number }
+type PixMatch  = { id: string }
+
+// Vendas, peças e OS podem ter mais de uma forma de pagamento por cartão/pix no mesmo
+// carrinho (ex.: Pix + Cartão). Casa cada item do array `pagamentos` com uma conciliação
+// de cartão (por autorização, depois por valor) ou recebimento Pix, individualmente —
+// para que cada forma de pagamento possa ser conciliada de forma independente na UI.
+export function matchPagamentos(pgtos: PgtoOS[], concs: ConcMatch[], pixRecs: PixMatch[]): boolean[] {
+  const usados    = new Set<string>()
+  const resultado = pgtos.map(() => false)
+
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao) return
+    const m = concs.find(c => !usados.has(c.id) && c.autorizacao === p.autorizacao)
+    if (m) { resultado[i] = true; usados.add(m.id) }
+  })
+
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i]) return
+    const m = concs.find(c => !usados.has(c.id) && Math.abs(Number(c.valorBruto) - p.valor) <= 0.05)
+    if (m) { resultado[i] = true; usados.add(m.id) }
+  })
+
+  if (pixRecs.length > 0) {
+    pgtos.forEach((p, i) => { if (p.tipo === 'pix') resultado[i] = true })
+  }
+
+  return resultado
+}
 
 // Vendas, peças e OS: pagamento pode ter múltiplos itens (carrinho com pix + cartão +
 // dinheiro, etc.). Reaproveitada pelas três telas — não duplicar essa lógica.

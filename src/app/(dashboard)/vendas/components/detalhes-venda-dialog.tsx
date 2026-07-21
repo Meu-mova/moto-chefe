@@ -14,6 +14,7 @@ import {
 } from '../../conciliacao/actions'
 import { buscarHistoricoMotoAction } from '../actions'
 import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
+import { TIPOS_CARTAO, matchPagamentos, type PgtoOS } from '@/lib/conciliacao-status'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -50,36 +51,11 @@ const historicoTipoLabel: Record<string, string> = {
   mudanca_status: 'Mudança de status',
 }
 
-const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
-
 type Conc        = Awaited<ReturnType<typeof buscarConciliacoesDaVenda>>[number]
 type PixRec      = Awaited<ReturnType<typeof buscarPixDaVenda>>[number]
 type Hist        = Awaited<ReturnType<typeof buscarHistoricoMotoAction>>[number]
 type Candidato   = Awaited<ReturnType<typeof buscarConciliacoesPorValor>>[number]
-type Pgto        = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
-
-function matchPagamentos(pgtos: Pgto[], concs: Conc[], pixRecs: PixRec[]): boolean[] {
-  const usados   = new Set<string>()
-  const resultado = pgtos.map(() => false)
-
-  pgtos.forEach((p, i) => {
-    if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao) return
-    const m = concs.find(c => !usados.has(c.id) && c.autorizacao === p.autorizacao)
-    if (m) { resultado[i] = true; usados.add(m.id) }
-  })
-
-  pgtos.forEach((p, i) => {
-    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i]) return
-    const m = concs.find(c => !usados.has(c.id) && Math.abs(Number(c.valorBruto) - p.valor) <= 0.05)
-    if (m) { resultado[i] = true; usados.add(m.id) }
-  })
-
-  if (pixRecs.length > 0) {
-    pgtos.forEach((p, i) => { if (p.tipo === 'pix') resultado[i] = true })
-  }
-
-  return resultado
-}
+type Pgto        = PgtoOS
 
 type Tab = 'detalhes' | 'historico'
 type Props = { venda: VendaComDetalhes; isAdmin?: boolean }
