@@ -10,23 +10,26 @@ import {
   buscarConciliacoesPorValor,
   vincularVendaAction,
 } from '../../../conciliacao/actions'
+import type { PgtoOS } from '@/lib/conciliacao-status'
 
 type Conc      = Awaited<ReturnType<typeof buscarConciliacoesDaOS>>[number]
 type PixRec    = Awaited<ReturnType<typeof buscarPixDaOS>>[number]
 type Candidato = Awaited<ReturnType<typeof buscarConciliacoesPorValor>>[number]
 
-type Props = { osId: string; osNumero: number | null; formaPagamento: string; valorTotal: number; isAdmin: boolean }
+type Props = { osId: string; osNumero: number | null; pagamentos: PgtoOS[]; isAdmin: boolean }
 
-const FORMAS_CARTAO = new Set(['Cartão de Crédito', 'Cartão de Débito'])
+const FORMAS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
 const OPERADORA_LABEL: Record<string, string> = {
   infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',
   cielo: 'Cielo', getnet: 'GetNet', redecard: 'Redecard',
 }
 const fmt = (v: string | number) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function OSConciliacaoPanel({ osId, osNumero, formaPagamento, valorTotal, isAdmin }: Props) {
-  const ehCartao = FORMAS_CARTAO.has(formaPagamento)
-  const ehPix    = formaPagamento === 'PIX'
+export function OSConciliacaoPanel({ osId, osNumero, pagamentos, isAdmin }: Props) {
+  const valorCartao = pagamentos.filter(p => FORMAS_CARTAO.has(p.tipo)).reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  const valorPix     = pagamentos.filter(p => p.tipo === 'pix').reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  const ehCartao = valorCartao > 0.009
+  const ehPix    = valorPix > 0.009
 
   const [loading, setLoading]         = useState(true)
   const [concs, setConcs]             = useState<Conc[]>([])
@@ -56,9 +59,10 @@ export function OSConciliacaoPanel({ osId, osNumero, formaPagamento, valorTotal,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osId])
 
-  if (!ehCartao && !ehPix) return null // dinheiro/transferência/cortesia — não precisa conciliar
+  if (!ehCartao && !ehPix) return null // dinheiro/transferência/cortesia/gratuita — não precisa conciliar
 
-  const conciliado = ehCartao ? concs.length > 0 : pixRecs.length > 0
+  const cartaoConciliado = concs.length > 0
+  const pixConciliado    = pixRecs.length > 0
 
   async function buscarCandidatos() {
     const abrir = !buscaAberta
@@ -66,7 +70,7 @@ export function OSConciliacaoPanel({ osId, osNumero, formaPagamento, valorTotal,
     if (!abrir) return
     setBuscaLoading(true)
     try {
-      setCandidatos(await buscarConciliacoesPorValor(valorTotal))
+      setCandidatos(await buscarConciliacoesPorValor(valorCartao))
     } finally {
       setBuscaLoading(false)
     }
@@ -91,36 +95,56 @@ export function OSConciliacaoPanel({ osId, osNumero, formaPagamento, valorTotal,
     <Card>
       <CardHeader className="pb-2"><CardTitle className="text-sm">Conciliação</CardTitle></CardHeader>
       <CardContent className="space-y-2">
-        <div className={`flex justify-between items-center rounded px-3 py-2 ${
-          loading ? 'bg-slate-50' : conciliado ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-        }`}>
-          <div className="flex items-center gap-2 min-w-0">
-            {loading
-              ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
-              : conciliado
-                ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
-                : <Clock size={13} className="text-red-400 shrink-0" />}
-            <span className={conciliado ? 'text-green-800' : 'text-red-700'}>
-              {ehCartao ? 'Cartão' : 'PIX'}{!loading && (conciliado ? ' — conciliado' : ' — pendente')}
-            </span>
+        {ehCartao && (
+          <div className={`flex justify-between items-center rounded px-3 py-2 ${
+            loading ? 'bg-slate-50' : cartaoConciliado ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              {loading
+                ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
+                : cartaoConciliado
+                  ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                  : <Clock size={13} className="text-red-400 shrink-0" />}
+              <span className={cartaoConciliado ? 'text-green-800' : 'text-red-700'}>
+                Cartão{!loading && (cartaoConciliado ? ' — conciliado' : ' — pendente')}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="font-medium tabular-nums">{fmt(valorCartao)}</span>
+              {isAdmin && !cartaoConciliado && !loading && (
+                <button
+                  onClick={buscarCandidatos}
+                  title="Buscar transação para conciliar"
+                  className={`p-1 rounded transition-colors ${
+                    buscaAberta ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  <Search size={13} />
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="font-medium tabular-nums">{fmt(valorTotal)}</span>
-            {isAdmin && ehCartao && !conciliado && !loading && (
-              <button
-                onClick={buscarCandidatos}
-                title="Buscar transação para conciliar"
-                className={`p-1 rounded transition-colors ${
-                  buscaAberta ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                }`}
-              >
-                <Search size={13} />
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
-        {ehPix && !conciliado && !loading && (
+        {ehPix && (
+          <div className={`flex justify-between items-center rounded px-3 py-2 ${
+            loading ? 'bg-slate-50' : pixConciliado ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              {loading
+                ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
+                : pixConciliado
+                  ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                  : <Clock size={13} className="text-red-400 shrink-0" />}
+              <span className={pixConciliado ? 'text-green-800' : 'text-red-700'}>
+                PIX{!loading && (pixConciliado ? ' — conciliado' : ' — pendente')}
+              </span>
+            </div>
+            <span className="font-medium tabular-nums">{fmt(valorPix)}</span>
+          </div>
+        )}
+
+        {ehPix && !pixConciliado && !loading && (
           <p className="text-xs text-slate-500">
             PIX conciliado à parte — vá em <Link href="/pix-mcp" className="text-blue-600 hover:underline">PIX</Link>, busque a OS #{osNumero ?? '—'} e lance a correspondência.
           </p>
