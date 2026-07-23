@@ -42,6 +42,8 @@ export async function criarUsuarioAction(dados: {
   conecta: string | null
 }) {
   await assertAdmin()
+  // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
+  const conecta = validarConecta(dados.conecta)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -57,7 +59,7 @@ export async function criarUsuarioAction(dados: {
     email: dados.email,
     papel: dados.papel as any,
     lojaId: dados.lojaId,
-    conecta: validarConecta(dados.conecta),
+    conecta,
   })
 
   revalidatePath('/admin/usuarios')
