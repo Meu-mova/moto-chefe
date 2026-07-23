@@ -24,6 +24,7 @@ export async function criarUsuarioAction(dados: {
   senha: string
   papel: string
   lojaId: string | null
+  conecta: string | null
 }) {
   await assertAdmin()
   const supabase = getAdminClient()
@@ -41,6 +42,7 @@ export async function criarUsuarioAction(dados: {
     email: dados.email,
     papel: dados.papel as any,
     lojaId: dados.lojaId,
+    conecta: dados.conecta,
   })
 
   revalidatePath('/admin/usuarios')
@@ -52,6 +54,7 @@ export async function editarUsuarioAction(id: string, dados: {
   novaSenha?: string
   papel: string
   lojaId: string | null
+  conecta: string | null
 }) {
   await assertAdmin()
 
@@ -61,6 +64,7 @@ export async function editarUsuarioAction(id: string, dados: {
       email: dados.email,
       papel: dados.papel as any,
       lojaId: dados.lojaId,
+      conecta: dados.conecta,
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

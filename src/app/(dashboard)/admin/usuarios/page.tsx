@@ -18,6 +18,7 @@ export default async function UsuariosPage() {
         papel:    usuarios.papel,
         lojaId:   usuarios.lojaId,
         lojaNome: lojas.nome,
+        conecta:  usuarios.conecta,
       })
       .from(usuarios)
       .leftJoin(lojas, eq(usuarios.lojaId, lojas.id))

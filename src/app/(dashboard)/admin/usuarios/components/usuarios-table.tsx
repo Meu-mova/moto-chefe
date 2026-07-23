@@ -19,6 +19,7 @@ type Usuario = {
   papel: string
   lojaId: string | null
   lojaNome: string | null
+  conecta: string | null
 }
 
 const PAPEIS: { value: string; label: string }[] = [
@@ -68,7 +69,7 @@ function FormUsuario({
 }: {
   inicial?: Partial<Usuario>
   lojas: Loja[]
-  onSubmit: (dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null }) => void
+  onSubmit: (dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) => void
   onCancel: () => void
   isEdit: boolean
 }) {
@@ -77,13 +78,14 @@ function FormUsuario({
   const [senha,   setSenha]   = useState('')
   const [papel,   setPapel]   = useState(inicial?.papel   ?? '')
   const [lojaId,  setLojaId]  = useState(inicial?.lojaId  ?? '')
+  const [conecta, setConecta] = useState(inicial?.conecta ?? '')
 
   function handleSubmit() {
     if (!nome.trim())  { toast.error('Informe o nome');  return }
     if (!email.trim()) { toast.error('Informe o e-mail'); return }
     if (!papel)        { toast.error('Selecione a função'); return }
     if (!isEdit && !senha.trim()) { toast.error('Informe a senha'); return }
-    onSubmit({ nome: nome.trim(), email: email.trim(), senha, papel, lojaId: lojaId || null })
+    onSubmit({ nome: nome.trim(), email: email.trim(), senha, papel, lojaId: lojaId || null, conecta: conecta.trim() || null })
   }
 
   return (
@@ -132,6 +134,14 @@ function FormUsuario({
             </SelectContent>
           </Select>
         </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label>Conecta</Label>
+          <Input
+            value={conecta}
+            onChange={e => setConecta(e.target.value)}
+            placeholder="https://checkout.aride.com.br/?org=…&seller=…"
+          />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -147,7 +157,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
   const [pending, startTransition]  = useTransition()
 
-  function handleCriar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null }) {
+  function handleCriar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) {
     startTransition(async () => {
       try {
         await criarUsuarioAction(dados)
@@ -159,7 +169,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
     })
   }
 
-  function handleEditar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null }) {
+  function handleEditar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) {
     if (!editando) return
     startTransition(async () => {
       try {
@@ -169,6 +179,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
           novaSenha: dados.senha || undefined,
           papel:     dados.papel,
           lojaId:    dados.lojaId,
+          conecta:   dados.conecta,
         })
         toast.success('Usuário atualizado')
         setEditando(null)

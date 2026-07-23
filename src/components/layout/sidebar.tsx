@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, ListChecks, Package2,
+  Radar, CalendarDays, ListChecks, Package2, Link as LinkIcon,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -26,9 +26,9 @@ const baseNavItems = [
 const adminPapeis = ['admin_geral', 'admin_socio']
 const PAPEIS_PIX_MCP = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
-type Props = { papel: string }
+type Props = { papel: string; conecta: string | null }
 
-export function Sidebar({ papel }: Props) {
+export function Sidebar({ papel, conecta }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -102,6 +102,32 @@ export function Sidebar({ papel }: Props) {
               </Link>
             )
           })}
+          {conecta && (() => {
+            const linkClass = cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+              collapsed && 'justify-center px-0',
+              'text-slate-400 hover:bg-slate-800 hover:text-white'
+            )
+            if (collapsed) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={() => window.open(conecta!, '_blank', 'noopener')}
+                    className={linkClass}
+                  >
+                    <LinkIcon size={18} />
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Conecta</TooltipContent>
+                </Tooltip>
+              )
+            }
+            return (
+              <a href={conecta} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                <LinkIcon size={18} className="shrink-0" />
+                <span className="truncate">Conecta</span>
+              </a>
+            )
+          })()}
         </nav>
       </TooltipProvider>
 

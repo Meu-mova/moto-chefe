@@ -62,6 +62,7 @@ export const usuarios = pgTable('usuarios', {
   email: text('email').notNull().unique(),
   papel: papelEnum('papel').notNull(),
   lojaId: uuid('loja_id').references(() => lojas.id), // nullable para admin_geral
+  conecta: text('conecta'), // link individual do usuário (menu Conecta); nullable
 })
 
 // ─── modelos ─────────────────────────────────────────────────────────────────

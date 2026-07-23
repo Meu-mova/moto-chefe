@@ -13,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <Providers>
       <div className="flex min-h-screen">
-        <Sidebar papel={usuario.papel} />
+        <Sidebar papel={usuario.papel} conecta={usuario.conecta} />
         <div className="flex-1 flex flex-col">
           <Header />
           <GroupSelector usuario={usuario} />
