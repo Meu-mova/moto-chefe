@@ -18,6 +18,21 @@ async function assertAdmin() {
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
 }
 
+// Garante que o link Conecta é http/https (evita esquemas perigosos como javascript:)
+function validarConecta(conecta: string | null): string | null {
+  if (!conecta) return null
+  let u: URL
+  try {
+    u = new URL(conecta)
+  } catch {
+    throw new Error('Link Conecta inválido')
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error('Link Conecta deve começar com http:// ou https://')
+  }
+  return conecta
+}
+
 export async function criarUsuarioAction(dados: {
   nome: string
   email: string
@@ -42,7 +57,7 @@ export async function criarUsuarioAction(dados: {
     email: dados.email,
     papel: dados.papel as any,
     lojaId: dados.lojaId,
-    conecta: dados.conecta,
+    conecta: validarConecta(dados.conecta),
   })
 
   revalidatePath('/admin/usuarios')
@@ -64,7 +79,7 @@ export async function editarUsuarioAction(id: string, dados: {
       email: dados.email,
       papel: dados.papel as any,
       lojaId: dados.lojaId,
-      conecta: dados.conecta,
+      conecta: validarConecta(dados.conecta),
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

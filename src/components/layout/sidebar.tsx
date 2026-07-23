@@ -33,6 +33,9 @@ export function Sidebar({ papel, conecta }: Props) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
+  // Só renderiza/abre o link Conecta se for http(s) — evita esquemas perigosos (javascript:, etc.)
+  const conectaSeguro = conecta && /^https?:\/\//i.test(conecta) ? conecta : null
+
   const isAdmin = adminPapeis.includes(papel)
   const navItems = [
     ...baseNavItems,
@@ -102,7 +105,7 @@ export function Sidebar({ papel, conecta }: Props) {
               </Link>
             )
           })}
-          {conecta && (() => {
+          {conectaSeguro && (() => {
             const linkClass = cn(
               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
               collapsed && 'justify-center px-0',
@@ -112,7 +115,7 @@ export function Sidebar({ papel, conecta }: Props) {
               return (
                 <Tooltip>
                   <TooltipTrigger
-                    onClick={() => window.open(conecta!, '_blank', 'noopener')}
+                    onClick={() => window.open(conectaSeguro, '_blank', 'noopener')}
                     className={linkClass}
                   >
                     <LinkIcon size={18} />
@@ -122,7 +125,7 @@ export function Sidebar({ papel, conecta }: Props) {
               )
             }
             return (
-              <a href={conecta} target="_blank" rel="noopener noreferrer" className={linkClass}>
+              <a href={conectaSeguro} target="_blank" rel="noopener noreferrer" className={linkClass}>
                 <LinkIcon size={18} className="shrink-0" />
                 <span className="truncate">Conecta</span>
               </a>
