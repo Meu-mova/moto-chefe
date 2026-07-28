@@ -1,6 +1,7 @@
 import { CATALOGO } from './perguntas-prontas'
 
 const API = () => `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`
+const LIMITE_TG = 4096
 
 async function chamar(metodo: string, corpo: Record<string, unknown>): Promise<void> {
   try {
@@ -10,8 +11,14 @@ async function chamar(metodo: string, corpo: Record<string, unknown>): Promise<v
       body: JSON.stringify(corpo),
     })
   } catch (e) {
-    console.error(`telegram ${metodo} falhou:`, e)
+    console.error(`telegram ${metodo} falhou:`, e instanceof Error ? e.message : String(e))
   }
+}
+
+/** Trunca texto ao limite do Telegram (4096 chars) com reticências. */
+export function truncarMensagem(texto: string): string {
+  if (texto.length <= LIMITE_TG) return texto
+  return texto.substring(0, LIMITE_TG - 1) + '…'
 }
 
 export async function enviarMensagem(
@@ -19,9 +26,10 @@ export async function enviarMensagem(
   texto: string,
   teclado?: object,
 ): Promise<void> {
+  const textoTruncado = truncarMensagem(texto)
   await chamar('sendMessage', {
     chat_id: chatId,
-    text: texto,
+    text: textoTruncado,
     ...(teclado ? { reply_markup: teclado } : {}),
   })
 }
