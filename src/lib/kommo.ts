@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { kommoConfig } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { kommoConfig, kommoLeads, kommoSyncStatus } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
 // Espelha o padrão do Bling (src/lib/bling.ts), mas com config singleton
@@ -143,4 +143,95 @@ export async function kommoRequest(path: string, init?: { method?: string; body?
   if (res.status === 204) return null
   if (!res.ok) throw new Error(`Kommo API ${init?.method ?? 'GET'} ${path} → ${res.status}: ${await res.text()}`)
   return res.json()
+}
+
+export const KOMMO_STATUS_GANHO = 142
+export const KOMMO_STATUS_PERDIDO = 143
+const JANELA_CACHE_MS = 15 * 60 * 1000
+// Piso de backfill na 1ª sincronização (updated_at) — cobre o ano corrente.
+const BACKFILL_FLOOR = Math.floor(new Date(Date.UTC(2026, 0, 1)).getTime() / 1000)
+
+type LeadKommo = {
+  id: number
+  price?: number | null
+  status_id?: number
+  pipeline_id?: number
+  responsible_user_id?: number
+  created_at?: number
+  closed_at?: number | null
+  updated_at?: number
+}
+
+function toDate(unix?: number | null): Date | null {
+  return unix ? new Date(unix * 1000) : null
+}
+
+// Sincroniza os leads do Kommo incrementalmente (por updated_at) para o cache local.
+export async function sincronizarLeadsKommo(): Promise<{ processados: number }> {
+  const [st] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
+  const desde = st?.ultimoUpdatedAt ?? BACKFILL_FLOOR
+
+  let page = 1
+  let processados = 0
+  let maiorUpdated = desde
+  for (;;) {
+    const data = await kommoRequest(
+      `/api/v4/leads?limit=250&page=${page}&order[updated_at]=asc&filter[updated_at][from]=${desde}`,
+    ) as { _embedded?: { leads?: LeadKommo[] }; _links?: { next?: unknown } } | null
+    const leads = data?._embedded?.leads ?? []
+    if (leads.length === 0) break
+
+    const valores = leads.map(l => {
+      if (l.updated_at && l.updated_at > maiorUpdated) maiorUpdated = l.updated_at
+      return {
+        leadId: l.id,
+        kommoUserId: l.responsible_user_id != null ? String(l.responsible_user_id) : null,
+        statusId: l.status_id ?? null,
+        pipelineId: l.pipeline_id != null ? String(l.pipeline_id) : null,
+        price: String(l.price ?? 0),
+        criadoEm: toDate(l.created_at),
+        fechadoEm: toDate(l.closed_at),
+        atualizadoEm: toDate(l.updated_at),
+      }
+    })
+    // Upsert em lote (1 statement por página de 250)
+    await db.insert(kommoLeads).values(valores).onConflictDoUpdate({
+      target: kommoLeads.leadId,
+      set: {
+        kommoUserId:  sql`excluded.kommo_user_id`,
+        statusId:     sql`excluded.status_id`,
+        pipelineId:   sql`excluded.pipeline_id`,
+        price:        sql`excluded.price`,
+        criadoEm:     sql`excluded.criado_em`,
+        fechadoEm:    sql`excluded.fechado_em`,
+        atualizadoEm: sql`excluded.atualizado_em`,
+      },
+    })
+    processados += valores.length
+
+    if (!data?._links?.next) break
+    page++
+    if (page > 400) break // trava de segurança
+  }
+
+  await db.insert(kommoSyncStatus)
+    .values({ id: 'global', ultimaSincronizacao: new Date(), ultimoUpdatedAt: maiorUpdated })
+    .onConflictDoUpdate({ target: kommoSyncStatus.id, set: { ultimaSincronizacao: new Date(), ultimoUpdatedAt: maiorUpdated } })
+
+  return { processados }
+}
+
+// Sincroniza se o cache passou da janela (15min) ou se forçado. Nunca lança —
+// devolve a hora da última sincronização pra UI.
+export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima: Date | null; erro: string | null }> {
+  const [st] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
+  const stale = !st?.ultimaSincronizacao || (Date.now() - new Date(st.ultimaSincronizacao).getTime()) > JANELA_CACHE_MS
+  if (!forcar && !stale) return { ultima: st?.ultimaSincronizacao ?? null, erro: null }
+  try {
+    await sincronizarLeadsKommo()
+    const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
+    return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
+  } catch (e) {
+    return { ultima: st?.ultimaSincronizacao ?? null, erro: e instanceof Error ? e.message : 'Erro ao sincronizar com o Kommo' }
+  }
 }

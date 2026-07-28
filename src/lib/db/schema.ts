@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer, primaryKey,
+  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -593,6 +593,30 @@ export const kommoConfig = pgTable('kommo_config', {
   refreshToken: text('refresh_token'),
   expiresAt:    timestamp('expires_at', { withTimezone: true }),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── kommo_user_map / kommo_leads / kommo_sync_status (métricas de atendimento) ─
+export const kommoUserMap = pgTable('kommo_user_map', {
+  kommoUserId: text('kommo_user_id').primaryKey(),
+  usuarioId:   uuid('usuario_id').references(() => usuarios.id),
+  nomeKommo:   text('nome_kommo'),
+})
+
+export const kommoLeads = pgTable('kommo_leads', {
+  leadId:       bigint('lead_id', { mode: 'number' }).primaryKey(),
+  kommoUserId:  text('kommo_user_id'),
+  statusId:     integer('status_id'),
+  pipelineId:   text('pipeline_id'),
+  price:        numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }),
+  fechadoEm:    timestamp('fechado_em', { withTimezone: true }),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
+})
+
+export const kommoSyncStatus = pgTable('kommo_sync_status', {
+  id:                  text('id').primaryKey().default('global'),
+  ultimaSincronizacao: timestamp('ultima_sincronizacao', { withTimezone: true }),
+  ultimoUpdatedAt:     bigint('ultimo_updated_at', { mode: 'number' }),
 })
 
 // ─── clientes ────────────────────────────────────────────────────────────────
