@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -136,6 +136,7 @@ export async function efetivarVendaAction(
 type DadosVendaCompleta = {
   motoId: string
   vendedorId?: string
+  demandaVinculadaId?: string | null
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -252,6 +253,13 @@ async function criarVendaTx(
     await tx.update(reservas)
       .set({ status: 'convertida' })
       .where(eq(reservas.id, reservaAtiva.id))
+  }
+
+  // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida
+  if (data.demandaVinculadaId) {
+    await tx.update(demandas)
+      .set({ status: 'atendida', vendaId: venda.id })
+      .where(eq(demandas.id, data.demandaVinculadaId))
   }
 
   // Moto fica em estoque com status 'vendida' até a NF de saída ser confirmada
@@ -808,6 +816,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
 type DadosReserva = {
   motoId: string
   vendedorId?: string
+  demandaVinculadaId?: string | null
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -899,6 +908,13 @@ export async function registrarReservaAction(data: DadosReserva) {
     await tx.update(motos)
       .set({ disponibilidade: 'reservada' })
       .where(eq(motos.id, data.motoId))
+
+    // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida
+    if (data.demandaVinculadaId) {
+      await tx.update(demandas)
+        .set({ status: 'atendida' })
+        .where(eq(demandas.id, data.demandaVinculadaId))
+    }
 
     const meioLabel: Record<string, string> = {
       pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',

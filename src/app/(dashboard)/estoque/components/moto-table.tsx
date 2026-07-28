@@ -11,6 +11,7 @@ import { NfSaidaButton } from './nf-saida-button'
 import { MontarButton } from './montar-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
+import type { DemandaCompativel } from '@/lib/queries/demandas'
 
 const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   disponivel: { label: 'Disponível', variant: 'default' },
@@ -33,6 +34,7 @@ type Mecanico = { id: string; nome: string }
 
 type Props = {
   motos: MotoComDetalhes[]
+  demandasComSinal: DemandaCompativel[]
   papel: string
   vendedorId: string
   vendedorNome: string
@@ -60,7 +62,7 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
   return `/estoque?${p.toString()}`
 }
 
-export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
+export function MotoTable({ motos, demandasComSinal, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
   const isAdmin = ADMINS.has(papel)
 
   function th(campo: Campo, label: string) {
@@ -157,6 +159,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     papel={papel}
                                     usuarios={usuarios}
                                     podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
+                                    demandasCompativeis={demandasComSinal.filter(d => d.modeloId === moto.modeloId && d.lojaId === moto.lojaId)}
                                   />
                                 )}
                                 {/* Reservada: só finalizar venda */}
@@ -213,6 +216,7 @@ export function MotoTable({ motos, papel, vendedorId, vendedorNome, usuarios, me
                                     papel={papel}
                                     usuarios={usuarios}
                                     podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
+                                    demandasCompativeis={demandasComSinal.filter(d => d.modeloId === moto.modeloId && d.lojaId === moto.lojaId)}
                                     soReserva
                                   />
                                 )}

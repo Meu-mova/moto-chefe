@@ -15,6 +15,7 @@ import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
+import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
@@ -49,6 +50,11 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
       .limit(1),
     db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupoIdDaMoto)),
   ])
+
+  // Demandas abertas com sinal do mesmo modelo/loja — candidatas a vínculo na venda
+  const demandasCompativeis = moto.modeloId
+    ? (await listarDemandasComSinalAbertas([moto.lojaId])).filter(d => d.modeloId === moto.modeloId)
+    : []
 
   const precoMinimoPix = precRow[0] ? parseFloat(precRow[0].valorMinimo) : null
   const taxasVenda = taxasRow[0]
@@ -129,6 +135,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         precoMinimoPix={precoMinimoPix}
         taxasVenda={taxasVenda}
         podeAprovarPagamentoSensivel={podeAprovarSensivel}
+        demandasCompativeis={demandasCompativeis}
       />
       </div>
 

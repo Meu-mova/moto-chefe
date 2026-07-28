@@ -8,6 +8,7 @@ import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight, Printer } from 'lucide-react'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
+import type { DemandaCompativel } from '@/lib/queries/demandas'
 
 type Usuario = { id: string; nome: string }
 type Mecanico = { id: string; nome: string }
@@ -62,6 +63,7 @@ type Props = {
   precoMinimoPix: number | null
   taxasVenda: TaxasVenda | null
   podeAprovarPagamentoSensivel: boolean
+  demandasCompativeis?: DemandaCompativel[]
 }
 
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
@@ -70,7 +72,7 @@ const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
-export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel }: Props) {
+export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis }: Props) {
   const isAdmin = ADMINS.has(papel)
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   const podeVenderAqui = podeAlterar || (papel === 'vendedor' && podeVendedorReservarForaDaLoja(moto.lojaId))
@@ -119,6 +121,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
             podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
+            demandasCompativeis={demandasCompativeis}
           />
         )
       }
@@ -188,6 +191,7 @@ export function MotoActions({ moto, papel, vendedorId, vendedorNome, usuarios, m
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
             podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
+            demandasCompativeis={demandasCompativeis}
           />
         )
       }

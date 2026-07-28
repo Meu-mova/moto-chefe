@@ -70,6 +70,25 @@ type DadosReservaAtiva = {
   vendedorId: string
 }
 
+type DemandaVinculavel = {
+  id: string
+  numero: number | null
+  valorSinal: string | null
+  meioPagamento: string | null
+  solicitanteNome: string
+  clienteNome: string | null
+  clienteCpf: string | null
+  clienteCelular: string | null
+  clienteEmail: string | null
+  clienteCep: string | null
+  clienteLogradouro: string | null
+  clienteNumero: string | null
+  clienteComplemento: string | null
+  clienteBairro: string | null
+  clienteCidade: string | null
+  clienteEstado: string | null
+}
+
 type Props = {
   motoId: string
   descricao: string
@@ -83,6 +102,7 @@ type Props = {
   precoMinimoPix?: number | null
   taxasVenda?: TaxasVenda | null
   podeAprovarPagamentoSensivel?: boolean
+  demandasCompativeis?: DemandaVinculavel[]
 }
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
@@ -107,12 +127,13 @@ function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   return []
 }
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
   const [vendedorSelecionado, setVendedorSelecionado] = useState(vendedorId)
   const [reservaCriadaId, setReservaCriadaId] = useState<string | null>(null)
+  const [demandaVinculadaId, setDemandaVinculadaId] = useState<string | null>(null)
 
   // Dados de precificação — podem vir via props (detalhe) ou buscados ao abrir (lista)
   const [precoMinimoPix, setPrecoMinimoPix] = useState<number | null>(precoMinimoPixProp ?? null)
@@ -157,8 +178,29 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [meioPgtoParcelas, setMeioPgtoParcelas] = useState('')
   const [dataPrevista, setDataPrevista] = useState('')
 
+  function selecionarDemanda(id: string) {
+    setDemandaVinculadaId(id || null)
+    if (!id) return
+    const d = demandasCompativeis?.find(x => x.id === id)
+    if (!d) return
+    setClienteNome(d.clienteNome ?? '')
+    setClienteCpf(d.clienteCpf ?? '')
+    setClienteCelular(d.clienteCelular ?? '')
+    setClienteEmail(d.clienteEmail ?? '')
+    const cepDigits = (d.clienteCep ?? '').replace(/\D/g, '')
+    setClienteCep(cepDigits.length === 8 ? cepDigits.replace(/(\d{5})(\d{3})/, '$1-$2') : (d.clienteCep ?? ''))
+    setClienteLogradouro(d.clienteLogradouro ?? '')
+    setClienteNumero(d.clienteNumero ?? '')
+    setClienteComplemento(d.clienteComplemento ?? '')
+    setClienteBairro(d.clienteBairro ?? '')
+    setClienteCidade(d.clienteCidade ?? '')
+    setClienteEstado(d.clienteEstado ?? '')
+    setClienteStatus('encontrado')
+  }
+
   function resetForm(tipoInicial: 'venda' | 'reserva') {
     setReservaCriadaId(null)
+    setDemandaVinculadaId(null)
     setTipo(reservaAtiva ? 'venda' : tipoInicial)
     if (reservaAtiva) {
       setClienteNome(reservaAtiva.clienteNome)
@@ -381,6 +423,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         const payload = {
           motoId, ...clienteBase, valorTotal: valorVenda,
           vendedorId: vendedorSelecionado,
+          demandaVinculadaId,
           dataVenda: dataVenda || undefined,
           pagamentos: pgtos.map(p => ({
             tipo: p.tipo, valor: parseFloat(p.valor),
@@ -403,6 +446,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         const resultado = await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda, meioPagamento: meioPgto,
           vendedorId: vendedorSelecionado,
+          demandaVinculadaId,
           ...(meioPgto === 'cartao_credito' ? {
             cartaoOperadora: meioPgtoOperadora,
             cartaoParcelas: parseInt(meioPgtoParcelas),
@@ -516,6 +560,34 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
             {/* Coluna esquerda — Vendedor + Cliente */}
             <div className="w-[52%] border-r overflow-y-auto px-6 py-5 space-y-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Dados do Cliente</p>
+
+              {/* Vínculo com demanda existente (cliente que já deu sinal) */}
+              {!reservaAtiva && demandasCompativeis && demandasCompativeis.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                  <Label className="text-amber-800">Vincular a uma demanda existente</Label>
+                  <select
+                    value={demandaVinculadaId ?? ''}
+                    onChange={e => selecionarDemanda(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Não vincular</option>
+                    {demandasCompativeis.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.clienteNome ?? 'Cliente'}{d.numero ? ` — recibo #${d.numero}` : ''}{d.valorSinal ? ` — sinal ${fmtBRL(parseFloat(d.valorSinal))}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {demandaVinculadaId && (() => {
+                    const d = demandasCompativeis.find(x => x.id === demandaVinculadaId)
+                    if (!d) return null
+                    return (
+                      <p className="text-xs text-amber-700">
+                        Sinal já recebido nesta demanda{d.valorSinal ? `: ${fmtBRL(parseFloat(d.valorSinal))}` : ''}{d.numero ? ` (recibo #${d.numero})` : ''}. Lance o valor manualmente no pagamento.
+                      </p>
+                    )
+                  })()}
+                </div>
+              )}
 
               {/* Vendedor + Data */}
               <div className="grid grid-cols-2 gap-3">

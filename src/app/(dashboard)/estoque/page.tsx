@@ -6,6 +6,7 @@ import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
+import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas } from '@/lib/grupo'
 
@@ -73,6 +74,9 @@ export default async function EstoquePage({
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),
   ])
 
+  // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)
+  const demandasComSinal = await listarDemandasComSinalAbertas(lojaValues)
+
   const counts = {
     total:         motosList.length,
     caixa:         motosList.filter(m => m.status === 'caixa').length,
@@ -104,6 +108,7 @@ export default async function EstoquePage({
       <div className="bg-white rounded-lg border">
         <MotoTable
           motos={motosList}
+          demandasComSinal={demandasComSinal}
           papel={usuario.papel}
           vendedorId={usuario.id}
           vendedorNome={usuario.nome}

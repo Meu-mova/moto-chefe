@@ -26,6 +26,7 @@ export const referenciaEnum = pgEnum('referencia_tipo', ['transferencia', 'pedid
 export const tipoLancamentoEnum = pgEnum('tipo_lancamento', ['entrada', 'saida'])
 export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
+export const demandaStatusEnum = pgEnum('demanda_status', ['aberta', 'atendida'])
 export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os', 'pedido', 'peca'])
 
 // ─── grupos ──────────────────────────────────────────────────────────────────
@@ -555,10 +556,28 @@ export const despesasOfSyncStatus = pgTable('despesas_of_sync_status', {
 // ─── demandas ────────────────────────────────────────────────────────────────
 export const demandas = pgTable('demandas', {
   id: uuid('id').primaryKey().defaultRandom(),
-  modelo: text('modelo').notNull(),
+  modelo: text('modelo').notNull(),               // label exibido (marca + modelo); legado pode ter só texto
+  modeloId: uuid('modelo_id').references(() => modelos.id), // FK do seletor — usado p/ casar com moto no estoque
   cor: text('cor').notNull(),
   sinalRecebido: boolean('sinal_recebido').notNull().default(false),
   valorSinal:    numeric('valor_sinal', { precision: 10, scale: 2 }),
+  meioPagamento: text('meio_pagamento'),
+  numero: integer('numero'),                       // nº do recibo — atribuído via nextval quando há sinal
+  sinalRecebidoEm: timestamp('sinal_recebido_em', { withTimezone: true }),
+  status: demandaStatusEnum('status').notNull().default('aberta'),
+  vendaId: uuid('venda_id').references(() => vendas.id),
+  // Snapshot do cliente (mirror da reservas) — preenchido só quando há sinal
+  clienteNome: text('cliente_nome'),
+  clienteCpf: text('cliente_cpf'),
+  clienteCelular: text('cliente_celular'),
+  clienteEmail: text('cliente_email'),
+  clienteCep: text('cliente_cep'),
+  clienteLogradouro: text('cliente_logradouro'),
+  clienteNumero: text('cliente_numero'),
+  clienteComplemento: text('cliente_complemento'),
+  clienteBairro: text('cliente_bairro'),
+  clienteCidade: text('cliente_cidade'),
+  clienteEstado: text('cliente_estado'),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   solicitanteId: uuid('solicitante_id').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
