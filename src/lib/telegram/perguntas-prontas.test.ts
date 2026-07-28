@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { acharPergunta, porId, CATALOGO } from './perguntas-prontas.ts'
+import { acharPergunta, porId, CATALOGO } from './perguntas-prontas'
 
 test('roteamento das 9', () => {
   assert.equal(acharPergunta('quantas vendas hoje?')?.id, 'vendas_hoje')

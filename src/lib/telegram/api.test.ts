@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { tecladoMenu } from './api.ts'
-import { CATALOGO } from './perguntas-prontas.ts'
+import { tecladoMenu } from './api'
+import { CATALOGO } from './perguntas-prontas'
 
 test('tecladoMenu tem um botão por pergunta, callback_data = id', () => {
   const kb = tecladoMenu() as any

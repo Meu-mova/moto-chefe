@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizar } from './texto.ts'
+import { normalizar } from './texto'
 
 test('minúsculas e sem acento', () => {
   assert.equal(normalizar('Vendas HOJE'), 'vendas hoje')

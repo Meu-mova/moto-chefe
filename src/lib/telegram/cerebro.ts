@@ -22,14 +22,19 @@ const TOOLS: Anthropic.Tool[] = [
 ]
 
 async function schemaTexto(): Promise<string> {
-  const linhas = await client<{ table_name: string; column_name: string; data_type: string }[]>`
-    SELECT table_name, column_name, data_type
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-    ORDER BY table_name, ordinal_position`
-  const schema: Record<string, string[]> = {}
-  for (const l of linhas) (schema[l.table_name] ??= []).push(`${l.column_name}:${l.data_type}`)
-  return JSON.stringify(schema).slice(0, 6000)
+  try {
+    const linhas = await client<{ table_name: string; column_name: string; data_type: string }[]>`
+      SELECT table_name, column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position`
+    const schema: Record<string, string[]> = {}
+    for (const l of linhas) (schema[l.table_name] ??= []).push(`${l.column_name}:${l.data_type}`)
+    return JSON.stringify(schema).slice(0, 6000)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'erro'
+    return `erro ao ler schema: ${msg.slice(0, 200)}`
+  }
 }
 
 async function executarTool(nome: string, input: unknown): Promise<string> {
@@ -47,7 +52,7 @@ async function executarTool(nome: string, input: unknown): Promise<string> {
 }
 
 export async function responderComClaude(pergunta: string): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) return 'Cerebro indisponivel (sem chave). Tenta uma pergunta do /menu.'
+  if (!process.env.ANTHROPIC_API_KEY) return 'Cérebro indisponível (sem chave). Tenta uma pergunta do /menu.'
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: pergunta }]
 
@@ -81,5 +86,5 @@ export async function responderComClaude(pergunta: string): Promise<string> {
       .trim()
     return texto || '(sem resposta)'
   }
-  return 'Nao consegui concluir a consulta. Tenta reformular ou usa o /menu.'
+  return 'Não consegui concluir a consulta. Tenta reformular ou usa o /menu.'
 }
