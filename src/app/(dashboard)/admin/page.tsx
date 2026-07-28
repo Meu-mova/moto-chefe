@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers, TrendingDown, Landmark, HandCoins } from 'lucide-react'
+import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers, TrendingDown, Landmark, HandCoins, Headset } from 'lucide-react'
 
 export default async function AdminPage() {
   const usuario = await getUsuarioLogado()
@@ -138,6 +138,15 @@ export default async function AdminPage() {
                 <CardTitle className="text-base">Comunicados</CardTitle>
               </CardHeader>
               <CardContent><p className="text-sm text-slate-500">Canal de comunicação interna</p></CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/kommo">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex-row gap-3 items-center pb-2">
+                <Headset className="text-slate-600" size={20} />
+                <CardTitle className="text-base">Kommo (CRM)</CardTitle>
+              </CardHeader>
+              <CardContent><p className="text-sm text-slate-500">Métricas de atendimento por colaborador</p></CardContent>
             </Card>
           </Link>
           <Link href="/admin/bling">

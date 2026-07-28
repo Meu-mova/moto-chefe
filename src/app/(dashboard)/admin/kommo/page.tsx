@@ -1,0 +1,86 @@
+import { AdminGuard } from '../components/admin-guard'
+import { getKommoStatusAction } from './actions'
+import { KommoConnectButton } from './components/kommo-connect-button'
+import { KommoCredenciaisForm } from './components/kommo-credenciais-form'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CheckCircle2, XCircle, Headset } from 'lucide-react'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+const ERROS: Record<string, string> = {
+  sem_permissao: 'Acesso restrito ao Admin Geral.',
+  sem_credenciais: 'Salve o Client ID e o Client Secret antes de conectar.',
+  sem_subdominio: 'Não foi possível identificar o subdomínio da conta. Preencha o subdomínio e tente de novo.',
+  state_invalido: 'Sessão de conexão expirada. Tente conectar novamente.',
+  acesso_negado: 'Autorização negada no Kommo.',
+  token: 'Erro ao obter os tokens do Kommo. Confira as credenciais e tente novamente.',
+}
+
+export default async function KommoPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
+  const params = await searchParams
+  const status = await getKommoStatusAction()
+
+  return (
+    <AdminGuard>
+      <div className="space-y-6 max-w-xl">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Headset size={22} /> Kommo (CRM)
+          </h1>
+          <p className="text-slate-500 text-sm">Integração para métricas de atendimento por colaborador</p>
+        </div>
+
+        {params.ok && (
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+            <CheckCircle2 size={16} /> Conta Kommo conectada com sucesso!
+          </div>
+        )}
+        {params.erro && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+            <XCircle size={16} /> {ERROS[params.erro] ?? 'Erro na conexão. Tente novamente.'}
+          </div>
+        )}
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Status da conexão</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              {status.conectado ? <CheckCircle2 className="text-green-500" size={20} /> : <XCircle className="text-slate-400" size={20} />}
+              <div>
+                <p className="font-medium text-sm">
+                  {status.conectado ? `Conectado${status.subdominio ? ` — ${status.subdominio}.kommo.com` : ''}` : 'Não conectado'}
+                </p>
+                {status.atualizadoEm && (
+                  <p className="text-xs text-slate-500">
+                    Última atualização: {format(new Date(status.atualizadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                )}
+              </div>
+            </div>
+            <KommoConnectButton conectado={status.conectado} temCredenciais={status.temCredenciais} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Credenciais da integração</CardTitle></CardHeader>
+          <CardContent>
+            <KommoCredenciaisForm subdominio={status.subdominio} temCredenciais={status.temCredenciais} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Como configurar no Kommo</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm text-slate-600">
+            <ol className="list-decimal list-inside space-y-1.5">
+              <li>No Kommo: <strong>Configurações → Integrações → criar integração</strong> (privada).</li>
+              <li>No campo <strong>Redirect URL</strong>, cole exatamente: <code className="bg-slate-100 px-1 rounded text-xs break-all">{status.redirectUri}</code></li>
+              <li>Marque os escopos de acesso (leads, contatos, eventos, usuários).</li>
+              <li>Copie o <strong>Client ID (ID da integração)</strong> e a <strong>chave secreta</strong> e salve acima.</li>
+              <li>Clique em <strong>Conectar ao Kommo</strong> e autorize.</li>
+            </ol>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminGuard>
+  )
+}

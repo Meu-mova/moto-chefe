@@ -583,6 +583,18 @@ export const demandas = pgTable('demandas', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── kommo_config (integração Kommo/CRM — conexão OAuth global, 1 linha) ─────
+export const kommoConfig = pgTable('kommo_config', {
+  id:           text('id').primaryKey().default('global'),
+  subdominio:   text('subdominio'),
+  clientId:     text('client_id'),
+  clientSecret: text('client_secret'),
+  accessToken:  text('access_token'),
+  refreshToken: text('refresh_token'),
+  expiresAt:    timestamp('expires_at', { withTimezone: true }),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── clientes ────────────────────────────────────────────────────────────────
 export const clientes = pgTable('clientes', {
   id: uuid('id').primaryKey().defaultRandom(),
