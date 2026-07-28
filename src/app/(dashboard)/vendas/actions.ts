@@ -255,11 +255,17 @@ async function criarVendaTx(
       .where(eq(reservas.id, reservaAtiva.id))
   }
 
-  // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida
+  // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida.
+  // Restringe à loja da moto e a demandas ainda abertas — evita IDOR (marcar
+  // demanda de outra loja) e corrida (revincular uma já atendida).
   if (data.demandaVinculadaId) {
     await tx.update(demandas)
       .set({ status: 'atendida', vendaId: venda.id })
-      .where(eq(demandas.id, data.demandaVinculadaId))
+      .where(and(
+        eq(demandas.id, data.demandaVinculadaId),
+        eq(demandas.status, 'aberta'),
+        eq(demandas.lojaId, moto.lojaId),
+      ))
   }
 
   // Moto fica em estoque com status 'vendida' até a NF de saída ser confirmada
@@ -909,11 +915,16 @@ export async function registrarReservaAction(data: DadosReserva) {
       .set({ disponibilidade: 'reservada' })
       .where(eq(motos.id, data.motoId))
 
-    // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida
+    // Vincular demanda (fluxo "vincular a demanda existente") → marca como atendida.
+    // Restringe à loja da moto e a demandas abertas — evita IDOR/corrida.
     if (data.demandaVinculadaId) {
       await tx.update(demandas)
         .set({ status: 'atendida' })
-        .where(eq(demandas.id, data.demandaVinculadaId))
+        .where(and(
+          eq(demandas.id, data.demandaVinculadaId),
+          eq(demandas.status, 'aberta'),
+          eq(demandas.lojaId, moto.lojaId),
+        ))
     }
 
     const meioLabel: Record<string, string> = {
