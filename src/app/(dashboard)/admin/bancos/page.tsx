@@ -19,13 +19,22 @@ async function BancosConteudo() {
     return <p className="text-sm text-slate-400">Nenhuma conta conectada.</p>
   }
 
-  const total = resultado.contas.reduce((s, c) => s + Number(c.saldo), 0)
+  const comSaldo = resultado.contas.filter(c => c.saldo != null)
+  const algumIndisponivel = comSaldo.length < resultado.contas.length
+  const total = comSaldo.reduce((s, c) => s + Number(c.saldo), 0)
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Total</CardTitle></CardHeader>
-        <CardContent><p className="text-2xl font-bold text-green-600">{fmt(String(total))}</p></CardContent>
+        <CardContent>
+          <p className="text-2xl font-bold text-green-600">{fmt(String(total))}</p>
+          {algumIndisponivel && (
+            <p className="text-xs text-amber-600 mt-1">
+              Total parcial — uma ou mais contas estão com saldo indisponível no momento.
+            </p>
+          )}
+        </CardContent>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {resultado.contas.map(c => (
@@ -35,7 +44,11 @@ async function BancosConteudo() {
               <p className="text-xs text-slate-400">Conta Corrente — {c.numero}</p>
             </CardHeader>
             <CardContent>
-              <p className="text-xl font-bold">{fmt(c.saldo)}</p>
+              {c.saldo != null ? (
+                <p className="text-xl font-bold">{fmt(c.saldo)}</p>
+              ) : (
+                <p className="text-sm text-amber-600">Saldo indisponível no momento — tente recarregar.</p>
+              )}
             </CardContent>
           </Card>
         ))}

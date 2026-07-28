@@ -3,7 +3,11 @@ type ContaBancaria = {
   banco: string
   tipo: 'corrente'
   numero: string
-  saldo: string
+  // null = saldo ao vivo indisponível no momento. NUNCA usamos o balance do
+  // list_accounts como fallback: para o Sicoob ele oscila para um valor lixo
+  // negativo (líquido de aplicação automática), então preferimos "indisponível"
+  // a mostrar um número errado.
+  saldo: string | null
 }
 
 type ResultadoSaldos =
@@ -37,11 +41,26 @@ async function chamarMcp(sessionId: string | null, body: Record<string, unknown>
   return { json, sessionId: res.headers.get('mcp-session-id') }
 }
 
+async function forcarSyncContas(sessionId: string, ids: string[]): Promise<void> {
+  await Promise.all(ids.map(id =>
+    chamarMcp(sessionId, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'openfinance_force_sync', arguments: { account_id: id } },
+    }).catch(() => {}),
+  ))
+}
+
+// Busca o saldo ao vivo (openfinance_get_account_balance) — única fonte confiável
+// do saldo. Se algum id não voltar na 1ª tentativa, força o sync dessas contas e
+// tenta mais uma vez. Contas que ainda assim não vierem ficam de fora do Map
+// (→ saldo "indisponível" na UI, nunca o valor lixo do list_accounts).
 async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Promise<Map<string, string>> {
   const saldos = new Map<string, string>()
   if (!sessionId || ids.length === 0) return saldos
 
-  try {
+  const chamar = async (): Promise<void> => {
     const chamada = await chamarMcp(sessionId, {
       jsonrpc: '2.0',
       id: 3,
@@ -51,21 +70,30 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
         arguments: { account_ids: ids },
       },
     })
-    if (chamada.json.error) return saldos
+    if (chamada.json.error) return
 
     const result = chamada.json.result as { content?: { text?: string }[] } | undefined
     const conteudo = result?.content?.[0]?.text
-    if (!conteudo) return saldos
+    if (!conteudo) return
 
     const payload = JSON.parse(conteudo) as { results?: Array<{
       account_id: string
-      balance: { balance: string }
+      balance?: { balance?: string | null }
     }> }
     for (const r of payload.results ?? []) {
-      saldos.set(r.account_id, r.balance.balance)
+      const v = r.balance?.balance
+      if (v != null && v !== '') saldos.set(r.account_id, v)
     }
-  } catch {
-    // saldo ao vivo é um refinamento; se falhar, usamos o saldo do list_accounts
+  }
+
+  try { await chamar() } catch { /* tenta o retry abaixo */ }
+
+  const faltando = ids.filter(id => !saldos.has(id))
+  if (faltando.length > 0) {
+    try {
+      await forcarSyncContas(sessionId, faltando)
+      await chamar()
+    } catch { /* mantém o que já veio; faltantes ficam indisponíveis */ }
   }
 
   return saldos
@@ -350,7 +378,8 @@ export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
       banco: r.bank,
       tipo: 'corrente',
       numero: r.number,
-      saldo: saldosAoVivo.get(r.id) ?? r.balance,
+      // Só o saldo ao vivo — sem fallback pro balance do list_accounts (lixo no Sicoob)
+      saldo: saldosAoVivo.get(r.id) ?? null,
     }))
 
     return { ok: true, contas }
