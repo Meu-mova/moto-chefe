@@ -626,6 +626,7 @@ export const kommoAtividadeDiaria = pgTable('kommo_atividade_diaria', {
   mensagens:    integer('mensagens').notNull().default(0),
   tarefas:      integer('tarefas').notNull().default(0),
   respSomaSeg:  bigint('resp_soma_seg', { mode: 'number' }).notNull().default(0),
+  respMedianaSeg: bigint('resp_mediana_seg', { mode: 'number' }).notNull().default(0), // mediana diária (horário comercial)
   respQtd:      integer('resp_qtd').notNull().default(0),
 }, (t) => ({ pk: primaryKey({ columns: [t.dia, t.kommoUserId] }) }))
 

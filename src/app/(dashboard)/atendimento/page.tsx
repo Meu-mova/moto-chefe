@@ -176,9 +176,9 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
           </div>
 
           <p className="text-xs text-slate-400">
-            <strong>Msgs</strong> = mensagens enviadas pelo colaborador. <strong>1ª resp.</strong> = tempo médio até a
-            primeira resposta humana ao cliente (respostas automáticas do bot não entram). Ligações não são registradas
-            no Kommo, então não aparecem aqui.
+            <strong>Msgs</strong> = mensagens enviadas pelo colaborador. <strong>1ª resp.</strong> = tempo típico (mediana)
+            até a primeira resposta humana, contando só leads que chegam em horário comercial (8h–18h) — respostas
+            automáticas do bot e leads de madrugada não entram. Ligações não são registradas no Kommo, então não aparecem.
           </p>
         </>
       )}

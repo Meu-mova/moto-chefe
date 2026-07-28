@@ -44,7 +44,8 @@ export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string
         kommoUserId: kommoAtividadeDiaria.kommoUserId,
         mensagens: sql<number>`coalesce(sum(${kommoAtividadeDiaria.mensagens}), 0)`,
         tarefas: sql<number>`coalesce(sum(${kommoAtividadeDiaria.tarefas}), 0)`,
-        respSoma: sql<number>`coalesce(sum(${kommoAtividadeDiaria.respSomaSeg}), 0)`,
+        // Tempo típico = média das medianas diárias, ponderada pela qtd de respostas
+        respSoma: sql<number>`coalesce(sum(${kommoAtividadeDiaria.respMedianaSeg} * ${kommoAtividadeDiaria.respQtd}), 0)`,
         respQtd: sql<number>`coalesce(sum(${kommoAtividadeDiaria.respQtd}), 0)`,
       })
       .from(kommoAtividadeDiaria)

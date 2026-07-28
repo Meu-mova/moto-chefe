@@ -259,27 +259,25 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
   const msgs = await puxarEventos(['incoming_chat_message', 'outgoing_chat_message'], floorUnix)
   const tarefas = await puxarEventos(['task_completed'], floorUnix)
 
-  // agg[`${dia}|${uid}`] = { mensagens, tarefas, respSoma, respQtd }
-  const agg = new Map<string, { mensagens: number; tarefas: number; respSoma: number; respQtd: number }>()
-  const bump = (dia: string, uid: string, campo: 'mensagens' | 'tarefas', v = 1) => {
+  // agg[`${dia}|${uid}`] = { mensagens, tarefas }
+  const agg = new Map<string, { mensagens: number; tarefas: number }>()
+  const bump = (dia: string, uid: string, campo: 'mensagens' | 'tarefas') => {
     if (!mapeados.has(uid)) return
     const k = `${dia}|${uid}`
-    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0, respSoma: 0, respQtd: 0 }
-    a[campo] += v
-    agg.set(k, a)
-  }
-  const bumpResp = (dia: string, uid: string, seg: number) => {
-    if (!mapeados.has(uid)) return
-    const k = `${dia}|${uid}`
-    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0, respSoma: 0, respQtd: 0 }
-    a.respSoma += seg; a.respQtd += 1
+    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0 }
+    a[campo] += 1
     agg.set(k, a)
   }
 
   for (const m of msgs) if (m.type === 'outgoing_chat_message' && m.created_by) bump(diaBRT(m.created_at), String(m.created_by), 'mensagens')
   for (const t of tarefas) if (t.created_by) bump(diaBRT(t.created_at), String(t.created_by), 'tarefas')
 
-  // Tempo de 1ª resposta: por lead, 1º incoming → 1º outgoing humano seguinte
+  // Tempo de 1ª resposta: por lead, 1º incoming → 1º outgoing humano seguinte.
+  // Só conta quando o lead chega em HORÁRIO COMERCIAL (8h–18h BRT) — evita que
+  // leads de madrugada respondidos de manhã inflem o tempo. Guarda os tempos por
+  // (dia, colaborador) e grava a MEDIANA do dia.
+  const horaBRT = (unix: number) => new Date((unix - 3 * 3600) * 1000).getUTCHours()
+  const respTimes = new Map<string, number[]>()
   const porLead = new Map<number, EventoKommo[]>()
   for (const m of msgs) {
     const arr = porLead.get(m.entity_id) ?? []
@@ -292,17 +290,32 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
       if (m.type === 'incoming_chat_message' && firstIn == null) firstIn = m.created_at
       else if (m.type === 'outgoing_chat_message' && firstIn != null && m.created_by) {
         const dt = m.created_at - firstIn
-        if (dt >= 0 && dt < 3 * 86400) bumpResp(diaBRT(m.created_at), String(m.created_by), dt)
+        const h = horaBRT(firstIn)
+        if (dt >= 0 && dt < 3 * 86400 && h >= 8 && h < 18 && mapeados.has(String(m.created_by))) {
+          const k = `${diaBRT(m.created_at)}|${m.created_by}`
+          const arr = respTimes.get(k) ?? []
+          arr.push(dt); respTimes.set(k, arr)
+        }
         firstIn = null
       }
     }
   }
 
+  const mediana = (arr: number[]) => {
+    if (arr.length === 0) return 0
+    const s = [...arr].sort((a, b) => a - b)
+    const n = s.length
+    return n % 2 ? s[(n - 1) / 2] : Math.round((s[n / 2 - 1] + s[n / 2]) / 2)
+  }
+
   // Substitui as linhas do período recomputado
   await db.delete(kommoAtividadeDiaria).where(gte(kommoAtividadeDiaria.dia, floorDia))
-  const rows = [...agg.entries()].map(([k, a]) => {
+  const chaves = new Set([...agg.keys(), ...respTimes.keys()])
+  const rows = [...chaves].map(k => {
     const [dia, kommoUserId] = k.split('|')
-    return { dia, kommoUserId, mensagens: a.mensagens, tarefas: a.tarefas, respSomaSeg: a.respSoma, respQtd: a.respQtd }
+    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0 }
+    const rt = respTimes.get(k) ?? []
+    return { dia, kommoUserId, mensagens: a.mensagens, tarefas: a.tarefas, respMedianaSeg: mediana(rt), respQtd: rt.length }
   })
   if (rows.length > 0) await db.insert(kommoAtividadeDiaria).values(rows)
 
