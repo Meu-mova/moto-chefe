@@ -9,7 +9,8 @@
     "type-check": "tsc --noEmit",
     "db:generate": "dotenv-cli -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv-cli -e .env.local -- drizzle-kit migrate",
-    "db:studio": "dotenv-cli -e .env.local -- drizzle-kit studio"
+    "db:studio": "dotenv-cli -e .env.local -- drizzle-kit studio",
+    "test": "node --import tsx --test src/lib/telegram/texto.test.ts src/lib/telegram/perguntas-prontas.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -47,6 +48,7 @@
     "drizzle-kit": "^0.31.10",
     "shadcn": "^4.8.1",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5",
     "xlsx": "^0.18.5"
   }
