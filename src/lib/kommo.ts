@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { kommoConfig, kommoLeads, kommoSyncStatus } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria } from '@/lib/db/schema'
+import { eq, sql, gte } from 'drizzle-orm'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
 // Espelha o padrão do Bling (src/lib/bling.ts), mas com config singleton
@@ -221,6 +221,94 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
   return { processados }
 }
 
+type EventoKommo = {
+  type: string
+  entity_id: number
+  created_by: number
+  created_at: number
+}
+
+async function puxarEventos(types: string[], fromUnix: number): Promise<EventoKommo[]> {
+  const tq = types.map(t => `filter[type][]=${t}`).join('&')
+  const out: EventoKommo[] = []
+  for (let page = 1; page <= 200; page++) {
+    const data = await kommoRequest(
+      `/api/v4/events?limit=250&page=${page}&${tq}&filter[created_at][from]=${fromUnix}`,
+    ) as { _embedded?: { events?: EventoKommo[] }; _links?: { next?: unknown } } | null
+    const evs = data?._embedded?.events ?? []
+    out.push(...evs)
+    if (!data?._links?.next) break
+  }
+  return out
+}
+
+// Dia (BRT, UTC-3) de um timestamp unix — alinha os buckets ao dia útil.
+function diaBRT(unix: number): string {
+  return new Date((unix - 3 * 3600) * 1000).toISOString().slice(0, 10)
+}
+
+// Recalcula a atividade (mensagens/tarefas/tempo de 1ª resposta) dos últimos
+// `dias` dias e substitui as linhas desse período. Recompute total do período
+// evita dupla contagem entre execuções. Tempo de resposta = 1ª resposta humana
+// (created_by=0, cliente/bot, fica de fora). Volume alto → só agregado diário.
+export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: number }> {
+  const mapeados = new Set((await db.select({ id: kommoUserMap.kommoUserId }).from(kommoUserMap)).map(r => r.id))
+  const floorUnix = Math.floor(Date.now() / 1000) - dias * 86400
+  const floorDia = diaBRT(floorUnix)
+
+  const msgs = await puxarEventos(['incoming_chat_message', 'outgoing_chat_message'], floorUnix)
+  const tarefas = await puxarEventos(['task_completed'], floorUnix)
+
+  // agg[`${dia}|${uid}`] = { mensagens, tarefas, respSoma, respQtd }
+  const agg = new Map<string, { mensagens: number; tarefas: number; respSoma: number; respQtd: number }>()
+  const bump = (dia: string, uid: string, campo: 'mensagens' | 'tarefas', v = 1) => {
+    if (!mapeados.has(uid)) return
+    const k = `${dia}|${uid}`
+    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0, respSoma: 0, respQtd: 0 }
+    a[campo] += v
+    agg.set(k, a)
+  }
+  const bumpResp = (dia: string, uid: string, seg: number) => {
+    if (!mapeados.has(uid)) return
+    const k = `${dia}|${uid}`
+    const a = agg.get(k) ?? { mensagens: 0, tarefas: 0, respSoma: 0, respQtd: 0 }
+    a.respSoma += seg; a.respQtd += 1
+    agg.set(k, a)
+  }
+
+  for (const m of msgs) if (m.type === 'outgoing_chat_message' && m.created_by) bump(diaBRT(m.created_at), String(m.created_by), 'mensagens')
+  for (const t of tarefas) if (t.created_by) bump(diaBRT(t.created_at), String(t.created_by), 'tarefas')
+
+  // Tempo de 1ª resposta: por lead, 1º incoming → 1º outgoing humano seguinte
+  const porLead = new Map<number, EventoKommo[]>()
+  for (const m of msgs) {
+    const arr = porLead.get(m.entity_id) ?? []
+    arr.push(m); porLead.set(m.entity_id, arr)
+  }
+  for (const lista of porLead.values()) {
+    lista.sort((a, b) => a.created_at - b.created_at)
+    let firstIn: number | null = null
+    for (const m of lista) {
+      if (m.type === 'incoming_chat_message' && firstIn == null) firstIn = m.created_at
+      else if (m.type === 'outgoing_chat_message' && firstIn != null && m.created_by) {
+        const dt = m.created_at - firstIn
+        if (dt >= 0 && dt < 3 * 86400) bumpResp(diaBRT(m.created_at), String(m.created_by), dt)
+        firstIn = null
+      }
+    }
+  }
+
+  // Substitui as linhas do período recomputado
+  await db.delete(kommoAtividadeDiaria).where(gte(kommoAtividadeDiaria.dia, floorDia))
+  const rows = [...agg.entries()].map(([k, a]) => {
+    const [dia, kommoUserId] = k.split('|')
+    return { dia, kommoUserId, mensagens: a.mensagens, tarefas: a.tarefas, respSomaSeg: a.respSoma, respQtd: a.respQtd }
+  })
+  if (rows.length > 0) await db.insert(kommoAtividadeDiaria).values(rows)
+
+  return { eventos: msgs.length + tarefas.length }
+}
+
 // Sincroniza se o cache passou da janela (15min) ou se forçado. Nunca lança —
 // devolve a hora da última sincronização pra UI.
 export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima: Date | null; erro: string | null }> {
@@ -229,6 +317,7 @@ export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima:
   if (!forcar && !stale) return { ultima: st?.ultimaSincronizacao ?? null, erro: null }
   try {
     await sincronizarLeadsKommo()
+    await sincronizarAtividadeKommo()
     const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
     return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
   } catch (e) {

@@ -11,6 +11,13 @@ import { ptBR } from 'date-fns/locale'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtDur = (s: number | null) => {
+  if (s == null) return '—'
+  const min = Math.round(s / 60)
+  if (min < 60) return `${min}min`
+  const h = min / 60
+  return h < 24 ? `${h.toFixed(1)}h` : `${Math.round(h / 24)}d`
+}
 
 export default async function AtendimentoPage({ searchParams }: { searchParams: Promise<{ de?: string; ate?: string; sync?: string }> }) {
   const usuario = await getUsuarioLogado()
@@ -36,7 +43,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     erroSync = r.erro
   }
 
-  const linhas = status.conectado ? await metricasAtendimento(inicio, fim) : []
+  const linhas = status.conectado ? await metricasAtendimento(inicio, fim, de, ate) : []
   const tot = linhas.reduce((a, l) => ({
     volume: a.volume + l.volume,
     ganhos: a.ganhos + l.ganhos,
@@ -115,11 +122,11 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* Ranking */}
             <Card>
               <CardHeader><CardTitle className="text-base">Ranking por colaborador</CardTitle></CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y text-slate-500">
                     <tr>
@@ -129,12 +136,15 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
                       <th className="text-right px-3 py-2 font-medium">Perdidos</th>
                       <th className="text-right px-3 py-2 font-medium">Conv.</th>
                       <th className="text-right px-4 py-2 font-medium">Valor</th>
+                      <th className="text-right px-3 py-2 font-medium">Msgs</th>
+                      <th className="text-right px-3 py-2 font-medium">Tarefas</th>
+                      <th className="text-right px-4 py-2 font-medium whitespace-nowrap">1ª resp.</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {linhas.map((l, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 font-medium">
+                        <td className="px-4 py-2 font-medium whitespace-nowrap">
                           {l.nome}
                           {!l.vinculado && <span className="ml-1 text-xs text-amber-600" title="Usuário do Kommo sem vínculo com o Mova">·não vinculado</span>}
                         </td>
@@ -146,6 +156,9 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
                           {fmtBRL(l.valor)}
                           {l.ganhosSemValor > 0 && <span className="ml-1 text-amber-500" title={`${l.ganhosSemValor} ganho(s) sem valor`}>⚠</span>}
                         </td>
+                        <td className="px-3 py-2 text-right text-slate-600">{l.mensagens}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{l.tarefas}</td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">{fmtDur(l.tempoRespSeg)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -161,6 +174,12 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
               </CardContent>
             </Card>
           </div>
+
+          <p className="text-xs text-slate-400">
+            <strong>Msgs</strong> = mensagens enviadas pelo colaborador. <strong>1ª resp.</strong> = tempo médio até a
+            primeira resposta humana ao cliente (respostas automáticas do bot não entram). Ligações não são registradas
+            no Kommo, então não aparecem aqui.
+          </p>
         </>
       )}
     </div>

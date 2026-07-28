@@ -619,6 +619,16 @@ export const kommoSyncStatus = pgTable('kommo_sync_status', {
   ultimoUpdatedAt:     bigint('ultimo_updated_at', { mode: 'number' }),
 })
 
+// Atividade diária por colaborador (mensagens/tarefas/tempo de resposta) — Fase 2
+export const kommoAtividadeDiaria = pgTable('kommo_atividade_diaria', {
+  dia:          date('dia').notNull(),
+  kommoUserId:  text('kommo_user_id').notNull(),
+  mensagens:    integer('mensagens').notNull().default(0),
+  tarefas:      integer('tarefas').notNull().default(0),
+  respSomaSeg:  bigint('resp_soma_seg', { mode: 'number' }).notNull().default(0),
+  respQtd:      integer('resp_qtd').notNull().default(0),
+}, (t) => ({ pk: primaryKey({ columns: [t.dia, t.kommoUserId] }) }))
+
 // ─── clientes ────────────────────────────────────────────────────────────────
 export const clientes = pgTable('clientes', {
   id: uuid('id').primaryKey().defaultRandom(),
