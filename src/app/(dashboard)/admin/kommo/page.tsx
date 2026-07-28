@@ -2,6 +2,7 @@ import { AdminGuard } from '../components/admin-guard'
 import { getKommoStatusAction } from './actions'
 import { KommoConnectButton } from './components/kommo-connect-button'
 import { KommoCredenciaisForm } from './components/kommo-credenciais-form'
+import { KommoTokenForm } from './components/kommo-token-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, XCircle, Headset } from 'lucide-react'
 import { format } from 'date-fns'
@@ -62,11 +63,21 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Credenciais da integração</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Conectar por token de longa duração</CardTitle>
+            <p className="text-xs text-slate-500">Método mais simples — cole o token da integração privada (Kommo → sua integração → aba Chaves e escopos).</p>
+          </CardHeader>
           <CardContent>
-            <KommoCredenciaisForm subdominio={status.subdominio} temCredenciais={status.temCredenciais} />
+            <KommoTokenForm subdominio={status.subdominio} />
           </CardContent>
         </Card>
+
+        <details className="rounded-lg border">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-600">Alternativa: conectar por OAuth (Client ID/Secret)</summary>
+          <div className="border-t p-4">
+            <KommoCredenciaisForm subdominio={status.subdominio} temCredenciais={status.temCredenciais} />
+          </div>
+        </details>
 
         <Card>
           <CardHeader><CardTitle className="text-base">Como configurar no Kommo</CardTitle></CardHeader>

@@ -82,20 +82,45 @@ export async function salvarTokensKommo(access: string, refresh: string, expires
     })
 }
 
+// Salva um token de longa duração (integração privada do Kommo) — sem refresh.
+export async function salvarTokenLongo(token: string, subdominio: string, expiraEm: Date | null) {
+  await db.insert(kommoConfig)
+    .values({ id: CONFIG_ID, accessToken: token, refreshToken: null, expiresAt: expiraEm, subdominio, atualizadoEm: new Date() })
+    .onConflictDoUpdate({
+      target: kommoConfig.id,
+      set: { accessToken: token, refreshToken: null, expiresAt: expiraEm, subdominio, atualizadoEm: new Date() },
+    })
+}
+
 export async function getKommoStatus() {
   const cfg = await getKommoConfig()
   return {
-    conectado: !!cfg?.refreshToken,
+    conectado: !!(cfg?.accessToken && cfg?.subdominio),
+    metodo: cfg?.refreshToken ? ('oauth' as const) : (cfg?.accessToken ? ('token' as const) : null),
     temCredenciais: !!(cfg?.clientId && cfg?.clientSecret),
     subdominio: cfg?.subdominio ?? null,
+    expiraEm: cfg?.expiresAt ?? null,
     atualizadoEm: cfg?.atualizadoEm ?? null,
   }
 }
 
-// Access token válido (refaz o refresh quando faltam <5min p/ expirar).
+// Access token válido para a API. Dois modos:
+//  - Token de longa duração: accessToken presente e SEM refreshToken → usa direto.
+//  - OAuth: refaz o refresh quando faltam <5min p/ expirar.
 async function getToken(): Promise<{ token: string; subdominio: string }> {
   const cfg = await getKommoConfig()
-  if (!cfg?.refreshToken || !cfg.subdominio || !cfg.clientId || !cfg.clientSecret) {
+  if (!cfg?.subdominio) throw new Error('Kommo não conectado (subdomínio ausente). Configure em Admin → Kommo.')
+
+  // Modo token de longa duração
+  if (cfg.accessToken && !cfg.refreshToken) {
+    if (cfg.expiresAt && cfg.expiresAt <= new Date()) {
+      throw new Error('Token do Kommo expirado. Gere um novo em Admin → Kommo.')
+    }
+    return { token: cfg.accessToken, subdominio: cfg.subdominio }
+  }
+
+  // Modo OAuth (com refresh)
+  if (!cfg.refreshToken || !cfg.clientId || !cfg.clientSecret) {
     throw new Error('Kommo não conectado. Configure em Admin → Kommo.')
   }
   const agora = new Date()
