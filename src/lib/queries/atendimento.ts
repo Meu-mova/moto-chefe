@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { kommoLeads, kommoUserMap, usuarios, kommoAtividadeDiaria } from '@/lib/db/schema'
-import { sql, eq, and, gte, lte } from 'drizzle-orm'
+import { sql, eq, and, gte, lte, inArray } from 'drizzle-orm'
 
 export type LinhaAtendimento = {
   usuarioId: string | null
@@ -21,7 +21,9 @@ export type LinhaAtendimento = {
 // Volume = leads criados no período. Ganhos/perdidos/valor = leads fechados no
 // período (status 142 ganho / 143 perdido). Atividade (mensagens/tarefas/tempo
 // de resposta) vem dos agregados diários (dia entre deStr..ateStr).
-export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string, ateStr: string): Promise<LinhaAtendimento[]> {
+// lojaIds = lojas do grupo ativo — só colaboradores desse grupo aparecem.
+export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string, ateStr: string, lojaIds: string[]): Promise<LinhaAtendimento[]> {
+  if (lojaIds.length === 0) return []
   // ISO string, não Date — o postgres.js (prepare:false) quebra com Date dentro do sql``
   const iniIso = inicio.toISOString()
   const fimIso = fim.toISOString()
@@ -41,6 +43,7 @@ export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string
       .from(kommoUserMap)
       .leftJoin(kommoLeads, eq(kommoLeads.kommoUserId, kommoUserMap.kommoUserId))
       .leftJoin(usuarios, eq(usuarios.id, kommoUserMap.usuarioId))
+      .where(inArray(usuarios.lojaId, lojaIds))
       .groupBy(kommoUserMap.kommoUserId, kommoUserMap.usuarioId, usuarios.nome, kommoUserMap.nomeKommo),
     db
       .select({

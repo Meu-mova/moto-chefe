@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { getKommoStatus, sincronizarSeNecessario } from '@/lib/kommo'
 import { metricasAtendimento } from '@/lib/queries/atendimento'
 import { AtendimentoChart } from './components/atendimento-chart'
@@ -25,6 +26,8 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
 
   const params = await searchParams
   const status = await getKommoStatus()
+  const grupo = await getGrupoAtivo(usuario)
+  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const hoje = new Date()
   const deDefault = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
@@ -43,7 +46,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     erroSync = r.erro
   }
 
-  const linhas = status.conectado ? await metricasAtendimento(inicio, fim, de, ate) : []
+  const linhas = status.conectado ? await metricasAtendimento(inicio, fim, de, ate, lojaIds) : []
   const tot = linhas.reduce((a, l) => ({
     volume: a.volume + l.volume,
     ganhos: a.ganhos + l.ganhos,
@@ -59,8 +62,8 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Headset size={22} /> Atendimento</h1>
-          <p className="text-slate-500 text-sm">Métricas de atendimento por colaborador (Kommo CRM)</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Headset size={22} /> Atendimento — {grupo.nome}</h1>
+          <p className="text-slate-500 text-sm">Métricas de atendimento por colaborador (Kommo CRM) · grupo {grupo.nome}</p>
         </div>
         <div className="flex items-center gap-3">
           {ultimaSync && (
