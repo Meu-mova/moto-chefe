@@ -144,6 +144,117 @@ export async function slaAtendimento(inicio: Date, fim: Date, lojaIds: string[])
   return { sla5, sla15, sla60, slaMais, semResposta: Number(r.semresposta) || 0, respondidos: sla5 + sla15 + sla60 + slaMais }
 }
 
+export type LeadDescoberto = {
+  leadId: number
+  nome: string
+  etapa: string
+  valor: number
+  dias: number
+  colaborador: string
+}
+
+export type FechamentoColaborador = {
+  usuarioId: string | null
+  kommoUserId: string
+  nome: string
+  naEtapa: number
+  semTarefa: number
+  valorParado: number
+  cobertura: number
+  leads: LeadDescoberto[]   // só os `limite` mais parados; a contagem cheia é semTarefa
+}
+
+// Foto do AGORA (ignora período): leads parados nas etapas finais do funil
+// ("tem interesse" / "em negociação") sem nenhuma tarefa em aberto. Tarefa
+// vencida conta como coberta. Filtra pelo grupo ativo via usuarios.loja_id.
+// `limite` corta só a LISTA exibida (os 20 mais parados) — as contagens e o
+// valor parado são sempre do conjunto inteiro.
+export async function fechamentoSemTarefa(lojaIds: string[], usuarioId?: string, limite = 20) {
+  const vazio = {
+    porColaborador: [] as FechamentoColaborador[],
+    naEtapa: 0, semTarefa: 0, valorParado: 0, cobertura: 1,
+    leads: [] as LeadDescoberto[],
+  }
+  if (lojaIds.length === 0) return vazio
+
+  const rows = await db.execute(sql`
+    SELECT
+      l.lead_id                                   as lead_id,
+      coalesce(nullif(l.nome, ''), '(sem nome)')  as nome,
+      s.nome                                      as etapa,
+      l.price::float8                             as valor,
+      greatest(0, floor(extract(epoch from (now() - coalesce(l.atualizado_em, l.criado_em, now()))) / 86400))::int as dias,
+      k.kommo_user_id                             as kommo_user_id,
+      k.usuario_id                                as usuario_id,
+      coalesce(u.nome, k.nome_kommo, '—')         as colaborador,
+      (t.id is not null)                          as tem_tarefa
+    FROM kommo_leads l
+    JOIN kommo_stages s   ON s.status_id = l.status_id AND s.etapa_fechamento
+    JOIN kommo_user_map k ON k.kommo_user_id = l.kommo_user_id
+    JOIN usuarios u       ON u.id = k.usuario_id
+    LEFT JOIN LATERAL (SELECT id FROM kommo_tarefas_abertas ta WHERE ta.lead_id = l.lead_id LIMIT 1) t ON true
+    WHERE u.loja_id in ${lojaIds}
+      ${usuarioId ? sql`AND k.usuario_id = ${usuarioId}` : sql``}
+    ORDER BY dias DESC
+  `) as unknown as {
+    lead_id: number; nome: string; etapa: string; valor: number; dias: number
+    kommo_user_id: string; usuario_id: string | null; colaborador: string; tem_tarefa: boolean
+  }[]
+
+  const porUser = new Map<string, FechamentoColaborador>()
+  for (const r of rows) {
+    const c = porUser.get(r.kommo_user_id) ?? {
+      usuarioId: r.usuario_id, kommoUserId: r.kommo_user_id, nome: r.colaborador,
+      naEtapa: 0, semTarefa: 0, valorParado: 0, cobertura: 1, leads: [],
+    }
+    c.naEtapa += 1
+    if (!r.tem_tarefa) {
+      c.semTarefa += 1
+      c.valorParado += Number(r.valor) || 0
+      // rows já vem ordenado por dias desc — os primeiros são os mais parados
+      if (c.leads.length < limite) {
+        c.leads.push({
+          leadId: Number(r.lead_id),
+          nome: r.nome,
+          etapa: r.etapa,
+          valor: Number(r.valor) || 0,
+          dias: Number(r.dias) || 0,
+          colaborador: r.colaborador,
+        })
+      }
+    }
+    porUser.set(r.kommo_user_id, c)
+  }
+
+  const porColaborador = [...porUser.values()]
+    .map(c => ({ ...c, cobertura: c.naEtapa ? (c.naEtapa - c.semTarefa) / c.naEtapa : 1 }))
+    .sort((a, b) => b.semTarefa - a.semTarefa)
+
+  const naEtapa = porColaborador.reduce((a, c) => a + c.naEtapa, 0)
+  const semTarefa = porColaborador.reduce((a, c) => a + c.semTarefa, 0)
+  return {
+    porColaborador,
+    naEtapa,
+    semTarefa,
+    valorParado: porColaborador.reduce((a, c) => a + c.valorParado, 0),
+    cobertura: naEtapa ? (naEtapa - semTarefa) / naEtapa : 1,
+    leads: porColaborador.flatMap(c => c.leads).sort((a, b) => b.dias - a.dias).slice(0, limite),
+  }
+}
+
+// Funis em que nenhuma etapa casou com "interesse"/"negocia" — provavelmente
+// etapa renomeada no Kommo. Alimenta o aviso na página Atendimento.
+export async function funisSemEtapaDetectada(): Promise<string[]> {
+  const rows = await db.execute(sql`
+    SELECT coalesce(pipeline_nome, '(sem nome)') as funil
+    FROM kommo_stages
+    GROUP BY pipeline_id, pipeline_nome
+    HAVING bool_or(etapa_fechamento) = false
+    ORDER BY 1
+  `) as unknown as { funil: string }[]
+  return rows.map(r => r.funil)
+}
+
 // Motivos de perda no período (leads perdidos fechados no período), do grupo.
 export async function motivosDePerda(inicio: Date, fim: Date, lojaIds: string[]) {
   if (lojaIds.length === 0) return { motivos: [] as { motivo: string; qtd: number }[], total: 0, semMotivo: 0 }
