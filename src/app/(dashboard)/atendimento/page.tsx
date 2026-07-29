@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { getKommoStatus, sincronizarSeNecessario } from '@/lib/kommo'
-import { metricasAtendimento, slaAtendimento, motivosDePerda } from '@/lib/queries/atendimento'
+import { metricasAtendimento, slaAtendimento, motivosDePerda, fechamentoSemTarefa, funisSemEtapaDetectada } from '@/lib/queries/atendimento'
 import { AtendimentoChart } from './components/atendimento-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Headset, RefreshCw, AlertTriangle, TriangleAlert } from 'lucide-react'
+import { Headset, RefreshCw, AlertTriangle, TriangleAlert, CheckCircle2, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -46,13 +46,18 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     erroSync = r.erro
   }
 
-  const [linhas, sla, perdas] = status.conectado
+  const [linhas, sla, perdas, fechamento, funisSemEtapa] = status.conectado
     ? await Promise.all([
         metricasAtendimento(inicio, fim, de, ate, lojaIds),
         slaAtendimento(inicio, fim, lojaIds),
         motivosDePerda(inicio, fim, lojaIds),
+        // 5 leads por colaborador: com centenas de descobertos, a lista cheia
+        // viraria uma parede — o total continua completo nas contagens.
+        fechamentoSemTarefa(lojaIds, undefined, 5),
+        funisSemEtapaDetectada(),
       ])
-    : [[], { sla5: 0, sla15: 0, sla60: 0, slaMais: 0, semResposta: 0, respondidos: 0 }, { motivos: [], total: 0, semMotivo: 0 }]
+    : [[], { sla5: 0, sla15: 0, sla60: 0, slaMais: 0, semResposta: 0, respondidos: 0 }, { motivos: [], total: 0, semMotivo: 0 },
+       { porColaborador: [], naEtapa: 0, semTarefa: 0, valorParado: 0, cobertura: 1, leads: [] }, []]
   const tot = linhas.reduce((a, l) => ({
     volume: a.volume + l.volume,
     ganhos: a.ganhos + l.ganhos,
@@ -66,6 +71,9 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
   const pctSemResp = tot.comIncoming ? Math.round((tot.semResposta / tot.comIncoming) * 100) : 0
   const slaTotal = sla.respondidos || 1
   const pct = (n: number) => Math.round((n / slaTotal) * 100)
+
+  const coberturaPct = Math.round(fechamento.cobertura * 100)
+  const linkLead = (id: number) => status.subdominio ? `https://${status.subdominio}.kommo.com/leads/detail/${id}` : null
 
   const qsPeriodo = `de=${de}&ate=${ate}`
 
@@ -118,11 +126,18 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
       {status.conectado && (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card><CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Leads atendidos</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{tot.volume.toLocaleString('pt-BR')}</p></CardContent></Card>
             <Card><CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Vendas ganhas</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{tot.ganhos}</p><p className="text-xs text-slate-400">{tot.perdidos} perdidas</p></CardContent></Card>
             <Card><CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Conversão</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convTotal}%</p></CardContent></Card>
             <Card><CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Valor ganho</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{fmtBRL(tot.valor)}</p></CardContent></Card>
+            <Card>
+              <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Cobertura de fechamento</CardTitle></CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${fechamento.semTarefa > 0 ? 'text-red-600' : 'text-green-600'}`}>{coberturaPct}%</p>
+                <p className="text-xs text-slate-400">{fechamento.semTarefa} de {fechamento.naEtapa} sem tarefa</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Alerta — leads sem resposta */}
@@ -146,6 +161,78 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
               </div>
             </div>
           )}
+
+          {/* Aviso de configuração: funil sem etapa de fechamento detectada */}
+          {funisSemEtapa.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+              <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Funil sem etapa de fechamento detectada: {funisSemEtapa.join(', ')}.</p>
+                <p className="text-xs mt-0.5">O sistema reconhece as etapas pelo nome (&quot;tem interesse&quot; / &quot;em negociação&quot;). Renomeie a etapa no Kommo para voltar a medir esse funil.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Leads em interesse/negociação sem tarefa agendada — situação atual */}
+          <Card className={fechamento.semTarefa > 0 ? 'border-2 border-red-500' : undefined}>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+                {fechamento.semTarefa > 0
+                  ? <><AlertTriangle size={18} className="text-red-600" /> <span className="text-red-700">Leads prestes a fechar sem tarefa agendada</span></>
+                  : <><CheckCircle2 size={18} className="text-green-600" /> Leads prestes a fechar sem tarefa agendada</>}
+                <span className="text-xs font-normal text-slate-400">· situação atual, não depende do período</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {fechamento.naEtapa === 0 ? (
+                <p className="text-sm text-slate-400">Nenhum lead nas etapas de interesse/negociação no momento.</p>
+              ) : fechamento.semTarefa === 0 ? (
+                <p className="text-sm text-green-700">Todos os {fechamento.naEtapa} leads em interesse/negociação têm tarefa agendada.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-red-800">
+                    <strong>{fechamento.semTarefa}</strong> de {fechamento.naEtapa} leads nessas etapas estão sem próximo passo marcado
+                    {fechamento.valorParado > 0 ? <> — <strong>{fmtBRL(fechamento.valorParado)}</strong> parados</> : null}.
+                  </p>
+                  {fechamento.porColaborador.filter(c => c.semTarefa > 0).map(c => (
+                    <div key={c.kommoUserId} className="rounded-lg border">
+                      <div className="flex items-center justify-between gap-2 bg-slate-50 px-3 py-2 text-sm border-b flex-wrap">
+                        <span className="font-medium">{c.nome}</span>
+                        <span className="text-slate-500 text-xs">
+                          {c.semTarefa} de {c.naEtapa} sem tarefa · {Math.round(c.cobertura * 100)}% de cobertura
+                          {c.valorParado > 0 ? ` · ${fmtBRL(c.valorParado)}` : ''}
+                        </span>
+                      </div>
+                      <ul className="divide-y">
+                        {c.leads.map(l => {
+                          const href = linkLead(l.leadId)
+                          return (
+                            <li key={l.leadId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                              <div className="min-w-0">
+                                <p className="truncate">{l.nome}</p>
+                                <p className="text-xs text-slate-500">{l.etapa} · parado há {l.dias} dia(s){l.valor > 0 ? ` · ${fmtBRL(l.valor)}` : ''}</p>
+                              </div>
+                              {href && (
+                                <a href={href} target="_blank" rel="noopener noreferrer"
+                                   className="shrink-0 inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 underline">
+                                  Abrir <ExternalLink size={12} />
+                                </a>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      {c.semTarefa > c.leads.length && (
+                        <p className="px-3 py-1.5 text-xs text-slate-400 border-t">
+                          Mostrando os {c.leads.length} parados há mais tempo — outros {c.semTarefa - c.leads.length} no Kommo.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="space-y-4">
             {/* Ranking */}
@@ -256,7 +343,9 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
             <strong>Sem resp.</strong> = leads em que o cliente mandou mensagem e nenhum atendente respondeu.{' '}
             <strong>Msgs</strong> = mensagens enviadas pelo colaborador. <strong>1ª resp.</strong> = tempo típico (mediana)
             até a primeira resposta humana, contando só leads que chegam em horário comercial (8h–18h) — respostas
-            automáticas do bot e leads de madrugada não entram. Ligações não são registradas no Kommo, então não aparecem.
+            automáticas do bot e leads de madrugada não entram. Ligações não são registradas no Kommo, então não aparecem.{' '}
+            <strong>Cobertura de fechamento</strong> = % dos leads que estão hoje nas etapas &quot;tem interesse&quot; e
+            &quot;em negociação&quot; com pelo menos uma tarefa em aberto no Kommo (de qualquer tipo, mesmo vencida).
           </p>
         </>
       )}
