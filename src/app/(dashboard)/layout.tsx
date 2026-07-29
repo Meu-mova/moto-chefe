@@ -2,7 +2,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
 
@@ -13,7 +13,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <Providers>
       <div className="flex min-h-screen">
-        <Sidebar papel={usuario.papel} conecta={usuario.conecta} />
+        <Sidebar
+          papel={usuario.papel}
+          conecta={usuario.conecta}
+          mostrarEntrada={
+            podeRegistrarEntradaMotos(usuario) &&
+            !['admin_geral', 'admin_socio'].includes(usuario.papel)
+          }
+        />
         <div className="flex-1 flex flex-col">
           <Header />
           <GroupSelector usuario={usuario} />

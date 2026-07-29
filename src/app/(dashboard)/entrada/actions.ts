@@ -3,8 +3,33 @@
 import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque, modelos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
+
+type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
+
+// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la.
+// Admin escolhe qualquer loja (o seletor já é filtrado pelo grupo ativo do cookie);
+// quem entra pela exceção nominal fica restrito ao grupo da própria loja, para que
+// um lojaId forjado no payload não jogue moto no estoque de outro grupo.
+async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
+  const [loja] = await db
+    .select({ id: lojas.id, grupoId: lojas.grupoId })
+    .from(lojas)
+    .where(eq(lojas.id, lojaId))
+    .limit(1)
+
+  if (!loja) return { error: 'Loja não encontrada' as const }
+
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    if (!usuario.lojaId) return { error: 'Usuário sem loja associada' as const }
+    const grupoUsuario = await getGrupoIdDaLoja(usuario.lojaId)
+    if (grupoUsuario !== loja.grupoId) return { error: 'Loja fora do seu grupo' as const }
+  }
+
+  return { loja }
+}
 
 type MotoEntrada = {
   chassi: string
@@ -20,7 +45,7 @@ export async function registrarEntrada(formData: {
   motos: MotoEntrada[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+  if (!podeRegistrarEntradaMotos(usuario)) {
     return { error: 'Sem permissão' }
   }
 
@@ -30,15 +55,9 @@ export async function registrarEntrada(formData: {
 
   const precoCompra = formData.precoCompra.replace(',', '.')
 
-  const [loja] = await db
-    .select({ id: lojas.id })
-    .from(lojas)
-    .where(eq(lojas.id, formData.lojaId))
-    .limit(1)
-
-  if (!loja) {
-    return { error: 'Loja não encontrada' }
-  }
+  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  if ('error' in destino) return { error: destino.error }
+  const { loja } = destino
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
@@ -124,7 +143,7 @@ export async function registrarEntradaLote(formData: {
   motos: MotoEntradaLote[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+  if (!podeRegistrarEntradaMotos(usuario)) {
     return { error: 'Sem permissão' }
   }
 
@@ -136,15 +155,9 @@ export async function registrarEntradaLote(formData: {
     return { error: 'Importe as motos da planilha' }
   }
 
-  const [loja] = await db
-    .select({ id: lojas.id })
-    .from(lojas)
-    .where(eq(lojas.id, formData.lojaId))
-    .limit(1)
-
-  if (!loja) {
-    return { error: 'Loja não encontrada' }
-  }
+  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  if ('error' in destino) return { error: destino.error }
+  const { loja } = destino
 
   const allModelos = await db
     .select({ id: modelos.id, modelo: modelos.modelo, precoCompraPadrao: modelos.precoCompraPadrao })

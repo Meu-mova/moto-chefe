@@ -1,4 +1,4 @@
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { modelos } from '@/lib/db/schema'
 import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
@@ -7,7 +7,7 @@ import { EntradaForm } from './components/entrada-form'
 
 export default async function EntradaPage() {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
+  if (!podeRegistrarEntradaMotos(usuario)) redirect('/dashboard')
 
   const [modelosOpts, lojasOpts] = await Promise.all([
     db

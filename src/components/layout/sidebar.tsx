@@ -8,7 +8,7 @@ import {
   ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, ListChecks, Package2, Link as LinkIcon, Headset,
+  Radar, CalendarDays, ListChecks, Package2, Link as LinkIcon, Headset, PackagePlus,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -26,9 +26,11 @@ const baseNavItems = [
 const adminPapeis = ['admin_geral', 'admin_socio']
 const PAPEIS_PIX_MCP = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
-type Props = { papel: string; conecta: string | null }
+// mostrarEntrada é decidido no servidor (podeRegistrarEntradaMotos): admin chega
+// na Entrada pelo /admin, então o item só aparece para quem entra pela exceção.
+type Props = { papel: string; conecta: string | null; mostrarEntrada: boolean }
 
-export function Sidebar({ papel, conecta }: Props) {
+export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -39,6 +41,7 @@ export function Sidebar({ papel, conecta }: Props) {
   const isAdmin = adminPapeis.includes(papel)
   const navItems = [
     ...baseNavItems,
+    ...(mostrarEntrada                 ? [{ href: '/entrada',     label: 'Entrada',     icon: PackagePlus  }] : []),
     ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',       label: 'Caixa',       icon: Wallet       }] : []),
     // ValidaPix (/pix) abolido do menu — código/dados mantidos intactos, revertível.
     ...(PAPEIS_PIX_MCP.includes(papel) ? [{ href: '/pix-mcp',     label: 'PIX',         icon: QrCode       }] : []),
