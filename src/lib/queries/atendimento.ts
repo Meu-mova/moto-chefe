@@ -22,6 +22,9 @@ export type LinhaAtendimento = {
 // período (status 142 ganho / 143 perdido). Atividade (mensagens/tarefas/tempo
 // de resposta) vem dos agregados diários (dia entre deStr..ateStr).
 export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string, ateStr: string): Promise<LinhaAtendimento[]> {
+  // ISO string, não Date — o postgres.js (prepare:false) quebra com Date dentro do sql``
+  const iniIso = inicio.toISOString()
+  const fimIso = fim.toISOString()
   const [leadsRows, ativRows] = await Promise.all([
     db
       .select({
@@ -29,11 +32,11 @@ export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string
         usuarioId: kommoUserMap.usuarioId,
         nomeMova: usuarios.nome,
         nomeKommo: kommoUserMap.nomeKommo,
-        volume: sql<number>`count(*) filter (where ${kommoLeads.criadoEm} >= ${inicio} and ${kommoLeads.criadoEm} <= ${fim})`,
-        ganhos: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${inicio} and ${kommoLeads.fechadoEm} <= ${fim})`,
-        perdidos: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 143 and ${kommoLeads.fechadoEm} >= ${inicio} and ${kommoLeads.fechadoEm} <= ${fim})`,
-        valor: sql<string>`coalesce(sum(${kommoLeads.price}) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${inicio} and ${kommoLeads.fechadoEm} <= ${fim}), 0)`,
-        ganhosSemValor: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${inicio} and ${kommoLeads.fechadoEm} <= ${fim} and ${kommoLeads.price} = 0)`,
+        volume: sql<number>`count(*) filter (where ${kommoLeads.criadoEm} >= ${iniIso} and ${kommoLeads.criadoEm} <= ${fimIso})`,
+        ganhos: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${iniIso} and ${kommoLeads.fechadoEm} <= ${fimIso})`,
+        perdidos: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 143 and ${kommoLeads.fechadoEm} >= ${iniIso} and ${kommoLeads.fechadoEm} <= ${fimIso})`,
+        valor: sql<string>`coalesce(sum(${kommoLeads.price}) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${iniIso} and ${kommoLeads.fechadoEm} <= ${fimIso}), 0)`,
+        ganhosSemValor: sql<number>`count(*) filter (where ${kommoLeads.statusId} = 142 and ${kommoLeads.fechadoEm} >= ${iniIso} and ${kommoLeads.fechadoEm} <= ${fimIso} and ${kommoLeads.price} = 0)`,
       })
       .from(kommoUserMap)
       .leftJoin(kommoLeads, eq(kommoLeads.kommoUserId, kommoUserMap.kommoUserId))
