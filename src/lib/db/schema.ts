@@ -608,9 +608,18 @@ export const kommoLeads = pgTable('kommo_leads', {
   statusId:     integer('status_id'),
   pipelineId:   text('pipeline_id'),
   price:        numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),
+  lossReasonId: bigint('loss_reason_id', { mode: 'number' }),
+  primeiroIncomingEm: timestamp('primeiro_incoming_em', { withTimezone: true }), // 1ª msg do cliente
+  primeiraRespostaEm: timestamp('primeira_resposta_em', { withTimezone: true }), // 1ª resposta humana
   criadoEm:     timestamp('criado_em', { withTimezone: true }),
   fechadoEm:    timestamp('fechado_em', { withTimezone: true }),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
+})
+
+// Catálogo de motivos de perda do Kommo (id -> nome) — Fase 3
+export const kommoLossReasons = pgTable('kommo_loss_reasons', {
+  id:   bigint('id', { mode: 'number' }).primaryKey(),
+  nome: text('nome').notNull(),
 })
 
 export const kommoSyncStatus = pgTable('kommo_sync_status', {

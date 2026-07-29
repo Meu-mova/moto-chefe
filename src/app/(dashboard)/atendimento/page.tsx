@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { getKommoStatus, sincronizarSeNecessario } from '@/lib/kommo'
-import { metricasAtendimento } from '@/lib/queries/atendimento'
+import { metricasAtendimento, slaAtendimento, motivosDePerda } from '@/lib/queries/atendimento'
 import { AtendimentoChart } from './components/atendimento-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Headset, RefreshCw, AlertTriangle, TriangleAlert } from 'lucide-react'
@@ -46,15 +46,26 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
     erroSync = r.erro
   }
 
-  const linhas = status.conectado ? await metricasAtendimento(inicio, fim, de, ate, lojaIds) : []
+  const [linhas, sla, perdas] = status.conectado
+    ? await Promise.all([
+        metricasAtendimento(inicio, fim, de, ate, lojaIds),
+        slaAtendimento(inicio, fim, lojaIds),
+        motivosDePerda(inicio, fim, lojaIds),
+      ])
+    : [[], { sla5: 0, sla15: 0, sla60: 0, slaMais: 0, semResposta: 0, respondidos: 0 }, { motivos: [], total: 0, semMotivo: 0 }]
   const tot = linhas.reduce((a, l) => ({
     volume: a.volume + l.volume,
     ganhos: a.ganhos + l.ganhos,
     perdidos: a.perdidos + l.perdidos,
     valor: a.valor + l.valor,
     ganhosSemValor: a.ganhosSemValor + l.ganhosSemValor,
-  }), { volume: 0, ganhos: 0, perdidos: 0, valor: 0, ganhosSemValor: 0 })
+    semResposta: a.semResposta + l.semResposta,
+    comIncoming: a.comIncoming + l.comIncoming,
+  }), { volume: 0, ganhos: 0, perdidos: 0, valor: 0, ganhosSemValor: 0, semResposta: 0, comIncoming: 0 })
   const convTotal = tot.volume ? Math.round((tot.ganhos / tot.volume) * 100) : 0
+  const pctSemResp = tot.comIncoming ? Math.round((tot.semResposta / tot.comIncoming) * 100) : 0
+  const slaTotal = sla.respondidos || 1
+  const pct = (n: number) => Math.round((n / slaTotal) * 100)
 
   const qsPeriodo = `de=${de}&ate=${ate}`
 
@@ -114,6 +125,17 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
             <Card><CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Valor ganho</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{fmtBRL(tot.valor)}</p></CardContent></Card>
           </div>
 
+          {/* Alerta — leads sem resposta */}
+          {tot.semResposta > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800 flex items-start gap-2">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">{tot.semResposta} lead(s) sem resposta ({pctSemResp}% dos que mandaram mensagem no período).</p>
+                <p className="text-xs mt-0.5">O cliente falou e nenhum atendente respondeu — oportunidades sendo perdidas. Veja por colaborador na coluna "Sem resp.".</p>
+              </div>
+            </div>
+          )}
+
           {/* Alerta de valor não informado */}
           {tot.ganhosSemValor > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
@@ -141,6 +163,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
                       <th className="text-right px-4 py-2 font-medium">Valor</th>
                       <th className="text-right px-3 py-2 font-medium">Msgs</th>
                       <th className="text-right px-3 py-2 font-medium">Tarefas</th>
+                      <th className="text-right px-3 py-2 font-medium whitespace-nowrap">Sem resp.</th>
                       <th className="text-right px-4 py-2 font-medium whitespace-nowrap">1ª resp.</th>
                     </tr>
                   </thead>
@@ -161,6 +184,9 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
                         </td>
                         <td className="px-3 py-2 text-right text-slate-600">{l.mensagens}</td>
                         <td className="px-3 py-2 text-right text-slate-600">{l.tarefas}</td>
+                        <td className={`px-3 py-2 text-right whitespace-nowrap ${l.semResposta > 0 ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+                          {l.semResposta}{l.comIncoming > 0 && <span className="text-xs text-slate-400"> ({Math.round(l.semResposta / l.comIncoming * 100)}%)</span>}
+                        </td>
                         <td className="px-4 py-2 text-right whitespace-nowrap">{fmtDur(l.tempoRespSeg)}</td>
                       </tr>
                     ))}
@@ -178,7 +204,56 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
             </Card>
           </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* SLA de 1ª resposta */}
+            <Card>
+              <CardHeader><CardTitle className="text-base">SLA de 1ª resposta <span className="text-xs font-normal text-slate-400">· horário comercial</span></CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {[
+                  { label: '≤ 5 min', v: sla.sla5, cor: 'bg-green-500' },
+                  { label: '5–15 min', v: sla.sla15, cor: 'bg-lime-500' },
+                  { label: '15–60 min', v: sla.sla60, cor: 'bg-amber-500' },
+                  { label: '> 60 min', v: sla.slaMais, cor: 'bg-red-500' },
+                ].map(b => (
+                  <div key={b.label} className="flex items-center gap-2 text-sm">
+                    <span className="w-20 text-slate-500 shrink-0">{b.label}</span>
+                    <div className="flex-1 bg-slate-100 rounded h-4 overflow-hidden"><div className={`${b.cor} h-4`} style={{ width: `${pct(b.v)}%` }} /></div>
+                    <span className="w-20 text-right shrink-0">{b.v} ({pct(b.v)}%)</span>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-400 pt-1">{sla.respondidos} respostas medidas.</p>
+              </CardContent>
+            </Card>
+
+            {/* Motivo de perda */}
+            <Card>
+              <CardHeader><CardTitle className="text-base">Motivo de perda</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {perdas.total === 0 ? (
+                  <p className="text-sm text-slate-400">Sem perdas no período.</p>
+                ) : (
+                  <>
+                    {perdas.motivos.map(m => (
+                      <div key={m.motivo} className="flex items-center gap-2 text-sm">
+                        <span className="flex-1 truncate text-slate-600">{m.motivo}</span>
+                        <div className="w-24 bg-slate-100 rounded h-4 overflow-hidden"><div className="bg-slate-400 h-4" style={{ width: `${Math.round(m.qtd / perdas.total * 100)}%` }} /></div>
+                        <span className="w-14 text-right shrink-0">{m.qtd}</span>
+                      </div>
+                    ))}
+                    {perdas.semMotivo > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800 mt-1 flex items-start gap-1.5">
+                        <TriangleAlert size={13} className="mt-0.5 shrink-0" />
+                        <span><strong>{Math.round(perdas.semMotivo / perdas.total * 100)}%</strong> dos {perdas.total} leads perdidos estão <strong>sem motivo informado</strong>. Peça ao time para marcar o motivo ao perder — sem isso não dá pra saber por que estão perdendo.</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           <p className="text-xs text-slate-400">
+            <strong>Sem resp.</strong> = leads em que o cliente mandou mensagem e nenhum atendente respondeu.{' '}
             <strong>Msgs</strong> = mensagens enviadas pelo colaborador. <strong>1ª resp.</strong> = tempo típico (mediana)
             até a primeira resposta humana, contando só leads que chegam em horário comercial (8h–18h) — respostas
             automáticas do bot e leads de madrugada não entram. Ligações não são registradas no Kommo, então não aparecem.

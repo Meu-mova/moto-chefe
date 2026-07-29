@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria } from '@/lib/db/schema'
+import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons } from '@/lib/db/schema'
 import { eq, sql, gte } from 'drizzle-orm'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
@@ -157,9 +157,21 @@ type LeadKommo = {
   status_id?: number
   pipeline_id?: number
   responsible_user_id?: number
+  loss_reason_id?: number | null
   created_at?: number
   closed_at?: number | null
   updated_at?: number
+}
+
+// Catálogo de motivos de perda (id -> nome). Barato; roda junto do sync.
+async function sincronizarMotivosPerda(): Promise<void> {
+  const data = await kommoRequest('/api/v4/leads/loss_reasons') as
+    { _embedded?: { loss_reasons?: { id: number; name: string }[] } } | null
+  const motivos = data?._embedded?.loss_reasons ?? []
+  if (motivos.length === 0) return
+  await db.insert(kommoLossReasons)
+    .values(motivos.map(m => ({ id: m.id, nome: m.name })))
+    .onConflictDoUpdate({ target: kommoLossReasons.id, set: { nome: sql`excluded.nome` } })
 }
 
 function toDate(unix?: number | null): Date | null {
@@ -189,12 +201,14 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
         statusId: l.status_id ?? null,
         pipelineId: l.pipeline_id != null ? String(l.pipeline_id) : null,
         price: String(l.price ?? 0),
+        lossReasonId: l.loss_reason_id ?? null,
         criadoEm: toDate(l.created_at),
         fechadoEm: toDate(l.closed_at),
         atualizadoEm: toDate(l.updated_at),
       }
     })
-    // Upsert em lote (1 statement por página de 250)
+    // Upsert em lote (1 statement por página de 250). Não sobrescreve o estado de
+    // resposta (primeiro_incoming_em/primeira_resposta_em) — isso vem do sync de atividade.
     await db.insert(kommoLeads).values(valores).onConflictDoUpdate({
       target: kommoLeads.leadId,
       set: {
@@ -202,6 +216,7 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
         statusId:     sql`excluded.status_id`,
         pipelineId:   sql`excluded.pipeline_id`,
         price:        sql`excluded.price`,
+        lossReasonId: sql`excluded.loss_reason_id`,
         criadoEm:     sql`excluded.criado_em`,
         fechadoEm:    sql`excluded.fechado_em`,
         atualizadoEm: sql`excluded.atualizado_em`,
@@ -283,22 +298,32 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
     const arr = porLead.get(m.entity_id) ?? []
     arr.push(m); porLead.set(m.entity_id, arr)
   }
-  for (const lista of porLead.values()) {
+  // Estado por lead: 1ª msg do cliente e 1ª resposta humana (Fase 3 — sem resposta / SLA)
+  const respostaLead: { id: number; fin: string; fr: string | null }[] = []
+  for (const [leadId, lista] of porLead) {
     lista.sort((a, b) => a.created_at - b.created_at)
-    let firstIn: number | null = null
+    let firstIn: number | null = null          // ciclo p/ mediana (reseta)
+    let leadIn: number | null = null           // 1º incoming do lead (uma vez)
+    let leadResp: number | null = null         // 1ª resposta humana do lead (uma vez)
     for (const m of lista) {
-      if (m.type === 'incoming_chat_message' && firstIn == null) firstIn = m.created_at
-      else if (m.type === 'outgoing_chat_message' && firstIn != null && m.created_by) {
-        const dt = m.created_at - firstIn
-        const h = horaBRT(firstIn)
-        if (dt >= 0 && dt < 3 * 86400 && h >= 8 && h < 18 && mapeados.has(String(m.created_by))) {
-          const k = `${diaBRT(m.created_at)}|${m.created_by}`
-          const arr = respTimes.get(k) ?? []
-          arr.push(dt); respTimes.set(k, arr)
+      if (m.type === 'incoming_chat_message') {
+        if (firstIn == null) firstIn = m.created_at
+        if (leadIn == null) leadIn = m.created_at
+      } else if (m.type === 'outgoing_chat_message' && m.created_by) {
+        if (leadIn != null && leadResp == null) leadResp = m.created_at
+        if (firstIn != null && mapeados.has(String(m.created_by))) {
+          const dt = m.created_at - firstIn
+          const h = horaBRT(firstIn)
+          if (dt >= 0 && dt < 3 * 86400 && h >= 8 && h < 18) {
+            const k = `${diaBRT(m.created_at)}|${m.created_by}`
+            const arr = respTimes.get(k) ?? []
+            arr.push(dt); respTimes.set(k, arr)
+          }
+          firstIn = null
         }
-        firstIn = null
       }
     }
+    if (leadIn != null) respostaLead.push({ id: leadId, fin: new Date(leadIn * 1000).toISOString(), fr: leadResp != null ? new Date(leadResp * 1000).toISOString() : null })
   }
 
   const mediana = (arr: number[]) => {
@@ -319,6 +344,20 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
   })
   if (rows.length > 0) await db.insert(kommoAtividadeDiaria).values(rows)
 
+  // Estado de resposta por lead: guarda o 1º incoming (menor) e a 1ª resposta
+  // (só se ainda não houver) — incremental-safe entre execuções.
+  if (respostaLead.length > 0) {
+    const ids = respostaLead.map(r => r.id)
+    const fins = respostaLead.map(r => r.fin)
+    const frs = respostaLead.map(r => r.fr)
+    await db.execute(sql`
+      UPDATE kommo_leads k SET
+        primeiro_incoming_em = LEAST(COALESCE(k.primeiro_incoming_em, 'infinity'::timestamptz), t.fin::timestamptz),
+        primeira_resposta_em = COALESCE(k.primeira_resposta_em, t.fr::timestamptz)
+      FROM unnest(${ids}::bigint[], ${fins}::text[], ${frs}::text[]) AS t(id, fin, fr)
+      WHERE k.lead_id = t.id`)
+  }
+
   return { eventos: msgs.length + tarefas.length }
 }
 
@@ -331,6 +370,7 @@ export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima:
   try {
     await sincronizarLeadsKommo()
     await sincronizarAtividadeKommo()
+    await sincronizarMotivosPerda().catch(() => {})
     const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
     return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
   } catch (e) {
