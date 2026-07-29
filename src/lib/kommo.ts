@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
-import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons } from '@/lib/db/schema'
+import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons, kommoStages, kommoTarefasAbertas } from '@/lib/db/schema'
 import { eq, sql, gte } from 'drizzle-orm'
+import { etapaDeFechamento } from '@/lib/kommo-etapas'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
 // Espelha o padrão do Bling (src/lib/bling.ts), mas com config singleton
@@ -203,6 +204,7 @@ const BACKFILL_FLOOR = Math.floor(new Date(Date.UTC(2026, 0, 1)).getTime() / 100
 
 type LeadKommo = {
   id: number
+  name?: string | null
   price?: number | null
   status_id?: number
   pipeline_id?: number
@@ -247,6 +249,7 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
       if (l.updated_at && l.updated_at > maiorUpdated) maiorUpdated = l.updated_at
       return {
         leadId: l.id,
+        nome: l.name ?? null,
         kommoUserId: l.responsible_user_id != null ? String(l.responsible_user_id) : null,
         statusId: l.status_id ?? null,
         pipelineId: l.pipeline_id != null ? String(l.pipeline_id) : null,
@@ -262,6 +265,7 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
     await db.insert(kommoLeads).values(valores).onConflictDoUpdate({
       target: kommoLeads.leadId,
       set: {
+        nome:         sql`excluded.nome`,
         kommoUserId:  sql`excluded.kommo_user_id`,
         statusId:     sql`excluded.status_id`,
         pipelineId:   sql`excluded.pipeline_id`,
@@ -411,6 +415,82 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
   return { eventos: msgs.length + tarefas.length }
 }
 
+type PipelineKommo = {
+  id: number
+  name?: string
+  _embedded?: { statuses?: { id: number; name?: string; sort?: number }[] }
+}
+
+// Catálogo de funis/etapas. Os status 142 (ganho) e 143 (perdido) são globais e
+// se repetem em todo funil — ficam de fora para não colidir na PK.
+export async function sincronizarEtapasKommo(): Promise<{ etapas: number }> {
+  const data = await kommoRequest('/api/v4/leads/pipelines') as
+    { _embedded?: { pipelines?: PipelineKommo[] } } | null
+  const rows = (data?._embedded?.pipelines ?? []).flatMap(p =>
+    (p._embedded?.statuses ?? [])
+      .filter(s => s.id !== KOMMO_STATUS_GANHO && s.id !== KOMMO_STATUS_PERDIDO)
+      .map(s => ({
+        statusId: s.id,
+        pipelineId: String(p.id),
+        pipelineNome: p.name ?? null,
+        nome: s.name ?? '',
+        sort: s.sort ?? 0,
+        etapaFechamento: etapaDeFechamento(s.name),
+      })),
+  )
+  if (rows.length === 0) return { etapas: 0 }
+  await db.insert(kommoStages).values(rows).onConflictDoUpdate({
+    target: kommoStages.statusId,
+    set: {
+      pipelineId:      sql`excluded.pipeline_id`,
+      pipelineNome:    sql`excluded.pipeline_nome`,
+      nome:            sql`excluded.nome`,
+      sort:            sql`excluded.sort`,
+      etapaFechamento: sql`excluded.etapa_fechamento`,
+    },
+  })
+  return { etapas: rows.length }
+}
+
+type TarefaKommo = {
+  id: number
+  entity_id?: number
+  entity_type?: string
+  responsible_user_id?: number
+  complete_till?: number | null
+  text?: string | null
+}
+
+// Tarefas em aberto de leads. Replace-all: o conjunto é pequeno e assim tarefa
+// concluída, reagendada ou deletada some sem precisar de evento.
+export async function sincronizarTarefasAbertas(): Promise<{ tarefas: number }> {
+  const out: TarefaKommo[] = []
+  for (let page = 1; page <= 200; page++) {
+    const data = await kommoRequest(
+      `/api/v4/tasks?limit=250&page=${page}&filter[is_completed]=0`,
+    ) as { _embedded?: { tasks?: TarefaKommo[] }; _links?: { next?: unknown } } | null
+    const tasks = data?._embedded?.tasks ?? []
+    out.push(...tasks)
+    if (!data?._links?.next) break
+  }
+  const rows = out
+    .filter(t => t.entity_type === 'leads' && t.entity_id)
+    .map(t => ({
+      id: t.id,
+      leadId: t.entity_id as number,
+      kommoUserId: t.responsible_user_id != null ? String(t.responsible_user_id) : null,
+      prazo: toDate(t.complete_till),
+      texto: t.text ?? null,
+    }))
+
+  await db.delete(kommoTarefasAbertas)
+  // Lotes de 500 para não estourar o limite de parâmetros do postgres.js
+  for (let i = 0; i < rows.length; i += 500) {
+    await db.insert(kommoTarefasAbertas).values(rows.slice(i, i + 500))
+  }
+  return { tarefas: rows.length }
+}
+
 // Sincroniza se o cache passou da janela (15min) ou se forçado. Nunca lança —
 // devolve a hora da última sincronização pra UI.
 export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima: Date | null; erro: string | null }> {
@@ -421,6 +501,8 @@ export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima:
     await sincronizarLeadsKommo()
     await sincronizarAtividadeKommo()
     await sincronizarMotivosPerda().catch(() => {})
+    await sincronizarEtapasKommo().catch(() => {})
+    await sincronizarTarefasAbertas().catch(() => {})
     const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
     return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
   } catch (e) {
