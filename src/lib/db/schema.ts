@@ -604,6 +604,7 @@ export const kommoUserMap = pgTable('kommo_user_map', {
 
 export const kommoLeads = pgTable('kommo_leads', {
   leadId:       bigint('lead_id', { mode: 'number' }).primaryKey(),
+  nome:         text('nome'),
   kommoUserId:  text('kommo_user_id'),
   statusId:     integer('status_id'),
   pipelineId:   text('pipeline_id'),
@@ -620,6 +621,25 @@ export const kommoLeads = pgTable('kommo_leads', {
 export const kommoLossReasons = pgTable('kommo_loss_reasons', {
   id:   bigint('id', { mode: 'number' }).primaryKey(),
   nome: text('nome').notNull(),
+})
+
+// Catálogo de funis/etapas do Kommo — Fase 4 (etapa_fechamento vem do nome)
+export const kommoStages = pgTable('kommo_stages', {
+  statusId:        bigint('status_id', { mode: 'number' }).primaryKey(),
+  pipelineId:      text('pipeline_id'),
+  pipelineNome:    text('pipeline_nome'),
+  nome:            text('nome').notNull(),
+  sort:            integer('sort').notNull().default(0),
+  etapaFechamento: boolean('etapa_fechamento').notNull().default(false),
+})
+
+// Tarefas em aberto por lead — Fase 4 (substituída a cada sync)
+export const kommoTarefasAbertas = pgTable('kommo_tarefas_abertas', {
+  id:          bigint('id', { mode: 'number' }).primaryKey(),
+  leadId:      bigint('lead_id', { mode: 'number' }).notNull(),
+  kommoUserId: text('kommo_user_id'),
+  prazo:       timestamp('prazo', { withTimezone: true }),
+  texto:       text('texto'),
 })
 
 export const kommoSyncStatus = pgTable('kommo_sync_status', {
