@@ -10,6 +10,7 @@ import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensi
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
+import { notificarVendaTelegram, type ResultadoAvisoVenda } from '@/lib/telegram/venda'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
@@ -376,7 +377,24 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     new Promise<ResultadoVirarLead>(res => setTimeout(() => res({ resultado: 'erro' }), 8000)),
   ]).catch(() => ({ resultado: 'erro' as const }))
 
+  await avisarVendaNoTelegram({
+    lojaId: moto.lojaId, modeloId: moto.modeloId, vendedorId, valor: valorNum,
+  })
+
   return { kommo }
+}
+
+/**
+ * Aviso de venda no Telegram — best-effort com timeout, igual ao virarLeadKommo:
+ * Telegram fora do ar não pode fazer a venda falhar depois de já estar gravada.
+ */
+async function avisarVendaNoTelegram(params: {
+  lojaId: string; modeloId: string; vendedorId: string; valor: number
+}): Promise<void> {
+  await Promise.race([
+    notificarVendaTelegram(params),
+    new Promise<ResultadoAvisoVenda>(res => setTimeout(() => res('erro'), 8000)),
+  ]).catch(() => 'erro' as const)
 }
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
@@ -1324,6 +1342,15 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   revalidatePath('/estoque')
   revalidatePath(`/estoque/${aprovacao.motoId}`)
   revalidatePath('/caixa')
+
+  // Venda aprovada também avisa — senão toda venda negociada abaixo do mínimo
+  // sairia do radar do grupo justamente por ter passado por aprovação.
+  await avisarVendaNoTelegram({
+    lojaId: moto.lojaId,
+    modeloId: moto.modeloId,
+    vendedorId: aprovacao.vendedorId,
+    valor: parseFloat(String(aprovacao.valor)),
+  })
 }
 
 export async function recusarVendaAction(aprovacaoId: string, observacao?: string) {

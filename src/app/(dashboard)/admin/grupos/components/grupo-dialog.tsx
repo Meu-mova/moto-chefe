@@ -20,6 +20,7 @@ type Grupo = {
   fabricaSenha: string | null
   blingClientId: string | null
   blingClientSecret: string | null
+  telegramChatId: string | null
 }
 
 type Props = {
@@ -42,6 +43,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [fabricaSenha, setFabricaSenha] = useState(inicial?.fabricaSenha ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
+  const [telegramChatId, setTelegramChatId] = useState(inicial?.telegramChatId ?? '')
 
   async function handleSalvar() {
     if (!nome.trim() || !cnpj.trim()) {
@@ -50,7 +52,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret }
+      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret, telegramChatId }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -113,6 +115,19 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 <Label className="text-xs">Bling — Client Secret</Label>
                 <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Telegram — Chat do grupo de avisos</Label>
+              <Input
+                value={telegramChatId}
+                onChange={e => setTelegramChatId(e.target.value)}
+                placeholder="-1001234567890"
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-slate-400">
+                Crie um grupo no Telegram, adicione o @MovaMC_bot e envie <code>/chatid</code> lá — ele
+                responde o número para colar aqui. Em branco, esta bandeira não recebe avisos.
+              </p>
             </div>
             <p className="text-xs text-slate-400">
               ValidaPix e Fábrica ainda não são usadas pelo sistema — serão ativadas em uma etapa futura. Bling já está em uso (emissão de NF-e).

@@ -40,8 +40,22 @@ export async function POST(req: NextRequest) {
   try {
     if (msg) {
       const chatId = msg.chat?.id
+      const textoBruto = String(msg.text ?? '').trim()
+
+      // /chatid responde ANTES da whitelist, senão um grupo novo nunca consegue
+      // se identificar (o handler descarta chat desconhecido em silêncio) e não
+      // há como cadastrar o destino do aviso no Admin. Só devolve ao próprio
+      // chat o id dele mesmo — não expõe dado do sistema.
+      if (textoBruto === '/chatid') {
+        await enviarMensagem(
+          chatId,
+          `Chat ID: ${chatId}\n\nCole esse número em Admin → Grupos, no campo "Chat do Telegram" da bandeira que deve receber os avisos.`,
+        )
+        return NextResponse.json({ ok: true })
+      }
+
       if (String(chatId) !== ALLOWED) return NextResponse.json({ ok: true }) // ignora estranhos
-      const texto = String(msg.text ?? '').trim()
+      const texto = textoBruto
       if (!texto) return NextResponse.json({ ok: true })
       if (texto === '/start' || texto === '/menu') {
         await enviarMensagem(

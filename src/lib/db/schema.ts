@@ -41,6 +41,8 @@ export const grupos = pgTable('grupos', {
   fabricaSenha:       text('fabrica_senha'),
   blingClientId:      text('bling_client_id'),
   blingClientSecret:  text('bling_client_secret'),
+  // Chat/grupo do Telegram que recebe os avisos desta bandeira. Nulo = não avisa.
+  telegramChatId:     text('telegram_chat_id'),
 })
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
