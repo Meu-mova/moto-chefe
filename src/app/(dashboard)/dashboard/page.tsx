@@ -12,8 +12,10 @@ import {
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
-import { placarVendedor } from '@/lib/queries/atendimento'
+import { placarVendedor, fechamentoSemTarefa } from '@/lib/queries/atendimento'
+import { getKommoStatus } from '@/lib/kommo'
 import { PlacarVendedor } from './components/placar-vendedor'
+import { AlertaFechamento } from './components/alerta-fechamento'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
 import { KpiCards } from './components/kpi-cards'
@@ -223,6 +225,18 @@ async function PlacarSection({ usuario, dataInicio, dataFim }: { usuario: { id: 
   return <PlacarVendedor placar={placar} mes={MESES[inicio.getMonth()]} />
 }
 
+// Leads em interesse/negociação sem tarefa agendada — foto do agora, ignora o
+// filtro de período. Só lê o cache, não sincroniza.
+async function FechamentoSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null } }) {
+  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
+  const [dados, status] = await Promise.all([
+    fechamentoSemTarefa(lojaIds, usuario.id),
+    getKommoStatus(),
+  ])
+  if (!status.conectado || dados.naEtapa === 0) return null
+  return <AlertaFechamento dados={dados} subdominio={status.subdominio} />
+}
+
 function hojeISO() {
   return new Date().toISOString().substring(0, 10)
 }
@@ -321,6 +335,14 @@ export default async function DashboardPage({
         <SectionErrorBoundary label="as pendências da loja">
           <Suspense fallback={null}>
             <PendenciasSection lojaId={usuario.lojaId} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
+
+      {isVendedor && (
+        <SectionErrorBoundary label="o alerta de fechamento">
+          <Suspense fallback={null}>
+            <FechamentoSection usuario={usuario} />
           </Suspense>
         </SectionErrorBoundary>
       )}
