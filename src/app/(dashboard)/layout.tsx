@@ -16,10 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar
           papel={usuario.papel}
           conecta={usuario.conecta}
-          mostrarEntrada={
-            podeRegistrarEntradaMotos(usuario) &&
-            !['admin_geral', 'admin_socio'].includes(usuario.papel)
-          }
+          mostrarEntrada={podeRegistrarEntradaMotos(usuario)}
         />
         <div className="flex-1 flex flex-col">
           <Header />

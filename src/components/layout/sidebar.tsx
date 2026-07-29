@@ -26,8 +26,9 @@ const baseNavItems = [
 const adminPapeis = ['admin_geral', 'admin_socio']
 const PAPEIS_PIX_MCP = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
-// mostrarEntrada é decidido no servidor (podeRegistrarEntradaMotos): admin chega
-// na Entrada pelo /admin, então o item só aparece para quem entra pela exceção.
+// mostrarEntrada é decidido no servidor (podeRegistrarEntradaMotos) porque a regra
+// depende do e-mail, não só do papel. Admin também vê o item aqui — além do card
+// no /admin — pra que o menu seja o mesmo caminho pra todos.
 type Props = { papel: string; conecta: string | null; mostrarEntrada: boolean }
 
 export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
