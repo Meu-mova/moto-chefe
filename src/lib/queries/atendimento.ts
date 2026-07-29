@@ -98,6 +98,25 @@ export async function metricasAtendimento(inicio: Date, fim: Date, deStr: string
     .sort((a, b) => b.volume - a.volume)
 }
 
+// Meta de conversão de leads (7%). Se virar configurável, mover pra grupos/config.
+export const KOMMO_META_CONVERSAO = 0.07
+
+// Placar do vendedor pro dashboard: os números dele + posição no ranking do grupo.
+export async function placarVendedor(usuarioId: string, inicio: Date, fim: Date, deStr: string, ateStr: string, lojaIds: string[]) {
+  const rows = await metricasAtendimento(inicio, fim, deStr, ateStr, lojaIds)
+  const linha = rows.find(r => r.usuarioId === usuarioId)
+  if (!linha) return null
+  // Ranking por conversão (desc), só quem teve leads no período
+  const ranking = rows.filter(r => r.volume > 0).sort((a, b) => b.conversao - a.conversao)
+  const idx = ranking.findIndex(r => r.usuarioId === usuarioId)
+  return {
+    linha,
+    posicao: idx >= 0 ? idx + 1 : null,
+    total: ranking.length,
+    meta: KOMMO_META_CONVERSAO,
+  }
+}
+
 // SLA de 1ª resposta (horário comercial 8h–18h BRT): distribuição por faixa,
 // sobre leads criados no período do grupo que tiveram 1ª mensagem do cliente.
 export async function slaAtendimento(inicio: Date, fim: Date, lojaIds: string[]) {

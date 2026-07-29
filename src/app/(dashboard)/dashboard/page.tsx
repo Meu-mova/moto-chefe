@@ -12,6 +12,8 @@ import {
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
+import { placarVendedor } from '@/lib/queries/atendimento'
+import { PlacarVendedor } from './components/placar-vendedor'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
 import { KpiCards } from './components/kpi-cards'
@@ -209,6 +211,18 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+// Placar de atendimento (Kommo) do vendedor logado — só lê o cache, não sincroniza.
+async function PlacarSection({ usuario, dataInicio, dataFim }: { usuario: { id: string; papel: string; lojaId: string | null }; dataInicio: string; dataFim: string }) {
+  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
+  const inicio = new Date(dataInicio + 'T00:00:00')
+  const fim = new Date(dataFim + 'T23:59:59')
+  const placar = await placarVendedor(usuario.id, inicio, fim, dataInicio, dataFim, lojaIds)
+  if (!placar) return null
+  return <PlacarVendedor placar={placar} mes={MESES[inicio.getMonth()]} />
+}
+
 function hojeISO() {
   return new Date().toISOString().substring(0, 10)
 }
@@ -307,6 +321,14 @@ export default async function DashboardPage({
         <SectionErrorBoundary label="as pendências da loja">
           <Suspense fallback={null}>
             <PendenciasSection lojaId={usuario.lojaId} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
+
+      {isVendedor && (
+        <SectionErrorBoundary key={`placar-${filtroKey}`} label="o placar de atendimento">
+          <Suspense fallback={null}>
+            <PlacarSection usuario={usuario} dataInicio={dataInicio} dataFim={dataFim} />
           </Suspense>
         </SectionErrorBoundary>
       )}
