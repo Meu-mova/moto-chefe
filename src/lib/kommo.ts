@@ -147,6 +147,56 @@ export async function kommoRequest(path: string, init?: { method?: string; body?
 
 export const KOMMO_STATUS_GANHO = 142
 export const KOMMO_STATUS_PERDIDO = 143
+
+export type ResultadoVirarLead =
+  | { resultado: 'virado'; leadId: number }
+  | { resultado: 'ja_ganho'; leadId: number }
+  | { resultado: 'ambiguo'; qtd: number; subdominio: string }
+  | { resultado: 'nao_encontrado' }
+  | { resultado: 'desligado' }
+  | { resultado: 'erro' }
+
+// Ao vender no Mova: acha o lead do cliente no Kommo (pelos últimos 8 dígitos do
+// celular — o Kommo guarda sem o "9" do celular) e marca como Venda Ganha (142),
+// já preenchendo o valor. Best-effort — nunca lança.
+export async function virarLeadKommo(celular: string | null | undefined, valorVenda?: number): Promise<ResultadoVirarLead> {
+  try {
+    const cfg = await getKommoConfig()
+    if (!cfg?.accessToken || !cfg.subdominio) return { resultado: 'desligado' }
+    const dig = (celular ?? '').replace(/\D/g, '')
+    if (dig.length < 8) return { resultado: 'nao_encontrado' }
+    const ult8 = dig.slice(-8)
+
+    const cData = await kommoRequest(`/api/v4/contacts?query=${ult8}&with=leads&limit=10`) as
+      { _embedded?: { contacts?: { _embedded?: { leads?: { id: number }[] } }[] } } | null
+    const leadIds = new Set<number>()
+    for (const c of cData?._embedded?.contacts ?? []) for (const l of c._embedded?.leads ?? []) leadIds.add(l.id)
+    if (leadIds.size === 0) return { resultado: 'nao_encontrado' }
+
+    const leads: { id: number; status: number | undefined }[] = []
+    for (const id of leadIds) {
+      const l = await kommoRequest(`/api/v4/leads/${id}`) as { id: number; status_id?: number } | null
+      if (l) leads.push({ id: l.id, status: l.status_id })
+    }
+    const abertos = leads.filter(l => l.status !== KOMMO_STATUS_GANHO && l.status !== KOMMO_STATUS_PERDIDO)
+    const ganhos = leads.filter(l => l.status === KOMMO_STATUS_GANHO)
+
+    // Se já existe um lead ganho desse cliente, a venda já está contabilizada —
+    // não vira o aberto (evita duplicar a venda ganha).
+    if (ganhos.length > 0) return { resultado: 'ja_ganho', leadId: ganhos[0].id }
+    if (abertos.length === 1) {
+      const id = abertos[0].id
+      const body: Record<string, unknown> = { status_id: KOMMO_STATUS_GANHO }
+      if (valorVenda && valorVenda > 0) body.price = Math.round(valorVenda)
+      await kommoRequest(`/api/v4/leads/${id}`, { method: 'PATCH', body })
+      return { resultado: 'virado', leadId: id }
+    }
+    if (abertos.length > 1) return { resultado: 'ambiguo', qtd: abertos.length, subdominio: cfg.subdominio }
+    return { resultado: 'nao_encontrado' }
+  } catch {
+    return { resultado: 'erro' }
+  }
+}
 const JANELA_CACHE_MS = 15 * 60 * 1000
 // Piso de backfill na 1ª sincronização (updated_at) — cobre o ano corrente.
 const BACKFILL_FLOOR = Math.floor(new Date(Date.UTC(2026, 0, 1)).getTime() / 1000)

@@ -439,8 +439,16 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           await solicitarAprovacaoVendaAction(payload, motivo)
           toast.success('Pedido de aprovação enviado!')
         } else {
-          await registrarVendaCompletaAction(payload)
+          const res = await registrarVendaCompletaAction(payload)
           toast.success('Venda registrada com sucesso!')
+          const k = res?.kommo?.resultado
+          if (k === 'virado') {
+            toast.success('Kommo: lead marcado como Venda Ganha automaticamente ✓')
+          } else if (k === 'ambiguo') {
+            toast.warning('Kommo: há mais de um lead deste cliente em aberto — marque o certo como Venda Ganha manualmente.')
+          } else if (k === 'nao_encontrado') {
+            toast.message('Kommo: nenhum lead em aberto deste cliente. Se existir, marque como Venda Ganha.')
+          }
         }
       } else {
         const resultado = await registrarReservaAction({

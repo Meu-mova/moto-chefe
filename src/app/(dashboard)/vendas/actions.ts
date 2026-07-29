@@ -9,6 +9,7 @@ import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
+import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
@@ -368,6 +369,14 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   revalidatePath('/vendas')
   revalidatePath('/estoque')
   revalidatePath('/caixa')
+
+  // Vira o lead do cliente no Kommo pra "Venda Ganha" (best-effort, com timeout).
+  const kommo: ResultadoVirarLead = await Promise.race([
+    virarLeadKommo(data.clienteCelular, valorNum),
+    new Promise<ResultadoVirarLead>(res => setTimeout(() => res({ resultado: 'erro' }), 8000)),
+  ]).catch(() => ({ resultado: 'erro' as const }))
+
+  return { kommo }
 }
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
