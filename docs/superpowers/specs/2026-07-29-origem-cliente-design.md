@@ -15,6 +15,7 @@ Tornar a origem do cliente um campo **obrigatório para fechar venda de moto** e
 
 1. **Origem é por venda**, não por cliente. Um cliente que volta pode ter vindo do Instagram na primeira compra e por indicação na segunda; é a origem da venda que mede campanha num período.
 2. **Catálogo editável no Admin**, não enum fixo. O Cesar acrescenta "TikTok" ou "Campanha Black Friday" sem depender de deploy, e desativar uma origem antiga não apaga histórico.
+   - **Por grupo.** Eu havia proposto catálogo global; o Cesar estabeleceu a regra de que toda funcionalidade nova nasce separada por grupo.
 3. **Detalhe por origem**: cada origem tem um flag "pede detalhe". Ligado em Indicação, o vendedor é obrigado a dizer quem indicou.
 4. **Escopo: só venda de moto.** Reserva, demanda, peças e OS não perguntam origem.
 5. **Relatório em página própria de Marketing**, não no Financeiro nem no Dashboard.
@@ -27,16 +28,20 @@ Nova tabela, espelhando `categorias_caixa` (catálogo simples que já existe no 
 ```sql
 create table origens_cliente (
   id           uuid primary key default gen_random_uuid(),
+  grupo_id     uuid not null references grupos(id),
   nome         text not null,
   pede_detalhe boolean not null default false,
   ativo        boolean not null default true,
   ordem        integer not null default 0,
   criado_em    timestamptz not null default now()
 );
-create unique index origens_cliente_nome_unq on origens_cliente (lower(trim(nome)));
+create unique index origens_cliente_nome_unq
+  on origens_cliente (grupo_id, lower(trim(nome)));
 ```
 
-Catálogo **global**, não por grupo: canal de marketing é o mesmo para Sul de Minas e BH; a separação por grupo acontece no relatório. O índice único no nome normalizado evita nascer "Instagram" e "instagram" como origens distintas.
+Catálogo **por grupo**, seguindo a regra do Cesar de que toda funcionalidade nasce separada por grupo: cada bandeira mantém suas próprias origens e pode ter campanha que a outra não tem. O select da venda mostra as origens do grupo da loja da moto; o Admin edita as do grupo ativo. O índice único é por grupo + nome normalizado, evitando "Instagram" e "instagram" na mesma bandeira.
+
+O seed abaixo é aplicado **para cada grupo ativo**.
 
 `vendas` ganha:
 
@@ -81,14 +86,14 @@ Portanto a origem tem de fazer parte de `DadosVendaCompleta`. Se ficar só como 
 - `criarVendaTx` grava `origem_id` e `origem_detalhe` no insert.
 - `vender-button.tsx`: campo no bloco "Dados do cliente". **`<select>` nativo**, não o `<Select>` do `@base-ui/react` — o value é UUID e o label é o nome, que é exatamente o caso em que o componente mostra o value cru na tela. O input de detalhe só é renderizado quando a origem escolhida tem `pede_detalhe`.
 - Validação no formulário: sem origem, o submit não passa; se a origem pede detalhe, detalhe vazio também barra.
-- Validação no servidor, em `registrarVendaCompletaAction` **e** em `solicitarAprovacaoVendaAction`: `origemId` tem de existir e estar `ativo`, e o detalhe tem de vir quando a origem exige. Retorno no padrão atual (`{ error: '...' }`). Validar também na solicitação evita gravar um `dados_venda` inválido que só quebraria na hora de aprovar.
+- Validação no servidor, em `registrarVendaCompletaAction` **e** em `solicitarAprovacaoVendaAction`: `origemId` tem de existir, estar `ativo` **e pertencer ao grupo da loja da moto** (senão um payload forjado grava venda de BH com origem do Sul de Minas), e o detalhe tem de vir quando a origem exige. Retorno no padrão atual (`{ error: '...' }`). Validar também na solicitação evita gravar um `dados_venda` inválido que só quebraria na hora de aprovar.
 - `editarVendaAction` passa a permitir corrigir origem e detalhe: campo obrigatório que só pode ser errado uma vez e para sempre produz dado ruim de propósito.
 
 A venda que nasce de uma reserva passa pelo mesmo dialog, então a origem é perguntada ali — sem precisar mexer no fluxo de reserva.
 
 ## Admin — catálogo de origens
 
-Página `/admin/origens`, no padrão de `/admin/categorias-caixa`: tabela com criar/editar/ativar-desativar, campos nome, "pede detalhe", ordem. Atrás de `AdminGuard` (admin_geral / admin_socio). Card novo na grade de `/admin`.
+Página `/admin/origens`, no padrão de `/admin/categorias-caixa`: tabela com criar/editar/ativar-desativar, campos nome, "pede detalhe", ordem. Atrás de `AdminGuard` (admin_geral / admin_socio). Card novo na grade de `/admin`. Opera sobre o **grupo ativo** (cookie `grupoAtivo`, via `getGrupoAtivo`), com o nome do grupo no título para não haver dúvida de qual bandeira está sendo editada.
 
 Desativar origem não a remove do histórico; ela só deixa de aparecer no select da venda. Não há exclusão — apenas `ativo = false` — porque `vendas.origem_id` referencia a linha.
 
