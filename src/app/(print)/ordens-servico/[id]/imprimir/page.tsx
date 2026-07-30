@@ -11,10 +11,11 @@ const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curre
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', oficina: 'Oficina', em_andamento: 'Em Andamento',
   finalizada: 'Finalizada', pendente_pagamento: 'Pendente de Pagamento', concluida: 'Concluída',
+  cancelada: 'Cancelada',
 }
 const statusBadgeClass: Record<string, string> = {
   aberta: 'bs-a', oficina: 'bs-o', em_andamento: 'bs-e',
-  finalizada: 'bs-f', pendente_pagamento: 'bs-p', concluida: 'bs-c',
+  finalizada: 'bs-f', pendente_pagamento: 'bs-p', concluida: 'bs-c', cancelada: 'bs-x',
 }
 
 export default async function ImprimirOSPage({ params }: { params: Promise<{ id: string }> }) {
@@ -60,6 +61,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         .bs-f { background: #e0e7ff; color: #4338ca; }
         .bs-p { background: #ffedd5; color: #c2410c; }
         .bs-c { background: #dcfce7; color: #166534; }
+        .bs-x { background: #f1f5f9; color: #64748b; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .card  { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
         .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }

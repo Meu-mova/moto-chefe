@@ -11,10 +11,12 @@ const statusCor: Record<string, string> = {
   finalizada:          'bg-indigo-100 text-indigo-700',
   pendente_pagamento:  'bg-orange-100 text-orange-700',
   concluida:           'bg-green-100 text-green-700',
+  cancelada:           'bg-slate-100 text-slate-500',
 }
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', oficina: 'Oficina', em_andamento: 'Em Andamento',
   finalizada: 'Finalizada', pendente_pagamento: 'Pendente de Pagamento', concluida: 'Concluída',
+  cancelada: 'Cancelada',
 }
 
 export async function OSTab({ motoId }: { motoId: string }) {

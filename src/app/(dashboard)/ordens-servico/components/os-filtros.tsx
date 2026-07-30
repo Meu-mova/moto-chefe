@@ -12,6 +12,7 @@ const STATUS_OPTS = [
   { value: 'finalizada',          label: 'Finalizada' },
   { value: 'pendente_pagamento',  label: 'Pendente de Pagamento' },
   { value: 'concluida',           label: 'Concluída' },
+  { value: 'cancelada',           label: 'Cancelada' },
 ]
 
 function ToggleChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {

@@ -1,8 +1,8 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { ordensServico, osItens, aprovacoesVenda } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
@@ -16,7 +16,7 @@ async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   if (!papeis.includes(usuario.papel)) throw new Error('Sem permissão')
 
   const [os] = await db
-    .select({ lojaId: ordensServico.lojaId })
+    .select({ lojaId: ordensServico.lojaId, status: ordensServico.status })
     .from(ordensServico)
     .where(eq(ordensServico.id, osId))
     .limit(1)
@@ -26,7 +26,38 @@ async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
   if (!isAdmin && os.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
 
-  return { usuario, isAdmin }
+  // OS cancelada é registro morto — nada nela pode mudar depois disso.
+  if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
+
+  return { usuario, isAdmin, os }
+}
+
+// Dinheiro amarrado na OS. Cancelar exige tudo zerado (não há estorno de caixa);
+// mexer nos itens exige pelo menos que nada esteja conciliado, senão o valor da OS
+// deixa de bater com o que já foi conferido no extrato.
+async function situacaoFinanceiraOS(osId: string) {
+  const [os] = await db
+    .select({
+      status:         ordensServico.status,
+      formaPagamento: ordensServico.formaPagamento,
+      pagamentos:     ordensServico.pagamentos,
+    })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) throw new Error('OS não encontrada')
+
+  const [cartoes, pix, aprovacoes] = await Promise.all([
+    db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.osId, osId), eq(conciliacoesCartao.conciliado, true))),
+    db.$count(pixRecebimentosMcp, eq(pixRecebimentosMcp.osId, osId)),
+    db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, osId), eq(aprovacoesVenda.status, 'pendente'))),
+  ])
+
+  return {
+    temPagamento:   Boolean(os.formaPagamento) || (os.pagamentos?.length ?? 0) > 0 || os.status === 'concluida',
+    temConciliacao: cartoes > 0 || pix > 0,
+    temAprovacaoPendente: aprovacoes > 0,
+  }
 }
 
 type AbrirOSInput = {
@@ -102,6 +133,8 @@ export async function atualizarStatusOSAction(osId: string, novoStatus: string) 
 
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
   if (!isAdmin && os.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+
+  if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
 
   const idxAtual = SEQUENCIA_STATUS.indexOf(os.status as typeof SEQUENCIA_STATUS[number])
   const proximoEsperado = SEQUENCIA_STATUS[idxAtual + 1]
@@ -228,6 +261,15 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
   return { aguardandoAprovacao: false }
 }
 
+// Mexer no valor da OS depois que o pagamento já foi conferido no extrato faria o
+// total divergir da conciliação — a partir daí a OS é só leitura.
+async function garantirOSNaoConciliada(osId: string) {
+  const { temConciliacao } = await situacaoFinanceiraOS(osId)
+  if (temConciliacao) {
+    throw new Error('OS já conciliada — não é possível alterar os itens')
+  }
+}
+
 export async function adicionarItemOSAction(osId: string, item: {
   tipo: 'servico' | 'peca'
   descricao: string
@@ -237,6 +279,7 @@ export async function adicionarItemOSAction(osId: string, item: {
   pecaId?: string | null
 }) {
   await verificarAcessoOS(osId, EDITORES)
+  await garantirOSNaoConciliada(osId)
   await db.insert(osItens).values({
     osId,
     tipo:          item.tipo,
@@ -252,6 +295,7 @@ export async function adicionarItemOSAction(osId: string, item: {
 
 export async function removerItemOSAction(itemId: string, osId: string) {
   await verificarAcessoOS(osId, EDITORES)
+  await garantirOSNaoConciliada(osId)
 
   // Verificar que o item pertence à OS informada (evita IDOR no item)
   const [item] = await db
@@ -263,6 +307,34 @@ export async function removerItemOSAction(itemId: string, osId: string) {
 
   await db.delete(osItens).where(eq(osItens.id, itemId))
   await recalcularTotal(osId)
+  revalidatePath(`/ordens-servico/${osId}`)
+}
+
+export async function cancelarOSAction(osId: string, motivo: string) {
+  const { usuario } = await verificarAcessoOS(osId, ADMINS)
+
+  const motivoLimpo = motivo.trim()
+  if (motivoLimpo.length < 5) throw new Error('Informe o motivo do cancelamento')
+
+  const { temPagamento, temConciliacao, temAprovacaoPendente } = await situacaoFinanceiraOS(osId)
+  if (temPagamento) {
+    throw new Error('OS com pagamento lançado não pode ser cancelada — não há estorno de caixa')
+  }
+  if (temConciliacao) {
+    throw new Error('OS já conciliada não pode ser cancelada')
+  }
+  if (temAprovacaoPendente) {
+    throw new Error('Existe uma aprovação de pagamento pendente para esta OS — resolva antes de cancelar')
+  }
+
+  await db.update(ordensServico).set({
+    status:             'cancelada',
+    motivoCancelamento: motivoLimpo,
+    canceladaEm:        new Date(),
+    canceladaPor:       usuario.id,
+  }).where(eq(ordensServico.id, osId))
+
+  revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)
 }
 

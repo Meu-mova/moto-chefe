@@ -55,6 +55,11 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     mecanicoId:          ordensServico.mecanicoId,
     clienteId:           ordensServico.clienteId,
     chassiOs:            ordensServico.chassiOs,
+    motivoCancelamento:  ordensServico.motivoCancelamento,
+    canceladaEm:         ordensServico.canceladaEm,
+    canceladaPorNome:    sql<string | null>`(
+      SELECT u_canc.nome FROM usuarios u_canc WHERE u_canc.id = ${ordensServico.canceladaPor}
+    )`,
     chassi:              motos.chassi,
     cor:                 motos.cor,
     marca:               modelos.marca,

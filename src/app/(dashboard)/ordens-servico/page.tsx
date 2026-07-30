@@ -56,8 +56,12 @@ export default async function OrdensServicoPage({
   const finalizadas         = lista.filter(o => o.status === 'finalizada')
   const pendentePagamento   = lista.filter(o => o.status === 'pendente_pagamento')
   const concluidas          = lista.filter(o => o.status === 'concluida')
+  const canceladas          = lista.filter(o => o.status === 'cancelada')
 
-  const concStats = lista.reduce(
+  // OS cancelada não entra em faturamento nem em conciliação — o valor dela morreu junto.
+  const ativas = lista.filter(o => o.status !== 'cancelada')
+
+  const concStats = ativas.reduce(
     (acc, o) => {
       if (o.valorTotal == null) return acc
       const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
@@ -70,8 +74,8 @@ export default async function OrdensServicoPage({
     { pendente: 0, parcial: 0, conciliada: 0 },
   )
 
-  const totalServicos = lista.reduce((s, o) => s + (parseFloat(o.valorServicos) || 0), 0)
-  const totalPecas    = lista.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
+  const totalServicos = ativas.reduce((s, o) => s + (parseFloat(o.valorServicos) || 0), 0)
+  const totalPecas    = ativas.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   return (
@@ -205,6 +209,16 @@ export default async function OrdensServicoPage({
             Concluídas ({concluidas.length})
           </h2>
           {concluidas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
+        </section>
+      )}
+
+      {canceladas.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
+            Canceladas ({canceladas.length})
+          </h2>
+          {canceladas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
         </section>
       )}
     </div>

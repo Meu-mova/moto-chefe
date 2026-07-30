@@ -17,8 +17,10 @@ export const aprovacaoVendaStatusEnum = pgEnum('aprovacao_venda_status', ['pende
 // 'valor_minimo': venda abaixo do preço mínimo, aprovada por admin_geral/admin_socio do grupo.
 // 'pagamento_sensivel': venda com financiamento/transferência, só o responsável (ver EMAIL_ACESSO_MULTI_GRUPO) aprova.
 export const aprovacaoVendaTipoEnum = pgEnum('aprovacao_venda_tipo', ['valor_minimo', 'pagamento_sensivel'])
+// 'cancelada' é terminal e fica fora de SEQUENCIA_STATUS — só se chega nele pela
+// cancelarOSAction, e só a partir de OS sem pagamento/conciliação.
 export const osStatusEnum = pgEnum('os_status', [
-  'aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida',
+  'aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida', 'cancelada',
 ])
 export const garantiaStatusEnum = pgEnum('garantia_status', ['ativa', 'encerrada'])
 export const historicoTipoEnum = pgEnum('historico_tipo', ['entrada', 'saida', 'transferencia_enviada', 'transferencia_recebida', 'mudanca_status'])
@@ -267,6 +269,9 @@ export const ordensServico = pgTable('ordens_servico', {
   agendamentoId: uuid('agendamento_id'),  // FK: agendamentos.id (sem ref Drizzle — circular)
   origem: text('origem').notNull().default('walk_in'),
   chassiOs: text('chassi_os'),             // chassi real do veículo na OS
+  motivoCancelamento: text('motivo_cancelamento'),
+  canceladaEm: timestamp('cancelada_em', { withTimezone: true }),
+  canceladaPor: uuid('cancelada_por').references(() => usuarios.id),
 })
 
 // ─── agendamentos ─────────────────────────────────────────────────────────────

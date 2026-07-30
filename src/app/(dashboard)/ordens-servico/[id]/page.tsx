@@ -8,7 +8,7 @@ import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Printer, Ban } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { OSStatusBar } from './components/os-status-bar'
 import { OSItensPanel } from './components/os-itens-panel'
@@ -16,6 +16,7 @@ import { OSEditarPanel } from './components/os-editar-panel'
 import { OSPagamentoPanel } from './components/os-pagamento-panel'
 import { OSConciliacaoPanel } from './components/os-conciliacao-panel'
 import { ExcluirOSButton } from './components/excluir-os-button'
+import { CancelarOSButton } from './components/cancelar-os-button'
 import { OSTemposPanel } from './components/os-tempos-panel'
 
 const statusLabel: Record<string, string> = {
@@ -58,6 +59,17 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   const totalGeral = totalServicos + totalPecas
   const pagamentosOS = pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal)
 
+  const cancelada    = os.status === 'cancelada'
+  const conciliada   = Number(os.conciliadoValor) > 0 || Number(os.pixConciliadoValor) > 0
+  const temPagamento = Boolean(os.formaPagamento) || (os.pagamentos?.length ?? 0) > 0 || os.status === 'concluida'
+
+  // Espelha as travas de cancelarOSAction — o botão só some/desabilita pelo mesmo motivo
+  // que a action recusaria (ver src/app/(dashboard)/ordens-servico/actions.ts).
+  const bloqueioCancelamento =
+    conciliada   ? 'OS já conciliada não pode ser cancelada'
+    : temPagamento ? 'OS com pagamento lançado não pode ser cancelada — não há estorno de caixa'
+    : null
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
@@ -83,12 +95,31 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           >
             <Printer size={15} /> Imprimir OS
           </Link>
+          {isAdmin && !cancelada && (
+            <CancelarOSButton osId={id} numero={os.numero} bloqueio={bloqueioCancelamento} />
+          )}
           {isAdmin && <ExcluirOSButton osId={id} numero={os.numero} />}
         </div>
       </div>
 
+      {cancelada && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <Ban size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold text-amber-800">OS cancelada</p>
+            <p className="text-amber-700">{os.motivoCancelamento}</p>
+            <p className="mt-0.5 text-xs text-amber-600">
+              {os.canceladaPorNome ?? '—'}
+              {os.canceladaEm && ` · ${format(new Date(os.canceladaEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Status bar */}
-      <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} papel={usuario.papel} />
+      {!cancelada && (
+        <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} papel={usuario.papel} />
+      )}
 
       {/* Tempos por etapa */}
       <OSTemposPanel
@@ -148,11 +179,17 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         clienteNomeExterno={os.clienteNomeExterno ?? ''}
         clienteFoneExterno={os.clienteFoneExterno ?? ''}
         temCliente={Boolean(os.clienteId)}
-        podeEditar={podeEditar}
+        podeEditar={podeEditar && !cancelada}
       />
 
-      {/* Itens */}
-      <OSItensPanel osId={id} itens={itens} podeEditar={podeEditar} servicos={servicos} pecas={pecas} />
+      {/* Itens — depois de conciliada o valor não pode mais mudar, senão descasa do extrato */}
+      <OSItensPanel
+        osId={id}
+        itens={itens}
+        podeEditar={podeEditar && !cancelada && !conciliada}
+        servicos={servicos}
+        pecas={pecas}
+      />
 
       {/* Totais e pagamento */}
       <Card>
