@@ -39,14 +39,18 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
     })
   }
 
+  // Botão de verdade, não <span> inerte: no celular não existe hover, então sem
+  // o clique o usuário não teria como descobrir por que não consegue cancelar.
   if (bloqueio) {
     return (
-      <span
+      <button
+        type="button"
+        onClick={() => toast.info(bloqueio)}
         title={bloqueio}
-        className="flex items-center gap-1.5 text-sm text-slate-300 border border-slate-100 rounded-lg px-3 py-1.5 cursor-not-allowed"
+        className="flex items-center gap-1.5 text-sm text-slate-400 border border-slate-200 rounded-lg px-3 py-1.5"
       >
         <Ban size={15} /> Cancelar OS
-      </span>
+      </button>
     )
   }
 

@@ -18,6 +18,7 @@ import { OSConciliacaoPanel } from './components/os-conciliacao-panel'
 import { ExcluirOSButton } from './components/excluir-os-button'
 import { CancelarOSButton } from './components/cancelar-os-button'
 import { OSTemposPanel } from './components/os-tempos-panel'
+import { motivoBloqueioCancelamento, podeCancelarOS } from '@/lib/os-cancelamento'
 
 const statusLabel: Record<string, string> = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', concluida: 'Concluída',
@@ -44,6 +45,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
+  const podeCancelar = podeCancelarOS(usuario.papel)
 
   const motoDesc = os.chassi
     ? `${os.marca ?? ''} ${os.modelo ?? ''}`
@@ -63,12 +65,14 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   const conciliada   = Number(os.conciliadoValor) > 0 || Number(os.pixConciliadoValor) > 0
   const temPagamento = Boolean(os.formaPagamento) || (os.pagamentos?.length ?? 0) > 0 || os.status === 'concluida'
 
-  // Espelha as travas de cancelarOSAction — o botão só some/desabilita pelo mesmo motivo
-  // que a action recusaria (ver src/app/(dashboard)/ordens-servico/actions.ts).
-  const bloqueioCancelamento =
-    conciliada   ? 'OS já conciliada não pode ser cancelada'
-    : temPagamento ? 'OS com pagamento lançado não pode ser cancelada — não há estorno de caixa'
-    : null
+  // Mesma função que a action usa, para a tela nunca prometer (nem esconder) algo
+  // diferente do que o servidor faria. Ver src/lib/os-cancelamento.ts.
+  const bloqueioCancelamento = motivoBloqueioCancelamento({
+    jaCancelada:          cancelada,
+    temPagamento,
+    temConciliacao:       conciliada,
+    temAprovacaoPendente: aprovacaoPendente,
+  })
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -95,7 +99,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           >
             <Printer size={15} /> Imprimir OS
           </Link>
-          {isAdmin && !cancelada && (
+          {podeCancelar && !cancelada && (
             <CancelarOSButton osId={id} numero={os.numero} bloqueio={bloqueioCancelamento} />
           )}
           {isAdmin && <ExcluirOSButton osId={id} numero={os.numero} />}

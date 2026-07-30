@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
+import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
@@ -311,21 +312,16 @@ export async function removerItemOSAction(itemId: string, osId: string) {
 }
 
 export async function cancelarOSAction(osId: string, motivo: string) {
-  const { usuario } = await verificarAcessoOS(osId, ADMINS)
+  // PAPEIS_CANCELAM_OS inclui aux_adm; verificarAcessoOS já prende quem não é
+  // admin à própria loja, então o aux_adm só cancela OS da loja dele.
+  const { usuario } = await verificarAcessoOS(osId, PAPEIS_CANCELAM_OS)
 
   const motivoLimpo = motivo.trim()
   if (motivoLimpo.length < 5) throw new Error('Informe o motivo do cancelamento')
 
-  const { temPagamento, temConciliacao, temAprovacaoPendente } = await situacaoFinanceiraOS(osId)
-  if (temPagamento) {
-    throw new Error('OS com pagamento lançado não pode ser cancelada — não há estorno de caixa')
-  }
-  if (temConciliacao) {
-    throw new Error('OS já conciliada não pode ser cancelada')
-  }
-  if (temAprovacaoPendente) {
-    throw new Error('Existe uma aprovação de pagamento pendente para esta OS — resolva antes de cancelar')
-  }
+  const situacao = await situacaoFinanceiraOS(osId)
+  const bloqueio = motivoBloqueioCancelamento({ ...situacao, jaCancelada: false })
+  if (bloqueio) throw new Error(bloqueio)
 
   await db.update(ordensServico).set({
     status:             'cancelada',
