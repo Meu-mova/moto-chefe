@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/pedidos-fabrica",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

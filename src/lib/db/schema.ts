@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey,
+  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -46,6 +46,21 @@ export const grupos = pgTable('grupos', {
   // Chat/grupo do Telegram que recebe os avisos desta bandeira. Nulo = não avisa.
   telegramChatId:     text('telegram_chat_id'),
 })
+
+// ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
+// Memória do alerta de pedido "aguardando pagamento" no portal da fábrica.
+// Sem isso o cron re-avisaria o mesmo pedido em toda rodada.
+export const pedidosFabricaAlerta = pgTable('pedidos_fabrica_alerta', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  grupoId:          uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  numeroPedido:     text('numero_pedido').notNull(),
+  valor:            numeric('valor', { precision: 12, scale: 2 }),
+  dataPedido:       text('data_pedido'),
+  primeiroAlertaEm: timestamp('primeiro_alerta_em', { withTimezone: true }).notNull().defaultNow(),
+  ultimoAlertaEm:   timestamp('ultimo_alerta_em', { withTimezone: true }).notNull().defaultNow(),
+  // Preenchido quando o pedido some da lista de "aguardando pagamento".
+  resolvidoEm:      timestamp('resolvido_em', { withTimezone: true }),
+}, t => [unique('pedidos_fabrica_alerta_grupo_pedido_key').on(t.grupoId, t.numeroPedido)])
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {

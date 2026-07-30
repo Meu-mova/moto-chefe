@@ -49,9 +49,18 @@ function mergeCookies(existing: string, fresh: string[]): string {
 
 export type FabricaSession = { cookie: string }
 
-export async function loginFabrica(): Promise<FabricaSession> {
-  const email = process.env.FABRICA_EMAIL
-  const senha = process.env.FABRICA_SENHA
+export type CredencialFabrica = { email: string; senha: string }
+
+/**
+ * Faz login no portal da fábrica.
+ *
+ * Sem argumento usa FABRICA_EMAIL/FABRICA_SENHA do ambiente (conta única, legado).
+ * Com `cred` usa a conta daquela bandeira — cada grupo tem seu próprio cadastro
+ * no portal, então o que uma conta enxerga não é o que a outra enxerga.
+ */
+export async function loginFabrica(cred?: CredencialFabrica): Promise<FabricaSession> {
+  const email = cred?.email ?? process.env.FABRICA_EMAIL
+  const senha = cred?.senha ?? process.env.FABRICA_SENHA
   if (!email || !senha) throw new Error('Variáveis FABRICA_EMAIL / FABRICA_SENHA não configuradas no ambiente')
 
   // 1. GET /login (sem redirect automático para capturar Set-Cookie)
@@ -184,6 +193,109 @@ export async function buscarDetalhePedidoGarantia(
     ?.trim() ?? null
 
   return { chassi, peca, status }
+}
+
+// ─── Pedidos de compra ────────────────────────────────────────────────────────
+
+export const STATUS_AGUARDANDO_PAGAMENTO = 'Aguardando pagamento'
+
+export type PedidoCompraFabrica = {
+  numeroPedido: string
+  /** "29/07/2026 18:17" como vem do portal */
+  dataPedido: string | null
+  valor: number | null
+  metodo: string | null
+  status: string | null
+}
+
+function limparHtml(trecho: string): string {
+  return trecho
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// "R$ 202,90" → 202.9 ; "R$ 1.234,56" → 1234.56
+function parseValorBR(texto: string): number | null {
+  const m = texto.match(/R\$\s*([\d.]+,\d{2})/)
+  if (!m) return null
+  const n = parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Extrai os pedidos da tabela de /clientes/pedidos.
+ *
+ * Puro de propósito — é o que o teste cobre, já que o HTML do portal é de
+ * terceiro e pode mudar sem aviso. Não assume ordem de coluna: acha cada campo
+ * pelo formato (link do pedido, data dd/mm/aaaa, valor em R$, badge de status),
+ * porque a mesma tabela serve as abas de compras e de garantias.
+ */
+export function parsearPedidosCompra(html: string): PedidoCompraFabrica[] {
+  const linhas = html.split(/<tr\b/i).slice(1)
+  const pedidos: PedidoCompraFabrica[] = []
+  const vistos = new Set<string>()
+
+  for (const linha of linhas) {
+    const numeroPedido = linha.match(/\/clientes\/pedido\/(\d+)/)?.[1]
+    if (!numeroPedido || vistos.has(numeroPedido)) continue
+    vistos.add(numeroPedido)
+
+    const celulas = [...linha.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map(m => limparHtml(m[1]))
+
+    const dataPedido = celulas.find(c => /^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/.test(c)) ?? null
+    const celulaValor = celulas.find(c => /R\$/.test(c))
+    const status = limparHtml(linha.match(/<span\b[^>]*rounded-full[^>]*>([\s\S]*?)<\/span>/i)?.[1] ?? '') || null
+
+    // O método de pagamento é a célula curta que não é número, data nem status.
+    const metodo = celulas.find(c =>
+      c.length > 0 && c.length <= 20 &&
+      c !== status &&
+      !/R\$|\d{2}\/\d{2}\/\d{4}|^#?\d+$/.test(c) &&
+      !/detalhes/i.test(c),
+    ) ?? null
+
+    pedidos.push({
+      numeroPedido,
+      dataPedido,
+      valor: celulaValor ? parseValorBR(celulaValor) : null,
+      metodo,
+      status,
+    })
+  }
+
+  return pedidos
+}
+
+/**
+ * Pedidos de compra da bandeira, opcionalmente filtrados por status.
+ *
+ * O filtro é server-side (querystring do próprio portal), então uma requisição
+ * basta — sem o filtro seriam ~36 páginas de histórico.
+ */
+export async function listarPedidosCompraFabrica(
+  session: FabricaSession,
+  status?: string,
+): Promise<PedidoCompraFabrica[]> {
+  const url = new URL(`${BASE}/clientes/pedidos`)
+  url.searchParams.set('aba', 'compras')
+  if (status) url.searchParams.set('status', status)
+
+  const resp = await fetch(url.toString(), {
+    headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+    redirect: 'follow',
+  })
+  if (!resp.ok) throw new Error(`Portal da fábrica respondeu ${resp.status} em /clientes/pedidos`)
+
+  const html = await resp.text()
+  // Sessão expirada volta o formulário de login com HTTP 200.
+  if (/name="csrf_test_name"/i.test(html) && !/\/clientes\/pedido\//.test(html)) {
+    throw new Error('Sessão da fábrica expirou antes de listar os pedidos')
+  }
+
+  return parsearPedidosCompra(html)
 }
 
 export async function buscarStatusGarantiaFabrica(
