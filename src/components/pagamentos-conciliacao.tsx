@@ -213,9 +213,13 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
         const precisa = precisaConciliar(p.tipo)
         if (somenteConciliaveis && !precisa) return null
 
+        const cobertura  = conciliados[i]
         const forcado    = Boolean(p.conciliadoManual)
-        const conciliado = precisa && conciliados[i]
-        const pendente   = precisa && !loading && !conciliados[i]
+        const conciliado = precisa && cobertura.conciliado
+        const pendente   = precisa && !loading && !cobertura.conciliado
+        const falta      = precisa ? p.valor - cobertura.coberto : 0
+        // Achou dinheiro, mas menos do que foi lançado: nem verde nem vermelho.
+        const parcial    = pendente && cobertura.coberto > 0.005
         const aberto     = buscandoIdx === i
 
         return (
@@ -223,6 +227,7 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
             <div
               className={`flex justify-between items-center rounded px-3 py-2 ${
                 conciliado ? 'bg-green-50 border border-green-200' :
+                parcial    ? 'bg-amber-50 border border-amber-200' :
                 pendente   ? 'bg-red-50 border border-red-200' :
                              'bg-slate-50'
               }`}
@@ -233,9 +238,9 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                     ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
                     : conciliado
                       ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
-                      : <Clock size={13} className="text-red-400 shrink-0" />
+                      : <Clock size={13} className={parcial ? 'text-amber-500 shrink-0' : 'text-red-400 shrink-0'} />
                 )}
-                <span className={`truncate ${conciliado ? 'text-green-800' : pendente ? 'text-red-700' : 'text-slate-600'}`}>
+                <span className={`truncate ${conciliado ? 'text-green-800' : parcial ? 'text-amber-800' : pendente ? 'text-red-700' : 'text-slate-600'}`}>
                   {TIPO_LABEL[p.tipo] ?? p.tipo}
                   {p.operadora ? ` (${p.operadora})` : ''}
                   {p.parcelas  ? ` ${p.parcelas}x`  : ''}
@@ -288,6 +293,12 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                 )}
               </div>
             </div>
+
+            {parcial && !loading && (
+              <p className="text-xs text-amber-700 ml-3">
+                Entrou {fmt(cobertura.coberto)} — <span className="font-semibold">faltam {fmt(falta)}</span>
+              </p>
+            )}
 
             {forcado && p.conciliadoManual && (
               <p className="text-xs text-amber-700 ml-3">

@@ -36,36 +36,72 @@ export function valorConciliadoManual(pagamentos: unknown): number {
 }
 
 type ConcMatch = { id: string; autorizacao: string | null; valorBruto: string | number }
-type PixMatch  = { id: string }
+type PixMatch  = { id: string; valor: string | number }
+
+/** Quanto do pagamento foi coberto por dinheiro que realmente entrou. */
+export type CoberturaPgto = { conciliado: boolean; coberto: number }
 
 // Vendas, peças e OS podem ter mais de uma forma de pagamento por cartão/pix no mesmo
-// carrinho (ex.: Pix + Cartão). Casa cada item do array `pagamentos` com uma conciliação
-// de cartão (por autorização, depois por valor) ou recebimento Pix, individualmente —
-// para que cada forma de pagamento possa ser conciliada de forma independente na UI.
-export function matchPagamentos(pgtos: PgtoOS[], concs: ConcMatch[], pixRecs: PixMatch[]): boolean[] {
+// carrinho (ex.: Pix + Cartão). Casa cada item do array `pagamentos` com o que entrou,
+// individualmente, para que cada forma possa ser conciliada de forma independente na UI.
+//
+// A linha só fecha quando o VALOR recebido cobre o valor lançado. Antes bastava existir
+// a transação: um PIX de R$ 5.990 fechava um pagamento de R$ 10.990, e um cartão casado
+// por autorização fechava mesmo vindo com valor menor. O resultado era a tela de
+// detalhes toda verde enquanto o badge da listagem — que sempre comparou valores —
+// dizia "Parcial". Quem manda é o valor; ver calcStatusMultiPagamento.
+export function matchPagamentos(pgtos: PgtoOS[], concs: ConcMatch[], pixRecs: PixMatch[]): CoberturaPgto[] {
   const usados    = new Set<string>()
-  const resultado = pgtos.map(() => false)
+  const resultado: CoberturaPgto[] = pgtos.map(() => ({ conciliado: false, coberto: 0 }))
 
   // Forçados entram antes dos laços automáticos: assim o match por valor (que pula
   // índices já resolvidos) não gasta uma transação real num pagamento que já foi
   // fechado na mão, deixando o irmão de mesmo valor pendente à toa.
-  pgtos.forEach((p, i) => { if (p.conciliadoManual) resultado[i] = true })
-
   pgtos.forEach((p, i) => {
-    if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao) return
+    if (p.conciliadoManual) resultado[i] = { conciliado: true, coberto: p.valor }
+  })
+
+  // Cartão pela autorização: é a transação certa, mesmo que o valor tenha vindo
+  // diferente. Cobre o que a operadora reportou — a diferença fica visível na tela.
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao || resultado[i].conciliado) return
     const m = concs.find(c => !usados.has(c.id) && c.autorizacao === p.autorizacao)
-    if (m) { resultado[i] = true; usados.add(m.id) }
+    if (m) { resultado[i].coberto = Number(m.valorBruto); usados.add(m.id) }
   })
 
   pgtos.forEach((p, i) => {
-    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i]) return
+    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i].conciliado || resultado[i].coberto > 0) return
     const m = concs.find(c => !usados.has(c.id) && Math.abs(Number(c.valorBruto) - p.valor) <= 0.05)
-    if (m) { resultado[i] = true; usados.add(m.id) }
+    if (m) { resultado[i].coberto = Number(m.valorBruto); usados.add(m.id) }
   })
 
-  if (pixRecs.length > 0) {
-    pgtos.forEach((p, i) => { if (p.tipo === 'pix') resultado[i] = true })
-  }
+  // Transações vinculadas à venda que não casaram com nenhuma linha (ex.: uma cobrança
+  // agregada para dois pagamentos) ainda são dinheiro que entrou — rateia no que falta,
+  // senão a listagem diria "conciliada" com todas as linhas vermelhas.
+  let sobraCartao = concs.filter(c => !usados.has(c.id)).reduce((a, c) => a + Number(c.valorBruto), 0)
+  pgtos.forEach((p, i) => {
+    if (!TIPOS_CARTAO.has(p.tipo) || resultado[i].conciliado || sobraCartao <= 0) return
+    const falta = p.valor - resultado[i].coberto
+    if (falta <= 0.05) return
+    const usa = Math.min(falta, sobraCartao)
+    resultado[i].coberto += usa
+    sobraCartao -= usa
+  })
+
+  // PIX não tem autorização para casar: rateia o total recebido entre os pagamentos
+  // PIX, na ordem. Dois PIX lançados e um só recebimento fecham um, não os dois.
+  let poolPix = pixRecs.reduce((a, r) => a + (Number(r.valor) || 0), 0)
+  pgtos.forEach((p, i) => {
+    if (p.tipo !== 'pix' || resultado[i].conciliado || poolPix <= 0) return
+    const usa = Math.min(p.valor, poolPix)
+    resultado[i].coberto += usa
+    poolPix -= usa
+  })
+
+  resultado.forEach((r, i) => {
+    if (r.conciliado) return
+    r.conciliado = precisaConciliar(pgtos[i].tipo) && r.coberto >= pgtos[i].valor - 0.05
+  })
 
   return resultado
 }
