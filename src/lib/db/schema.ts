@@ -430,6 +430,22 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
   nome: text('nome').notNull(),
   ativo: boolean('ativo').notNull().default(true),
   ordem: integer('ordem').notNull().default(0),
+  // false = saída real, mas não é custo de operar a loja (compra de mercadoria,
+  // retirada de sócio). Fica de fora do card Despesas Operacionais do /financeiro.
+  contaComoDespesa: boolean('conta_como_despesa').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── favorecidos_nao_operacionais ────────────────────────────────────────────
+// Metade das saídas grandes do extrato nunca foi categorizada, então a flag acima
+// não alcança: a fábrica de moto só é reconhecível pelo CNPJ do favorecido.
+// `cnpj` guardado só com dígitos — no extrato ele vem formatado de jeitos diferentes.
+export const favorecidosNaoOperacionais = pgTable('favorecidos_nao_operacionais', {
+  id:       uuid('id').primaryKey().defaultRandom(),
+  grupoId:  uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  cnpj:     text('cnpj').notNull(),
+  rotulo:   text('rotulo').notNull(),
+  motivo:   text('motivo').notNull().default('compra_moto'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

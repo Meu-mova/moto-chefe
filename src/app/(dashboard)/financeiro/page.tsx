@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, configuracaoTaxas, ordensServico } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, configuracaoTaxas, ordensServico } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
+import { somarDespesas } from '@/lib/despesas-operacionais'
 
 // Parte não paga em cartão fica como está; a parte paga em cartão e já conciliada é trocada
 // pelo valor líquido. Cobre vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte
@@ -55,7 +56,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const lojaFiltroOS = lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, totalDespesasRaw, despesasPorCategoria, taxasRow, totaisOS] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, taxasRow, totaisOS] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -164,38 +165,55 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       ORDER BY SUM(p.valor::numeric) DESC
     `),
 
-    // Total de despesas do período (loja filtrada + gerais)
+    // Saídas do Importar do Banco no período (loja filtrada + as sem loja atribuída,
+    // que são as despesas gerais da empresa). Essa é a base do card de despesas desde
+    // que o Open Finance entrou — os lançamentos manuais viraram complemento.
     db
       .select({
-        total: sql<string>`COALESCE(SUM(${despesas.valor}), '0')`,
+        valor:          despesasOpenFinance.valor,
+        categoria:      despesasOpenFinance.categoria,
+        favorecidoNome: despesasOpenFinance.favorecidoNome,
+        descricao:      despesasOpenFinance.descricao,
+      })
+      .from(despesasOpenFinance)
+      .where(and(
+        eq(despesasOpenFinance.grupoId, grupo.id),
+        gte(despesasOpenFinance.data, inicioTs),
+        lte(despesasOpenFinance.data, fimTs),
+        lojaParamValido
+          ? sql`(${despesasOpenFinance.lojaId} = ${lojaParamValido} OR ${despesasOpenFinance.lojaId} IS NULL)`
+          : undefined,
+      )),
+
+    // Lançamentos manuais que NÃO nasceram de uma saída do banco — as contas pagas
+    // fora da conta do Open Finance. Sem esse NOT EXISTS toda despesa lançada pelo
+    // botão "lançar" do Importar do Banco entraria duas vezes.
+    db
+      .select({
+        valor:     despesas.valor,
+        categoria: despesas.categoria,
       })
       .from(despesas)
       .where(and(
         eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
+        sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
         lojaParamValido
           ? sql`(${despesas.lojaId} = ${lojaParamValido} OR ${despesas.lojaId} IS NULL)`
           : undefined,
       )),
 
-    // Despesas agrupadas por categoria
+    // Regras de exclusão: categorias marcadas + CNPJ de fábrica.
     db
-      .select({
-        categoria: despesas.categoria,
-        total:     sql<string>`COALESCE(SUM(${despesas.valor}), '0')`,
-      })
-      .from(despesas)
-      .where(and(
-        eq(despesas.grupoId, grupo.id),
-        gte(despesas.data, inicioMes),
-        lte(despesas.data, ultimoDia),
-        lojaParamValido
-          ? sql`(${despesas.lojaId} = ${lojaParamValido} OR ${despesas.lojaId} IS NULL)`
-          : undefined,
-      ))
-      .groupBy(despesas.categoria)
-      .orderBy(sql`SUM(${despesas.valor}) DESC`),
+      .select({ nome: categoriasDespesa.nome })
+      .from(categoriasDespesa)
+      .where(eq(categoriasDespesa.contaComoDespesa, false)),
+
+    db
+      .select({ cnpj: favorecidosNaoOperacionais.cnpj })
+      .from(favorecidosNaoOperacionais)
+      .where(eq(favorecidosNaoOperacionais.grupoId, grupo.id)),
 
     db.select({ imposto: configuracaoTaxas.imposto }).from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
 
@@ -222,7 +240,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const saidasCaixa = Number(totaisCaixa.find(t => t.tipo === 'saida')?.total ?? 0)
   const saldoCaixa = entradasCaixa - saidasCaixa
   const taxasCartao = receitaVendas - receitaLiquida
-  const totalDespesas = Number(totalDespesasRaw[0]?.total ?? 0)
+
+  const resumoDespesas = somarDespesas(saidasBanco, manuaisForaDoBanco, {
+    categoriasForaDoCalculo: new Set(categoriasForaRows.map(c => c.nome)),
+    cnpjsForaDoCalculo:      new Set(cnpjsForaRows.map(c => c.cnpj)),
+  })
+  const totalDespesas = resumoDespesas.total
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
   const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)
   const lucroBruto = receitaLiquida - totalCusto
@@ -351,7 +374,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <ResumoVendedores resumo={resumoPorVendedor} />
 
-      <ResumoDespesas total={totalDespesas} porCategoria={despesasPorCategoria} />
+      <ResumoDespesas resumo={resumoDespesas} />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Vendas Realizadas</CardTitle></CardHeader>
