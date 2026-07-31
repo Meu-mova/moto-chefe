@@ -3,18 +3,12 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Eye, CheckCircle2, Clock, History, FileText, Search, Link2, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Eye, History, FileText } from 'lucide-react'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
-import {
-  buscarConciliacoesDaVenda,
-  buscarPixDaVenda,
-  buscarConciliacoesPorValor,
-  vincularVendaAction,
-} from '../../conciliacao/actions'
 import { buscarHistoricoMotoAction } from '../actions'
 import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
-import { TIPOS_CARTAO, matchPagamentos, type PgtoOS } from '@/lib/conciliacao-status'
+import { TIPOS_CARTAO, type PgtoOS } from '@/lib/conciliacao-status'
+import { PagamentosConciliacao, useConciliacaoAlvo } from '@/components/pagamentos-conciliacao'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -51,51 +45,30 @@ const historicoTipoLabel: Record<string, string> = {
   mudanca_status: 'Mudança de status',
 }
 
-type Conc        = Awaited<ReturnType<typeof buscarConciliacoesDaVenda>>[number]
-type PixRec      = Awaited<ReturnType<typeof buscarPixDaVenda>>[number]
 type Hist        = Awaited<ReturnType<typeof buscarHistoricoMotoAction>>[number]
-type Candidato   = Awaited<ReturnType<typeof buscarConciliacoesPorValor>>[number]
 type Pgto        = PgtoOS
 
 type Tab = 'detalhes' | 'historico'
-type Props = { venda: VendaComDetalhes; isAdmin?: boolean }
+type Props = { venda: VendaComDetalhes; papel: string }
 
-export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
+export function DetalhesVendaDialog({ venda: v, papel }: Props) {
   const [open, setOpen]        = useState(false)
   const [tab, setTab]          = useState<Tab>('detalhes')
-  const [concs, setConcs]      = useState<Conc[]>([])
-  const [pixRecs, setPixRecs]  = useState<PixRec[]>([])
   const [hist, setHist]        = useState<Hist[] | null>(null)
-  const [loading, setLoading]  = useState(false)
   const [histLoading, setHistLoading] = useState(false)
-
-  // ── Busca de candidatos de conciliação ────────────────────────────────────
-  const [buscandoIdx, setBuscandoIdx]   = useState<number | null>(null)
-  const [candidatos, setCandidatos]     = useState<Candidato[]>([])
-  const [buscaLoading, setBuscaLoading] = useState(false)
-  const [vinculando, setVinculando]     = useState(false)
 
   const pagamentos = (v.pagamentos as Pgto[]) ?? []
   const temCartao  = pagamentos.some(p => TIPOS_CARTAO.has(p.tipo))
   const temPix     = pagamentos.some(p => p.tipo === 'pix')
 
-  async function abrirDialog() {
+  // Só carrega lançamentos quando há algo a conciliar — venda em dinheiro não
+  // precisa bater com nada. Ver src/components/pagamentos-conciliacao.tsx.
+  const dados = useConciliacaoAlvo({ tipo: 'moto', id: v.id }, open && (temCartao || temPix))
+  const { concs, loading } = dados
+
+  function abrirDialog() {
     setOpen(true)
     setTab('detalhes')
-    setBuscandoIdx(null)
-    if (temCartao || temPix) {
-      setLoading(true)
-      try {
-        const [c, px] = await Promise.all([
-          temCartao ? buscarConciliacoesDaVenda(v.id) : Promise.resolve([]),
-          temPix    ? buscarPixDaVenda(v.id)          : Promise.resolve([]),
-        ])
-        setConcs(c)
-        setPixRecs(px)
-      } finally {
-        setLoading(false)
-      }
-    }
   }
 
   async function carregarHistorico() {
@@ -107,44 +80,6 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
     } finally {
       setHistLoading(false)
     }
-  }
-
-  async function buscarCandidatos(idx: number, valor: number) {
-    if (buscandoIdx === idx) { setBuscandoIdx(null); return }
-    setBuscandoIdx(idx)
-    setBuscaLoading(true)
-    setCandidatos([])
-    try {
-      setCandidatos(await buscarConciliacoesPorValor(valor))
-    } catch {
-      toast.error('Erro ao buscar transações')
-      setBuscandoIdx(null)
-    } finally {
-      setBuscaLoading(false)
-    }
-  }
-
-  async function vincular(conciliacaoId: string) {
-    setVinculando(true)
-    try {
-      await vincularVendaAction(conciliacaoId, v.id)
-      const updated = await buscarConciliacoesDaVenda(v.id)
-      setConcs(updated)
-      setBuscandoIdx(null)
-      setCandidatos([])
-      toast.success('Pagamento conciliado')
-    } catch {
-      toast.error('Erro ao vincular')
-    } finally {
-      setVinculando(false)
-    }
-  }
-
-  const conciliados = matchPagamentos(pagamentos, concs, pixRecs)
-
-  const operadoraLabel: Record<string, string> = {
-    infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',
-    cielo: 'Cielo', getnet: 'GetNet', redecard: 'Redecard',
   }
 
   return (
@@ -266,125 +201,12 @@ export function DetalhesVendaDialog({ venda: v, isAdmin = false }: Props) {
               <div className="space-y-1.5">
                 <p className="font-semibold text-slate-700">Pagamento</p>
                 {pagamentos.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {pagamentos.map((p, i) => {
-                      const precisaConc = TIPOS_CARTAO.has(p.tipo) || p.tipo === 'pix'
-                      const conciliado  = precisaConc && conciliados[i]
-                      const pendente    = precisaConc && !loading && !conciliados[i]
-                      const aberto      = buscandoIdx === i
-
-                      return (
-                        <div key={i} className="space-y-1">
-                          {/* Linha do pagamento */}
-                          <div
-                            className={`flex justify-between items-center rounded px-3 py-2 ${
-                              conciliado ? 'bg-green-50 border border-green-200' :
-                              pendente   ? 'bg-red-50 border border-red-200' :
-                                           'bg-slate-50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              {precisaConc && (
-                                loading
-                                  ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
-                                  : conciliado
-                                    ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
-                                    : <Clock size={13} className="text-red-400 shrink-0" />
-                              )}
-                              <span className={`truncate ${conciliado ? 'text-green-800' : pendente ? 'text-red-700' : 'text-slate-600'}`}>
-                                {tipoLabel[p.tipo] ?? p.tipo}
-                                {p.operadora ? ` (${p.operadora})` : ''}
-                                {p.parcelas  ? ` ${p.parcelas}x`  : ''}
-                                {p.autorizacao
-                                  ? <span className="ml-1 font-mono text-xs opacity-60">#{p.autorizacao}</span>
-                                  : null}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                              <span className={`font-medium tabular-nums ${conciliado ? 'text-green-700' : ''}`}>
-                                {formatCurrency(p.valor)}
-                              </span>
-                              {/* Botão de busca — só para admins em pagamentos pendentes de cartão */}
-                              {isAdmin && pendente && TIPOS_CARTAO.has(p.tipo) && (
-                                <button
-                                  onClick={() => buscarCandidatos(i, p.valor)}
-                                  title="Buscar transação para conciliar"
-                                  className={`p-1 rounded transition-colors ${
-                                    aberto
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                                  }`}
-                                >
-                                  <Search size={13} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Painel de candidatos */}
-                          {aberto && (
-                            <div className="ml-4 border border-blue-100 rounded-lg bg-blue-50 p-2 space-y-1">
-                              <p className="text-xs font-medium text-blue-700 mb-1.5 flex items-center gap-1">
-                                <Search size={11} />
-                                Transações com valor próximo não vinculadas
-                              </p>
-
-                              {buscaLoading && (
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500 py-1">
-                                  <Loader2 size={12} className="animate-spin" />
-                                  Buscando…
-                                </div>
-                              )}
-
-                              {!buscaLoading && candidatos.length === 0 && (
-                                <p className="text-xs text-slate-500 py-1">
-                                  Nenhuma transação encontrada com este valor. Importe o relatório da operadora no módulo de conciliação.
-                                </p>
-                              )}
-
-                              {!buscaLoading && candidatos.map(c => {
-                                const raw = c.rawData as { bandeira?: string; portador?: string } | null
-                                return (
-                                  <button
-                                    key={c.id}
-                                    onClick={() => vincular(c.id)}
-                                    disabled={vinculando}
-                                    className="w-full text-left rounded px-2.5 py-2 bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs disabled:opacity-50"
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0 space-y-0.5">
-                                        <p className="font-medium text-slate-800">
-                                          {operadoraLabel[c.operadora] ?? c.operadora}
-                                          {raw?.bandeira ? ` · ${raw.bandeira}` : ''}
-                                          {c.tipo === 'debito' ? ' (Débito)' : ' (Crédito)'}
-                                        </p>
-                                        {raw?.portador && (
-                                          <p className="text-slate-700 font-medium">
-                                            Portador: <span className="font-normal">{raw.portador}</span>
-                                          </p>
-                                        )}
-                                        <p className="text-slate-400 font-mono">
-                                          {c.autorizacao ? `Aut: #${c.autorizacao}` : 'Sem autorização'}
-                                          {' · '}
-                                          {c.dataTransacao ? new Date(c.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-1 text-blue-600 shrink-0 mt-0.5">
-                                        {vinculando
-                                          ? <Loader2 size={11} className="animate-spin" />
-                                          : <Link2 size={11} />}
-                                        <span className="font-semibold">{formatCurrency(c.valorBruto)}</span>
-                                      </div>
-                                    </div>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <PagamentosConciliacao
+                    alvo={{ tipo: 'moto', id: v.id }}
+                    pagamentos={pagamentos}
+                    dados={dados}
+                    papel={papel}
+                  />
                 ) : (
                   <p className="text-slate-500">{tipoLabel[v.formaPagamento] ?? v.formaPagamento} — {formatCurrency(v.valor)}</p>
                 )}

@@ -232,7 +232,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
           osId={id}
           osNumero={os.numero}
           pagamentos={pagamentosOS}
-          isAdmin={podeFechar}
+          papel={usuario.papel}
         />
       )}
     </div>

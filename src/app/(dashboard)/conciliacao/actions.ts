@@ -5,6 +5,7 @@ import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
+import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { revalidatePath } from 'next/cache'
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
@@ -319,92 +320,6 @@ export async function desvincularVendaAction(conciliacaoId: string) {
   revalidatePath('/conciliacao')
 }
 
-export async function buscarConciliacoesDaVenda(vendaId: string) {
-  const usuario = await getUsuarioLogado()
-
-  // Verifica se o usuário tem acesso a essa venda
-  const [venda] = await db
-    .select({ lojaId: vendas.lojaId })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-  if (!venda) return []
-
-  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && venda.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
-  }
-
-  return db
-    .select({
-      id:            conciliacoesCartao.id,
-      autorizacao:   conciliacoesCartao.autorizacao,
-      valorBruto:    conciliacoesCartao.valorBruto,
-      valorLiquido:  conciliacoesCartao.valorLiquido,
-      operadora:     conciliacoesCartao.operadora,
-      tipo:          conciliacoesCartao.tipo,
-      dataTransacao: conciliacoesCartao.dataTransacao,
-    })
-    .from(conciliacoesCartao)
-    .where(and(eq(conciliacoesCartao.vendaId, vendaId), eq(conciliacoesCartao.conciliado, true)))
-}
-
-export async function buscarConciliacoesDaOS(osId: string) {
-  const usuario = await getUsuarioLogado()
-
-  const [os] = await db
-    .select({ lojaId: ordensServico.lojaId })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-  if (!os) return []
-
-  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && os.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
-  }
-
-  return db
-    .select({
-      id:            conciliacoesCartao.id,
-      autorizacao:   conciliacoesCartao.autorizacao,
-      valorBruto:    conciliacoesCartao.valorBruto,
-      valorLiquido:  conciliacoesCartao.valorLiquido,
-      operadora:     conciliacoesCartao.operadora,
-      tipo:          conciliacoesCartao.tipo,
-      dataTransacao: conciliacoesCartao.dataTransacao,
-    })
-    .from(conciliacoesCartao)
-    .where(and(eq(conciliacoesCartao.osId, osId), eq(conciliacoesCartao.conciliado, true)))
-}
-
-export async function buscarPixDaOS(osId: string) {
-  const usuario = await getUsuarioLogado()
-
-  const [os] = await db
-    .select({ lojaId: ordensServico.lojaId })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-  if (!os) return []
-
-  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && os.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
-  }
-
-  return db
-    .select({
-      id:            pixRecebimentosMcp.id,
-      dataPagamento: pixRecebimentosMcp.data,
-      valor:         pixRecebimentosMcp.valor,
-      pagadorNome:   pixRecebimentosMcp.pagadorNome,
-      observacao:    pixRecebimentosMcp.descricao,
-    })
-    .from(pixRecebimentosMcp)
-    .where(eq(pixRecebimentosMcp.osId, osId))
-}
-
 export async function buscarConciliacoesPorValor(valor: number) {
   const usuario = await getUsuarioLogado()
   const ADMINS  = ['admin_geral', 'admin_socio', 'aux_adm']
@@ -433,46 +348,231 @@ export async function buscarConciliacoesPorValor(valor: number) {
     .limit(10)
 }
 
-export async function buscarPixDaVenda(vendaId: string) {
+// ─── Conciliação por alvo (venda de moto, peça ou OS) ────────────────────────
+// As telas de vendas, peças e OS mostram o mesmo painel de pagamentos, então
+// carregam os lançamentos pelas mesmas funções — ver src/components/pagamentos-conciliacao.tsx.
+
+export type AlvoTipo = 'moto' | 'peca' | 'os'
+export type AlvoConciliacao = { tipo: AlvoTipo; id: string }
+
+const GESTORES_CONC = ['admin_geral', 'admin_socio', 'aux_adm']
+
+async function lojaIdDoAlvo(alvo: AlvoConciliacao): Promise<string | null> {
+  if (alvo.tipo === 'peca') {
+    const [r] = await db.select({ lojaId: vendasPecas.lojaId }).from(vendasPecas).where(eq(vendasPecas.id, alvo.id)).limit(1)
+    return r?.lojaId ?? null
+  }
+  if (alvo.tipo === 'os') {
+    const [r] = await db.select({ lojaId: ordensServico.lojaId }).from(ordensServico).where(eq(ordensServico.id, alvo.id)).limit(1)
+    return r?.lojaId ?? null
+  }
+  const [r] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, alvo.id)).limit(1)
+  return r?.lojaId ?? null
+}
+
+export async function buscarConciliacoesDoAlvo(alvo: AlvoConciliacao) {
   const usuario = await getUsuarioLogado()
+  const lojaId  = await lojaIdDoAlvo(alvo)
+  if (!lojaId) return []
+  if (!GESTORES_CONC.includes(usuario.papel) && lojaId !== usuario.lojaId) throw new Error('Sem permissão')
 
-  const [venda] = await db
-    .select({ lojaId: vendas.lojaId, dataVenda: vendas.dataVenda })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-  if (!venda) return []
-
-  const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && venda.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
-  }
-
-  // A partir do corte, concilia só pelo PIX via mcp.ai; vendas anteriores continuam
-  // pelo ValidaPix — ver CORTE_MIGRACAO_PIX.
-  if (new Date(venda.dataVenda) >= CORTE_MIGRACAO_PIX) {
-    return db
-      .select({
-        id:              pixRecebimentosMcp.id,
-        dataPagamento:   pixRecebimentosMcp.data,
-        valor:           pixRecebimentosMcp.valor,
-        pagadorNome:     pixRecebimentosMcp.pagadorNome,
-        observacao:      pixRecebimentosMcp.descricao,
-      })
-      .from(pixRecebimentosMcp)
-      .where(eq(pixRecebimentosMcp.vendaId, vendaId))
-  }
+  const coluna = alvo.tipo === 'peca' ? conciliacoesCartao.pecaVendaId
+    : alvo.tipo === 'os'              ? conciliacoesCartao.osId
+    :                                   conciliacoesCartao.vendaId
 
   return db
     .select({
-      id:              pixRecebimentos.id,
-      dataPagamento:   pixRecebimentos.dataPagamento,
-      valor:           pixRecebimentos.valor,
-      pagadorNome:     pixRecebimentos.pagadorNome,
-      observacao:      pixRecebimentos.observacao,
+      id:            conciliacoesCartao.id,
+      autorizacao:   conciliacoesCartao.autorizacao,
+      valorBruto:    conciliacoesCartao.valorBruto,
+      valorLiquido:  conciliacoesCartao.valorLiquido,
+      operadora:     conciliacoesCartao.operadora,
+      tipo:          conciliacoesCartao.tipo,
+      dataTransacao: conciliacoesCartao.dataTransacao,
     })
-    .from(pixRecebimentos)
-    .where(eq(pixRecebimentos.vendaId, vendaId))
+    .from(conciliacoesCartao)
+    .where(and(eq(coluna, alvo.id), eq(conciliacoesCartao.conciliado, true)))
+}
+
+export async function buscarPixDoAlvo(alvo: AlvoConciliacao) {
+  const usuario = await getUsuarioLogado()
+  const lojaId  = await lojaIdDoAlvo(alvo)
+  if (!lojaId) return []
+  if (!GESTORES_CONC.includes(usuario.papel) && lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+
+  // Venda de moto anterior ao corte ainda concilia pelo ValidaPix; OS e peça sempre
+  // pelo mcp.ai (nasceram depois da migração). Ver CORTE_MIGRACAO_PIX.
+  if (alvo.tipo === 'moto') {
+    const [venda] = await db.select({ dataVenda: vendas.dataVenda }).from(vendas).where(eq(vendas.id, alvo.id)).limit(1)
+    if (venda && new Date(venda.dataVenda) < CORTE_MIGRACAO_PIX) {
+      return db
+        .select({
+          id:            pixRecebimentos.id,
+          dataPagamento: pixRecebimentos.dataPagamento,
+          valor:         pixRecebimentos.valor,
+          pagadorNome:   pixRecebimentos.pagadorNome,
+          observacao:    pixRecebimentos.observacao,
+        })
+        .from(pixRecebimentos)
+        .where(eq(pixRecebimentos.vendaId, alvo.id))
+    }
+  }
+
+  const coluna = alvo.tipo === 'peca' ? pixRecebimentosMcp.pecaVendaId
+    : alvo.tipo === 'os'              ? pixRecebimentosMcp.osId
+    :                                   pixRecebimentosMcp.vendaId
+
+  return db
+    .select({
+      id:            pixRecebimentosMcp.id,
+      dataPagamento: pixRecebimentosMcp.data,
+      valor:         pixRecebimentosMcp.valor,
+      pagadorNome:   pixRecebimentosMcp.pagadorNome,
+      observacao:    pixRecebimentosMcp.descricao,
+    })
+    .from(pixRecebimentosMcp)
+    .where(eq(coluna, alvo.id))
+}
+
+// Busca livre: a lupa padrão só acha transação de valor praticamente idêntico. Quando
+// o valor lançado na venda não bate com o que a operadora reportou (taxa embutida,
+// digitação errada), é por aqui que se acha a transação — por autorização, NSU, data
+// ou valor aproximado, sem filtro de valor exato.
+export async function buscarConciliacoesLivres(query: string) {
+  const usuario = await getUsuarioLogado()
+  if (!GESTORES_CONC.includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
+
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const valor   = parseFloat(q.replace(/\./g, '').replace(',', '.'))
+  const isData  = /^\d{4}-\d{2}-\d{2}$/.test(q)
+  const isValor = !isData && Number.isFinite(valor) && valor > 0
+
+  const filtro = isData
+    ? eq(conciliacoesCartao.dataTransacao, q)
+    : isValor
+      ? sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 5`
+      : sql`(${conciliacoesCartao.autorizacao} ILIKE ${'%' + q + '%'} OR ${conciliacoesCartao.nsu} ILIKE ${'%' + q + '%'})`
+
+  return db
+    .select({
+      id:            conciliacoesCartao.id,
+      operadora:     conciliacoesCartao.operadora,
+      autorizacao:   conciliacoesCartao.autorizacao,
+      valorBruto:    conciliacoesCartao.valorBruto,
+      dataTransacao: conciliacoesCartao.dataTransacao,
+      tipo:          conciliacoesCartao.tipo,
+      rawData:       conciliacoesCartao.rawData,
+    })
+    .from(conciliacoesCartao)
+    .where(and(
+      eq(conciliacoesCartao.grupoId, grupo.id),
+      eq(conciliacoesCartao.conciliado, false),
+      filtro,
+    ))
+    .orderBy(desc(conciliacoesCartao.dataTransacao))
+    .limit(15)
+}
+
+// ─── Forçar conciliação na mão (admin_geral) ─────────────────────────────────
+// Fecha a pendência quando o dinheiro entrou mas não existe lançamento no sistema.
+// A marcação mora no próprio item do array `pagamentos` — ver
+// docs/superpowers/specs/2026-07-31-forcar-conciliacao-design.md.
+
+async function alvoParaEdicao(alvo: AlvoConciliacao) {
+  const usuario = await getUsuarioLogado()
+  if (usuario.papel !== 'admin_geral') throw new Error('Sem permissão')
+
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+
+  if (alvo.tipo === 'peca') {
+    const [r] = await db
+      .select({ lojaId: vendasPecas.lojaId, pagamentos: vendasPecas.pagamentos })
+      .from(vendasPecas).where(eq(vendasPecas.id, alvo.id)).limit(1)
+    if (!r) throw new Error('Venda de peça não encontrada')
+    if (!lojaIdsGrupo.includes(r.lojaId)) throw new Error('Venda de peça não pertence ao grupo ativo')
+    return { usuario, pgtos: ((r.pagamentos ?? []) as PgtoOS[]) }
+  }
+
+  if (alvo.tipo === 'os') {
+    const [r] = await db
+      .select({
+        lojaId:         ordensServico.lojaId,
+        pagamentos:     ordensServico.pagamentos,
+        formaPagamento: ordensServico.formaPagamento,
+        valorTotal:     ordensServico.valorTotal,
+      })
+      .from(ordensServico).where(eq(ordensServico.id, alvo.id)).limit(1)
+    if (!r) throw new Error('Ordem de serviço não encontrada')
+    if (!lojaIdsGrupo.includes(r.lojaId)) throw new Error('Ordem de serviço não pertence ao grupo ativo')
+    // OS antiga só tem `formaPagamento` em texto — materializa o array sintetizado
+    // para que a marcação tenha onde morar.
+    return { usuario, pgtos: pagamentosEfetivosOS(r.formaPagamento, r.pagamentos, r.valorTotal) }
+  }
+
+  const [r] = await db
+    .select({ lojaId: vendas.lojaId, pagamentos: vendas.pagamentos })
+    .from(vendas).where(eq(vendas.id, alvo.id)).limit(1)
+  if (!r) throw new Error('Venda não encontrada')
+  if (!lojaIdsGrupo.includes(r.lojaId)) throw new Error('Venda não pertence ao grupo ativo')
+  return { usuario, pgtos: ((r.pagamentos ?? []) as PgtoOS[]) }
+}
+
+async function gravarPagamentos(alvo: AlvoConciliacao, pgtos: PgtoOS[]) {
+  if (alvo.tipo === 'peca') {
+    await db.update(vendasPecas).set({ pagamentos: pgtos }).where(eq(vendasPecas.id, alvo.id))
+  } else if (alvo.tipo === 'os') {
+    await db.update(ordensServico).set({ pagamentos: pgtos }).where(eq(ordensServico.id, alvo.id))
+    revalidatePath(`/ordens-servico/${alvo.id}`)
+  } else {
+    await db.update(vendas).set({ pagamentos: pgtos }).where(eq(vendas.id, alvo.id))
+  }
+
+  // O mesmo status aparece em 6 telas; todas revalidam juntas para nunca divergirem.
+  revalidatePath('/vendas')
+  revalidatePath('/pecas')
+  revalidatePath('/ordens-servico')
+  revalidatePath('/dashboard')
+  revalidatePath('/conciliacao')
+}
+
+export async function forcarConciliacaoAction(alvo: AlvoConciliacao, idx: number, motivo: string) {
+  const texto = motivo.trim()
+  if (texto.length < 3) throw new Error('Informe o motivo da conciliação forçada')
+
+  const { usuario, pgtos } = await alvoParaEdicao(alvo)
+  const alvoPgto = pgtos[idx]
+  if (!alvoPgto) throw new Error('Pagamento não encontrado')
+  if (!precisaConciliar(alvoPgto.tipo)) throw new Error('Esse pagamento não precisa de conciliação')
+
+  const atualizados = pgtos.map((p, i) => i === idx
+    ? {
+        ...p,
+        conciliadoManual: {
+          motivo:  texto,
+          porId:   usuario.id,
+          porNome: usuario.nome,
+          em:      new Date().toISOString(),
+        },
+      }
+    : p)
+
+  await gravarPagamentos(alvo, atualizados)
+}
+
+export async function desfazerConciliacaoForcadaAction(alvo: AlvoConciliacao, idx: number) {
+  const { pgtos } = await alvoParaEdicao(alvo)
+  if (!pgtos[idx]) throw new Error('Pagamento não encontrado')
+
+  const atualizados = pgtos.map((p, i) => {
+    if (i !== idx) return p
+    const { conciliadoManual: _removido, ...resto } = p
+    return resto
+  })
+
+  await gravarPagamentos(alvo, atualizados)
 }
 
 export async function buscarVendasParaVincular(valorRef: number) {

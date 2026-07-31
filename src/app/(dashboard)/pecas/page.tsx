@@ -51,7 +51,7 @@ export default async function PecasPage() {
               isAdmin={isAdmin}
             />
           </div>
-          <VendasPecasTable vendas={vendas} />
+          <VendasPecasTable vendas={vendas} papel={usuario.papel} />
         </TabsContent>
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">

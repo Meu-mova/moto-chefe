@@ -11,6 +11,7 @@ import { VendasFiltros } from './components/vendas-filtros'
 import { VendasTable } from './components/vendas-table'
 import { AprovacoesPendentesPanel } from './components/aprovacoes-pendentes-panel'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import { valorConciliadoManual } from '@/lib/conciliacao-status'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const TIPOS_CARTAO_CONC = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
@@ -50,7 +51,10 @@ function calcConcStats(vendas: VendaComDetalhes[]) {
         return acc
       }
 
-      const conciliado = (Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)
+      // Inclui o que foi conciliado na mão, senão o KPI contradiz o badge da linha.
+      const conciliado = (Number(v.conciliadoValor) || 0)
+        + (Number(v.pixConciliadoValor) || 0)
+        + valorConciliadoManual(v.pagamentos)
       if (conciliado < 0.01) {
         acc.pendente++
         acc.valorPendente += totalNecessa

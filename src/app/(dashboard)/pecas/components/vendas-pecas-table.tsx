@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { ConcBadge } from '@/components/conciliacao-badge'
+import { ConciliacaoPecaDialog } from './conciliacao-peca-dialog'
 
 type VendaPeca = {
   id: string
@@ -32,7 +33,7 @@ function fmtData(d: Date) {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-export function VendasPecasTable({ vendas }: { vendas: VendaPeca[] }) {
+export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel: string }) {
   return (
     <div className="bg-white rounded-lg border">
       <Table>
@@ -60,7 +61,17 @@ export function VendasPecasTable({ vendas }: { vendas: VendaPeca[] }) {
                 <TableCell>{v.vendedorNome}</TableCell>
                 <TableCell>{v.clienteNome ?? '—'}</TableCell>
                 <TableCell>{TIPO_LABEL[v.formaPagamento] ?? v.formaPagamento}</TableCell>
-                <TableCell><ConcBadge status={statusConc} /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <ConcBadge status={statusConc} />
+                    <ConciliacaoPecaDialog
+                      vendaId={v.id}
+                      numero={v.numero}
+                      pagamentos={v.pagamentos}
+                      papel={papel}
+                    />
+                  </div>
+                </TableCell>
                 <TableCell className="text-right font-medium text-green-700">{fmtBRL(v.valorTotal)}</TableCell>
                 <TableCell className="text-right text-slate-500">{fmtData(v.dataVenda)}</TableCell>
               </TableRow>

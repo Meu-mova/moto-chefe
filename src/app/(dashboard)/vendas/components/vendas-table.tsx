@@ -7,16 +7,16 @@ import { CancelarVendaButton } from './cancelar-venda-button'
 import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeCancelar = new Set(['admin_geral', 'admin_socio'])
 const podeEditar   = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 
-const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
-
-type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
-
+// Só o que é específico de venda de moto fica aqui: o fallback para
+// vendas.status_conciliacao das vendas antigas, anteriores ao array `pagamentos`.
+// O resto é a mesma conta de peças, OS e dashboard — ver @/lib/conciliacao-status.
 function calcStatus(
   pagamentos: unknown,
   conciliadoValor: number,
@@ -25,15 +25,8 @@ function calcStatus(
   statusConciliacao: string,
 ): StatusConc {
   const pgtos = (pagamentos ?? []) as { tipo: string; valor: number }[]
-  const totalCartao = pgtos
-    .filter(p => TIPOS_CARTAO.has(p.tipo))
-    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
-  const totalPix = pgtos
-    .filter(p => p.tipo === 'pix')
-    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
   const totalLancado = pgtos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
 
-  // Sem pagamentos lançados: usa o status salvo no banco
   if (totalLancado < 0.01) {
     if (statusConciliacao === 'pendente')   return 'pendente'
     if (statusConciliacao === 'parcial')    return 'parcial'
@@ -41,16 +34,7 @@ function calcStatus(
     return 'na'
   }
 
-  // pagamentos lançados não cobrem o valor total da venda → parcial
-  if (totalLancado < Number(valorVenda) - 0.05) return 'parcial'
-
-  const totalNecessa = totalCartao + totalPix
-  if (totalNecessa < 0.01) return 'conciliada' // só dinheiro/financiamento
-
-  const conciliado = (Number(conciliadoValor) || 0) + (Number(pixConciliadoValor) || 0)
-  if (conciliado < 0.01) return 'pendente'
-  if (conciliado >= totalNecessa - 0.05) return 'conciliada'
-  return 'parcial'
+  return calcStatusMultiPagamento(pagamentos, conciliadoValor, pixConciliadoValor, valorVenda)
 }
 
 const BADGE: Record<StatusConc, { label: string; cls: string } | null> = {
@@ -146,7 +130,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
               )}
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
-                  <DetalhesVendaDialog venda={v} isAdmin={podeConciliacao} />
+                  <DetalhesVendaDialog venda={v} papel={papel} />
                   {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton

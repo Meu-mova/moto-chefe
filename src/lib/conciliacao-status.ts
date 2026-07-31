@@ -2,9 +2,38 @@ export type StatusConc = 'na' | 'pendente' | 'parcial' | 'conciliada'
 
 export const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
 
-export type PgtoOS = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
+// Conciliação forçada na mão pelo admin_geral: o dinheiro entrou, mas não existe
+// lançamento correspondente no sistema (relatório da operadora não importado, PIX
+// fora do Open Finance, transferência avulsa). Fica gravada no próprio item do array
+// `pagamentos` — ver docs/superpowers/specs/2026-07-31-forcar-conciliacao-design.md.
+export type ConciliadoManual = { motivo: string; porId: string; porNome: string; em: string }
 
-type PgtoItem = { tipo: string; valor: number }
+export type PgtoOS = {
+  tipo: string
+  valor: number
+  operadora?: string
+  parcelas?: number
+  autorizacao?: string
+  conciliadoManual?: ConciliadoManual | null
+}
+
+type PgtoItem = { tipo: string; valor: number; conciliadoManual?: ConciliadoManual | null }
+
+// Só cartão e PIX entram na conta do que precisa ser conciliado — dinheiro,
+// financiamento e cortesia nunca geram pendência, então forçá-los não soma nada.
+export function precisaConciliar(tipo: string): boolean {
+  return TIPOS_CARTAO.has(tipo) || tipo === 'pix'
+}
+
+// Total dos pagamentos marcados como conciliados na mão. Usado por
+// calcStatusMultiPagamento e pelos dois pontos que fazem a conta em JS por fora
+// (KPIs de /vendas e o calcStatus da tabela de vendas).
+export function valorConciliadoManual(pagamentos: unknown): number {
+  const pgtos = (pagamentos ?? []) as PgtoItem[]
+  return pgtos
+    .filter(p => p.conciliadoManual && precisaConciliar(p.tipo))
+    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+}
 
 type ConcMatch = { id: string; autorizacao: string | null; valorBruto: string | number }
 type PixMatch  = { id: string }
@@ -16,6 +45,11 @@ type PixMatch  = { id: string }
 export function matchPagamentos(pgtos: PgtoOS[], concs: ConcMatch[], pixRecs: PixMatch[]): boolean[] {
   const usados    = new Set<string>()
   const resultado = pgtos.map(() => false)
+
+  // Forçados entram antes dos laços automáticos: assim o match por valor (que pula
+  // índices já resolvidos) não gasta uma transação real num pagamento que já foi
+  // fechado na mão, deixando o irmão de mesmo valor pendente à toa.
+  pgtos.forEach((p, i) => { if (p.conciliadoManual) resultado[i] = true })
 
   pgtos.forEach((p, i) => {
     if (!TIPOS_CARTAO.has(p.tipo) || !p.autorizacao) return
@@ -60,7 +94,9 @@ export function calcStatusMultiPagamento(
   const totalNecessario = totalCartao + totalPix
   if (totalNecessario < 0.01) return 'conciliada' // só dinheiro/financiamento/cortesia
 
-  const conciliado = (Number(conciliadoValor) || 0) + (Number(pixConciliadoValor) || 0)
+  const conciliado = (Number(conciliadoValor) || 0)
+    + (Number(pixConciliadoValor) || 0)
+    + valorConciliadoManual(pgtos)
   if (conciliado < 0.01) return 'pendente'
   if (conciliado >= totalNecessario - 0.05) return 'conciliada'
   return 'parcial'
