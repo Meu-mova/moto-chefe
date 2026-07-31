@@ -11,6 +11,7 @@ import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/act
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaTelegram, type ResultadoAvisoVenda } from '@/lib/telegram/venda'
+import { parseDataInput } from '@/lib/data-venda'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
@@ -361,7 +362,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
 
-  const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
+  const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
   await db.transaction(async (tx) => {
     await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
@@ -1094,7 +1095,7 @@ export async function editarVendaAction(vendaId: string, dados: {
     await tx.update(vendas)
       .set({
         valor:              dados.valor,
-        dataVenda:          new Date(dados.dataVenda),
+        dataVenda:          parseDataInput(dados.dataVenda),
         notaFiscalSaida:    nfFinal,
         pagamentos:         dados.pagamentos,
         formaPagamento,
@@ -1374,7 +1375,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   if (!moto) throw new Error('Moto não encontrada')
 
   const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
-  const dataVendaFinal = data.dataVenda ? new Date(data.dataVenda + 'T12:00:00') : new Date()
+  const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
   await db.transaction(async (tx) => {
     // UPDATE condicionado a status = 'pendente' — evita duplicar a venda se
