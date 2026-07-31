@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -809,6 +809,13 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
 
   if (!vendaRecord) throw new Error('Venda não encontrada')
 
+  // Cancelar apaga a linha da venda, e conciliacoes_cartao, pix_recebimentos,
+  // pix_recebimentos_mcp e demandas apontam para vendas.id com ON DELETE NO ACTION.
+  // Sem soltar esses vínculos primeiro, o DELETE estoura violação de chave
+  // estrangeira e o cancelamento inteiro faz rollback — era o que acontecia em
+  // qualquer venda que já tivesse recebimento conciliado.
+  const desvinculados = { cartao: 0, pix: 0, demandas: 0, valor: 0 }
+
   await db.transaction(async (tx) => {
     // Reverter moto para montada/disponível
     await tx.update(motos)
@@ -820,6 +827,42 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       .set({ status: 'cancelado' })
       .where(eq(pedidosVenda.id, vendaRecord.pedidoVendaId))
 
+    // Recebimentos voltam a ficar sem dono, para reaparecerem como não vinculados
+    // em /conciliacao e /pix-mcp — o dinheiro entrou e continua no extrato.
+    const cartoes = await tx.update(conciliacoesCartao)
+      .set({ vendaId: null, conciliado: false, conciliadoEm: null })
+      .where(eq(conciliacoesCartao.vendaId, vendaId))
+      .returning({ valor: conciliacoesCartao.valorBruto })
+
+    const pixAntigos = await tx.update(pixRecebimentos)
+      .set({ vendaId: null })
+      .where(eq(pixRecebimentos.vendaId, vendaId))
+      .returning({ valor: pixRecebimentos.valor })
+
+    const pixMcp = await tx.update(pixRecebimentosMcp)
+      .set({
+        vendaId: null, tipoCorrespondencia: null, osId: null,
+        pedidoId: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null,
+      })
+      .where(eq(pixRecebimentosMcp.vendaId, vendaId))
+      .returning({ valor: pixRecebimentosMcp.valor })
+
+    const dems = await tx.update(demandas)
+      .set({ vendaId: null })
+      .where(eq(demandas.vendaId, vendaId))
+      .returning({ id: demandas.id })
+
+    desvinculados.cartao   = cartoes.length
+    // O mesmo PIX pode estar nas duas tabelas (ValidaPix e mcp.ai) — conta o maior
+    // dos dois, não a soma, senão o aviso na tela dobra o que existe de verdade.
+    desvinculados.pix      = Math.max(pixAntigos.length, pixMcp.length)
+    desvinculados.demandas = dems.length
+    desvinculados.valor    = cartoes.reduce((a, c) => a + Number(c.valor), 0)
+      + Math.max(
+          pixAntigos.reduce((a, p) => a + Number(p.valor), 0),
+          pixMcp.reduce((a, p) => a + Number(p.valor), 0),
+        )
+
     // Remover lancamentos antes da venda (lancamentos_caixa tem FK para vendas.id)
     await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
 
@@ -827,6 +870,9 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     await tx.delete(vendas).where(eq(vendas.id, vendaId))
 
     // Registrar no histórico
+    const recebido = desvinculados.valor > 0
+      ? ` — Recebimentos desvinculados: ${desvinculados.cartao} cartão + ${desvinculados.pix} PIX (R$ ${desvinculados.valor.toFixed(2)})`
+      : ''
     await tx.insert(historicoEstoque).values({
       motoId: vendaRecord.motoId,
       lojaDestinoId: vendaRecord.lojaId,
@@ -834,7 +880,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       tipo: 'mudanca_status',
       statusAnterior: 'vendida',
       statusNovo: 'montada',
-      observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)} — Motivo: ${motivo}`,
+      observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido} — Motivo: ${motivo}`,
     })
   })
 
@@ -842,6 +888,10 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   revalidatePath('/estoque')
   revalidatePath('/caixa')
   revalidatePath('/dashboard')
+  revalidatePath('/conciliacao')
+  revalidatePath('/pix-mcp')
+
+  return desvinculados
 }
 
 // ─── Reserva ─────────────────────────────────────────────────────────────────

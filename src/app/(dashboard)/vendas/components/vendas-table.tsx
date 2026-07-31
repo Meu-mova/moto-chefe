@@ -148,6 +148,8 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
                     <CancelarVendaButton
                       vendaId={v.id}
                       descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
+                      valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
+                      notaFiscalSaida={v.notaFiscalSaida}
                     />
                   )}
                 </div>
