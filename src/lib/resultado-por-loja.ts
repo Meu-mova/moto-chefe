@@ -1,16 +1,19 @@
 // Custo x lucro por loja no /financeiro.
 //
 // A conta é a mesma do card de lucro líquido do topo da página, só que quebrada por
-// loja: receita líquida − custo das motos − despesa − imposto. A parte delicada é a
-// despesa: no Sul de Minas 86% das saídas não têm loja atribuída no Importar do Banco,
-// então a maior parte do custo de operar é uma massa sem dono. Ela é rateada entre as
-// lojas na proporção do que cada uma faturou.
+// loja: receita líquida − custo das motos − despesa. Não há imposto estimado por
+// alíquota: o tributo que a empresa paga já vem no extrato como despesa (categoria
+// "Impostos"), e descontar os dois contava o mesmo imposto duas vezes.
+//
+// A parte delicada é a despesa: no Sul de Minas 86% das saídas não têm loja atribuída
+// no Importar do Banco, então a maior parte do custo de operar é uma massa sem dono.
+// Ela é rateada entre as lojas na proporção do que cada uma faturou.
 
 export type VendasDaLoja = {
   lojaId: string
   lojaNome: string
   qtdVendas: number
-  /** Soma de vendas.valor — é sobre ela que o imposto incide. */
+  /** Soma de vendas.valor, antes de descontar a taxa de cartão. */
   receitaBruta: number
   /** Receita já descontada da taxa de cartão das vendas conciliadas. */
   receitaLiquida: number
@@ -25,10 +28,9 @@ export type ResultadoLoja = VendasDaLoja & {
   despesaPropria: number
   /** Parte da despesa sem loja que coube a esta loja no rateio. */
   despesaRateada: number
-  imposto: number
   /** receita líquida − custo das motos. */
   lucroBruto: number
-  /** lucroBruto − despesas − imposto. */
+  /** lucroBruto − despesas (próprias + rateadas). */
   lucroLiquido: number
   /** lucroLiquido ÷ receita bruta, em %. null quando a loja não vendeu nada. */
   margem: number | null
@@ -43,7 +45,6 @@ export type ResumoResultado = {
     receitaLiquida: number
     custoMotos: number
     despesa: number
-    imposto: number
     lucroBruto: number
     lucroLiquido: number
     margem: number | null
@@ -51,13 +52,11 @@ export type ResumoResultado = {
 }
 
 /**
- * @param despesaPorLoja  chave `null` = despesa sem loja atribuída, que será rateada.
- * @param aliquotaImposto fração (0.06 = 6%), aplicada sobre a receita BRUTA.
+ * @param despesaPorLoja chave `null` = despesa sem loja atribuída, que será rateada.
  */
 export function calcularResultadoPorLoja(
   vendasPorLoja: VendasDaLoja[],
   despesaPorLoja: Map<string | null, number>,
-  aliquotaImposto: number,
 ): ResumoResultado {
   const despesaGeral = despesaPorLoja.get(null) ?? 0
   const receitaTotal = vendasPorLoja.reduce((a, v) => a + v.receitaBruta, 0)
@@ -72,14 +71,12 @@ export function calcularResultadoPorLoja(
   const lojas: ResultadoLoja[] = vendasPorLoja.map(v => {
     const despesaPropria = despesaPorLoja.get(v.lojaId) ?? 0
     const despesaRateada = despesaGeral * proporcao(v)
-    const imposto = v.receitaBruta * aliquotaImposto
     const lucroBruto = v.receitaLiquida - v.custoMotos
-    const lucroLiquido = lucroBruto - despesaPropria - despesaRateada - imposto
+    const lucroLiquido = lucroBruto - despesaPropria - despesaRateada
     return {
       ...v,
       despesaPropria,
       despesaRateada,
-      imposto,
       lucroBruto,
       lucroLiquido,
       margem: v.receitaBruta > 0 ? (lucroLiquido / v.receitaBruta) * 100 : null,
@@ -98,7 +95,6 @@ export function calcularResultadoPorLoja(
       receitaLiquida: soma(l => l.receitaLiquida),
       custoMotos:    soma(l => l.custoMotos),
       despesa:       soma(l => l.despesaPropria + l.despesaRateada),
-      imposto:       soma(l => l.imposto),
       lucroBruto:    soma(l => l.lucroBruto),
       lucroLiquido,
       margem: receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : null,

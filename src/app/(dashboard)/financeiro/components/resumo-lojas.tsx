@@ -19,7 +19,7 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Resultado por Loja</CardTitle>
         <p className="text-xs text-slate-400">
-          receita líquida − custo das motos − despesas − imposto
+          receita líquida − custo das motos − despesas
         </p>
       </CardHeader>
       <CardContent>
@@ -33,7 +33,6 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                 <TableHead className="text-right">Custo motos</TableHead>
                 <TableHead className="text-right">Lucro bruto</TableHead>
                 <TableHead className="text-right">Despesas</TableHead>
-                <TableHead className="text-right">Imposto</TableHead>
                 <TableHead className="text-right">Lucro líquido</TableHead>
                 <TableHead className="text-right">Margem</TableHead>
               </TableRow>
@@ -67,7 +66,6 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-slate-500">{fmt(l.imposto)}</TableCell>
                   <TableCell className={`text-right font-mono font-semibold ${corDoLucro(l.lucroLiquido)}`}>
                     {fmt(l.lucroLiquido)}
                   </TableCell>
@@ -84,7 +82,6 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                 <TableCell className="text-right font-mono text-slate-500">{fmt(totais.custoMotos)}</TableCell>
                 <TableCell className="text-right font-mono">{fmt(totais.lucroBruto)}</TableCell>
                 <TableCell className="text-right font-mono text-slate-500">{fmt(totais.despesa)}</TableCell>
-                <TableCell className="text-right font-mono text-slate-500">{fmt(totais.imposto)}</TableCell>
                 <TableCell className={`text-right font-mono ${corDoLucro(totais.lucroLiquido)}`}>
                   {fmt(totais.lucroLiquido)}
                 </TableCell>

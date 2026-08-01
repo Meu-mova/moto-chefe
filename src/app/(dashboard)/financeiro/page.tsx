@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, configuracaoTaxas, ordensServico } from '@/lib/db/schema'
+import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,7 +57,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const lojaFiltroOS = lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, taxasRow, totaisOS] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -224,8 +224,6 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .from(favorecidosNaoOperacionais)
       .where(eq(favorecidosNaoOperacionais.grupoId, grupo.id)),
 
-    db.select({ imposto: configuracaoTaxas.imposto }).from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
-
     // OS concluídas no período — valor de serviço (mão de obra) x peças usadas, separado
     // porque comissiona papéis diferentes (mecânico x aux. adm.) na Folha de Pagamento.
     db
@@ -258,9 +256,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
   const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)
   const lucroBruto = receitaLiquida - totalCusto
-  const aliquotaImposto = Number(taxasRow[0]?.imposto ?? 0.06)
-  const valorImposto = receitaVendas * aliquotaImposto
-  const lucroLiquido = lucroBruto - totalDespesas - valorImposto
+  // Sem imposto estimado por alíquota: o imposto que a empresa paga já sai do extrato
+  // como despesa (categoria "Impostos"). Descontar os dois contava o mesmo tributo
+  // duas vezes — R$ 230 mil num mês de R$ 1,55 milhão no Sul de Minas.
+  const lucroLiquido = lucroBruto - totalDespesas
 
   const totalServicosOS = Number(totaisOS[0]?.totalServicos ?? 0)
   const totalPecasOS    = Number(totaisOS[0]?.totalPecas ?? 0)
@@ -278,7 +277,6 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       qtdSemCusto:    Number(r.qtdSemCusto),
     })),
     resumoDespesas.porLoja,
-    aliquotaImposto,
   )
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
@@ -350,12 +348,6 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Imposto ({(aliquotaImposto * 100).toFixed(1)}%)</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">{valorImposto > 0 ? '-' : ''}{fmt(valorImposto)}</p>
-          </CardContent>
-        </Card>
-        <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lucro Bruto</CardTitle></CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${lucroBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -369,7 +361,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             <p className={`text-2xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {fmt(lucroLiquido)}
             </p>
-            <p className="text-xs text-slate-400">líquido − despesas − imposto</p>
+            <p className="text-xs text-slate-400">líquido − custo − despesas</p>
           </CardContent>
         </Card>
         <Card>
