@@ -16,8 +16,13 @@ ALTER TABLE categorias_despesa
 COMMENT ON COLUMN categorias_despesa.conta_como_despesa IS
   'false = saída real, mas não é custo de operar a loja (compra de mercadoria, retirada de sócio). Fica de fora do card Despesas Operacionais do /financeiro.';
 
+-- Só categorias que são inteiramente não-operacionais. As categorias com nome de
+-- pessoa (Cesar, Mateus, João, Luis Paulo) NÃO entram aqui: elas misturam salário
+-- com retirada — "SALARIO mes 6" e "retirada Arouca" convivem na mesma categoria.
+-- Quem separa esses é a regra por descrição em src/lib/despesas-operacionais.ts,
+-- transação a transação; marcar a categoria toda tiraria salário do card.
 UPDATE categorias_despesa SET conta_como_despesa = false
-WHERE nome IN ('Compra de Motos', 'Retiradas', 'Cesar', 'Mateus', 'João', 'Luis Paulo');
+WHERE nome IN ('Compra de Motos', 'Retiradas');
 
 -- CNPJ guardado só com dígitos: no extrato ele aparece formatado de jeitos diferentes
 -- ("53.780.554 0001-15" no favorecido, "53780554000115" no meio da descrição do PIX).

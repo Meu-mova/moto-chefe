@@ -9,7 +9,7 @@ import {
 } from './despesas-operacionais'
 
 const CONFIG: ConfigDespesas = {
-  categoriasForaDoCalculo: new Set(['Compra de Motos', 'Retiradas', 'Cesar']),
+  categoriasForaDoCalculo: new Set(['Compra de Motos', 'Retiradas']),
   cnpjsForaDoCalculo: new Set(['53780554000115', '09089839000112']),
 }
 
@@ -66,6 +66,19 @@ test('"aposentadoria" não é lida como retirada', () => {
   assert.equal(motivoForaDoCalculo(saida({ descricao: 'INSS aposentadoria' }), CONFIG), null)
 })
 
+// As categorias com nome de pessoa (Cesar, João, Luis Paulo...) misturam salário e
+// retirada na MESMA categoria. Marcar a categoria inteira como não-operacional tirava
+// salário do card — quem separa é a descrição, transação a transação.
+test('salário na categoria com nome de pessoa continua sendo despesa', () => {
+  const s = saida({ categoria: 'Luis Paulo', descricao: 'PIX EMITIDO OUTRA IF - Pagamento Pix|@***.484.886-**|@Salario Luiz Paulo' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), null)
+})
+
+test('retirada na mesma categoria com nome de pessoa fica de fora', () => {
+  const s = saida({ categoria: 'Luis Paulo', descricao: 'PIX EMITIDO OUTRA IF - Pagamento Pix|@***.484.886-**|@retirada Arouca' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), 'retirada_socio')
+})
+
 // ── sinal ────────────────────────────────────────────────────────────────────
 
 test('valor negativo do extrato e positivo digitado à mão viram a mesma despesa', () => {
@@ -109,7 +122,7 @@ test('saída sem categoria aparece agrupada como "Sem categoria"', () => {
 })
 
 test('lançamento manual com categoria marcada também fica de fora', () => {
-  const r = somarDespesas([], [{ valor: '-5000.00', categoria: 'Cesar' }], CONFIG)
+  const r = somarDespesas([], [{ valor: '-5000.00', categoria: 'Compra de Motos' }], CONFIG)
   assert.equal(r.total, 0)
   assert.equal(r.foraDoCalculo.categoria_marcada, 5000)
 })
