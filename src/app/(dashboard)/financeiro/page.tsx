@@ -2,7 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { vendas, lancamentosCaixa, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, lt, ne, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FinanceiroFiltros } from './components/financeiro-filtros'
@@ -57,7 +57,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const lojaFiltroOS = lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
 
-  const [vendasMes, totaisVendas, totaisCaixa, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS] = await Promise.all([
+  const [vendasMes, totaisVendas, totaisCaixa, saldoAnteriorRaw, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -103,6 +103,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         lojaFiltroVendas,
       )),
 
+    // Movimento do mês. Reprovado fica de fora, igual faz o /caixa — senão as duas
+    // telas mostram números diferentes pro mesmo caixa.
     db
       .select({
         tipo: lancamentosCaixa.tipo,
@@ -112,9 +114,29 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .where(and(
         gte(lancamentosCaixa.data, inicioMes),
         lte(lancamentosCaixa.data, ultimoDia),
+        ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
         lojaFiltroCaixa,
       ))
       .groupBy(lancamentosCaixa.tipo),
+
+    // Saldo acumulado até o começo do mês. Sem ele, "entradas − saídas do mês" é a
+    // VARIAÇÃO do período, não o dinheiro que está na gaveta: num mês em que a loja
+    // depositou no banco mais do que entrou em espécie, o caixa aparecia negativo.
+    db
+      .select({
+        total: sql<string>`COALESCE(SUM(
+          CASE WHEN ${lancamentosCaixa.tipo} = 'entrada'
+            THEN ${lancamentosCaixa.valor}::numeric
+            ELSE -${lancamentosCaixa.valor}::numeric
+          END
+        ), 0)`,
+      })
+      .from(lancamentosCaixa)
+      .where(and(
+        lt(lancamentosCaixa.data, inicioMes),
+        ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
+        lojaFiltroCaixa,
+      )),
 
     // Receita, custo e quantidade por loja. O leftJoin mantém na tabela a loja que não
     // vendeu no mês — ela ainda carrega despesa, então some do resultado se cair fora.
@@ -245,7 +267,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const qtdVendas = Number(totaisVendas[0]?.qtdVendas ?? 0)
   const entradasCaixa = Number(totaisCaixa.find(t => t.tipo === 'entrada')?.total ?? 0)
   const saidasCaixa = Number(totaisCaixa.find(t => t.tipo === 'saida')?.total ?? 0)
-  const saldoCaixa = entradasCaixa - saidasCaixa
+  const variacaoCaixaMes = entradasCaixa - saidasCaixa
+  // O que está na gaveta hoje = o que já tinha + o movimento do mês.
+  const saldoCaixa = Number(saldoAnteriorRaw[0]?.total ?? 0) + variacaoCaixaMes
   const taxasCartao = receitaVendas - receitaLiquida
 
   const resumoDespesas = somarDespesas(saidasBanco, manuaisForaDoBanco, {
@@ -332,6 +356,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           <CardContent>
             <p className={`text-2xl font-bold ${saldoCaixa >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {fmt(saldoCaixa)}
+            </p>
+            {/* A variação vinha sozinha e passava por saldo: num mês de depósito alto o
+                dinheiro em espécie aparecia negativo, o que nunca acontece de verdade. */}
+            <p className="text-xs text-slate-400">
+              dinheiro nas lojas · {variacaoCaixaMes >= 0 ? '+' : '−'}{fmt(Math.abs(variacaoCaixaMes))} no mês
             </p>
           </CardContent>
         </Card>
