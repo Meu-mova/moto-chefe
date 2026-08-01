@@ -24,6 +24,8 @@ export type SaidaBanco = {
   categoria: string | null
   favorecidoNome: string | null
   descricao: string | null
+  /** null = despesa geral da empresa, sem loja atribuída no Importar do Banco. */
+  lojaId?: string | null
 }
 
 export type ConfigDespesas = {
@@ -75,6 +77,8 @@ export type TotalDespesas = {
   total: number
   porCategoria: { categoria: string; total: number }[]
   foraDoCalculo: Record<MotivoForaDoCalculo, number>
+  /** Chave = lojaId; `null` junta tudo que não tem loja atribuída. */
+  porLoja: Map<string | null, number>
 }
 
 const SEM_CATEGORIA = 'Sem categoria'
@@ -85,10 +89,11 @@ const SEM_CATEGORIA = 'Sem categoria'
  */
 export function somarDespesas(
   saidasBanco: SaidaBanco[],
-  manuais: { valor: string | number; categoria: string }[],
+  manuais: { valor: string | number; categoria: string; lojaId?: string | null }[],
   config: ConfigDespesas,
 ): TotalDespesas {
   const porCategoria = new Map<string, number>()
+  const porLoja = new Map<string | null, number>()
   const foraDoCalculo: Record<MotivoForaDoCalculo, number> = {
     compra_moto: 0,
     retirada_socio: 0,
@@ -97,9 +102,10 @@ export function somarDespesas(
   }
   let total = 0
 
-  const somar = (categoria: string, valor: number) => {
+  const somar = (categoria: string, lojaId: string | null, valor: number) => {
     total += valor
     porCategoria.set(categoria, (porCategoria.get(categoria) ?? 0) + valor)
+    porLoja.set(lojaId, (porLoja.get(lojaId) ?? 0) + valor)
   }
 
   for (const s of saidasBanco) {
@@ -109,7 +115,7 @@ export function somarDespesas(
       foraDoCalculo[motivo] += valor
       continue
     }
-    somar(s.categoria || SEM_CATEGORIA, valor)
+    somar(s.categoria || SEM_CATEGORIA, s.lojaId ?? null, valor)
   }
 
   for (const m of manuais) {
@@ -119,7 +125,7 @@ export function somarDespesas(
       foraDoCalculo.categoria_marcada += valorDespesa(m.valor)
       continue
     }
-    somar(m.categoria || SEM_CATEGORIA, valorDespesa(m.valor))
+    somar(m.categoria || SEM_CATEGORIA, m.lojaId ?? null, valorDespesa(m.valor))
   }
 
   return {
@@ -128,5 +134,6 @@ export function somarDespesas(
       .map(([categoria, total]) => ({ categoria, total }))
       .sort((a, b) => b.total - a.total),
     foraDoCalculo,
+    porLoja,
   }
 }

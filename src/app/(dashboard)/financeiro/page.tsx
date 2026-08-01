@@ -12,6 +12,7 @@ import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
 import { somarDespesas, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
+import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 
 // Parte não paga em cartão fica como está; a parte paga em cartão e já conciliada é trocada
 // pelo valor líquido. Cobre vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte
@@ -115,12 +116,17 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       ))
       .groupBy(lancamentosCaixa.tipo),
 
+    // Receita, custo e quantidade por loja. O leftJoin mantém na tabela a loja que não
+    // vendeu no mês — ela ainda carrega despesa, então some do resultado se cair fora.
     db
       .select({
         lojaId: lojas.id,
         lojaNome: lojas.nome,
-        totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
-        qtdVendas: count(),
+        totalVendas:   sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
+        totalLiquido:  sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), '0')`,
+        totalCusto:    sql<string>`COALESCE(SUM(${motos.precoCompra}), '0')`,
+        qtdSemCusto:   sql<string>`COUNT(${vendas.id}) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
+        qtdVendas:     sql<string>`COUNT(${vendas.id})`,
       })
       .from(lojas)
       .leftJoin(vendas, and(
@@ -128,6 +134,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         gte(vendas.dataVenda, inicioTs),
         lte(vendas.dataVenda, fimTs),
       ))
+      .leftJoin(motos, eq(vendas.motoId, motos.id))
       .where(inArray(lojas.id, lojaIdsGrupo))
       .groupBy(lojas.id, lojas.nome)
       .orderBy(lojas.nome),
@@ -174,6 +181,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         categoria:      despesasOpenFinance.categoria,
         favorecidoNome: despesasOpenFinance.favorecidoNome,
         descricao:      despesasOpenFinance.descricao,
+        lojaId:         despesasOpenFinance.lojaId,
       })
       .from(despesasOpenFinance)
       .where(and(
@@ -192,6 +200,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .select({
         valor:     despesas.valor,
         categoria: despesas.categoria,
+        lojaId:    despesas.lojaId,
       })
       .from(despesas)
       .where(and(
@@ -255,6 +264,22 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const totalServicosOS = Number(totaisOS[0]?.totalServicos ?? 0)
   const totalPecasOS    = Number(totaisOS[0]?.totalPecas ?? 0)
+
+  // Mesma conta do card de lucro líquido acima, quebrada por loja. A despesa sem loja
+  // atribuída é rateada na proporção do que cada uma faturou.
+  const resultadoLojas = calcularResultadoPorLoja(
+    resumoPorLoja.map(r => ({
+      lojaId:         r.lojaId,
+      lojaNome:       r.lojaNome,
+      qtdVendas:      Number(r.qtdVendas),
+      receitaBruta:   Number(r.totalVendas),
+      receitaLiquida: Number(r.totalLiquido),
+      custoMotos:     Number(r.totalCusto),
+      qtdSemCusto:    Number(r.qtdSemCusto),
+    })),
+    resumoDespesas.porLoja,
+    aliquotaImposto,
+  )
 
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
@@ -368,7 +393,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ResumoLojas resumo={resumoPorLoja} />
+        <ResumoLojas resultado={resultadoLojas} />
         <ResumoPagamentos resumo={resumoPorPagamento} />
       </div>
 
