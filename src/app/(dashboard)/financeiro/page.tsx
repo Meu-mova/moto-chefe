@@ -11,7 +11,7 @@ import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
-import { somarDespesas } from '@/lib/despesas-operacionais'
+import { somarDespesas, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 
 // Parte não paga em cartão fica como está; a parte paga em cartão e já conciliada é trocada
 // pelo valor líquido. Cobre vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte
@@ -211,7 +211,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .where(eq(categoriasDespesa.contaComoDespesa, false)),
 
     db
-      .select({ cnpj: favorecidosNaoOperacionais.cnpj })
+      .select({ cnpj: favorecidosNaoOperacionais.cnpj, motivo: favorecidosNaoOperacionais.motivo })
       .from(favorecidosNaoOperacionais)
       .where(eq(favorecidosNaoOperacionais.grupoId, grupo.id)),
 
@@ -243,7 +243,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   const resumoDespesas = somarDespesas(saidasBanco, manuaisForaDoBanco, {
     categoriasForaDoCalculo: new Set(categoriasForaRows.map(c => c.nome)),
-    cnpjsForaDoCalculo:      new Set(cnpjsForaRows.map(c => c.cnpj)),
+    cnpjsForaDoCalculo:      new Map(cnpjsForaRows.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
   })
   const totalDespesas = resumoDespesas.total
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)

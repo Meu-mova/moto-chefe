@@ -10,7 +10,14 @@
 //   2. Nem toda saída é custo de operar a loja — compra de moto é mercadoria (o custo
 //      já está no líquido da venda) e retirada de sócio é distribuição de lucro.
 
-export type MotivoForaDoCalculo = 'compra_moto' | 'retirada_socio' | 'categoria_marcada'
+export type MotivoForaDoCalculo =
+  | 'compra_moto'
+  | 'retirada_socio'
+  | 'categoria_marcada'
+  // PIX entre os CNPJs do próprio grupo (BH → Sul de Minas e vice-versa). Sai do caixa
+  // de uma empresa e entra no da outra — contando dos dois lados, o grupo "gasta" um
+  // dinheiro que nunca saiu do grupo.
+  | 'transferencia_interna'
 
 export type SaidaBanco = {
   valor: string | number
@@ -22,8 +29,8 @@ export type SaidaBanco = {
 export type ConfigDespesas = {
   /** Categorias com conta_como_despesa = false. */
   categoriasForaDoCalculo: Set<string>
-  /** CNPJs (só dígitos) de favorecidos_nao_operacionais. */
-  cnpjsForaDoCalculo: Set<string>
+  /** CNPJ (só dígitos) → motivo, vindo de favorecidos_nao_operacionais. */
+  cnpjsForaDoCalculo: Map<string, MotivoForaDoCalculo>
 }
 
 export function soDigitos(s: string): string {
@@ -48,8 +55,8 @@ export function motivoForaDoCalculo(
   // O CNPJ aparece formatado de um jeito no favorecido ("53.780.554 0001-15") e de outro
   // no meio da descrição do PIX, então comparo só os dígitos dos dois campos juntos.
   const digitos = soDigitos(`${saida.favorecidoNome ?? ''}${saida.descricao ?? ''}`)
-  for (const cnpj of config.cnpjsForaDoCalculo) {
-    if (cnpj && digitos.includes(cnpj)) return 'compra_moto'
+  for (const [cnpj, motivo] of config.cnpjsForaDoCalculo) {
+    if (cnpj && digitos.includes(cnpj)) return motivo
   }
 
   if (saida.descricao && RETIRADA_RE.test(saida.descricao)) return 'retirada_socio'
@@ -86,6 +93,7 @@ export function somarDespesas(
     compra_moto: 0,
     retirada_socio: 0,
     categoria_marcada: 0,
+    transferencia_interna: 0,
   }
   let total = 0
 

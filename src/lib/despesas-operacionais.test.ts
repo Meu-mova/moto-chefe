@@ -9,8 +9,13 @@ import {
 } from './despesas-operacionais'
 
 const CONFIG: ConfigDespesas = {
-  categoriasForaDoCalculo: new Set(['Compra de Motos', 'Retiradas']),
-  cnpjsForaDoCalculo: new Set(['53780554000115', '09089839000112']),
+  categoriasForaDoCalculo: new Set(['Compra de Motos', 'Retiradas', 'Transferencia entre Lojas']),
+  cnpjsForaDoCalculo: new Map([
+    ['53780554000115', 'compra_moto'],
+    ['09089839000112', 'compra_moto'],
+    ['57113017000172', 'transferencia_interna'],  // CNPJ do grupo Sul de Minas
+    ['63009605000163', 'transferencia_interna'],  // CNPJ do grupo BH
+  ]),
 }
 
 const saida = (over: Partial<Parameters<typeof motivoForaDoCalculo>[0]> = {}) => ({
@@ -52,10 +57,30 @@ test('saída sem categoria nenhuma continua contando', () => {
   assert.equal(motivoForaDoCalculo(saida({ descricao: 'DÉB.TÍTULO COBRANÇA - Posto galpão' }), CONFIG), null)
 })
 
-test('transferência entre empresas do grupo continua contando', () => {
-  // O Cesar decidiu manter essas no cálculo — o teste trava a decisão.
-  const s = saida({ descricao: 'TRANSF.REALIZADA PIX SICOOB-MESMA TIT. - FAV.: ECOMOV MOBILIDADE LTDA' })
-  assert.equal(motivoForaDoCalculo(s, CONFIG), null)
+// ── transferência entre as empresas do grupo ─────────────────────────────────
+// Sai do caixa de uma e entra no da outra: contando dos dois lados, o grupo
+// "gasta" um dinheiro que nunca saiu do grupo.
+
+test('BH mandando pro CNPJ do Sul de Minas fica de fora', () => {
+  const s = saida({ descricao: 'PAGAMENTO PIX 57113017000172 MOTOCHEFE SUL DE MINAS LTDA' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), 'transferencia_interna')
+})
+
+test('Sul de Minas mandando pro CNPJ de BH fica de fora', () => {
+  const s = saida({ favorecidoNome: '63.009.605 0001-63' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), 'transferencia_interna')
+})
+
+test('transferência de mesma titularidade também', () => {
+  const s = saida({ descricao: "TRANSF.REALIZADA PIX SICOOB-MESMA TIT. - FAV.: ECOMOV MOBILIDADE LTDA|@57.113.017 0001-72|@" })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), 'transferencia_interna')
+})
+
+// As cinco transferências de abril a junho nunca foram categorizadas — é por isso que
+// a regra vai por CNPJ e não só pela categoria.
+test('transferência sem categoria nenhuma fica de fora pelo CNPJ', () => {
+  const s = saida({ categoria: null, descricao: 'PAGAMENTO PIX 57113017000172 ECOMOV MOBILIDADE ELETRICA' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG), 'transferencia_interna')
 })
 
 test('CNPJ parecido mas diferente não é confundido com o da fábrica', () => {

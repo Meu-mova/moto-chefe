@@ -10,9 +10,10 @@ function fmt(v: number) {
 }
 
 const ROTULO_FORA: Record<keyof TotalDespesas['foraDoCalculo'], string> = {
-  compra_moto:       'Compra de moto',
-  retirada_socio:    'Retirada de sócio',
-  categoria_marcada: 'Categoria fora do cálculo',
+  compra_moto:           'Compra de moto',
+  retirada_socio:        'Retirada de sócio',
+  transferencia_interna: 'Transferência entre empresas do grupo',
+  categoria_marcada:     'Categoria fora do cálculo',
 }
 
 export function ResumoDespesas({ resumo }: Props) {
