@@ -39,14 +39,15 @@ CREATE TABLE IF NOT EXISTS favorecidos_nao_operacionais (
 COMMENT ON TABLE favorecidos_nao_operacionais IS
   'Favorecidos cujas saídas não entram no card Despesas Operacionais. Hoje: fábricas de moto.';
 
--- Os dois fornecedores de moto do Sul de Minas, confirmados pela descrição do PIX
--- ("Motos RJ" e "motos") e pelo volume: 36 transações cada, R$ 5,02M somados.
+-- As duas fábricas de moto. Cadastradas nos DOIS grupos: BH compra das mesmas
+-- (7 saídas, R$ 222 mil) e a config é por grupo, então sem a linha do BH as saídas
+-- dele que ninguém categorizou entrariam como despesa operacional.
 INSERT INTO favorecidos_nao_operacionais (grupo_id, cnpj, rotulo, motivo)
 SELECT g.id, v.cnpj, v.rotulo, 'compra_moto'
 FROM grupos g
 CROSS JOIN (VALUES
-  ('53780554000115', 'Motos RJ'),
-  ('09089839000112', 'Fábrica (motos)')
+  ('53780554000115', 'Q.P.A Distribuição'),
+  ('09089839000112', "Laioun's Importadora")
 ) AS v(cnpj, rotulo)
-WHERE g.nome = 'Sul de Minas'
+WHERE g.nome IN ('Sul de Minas', 'BH')
 ON CONFLICT (grupo_id, cnpj) DO NOTHING;
