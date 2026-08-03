@@ -317,6 +317,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .reduce((t, m) => t + valorDespesa(m.valor), 0)
 
   const receitaBruta = faturamentoLiquido - totalCusto
+
+  // Quanto do que entrou é consumido pela operação. Não é margem de lucro — é o
+  // peso da despesa sobre o faturamento; quanto MENOR, melhor.
+  const percentualDespesa = faturamentoLiquido > 0 ? (totalDespesas / faturamentoLiquido) * 100 : 0
   // Sem imposto estimado por alíquota: o imposto que a empresa paga já sai do extrato
   // como despesa (categoria "Impostos"). Descontar os dois contava o mesmo tributo
   // duas vezes — R$ 230 mil num mês de R$ 1,55 milhão no Sul de Minas.
@@ -411,6 +415,15 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesas Operac.</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-red-600">{totalDespesas > 0 ? '-' : ''}{fmt(totalDespesas)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesa s/ Faturamento</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-amber-600">
+              {percentualDespesa.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+            </p>
+            <p className="text-xs text-slate-400">despesa operac. ÷ faturamento líquido</p>
           </CardContent>
         </Card>
         <Card>
