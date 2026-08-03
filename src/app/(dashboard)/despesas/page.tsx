@@ -101,9 +101,22 @@ export default async function DespesasPage({
   const totalLojas   = totaisPorLoja.filter(t => t.lojaId !== null).reduce((s, t) => s + Number(t.total), 0)
   const totalEmpresa = totaisPorLoja.filter(t => t.lojaId === null).reduce((s, t) => s + Number(t.total), 0)
 
-  const totalSaidas = saidas.reduce((s, l) => s + Number(l.valor), 0)
-  const totalSaidasLancadas = saidas.filter(l => l.despesaId).reduce((s, l) => s + Number(l.valor), 0)
+  // Filtro de categoria/loja da aba "Importar do Banco". Saída ainda não lançada
+  // não tem categoria nem loja — então ao escolher qualquer um dos dois, as
+  // pendentes somem da lista, que é o comportamento pedido pro fechamento.
+  const scat = params.scat ?? ''
+  const slojaId = params.sloja ?? ''
+  const saidasFiltradas = saidas.filter(l =>
+    (!scat || l.categoria === scat) &&
+    (!slojaId || l.lojaId === slojaId),
+  )
+
+  const totalSaidas = saidasFiltradas.reduce((s, l) => s + Number(l.valor), 0)
+  const totalSaidasLancadas = saidasFiltradas.filter(l => l.despesaId).reduce((s, l) => s + Number(l.valor), 0)
   const totalSaidasPendentes = totalSaidas - totalSaidasLancadas
+  // Sem filtro de propósito: o badge da aba é o aviso de "ainda falta categorizar
+  // isso aqui". Se seguisse o filtro, zeraria toda vez que uma categoria fosse
+  // escolhida (pendente não tem categoria) e o alerta sumiria bem quando importa.
   const qtdSaidasPendentes = saidas.filter(l => !l.despesaId).length
 
   function fmt(v: number) {
@@ -182,6 +195,10 @@ export default async function DespesasPage({
             <SaidasFiltros
               defaultFrom={sfrom.toISOString().split('T')[0]}
               defaultTo={sto.toISOString().split('T')[0]}
+              categorias={categoriasAtivas}
+              lojas={lojasOpts}
+              categoriaAtual={scat}
+              lojaAtual={slojaId}
             />
           </div>
 
@@ -201,7 +218,7 @@ export default async function DespesasPage({
           </div>
 
           <SaidasTable
-            saidas={saidas.map(s => ({
+            saidas={saidasFiltradas.map(s => ({
               id: s.id,
               data: s.data.toISOString(),
               favorecidoNome: s.favorecidoNome,
