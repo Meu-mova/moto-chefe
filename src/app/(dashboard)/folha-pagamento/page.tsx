@@ -2,7 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase } from '@/lib/db/schema'
-import { eq, inArray, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -143,16 +143,23 @@ export default async function FolhaPagamentoPage({
     // ─── Totais por loja ──────────────────────────────────────────────────────
     // Existem porque vários aux_adm recebem percentual sobre o que a LOJA vendeu,
     // não sobre o que eles mesmos venderam.
+    //
+    // Venda dos donos (admin_geral) fica de fora: é moto particular passando pela
+    // loja, não faturamento dela, e não pode virar comissão de ninguém. Isso é
+    // consistente com o resto do módulo, onde admin_geral nem entra na folha
+    // (lojaId nulo). Não afeta base individual — dono não tem comissão.
     db
       .select({
         lojaId: vendas.lojaId,
         total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
       })
       .from(vendas)
+      .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
       .where(and(
         inArray(vendas.lojaId, lojaIdsGrupo),
         gte(vendas.dataVenda, inicioTs),
         lte(vendas.dataVenda, fimTs),
+        ne(usuarios.papel, 'admin_geral'),
       ))
       .groupBy(vendas.lojaId),
 
@@ -162,10 +169,12 @@ export default async function FolhaPagamentoPage({
         total: sql<string>`COALESCE(SUM(${vendasPecas.valorTotal}::numeric), 0)`,
       })
       .from(vendasPecas)
+      .innerJoin(usuarios, eq(vendasPecas.vendedorId, usuarios.id))
       .where(and(
         inArray(vendasPecas.lojaId, lojaIdsGrupo),
         gte(vendasPecas.dataVenda, inicioTs),
         lte(vendasPecas.dataVenda, fimTs),
+        ne(usuarios.papel, 'admin_geral'),
       ))
       .groupBy(vendasPecas.lojaId),
 
