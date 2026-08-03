@@ -7,7 +7,7 @@ import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas } from '@/lib/grupo'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -110,6 +110,7 @@ export default async function EstoquePage({
           motos={motosList}
           demandasComSinal={demandasComSinal}
           papel={usuario.papel}
+          isVendedor={temPapel(usuario, 'vendedor')}
           vendedorId={usuario.id}
           vendedorNome={usuario.nome}
           usuarios={usuariosOpts}

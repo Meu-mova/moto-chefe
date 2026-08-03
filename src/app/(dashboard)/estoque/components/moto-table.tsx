@@ -36,6 +36,7 @@ type Props = {
   motos: MotoComDetalhes[]
   demandasComSinal: DemandaCompativel[]
   papel: string
+  isVendedor?: boolean
   vendedorId: string
   vendedorNome: string
   usuarios: Usuario[]
@@ -62,7 +63,7 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
   return `/estoque?${p.toString()}`
 }
 
-export function MotoTable({ motos, demandasComSinal, papel, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
+export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
   const isAdmin = ADMINS.has(papel)
 
   function th(campo: Campo, label: string) {
@@ -116,7 +117,8 @@ export function MotoTable({ motos, demandasComSinal, papel, vendedorId, vendedor
               <div className="flex items-center gap-1 justify-end">
                 {(() => {
                   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
-                  const podeVenderAqui = podeAlterar || (papel === 'vendedor' && podeVendedorReservarForaDaLoja(moto.lojaId))
+                  // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
+                  const podeVenderAqui = podeAlterar || ((isVendedor ?? papel === 'vendedor') && podeVendedorReservarForaDaLoja(moto.lojaId))
                   return (
                     <>
                       {moto.status === 'vendida' && moto.disponibilidade === null

@@ -1,9 +1,9 @@
 import { Suspense } from 'react'
 import { db } from '@/lib/db'
 import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, or, sql } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import {
   getKPIs, getVendasPorDia, getEstoquePorLoja, getSaldoCaixaPorLoja,
@@ -37,7 +37,11 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 const getVendedoresOpts = unstable_cache(
-  () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'vendedor')).orderBy(usuarios.nome),
+  () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios)
+    // Inclui quem vende sem ter 'vendedor' como papel principal — senão o filtro
+    // de vendedor esconde as vendas dessas pessoas.
+    .where(or(eq(usuarios.papel, 'vendedor'), sql`'vendedor' = ANY(${usuarios.papeisExtras})`))
+    .orderBy(usuarios.nome),
   ['vendedores-opts'], { revalidate: 300 },
 )
 
@@ -45,10 +49,10 @@ const getVendedoresOpts = unstable_cache(
 
 async function KpiSection({
   filtros, filtrosAnt, usuario,
-}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; lojaId: string | null } }) {
+}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
-  const isVendedor = papel === 'vendedor'
+  const isVendedor = temPapel(usuario, 'vendedor')
   const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
     const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config] = await withTimeout(
@@ -68,7 +72,7 @@ async function KpiSection({
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} />
+        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}
@@ -269,7 +273,7 @@ export default async function DashboardPage({
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
-  const isVendedor = usuario.papel === 'vendedor'
+  const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
 
   const deDefault = inicioMesAtualISO()

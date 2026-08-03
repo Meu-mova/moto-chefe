@@ -16,6 +16,7 @@ type Props = {
   kpis: KPIs
   kpisAnt: KPIs
   papel: string
+  isVendedor?: boolean
   motoMaisVendida: { modelo: string; total: number } | null
   conciliacaoPendentes?: number
   faturamentoOS?: { servicos: number; pecas: number }
@@ -64,9 +65,10 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [] }: Props) {
+export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [] }: Props) {
   const isAdmin = ADMINS.includes(papel)
-  const isVendedor = papel === 'vendedor'
+  // Quem acumula a função de vendedor sem ter o papel principal vem pela prop.
+  const isVendedor = isVendedorProp ?? papel === 'vendedor'
 
   type Card = {
     label: string

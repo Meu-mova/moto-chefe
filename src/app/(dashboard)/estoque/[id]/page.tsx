@@ -2,7 +2,7 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
@@ -126,6 +126,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         <MotoActions
         moto={moto}
         papel={usuario.papel}
+        isVendedor={temPapel(usuario, 'vendedor')}
         vendedorId={usuario.id}
         vendedorNome={usuario.nome}
         usuarios={usuariosOpts}

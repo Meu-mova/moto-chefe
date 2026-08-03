@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico, conciliacoesCartao } from '@/lib/db/schema'
+import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase } from '@/lib/db/schema'
 import { eq, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FuncionariosConfigTable } from './components/funcionarios-config-table'
 import { PremiacaoFaixasTable } from './components/premiacao-faixas-table'
 import { MesSelectorFolha } from './components/mes-selector-folha'
+import { AjustesBaseTable } from './components/ajustes-base-table'
 import { calcularPremiacao } from '@/lib/premiacao'
+import { resolverBaseComissao, type TotaisBase } from '@/lib/folha'
+import { temPapel } from '@/lib/auth'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const PAPEL_LABEL: Record<string, string> = {
@@ -58,9 +61,19 @@ export default async function FolhaPagamentoPage({
   const inicioTs = new Date(Date.UTC(ano, mes - 1, 1))
   const fimTs = new Date(Date.UTC(ano, mes, 1))
 
-  const [funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor] = await Promise.all([
+  const [
+    funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
+    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustesRaw, lojasDoGrupo,
+  ] = await Promise.all([
     db
-      .select({ id: usuarios.id, nome: usuarios.nome, papel: usuarios.papel, lojaNome: lojas.nome })
+      .select({
+        id: usuarios.id,
+        nome: usuarios.nome,
+        papel: usuarios.papel,
+        papeisExtras: usuarios.papeisExtras,
+        lojaId: usuarios.lojaId,
+        lojaNome: lojas.nome,
+      })
       .from(usuarios)
       .innerJoin(lojas, eq(usuarios.lojaId, lojas.id))
       .where(inArray(usuarios.lojaId, lojaIdsGrupo)),
@@ -126,6 +139,70 @@ export default async function FolhaPagamentoPage({
         lte(ordensServico.dataConclusao, fimTs),
       ))
       .groupBy(ordensServico.abertaPor),
+
+    // ─── Totais por loja ──────────────────────────────────────────────────────
+    // Existem porque vários aux_adm recebem percentual sobre o que a LOJA vendeu,
+    // não sobre o que eles mesmos venderam.
+    db
+      .select({
+        lojaId: vendas.lojaId,
+        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
+      })
+      .from(vendas)
+      .where(and(
+        inArray(vendas.lojaId, lojaIdsGrupo),
+        gte(vendas.dataVenda, inicioTs),
+        lte(vendas.dataVenda, fimTs),
+      ))
+      .groupBy(vendas.lojaId),
+
+    db
+      .select({
+        lojaId: vendasPecas.lojaId,
+        total: sql<string>`COALESCE(SUM(${vendasPecas.valorTotal}::numeric), 0)`,
+      })
+      .from(vendasPecas)
+      .where(and(
+        inArray(vendasPecas.lojaId, lojaIdsGrupo),
+        gte(vendasPecas.dataVenda, inicioTs),
+        lte(vendasPecas.dataVenda, fimTs),
+      ))
+      .groupBy(vendasPecas.lojaId),
+
+    db
+      .select({
+        lojaId: ordensServico.lojaId,
+        total: sql<string>`COALESCE(SUM(${ordensServico.valorPecas}::numeric), 0)`,
+      })
+      .from(ordensServico)
+      .where(and(
+        inArray(ordensServico.lojaId, lojaIdsGrupo),
+        eq(ordensServico.status, 'concluida'),
+        gte(ordensServico.dataConclusao, inicioTs),
+        lte(ordensServico.dataConclusao, fimTs),
+      ))
+      .groupBy(ordensServico.lojaId),
+
+    db
+      .select({
+        id: folhaAjustesBase.id,
+        lojaId: folhaAjustesBase.lojaId,
+        lojaNome: lojas.nome,
+        tipo: folhaAjustesBase.tipo,
+        usuarioId: folhaAjustesBase.usuarioId,
+        usuarioNome: usuarios.nome,
+        valor: folhaAjustesBase.valor,
+        observacao: folhaAjustesBase.observacao,
+      })
+      .from(folhaAjustesBase)
+      .innerJoin(lojas, eq(folhaAjustesBase.lojaId, lojas.id))
+      .leftJoin(usuarios, eq(folhaAjustesBase.usuarioId, usuarios.id))
+      .where(and(
+        inArray(folhaAjustesBase.lojaId, lojaIdsGrupo),
+        eq(folhaAjustesBase.mes, mesParam),
+      )),
+
+    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIdsGrupo)).orderBy(lojas.nome),
   ])
 
   const configPorUsuario = new Map(configsRaw.map(c => [c.usuarioId, c]))
@@ -140,6 +217,32 @@ export default async function FolhaPagamentoPage({
     if (!pecasPorId.has(usuarioId)) pecasPorId.set(usuarioId, valor)
   }
 
+  const motosPorLojaId = new Map(motosPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
+  const pecasPorLojaId = new Map(pecasPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
+  for (const l of osPecasPorLoja) {
+    pecasPorLojaId.set(l.lojaId, (pecasPorLojaId.get(l.lojaId) ?? 0) + parseFloat(l.total))
+  }
+
+  // Um ajuste representa uma venda real da loja: soma sempre à base da LOJA e,
+  // quando aponta um funcionário, também à base individual dele. Não é ou-um-ou-outro
+  // — se estivesse lançado no sistema, contaria nos dois lugares.
+  const somar = (mapa: Map<string, number>, chave: string | null, valor: number) => {
+    if (!chave) return
+    mapa.set(chave, (mapa.get(chave) ?? 0) + valor)
+  }
+  for (const a of ajustesRaw) {
+    const valor = parseFloat(a.valor)
+    if (a.tipo === 'motos') {
+      somar(motosPorLojaId, a.lojaId, valor)
+      somar(vendasPorId, a.usuarioId, valor)
+    } else if (a.tipo === 'pecas') {
+      somar(pecasPorLojaId, a.lojaId, valor)
+      somar(pecasPorId, a.usuarioId, valor)
+    } else if (a.tipo === 'servicos') {
+      somar(osPorId, a.usuarioId, valor)
+    }
+  }
+
   const funcionarios = funcionariosRaw.map(f => {
     const config = configPorUsuario.get(f.id)
     const salario = config ? parseFloat(config.salario) : 0
@@ -147,14 +250,19 @@ export default async function FolhaPagamentoPage({
     const ajudaCusto = config?.ajudaCusto ? parseFloat(config.ajudaCusto) : 0
     const ativo = config?.ativo ?? true
 
-    const baseComissao =
-      f.papel === 'vendedor' ? (vendasPorId.get(f.id) ?? 0) :
-      f.papel === 'mecanico' ? (osPorId.get(f.id) ?? 0) :
-      f.papel === 'aux_adm'  ? (pecasPorId.get(f.id) ?? 0) :
-      0
+    const totais: TotaisBase = {
+      propriasMotos:    vendasPorId.get(f.id) ?? 0,
+      propriasPecas:    pecasPorId.get(f.id) ?? 0,
+      propriosServicos: osPorId.get(f.id) ?? 0,
+      lojaMotos:        f.lojaId ? (motosPorLojaId.get(f.lojaId) ?? 0) : 0,
+      lojaPecas:        f.lojaId ? (pecasPorLojaId.get(f.lojaId) ?? 0) : 0,
+    }
+    const baseComissao = resolverBaseComissao(config?.baseComissao ?? 'padrao', f.papel, totais)
 
     const comissao = baseComissao * (comissaoPercentual / 100)
-    const premiacao = f.papel === 'vendedor' ? calcularPremiacao(baseComissao, faixas) : 0
+    // OTE sempre sobre as motos que a própria pessoa vendeu, nunca sobre a base de
+    // comissão — senão quem tem base de loja tiraria prêmio sobre o faturamento inteiro.
+    const premiacao = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, faixas) : 0
     const totalPagar = salario + comissao + premiacao + ajudaCusto
 
     return {
@@ -191,8 +299,14 @@ export default async function FolhaPagamentoPage({
       comissaoPercentual: config?.comissaoPercentual ?? '0',
       ajudaCusto: config?.ajudaCusto ?? null,
       ativo: config?.ativo ?? true,
+      baseComissao: config?.baseComissao ?? 'padrao',
     }
   })
+
+  const funcionariosParaAjuste = funcionariosRaw
+    .filter(f => f.lojaId)
+    .map(f => ({ id: f.id, nome: f.nome, lojaId: f.lojaId as string }))
+    .sort((a, b) => a.nome.localeCompare(b.nome))
 
   const faixasParaUI = faixas.map(f => ({ id: f.id, valorMinimoVendas: f.valorMinimoVendas, premiacao: f.premiacao }))
 
@@ -208,6 +322,7 @@ export default async function FolhaPagamentoPage({
           <TabsTrigger value="mes">Folha do Mês</TabsTrigger>
           <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
           <TabsTrigger value="premiacao">Premiação (OTE)</TabsTrigger>
+          <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="mes" className="mt-4 space-y-6">
@@ -283,6 +398,21 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="premiacao" className="mt-4">
           <PremiacaoFaixasTable faixas={faixasParaUI} />
+        </TabsContent>
+
+        <TabsContent value="ajustes" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500 capitalize">
+              {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </p>
+            <MesSelectorFolha mesAtual={mesParam} />
+          </div>
+          <AjustesBaseTable
+            ajustes={ajustesRaw}
+            lojas={lojasDoGrupo}
+            funcionarios={funcionariosParaAjuste}
+            mes={mesParam}
+          />
         </TabsContent>
       </Tabs>
     </div>

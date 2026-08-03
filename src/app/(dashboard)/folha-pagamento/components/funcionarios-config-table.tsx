@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { salvarConfigFuncionarioAction } from '../actions'
+import { BASES_COMISSAO } from '@/lib/folha'
 
 export type FuncionarioRow = {
   usuarioId: string
@@ -14,6 +15,7 @@ export type FuncionarioRow = {
   comissaoPercentual: string
   ajudaCusto: string | null
   ativo: boolean
+  baseComissao: string
 }
 
 const PAPEL_LABEL: Record<string, string> = {
@@ -31,6 +33,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
   const [comissao, setComissao] = useState(f.comissaoPercentual)
   const [ajudaCusto, setAjudaCusto] = useState(f.ajudaCusto ?? '')
   const [ativo, setAtivo] = useState(f.ativo)
+  const [baseComissao, setBaseComissao] = useState(f.baseComissao)
   const [pending, startTransition] = useTransition()
 
   function parseNum(v: string): number {
@@ -46,6 +49,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
           comissaoPercentual: parseNum(comissao),
           ajudaCusto: ajudaCusto.trim() ? parseNum(ajudaCusto) : null,
           ativo,
+          baseComissao,
         })
         toast.success(`Configuração de ${f.nome} salva`)
       } catch (e: unknown) {
@@ -68,6 +72,23 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
       <td className="px-4 py-2">
         {temComissao ? (
           <Input value={comissao} onChange={e => setComissao(e.target.value)} className="h-8 text-xs w-20" placeholder="0,00" />
+        ) : (
+          <span className="text-xs text-slate-300">—</span>
+        )}
+      </td>
+      <td className="px-4 py-2">
+        {temComissao ? (
+          // <select> nativo de propósito: o value ('loja_motos') é diferente do label
+          // exibido, e o <Select> do base-ui renderiza o value cru nesse caso.
+          <select
+            value={baseComissao}
+            onChange={e => setBaseComissao(e.target.value)}
+            className="h-8 text-xs w-48 border border-slate-200 rounded-md px-2 bg-white"
+          >
+            {BASES_COMISSAO.map(b => (
+              <option key={b.valor} value={b.valor}>{b.label}</option>
+            ))}
+          </select>
         ) : (
           <span className="text-xs text-slate-300">—</span>
         )}
@@ -99,6 +120,7 @@ export function FuncionariosConfigTable({ funcionarios }: { funcionarios: Funcio
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Salário (R$)</th>
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Comissão (%)</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Base da comissão</th>
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo (R$)</th>
             <th className="text-center px-4 py-2 text-xs font-medium text-slate-600">Ativo</th>
             <th className="px-4 py-2" />
