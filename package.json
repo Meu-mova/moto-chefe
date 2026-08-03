@@ -10,7 +10,7 @@
     "db:generate": "dotenv-cli -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv-cli -e .env.local -- drizzle-kit migrate",
     "db:studio": "dotenv-cli -e .env.local -- drizzle-kit studio",
-    "test": "node --import tsx --test src/lib/telegram/texto.test.ts src/lib/telegram/perguntas-prontas.test.ts src/lib/telegram/api.test.ts src/lib/telegram/venda.test.ts src/lib/telegram/pedidos-fabrica.test.ts src/lib/kommo-etapas.test.ts src/lib/os-cancelamento.test.ts src/lib/conciliacao-status.test.ts src/lib/data-venda.test.ts src/lib/despesas-operacionais.test.ts src/lib/resultado-por-loja.test.ts src/lib/folha.test.ts"
+    "test": "node --import tsx --test src/lib/telegram/texto.test.ts src/lib/telegram/perguntas-prontas.test.ts src/lib/telegram/api.test.ts src/lib/telegram/venda.test.ts src/lib/telegram/pedidos-fabrica.test.ts src/lib/kommo-etapas.test.ts src/lib/os-cancelamento.test.ts src/lib/conciliacao-status.test.ts src/lib/data-venda.test.ts src/lib/despesas-operacionais.test.ts src/lib/resultado-por-loja.test.ts src/lib/folha.test.ts src/lib/relatorio-fabrica.test.ts src/lib/conciliacao-terminal.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",

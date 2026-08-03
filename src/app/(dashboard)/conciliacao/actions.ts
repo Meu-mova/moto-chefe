@@ -6,6 +6,8 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
+import { extrairTerminalInfinityPay, padraoNsuDoTerminal } from '@/lib/conciliacao-terminal'
+import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ function parseInfinityPay(text: string) {
       valorLiquido:  parseBRL(c[9]),
       nsu:           c[13] || null,
       portador:      c[14] || null,
+      terminal:      extrairTerminalInfinityPay(c[5]),
     })
   }
   return rows
@@ -73,6 +76,7 @@ function parsePagueVeloz(text: string) {
       valorLiquido:  parseBRL(c[13] ?? '0'),
       nsu:           c[0]?.trim() || null,  // Cod PagueVeloz é o ID único
       portador:      c[5]?.trim() || null,
+      terminal:      null,                  // PagueVeloz não identifica o aparelho no arquivo
     })
   }
   return rows
@@ -100,6 +104,7 @@ function parseStone(text: string) {
       valorLiquido:  parseBRL(c[8] ?? '0'),
       nsu:           c[5]?.trim() || null,   // STONE ID para deduplicação
       portador:      c[12]?.trim() || null,  // número do cartão mascarado
+      terminal:      null,                   // Stone não identifica o aparelho no arquivo
     })
   }
   return rows
@@ -149,6 +154,29 @@ export async function importarRelatorioAction(formData: FormData) {
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
   else throw new Error(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
+
+  // ── Trava de grupo errado ───────────────────────────────────────────────────
+  // A importação carimba o grupo ATIVO na sessão. Se o arquivo for de outro
+  // grupo, as transações ficam presas onde nenhuma venda pode alcançá-las — foi
+  // o que aconteceu com uma transação de BH importada em Sul de Minas.
+  // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
+  // engano antes de gravar qualquer coisa.
+  const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
+  for (const terminal of terminais) {
+    const vistos = await db
+      .selectDistinct({ grupoId: conciliacoesCartao.grupoId, grupoNome: grupos.nome })
+      .from(conciliacoesCartao)
+      .innerJoin(grupos, eq(conciliacoesCartao.grupoId, grupos.id))
+      .where(ilike(conciliacoesCartao.nsu, padraoNsuDoTerminal(terminal)))
+
+    if (vistos.length > 0 && !vistos.some(v => v.grupoId === grupo.id)) {
+      const onde = vistos.map(v => v.grupoNome).join(', ')
+      throw new Error(
+        `Este arquivo é da maquininha ${terminal}, que pertence ao grupo ${onde}. ` +
+        `Você está em ${grupo.nome}. Troque de grupo antes de importar — nada foi gravado.`,
+      )
+    }
+  }
 
   let importadas = 0
   let duplicadas = 0
