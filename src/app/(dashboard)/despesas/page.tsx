@@ -2,7 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, lojas, usuarios, categoriasDespesa } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql, asc } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, asc } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -48,7 +48,7 @@ export default async function DespesasPage({
     usuario.id,
   )
 
-  const [rows, lojasOpts, totaisPorLoja, categoriasAtivas] = await Promise.all([
+  const [rows, lojasOpts, categoriasAtivas, categoriasNaoOperacionais] = await Promise.all([
     db
       .select({
         id:             despesas.id,
@@ -75,31 +75,35 @@ export default async function DespesasPage({
     listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }),
 
     db
-      .select({
-        lojaId:   despesas.lojaId,
-        lojaNome: lojas.nome,
-        total:    sql<string>`COALESCE(SUM(${despesas.valor}), '0')`,
-      })
-      .from(despesas)
-      .leftJoin(lojas, eq(despesas.lojaId, lojas.id))
-      .where(and(
-        eq(despesas.grupoId, grupo.id),
-        gte(despesas.data, inicioMes),
-        lte(despesas.data, ultimoDia),
-      ))
-      .groupBy(despesas.lojaId, lojas.nome),
-
-    db
       .select({ nome: categoriasDespesa.nome })
       .from(categoriasDespesa)
       .where(eq(categoriasDespesa.ativo, true))
       .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
       .then(rows => rows.map(r => r.nome)),
+
+    // Saída real, mas não é custo de operar a loja: transferência entre lojas do
+    // grupo, compra de moto (mercadoria) e retirada de sócio. Até agora só o
+    // /financeiro respeitava essa marcação — aqui o total somava tudo, numa tela
+    // chamada "Despesas Operacionais".
+    db
+      .select({ nome: categoriasDespesa.nome })
+      .from(categoriasDespesa)
+      .where(eq(categoriasDespesa.contaComoDespesa, false))
+      .then(rows => new Set(rows.map(r => r.nome))),
   ])
 
-  const totalGeral   = rows.reduce((s, r) => s + Number(r.valor), 0)
-  const totalLojas   = totaisPorLoja.filter(t => t.lojaId !== null).reduce((s, t) => s + Number(t.total), 0)
-  const totalEmpresa = totaisPorLoja.filter(t => t.lojaId === null).reduce((s, t) => s + Number(t.total), 0)
+  // Categoria vazia conta como operacional: ainda não se sabe o que é, e assumir
+  // que não é despesa esconderia gasto de verdade do fechamento.
+  const ehOperacional = (categoria: string | null) => !categoria || !categoriasNaoOperacionais.has(categoria)
+
+  const rowsOperacionais    = rows.filter(r => ehOperacional(r.categoria))
+  const rowsNaoOperacionais = rows.filter(r => !ehOperacional(r.categoria))
+
+  const soma = (lista: typeof rows) => lista.reduce((s, r) => s + Number(r.valor), 0)
+  const totalGeral         = soma(rowsOperacionais)
+  const totalLojas         = soma(rowsOperacionais.filter(r => r.lojaId !== null))
+  const totalEmpresa       = soma(rowsOperacionais.filter(r => r.lojaId === null))
+  const totalNaoOperacional = soma(rowsNaoOperacionais)
 
   // Filtro de categoria/loja da aba "Importar do Banco". Saída ainda não lançada
   // não tem categoria nem loja — então ao escolher qualquer um dos dois, as
@@ -111,9 +115,13 @@ export default async function DespesasPage({
     (!slojaId || l.lojaId === slojaId),
   )
 
-  const totalSaidas = saidasFiltradas.reduce((s, l) => s + Number(l.valor), 0)
-  const totalSaidasLancadas = saidasFiltradas.filter(l => l.despesaId).reduce((s, l) => s + Number(l.valor), 0)
+  const saidasOperacionais    = saidasFiltradas.filter(l => ehOperacional(l.categoria))
+  const saidasNaoOperacionais = saidasFiltradas.filter(l => !ehOperacional(l.categoria))
+
+  const totalSaidas = saidasOperacionais.reduce((s, l) => s + Number(l.valor), 0)
+  const totalSaidasLancadas = saidasOperacionais.filter(l => l.despesaId).reduce((s, l) => s + Number(l.valor), 0)
   const totalSaidasPendentes = totalSaidas - totalSaidasLancadas
+  const totalSaidasNaoOperacionais = saidasNaoOperacionais.reduce((s, l) => s + Number(l.valor), 0)
   // Sem filtro de propósito: o badge da aba é o aviso de "ainda falta categorizar
   // isso aqui". Se seguisse o filtro, zeraria toda vez que uma categoria fosse
   // escolhida (pendente não tem categoria) e o alerta sumiria bem quando importa.
@@ -153,10 +161,13 @@ export default async function DespesasPage({
 
         <TabsContent value="lancamentos" className="mt-4 space-y-6">
           {/* Cards de resumo */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total do Período</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-red-600">{fmt(totalGeral)}</p></CardContent>
+              <CardContent>
+                <p className="text-2xl font-bold text-red-600">{fmt(totalGeral)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">só operacional</p>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Por Loja</CardTitle></CardHeader>
@@ -165,6 +176,17 @@ export default async function DespesasPage({
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Geral (Empresa)</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold text-orange-600">{fmt(totalEmpresa)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Não Operacional</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-500">{fmt(totalNaoOperacional)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {rowsNaoOperacionais.length > 0
+                    ? 'transferência, compra de moto, retirada'
+                    : 'nada no período'}
+                </p>
+              </CardContent>
             </Card>
           </div>
 
@@ -202,10 +224,13 @@ export default async function DespesasPage({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total em Saídas</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-red-600">{fmt(totalSaidas)}</p></CardContent>
+              <CardContent>
+                <p className="text-2xl font-bold text-red-600">{fmt(totalSaidas)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">só operacional</p>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Já Lançadas</CardTitle></CardHeader>
@@ -214,6 +239,17 @@ export default async function DespesasPage({
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Pendentes de Categorização</CardTitle></CardHeader>
               <CardContent><p className="text-2xl font-bold text-amber-600">{fmt(totalSaidasPendentes)}</p></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Não Operacional</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-500">{fmt(totalSaidasNaoOperacionais)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {saidasNaoOperacionais.length > 0
+                    ? `${saidasNaoOperacionais.length} saída(s), fora do total`
+                    : 'nada no período'}
+                </p>
+              </CardContent>
             </Card>
           </div>
 
