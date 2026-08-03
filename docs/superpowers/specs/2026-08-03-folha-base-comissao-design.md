@@ -1,7 +1,7 @@
-# Folha de Pagamento — base de comissão configurável + papéis extras
+# Folha de Pagamento — base de comissão, ajustes manuais e papéis extras
 
 **Data:** 2026-08-03
-**Contexto:** fechamento da folha de julho/2026 travou porque seis funcionários recebem sobre uma base que o módulo não sabe calcular, e porque o Tiago acumula duas funções que o sistema não sabe representar.
+**Contexto:** o fechamento da folha de julho/2026 travou em três coisas — seis funcionários recebem sobre uma base que o módulo não sabe calcular, Pouso Alegre teve vendas fora do sistema que precisam gerar comissão, e o Tiago acumula duas funções que o sistema não sabe representar.
 
 ## Problema
 
@@ -50,7 +50,49 @@ Uma coluna nova em `funcionarios_config`: `base_comissao text not null default '
 4. **Cálculo (`page.tsx`)** — duas agregações novas por loja (motos líquidas por loja, peças por loja incluindo peças de OS) e um `switch` que escolhe a base conforme a config, caindo no comportamento atual quando `padrao`.
 5. **Dados de julho** — aplicar as seis configurações e criar o cadastro da Juliana (salário R$ 1.880, sem ajuda de custo, 0,5%, base `padrao`).
 
-## Parte 2 — papéis extras
+## Parte 2 — ajustes manuais de base
+
+Em julho/2026 Pouso Alegre teve venda de peças e ordem de serviço lançadas fora do MOVA. O dinheiro entrou de verdade e precisa gerar comissão, mas os registros não existem no sistema — e criá-los retroativamente nos módulos de Peças/OS contaminaria estoque, financeiro e integrações para consertar um problema de folha.
+
+Solução: tabela `folha_ajustes_base`, somada às agregações só no cálculo da folha.
+
+```
+id          uuid pk
+loja_id     uuid not null references lojas(id)
+mes         text not null                        -- 'YYYY-MM', mesma convenção do mesParam
+tipo        text not null                        -- 'motos' | 'pecas' | 'servicos'
+usuario_id  uuid references usuarios(id)         -- opcional
+valor       numeric(12,2) not null
+observacao  text
+criado_em   timestamptz not null default now()
+criado_por  uuid references usuarios(id)
+```
+
+### Semântica
+
+Um ajuste representa uma venda real da loja, então:
+
+- **sempre** soma à base de **loja** do seu tipo (`loja_motos` / `loja_pecas`);
+- **se tiver `usuario_id`**, soma **também** à base **individual** daquela pessoa, no tipo correspondente (motos → base de motos próprias, peças → base de peças, serviços → base de mão de obra do mecânico).
+
+Não é ou-um-ou-outro: uma venda real conta nos dois lugares, exatamente como contaria se estivesse registrada no sistema. Um ajuste de tipo `motos` com `usuario_id` também entra na apuração de OTE daquela pessoa, pelo mesmo motivo.
+
+### Lançamentos de julho/2026 (Pouso Alegre)
+
+| Tipo | Valor | Funcionário | Efeito |
+|---|---|---|---|
+| `servicos` | 1.800,00 | Fernando Silverio | base dele + R$ 1.800 → comissão 25% = R$ 450,00 |
+| `pecas` | 1.285,00 | — | base de peças da loja + R$ 1.285 → Pedro Henrique 5% = R$ 64,25 |
+
+### Decisões
+
+- **`mes` é `text` no formato `YYYY-MM`**, não `date`. Evita o problema conhecido de `new Date('YYYY-MM-DD')` virar meia-noite UTC e cair no dia anterior em BRT, e casa direto com o `mesParam` que a tela já usa.
+- **Ajuste não entra em Financeiro, Despesas nem estoque.** Ele existe só para o cálculo da folha. Se o dinheiro precisar aparecer no faturamento, isso é lançamento no módulo próprio, não aqui.
+- **Escopo por grupo** via `loja_id`: a action valida que a loja pertence ao grupo ativo antes de gravar, igual ao resto do módulo.
+- **Valor pode ser negativo**, para corrigir lançamento a maior sem precisar apagar histórico.
+- **UI:** quarta aba "Ajustes" na folha, listando os ajustes do mês selecionado, com formulário (loja, tipo, funcionário opcional, valor, observação) e exclusão. A observação é obrigatória — daqui a seis meses ninguém lembra por que existe um ajuste de R$ 1.800.
+
+## Parte 3 — papéis extras
 
 Tiago Souza Gomes é `aux_adm` e também vende. O sistema representa função como um campo único (`usuarios.papel`), então ele não existe como vendedor em lugar nenhum.
 
@@ -80,5 +122,7 @@ Coluna `papeis_extras` em `usuarios` (`text[] not null default '{}'`) + helper `
 `npm run type-check` e `npm run build` limpos. Na tela, com julho/2026 selecionado: a base do Charles tem que bater com o total de motos de Pouso Alegre no mês, a do Pedro com o total de peças da mesma loja, e nenhum funcionário de base `padrao` pode ter mudado de valor em relação ao que a tela mostrava antes.
 
 Antes de mexer, capturar a folha de julho como está hoje (por funcionário: base, comissão, premiação, total). Depois da mudança, os únicos valores diferentes podem ser os dos seis nomes da tabela acima. Qualquer alteração em outro funcionário é regressão.
+
+Para os ajustes: com julho/2026 na tela, a base de peças de Pouso Alegre tem que subir exatamente R$ 1.285 e a comissão do Pedro Henrique ir a R$ 64,25; a base do Fernando Silverio tem que subir R$ 1.800 e a comissão dele R$ 450. Trocar para agosto/2026 e confirmar que os dois ajustes somem — ajuste é preso ao mês.
 
 Para os papéis extras: logar como Tiago e confirmar que ele passa a ver a visão de vendedor no dashboard e que aparece com premiação OTE na folha. Logar como um `aux_adm` sem papel extra (Carlos Barbosa) e confirmar que **nada** mudou pra ele.
