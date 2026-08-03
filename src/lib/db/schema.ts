@@ -81,6 +81,10 @@ export const usuarios = pgTable('usuarios', {
   nome: text('nome').notNull(),
   email: text('email').notNull().unique(),
   papel: papelEnum('papel').notNull(),
+  // Funções acumuladas além do papel principal (ex.: aux_adm que também vende).
+  // Só acrescenta permissão, nunca tira. Ler sempre via temPapel() de @/lib/auth,
+  // não comparando com .papel direto.
+  papeisExtras: text('papeis_extras').array().notNull().default([]),
   lojaId: uuid('loja_id').references(() => lojas.id), // nullable para admin_geral
   conecta: text('conecta'), // link individual do usuário (menu Conecta); nullable
 })
@@ -769,7 +773,28 @@ export const funcionariosConfig = pgTable('funcionarios_config', {
   comissaoPercentual: numeric('comissao_percentual', { precision: 5, scale: 2 }).notNull().default('0'),
   ajudaCusto:         numeric('ajuda_custo', { precision: 10, scale: 2 }),
   ativo:              boolean('ativo').notNull().default(true),
+  // Sobre o que a comissão incide. 'padrao' deriva do papel (vendedor→motos dele,
+  // mecanico→mão de obra dele, aux_adm→peças dele). Os outros valores existem porque
+  // vários aux_adm recebem percentual sobre o total da LOJA, não sobre o que venderam.
+  // Ver BASES_COMISSAO em @/lib/folha.
+  baseComissao:       text('base_comissao').notNull().default('padrao'),
   atualizadoEm:       timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── folha_ajustes_base (venda real que não foi lançada no sistema) ───────────
+// Só afeta o cálculo da folha — não entra em Financeiro, Despesas nem estoque.
+// Sempre soma à base de LOJA do seu tipo; se tiver usuarioId, soma TAMBÉM à base
+// individual daquela pessoa, porque uma venda real conta nos dois lugares.
+export const folhaAjustesBase = pgTable('folha_ajustes_base', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  lojaId:     uuid('loja_id').notNull().references(() => lojas.id),
+  mes:        text('mes').notNull(), // 'YYYY-MM' — text, não date, pra não cair no fuso
+  tipo:       text('tipo').notNull(), // 'motos' | 'pecas' | 'servicos'
+  usuarioId:  uuid('usuario_id').references(() => usuarios.id),
+  valor:      numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  observacao: text('observacao'),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor:  uuid('criado_por').references(() => usuarios.id),
 })
 
 // ─── premiacao_faixas (tabela OTE — só vendedor) ───────────────────────────────
