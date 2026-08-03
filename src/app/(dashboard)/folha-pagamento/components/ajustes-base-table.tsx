@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Trash2 } from 'lucide-react'
 import { TIPOS_AJUSTE } from '@/lib/folha'
 import { criarAjusteBaseAction, excluirAjusteBaseAction } from '../actions'
+import { parseNumeroBR } from '@/lib/numero-br'
 
 export type AjusteRow = {
   id: string
@@ -23,11 +24,6 @@ export type FuncionarioOpcao = { id: string; nome: string; lojaId: string }
 
 const fmt = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const TIPO_LABEL = Object.fromEntries(TIPOS_AJUSTE.map(t => [t.valor, t.label]))
-
-function parseNum(v: string): number {
-  const n = parseFloat(v.trim().replace(/\./g, '').replace(',', '.'))
-  return isNaN(n) ? 0 : n
-}
 
 export function AjustesBaseTable({
   ajustes, lojas, funcionarios, mes,
@@ -48,6 +44,9 @@ export function AjustesBaseTable({
   const funcionariosDaLoja = funcionarios.filter(f => f.lojaId === lojaId)
 
   function adicionar() {
+    const valorNum = parseNumeroBR(valor)
+    if (valorNum === null) { toast.error('Valor inválido'); return }
+
     startTransition(async () => {
       try {
         await criarAjusteBaseAction({
@@ -55,7 +54,7 @@ export function AjustesBaseTable({
           mes,
           tipo,
           usuarioId: usuarioId || null,
-          valor: parseNum(valor),
+          valor: valorNum,
           observacao,
         })
         toast.success('Ajuste lançado')

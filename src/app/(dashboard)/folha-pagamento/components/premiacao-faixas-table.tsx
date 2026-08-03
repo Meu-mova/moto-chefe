@@ -5,15 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trash2 } from 'lucide-react'
 import { criarFaixaPremiacaoAction, excluirFaixaPremiacaoAction } from '../actions'
+import { parseNumeroBR } from '@/lib/numero-br'
 
 export type FaixaRow = { id: string; valorMinimoVendas: string; premiacao: string }
 
 const fmt = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-function parseNum(v: string): number {
-  const n = parseFloat(v.trim().replace(/\./g, '').replace(',', '.'))
-  return isNaN(n) ? 0 : n
-}
 
 export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
   const [novoMinimo, setNovoMinimo] = useState('')
@@ -28,9 +24,14 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
       toast.error('Preencha os dois campos')
       return
     }
+    const minimo = parseNumeroBR(novoMinimo)
+    const premio = parseNumeroBR(novoPremio)
+    if (minimo === null) { toast.error('Venda mínima inválida'); return }
+    if (premio === null) { toast.error('Premiação inválida'); return }
+
     startTransition(async () => {
       try {
-        await criarFaixaPremiacaoAction(parseNum(novoMinimo), parseNum(novoPremio))
+        await criarFaixaPremiacaoAction(minimo, premio)
         toast.success('Faixa adicionada')
         setNovoMinimo('')
         setNovoPremio('')

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { salvarConfigFuncionarioAction } from '../actions'
 import { BASES_COMISSAO } from '@/lib/folha'
+import { parseNumeroBR, formatarNumeroBR } from '@/lib/numero-br'
 
 export type FuncionarioRow = {
   usuarioId: string
@@ -29,28 +30,38 @@ const PAPEL_LABEL: Record<string, string> = {
 const PAPEL_COM_COMISSAO = new Set(['vendedor', 'mecanico', 'aux_adm'])
 
 function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
-  const [salario, setSalario] = useState(f.salario)
-  const [comissao, setComissao] = useState(f.comissaoPercentual)
-  const [ajudaCusto, setAjudaCusto] = useState(f.ajudaCusto ?? '')
+  // Os valores vêm do banco como "1880.00" / "0.50". Exibir cru fazia o campo
+  // mostrar ponto onde o Brasil usa vírgula.
+  const [salario, setSalario] = useState(formatarNumeroBR(f.salario))
+  const [comissao, setComissao] = useState(formatarNumeroBR(f.comissaoPercentual))
+  const [ajudaCusto, setAjudaCusto] = useState(formatarNumeroBR(f.ajudaCusto))
   const [ativo, setAtivo] = useState(f.ativo)
   const [baseComissao, setBaseComissao] = useState(f.baseComissao)
   const [pending, startTransition] = useTransition()
 
-  function parseNum(v: string): number {
-    const n = parseFloat(v.trim().replace(/\./g, '').replace(',', '.'))
-    return isNaN(n) ? 0 : n
-  }
-
   function salvar() {
+    const salarioNum = parseNumeroBR(salario)
+    const comissaoNum = parseNumeroBR(comissao)
+    const ajudaNum = ajudaCusto.trim() ? parseNumeroBR(ajudaCusto) : null
+
+    // Recusa em vez de salvar 0 calado — é salário, o erro passaria despercebido.
+    if (salarioNum === null) { toast.error('Salário inválido'); return }
+    if (comissaoNum === null) { toast.error('Comissão inválida'); return }
+    if (ajudaCusto.trim() && ajudaNum === null) { toast.error('Ajuda de custo inválida'); return }
+
     startTransition(async () => {
       try {
         await salvarConfigFuncionarioAction(f.usuarioId, {
-          salario: parseNum(salario),
-          comissaoPercentual: parseNum(comissao),
-          ajudaCusto: ajudaCusto.trim() ? parseNum(ajudaCusto) : null,
+          salario: salarioNum,
+          comissaoPercentual: comissaoNum,
+          ajudaCusto: ajudaNum,
           ativo,
           baseComissao,
         })
+        // Renormaliza: quem digitou "1880.5" vê "1.880,50" e confirma o que salvou.
+        setSalario(formatarNumeroBR(salarioNum))
+        setComissao(formatarNumeroBR(comissaoNum))
+        setAjudaCusto(ajudaNum === null ? '' : formatarNumeroBR(ajudaNum))
         toast.success(`Configuração de ${f.nome} salva`)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
