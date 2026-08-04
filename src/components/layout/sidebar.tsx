@@ -17,7 +17,7 @@ const baseNavItems = [
   { href: '/estoque',        label: 'Showroom',          icon: Package        },
   { href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight },
   { href: '/vendas',         label: 'Vendas',            icon: ShoppingCart   },
-  { href: '/agenda',         label: 'Agenda',            icon: CalendarDays   },
+  { href: '/agenda',         label: 'Agenda Oficina',    icon: CalendarDays   },
   { href: '/calendario',     label: 'Calendário',        icon: CalendarRange  },
   { href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench         },
   { href: '/garantias',      label: 'Garantias',         icon: Shield         },
