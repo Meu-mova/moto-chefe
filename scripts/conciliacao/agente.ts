@@ -12,6 +12,7 @@
  * salvas no perfil; a da InfinitePay dura 7 dias, as outras até você sair.
  */
 import { abrirPerfil, avisar, SessaoExpirada, BASE_COLETOR } from './navegador'
+import { conferirTerminais } from './terminais'
 import { coletarInfinitePay } from './operadoras/infinitepay'
 import { coletarStone } from './operadoras/stone'
 import { coletarPagueVeloz } from './operadoras/pagueveloz'
@@ -65,7 +66,11 @@ async function processar(pedidoId: string) {
     // e o pedido volta como erro dizendo o que faltou.
     for (const [operadora, coletar] of etapas) {
       try {
-        resultado[operadora] = await enviar(operadora, await coletar())
+        const transacoes = await coletar()
+        // A maquininha denuncia perfil logado na conta do grupo errado antes de
+        // qualquer coisa ser enviada. Lançar aqui derruba só esta operadora.
+        conferirTerminais(slug, operadora, transacoes)
+        resultado[operadora] = await enviar(operadora, transacoes)
       } catch (e) {
         if (e instanceof SessaoExpirada) precisaLogin = true
         const msg = e instanceof Error ? e.message : String(e)
@@ -84,27 +89,67 @@ async function processar(pedidoId: string) {
     if (!precisaLogin) await contexto.close()
   }
 
-  await fetch(`${MOVA_URL}/api/conciliacao/fila`, {
+  // Se esta entrega falhar, o pedido fica em aberto no banco. A tela cobre o
+  // caso (o pedido vira "travado" e o próximo clique o encerra), mas o motivo
+  // só existe aqui — por isso é logado.
+  const entrega = await fetch(`${MOVA_URL}/api/conciliacao/fila`, {
     method: 'POST',
     headers: cabecalho,
     body: JSON.stringify({ id: pedidoId, resultado, erro: falhas.length ? falhas.join(' | ') : undefined }),
   })
+  if (!entrega.ok) {
+    console.error(`falha ao devolver o resultado do pedido ${pedidoId}: HTTP ${entrega.status} — ${await entrega.text()}`)
+  }
 
   console.log(`[${new Date().toISOString()}] pedido ${pedidoId}:`, JSON.stringify(resultado), falhas.join(' | '))
 }
 
 console.log(`Agente de cartão no ar — grupo ${grupo.nome}, perfis em ${BASE_COLETOR}`)
 
+// 401 (CRON_SECRET errado) e 400 (CNPJ não encontrado) são o modo de falha mais
+// provável na primeira execução real, e sem log o sintoma seria o PC calado com
+// a tela dizendo "agente offline". Só que o laço bate a cada 15 segundos: logar
+// sempre encheria o console com a mesma linha. Então loga quando a situação
+// muda — a primeira ocorrência, cada mudança de status, e a volta ao normal.
+let ultimaFalha: string | null = null
+
+function logarFalhaDaFila(assinatura: string, mensagem: string) {
+  if (assinatura === ultimaFalha) return
+  ultimaFalha = assinatura
+  console.error(`[${new Date().toISOString()}] ${mensagem}`)
+}
+
 setInterval(async () => {
+  let pedido: { id: string } | null = null
+
   try {
     const r = await fetch(
       `${MOVA_URL}/api/conciliacao/fila?grupoCnpj=${encodeURIComponent(grupo.cnpj)}`,
       { headers: cabecalho },
     )
-    if (!r.ok) return
-    const { pedido } = await r.json() as { pedido: { id: string } | null }
-    if (pedido) await processar(pedido.id)
+    if (!r.ok) {
+      const corpo = await r.text().catch(() => '')
+      logarFalhaDaFila(`http:${r.status}:${corpo}`, `fila respondeu HTTP ${r.status} para ${grupo.nome}: ${corpo}`)
+      return
+    }
+    if (ultimaFalha) {
+      console.log(`[${new Date().toISOString()}] fila respondendo de novo`)
+      ultimaFalha = null
+    }
+    ;({ pedido } = await r.json() as { pedido: { id: string } | null })
   } catch (e) {
-    console.error('laço do agente:', e instanceof Error ? e.message : String(e))
+    const msg = e instanceof Error ? e.message : String(e)
+    logarFalhaDaFila(`erro:${msg}`, `fila inacessível para ${grupo.nome}: ${msg}`)
+    return
+  }
+
+  if (!pedido) return
+
+  // Falha ao processar é sempre logada (não passa pelo filtro de repetição):
+  // acontece uma vez por pedido, então não tem como poluir.
+  try {
+    await processar(pedido.id)
+  } catch (e) {
+    console.error(`[${new Date().toISOString()}] pedido ${pedido.id} falhou:`, e instanceof Error ? e.message : String(e))
   }
 }, INTERVALO_MS)

@@ -1,8 +1,10 @@
 import { chromium, type BrowserContext, type Page } from 'playwright'
 import path from 'node:path'
-import os from 'node:os'
+import { BASE_COLETOR } from './base'
 
-export const BASE_COLETOR = path.join(process.env.LOCALAPPDATA || os.homedir(), 'mova-coletor')
+// Reexportado para não quebrar quem já importava daqui; a definição mora em
+// ./base para que o registro de terminais possa usá-la sem carregar playwright.
+export { BASE_COLETOR }
 
 export class SessaoExpirada extends Error {
   constructor(public operadora: string) {

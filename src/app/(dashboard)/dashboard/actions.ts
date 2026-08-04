@@ -13,6 +13,12 @@ type ResumoOperadora = { importadas: number; duplicadas: number; conciliadas: nu
 /**
  * Cria o pedido de importação. Se já existe um em aberto para o grupo,
  * devolve aquele: clicar duas vezes não coleta duas vezes.
+ *
+ * Só quem grava o status final é o POST do agente. Se o Chromium não subir, o
+ * PC reiniciar no meio ou esse POST falhar, a linha fica `rodando` para sempre
+ * — e reaproveitá-la devolveria um id morto a cada clique, sem saída pelo
+ * aplicativo. Por isso o pedido em aberto que já passou do prazo
+ * (`situacaoDoPedido` → `travado`) é encerrado como erro e um novo é criado.
  */
 export async function solicitarImportacaoAction(): Promise<{ id: string } | { erro: string }> {
   const usuario = await getUsuarioLogado()
@@ -21,7 +27,12 @@ export async function solicitarImportacaoAction(): Promise<{ id: string } | { er
   const grupo = await getGrupoAtivo(usuario)
 
   const [emAberto] = await db
-    .select({ id: importacoesCartao.id })
+    .select({
+      id: importacoesCartao.id,
+      status: importacoesCartao.status,
+      criadoEm: importacoesCartao.criadoEm,
+      iniciadoEm: importacoesCartao.iniciadoEm,
+    })
     .from(importacoesCartao)
     .where(and(
       eq(importacoesCartao.grupoId, grupo.id),
@@ -30,7 +41,24 @@ export async function solicitarImportacaoAction(): Promise<{ id: string } | { er
     .orderBy(desc(importacoesCartao.criadoEm))
     .limit(1)
 
-  if (emAberto) return { id: emAberto.id }
+  if (emAberto) {
+    if (situacaoDoPedido(emAberto, new Date()) !== 'travado') return { id: emAberto.id }
+
+    // Encerra o pedido abandonado antes de enfileirar outro. O filtro de status
+    // no UPDATE evita corrida com o agente que estivesse entregando o resultado
+    // neste exato instante.
+    await db
+      .update(importacoesCartao)
+      .set({
+        status: 'erro',
+        erro: 'Importação abandonada: o agente do PC da loja não respondeu dentro do prazo. Um novo pedido foi criado.',
+        concluidoEm: new Date(),
+      })
+      .where(and(
+        eq(importacoesCartao.id, emAberto.id),
+        inArray(importacoesCartao.status, ['pendente', 'rodando']),
+      ))
+  }
 
   const [novo] = await db
     .insert(importacoesCartao)

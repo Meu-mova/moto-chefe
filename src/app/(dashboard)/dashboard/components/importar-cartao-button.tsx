@@ -20,20 +20,40 @@ export function ImportarCartaoButton() {
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current) }, [])
 
+  function parar() {
+    if (timer.current) { clearInterval(timer.current); timer.current = null }
+  }
+
   async function importar() {
     setResultado(null); setErro(null); setSituacao('pendente')
 
-    const pedido = await solicitarImportacaoAction()
+    let pedido: Awaited<ReturnType<typeof solicitarImportacaoAction>>
+    try {
+      pedido = await solicitarImportacaoAction()
+    } catch (e) {
+      setSituacao('erro'); setErro(e instanceof Error ? e.message : 'Falha ao pedir a importação')
+      return
+    }
     if ('erro' in pedido) { setSituacao('erro'); setErro(pedido.erro); return }
+    const pedidoId = pedido.id
 
-    if (timer.current) clearInterval(timer.current)
+    parar()
     timer.current = setInterval(async () => {
-      const atual = await consultarImportacaoAction(pedido.id)
-      setSituacao(atual.situacao)
-      if (['concluida', 'erro', 'offline', 'travado'].includes(atual.situacao)) {
-        if (timer.current) clearInterval(timer.current)
-        setResultado(atual.resultado)
-        setErro(atual.erro)
+      // Sem este try/catch, uma falha da action (rede caindo, deploy no meio)
+      // vira promessa rejeitada e o botão fica preso em "Importando…" até
+      // alguém recarregar a página.
+      try {
+        const atual = await consultarImportacaoAction(pedidoId)
+        setSituacao(atual.situacao)
+        if (['concluida', 'erro', 'offline', 'travado'].includes(atual.situacao)) {
+          parar()
+          setResultado(atual.resultado)
+          setErro(atual.erro)
+        }
+      } catch (e) {
+        parar()
+        setSituacao('erro')
+        setErro(e instanceof Error ? e.message : 'Falha ao consultar a importação')
       }
     }, 2000)
   }
