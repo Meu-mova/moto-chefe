@@ -2,23 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico } from '@/lib/db/schema'
 import { eq, and, between, sql } from 'drizzle-orm'
-
-export type TransacaoCartao = {
-  nsu?: string
-  autorizacao?: string
-  dataTransacao: string   // YYYY-MM-DD
-  valorBruto: number
-  valorLiquido?: number
-  parcelas: number
-  tipo: 'credito' | 'debito'
-  status: string
-  rawData?: Record<string, unknown>
-}
-
-export type PayloadConciliacao = {
-  operadora: 'infinitypay' | 'stone' | 'pagueveloz'
-  transacoes: TransacaoCartao[]
-}
+import type { PayloadConciliacao } from '@/lib/conciliacao-cartao'
 
 const TOLERANCE = 0.05 // R$ 0,05 de tolerância no valor
 
