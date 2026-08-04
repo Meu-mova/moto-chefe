@@ -51,9 +51,16 @@ reload e é adulterável por quem tem o link.
 
 O papel: cabeçalho com nome do grupo, mês por extenso e a loja (ou "Todas as
 lojas"); a tabela com as mesmas sete colunas da tela — funcionário, base de
-comissão, salário, comissão, premiação, ajuda de custo, total a pagar; linha de
-totais no rodapé; data de emissão no pé. Sem menu e sem botões, com `@media
-print` para caber em A4 retrato.
+comissão, salário, comissão, premiação, ajuda de custo, total a pagar — mais uma
+coluna de **CPF**, que a contabilidade precisa para identificar cada pessoa;
+linha de totais no rodapé; data de emissão no pé. Sem menu e sem botões, com
+`@media print` para caber em A4 retrato.
+
+O CPF vem de `usuarios_dados`, preenchido pelo próprio funcionário em
+`/completar-cadastro`. Quem ainda não preencheu aparece com "—" no lugar do
+número: o papel sai assim mesmo, sinalizando quem falta, em vez de esconder a
+pessoa da folha. O CPF entra **só na impressão** — a tela continua sem ele, para
+não espalhar dado pessoal por quem só quer conferir totais.
 
 ## A refatoração que isso exige
 
