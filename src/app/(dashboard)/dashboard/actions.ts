@@ -46,6 +46,8 @@ export async function consultarImportacaoAction(id: string): Promise<{
   erro: string | null
 }> {
   const usuario = await getUsuarioLogado()
+  if (!PAPEIS_IMPORTACAO.includes(usuario.papel)) return { situacao: 'erro', resultado: null, erro: 'Sem permissão' }
+
   const grupo = await getGrupoAtivo(usuario)
 
   const [pedido] = await db
