@@ -1,8 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
+import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { eq, ne, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FinanceiroFiltros } from './components/financeiro-filtros'
@@ -65,7 +65,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [vendasMes, totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras] = await Promise.all([
+  const [vendasMes, totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
     db
       .select({
         id: vendas.id,
@@ -270,16 +270,47 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           )
         )
     `),
+
+    // Dinheiro pago da gaveta pelo administrativo da loja. Nunca aparece no extrato,
+    // então sem isto a despesa em espécie sumia do resultado. Reprovado fica de fora,
+    // igual faz o /caixa.
+    db
+      .select({
+        valor:     lancamentosCaixa.valor,
+        categoria: lancamentosCaixa.categoria,
+        lojaId:    lancamentosCaixa.lojaId,
+      })
+      .from(lancamentosCaixa)
+      .where(and(
+        eq(lancamentosCaixa.tipo, 'saida'),
+        gte(lancamentosCaixa.data, inicioMes),
+        lte(lancamentosCaixa.data, ultimoDia),
+        ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
+        lojaParamValido
+          ? eq(lancamentosCaixa.lojaId, lojaParamValido)
+          : inArray(lancamentosCaixa.lojaId, lojaIdsGrupo),
+      )),
+
+    db
+      .select({ nome: categoriasCaixa.nome })
+      .from(categoriasCaixa)
+      .where(eq(categoriasCaixa.contaComoDespesa, false)),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
   const receitaLiquida = Number(totaisVendas[0]?.totalLiquido ?? 0)
   const qtdVendas = Number(totaisVendas[0]?.qtdVendas ?? 0)
 
-  const resumoDespesas = somarDespesas(saidasBanco, manuaisForaDoBanco, {
-    categoriasForaDoCalculo: new Set(categoriasForaRows.map(c => c.nome)),
-    cnpjsForaDoCalculo:      new Map(cnpjsForaRows.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
-  })
+  const resumoDespesas = somarDespesas(
+    saidasBanco,
+    manuaisForaDoBanco,
+    {
+      categoriasForaDoCalculo:      new Set(categoriasForaRows.map(c => c.nome)),
+      cnpjsForaDoCalculo:           new Map(cnpjsForaRows.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
+      categoriasCaixaForaDoCalculo: new Set(categoriasCaixaForaRows.map(c => c.nome)),
+    },
+    saidasCaixa,
+  )
   const totalDespesas = resumoDespesas.total
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
   const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)

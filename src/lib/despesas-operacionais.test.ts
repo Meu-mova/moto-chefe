@@ -157,3 +157,62 @@ test('sem nada no período o total é zero', () => {
   assert.equal(r.total, 0)
   assert.deepEqual(r.porCategoria, [])
 })
+
+// ── caixa da loja ────────────────────────────────────────────────────────────
+// O administrativo paga contas com o dinheiro da gaveta. Isso nunca aparece no
+// extrato, então sem somar o caixa a despesa em espécie sumia do resultado —
+// eram R$ 9.373,13 fora do fechamento de julho/2026.
+
+const CONFIG_CAIXA: ConfigDespesas = {
+  ...CONFIG,
+  categoriasCaixaForaDoCalculo: new Set(['Depósito', 'Transferencia entre lojas']),
+}
+
+test('despesa paga em dinheiro entra no total', () => {
+  const r = somarDespesas([], [], CONFIG_CAIXA, [
+    { valor: '150.00', categoria: 'Alimentação' },
+    { valor: '80.00', categoria: 'Material oficina' },
+  ])
+  assert.equal(r.total, 230)
+})
+
+test('depósito não é despesa — só muda o dinheiro de lugar', () => {
+  const r = somarDespesas([], [], CONFIG_CAIXA, [
+    { valor: '110667.00', categoria: 'Depósito' },
+    { valor: '51.00', categoria: 'Água' },
+  ])
+  assert.equal(r.total, 51)
+  assert.equal(r.foraDoCalculo.caixa_nao_despesa, 110667)
+})
+
+test('transferência entre lojas pelo caixa também fica de fora', () => {
+  const r = somarDespesas([], [], CONFIG_CAIXA, [
+    { valor: '5000.00', categoria: 'Transferencia entre lojas' },
+  ])
+  assert.equal(r.total, 0)
+  assert.equal(r.foraDoCalculo.caixa_nao_despesa, 5000)
+})
+
+test('caixa soma na mesma categoria do banco, sem criar linha duplicada', () => {
+  const r = somarDespesas(
+    [saida({ valor: '-300.00', categoria: 'Manutenção' })],
+    [],
+    CONFIG_CAIXA,
+    [{ valor: '200.00', categoria: 'Manutenção' }],
+  )
+  assert.deepEqual(r.porCategoria, [{ categoria: 'Manutenção', total: 500 }])
+})
+
+test('caixa entra no rateio por loja', () => {
+  const r = somarDespesas([], [], CONFIG_CAIXA, [
+    { valor: '100.00', categoria: 'Alimentação', lojaId: 'loja-1' },
+    { valor: '40.00', categoria: 'Alimentação', lojaId: 'loja-2' },
+  ])
+  assert.equal(r.porLoja.get('loja-1'), 100)
+  assert.equal(r.porLoja.get('loja-2'), 40)
+})
+
+test('sem a configuração de caixa, nada é excluído por engano', () => {
+  const r = somarDespesas([], [], CONFIG, [{ valor: '90.00', categoria: 'Alimentação' }])
+  assert.equal(r.total, 90)
+})

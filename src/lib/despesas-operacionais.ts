@@ -18,6 +18,8 @@ export type MotivoForaDoCalculo =
   // de uma empresa e entra no da outra — contando dos dois lados, o grupo "gasta" um
   // dinheiro que nunca saiu do grupo.
   | 'transferencia_interna'
+  // Saída do caixa da loja que não é gasto: "Depósito" leva a gaveta pro banco.
+  | 'caixa_nao_despesa'
 
 export type SaidaBanco = {
   valor: string | number
@@ -33,6 +35,19 @@ export type ConfigDespesas = {
   categoriasForaDoCalculo: Set<string>
   /** CNPJ (só dígitos) → motivo, vindo de favorecidos_nao_operacionais. */
   cnpjsForaDoCalculo: Map<string, MotivoForaDoCalculo>
+  /** Categorias de CAIXA com conta_como_despesa = false (ex.: "Depósito"). */
+  categoriasCaixaForaDoCalculo?: Set<string>
+}
+
+/**
+ * Saída de dinheiro do caixa da loja, lançada pelo administrativo em /caixa.
+ * Nunca aparece no extrato — o dinheiro sai da gaveta —, então sem isto a
+ * despesa paga em espécie some do resultado.
+ */
+export type SaidaCaixa = {
+  valor: string | number
+  categoria: string
+  lojaId?: string | null
 }
 
 export function soDigitos(s: string): string {
@@ -91,6 +106,7 @@ export function somarDespesas(
   saidasBanco: SaidaBanco[],
   manuais: { valor: string | number; categoria: string; lojaId?: string | null }[],
   config: ConfigDespesas,
+  caixa: SaidaCaixa[] = [],
 ): TotalDespesas {
   const porCategoria = new Map<string, number>()
   const porLoja = new Map<string | null, number>()
@@ -99,6 +115,7 @@ export function somarDespesas(
     retirada_socio: 0,
     categoria_marcada: 0,
     transferencia_interna: 0,
+    caixa_nao_despesa: 0,
   }
   let total = 0
 
@@ -126,6 +143,17 @@ export function somarDespesas(
       continue
     }
     somar(m.categoria || SEM_CATEGORIA, m.lojaId ?? null, valorDespesa(m.valor))
+  }
+
+  // Dinheiro pago da gaveta. Não passa pelas regras de CNPJ/descrição — o caixa não
+  // tem favorecido nem histórico de extrato, só a categoria diz o que é.
+  const caixaFora = config.categoriasCaixaForaDoCalculo ?? new Set<string>()
+  for (const c of caixa) {
+    if (caixaFora.has(c.categoria)) {
+      foraDoCalculo.caixa_nao_despesa += valorDespesa(c.valor)
+      continue
+    }
+    somar(c.categoria || SEM_CATEGORIA, c.lojaId ?? null, valorDespesa(c.valor))
   }
 
   return {

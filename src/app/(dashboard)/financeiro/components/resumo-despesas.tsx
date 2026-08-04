@@ -14,6 +14,7 @@ const ROTULO_FORA: Record<keyof TotalDespesas['foraDoCalculo'], string> = {
   retirada_socio:        'Retirada de sócio',
   transferencia_interna: 'Transferência entre empresas do grupo',
   categoria_marcada:     'Categoria fora do cálculo',
+  caixa_nao_despesa:     'Depósito do caixa no banco',
 }
 
 export function ResumoDespesas({ resumo }: Props) {

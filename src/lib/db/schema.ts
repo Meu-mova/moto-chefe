@@ -425,6 +425,10 @@ export const categoriasCaixa = pgTable('categorias_caixa', {
   tipo: text('tipo').notNull(), // 'entrada' | 'saida' | 'ambos'
   ativo: boolean('ativo').notNull().default(true),
   ordem: integer('ordem').notNull().default(0),
+  // false = saída real do caixa, mas não é gasto: "Depósito" é dinheiro indo da
+  // gaveta pro banco e "Transferencia entre lojas" muda de bolso dentro do grupo.
+  // Mesma ideia de categorias_despesa.conta_como_despesa.
+  contaComoDespesa: boolean('conta_como_despesa').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
