@@ -2,6 +2,11 @@ import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { grupos, lojas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import {
+  EMAIL_ACESSO_MULTI_GRUPO,
+  aprovaBaixoValorEmQualquerGrupo,
+  socioAprovaNoGrupo,
+} from '@/lib/aprovacao-permissao'
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -80,8 +85,6 @@ export async function listarLojaIdsDoGrupoAtivo(usuario: { papel: string; lojaId
 // ─── Exceção pontual: transferência entre grupos ──────────────────────────────
 // Liberado apenas para este usuário, por decisão explícita — não é uma role
 // genérica. Ver docs/superpowers/specs/2026-07-01-transferencia-entre-grupos-design.md
-const EMAIL_ACESSO_MULTI_GRUPO = 'cesar.rodrigues@motochefesuldeminas.com.br'
-
 export function podeTransferirEntreGrupos(usuario: { email: string }): boolean {
   return usuario.email === EMAIL_ACESSO_MULTI_GRUPO
 }
@@ -103,20 +106,23 @@ export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: stri
 }
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
-// admin_geral aprova de qualquer grupo; admin_socio só do próprio grupo,
-// determinado pela loja fixa dele (usuarios.lojaId), não pelo cookie
-// grupoAtivo — a permissão de aprovar não deve depender de qual grupo o
-// sócio está "olhando" no momento.
+// admin_geral e o usuário multi-grupo aprovam de qualquer grupo; admin_socio
+// comum só do próprio grupo, determinado pela loja fixa dele (usuarios.lojaId),
+// não pelo cookie grupoAtivo — a permissão de aprovar não deve depender de qual
+// grupo o sócio está "olhando" no momento. A regra pura fica em
+// @/lib/aprovacao-permissao (testável sem banco).
 export async function podeAprovarVendaBaixoValor(
-  usuario: { papel: string; lojaId: string | null },
+  usuario: { papel: string; email: string; lojaId: string | null },
   lojaIdVenda: string,
 ): Promise<boolean> {
-  if (usuario.papel === 'admin_geral') return true
+  // admin_geral e o usuário multi-grupo aprovam em qualquer grupo — sem isto o
+  // sócio multi-grupo ficava travado no BH por ter loja fixa no Sul de Minas.
+  if (aprovaBaixoValorEmQualquerGrupo(usuario)) return true
   if (usuario.papel !== 'admin_socio' || !usuario.lojaId) return false
 
   const [grupoVenda, grupoSocio] = await Promise.all([
     getGrupoIdDaLoja(lojaIdVenda),
     getGrupoIdDaLoja(usuario.lojaId),
   ])
-  return grupoVenda === grupoSocio
+  return socioAprovaNoGrupo(usuario, grupoVenda, grupoSocio)
 }
