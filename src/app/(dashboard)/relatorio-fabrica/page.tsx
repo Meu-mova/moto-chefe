@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   LOJAS_FORA_RELATORIO_FABRICA,
-  agruparPorModelo,
+  agruparPorLoja,
   type LinhaModeloLoja,
 } from '@/lib/relatorio-fabrica'
 import { PrintButton } from './print-button'
@@ -72,7 +72,7 @@ export default async function RelatorioFabricaPage({
     ))
     .groupBy(modelos.id, modelos.marca, modelos.modelo, lojas.id, lojas.nome)
 
-  const grupos = agruparPorModelo(linhas)
+  const grupos = agruparPorLoja(linhas)
   const totalQtd = grupos.reduce((s, g) => s + g.quantidade, 0)
   const totalValor = grupos.reduce((s, g) => s + g.valor, 0)
 
@@ -88,7 +88,7 @@ export default async function RelatorioFabricaPage({
       <div className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold">Relatório de Vendas — Fábrica</h1>
-          <p className="text-slate-500 text-sm">Modelos vendidos, quantidade e valor · {grupo.nome}</p>
+          <p className="text-slate-500 text-sm">Vendas por loja, quantidade e valor · {grupo.nome}</p>
         </div>
         <PrintButton />
       </div>
@@ -124,7 +124,7 @@ export default async function RelatorioFabricaPage({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Modelos vendidos</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lojas</CardTitle></CardHeader>
           <CardContent><p className="text-xl font-bold">{grupos.length}</p></CardContent>
         </Card>
         <Card>
@@ -141,31 +141,28 @@ export default async function RelatorioFabricaPage({
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Modelo</th>
               <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Loja</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Modelo</th>
               <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Qtd</th>
               <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Valor</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {grupos.map(g => [
-              ...g.lojas.map((l, i) => (
-                <tr key={`${g.modeloId}-${l.lojaNome}`} className="hover:bg-slate-50">
+              ...g.modelos.map((m, i) => (
+                <tr key={`${g.lojaId}-${m.modelo}`} className="hover:bg-slate-50">
                   <td className="px-4 py-2">
-                    {i === 0 && (
-                      <>
-                        <p className="font-medium">{g.modelo}</p>
-                        <p className="text-xs text-slate-400">{g.marca}</p>
-                      </>
-                    )}
+                    {i === 0 && <p className="font-medium">{g.lojaNome}</p>}
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{l.lojaNome}</td>
-                  <td className="px-4 py-2 text-right">{l.quantidade}</td>
-                  <td className="px-4 py-2 text-right">{fmt(l.valor)}</td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {m.modelo} <span className="text-xs text-slate-400">{m.marca}</span>
+                  </td>
+                  <td className="px-4 py-2 text-right">{m.quantidade}</td>
+                  <td className="px-4 py-2 text-right">{fmt(m.valor)}</td>
                 </tr>
               )),
-              <tr key={`${g.modeloId}-subtotal`} className="bg-slate-50/70 border-t">
-                <td className="px-4 py-1.5 text-xs text-slate-500" colSpan={2}>Total {g.modelo}</td>
+              <tr key={`${g.lojaId}-subtotal`} className="bg-slate-50/70 border-t">
+                <td className="px-4 py-1.5 text-xs text-slate-500" colSpan={2}>Total {g.lojaNome}</td>
                 <td className="px-4 py-1.5 text-right font-semibold">{g.quantidade}</td>
                 <td className="px-4 py-1.5 text-right font-semibold">{fmt(g.valor)}</td>
               </tr>,

@@ -28,35 +28,38 @@ export type LinhaModeloLoja = {
   valor: number
 }
 
-export type GrupoModelo = {
-  modeloId: string
-  marca: string
-  modelo: string
-  lojas: { lojaNome: string; quantidade: number; valor: number }[]
+export type GrupoLoja = {
+  lojaId: string
+  lojaNome: string
+  modelos: { marca: string; modelo: string; quantidade: number; valor: number }[]
   quantidade: number
   valor: number
 }
 
 /**
- * Agrupa as linhas (modelo × loja) por modelo, com subtotal.
- * Ordena por quantidade vendida — o que a fábrica quer ver primeiro é o que sai mais.
+ * Agrupa as linhas (modelo × loja) por loja, com subtotal por loja.
+ * A fábrica quer ler o quanto cada ponto de venda vendeu, então a loja é o
+ * nível de cima e os modelos ficam listados dentro dela.
+ *
+ * Ordena as lojas por quantidade vendida (a que mais vendeu primeiro) e, dentro
+ * de cada loja, os modelos também por quantidade — o que sai mais aparece antes.
  */
-export function agruparPorModelo(linhas: LinhaModeloLoja[]): GrupoModelo[] {
-  const porModelo = new Map<string, GrupoModelo>()
+export function agruparPorLoja(linhas: LinhaModeloLoja[]): GrupoLoja[] {
+  const porLoja = new Map<string, GrupoLoja>()
 
   for (const l of linhas) {
-    let g = porModelo.get(l.modeloId)
+    let g = porLoja.get(l.lojaId)
     if (!g) {
-      g = { modeloId: l.modeloId, marca: l.marca, modelo: l.modelo, lojas: [], quantidade: 0, valor: 0 }
-      porModelo.set(l.modeloId, g)
+      g = { lojaId: l.lojaId, lojaNome: l.lojaNome, modelos: [], quantidade: 0, valor: 0 }
+      porLoja.set(l.lojaId, g)
     }
-    g.lojas.push({ lojaNome: l.lojaNome, quantidade: l.quantidade, valor: l.valor })
+    g.modelos.push({ marca: l.marca, modelo: l.modelo, quantidade: l.quantidade, valor: l.valor })
     g.quantidade += l.quantidade
     g.valor += l.valor
   }
 
-  const grupos = [...porModelo.values()]
-  for (const g of grupos) g.lojas.sort((a, b) => a.lojaNome.localeCompare(b.lojaNome))
-  grupos.sort((a, b) => b.quantidade - a.quantidade || a.modelo.localeCompare(b.modelo))
+  const grupos = [...porLoja.values()]
+  for (const g of grupos) g.modelos.sort((a, b) => b.quantidade - a.quantidade || a.modelo.localeCompare(b.modelo))
+  grupos.sort((a, b) => b.quantidade - a.quantidade || a.lojaNome.localeCompare(b.lojaNome))
   return grupos
 }

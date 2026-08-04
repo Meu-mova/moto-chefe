@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparPorModelo, lojaEntraNoRelatorioFabrica, type LinhaModeloLoja } from './relatorio-fabrica'
+import { agruparPorLoja, lojaEntraNoRelatorioFabrica, type LinhaModeloLoja } from './relatorio-fabrica'
 
 const GALPAO = 'f154c1a5-c5ed-4bdc-af14-b1dea024beae'
 const LAVRAS = 'd27be175-1a99-4382-a335-7a027195922e'
@@ -15,43 +15,52 @@ test('as demais lojas entram', () => {
   assert.equal(lojaEntraNoRelatorioFabrica(VARGINHA), true)
 })
 
-const linha = (modeloId: string, modelo: string, lojaNome: string, quantidade: number, valor: number): LinhaModeloLoja =>
-  ({ modeloId, marca: 'Shineray', modelo, lojaId: 'x', lojaNome, quantidade, valor })
+const linha = (lojaId: string, lojaNome: string, modelo: string, quantidade: number, valor: number): LinhaModeloLoja =>
+  ({ modeloId: modelo, marca: 'Shineray', modelo, lojaId, lojaNome, quantidade, valor })
 
-test('soma quantidade e valor do modelo entre as lojas', () => {
-  const [g] = agruparPorModelo([
-    linha('m1', 'SHI 175', 'Varginha', 3, 30000),
-    linha('m1', 'SHI 175', 'Itajuba', 2, 21000),
+test('soma quantidade e valor da loja entre os modelos', () => {
+  const [g] = agruparPorLoja([
+    linha('l1', 'Varginha', 'SHI 175', 3, 30000),
+    linha('l1', 'Varginha', 'SHI 50', 2, 21000),
   ])
   assert.equal(g.quantidade, 5)
   assert.equal(g.valor, 51000)
-  assert.equal(g.lojas.length, 2)
+  assert.equal(g.modelos.length, 2)
 })
 
-test('lista as lojas do modelo em ordem alfabética', () => {
-  const [g] = agruparPorModelo([
-    linha('m1', 'SHI 175', 'Varginha', 1, 10000),
-    linha('m1', 'SHI 175', 'Itajuba', 1, 10000),
+test('separa uma loja da outra', () => {
+  const gs = agruparPorLoja([
+    linha('l1', 'Varginha', 'SHI 175', 1, 10000),
+    linha('l2', 'Itajuba', 'SHI 175', 1, 10000),
   ])
-  assert.deepEqual(g.lojas.map(l => l.lojaNome), ['Itajuba', 'Varginha'])
+  assert.equal(gs.length, 2)
+  assert.deepEqual([...gs.map(g => g.lojaNome)].sort(), ['Itajuba', 'Varginha'])
 })
 
-test('modelo que mais vendeu vem primeiro', () => {
-  const gs = agruparPorModelo([
-    linha('m1', 'Pouco vendido', 'Varginha', 1, 10000),
-    linha('m2', 'Campeão', 'Varginha', 9, 90000),
+test('loja que mais vendeu vem primeiro', () => {
+  const gs = agruparPorLoja([
+    linha('l1', 'Pouco vendeu', 'SHI 175', 1, 10000),
+    linha('l2', 'Campeã', 'SHI 175', 9, 90000),
   ])
-  assert.deepEqual(gs.map(g => g.modelo), ['Campeão', 'Pouco vendido'])
+  assert.deepEqual(gs.map(g => g.lojaNome), ['Campeã', 'Pouco vendeu'])
 })
 
-test('empate na quantidade desempata pelo nome do modelo', () => {
-  const gs = agruparPorModelo([
-    linha('m1', 'Zebra', 'Varginha', 2, 1),
-    linha('m2', 'Alfa', 'Varginha', 2, 1),
+test('dentro da loja, o modelo que mais vendeu vem primeiro', () => {
+  const [g] = agruparPorLoja([
+    linha('l1', 'Varginha', 'Pouco vendido', 1, 10000),
+    linha('l1', 'Varginha', 'Campeão', 9, 90000),
   ])
-  assert.deepEqual(gs.map(g => g.modelo), ['Alfa', 'Zebra'])
+  assert.deepEqual(g.modelos.map(m => m.modelo), ['Campeão', 'Pouco vendido'])
+})
+
+test('empate na quantidade desempata pelo nome da loja', () => {
+  const gs = agruparPorLoja([
+    linha('l1', 'Zebra', 'SHI 175', 2, 1),
+    linha('l2', 'Alfa', 'SHI 175', 2, 1),
+  ])
+  assert.deepEqual(gs.map(g => g.lojaNome), ['Alfa', 'Zebra'])
 })
 
 test('sem vendas, sem linhas', () => {
-  assert.deepEqual(agruparPorModelo([]), [])
+  assert.deepEqual(agruparPorLoja([]), [])
 })
