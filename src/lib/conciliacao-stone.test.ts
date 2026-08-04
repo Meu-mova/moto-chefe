@@ -51,6 +51,15 @@ test('crédito e débito', () => {
   assert.equal(d.tipo, 'debito')
 })
 
+test('o tipo vem do detalhe, não da venda (prioridade)', () => {
+  // Venda diz crédito, detalhe diz débito — deve resultar em débito
+  const [t] = mapearStone([{
+    venda: { ...VENDA, card_transaction_type: 'credit' },
+    detalhe: { ...DETALHE, card_transaction: { ...DETALHE.card_transaction, type: 'debit' } },
+  }])
+  assert.equal(t.tipo, 'debito')
+})
+
 test('venda não paga é descartada', () => {
   assert.deepEqual(mapearStone([{ venda: { ...VENDA, status: 'canceled' }, detalhe: DETALHE }]), [])
 })
