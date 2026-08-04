@@ -1,4 +1,5 @@
 'use server'
+import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -39,6 +40,12 @@ export async function salvarDadosFuncionarioAction(
   await db.insert(usuariosDados)
     .values({ usuarioId: usuario.id, ...valores })
     .onConflictDoUpdate({ target: usuariosDados.usuarioId, set: valores })
+
+  // A trava que barra o acesso mora no layout do dashboard. Sem invalidar o
+  // layout, a navegação seguinte pode reaproveitar a árvore já renderizada —
+  // que foi montada quando a pessoa ainda não tinha dados — e devolvê-la ao
+  // formulário.
+  revalidatePath('/', 'layout')
 
   return { ok: true }
 }

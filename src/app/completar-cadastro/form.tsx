@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,7 +21,6 @@ type Inicial = {
 }
 
 export function CompletarCadastroForm({ inicial }: { inicial: Inicial | null }) {
-  const router = useRouter()
   const [cpf, setCpf] = useState(inicial?.cpf ?? '')
   const [pixTipo, setPixTipo] = useState<TipoChavePix>(inicial?.pixTipo ?? 'cpf')
   const [pixChave, setPixChave] = useState(inicial?.pixChave ?? '')
@@ -34,12 +32,16 @@ export function CompletarCadastroForm({ inicial }: { inicial: Inicial | null }) 
     setSalvando(true); setErro(null)
     try {
       const r = await salvarDadosFuncionarioAction({ cpf, pixTipo, pixChave, dataNascimento })
-      if (!r.ok) { setErro(r.erro); return }
-      router.push('/dashboard')
-      router.refresh()
+      if (!r.ok) { setErro(r.erro); setSalvando(false); return }
+
+      // Navegação dura, de propósito. A versão anterior fazia router.push()
+      // seguido de router.refresh(): o refresh re-renderizava a rota atual e
+      // devolvia a pessoa para este mesmo formulário — ela salvava, salvava de
+      // novo, e a tela não saía do lugar. Recarregar a página inteira força o
+      // servidor a montar o layout do zero, já enxergando os dados gravados.
+      window.location.assign('/dashboard')
     } catch {
       setErro('Não consegui salvar agora. Tente de novo.')
-    } finally {
       setSalvando(false)
     }
   }
