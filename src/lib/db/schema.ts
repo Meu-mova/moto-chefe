@@ -555,6 +555,22 @@ export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── importacoes_cartao ──────────────────────────────────────────────────────
+// Fila entre o botão no dashboard (Vercel) e o agente que roda no PC da loja.
+// O botão não consegue falar com o PC; ele deixa um pedido aqui e o agente
+// pergunta de tempos em tempos se tem serviço.
+export const importacoesCartao = pgTable('importacoes_cartao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  solicitadoPor: uuid('solicitado_por').references(() => usuarios.id),
+  status: text('status').notNull().default('pendente'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  iniciadoEm: timestamp('iniciado_em', { withTimezone: true }),
+  concluidoEm: timestamp('concluido_em', { withTimezone: true }),
+  resultado: jsonb('resultado'),
+  erro: text('erro'),
+})
+
 // ─── pix_recebimentos ────────────────────────────────────────────────────────
 export const pixRecebimentos = pgTable('pix_recebimentos', {
   id:               text('id').primaryKey(),  // endToEndId do ValidaPix
