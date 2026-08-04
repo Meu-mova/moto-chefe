@@ -27,7 +27,7 @@ export default async function RelatorioFabricaPage({
           <h1 className="text-2xl font-bold">Relatório de Vendas — Fábrica</h1>
           <p className="text-slate-500 text-sm">Vendas por loja, quantidade e valor · {grupo.nome}</p>
         </div>
-        <PrintButton de={de} ate={ate} />
+        <PrintButton href={`/relatorio-fabrica/imprimir?de=${de}&ate=${ate}`} />
       </div>
 
       <form method="get" className="flex flex-wrap items-end gap-3 bg-white border rounded-lg p-3">

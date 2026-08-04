@@ -1,19 +1,15 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { usuarios, lojas, funcionariosConfig, premiacaoFaixas, vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase } from '@/lib/db/schema'
-import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FuncionariosConfigTable } from './components/funcionarios-config-table'
 import { PremiacaoFaixasTable } from './components/premiacao-faixas-table'
 import { MesSelectorFolha } from './components/mes-selector-folha'
-import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
+import { LojaSelectorFolha } from './components/loja-selector-folha'
 import { AjustesBaseTable } from './components/ajustes-base-table'
-import { calcularPremiacao } from '@/lib/premiacao'
-import { resolverBaseComissao, type TotaisBase } from '@/lib/folha'
-import { temPapel } from '@/lib/auth'
+import { PrintButton } from '../relatorio-fabrica/print-button'
+import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const PAPEL_LABEL: Record<string, string> = {
@@ -26,23 +22,6 @@ const PAPEL_LABEL: Record<string, string> = {
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-// Valor líquido por venda: parte não paga em cartão fica como está; a parte paga em cartão e já
-// conciliada é trocada pelo valor líquido (descontada a taxa da operadora). Comissão e premiação
-// OTE de vendedor são calculadas sobre esse valor, não sobre o bruto da venda.
-function valorLiquidoExpr() {
-  return sql`(
-    ${vendas.valor}::numeric
-    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-  )`
 }
 
 export default async function FolhaPagamentoPage({
@@ -58,252 +37,21 @@ export default async function FolhaPagamentoPage({
 
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
-  const [ano, mes] = mesParam.split('-').map(Number)
-  // Bordas do mês no calendário de Brasília, não em UTC. Montar a janela com
-  // Date.UTC fazia "julho" valer de 30/06 21:00 a 31/07 20:59 daqui — e o limite
-  // superior inclusivo ainda deixava o primeiro instante do mês seguinte contar
-  // duas vezes. Ver inicioDoDiaBrt/fimDoDiaBrt em @/lib/data-venda.
-  const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
-  const inicioTs = inicioDoDiaBrt(`${mesParam}-01`)
-  const fimTs = fimDoDiaBrt(`${mesParam}-${String(ultimoDia).padStart(2, '0')}`)
 
-  const [
-    funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
-    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustesRaw, lojasDoGrupo,
-  ] = await Promise.all([
-    db
-      .select({
-        id: usuarios.id,
-        nome: usuarios.nome,
-        papel: usuarios.papel,
-        papeisExtras: usuarios.papeisExtras,
-        lojaId: usuarios.lojaId,
-        lojaNome: lojas.nome,
-      })
-      .from(usuarios)
-      .innerJoin(lojas, eq(usuarios.lojaId, lojas.id))
-      .where(inArray(usuarios.lojaId, lojaIdsGrupo)),
+  // O filtro entra ANTES das consultas. Filtrar a lista já calculada daria o
+  // valor certo por pessoa e o total errado, porque a base de comissão de vários
+  // aux_adm incide sobre o total da LOJA (ver BASES_COMISSAO em @/lib/folha).
+  //
+  // A checagem contra lojaIdsGrupo não é decorativa: sem ela, um id de loja de
+  // outro grupo na URL traria dados de fora do grupo ativo.
+  const lojaParam = params.loja ?? ''
+  const lojaIds = lojaParam && lojaIdsGrupo.includes(lojaParam) ? [lojaParam] : lojaIdsGrupo
 
-    db.select().from(funcionariosConfig),
+  const dados = await buscarDadosFolha({ mes: mesParam, lojaIds, lojaIdsGrupo, grupoId: grupo.id })
+  const folha = agregarFolha(dados)
 
-    db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, grupo.id)),
-
-    db
-      .select({
-        vendedorId: vendas.vendedorId,
-        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
-      })
-      .from(vendas)
-      .where(and(
-        inArray(vendas.lojaId, lojaIdsGrupo),
-        gte(vendas.dataVenda, inicioTs),
-        lte(vendas.dataVenda, fimTs),
-      ))
-      .groupBy(vendas.vendedorId),
-
-    db
-      .select({
-        vendedorId: vendasPecas.vendedorId,
-        total: sql<string>`COALESCE(SUM(${vendasPecas.valorTotal}::numeric), 0)`,
-      })
-      .from(vendasPecas)
-      .where(and(
-        inArray(vendasPecas.lojaId, lojaIdsGrupo),
-        gte(vendasPecas.dataVenda, inicioTs),
-        lte(vendasPecas.dataVenda, fimTs),
-      ))
-      .groupBy(vendasPecas.vendedorId),
-
-    // Só a mão de obra (valorServicos) entra na comissão do mecânico — peças usadas na OS
-    // vão pra base do aux_adm (ver osPecasPorAbertaPor), não pra dele.
-    db
-      .select({
-        mecanicoId: ordensServico.mecanicoId,
-        total: sql<string>`COALESCE(SUM(${ordensServico.valorServicos}::numeric), 0)`,
-      })
-      .from(ordensServico)
-      .where(and(
-        inArray(ordensServico.lojaId, lojaIdsGrupo),
-        eq(ordensServico.status, 'concluida'),
-        gte(ordensServico.dataConclusao, inicioTs),
-        lte(ordensServico.dataConclusao, fimTs),
-      ))
-      .groupBy(ordensServico.mecanicoId),
-
-    // Peças usadas dentro de OS (os_itens tipo=peca) creditadas a quem abriu a OS — não há
-    // "vendedor" de peça em OS, e só GESTORES (que inclui aux_adm) abrem OS.
-    db
-      .select({
-        abertaPor: ordensServico.abertaPor,
-        total: sql<string>`COALESCE(SUM(${ordensServico.valorPecas}::numeric), 0)`,
-      })
-      .from(ordensServico)
-      .where(and(
-        inArray(ordensServico.lojaId, lojaIdsGrupo),
-        eq(ordensServico.status, 'concluida'),
-        gte(ordensServico.dataConclusao, inicioTs),
-        lte(ordensServico.dataConclusao, fimTs),
-      ))
-      .groupBy(ordensServico.abertaPor),
-
-    // ─── Totais por loja ──────────────────────────────────────────────────────
-    // Existem porque vários aux_adm recebem percentual sobre o que a LOJA vendeu,
-    // não sobre o que eles mesmos venderam.
-    //
-    // Venda dos donos (admin_geral) fica de fora: é moto particular passando pela
-    // loja, não faturamento dela, e não pode virar comissão de ninguém. Isso é
-    // consistente com o resto do módulo, onde admin_geral nem entra na folha
-    // (lojaId nulo). Não afeta base individual — dono não tem comissão.
-    db
-      .select({
-        lojaId: vendas.lojaId,
-        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
-      })
-      .from(vendas)
-      .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
-      .where(and(
-        inArray(vendas.lojaId, lojaIdsGrupo),
-        gte(vendas.dataVenda, inicioTs),
-        lte(vendas.dataVenda, fimTs),
-        ne(usuarios.papel, 'admin_geral'),
-      ))
-      .groupBy(vendas.lojaId),
-
-    db
-      .select({
-        lojaId: vendasPecas.lojaId,
-        total: sql<string>`COALESCE(SUM(${vendasPecas.valorTotal}::numeric), 0)`,
-      })
-      .from(vendasPecas)
-      .innerJoin(usuarios, eq(vendasPecas.vendedorId, usuarios.id))
-      .where(and(
-        inArray(vendasPecas.lojaId, lojaIdsGrupo),
-        gte(vendasPecas.dataVenda, inicioTs),
-        lte(vendasPecas.dataVenda, fimTs),
-        ne(usuarios.papel, 'admin_geral'),
-      ))
-      .groupBy(vendasPecas.lojaId),
-
-    db
-      .select({
-        lojaId: ordensServico.lojaId,
-        total: sql<string>`COALESCE(SUM(${ordensServico.valorPecas}::numeric), 0)`,
-      })
-      .from(ordensServico)
-      .where(and(
-        inArray(ordensServico.lojaId, lojaIdsGrupo),
-        eq(ordensServico.status, 'concluida'),
-        gte(ordensServico.dataConclusao, inicioTs),
-        lte(ordensServico.dataConclusao, fimTs),
-      ))
-      .groupBy(ordensServico.lojaId),
-
-    db
-      .select({
-        id: folhaAjustesBase.id,
-        lojaId: folhaAjustesBase.lojaId,
-        lojaNome: lojas.nome,
-        tipo: folhaAjustesBase.tipo,
-        usuarioId: folhaAjustesBase.usuarioId,
-        usuarioNome: usuarios.nome,
-        valor: folhaAjustesBase.valor,
-        observacao: folhaAjustesBase.observacao,
-      })
-      .from(folhaAjustesBase)
-      .innerJoin(lojas, eq(folhaAjustesBase.lojaId, lojas.id))
-      .leftJoin(usuarios, eq(folhaAjustesBase.usuarioId, usuarios.id))
-      .where(and(
-        inArray(folhaAjustesBase.lojaId, lojaIdsGrupo),
-        eq(folhaAjustesBase.mes, mesParam),
-      )),
-
-    db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIdsGrupo)).orderBy(lojas.nome),
-  ])
-
-  const configPorUsuario = new Map(configsRaw.map(c => [c.usuarioId, c]))
-  const vendasPorId = new Map(vendasPorVendedor.map(v => [v.vendedorId, parseFloat(v.total)]))
-  const osPorId = new Map(osPorMecanico.filter(o => o.mecanicoId).map(o => [o.mecanicoId as string, parseFloat(o.total)]))
-  const osPecasPorId = new Map(osPecasPorAbertaPor.map(o => [o.abertaPor, parseFloat(o.total)]))
-  const pecasPorId = new Map(
-    pecasPorVendedor.map(v => [v.vendedorId, parseFloat(v.total) + (osPecasPorId.get(v.vendedorId) ?? 0)]),
-  )
-  // Cobre quem abriu OS com peça mas não tem venda de peça avulsa no período
-  for (const [usuarioId, valor] of osPecasPorId) {
-    if (!pecasPorId.has(usuarioId)) pecasPorId.set(usuarioId, valor)
-  }
-
-  const motosPorLojaId = new Map(motosPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
-  const pecasPorLojaId = new Map(pecasPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
-  for (const l of osPecasPorLoja) {
-    pecasPorLojaId.set(l.lojaId, (pecasPorLojaId.get(l.lojaId) ?? 0) + parseFloat(l.total))
-  }
-
-  // Um ajuste representa uma venda real da loja: soma sempre à base da LOJA e,
-  // quando aponta um funcionário, também à base individual dele. Não é ou-um-ou-outro
-  // — se estivesse lançado no sistema, contaria nos dois lugares.
-  const somar = (mapa: Map<string, number>, chave: string | null, valor: number) => {
-    if (!chave) return
-    mapa.set(chave, (mapa.get(chave) ?? 0) + valor)
-  }
-  for (const a of ajustesRaw) {
-    const valor = parseFloat(a.valor)
-    if (a.tipo === 'motos') {
-      somar(motosPorLojaId, a.lojaId, valor)
-      somar(vendasPorId, a.usuarioId, valor)
-    } else if (a.tipo === 'pecas') {
-      somar(pecasPorLojaId, a.lojaId, valor)
-      somar(pecasPorId, a.usuarioId, valor)
-    } else if (a.tipo === 'servicos') {
-      somar(osPorId, a.usuarioId, valor)
-    }
-  }
-
-  const funcionarios = funcionariosRaw.map(f => {
-    const config = configPorUsuario.get(f.id)
-    const salario = config ? parseFloat(config.salario) : 0
-    const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0
-    const ajudaCusto = config?.ajudaCusto ? parseFloat(config.ajudaCusto) : 0
-    const ativo = config?.ativo ?? true
-
-    const totais: TotaisBase = {
-      propriasMotos:    vendasPorId.get(f.id) ?? 0,
-      propriasPecas:    pecasPorId.get(f.id) ?? 0,
-      propriosServicos: osPorId.get(f.id) ?? 0,
-      lojaMotos:        f.lojaId ? (motosPorLojaId.get(f.lojaId) ?? 0) : 0,
-      lojaPecas:        f.lojaId ? (pecasPorLojaId.get(f.lojaId) ?? 0) : 0,
-    }
-    const baseComissao = resolverBaseComissao(config?.baseComissao ?? 'padrao', f.papel, totais)
-
-    const comissao = baseComissao * (comissaoPercentual / 100)
-    // OTE sempre sobre as motos que a própria pessoa vendeu, nunca sobre a base de
-    // comissão — senão quem tem base de loja tiraria prêmio sobre o faturamento inteiro.
-    const premiacao = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, faixas) : 0
-    const totalPagar = salario + comissao + premiacao + ajudaCusto
-
-    return {
-      id: f.id,
-      nome: f.nome,
-      papel: f.papel,
-      lojaNome: f.lojaNome,
-      salario,
-      comissaoPercentual,
-      ajudaCusto,
-      ativo,
-      baseComissao,
-      comissao,
-      premiacao,
-      totalPagar,
-    }
-  })
-
-  const funcionariosAtivos = funcionarios.filter(f => f.ativo)
-  const totalSalarios = funcionariosAtivos.reduce((s, f) => s + f.salario, 0)
-  const totalComissoes = funcionariosAtivos.reduce((s, f) => s + f.comissao, 0)
-  const totalPremiacoes = funcionariosAtivos.reduce((s, f) => s + f.premiacao, 0)
-  const totalAjudaCusto = funcionariosAtivos.reduce((s, f) => s + f.ajudaCusto, 0)
-  const totalGeral = totalSalarios + totalComissoes + totalPremiacoes + totalAjudaCusto
-
-  const funcionariosParaConfig = funcionariosRaw.map(f => {
+  const configPorUsuario = new Map(dados.configs.map(c => [c.usuarioId, c]))
+  const funcionariosParaConfig = dados.funcionarios.map(f => {
     const config = configPorUsuario.get(f.id)
     return {
       usuarioId: f.id,
@@ -318,12 +66,14 @@ export default async function FolhaPagamentoPage({
     }
   })
 
-  const funcionariosParaAjuste = funcionariosRaw
+  // Grupo inteiro de propósito: com o filtro de loja ligado, ainda tem que dar
+  // para lançar ajuste de qualquer loja. A aba Ajustes não segue o filtro.
+  const funcionariosParaAjuste = dados.funcionariosGrupo
     .filter(f => f.lojaId)
     .map(f => ({ id: f.id, nome: f.nome, lojaId: f.lojaId as string }))
     .sort((a, b) => a.nome.localeCompare(b.nome))
 
-  const faixasParaUI = faixas.map(f => ({ id: f.id, valorMinimoVendas: f.valorMinimoVendas, premiacao: f.premiacao }))
+  const faixasParaUI = dados.faixas.map(f => ({ id: f.id, valorMinimoVendas: f.valorMinimoVendas, premiacao: f.premiacao }))
 
   return (
     <div className="space-y-6">
@@ -345,29 +95,36 @@ export default async function FolhaPagamentoPage({
             <p className="text-sm text-slate-500 capitalize">
               {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
-            <MesSelectorFolha mesAtual={mesParam} />
+            <div className="flex items-center gap-2">
+              <LojaSelectorFolha lojas={dados.lojas} lojaAtual={lojaParam} />
+              <MesSelectorFolha mesAtual={mesParam} />
+              <PrintButton
+                href={`/folha-pagamento/imprimir?mes=${mesParam}&loja=${lojaParam}`}
+                rotulo="Imprimir folha"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Salários</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold">{fmt(totalSalarios)}</p></CardContent>
+              <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Comissões</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold">{fmt(totalComissoes)}</p></CardContent>
+              <CardContent><p className="text-xl font-bold">{fmt(folha.totais.comissoes)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Premiações</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold">{fmt(totalPremiacoes)}</p></CardContent>
+              <CardContent><p className="text-xl font-bold">{fmt(folha.totais.premiacoes)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Ajuda de Custo</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold">{fmt(totalAjudaCusto)}</p></CardContent>
+              <CardContent><p className="text-xl font-bold">{fmt(folha.totais.ajudaCusto)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Geral</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(totalGeral)}</p></CardContent>
+              <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(folha.totais.geral)}</p></CardContent>
             </Card>
           </div>
 
@@ -385,7 +142,7 @@ export default async function FolhaPagamentoPage({
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {funcionariosAtivos.map(f => (
+                {folha.ativos.map(f => (
                   <tr key={f.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2">
                       <p className="font-medium">{f.nome}</p>
@@ -399,7 +156,7 @@ export default async function FolhaPagamentoPage({
                     <td className="px-4 py-2 text-right font-semibold">{fmt(f.totalPagar)}</td>
                   </tr>
                 ))}
-                {funcionariosAtivos.length === 0 && (
+                {folha.ativos.length === 0 && (
                   <tr><td colSpan={7} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
                 )}
               </tbody>
@@ -407,7 +164,10 @@ export default async function FolhaPagamentoPage({
           </div>
         </TabsContent>
 
-        <TabsContent value="funcionarios" className="mt-4">
+        <TabsContent value="funcionarios" className="mt-4 space-y-4">
+          <div className="flex items-center justify-end">
+            <LojaSelectorFolha lojas={dados.lojas} lojaAtual={lojaParam} />
+          </div>
           <FuncionariosConfigTable funcionarios={funcionariosParaConfig} />
         </TabsContent>
 
@@ -423,8 +183,8 @@ export default async function FolhaPagamentoPage({
             <MesSelectorFolha mesAtual={mesParam} />
           </div>
           <AjustesBaseTable
-            ajustes={ajustesRaw}
-            lojas={lojasDoGrupo}
+            ajustes={dados.ajustes}
+            lojas={dados.lojas}
             funcionarios={funcionariosParaAjuste}
             mes={mesParam}
           />
