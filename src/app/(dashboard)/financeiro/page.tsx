@@ -11,6 +11,7 @@ import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
+import { ResumoDespesasPorLoja } from './components/resumo-despesas-loja'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 
@@ -516,7 +517,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <ResumoVendedores resumo={resumoPorVendedor} />
 
-      <ResumoDespesas resumo={resumoDespesas} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ResumoDespesas resumo={resumoDespesas} />
+        <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />
+      </div>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Vendas Realizadas</CardTitle></CardHeader>
