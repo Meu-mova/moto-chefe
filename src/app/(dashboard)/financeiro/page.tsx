@@ -357,6 +357,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   // duas vezes — R$ 230 mil num mês de R$ 1,55 milhão no Sul de Minas.
   const lucroLiquido = receitaBruta - totalDespesas
 
+  // Margem líquida: quanto de cada real faturado sobrou como lucro.
+  const percentualLucro = faturamentoLiquido > 0 ? (lucroLiquido / faturamentoLiquido) * 100 : 0
+
   // Mesma conta do card de lucro líquido acima, quebrada por loja. A despesa sem loja
   // atribuída é rateada na proporção do que cada uma faturou.
   const resultadoLojas = calcularResultadoPorLoja(
@@ -487,6 +490,15 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
               {fmt(lucroLiquido)}
             </p>
             <p className="text-xs text-slate-400">receita bruta − despesas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">% de Lucro</CardTitle></CardHeader>
+          <CardContent>
+            <p className={`text-2xl font-bold ${percentualLucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {percentualLucro.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+            </p>
+            <p className="text-xs text-slate-400">lucro líquido ÷ faturamento líquido</p>
           </CardContent>
         </Card>
       </div>
