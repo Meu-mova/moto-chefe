@@ -28,6 +28,7 @@ import {
   TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos,
 } from './components/tabelas-resumo'
 import { SectionErrorBoundary } from './section-error-boundary'
+import { ImportarCartaoButton } from './components/importar-cartao-button'
 
 type Filtros = { dataInicio: string; dataFim: string; lojaId?: string[]; vendedorId?: string }
 
@@ -376,6 +377,8 @@ export default async function DashboardPage({
           ateDefault={ateDefault}
         />
       </div>
+
+      {['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel) && <ImportarCartaoButton />}
 
       {isAuxAdm && usuario.lojaId && (
         <SectionErrorBoundary label="as pendências da loja">
