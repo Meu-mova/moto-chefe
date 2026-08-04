@@ -460,15 +460,20 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
         pagamentos: vendas.pagamentos,
         valor: vendas.valor,
         notaFiscalSaida: vendas.notaFiscalSaida,
+        // Referência qualificada de propósito: sem joins, o drizzle renderiza
+        // ${vendas.id} como "id" (sem tabela), e dentro da subconsulta esse "id"
+        // casa com o id DA TABELA INTERNA (pix_recebimentos.id é text → crash
+        // uuid=text; nas demais, compara venda_id = id e soma sempre 0). Precisa
+        // ser "vendas"."id".
         conciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor_bruto::numeric)
           FROM conciliacoes_cartao
-          WHERE venda_id = ${vendas.id}
+          WHERE venda_id = ${sql.raw('"vendas"."id"')}
           AND conciliado = true
         ), 0)`,
         pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
-          THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
-          ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
+          THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
+          ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
         END`,
       })
       .from(vendas)
@@ -481,13 +486,13 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
         conciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor_bruto::numeric)
           FROM conciliacoes_cartao
-          WHERE os_id = ${ordensServico.id}
+          WHERE os_id = ${sql.raw('"ordens_servico"."id"')}
           AND conciliado = true
         ), 0)`,
         pixConciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor::numeric)
           FROM pix_recebimentos_mcp
-          WHERE os_id = ${ordensServico.id}
+          WHERE os_id = ${sql.raw('"ordens_servico"."id"')}
         ), 0)`,
       })
       .from(ordensServico)
@@ -499,13 +504,13 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
         conciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor_bruto::numeric)
           FROM conciliacoes_cartao
-          WHERE peca_venda_id = ${vendasPecas.id}
+          WHERE peca_venda_id = ${sql.raw('"vendas_pecas"."id"')}
           AND conciliado = true
         ), 0)`,
         pixConciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor::numeric)
           FROM pix_recebimentos_mcp
-          WHERE peca_venda_id = ${vendasPecas.id}
+          WHERE peca_venda_id = ${sql.raw('"vendas_pecas"."id"')}
         ), 0)`,
       })
       .from(vendasPecas)
