@@ -1,0 +1,103 @@
+'use client'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Building2, ChevronsUpDown, Check, ArrowRightLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { corDoGrupo } from '@/lib/grupo-cores'
+import { trocarGrupoAtivoAction } from './group-selector-actions'
+
+type Grupo = { id: string; nome: string; cor: string | null }
+
+export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: string }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [selecionado, setSelecionado] = useState<string>(ativoId)
+  const [pending, start] = useTransition()
+
+  const ativo = grupos.find(g => g.id === ativoId) ?? grupos[0]
+  const corAtivo = corDoGrupo(ativo)
+  const alvo = grupos.find(g => g.id === selecionado)
+  const vaiTrocar = selecionado !== ativoId
+
+  function abrir() { setSelecionado(ativoId); setOpen(true) }
+
+  function confirmar() {
+    if (!vaiTrocar || !alvo) return
+    start(async () => {
+      try {
+        await trocarGrupoAtivoAction(alvo.id)
+        setOpen(false)
+        toast.success(`Agora você está em ${alvo.nome}`)
+        router.refresh()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao trocar de grupo')
+      }
+    })
+  }
+
+  return (
+    <>
+      {/* Barra colorida do grupo ativo — sempre visível */}
+      <div className={`${corAtivo.bar} ${corAtivo.text} flex items-center justify-between gap-4 px-6 py-2.5`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <Building2 size={20} className="shrink-0 opacity-90" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider opacity-80 leading-none">Empresa / grupo ativo</p>
+            <p className="text-lg font-bold leading-tight truncate">{ativo.nome}</p>
+          </div>
+        </div>
+        <button
+          onClick={abrir}
+          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-white/15 ${corAtivo.barHover} hover:bg-white/25 px-3 py-1.5 text-sm font-medium transition-colors`}
+        >
+          <ArrowRightLeft size={14} /> Trocar
+          <ChevronsUpDown size={14} className="opacity-70" />
+        </button>
+      </div>
+
+      {/* Diálogo de troca — dois passos deliberados: selecionar + confirmar */}
+      <Dialog open={open} onOpenChange={o => !pending && setOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Trocar de empresa / grupo</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-slate-500 -mt-1">
+            Escolha a empresa. Todos os novos lançamentos (caixa, entrada, vendas, despesas) passam a ser registrados nela.
+          </p>
+
+          <div className="space-y-2 py-1">
+            {grupos.map(g => {
+              const cor = corDoGrupo(g)
+              const isAtivo = g.id === ativoId
+              const isSel = g.id === selecionado
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setSelecionado(g.id)}
+                  className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    isSel ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900' : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`h-3.5 w-3.5 rounded-full shrink-0 ${cor.dot}`} />
+                  <span className="font-medium flex-1">{g.nome}</span>
+                  {isAtivo && <span className="text-xs text-slate-400">Atual</span>}
+                  {isSel && !isAtivo && <Check size={16} className="text-slate-900" />}
+                </button>
+              )
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancelar</Button>
+            <Button onClick={confirmar} disabled={pending || !vaiTrocar}>
+              {pending ? 'Trocando…' : vaiTrocar ? `Trocar para ${alvo?.nome}` : 'Selecione outra empresa'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

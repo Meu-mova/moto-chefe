@@ -47,6 +47,9 @@ export const grupos = pgTable('grupos', {
   telegramChatId:     text('telegram_chat_id'),
   // Meta de motos vendidas no mês desta bandeira. Nulo = sem meta, o card não aparece.
   metaMotosMes:       integer('meta_motos_mes'),
+  // Cor da bandeira (chave da paleta em @/lib/grupo-cores). Deixa a barra de grupo
+  // ativo inconfundível, pra não lançar entrada/saída na empresa errada.
+  cor:                text('cor'),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
