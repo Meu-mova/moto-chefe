@@ -10,7 +10,10 @@ import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 // e não podem compartilhar o mesmo controle de cache.
 const JANELA_CACHE_MS = 10 * 60 * 1000
 
-// ─── Regra automática: pedágio Sicoob TAG → categoria "Pedágio", loja Galpão Matriz ──
+// ─── Regra automática: pedágio Sicoob TAG → categoria "Pedágio", sem loja ────────────
+// O pedágio é da operação toda (motos rodando entre as lojas), não do Galpão. Ele
+// ficava carimbado lá e enchia o Galpão de 1.298 linhas de poucos reais, distorcendo
+// a despesa daquela unidade. Agora entra como despesa Geral (Empresa).
 // Comparação sem acentos/case pra não depender de como o banco formata a descrição.
 function normalizarTexto(txt: string): string {
   return txt.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
@@ -21,8 +24,9 @@ function ehPedagioSicoobTag(descricao: string | null): boolean {
 }
 
 // Lança automaticamente (cria a despesa e marca a saída como categorizada) todas as
-// saídas pendentes do grupo cuja descrição bate com a regra acima. Só atua se a loja
-// Galpão Matriz pertencer ao grupo ativo (ou seja, só no Sul de Minas).
+// saídas pendentes do grupo cuja descrição bate com a regra acima. O Galpão Matriz
+// segue sendo consultado só para identificar o grupo — a TAG do Sicoob é do Sul de
+// Minas —, mas a despesa em si não é atribuída a ele.
 // lancadoPorId fica null de propósito — não foi uma pessoa que categorizou, e o
 // usuário logado no momento da sincronização não tem relação com a transação em si.
 // A UI mostra "Automático" quando lancadoPorId é null e a saída já está lançada.
@@ -40,7 +44,7 @@ async function autoCategorizarPedagioSicoob(grupoId: string, usuarioSistemaId: s
     await db.transaction(async (tx) => {
       const [despesaCriada] = await tx.insert(despesas).values({
         grupoId,
-        lojaId: LOJA_GALPAO_MATRIZ_ID,
+        lojaId: null, // despesa da operação, não de uma loja
         usuarioId: usuarioSistemaId,
         categoria: 'Pedágio',
         descricao: c.descricao,
@@ -52,7 +56,7 @@ async function autoCategorizarPedagioSicoob(grupoId: string, usuarioSistemaId: s
 
       await tx.update(despesasOpenFinance).set({
         categoria: 'Pedágio',
-        lojaId: LOJA_GALPAO_MATRIZ_ID,
+        lojaId: null,
         despesaId: despesaCriada.id,
         lancadoPorId: null,
         lancadoEm: new Date(),
