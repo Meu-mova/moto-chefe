@@ -124,9 +124,16 @@ export function DespesasTable({ despesas, lojas, categorias }: Props) {
             </TableRow>
           )}
           {dados.map(d => (
-            <TableRow key={d.id}>
+            <TableRow key={`${d.origem}-${d.id}`}>
               <TableCell className="whitespace-nowrap text-sm">{fmtData(d.data)}</TableCell>
-              <TableCell className="text-sm">{d.categoria}</TableCell>
+              <TableCell className="text-sm">
+                {d.categoria}
+                {d.origem === 'caixa' && (
+                  <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 rounded px-1 py-0.5">
+                    caixa
+                  </span>
+                )}
+              </TableCell>
               <TableCell className="text-sm text-slate-500 max-w-[180px] truncate">{d.descricao ?? '—'}</TableCell>
               <TableCell className="text-sm">
                 {d.lojaNome ?? <span className="text-slate-400 text-xs italic">Geral</span>}
@@ -137,18 +144,24 @@ export function DespesasTable({ despesas, lojas, categorias }: Props) {
                 -{fmt(d.valor)}
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-1">
-                  <EditarDespesaButton lojas={lojas} despesa={d} categorias={categorias} />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-red-400 hover:text-red-600"
-                    onClick={() => handleExcluir(d.id)}
-                    disabled={excluindo === d.id}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
+                {/* Lançamento de caixa se edita no /caixa, onde ele nasceu e onde passa
+                    pela aprovação — aqui ele só compõe o resultado. */}
+                {d.origem === 'caixa' ? (
+                  <span className="text-xs text-slate-400">no /caixa</span>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <EditarDespesaButton lojas={lojas} despesa={d} categorias={categorias} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-400 hover:text-red-600"
+                      onClick={() => handleExcluir(d.id)}
+                      disabled={excluindo === d.id}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}

@@ -1,8 +1,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, lojas, usuarios, categoriasDespesa } from '@/lib/db/schema'
-import { eq, desc, and, gte, lte, asc } from 'drizzle-orm'
+import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -11,6 +11,7 @@ import { NovaDespesaButton } from './components/despesa-dialog'
 import { MesSelector } from './components/mes-selector'
 import { SaidasFiltros } from './components/saidas-filtros'
 import { SaidasTable } from './components/saidas-table'
+import type { DespesaRow } from './types'
 import { sincronizarEBuscarSaidas } from './open-finance'
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -27,6 +28,7 @@ export default async function DespesasPage({
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
@@ -48,7 +50,7 @@ export default async function DespesasPage({
     usuario.id,
   )
 
-  const [rows, lojasOpts, categoriasAtivas, categoriasNaoOperacionais] = await Promise.all([
+  const [rowsManuais, lojasOpts, categoriasAtivas, categoriasNaoOperacionais, saidasCaixa, categoriasCaixaNaoOperacionais] = await Promise.all([
     db
       .select({
         id:             despesas.id,
@@ -69,6 +71,9 @@ export default async function DespesasPage({
         eq(despesas.grupoId, grupo.id),
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
+        // Só as lançadas à mão. A que nasceu de uma saída do banco vive na aba
+        // "Importar do Banco" — antes aparecia nas duas e dava impressão de dobra.
+        sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
       ))
       .orderBy(desc(despesas.data), desc(despesas.criadoEm)),
 
@@ -90,20 +95,92 @@ export default async function DespesasPage({
       .from(categoriasDespesa)
       .where(eq(categoriasDespesa.contaComoDespesa, false))
       .then(rows => new Set(rows.map(r => r.nome))),
+
+    // Dinheiro pago da gaveta pelo administrativo da loja. Reprovado fica de fora,
+    // igual faz o /caixa.
+    db
+      .select({
+        id:          lancamentosCaixa.id,
+        lojaId:      lancamentosCaixa.lojaId,
+        lojaNome:    lojas.nome,
+        categoria:   lancamentosCaixa.categoria,
+        descricao:   lancamentosCaixa.descricao,
+        valor:       lancamentosCaixa.valor,
+        data:        lancamentosCaixa.data,
+        usuarioNome: usuarios.nome,
+      })
+      .from(lancamentosCaixa)
+      .innerJoin(lojas,    eq(lancamentosCaixa.lojaId,    lojas.id))
+      .innerJoin(usuarios, eq(lancamentosCaixa.usuarioId, usuarios.id))
+      .where(and(
+        eq(lancamentosCaixa.tipo, 'saida'),
+        inArray(lancamentosCaixa.lojaId, lojaIdsGrupo),
+        gte(lancamentosCaixa.data, inicioMes),
+        lte(lancamentosCaixa.data, ultimoDia),
+        ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
+      ))
+      .orderBy(desc(lancamentosCaixa.data)),
+
+    db
+      .select({ nome: categoriasCaixa.nome })
+      .from(categoriasCaixa)
+      .where(eq(categoriasCaixa.contaComoDespesa, false))
+      .then(rows => new Set(rows.map(r => r.nome))),
   ])
 
+  // A aba Lançamentos passou a ser a soma de duas origens: o que foi lançado à mão
+  // aqui e o dinheiro que saiu do caixa das lojas. O que veio do banco fica na aba
+  // própria — antes aparecia nas duas.
+  const rows: DespesaRow[] = [
+    ...rowsManuais.map(r => ({
+      id: r.id,
+      lojaId: r.lojaId,
+      lojaNome: r.lojaNome,
+      categoria: r.categoria,
+      descricao: r.descricao,
+      valor: r.valor,
+      data: r.data,
+      formaPagamento: r.formaPagamento,
+      banco: r.banco,
+      usuarioNome: r.usuarioNome,
+      origem: 'manual' as const,
+    })),
+    ...saidasCaixa.map(c => ({
+      id: c.id,
+      lojaId: c.lojaId,
+      lojaNome: c.lojaNome,
+      categoria: c.categoria,
+      descricao: c.descricao,
+      // O caixa guarda o valor positivo; a despesa manual vem negativa do extrato.
+      // Aqui normalizo pro sinal que a tabela já espera.
+      valor: String(-Math.abs(Number(c.valor))),
+      data: c.data,
+      formaPagamento: 'Dinheiro',
+      banco: 'Caixa da loja',
+      usuarioNome: c.usuarioNome,
+      origem: 'caixa' as const,
+    })),
+  ].sort((a, b) => b.data.localeCompare(a.data))
+
   // Categoria vazia conta como operacional: ainda não se sabe o que é, e assumir
-  // que não é despesa esconderia gasto de verdade do fechamento.
-  const ehOperacional = (categoria: string | null) => !categoria || !categoriasNaoOperacionais.has(categoria)
+  // que não é despesa esconderia gasto de verdade do fechamento. Cada origem tem
+  // seu próprio conjunto de categorias — "Depósito" só existe no caixa.
+  const ehOperacional = (r: DespesaRow) => {
+    if (!r.categoria) return true
+    return r.origem === 'caixa'
+      ? !categoriasCaixaNaoOperacionais.has(r.categoria)
+      : !categoriasNaoOperacionais.has(r.categoria)
+  }
 
-  const rowsOperacionais    = rows.filter(r => ehOperacional(r.categoria))
-  const rowsNaoOperacionais = rows.filter(r => !ehOperacional(r.categoria))
+  const rowsOperacionais    = rows.filter(ehOperacional)
+  const rowsNaoOperacionais = rows.filter(r => !ehOperacional(r))
 
-  const soma = (lista: typeof rows) => lista.reduce((s, r) => s + Number(r.valor), 0)
-  const totalGeral         = soma(rowsOperacionais)
-  const totalLojas         = soma(rowsOperacionais.filter(r => r.lojaId !== null))
-  const totalEmpresa       = soma(rowsOperacionais.filter(r => r.lojaId === null))
+  const soma = (lista: DespesaRow[]) => lista.reduce((s, r) => s + Math.abs(Number(r.valor)), 0)
+  const totalGeral          = soma(rowsOperacionais)
+  const totalLojas          = soma(rowsOperacionais.filter(r => r.lojaId !== null))
+  const totalEmpresa        = soma(rowsOperacionais.filter(r => r.lojaId === null))
   const totalNaoOperacional = soma(rowsNaoOperacionais)
+  const totalCaixa          = soma(rowsOperacionais.filter(r => r.origem === 'caixa'))
 
   // Filtro de categoria/loja da aba "Importar do Banco". Saída ainda não lançada
   // não tem categoria nem loja — então ao escolher qualquer um dos dois, as
@@ -115,8 +192,10 @@ export default async function DespesasPage({
     (!slojaId || l.lojaId === slojaId),
   )
 
-  const saidasOperacionais    = saidasFiltradas.filter(l => ehOperacional(l.categoria))
-  const saidasNaoOperacionais = saidasFiltradas.filter(l => !ehOperacional(l.categoria))
+  // A saída do banco usa as categorias de despesa, não as do caixa.
+  const saidaEhOperacional = (categoria: string | null) => !categoria || !categoriasNaoOperacionais.has(categoria)
+  const saidasOperacionais    = saidasFiltradas.filter(l => saidaEhOperacional(l.categoria))
+  const saidasNaoOperacionais = saidasFiltradas.filter(l => !saidaEhOperacional(l.categoria))
 
   const totalSaidas = saidasOperacionais.reduce((s, l) => s + Number(l.valor), 0)
   const totalSaidasLancadas = saidasOperacionais.filter(l => l.despesaId).reduce((s, l) => s + Number(l.valor), 0)
@@ -161,29 +240,41 @@ export default async function DespesasPage({
 
         <TabsContent value="lancamentos" className="mt-4 space-y-6">
           {/* Cards de resumo */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <p className="text-sm text-slate-500">
+            Despesas lançadas à mão + o dinheiro que saiu do caixa das lojas. O que veio do extrato
+            está na aba <span className="font-medium">Importar do Banco</span>.
+          </p>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total do Período</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-red-600">{fmt(totalGeral)}</p>
+                <p className="text-2xl font-bold text-red-600">-{fmt(totalGeral)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">só operacional</p>
               </CardContent>
             </Card>
             <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Caixa das Lojas</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-amber-600">-{fmt(totalCaixa)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">pago em dinheiro</p>
+              </CardContent>
+            </Card>
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Por Loja</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-orange-600">{fmt(totalLojas)}</p></CardContent>
+              <CardContent><p className="text-2xl font-bold text-orange-600">-{fmt(totalLojas)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Geral (Empresa)</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-orange-600">{fmt(totalEmpresa)}</p></CardContent>
+              <CardContent><p className="text-2xl font-bold text-orange-600">-{fmt(totalEmpresa)}</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Não Operacional</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-500">{fmt(totalNaoOperacional)}</p>
+                <p className="text-2xl font-bold text-slate-500">-{fmt(totalNaoOperacional)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {rowsNaoOperacionais.length > 0
-                    ? 'transferência, compra de moto, retirada'
+                    ? 'depósito, transferência, compra de moto'
                     : 'nada no período'}
                 </p>
               </CardContent>

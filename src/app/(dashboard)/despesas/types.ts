@@ -11,4 +11,10 @@ export type DespesaRow = {
   formaPagamento: string
   banco: string
   usuarioNome: string
+  /**
+   * 'manual' = lançada à mão em /despesas, editável aqui.
+   * 'caixa'  = saída de dinheiro registrada em /caixa pelo administrativo da loja;
+   *            aparece aqui só pra compor o resultado, e se edita no /caixa.
+   */
+  origem: 'manual' | 'caixa'
 }
