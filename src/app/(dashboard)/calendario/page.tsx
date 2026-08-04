@@ -1,6 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
-import { listarEventosDoMes, listarUsuariosDoGrupo, hojeBRT } from '@/lib/queries/calendario'
+import { listarEventosDoMes, listarUsuariosDoGrupo, listarCategoriasAtivas, hojeBRT } from '@/lib/queries/calendario'
 import { CalendarioMes } from './components/calendario-mes'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
@@ -14,9 +14,10 @@ export default async function CalendarioPage({
   const params = await searchParams
   const mes = /^\d{4}-\d{2}$/.test(params.mes ?? '') ? params.mes! : hojeBRT().slice(0, 7)
 
-  const [grupo, ocorrencias, lojas, usuariosGrupo] = await Promise.all([
+  const [grupo, ocorrencias, categorias, lojas, usuariosGrupo] = await Promise.all([
     getGrupoAtivo(usuario),
     listarEventosDoMes(usuario, mes),
+    listarCategoriasAtivas(usuario),
     listarLojasDoGrupoAtivo(usuario),
     listarUsuariosDoGrupo(usuario),
   ])
@@ -33,6 +34,7 @@ export default async function CalendarioPage({
         ocorrencias={ocorrencias}
         usuarioId={usuario.id}
         isAdmin={ADMIN_PAPEIS.includes(usuario.papel)}
+        categorias={categorias}
         lojas={lojas}
         usuariosGrupo={usuariosGrupo}
         lojaIdUsuario={usuario.lojaId ?? null}

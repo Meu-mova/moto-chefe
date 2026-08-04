@@ -2,19 +2,20 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { calendarioEventos, calendarioEventoUsuarios, usuarios } from '@/lib/db/schema'
+import { calendarioEventos, calendarioEventoUsuarios, calendarioCategorias, usuarios } from '@/lib/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import {
-  CATEGORIAS, RECORRENCIAS, VISIBILIDADES, podeEditarEvento,
-  type CalendarioCategoria, type CalendarioRecorrencia, type CalendarioVisibilidade,
+  RECORRENCIAS, VISIBILIDADES, podeEditarEvento,
+  type CalendarioRecorrencia, type CalendarioVisibilidade,
 } from '@/lib/calendario'
 
 export type EventoInput = {
   titulo: string
   descricao?: string | null
-  categoria: string
-  data: string
+  categoriaId: string
+  dataInicio: string
+  dataFim?: string | null
   hora?: string | null
   recorrencia: string
   visibilidade: string
@@ -25,8 +26,9 @@ export type EventoInput = {
 type Normalizado = {
   titulo: string
   descricao: string | null
-  categoria: CalendarioCategoria
-  data: string
+  categoriaId: string
+  dataInicio: string
+  dataFim: string
   hora: string | null
   recorrencia: CalendarioRecorrencia
   visibilidade: CalendarioVisibilidade
@@ -34,19 +36,32 @@ type Normalizado = {
   usuarioIds: string[]
 }
 
-// Valida e normaliza o input. Não confia no formulário: checa enums, formatos e
-// que loja/usuários pertencem ao grupo ativo.
 async function validar(input: EventoInput, usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<Normalizado> {
   const titulo = input.titulo?.trim()
   if (!titulo) throw new Error('Informe o título do evento')
 
-  if (!CATEGORIAS.includes(input.categoria as CalendarioCategoria)) throw new Error('Categoria inválida')
   if (!RECORRENCIAS.includes(input.recorrencia as CalendarioRecorrencia)) throw new Error('Recorrência inválida')
   if (!VISIBILIDADES.includes(input.visibilidade as CalendarioVisibilidade)) throw new Error('Visibilidade inválida')
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data ?? '')) throw new Error('Data inválida')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dataInicio ?? '')) throw new Error('Data de início inválida')
+  const dataFim = input.dataFim?.trim() || input.dataInicio
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) throw new Error('Data de fim inválida')
+  if (dataFim < input.dataInicio) throw new Error('A data de fim não pode ser antes do início')
+
   const hora = input.hora?.trim() || null
   if (hora && !/^\d{2}:\d{2}$/.test(hora)) throw new Error('Horário inválido (use HH:MM)')
+
+  const grupo = await getGrupoAtivo(usuario)
+  const [categoria] = await db
+    .select({ id: calendarioCategorias.id })
+    .from(calendarioCategorias)
+    .where(and(
+      eq(calendarioCategorias.id, input.categoriaId ?? ''),
+      eq(calendarioCategorias.grupoId, grupo.id),
+      eq(calendarioCategorias.ativo, true),
+    ))
+    .limit(1)
+  if (!categoria) throw new Error('Categoria inválida')
 
   const visibilidade = input.visibilidade as CalendarioVisibilidade
   let lojaId: string | null = null
@@ -75,8 +90,9 @@ async function validar(input: EventoInput, usuario: Awaited<ReturnType<typeof ge
   return {
     titulo: titulo.slice(0, 200),
     descricao: input.descricao?.trim().slice(0, 2000) || null,
-    categoria: input.categoria as CalendarioCategoria,
-    data: input.data,
+    categoriaId: input.categoriaId,
+    dataInicio: input.dataInicio,
+    dataFim,
     hora,
     recorrencia: input.recorrencia as CalendarioRecorrencia,
     visibilidade,
@@ -95,8 +111,9 @@ export async function criarEventoAction(input: EventoInput) {
       grupoId:      grupo.id,
       titulo:       v.titulo,
       descricao:    v.descricao,
-      categoria:    v.categoria,
-      data:         v.data,
+      categoriaId:  v.categoriaId,
+      dataInicio:   v.dataInicio,
+      dataFim:      v.dataFim,
       hora:         v.hora,
       recorrencia:  v.recorrencia,
       visibilidade: v.visibilidade,
@@ -129,8 +146,9 @@ export async function editarEventoAction(id: string, input: EventoInput) {
     await tx.update(calendarioEventos).set({
       titulo:       v.titulo,
       descricao:    v.descricao,
-      categoria:    v.categoria,
-      data:         v.data,
+      categoriaId:  v.categoriaId,
+      dataInicio:   v.dataInicio,
+      dataFim:      v.dataFim,
       hora:         v.hora,
       recorrencia:  v.recorrencia,
       visibilidade: v.visibilidade,

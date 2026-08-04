@@ -1,15 +1,18 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CATEGORIAS, RECORRENCIAS, VISIBILIDADES, CATEGORIA_META, RECORRENCIA_META, VISIBILIDADE_META } from '@/lib/calendario'
+import { RECORRENCIAS, VISIBILIDADES, RECORRENCIA_META, VISIBILIDADE_META } from '@/lib/calendario'
 import { criarEventoAction, editarEventoAction, type EventoInput } from '../actions'
 import type { OcorrenciaCalendario } from '@/lib/queries/calendario'
+
+type Categoria = { id: string; nome: string; cor: string }
 
 type Props = {
   open: boolean
@@ -17,6 +20,7 @@ type Props = {
   modo: 'criar' | 'editar'
   evento?: OcorrenciaCalendario
   dataInicial?: string
+  categorias: Categoria[]
   lojas: { id: string; nome: string }[]
   usuariosGrupo: { id: string; nome: string }[]
   lojaIdUsuario: string | null
@@ -24,15 +28,16 @@ type Props = {
 
 const selectCls = 'w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white'
 
-export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
+export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, categorias, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
 
   const [form, setForm] = useState(() => ({
     titulo:       evento?.titulo ?? '',
     descricao:    evento?.descricao ?? '',
-    categoria:    evento?.categoria ?? 'evento',
-    data:         evento?.dataAncora ?? dataInicial ?? '',
+    categoriaId:  evento?.categoriaId ?? categorias[0]?.id ?? '',
+    dataInicio:   evento?.ancoraInicio ?? dataInicial ?? '',
+    dataFim:      evento && evento.ancoraFim !== evento.ancoraInicio ? evento.ancoraFim : '',
     hora:         evento?.hora ?? '',
     recorrencia:  evento?.recorrencia ?? 'nenhuma',
     visibilidade: evento?.visibilidade ?? 'grupo',
@@ -51,14 +56,17 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, lo
 
   function salvar() {
     if (!form.titulo.trim()) { toast.error('Informe o título'); return }
-    if (!form.data)          { toast.error('Escolha a data'); return }
+    if (!form.categoriaId)   { toast.error('Escolha a categoria'); return }
+    if (!form.dataInicio)    { toast.error('Escolha a data de início'); return }
+    if (form.dataFim && form.dataFim < form.dataInicio) { toast.error('A data de fim não pode ser antes do início'); return }
     if (form.visibilidade === 'usuarios' && usuarioIds.size === 0) { toast.error('Escolha ao menos um usuário'); return }
 
     const input: EventoInput = {
       titulo:       form.titulo,
       descricao:    form.descricao || null,
-      categoria:    form.categoria,
-      data:         form.data,
+      categoriaId:  form.categoriaId,
+      dataInicio:   form.dataInicio,
+      dataFim:      form.dataFim || null,
       hora:         form.hora || null,
       recorrencia:  form.recorrencia,
       visibilidade: form.visibilidade,
@@ -94,27 +102,39 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, lo
 
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <select value={form.categoria} onChange={e => set('categoria', e.target.value)} className={selectCls}>
-              {CATEGORIAS.map(c => <option key={c} value={c}>{CATEGORIA_META[c].label}</option>)}
-            </select>
+            {categorias.length === 0 ? (
+              <p className="text-sm text-amber-600">
+                Nenhuma categoria cadastrada. <Link href="/admin/calendario-categorias" className="underline">Cadastrar categorias</Link>.
+              </p>
+            ) : (
+              <select value={form.categoriaId} onChange={e => set('categoriaId', e.target.value)} className={selectCls}>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Data <span className="text-red-500">*</span></Label>
-              <Input type="date" value={form.data} onChange={e => set('data', e.target.value)} />
+              <Label>Início <span className="text-red-500">*</span></Label>
+              <Input type="date" value={form.dataInicio} onChange={e => set('dataInicio', e.target.value)} />
             </div>
+            <div className="space-y-1.5">
+              <Label>Fim <span className="text-slate-400 text-xs">(opcional)</span></Label>
+              <Input type="date" value={form.dataFim} min={form.dataInicio || undefined} onChange={e => set('dataFim', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Horário <span className="text-slate-400 text-xs">(opcional)</span></Label>
               <Input type="time" value={form.hora} onChange={e => set('hora', e.target.value)} />
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Repetição</Label>
-            <select value={form.recorrencia} onChange={e => set('recorrencia', e.target.value)} className={selectCls}>
-              {RECORRENCIAS.map(r => <option key={r} value={r}>{RECORRENCIA_META[r]}</option>)}
-            </select>
+            <div className="space-y-1.5">
+              <Label>Repetição</Label>
+              <select value={form.recorrencia} onChange={e => set('recorrencia', e.target.value)} className={selectCls}>
+                {RECORRENCIAS.map(r => <option key={r} value={r}>{RECORRENCIA_META[r]}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -158,7 +178,7 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, lo
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>Cancelar</Button>
-          <Button onClick={salvar} disabled={pending}>{pending ? 'Salvando…' : modo === 'editar' ? 'Salvar' : 'Criar evento'}</Button>
+          <Button onClick={salvar} disabled={pending || categorias.length === 0}>{pending ? 'Salvando…' : modo === 'editar' ? 'Salvar' : 'Criar evento'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

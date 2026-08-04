@@ -837,17 +837,29 @@ export const premiacaoFaixas = pgTable('premiacao_faixas', {
 // ─── Calendário de gestão ──────────────────────────────────────────────────────
 // Módulo separado da Agenda da oficina. Cada evento carrega a própria visibilidade
 // (quem cria escolhe). Ver docs/superpowers/specs/2026-08-04-calendario-design.md.
-export const calendarioCategoriaEnum    = pgEnum('calendario_categoria', ['pagamento', 'aniversario', 'evento', 'ausencia_socio', 'outro'])
 export const calendarioRecorrenciaEnum  = pgEnum('calendario_recorrencia', ['nenhuma', 'anual', 'mensal'])
 export const calendarioVisibilidadeEnum = pgEnum('calendario_visibilidade', ['grupo', 'loja', 'socios', 'gestao', 'usuarios'])
+
+// Catálogo de categorias por grupo (editável no Admin). `cor` guarda uma chave da
+// paleta em @/lib/calendario (as classes Tailwind precisam ser estáticas).
+export const calendarioCategorias = pgTable('calendario_categorias', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  nome:      text('nome').notNull(),
+  cor:       text('cor').notNull().default('slate'),
+  ordem:     integer('ordem').notNull().default(0),
+  ativo:     boolean('ativo').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export const calendarioEventos = pgTable('calendario_eventos', {
   id:           uuid('id').primaryKey().defaultRandom(),
   grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
   titulo:       text('titulo').notNull(),
   descricao:    text('descricao'),
-  categoria:    calendarioCategoriaEnum('categoria').notNull(),
-  data:         date('data').notNull(),                 // data-âncora (1ª ocorrência)
+  categoriaId:  uuid('categoria_id').notNull().references(() => calendarioCategorias.id),
+  dataInicio:   date('data_inicio').notNull(),          // 1ª ocorrência (âncora da recorrência)
+  dataFim:      date('data_fim').notNull(),             // = dataInicio nos eventos de um dia só
   hora:         text('hora'),                            // "HH:MM"; null = dia inteiro
   recorrencia:  calendarioRecorrenciaEnum('recorrencia').notNull().default('nenhuma'),
   visibilidade: calendarioVisibilidadeEnum('visibilidade').notNull(),

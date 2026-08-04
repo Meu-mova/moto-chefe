@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { podeVerEvento, podeEditarEvento, ocorrenciasNoIntervalo } from './calendario'
+import { podeVerEvento, podeEditarEvento, ocorrenciasNoIntervalo, diasDoSpan, addDias, diffDias } from './calendario'
 
 const u = (papel: string, id = 'u1', lojaId: string | null = 'loja-a') => ({ id, papel, lojaId })
 const semParticipantes = new Set<string>()
@@ -50,8 +50,6 @@ test('usuarios: só quem está na lista', () => {
   assert.equal(podeVerEvento(u('vendedor', 'u9'), e, new Set(['u2', 'u3'])), false)
 })
 
-// ─── podeEditarEvento ──────────────────────────────────────────────────────────
-
 test('edita/exclui: criador ou sócio; aux_adm não mexe em alheio', () => {
   const e = { criadoPor: 'dono' }
   assert.equal(podeEditarEvento(u('vendedor', 'dono'), e), true)
@@ -60,44 +58,71 @@ test('edita/exclui: criador ou sócio; aux_adm não mexe em alheio', () => {
   assert.equal(podeEditarEvento(u('vendedor', 'x'), e), false)
 })
 
-// ─── ocorrenciasNoIntervalo ────────────────────────────────────────────────────
+// ─── aritmética de datas ────────────────────────────────────────────────────────
 
-test('nenhuma: dentro e fora da janela', () => {
-  const e = { data: '2026-08-10', recorrencia: 'nenhuma' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-08-01', '2026-08-31'), ['2026-08-10'])
+test('addDias e diffDias atravessam mês/ano', () => {
+  assert.equal(addDias('2026-01-31', 1), '2026-02-01')
+  assert.equal(addDias('2026-12-31', 1), '2027-01-01')
+  assert.equal(diffDias('2026-08-10', '2026-08-13'), 3)
+})
+
+// ─── ocorrenciasNoIntervalo (spans) ─────────────────────────────────────────────
+
+const ev = (dataInicio: string, dataFim: string, recorrencia: string) => ({ dataInicio, dataFim, recorrencia })
+
+test('um dia só: span dentro e fora da janela', () => {
+  const e = ev('2026-08-10', '2026-08-10', 'nenhuma')
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-08-01', '2026-08-31'), [{ inicio: '2026-08-10', fim: '2026-08-10' }])
   assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-09-01', '2026-09-30'), [])
 })
 
-test('anual: aparece todo ano no mês/dia da âncora', () => {
-  const e = { data: '1990-03-10', recorrencia: 'anual' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-03-01', '2026-03-31'), ['2026-03-10'])
+test('evento de vários dias aparece quando o span cruza a janela', () => {
+  const e = ev('2026-08-28', '2026-09-02', 'nenhuma') // vira o mês
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-09-01', '2026-09-30'), [{ inicio: '2026-08-28', fim: '2026-09-02' }])
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-08-01', '2026-08-31'), [{ inicio: '2026-08-28', fim: '2026-09-02' }])
+})
+
+test('diasDoSpan cobre o intervalo limitado à janela', () => {
+  assert.deepEqual(
+    diasDoSpan({ inicio: '2026-08-28', fim: '2026-09-02' }, '2026-09-01', '2026-09-30'),
+    ['2026-09-01', '2026-09-02'],
+  )
+})
+
+test('anual mantém a duração e repete todo ano', () => {
+  const e = ev('2025-03-10', '2025-03-12', 'anual')
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-03-01', '2026-03-31'), [{ inicio: '2026-03-10', fim: '2026-03-12' }])
   assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-04-01', '2026-04-30'), [])
 })
 
 test('anual 29/02 cai para 28/02 em ano não bissexto', () => {
-  const e = { data: '2000-02-29', recorrencia: 'anual' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2027-02-01', '2027-02-28'), ['2027-02-28']) // 2027 não bissexto
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2028-02-01', '2028-02-29'), ['2028-02-29']) // 2028 bissexto
+  const e = ev('2000-02-29', '2000-02-29', 'anual')
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2027-02-01', '2027-02-28'), [{ inicio: '2027-02-28', fim: '2027-02-28' }])
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2028-02-01', '2028-02-29'), [{ inicio: '2028-02-29', fim: '2028-02-29' }])
 })
 
-test('mensal: todo mês no dia da âncora', () => {
-  const e = { data: '2026-01-05', recorrencia: 'mensal' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-01-01', '2026-03-31'),
-    ['2026-01-05', '2026-02-05', '2026-03-05'])
+test('mensal repete no dia da âncora', () => {
+  const e = ev('2026-01-05', '2026-01-05', 'mensal')
+  assert.deepEqual(
+    ocorrenciasNoIntervalo(e, '2026-01-01', '2026-03-31').map(s => s.inicio),
+    ['2026-01-05', '2026-02-05', '2026-03-05'],
+  )
 })
 
 test('mensal dia 31 cai para o último dia dos meses curtos', () => {
-  const e = { data: '2026-01-31', recorrencia: 'mensal' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-01-01', '2026-04-30'),
-    ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
+  const e = ev('2026-01-31', '2026-01-31', 'mensal')
+  assert.deepEqual(
+    ocorrenciasNoIntervalo(e, '2026-01-01', '2026-04-30').map(s => s.inicio),
+    ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'],
+  )
 })
 
 test('recorrente não aparece antes da âncora', () => {
-  const e = { data: '2026-06-05', recorrencia: 'mensal' }
-  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-01-01', '2026-06-30'), ['2026-06-05'])
+  const e = ev('2026-06-05', '2026-06-05', 'mensal')
+  assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-01-01', '2026-06-30').map(s => s.inicio), ['2026-06-05'])
 })
 
 test('janela invertida devolve vazio', () => {
-  const e = { data: '2026-08-10', recorrencia: 'nenhuma' }
+  const e = ev('2026-08-10', '2026-08-10', 'nenhuma')
   assert.deepEqual(ocorrenciasNoIntervalo(e, '2026-08-31', '2026-08-01'), [])
 })

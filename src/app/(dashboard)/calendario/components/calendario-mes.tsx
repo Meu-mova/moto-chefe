@@ -7,19 +7,22 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Repeat, Eye, MapPin, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Repeat, Eye, MapPin, User, CalendarRange } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { CATEGORIA_META, VISIBILIDADE_META, RECORRENCIA_META } from '@/lib/calendario'
+import { corMeta, diasDoSpan, VISIBILIDADE_META, RECORRENCIA_META } from '@/lib/calendario'
 import type { OcorrenciaCalendario } from '@/lib/queries/calendario'
 import { EventoDialog } from './evento-dialog'
 import { excluirEventoAction } from '../actions'
 
+type Categoria = { id: string; nome: string; cor: string }
+
 type Props = {
-  mes: string                     // 'YYYY-MM'
+  mes: string
   ocorrencias: OcorrenciaCalendario[]
   usuarioId: string
   isAdmin: boolean
+  categorias: Categoria[]
   lojas: { id: string; nome: string }[]
   usuariosGrupo: { id: string; nome: string }[]
   lojaIdUsuario: string | null
@@ -32,8 +35,11 @@ function mesVizinho(mes: string, delta: number): string {
   const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+function fmtData(yyyyMmDd: string) {
+  return format(new Date(`${yyyyMmDd}T12:00:00Z`), "dd/MM/yyyy", { locale: ptBR })
+}
 
-export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
+export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [novoOpen, setNovoOpen] = useState(false)
@@ -43,15 +49,21 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
 
   const [y, m] = mes.split('-').map(Number)
   const primeiro = new Date(y, m - 1, 1)
+  const mesInicio = `${mes}-01`
+  const mesFim = `${mes}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
   const dias = eachDayOfInterval({
     start: startOfWeek(startOfMonth(primeiro), { weekStartsOn: 1 }),
     end:   endOfWeek(endOfMonth(primeiro), { weekStartsOn: 1 }),
   })
   const hojeStr = format(new Date(), 'yyyy-MM-dd')
+
+  // Um evento de vários dias aparece em cada dia que cobre dentro do mês.
   const porDia = new Map<string, OcorrenciaCalendario[]>()
   for (const o of ocorrencias) {
-    if (!porDia.has(o.data)) porDia.set(o.data, [])
-    porDia.get(o.data)!.push(o)
+    for (const dia of diasDoSpan({ inicio: o.inicio, fim: o.fim }, mesInicio, mesFim)) {
+      if (!porDia.has(dia)) porDia.set(dia, [])
+      porDia.get(dia)!.push(o)
+    }
   }
 
   const podeEditar = (o: OcorrenciaCalendario) => isAdmin || o.criadoPor === usuarioId
@@ -75,7 +87,6 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
 
   return (
     <div className="space-y-4">
-      {/* Cabeçalho e navegação */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1">
           <Link href={`/calendario?mes=${mesVizinho(mes, -1)}`} aria-label="Mês anterior"
@@ -88,12 +99,11 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
           </Link>
           <h2 className="text-lg font-semibold capitalize ml-2">{tituloMes}</h2>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => abrirNovo(hojeStr.startsWith(mes) ? hojeStr : `${mes}-01`)}>
+        <Button size="sm" className="gap-1.5" onClick={() => abrirNovo(hojeStr.startsWith(mes) ? hojeStr : mesInicio)}>
           <Plus size={15} /> Novo evento
         </Button>
       </div>
 
-      {/* Grade mensal */}
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="grid grid-cols-7 border-b bg-slate-50">
           {DIAS_SEMANA.map(d => (
@@ -119,7 +129,8 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
                 </div>
                 <div className="space-y-1">
                   {doDia.slice(0, 3).map((o, i) => {
-                    const meta = CATEGORIA_META[o.categoria as keyof typeof CATEGORIA_META] ?? CATEGORIA_META.outro
+                    const meta = corMeta(o.cor)
+                    const multi = o.inicio !== o.fim
                     return (
                       <button
                         key={`${o.id}-${i}`}
@@ -127,15 +138,13 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
                         className={`w-full text-left truncate text-[11px] px-1.5 py-0.5 rounded border ${meta.chip}`}
                         title={o.titulo}
                       >
-                        {o.hora && <span className="tabular-nums mr-1">{o.hora}</span>}{o.titulo}
+                        {multi && <CalendarRange size={9} className="inline mr-1 -mt-0.5" />}
+                        {o.hora && !multi && <span className="tabular-nums mr-1">{o.hora}</span>}{o.titulo}
                       </button>
                     )
                   })}
                   {doDia.length > 3 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); setDetalhe(doDia[3]) }}
-                      className="text-[11px] text-slate-400 px-1.5"
-                    >
+                    <button onClick={e => { e.stopPropagation(); setDetalhe(doDia[3]) }} className="text-[11px] text-slate-400 px-1.5">
                       +{doDia.length - 3} mais
                     </button>
                   )}
@@ -146,27 +155,25 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
         </div>
       </div>
 
-      {/* Novo evento */}
       {novoOpen && (
         <EventoDialog
           open={novoOpen} onOpenChange={setNovoOpen} modo="criar"
-          dataInicial={novoData} lojas={lojas} usuariosGrupo={usuariosGrupo} lojaIdUsuario={lojaIdUsuario}
+          dataInicial={novoData} categorias={categorias} lojas={lojas} usuariosGrupo={usuariosGrupo} lojaIdUsuario={lojaIdUsuario}
         />
       )}
 
-      {/* Editar */}
       {editarOpen && detalhe && (
         <EventoDialog
           open={editarOpen} onOpenChange={o => { setEditarOpen(o); if (!o) setDetalhe(null) }} modo="editar"
-          evento={detalhe} lojas={lojas} usuariosGrupo={usuariosGrupo} lojaIdUsuario={lojaIdUsuario}
+          evento={detalhe} categorias={categorias} lojas={lojas} usuariosGrupo={usuariosGrupo} lojaIdUsuario={lojaIdUsuario}
         />
       )}
 
-      {/* Detalhe */}
       <Dialog open={!!detalhe && !editarOpen} onOpenChange={o => !o && setDetalhe(null)}>
         <DialogContent className="sm:max-w-md">
           {detalhe && (() => {
-            const meta = CATEGORIA_META[detalhe.categoria as keyof typeof CATEGORIA_META] ?? CATEGORIA_META.outro
+            const meta = corMeta(detalhe.cor)
+            const multi = detalhe.inicio !== detalhe.fim
             return (
               <>
                 <DialogHeader>
@@ -176,10 +183,12 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, lojas, usu
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2.5 text-sm py-1">
-                  <p className="text-slate-500">{meta.label}</p>
+                  <p className="text-slate-500">{detalhe.categoriaNome}</p>
                   <p className="flex items-center gap-2">
                     <Clock size={14} className="text-slate-400" />
-                    {format(new Date(`${detalhe.data}T12:00:00Z`), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {multi
+                      ? <span>{fmtData(detalhe.inicio)} — {fmtData(detalhe.fim)}</span>
+                      : <span>{format(new Date(`${detalhe.inicio}T12:00:00Z`), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>}
                     {detalhe.hora && <span className="tabular-nums">· {detalhe.hora}</span>}
                   </p>
                   {detalhe.recorrencia !== 'nenhuma' && (

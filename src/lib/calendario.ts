@@ -3,11 +3,8 @@
 //
 // Datas são strings de calendário 'YYYY-MM-DD'. Comparar strings nesse formato
 // já é comparação cronológica (lexicográfica = ordem de data), então não usamos
-// `Date` em lugar nenhum aqui — evita o bug de fuso ("YYYY-MM-DD" no new Date()
-// vira 21h do dia anterior em Brasília).
-
-export const CATEGORIAS = ['pagamento', 'aniversario', 'evento', 'ausencia_socio', 'outro'] as const
-export type CalendarioCategoria = typeof CATEGORIAS[number]
+// `Date` para comparar — evita o bug de fuso ("YYYY-MM-DD" no new Date() vira 21h
+// do dia anterior em Brasília). `Date.UTC` é usado só para aritmética de dias.
 
 export const RECORRENCIAS = ['nenhuma', 'anual', 'mensal'] as const
 export type CalendarioRecorrencia = typeof RECORRENCIAS[number]
@@ -15,12 +12,34 @@ export type CalendarioRecorrencia = typeof RECORRENCIAS[number]
 export const VISIBILIDADES = ['grupo', 'loja', 'socios', 'gestao', 'usuarios'] as const
 export type CalendarioVisibilidade = typeof VISIBILIDADES[number]
 
-export const CATEGORIA_META: Record<CalendarioCategoria, { label: string; dot: string; chip: string }> = {
-  pagamento:      { label: 'Pagamento',        dot: 'bg-rose-500',    chip: 'bg-rose-50 text-rose-700 border-rose-200' },
-  aniversario:    { label: 'Aniversário',      dot: 'bg-pink-500',    chip: 'bg-pink-50 text-pink-700 border-pink-200' },
-  evento:         { label: 'Evento',           dot: 'bg-blue-500',    chip: 'bg-blue-50 text-blue-700 border-blue-200' },
-  ausencia_socio: { label: 'Ausência de sócio', dot: 'bg-amber-500',   chip: 'bg-amber-50 text-amber-700 border-amber-200' },
-  outro:          { label: 'Outro',            dot: 'bg-slate-400',   chip: 'bg-slate-50 text-slate-600 border-slate-200' },
+// ─── Paleta de cores das categorias ────────────────────────────────────────────
+// As classes precisam aparecer literalmente aqui para o Tailwind incluí-las
+// (não dá para montar nome de classe dinamicamente).
+export const CORES = {
+  rose:    { label: 'Vermelho', dot: 'bg-rose-500',    chip: 'bg-rose-50 text-rose-700 border-rose-200',       swatch: 'bg-rose-500' },
+  pink:    { label: 'Rosa',     dot: 'bg-pink-500',    chip: 'bg-pink-50 text-pink-700 border-pink-200',       swatch: 'bg-pink-500' },
+  orange:  { label: 'Laranja',  dot: 'bg-orange-500',  chip: 'bg-orange-50 text-orange-700 border-orange-200', swatch: 'bg-orange-500' },
+  amber:   { label: 'Âmbar',    dot: 'bg-amber-500',   chip: 'bg-amber-50 text-amber-700 border-amber-200',    swatch: 'bg-amber-500' },
+  emerald: { label: 'Verde',    dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', swatch: 'bg-emerald-500' },
+  teal:    { label: 'Turquesa', dot: 'bg-teal-500',    chip: 'bg-teal-50 text-teal-700 border-teal-200',       swatch: 'bg-teal-500' },
+  cyan:    { label: 'Ciano',    dot: 'bg-cyan-500',    chip: 'bg-cyan-50 text-cyan-700 border-cyan-200',       swatch: 'bg-cyan-500' },
+  blue:    { label: 'Azul',     dot: 'bg-blue-500',    chip: 'bg-blue-50 text-blue-700 border-blue-200',       swatch: 'bg-blue-500' },
+  violet:  { label: 'Roxo',     dot: 'bg-violet-500',  chip: 'bg-violet-50 text-violet-700 border-violet-200', swatch: 'bg-violet-500' },
+  fuchsia: { label: 'Magenta',  dot: 'bg-fuchsia-500', chip: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200', swatch: 'bg-fuchsia-500' },
+  slate:   { label: 'Cinza',    dot: 'bg-slate-400',   chip: 'bg-slate-50 text-slate-600 border-slate-200',    swatch: 'bg-slate-400' },
+} as const
+
+export type CorCategoria = keyof typeof CORES
+export const CORES_KEYS = Object.keys(CORES) as CorCategoria[]
+
+export function corMeta(cor: string) {
+  return CORES[cor as CorCategoria] ?? CORES.slate
+}
+
+export const RECORRENCIA_META: Record<CalendarioRecorrencia, string> = {
+  nenhuma: 'Não repete',
+  anual:   'Todo ano',
+  mensal:  'Todo mês',
 }
 
 export const VISIBILIDADE_META: Record<CalendarioVisibilidade, { label: string; descricao: string }> = {
@@ -29,12 +48,6 @@ export const VISIBILIDADE_META: Record<CalendarioVisibilidade, { label: string; 
   socios:   { label: 'Só sócios',         descricao: 'admin_geral e admin_socio' },
   gestao:   { label: 'Gestão',            descricao: 'Sócios + aux_adm' },
   usuarios: { label: 'Usuários específicos', descricao: 'Só as pessoas escolhidas' },
-}
-
-export const RECORRENCIA_META: Record<CalendarioRecorrencia, string> = {
-  nenhuma: 'Não repete',
-  anual:   'Todo ano',
-  mensal:  'Todo mês',
 }
 
 // ─── Visibilidade ──────────────────────────────────────────────────────────────
@@ -61,7 +74,7 @@ export function podeEditarEvento(u: UsuarioVis, e: { criadoPor: string }): boole
   return e.criadoPor === u.id || u.papel === 'admin_geral' || u.papel === 'admin_socio'
 }
 
-// ─── Recorrência ───────────────────────────────────────────────────────────────
+// ─── Recorrência e spans de vários dias ─────────────────────────────────────────
 
 function parseYmd(s: string): [number, number, number] {
   const [y, m, d] = s.split('-').map(Number)
@@ -71,37 +84,57 @@ function pad(n: number): string { return String(n).padStart(2, '0') }
 function ymd(y: number, m: number, d: number): string { return `${y}-${pad(m)}-${pad(d)}` }
 function diasNoMes(y: number, m: number): number { return new Date(Date.UTC(y, m, 0)).getUTCDate() }
 
+/** Soma `n` dias a 'YYYY-MM-DD' (aritmética em UTC, sem fuso local). */
+export function addDias(s: string, n: number): string {
+  const [y, m, d] = parseYmd(s)
+  const dt = new Date(Date.UTC(y, m - 1, d + n))
+  return ymd(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate())
+}
+/** Diferença em dias inteiros entre duas datas 'YYYY-MM-DD' (b - a). */
+export function diffDias(a: string, b: string): number {
+  const [ay, am, ad] = parseYmd(a)
+  const [by, bm, bd] = parseYmd(b)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
+}
+
+export type Span = { inicio: string; fim: string }
+
 /**
- * Datas 'YYYY-MM-DD' em que o evento ocorre dentro de [inicio, fim].
- * - nenhuma: a própria data, se cair na janela.
- * - anual/mensal: expande a partir da âncora (nunca antes dela); dia inexistente
+ * Spans {inicio, fim} em que o evento ocorre e que cruzam a janela [janelaInicio,
+ * janelaFim]. Cada ocorrência mantém a duração (dataFim - dataInicio) do evento.
+ * - nenhuma: o próprio intervalo, se cruzar a janela.
+ * - anual/mensal: repete a partir da âncora (nunca antes dela); dia inexistente
  *   (29/02 fora de bissexto, dia 31 em mês curto) cai para o último dia do mês.
  */
 export function ocorrenciasNoIntervalo(
-  evento: { data: string; recorrencia: string },
-  inicio: string,
-  fim: string,
-): string[] {
-  if (inicio > fim) return []
-  const ancora = evento.data
+  evento: { dataInicio: string; dataFim: string; recorrencia: string },
+  janelaInicio: string,
+  janelaFim: string,
+): Span[] {
+  if (janelaInicio > janelaFim) return []
+  const ancora = evento.dataInicio
+  const duracao = Math.max(0, diffDias(evento.dataInicio, evento.dataFim))
+  const out: Span[] = []
+
+  const considerar = (inicioOcc: string) => {
+    if (inicioOcc < ancora) return
+    const fimOcc = addDias(inicioOcc, duracao)
+    if (fimOcc >= janelaInicio && inicioOcc <= janelaFim) out.push({ inicio: inicioOcc, fim: fimOcc })
+  }
 
   if (evento.recorrencia === 'nenhuma') {
-    return ancora >= inicio && ancora <= fim ? [ancora] : []
+    considerar(ancora)
+    return out
   }
 
   const [ay, am, ad] = parseYmd(ancora)
-  const [iy, im] = parseYmd(inicio)
-  const [fy, fm] = parseYmd(fim)
-  const out: string[] = []
-
-  const dentro = (occ: string) => occ >= inicio && occ <= fim && occ >= ancora
+  const [iy, im] = parseYmd(janelaInicio)
+  const [fy, fm] = parseYmd(janelaFim)
 
   if (evento.recorrencia === 'anual') {
-    const yStart = Math.max(ay, iy)
-    for (let y = yStart; y <= fy; y++) {
-      const dia = Math.min(ad, diasNoMes(y, am))
-      const occ = ymd(y, am, dia)
-      if (dentro(occ)) out.push(occ)
+    // Começa um ano antes da janela para pegar um span que iniciou em dezembro.
+    for (let y = Math.max(ay, iy - 1); y <= fy; y++) {
+      considerar(ymd(y, am, Math.min(ad, diasNoMes(y, am))))
     }
     return out
   }
@@ -110,15 +143,22 @@ export function ocorrenciasNoIntervalo(
     const ancoraIdx = ay * 12 + (am - 1)
     const inicioIdx = iy * 12 + (im - 1)
     const fimIdx = fy * 12 + (fm - 1)
-    for (let idx = Math.max(ancoraIdx, inicioIdx); idx <= fimIdx; idx++) {
+    for (let idx = Math.max(ancoraIdx, inicioIdx - 1); idx <= fimIdx; idx++) {
       const y = Math.floor(idx / 12)
-      const m = (idx % 12) + 1
-      const dia = Math.min(ad, diasNoMes(y, m))
-      const occ = ymd(y, m, dia)
-      if (dentro(occ)) out.push(occ)
+      const mm = (idx % 12) + 1
+      considerar(ymd(y, mm, Math.min(ad, diasNoMes(y, mm))))
     }
     return out
   }
 
   return []
+}
+
+/** Datas 'YYYY-MM-DD' cobertas por um span, limitadas à janela — para a grade mensal. */
+export function diasDoSpan(span: Span, janelaInicio: string, janelaFim: string): string[] {
+  const ini = span.inicio > janelaInicio ? span.inicio : janelaInicio
+  const fim = span.fim < janelaFim ? span.fim : janelaFim
+  const dias: string[] = []
+  for (let d = ini; d <= fim; d = addDias(d, 1)) dias.push(d)
+  return dias
 }

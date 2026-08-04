@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarRange, ArrowRight } from 'lucide-react'
-import { CATEGORIA_META } from '@/lib/calendario'
+import { corMeta } from '@/lib/calendario'
 import type { OcorrenciaCalendario } from '@/lib/queries/calendario'
 
 export function ProximosEventosCard({ eventos }: { eventos: OcorrenciaCalendario[] }) {
@@ -21,8 +21,9 @@ export function ProximosEventosCard({ eventos }: { eventos: OcorrenciaCalendario
       </div>
       <ul className="divide-y">
         {eventos.slice(0, 6).map((e, i) => {
-          const meta = CATEGORIA_META[e.categoria as keyof typeof CATEGORIA_META] ?? CATEGORIA_META.outro
-          const d = new Date(`${e.data}T12:00:00Z`)
+          const meta = corMeta(e.cor)
+          const d = new Date(`${e.inicio}T12:00:00Z`)
+          const multi = e.inicio !== e.fim
           return (
             <li key={`${e.id}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
               <div className="flex flex-col items-center justify-center w-11 shrink-0">
@@ -33,8 +34,10 @@ export function ProximosEventosCard({ eventos }: { eventos: OcorrenciaCalendario
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-800 truncate">{e.titulo}</p>
                 <p className="text-xs text-slate-400">
-                  {meta.label}{e.hora ? ` · ${e.hora}` : ''}
-                  {e.categoria !== 'aniversario' && `, ${format(d, "EEEE", { locale: ptBR })}`}
+                  {e.categoriaNome}{e.hora ? ` · ${e.hora}` : ''}
+                  {multi
+                    ? `, até ${format(new Date(`${e.fim}T12:00:00Z`), 'dd/MM', { locale: ptBR })}`
+                    : `, ${format(d, 'EEEE', { locale: ptBR })}`}
                 </p>
               </div>
             </li>
