@@ -5,6 +5,11 @@ import type { TransacaoCartao } from '../../../src/lib/conciliacao-cartao'
 
 const HOST = 'https://payments-api-gateway-prd.pagar.me/payments-web-bff/sales/v1/organizations'
 
+// Teto de segurança: se o cursor de paginação nunca esvaziar (bug da API, ou
+// devolvendo a mesma página sempre), estoura erro claro em vez de travar o
+// processo — bem acima do volume real (algumas dezenas de vendas por semana).
+const MAX_PAGINAS = 50
+
 export async function coletarStone(
   contexto: BrowserContext,
   cnpj: string,          // com pontuação, como em grupos.cnpj
@@ -22,13 +27,15 @@ export async function coletarStone(
 
     // A lista não traz NSU nem líquido: os dois só existem no detalhe, então é
     // uma chamada por venda. Com ~5 vendas por semana, é barato.
-    const pares = await pagina.evaluate(async ({ host, cnpjLimpo, auth, from, to }) => {
+    const pares = await pagina.evaluate(async ({ host, cnpjLimpo, auth, from, to, maxPaginas }) => {
       const headers = { authorization: auth, 'x-institution': 'stone', accept: 'application/json' }
       const base = `${host}/${cnpjLimpo}`
 
       const vendas: Record<string, unknown>[] = []
       let url = `${base}?size=100&start_date=${encodeURIComponent(from)}&end_date=${encodeURIComponent(to)}`
+      let contagemPaginas = 0
       while (url) {
+        if (++contagemPaginas > maxPaginas) throw new Error(`sales/v1 passou de ${maxPaginas} páginas — cursor não esvazia?`)
         const r = await fetch(url, { headers })
         if (!r.ok) throw new Error(`sales/v1 respondeu ${r.status}`)
         const json = await r.json()
@@ -45,10 +52,16 @@ export async function coletarStone(
         saida.push({ venda, detalhe: r.ok ? await r.json() : null })
       }
       return saida
-    }, { host: HOST, cnpjLimpo, auth: authorization, from: inicio.toISOString(), to: fim.toISOString() })
+    }, { host: HOST, cnpjLimpo, auth: authorization, from: inicio.toISOString(), to: fim.toISOString(), maxPaginas: MAX_PAGINAS })
 
-    return mapearStone(pares as unknown as { venda: VendaStone; detalhe: DetalheStone | null }[])
-  } finally {
+    const transacoes = mapearStone(pares as unknown as { venda: VendaStone; detalhe: DetalheStone | null }[])
     await pagina.close()
+    return transacoes
+  } catch (e) {
+    // Sessão vencida: a página fica aberta na tela de login para alguém
+    // entrar ali mesmo — fechar obrigaria a rodar tudo de novo só para ver a
+    // tela de login. Nos demais erros (e no sucesso, acima), fecha normalmente.
+    if (!(e instanceof SessaoExpirada)) await pagina.close()
+    throw e
   }
 }

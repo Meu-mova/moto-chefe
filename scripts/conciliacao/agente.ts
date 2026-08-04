@@ -74,10 +74,13 @@ async function processar(pedidoId: string) {
       }
     }
   } finally {
-    // Quando alguma sessão vence, a janela fica aberta na tela de login (ou no
-    // QR da InfinitePay) para alguém entrar ali mesmo. Fechar obrigaria a rodar
-    // tudo de novo só para ver a tela de login. As outras operadoras já foram
-    // importadas normalmente; é só clicar o botão de novo depois de logar.
+    // Cada coletor já fechou sua própria página quando deu certo ou deu erro
+    // comum; quando a sessão de uma operadora vence, o coletor correspondente
+    // deixa a página dele aberta de propósito (tela de login, ou QR da
+    // InfinitePay) para alguém entrar ali mesmo — fechar obrigaria a rodar
+    // tudo de novo só para ver a tela de login. Por isso o contexto inteiro só
+    // é fechado aqui se nenhuma sessão venceu: fechá-lo agora fecharia também
+    // essa página pendente, já que fechar o contexto fecha todas as páginas.
     if (!precisaLogin) await contexto.close()
   }
 

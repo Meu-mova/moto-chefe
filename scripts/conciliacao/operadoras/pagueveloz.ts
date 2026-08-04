@@ -32,11 +32,18 @@ export async function coletarPagueVeloz(
       return json
     }, { de: ddmmaaaa(inicio), ate: ddmmaaaa(fim) })
 
-    return mapearPagueVeloz(operacoes)
-  } catch (e) {
-    if (e instanceof Error && e.message.includes('SESSAO')) throw new SessaoExpirada('PagueVeloz')
-    throw e
-  } finally {
+    const transacoes = mapearPagueVeloz(operacoes)
     await pagina.close()
+    return transacoes
+  } catch (e) {
+    const sessaoExpirada = e instanceof SessaoExpirada
+      ? e
+      : e instanceof Error && e.message.includes('SESSAO') ? new SessaoExpirada('PagueVeloz') : null
+
+    // Sessão vencida: a página fica aberta na tela de login para alguém
+    // entrar ali mesmo — fechar obrigaria a rodar tudo de novo só para ver a
+    // tela de login. Nos demais erros (e no sucesso, acima), fecha normalmente.
+    if (!sessaoExpirada) await pagina.close()
+    throw sessaoExpirada ?? e
   }
 }
