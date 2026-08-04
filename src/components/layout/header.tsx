@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { logoutAction } from '@/app/(auth)/login/actions'
 import { getUsuarioLogado } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,9 @@ export async function Header() {
           <p className="text-sm font-medium">{usuario.nome}</p>
           <Badge variant="secondary" className="text-xs">{papelLabel[usuario.papel]}</Badge>
         </div>
+        <Link href="/completar-cadastro" className="text-sm text-slate-500 hover:text-slate-900">
+          Meus dados
+        </Link>
         <form action={logoutAction}>
           <Button variant="outline" size="sm" type="submit">Sair</Button>
         </form>
