@@ -29,6 +29,8 @@ import {
 } from './components/tabelas-resumo'
 import { SectionErrorBoundary } from './section-error-boundary'
 import { ImportarCartaoButton } from './components/importar-cartao-button'
+import { proximosEventos } from '@/lib/queries/calendario'
+import { ProximosEventosCard } from './components/proximos-eventos-card'
 
 type Filtros = { dataInicio: string; dataFim: string; lojaId?: string[]; vendedorId?: string }
 
@@ -284,6 +286,12 @@ async function FechamentoSection({ usuario }: { usuario: { id: string; papel: st
   return <AlertaFechamento dados={dados} subdominio={status.subdominio} />
 }
 
+// Próximos eventos do calendário de gestão, respeitando a visibilidade de cada um.
+async function ProximosEventosSection({ usuario }: { usuario: Awaited<ReturnType<typeof getUsuarioLogado>> }) {
+  const eventos = await proximosEventos(usuario, 14)
+  return <ProximosEventosCard eventos={eventos} />
+}
+
 function hojeISO() {
   return new Date().toISOString().substring(0, 10)
 }
@@ -379,6 +387,12 @@ export default async function DashboardPage({
       </div>
 
       {['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel) && <ImportarCartaoButton />}
+
+      <SectionErrorBoundary label="os próximos eventos">
+        <Suspense fallback={null}>
+          <ProximosEventosSection usuario={usuario} />
+        </Suspense>
+      </SectionErrorBoundary>
 
       {isAuxAdm && usuario.lojaId && (
         <SectionErrorBoundary label="as pendências da loja">

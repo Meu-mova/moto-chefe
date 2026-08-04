@@ -9,7 +9,7 @@ import {
   Wallet, Home, Package, QrCode, Calculator,
   ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
   Radar, CalendarDays, ListChecks, Package2, Link as LinkIcon, Headset, PackagePlus,
-  FileBarChart,
+  FileBarChart, CalendarRange,
 } from 'lucide-react'
 
 const baseNavItems = [
@@ -18,6 +18,7 @@ const baseNavItems = [
   { href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight },
   { href: '/vendas',         label: 'Vendas',            icon: ShoppingCart   },
   { href: '/agenda',         label: 'Agenda',            icon: CalendarDays   },
+  { href: '/calendario',     label: 'Calendário',        icon: CalendarRange  },
   { href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench         },
   { href: '/garantias',      label: 'Garantias',         icon: Shield         },
   { href: '/simulador',      label: 'Simulador',         icon: Calculator     },

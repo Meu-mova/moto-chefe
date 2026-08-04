@@ -833,3 +833,33 @@ export const premiacaoFaixas = pgTable('premiacao_faixas', {
   premiacao:         numeric('premiacao', { precision: 10, scale: 2 }).notNull(),
   criadoEm:          timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── Calendário de gestão ──────────────────────────────────────────────────────
+// Módulo separado da Agenda da oficina. Cada evento carrega a própria visibilidade
+// (quem cria escolhe). Ver docs/superpowers/specs/2026-08-04-calendario-design.md.
+export const calendarioCategoriaEnum    = pgEnum('calendario_categoria', ['pagamento', 'aniversario', 'evento', 'ausencia_socio', 'outro'])
+export const calendarioRecorrenciaEnum  = pgEnum('calendario_recorrencia', ['nenhuma', 'anual', 'mensal'])
+export const calendarioVisibilidadeEnum = pgEnum('calendario_visibilidade', ['grupo', 'loja', 'socios', 'gestao', 'usuarios'])
+
+export const calendarioEventos = pgTable('calendario_eventos', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
+  titulo:       text('titulo').notNull(),
+  descricao:    text('descricao'),
+  categoria:    calendarioCategoriaEnum('categoria').notNull(),
+  data:         date('data').notNull(),                 // data-âncora (1ª ocorrência)
+  hora:         text('hora'),                            // "HH:MM"; null = dia inteiro
+  recorrencia:  calendarioRecorrenciaEnum('recorrencia').notNull().default('nenhuma'),
+  visibilidade: calendarioVisibilidadeEnum('visibilidade').notNull(),
+  lojaId:       uuid('loja_id').references(() => lojas.id), // obrigatório quando visibilidade='loja'
+  criadoPor:    uuid('criado_por').notNull().references(() => usuarios.id),
+  createdAt:    timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Destinatários quando visibilidade='usuarios'.
+export const calendarioEventoUsuarios = pgTable('calendario_evento_usuarios', {
+  eventoId:  uuid('evento_id').notNull().references(() => calendarioEventos.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.eventoId, t.usuarioId] }),
+}))
