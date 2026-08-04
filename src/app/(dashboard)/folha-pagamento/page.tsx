@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { FuncionariosConfigTable } from './components/funcionarios-config-table'
 import { PremiacaoFaixasTable } from './components/premiacao-faixas-table'
 import { MesSelectorFolha } from './components/mes-selector-folha'
+import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { AjustesBaseTable } from './components/ajustes-base-table'
 import { calcularPremiacao } from '@/lib/premiacao'
 import { resolverBaseComissao, type TotaisBase } from '@/lib/folha'
@@ -58,8 +59,13 @@ export default async function FolhaPagamentoPage({
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
   const [ano, mes] = mesParam.split('-').map(Number)
-  const inicioTs = new Date(Date.UTC(ano, mes - 1, 1))
-  const fimTs = new Date(Date.UTC(ano, mes, 1))
+  // Bordas do mês no calendário de Brasília, não em UTC. Montar a janela com
+  // Date.UTC fazia "julho" valer de 30/06 21:00 a 31/07 20:59 daqui — e o limite
+  // superior inclusivo ainda deixava o primeiro instante do mês seguinte contar
+  // duas vezes. Ver inicioDoDiaBrt/fimDoDiaBrt em @/lib/data-venda.
+  const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+  const inicioTs = inicioDoDiaBrt(`${mesParam}-01`)
+  const fimTs = fimDoDiaBrt(`${mesParam}-${String(ultimoDia).padStart(2, '0')}`)
 
   const [
     funcionariosRaw, configsRaw, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { pedidosVenda, vendas, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
+import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
 export type VendaComDetalhes  = Awaited<ReturnType<typeof listarVendas>>[0]
@@ -72,8 +73,8 @@ export async function listarVendas(filtros?: {
         filtros?.vendedorId?.length  ? inArray(vendas.vendedorId,   filtros.vendedorId)                     : undefined,
         filtros?.chassiBusca?.trim() ? ilike(motos.chassi,          `%${filtros.chassiBusca.trim()}%`)      : undefined,
         filtros?.notaFiscal?.trim()  ? ilike(vendas.notaFiscalSaida, `%${filtros.notaFiscal.trim()}%`)     : undefined,
-        filtros?.dataInicio           ? gte(vendas.dataVenda, new Date(filtros.dataInicio))                 : undefined,
-        filtros?.dataFim              ? lte(vendas.dataVenda, new Date(filtros.dataFim))                    : undefined,
+        filtros?.dataInicio           ? gte(vendas.dataVenda, inicioDoDiaBrt(filtros.dataInicio))           : undefined,
+        filtros?.dataFim              ? lte(vendas.dataVenda, fimDoDiaBrt(filtros.dataFim))                 : undefined,
       )
     )
     .orderBy(desc(vendas.dataVenda))

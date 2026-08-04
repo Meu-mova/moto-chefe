@@ -12,3 +12,34 @@ export function parseDataInput(yyyyMmDd: string): Date {
   }
   return new Date(`${yyyyMmDd}T12:00:00.000Z`)
 }
+
+// ─── limites de um dia do calendário de Brasília ──────────────────────────────
+// Toda coluna de data do sistema é `timestamptz`, mas o negócio raciocina em dia
+// do calendário daqui. Filtrar com `new Date("2026-07-31")` compara contra a
+// MEIA-NOITE UTC — e como as vendas são gravadas às 12:00Z pelo parseDataInput,
+// toda venda do próprio dia 31 caía fora do filtro "até 31/07". Em julho/2026
+// isso escondeu 12 vendas e R$ 159.494,46.
+//
+// Estas duas funções devolvem as bordas reais do dia em Brasília (UTC−3 o ano
+// inteiro, sem horário de verão desde 2019), e funcionam tanto para as datas
+// ancoradas ao meio-dia quanto para eventos com hora real, como a conclusão de OS.
+
+function validar(yyyyMmDd: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd)) {
+    throw new Error(`Data inválida: ${yyyyMmDd}`)
+  }
+}
+
+/** 00:00 de Brasília do dia informado, em UTC. */
+export function inicioDoDiaBrt(yyyyMmDd: string): Date {
+  validar(yyyyMmDd)
+  return new Date(`${yyyyMmDd}T03:00:00.000Z`)
+}
+
+/** 23:59:59.999 de Brasília do dia informado, em UTC. */
+export function fimDoDiaBrt(yyyyMmDd: string): Date {
+  validar(yyyyMmDd)
+  const seguinte = new Date(`${yyyyMmDd}T03:00:00.000Z`)
+  seguinte.setUTCDate(seguinte.getUTCDate() + 1)
+  return new Date(seguinte.getTime() - 1)
+}

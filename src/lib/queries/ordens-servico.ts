@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { ordensServico, osItens, motos, lojas, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
 import { eq, desc, and, or, ilike, inArray, sql, gte, lte } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
+import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 
 export type OSComDetalhes  = Awaited<ReturnType<typeof listarTodasOS>>[0]
 export type OSDetalhe      = Awaited<ReturnType<typeof buscarOS>>
@@ -107,8 +108,8 @@ export async function listarTodasOS(filtros?: {
     .where(and(
       filtros?.status?.length   ? inArray(ordensServico.status, filtros.status as any[]) : undefined,
       filtros?.lojaId !== undefined ? inArray(ordensServico.lojaId, filtros.lojaId) : undefined,
-      filtros?.dataInicio       ? gte(ordensServico.dataAbertura, new Date(filtros.dataInicio)) : undefined,
-      filtros?.dataFim          ? lte(ordensServico.dataAbertura, new Date(filtros.dataFim + 'T23:59:59.999Z')) : undefined,
+      filtros?.dataInicio       ? gte(ordensServico.dataAbertura, inicioDoDiaBrt(filtros.dataInicio)) : undefined,
+      filtros?.dataFim          ? lte(ordensServico.dataAbertura, fimDoDiaBrt(filtros.dataFim)) : undefined,
       filtros?.busca?.trim()    ? or(
         ilike(motos.chassi,             `%${filtros.busca}%`),
         ilike(ordensServico.marcaExterna,  `%${filtros.busca}%`),
