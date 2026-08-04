@@ -77,6 +77,9 @@ export function SaidasFiltros({
             className="h-8 text-sm w-44 border border-slate-200 rounded-md px-2 bg-white block"
           >
             <option value="">Todas</option>
+            {/* Saída sem loja atribuída = despesa geral da empresa. Mesma convenção
+                "__geral" que a tabela de lançamentos já usa. */}
+            <option value="__geral">Geral (Empresa)</option>
             {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </div>

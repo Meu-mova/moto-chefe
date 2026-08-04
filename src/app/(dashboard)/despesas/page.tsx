@@ -189,7 +189,9 @@ export default async function DespesasPage({
   const slojaId = params.sloja ?? ''
   const saidasFiltradas = saidas.filter(l =>
     (!scat || l.categoria === scat) &&
-    (!slojaId || l.lojaId === slojaId),
+    // "__geral" isola o que não tem loja atribuída — a despesa da empresa, que
+    // sem isso ficava impossível de separar no fechamento.
+    (!slojaId || (slojaId === '__geral' ? l.lojaId === null : l.lojaId === slojaId)),
   )
 
   // A saída do banco usa as categorias de despesa, não as do caixa.
