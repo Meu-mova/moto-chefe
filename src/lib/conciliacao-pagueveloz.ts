@@ -37,7 +37,14 @@ export function mapearPagueVeloz(operacoes: OperacaoPagueVeloz[]): TransacaoCart
   return operacoes
     .filter(o => o.Status?.Nome === 'Pago')
     .map(o => ({
-      nsu: o.NSU ? String(o.NSU) : undefined,
+      // Vai o `Id` (o "Cod PagueVeloz" da primeira coluna do CSV), não o campo
+      // `NSU`. O CSV manual continua existindo como plano B e grava o Id em
+      // `nsu` — conferido em produção: a operação Id 43997874 / NSU 508833108
+      // está gravada com nsu '43997874', e nenhuma das 71 linhas tem os 9
+      // dígitos do NSU da operadora. Gravar o NSU aqui faria os dois caminhos
+      // nunca se enxergarem e duplicaria a semana inteira no primeiro clique.
+      // O NSU da operadora fica preservado em rawData.
+      nsu: o.Id ? String(o.Id) : undefined,
       autorizacao: o.CodigoAutorizacao || undefined,
       dataTransacao: dataBrt(o.DataVenda),
       valorBruto: o.ValorBruto,
@@ -47,6 +54,7 @@ export function mapearPagueVeloz(operacoes: OperacaoPagueVeloz[]): TransacaoCart
       status: 'aprovado',
       rawData: {
         id: o.Id,
+        nsu_operadora: o.NSU ?? null,
         terminal: o.POS?.Identificador ?? null,
         apelido: o.POS?.Apelido ?? null,
         bandeira: o.Bandeira ?? null,

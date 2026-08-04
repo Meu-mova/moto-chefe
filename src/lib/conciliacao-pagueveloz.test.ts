@@ -32,10 +32,21 @@ test('valores já vêm em reais — não dividir por 100', () => {
   assert.equal(t.valorLiquido, 5790.77)
 })
 
-test('NSU e autorização', () => {
+// A chave gravada em `nsu` é o `Id` ("Cod PagueVeloz", primeira coluna do CSV),
+// e não o campo `NSU` da operadora: é o que o CSV manual grava, e é essa
+// igualdade que impede o agente de reimportar o que já foi subido à mão. Em
+// produção, esta mesma operação (Id 43997874 / NSU 508833108) está gravada com
+// nsu '43997874' — e nenhuma das 71 linhas tem os 9 dígitos do NSU.
+test('a chave é o Cod PagueVeloz (Id), a mesma que o CSV grava', () => {
   const [t] = mapearPagueVeloz([OPERACAO])
-  assert.equal(t.nsu, '508833108')
+  assert.equal(t.nsu, '43997874')
+  assert.equal(t.nsu, String(OPERACAO.Id))
   assert.equal(t.autorizacao, '799092')
+})
+
+test('o NSU da operadora não é jogado fora — fica em rawData', () => {
+  const [t] = mapearPagueVeloz([OPERACAO])
+  assert.equal(t.rawData?.nsu_operadora, 508833108)
 })
 
 test('operação recusada é descartada', () => {
@@ -43,8 +54,8 @@ test('operação recusada é descartada', () => {
   assert.deepEqual(mapearPagueVeloz([recusada]), [])
 })
 
-test('NSU zero não vira string "0"', () => {
-  assert.equal(mapearPagueVeloz([{ ...OPERACAO, NSU: 0 }])[0].nsu, undefined)
+test('Id zero não vira string "0"', () => {
+  assert.equal(mapearPagueVeloz([{ ...OPERACAO, Id: 0 }])[0].nsu, undefined)
 })
 
 test('data já vem em -03:00 e não pode ser deslocada de novo', () => {

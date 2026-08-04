@@ -36,10 +36,21 @@ test('bruto e líquido saem em reais', () => {
   assert.equal(t.valorLiquido, 2986.87)
 })
 
-test('a Stone não manda NSU — a chave é o código de autorização', () => {
+// O CSV manual da Stone grava o STONE ID (o `id` da venda) na coluna de NSU —
+// conferido nas 48 linhas importadas por CSV em produção, todas com 14 dígitos,
+// entre elas esta mesma venda (nsu = '31263367049280'). O agente precisa gravar
+// o mesmo valor, senão os dois caminhos não se enxergam e a mesma venda entra
+// duas vezes.
+test('o NSU é o STONE ID — a mesma chave que o CSV grava', () => {
   const [t] = mapearStone([{ venda: VENDA, detalhe: DETALHE }])
-  assert.equal(t.nsu, undefined)
+  assert.equal(t.nsu, '31263367049280')
+  assert.equal(t.nsu, VENDA.id)
+})
+
+test('o código de autorização fica em autorizacao e em rawData', () => {
+  const [t] = mapearStone([{ venda: VENDA, detalhe: DETALHE }])
   assert.equal(t.autorizacao, '015507')
+  assert.equal(t.rawData?.authorization_code, '015507')
 })
 
 test('crédito e débito', () => {
@@ -86,4 +97,16 @@ test('rawData guarda o id, o serial e a taxa', () => {
 
 test('sem detalhe a venda não é enviada — líquido e autorização faltariam', () => {
   assert.deepEqual(mapearStone([{ venda: VENDA, detalhe: null }]), [])
+})
+
+// O detalhe é buscado depois da listagem: uma venda estornada nesse intervalo
+// chega com a lista dizendo 'paid' e o detalhe já dizendo outra coisa.
+test('detalhe que não está pago é descartado, mesmo com a lista dizendo pago', () => {
+  assert.deepEqual(mapearStone([{ venda: VENDA, detalhe: { ...DETALHE, status: 'canceled' } }]), [])
+})
+
+test('líquido ausente não vira NaN — grava sem líquido', () => {
+  const [t] = mapearStone([{ venda: VENDA, detalhe: { ...DETALHE, net_amount: undefined } }])
+  assert.equal(t.valorLiquido, undefined)
+  assert.equal(t.valorBruto, 3342.89)
 })
