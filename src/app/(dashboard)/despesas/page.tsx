@@ -187,15 +187,20 @@ export default async function DespesasPage({
   // pendentes somem da lista, que é o comportamento pedido pro fechamento.
   const scat = params.scat ?? ''
   const slojaId = params.sloja ?? ''
+  const stipo = params.stipo ?? ''
+
+  // A saída do banco usa as categorias de despesa, não as do caixa. Sem categoria
+  // conta como operacional: ainda não se sabe o que é.
+  const saidaEhOperacional = (categoria: string | null) => !categoria || !categoriasNaoOperacionais.has(categoria)
+
   const saidasFiltradas = saidas.filter(l =>
     (!scat || l.categoria === scat) &&
     // "__geral" isola o que não tem loja atribuída — a despesa da empresa, que
     // sem isso ficava impossível de separar no fechamento.
-    (!slojaId || (slojaId === '__geral' ? l.lojaId === null : l.lojaId === slojaId)),
+    (!slojaId || (slojaId === '__geral' ? l.lojaId === null : l.lojaId === slojaId)) &&
+    (!stipo || (stipo === 'operacional' ? saidaEhOperacional(l.categoria) : !saidaEhOperacional(l.categoria))),
   )
 
-  // A saída do banco usa as categorias de despesa, não as do caixa.
-  const saidaEhOperacional = (categoria: string | null) => !categoria || !categoriasNaoOperacionais.has(categoria)
   const saidasOperacionais    = saidasFiltradas.filter(l => saidaEhOperacional(l.categoria))
   const saidasNaoOperacionais = saidasFiltradas.filter(l => !saidaEhOperacional(l.categoria))
 
@@ -314,6 +319,7 @@ export default async function DespesasPage({
               lojas={lojasOpts}
               categoriaAtual={scat}
               lojaAtual={slojaId}
+              tipoAtual={stipo}
             />
           </div>
 

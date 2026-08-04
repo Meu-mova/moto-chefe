@@ -1,12 +1,11 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
-import { eq, ne, desc, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
+import { vendas, lojas, usuarios, motos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { eq, ne, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FinanceiroFiltros } from './components/financeiro-filtros'
-import { VendasTable } from './components/vendas-table'
 import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
@@ -66,36 +65,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [vendasMes, totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
-    db
-      .select({
-        id: vendas.id,
-        clienteNome: vendas.clienteNome,
-        clienteCpf: vendas.clienteCpf,
-        valor: vendas.valor,
-        formaPagamento: vendas.formaPagamento,
-        dataVenda: vendas.dataVenda,
-        lojaNome: lojas.nome,
-        vendedorNome: usuarios.nome,
-        modelo: modelos.modelo,
-        marca: modelos.marca,
-        cor: motos.cor,
-        chassi: motos.chassi,
-        precoCompra: motos.precoCompra,
-        valorLiquido: valorLiquidoExpr(),
-      })
-      .from(vendas)
-      .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
-      .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
-      .innerJoin(motos, eq(vendas.motoId, motos.id))
-      .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(and(
-        gte(vendas.dataVenda, inicioTs),
-        lte(vendas.dataVenda, fimTs),
-        lojaFiltroVendas,
-      ))
-      .orderBy(desc(vendas.dataVenda)),
-
+  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
     db
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
@@ -522,12 +492,6 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Vendas Realizadas</CardTitle></CardHeader>
-        <CardContent>
-          <VendasTable vendas={vendasMes} />
-        </CardContent>
-      </Card>
     </div>
   )
 }

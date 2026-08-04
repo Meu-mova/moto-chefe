@@ -9,7 +9,7 @@ import { RefreshCw, X } from 'lucide-react'
 type Loja = { id: string; nome: string }
 
 export function SaidasFiltros({
-  defaultFrom, defaultTo, categorias, lojas, categoriaAtual, lojaAtual,
+  defaultFrom, defaultTo, categorias, lojas, categoriaAtual, lojaAtual, tipoAtual,
 }: {
   defaultFrom: string
   defaultTo: string
@@ -17,6 +17,7 @@ export function SaidasFiltros({
   lojas: Loja[]
   categoriaAtual: string
   lojaAtual: string
+  tipoAtual: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -25,8 +26,9 @@ export function SaidasFiltros({
   const toRef = useRef<HTMLInputElement>(null)
   const [categoria, setCategoria] = useState(categoriaAtual)
   const [lojaId, setLojaId] = useState(lojaAtual)
+  const [tipo, setTipo] = useState(tipoAtual)
 
-  const temFiltro = !!categoria || !!lojaId
+  const temFiltro = !!categoria || !!lojaId || !!tipo
 
   function aplicar() {
     const p = new URLSearchParams(params.toString())
@@ -34,6 +36,7 @@ export function SaidasFiltros({
     if (toRef.current?.value) p.set('sto', toRef.current.value)
     if (categoria) p.set('scat', categoria); else p.delete('scat')
     if (lojaId) p.set('sloja', lojaId); else p.delete('sloja')
+    if (tipo) p.set('stipo', tipo); else p.delete('stipo')
     router.push(`${pathname}?${p.toString()}`)
   }
 
@@ -41,8 +44,10 @@ export function SaidasFiltros({
     const p = new URLSearchParams(params.toString())
     p.delete('scat')
     p.delete('sloja')
+    p.delete('stipo')
     setCategoria('')
     setLojaId('')
+    setTipo('')
     router.push(`${pathname}?${p.toString()}`)
   }
 
@@ -83,6 +88,18 @@ export function SaidasFiltros({
             {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-slate-500">Tipo de saída</Label>
+          <select
+            value={tipo}
+            onChange={e => setTipo(e.target.value)}
+            className="h-8 text-sm w-44 border border-slate-200 rounded-md px-2 bg-white block"
+          >
+            <option value="">Todas</option>
+            <option value="operacional">Operacional</option>
+            <option value="nao_operacional">Não operacional</option>
+          </select>
+        </div>
         <Button size="sm" variant="outline" onClick={aplicar} className="h-8 gap-2">
           <RefreshCw size={14} />
           Atualizar
@@ -94,7 +111,7 @@ export function SaidasFiltros({
           </Button>
         )}
       </div>
-      {temFiltro && (
+      {(!!categoria || !!lojaId) && (
         <p className="text-xs text-amber-600">
           Filtro ativo — as saídas ainda não categorizadas não aparecem nesta lista.
         </p>
