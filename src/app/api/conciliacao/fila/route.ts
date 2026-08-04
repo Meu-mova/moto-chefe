@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { importacoesCartao, grupos } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { eq, and, inArray, sql } from 'drizzle-orm'
+import { somenteDigitos } from '@/lib/grupo-cnpj'
 
 function autorizado(req: NextRequest): boolean {
   return req.headers.get('x-cron-secret') === process.env.CRON_SECRET
@@ -16,7 +17,13 @@ export async function GET(req: NextRequest) {
   const grupoCnpj = req.nextUrl.searchParams.get('grupoCnpj')
   if (!grupoCnpj) return NextResponse.json({ error: 'grupoCnpj obrigatório' }, { status: 400 })
 
-  const [grupo] = await db.select({ id: grupos.id }).from(grupos).where(eq(grupos.cnpj, grupoCnpj)).limit(1)
+  // Comparação por dígitos: máscara diferente no cadastro não pode desligar o
+  // grupo inteiro — ver src/lib/grupo-cnpj.ts.
+  const [grupo] = await db
+    .select({ id: grupos.id })
+    .from(grupos)
+    .where(sql`regexp_replace(${grupos.cnpj}, '[^0-9]', '', 'g') = ${somenteDigitos(grupoCnpj)}`)
+    .limit(1)
   if (!grupo) return NextResponse.json({ error: 'Grupo não encontrado' }, { status: 400 })
 
   const linhas = await db.execute(sql`
@@ -42,21 +49,35 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!autorizado(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id, resultado, erro } = await req.json() as {
-    id?: string
-    resultado?: Record<string, unknown>
-    erro?: string
+  let corpo: { id?: string; resultado?: Record<string, unknown>; erro?: string }
+  try {
+    corpo = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Corpo inválido' }, { status: 400 })
   }
-  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 })
+  const { id, resultado, erro } = corpo
+  if (!id || typeof id !== 'string') return NextResponse.json({ error: 'id obrigatório' }, { status: 400 })
 
-  await db.update(importacoesCartao)
+  // Só pedido em aberto aceita resultado: sem isso um POST repetido (ou
+  // atrasado) sobrescreve um pedido já concluído. E responder ok:true sem ter
+  // gravado nada faz o agente achar que entregou — foi assim que pedido
+  // travado passou despercebido.
+  const atualizados = await db.update(importacoesCartao)
     .set({
       status: erro ? 'erro' : 'concluida',
       resultado: resultado ?? null,
       erro: erro ?? null,
       concluidoEm: new Date(),
     })
-    .where(eq(importacoesCartao.id, id))
+    .where(and(
+      eq(importacoesCartao.id, id),
+      inArray(importacoesCartao.status, ['pendente', 'rodando']),
+    ))
+    .returning({ id: importacoesCartao.id })
+
+  if (atualizados.length === 0) {
+    return NextResponse.json({ error: 'Pedido não encontrado ou já finalizado' }, { status: 404 })
+  }
 
   return NextResponse.json({ ok: true })
 }
