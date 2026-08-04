@@ -94,6 +94,11 @@ export type TotalDespesas = {
   foraDoCalculo: Record<MotivoForaDoCalculo, number>
   /** Chave = lojaId; `null` junta tudo que não tem loja atribuída. */
   porLoja: Map<string | null, number>
+  /**
+   * Só o que NÃO tem loja atribuída, quebrado por categoria. É a maior fatia da
+   * despesa e a mais opaca — sem isso, "Geral (Empresa)" é um número só.
+   */
+  porCategoriaGeral: { categoria: string; total: number }[]
 }
 
 const SEM_CATEGORIA = 'Sem categoria'
@@ -109,6 +114,7 @@ export function somarDespesas(
   caixa: SaidaCaixa[] = [],
 ): TotalDespesas {
   const porCategoria = new Map<string, number>()
+  const porCategoriaGeral = new Map<string, number>()
   const porLoja = new Map<string | null, number>()
   const foraDoCalculo: Record<MotivoForaDoCalculo, number> = {
     compra_moto: 0,
@@ -123,6 +129,9 @@ export function somarDespesas(
     total += valor
     porCategoria.set(categoria, (porCategoria.get(categoria) ?? 0) + valor)
     porLoja.set(lojaId, (porLoja.get(lojaId) ?? 0) + valor)
+    if (lojaId === null) {
+      porCategoriaGeral.set(categoria, (porCategoriaGeral.get(categoria) ?? 0) + valor)
+    }
   }
 
   for (const s of saidasBanco) {
@@ -163,5 +172,8 @@ export function somarDespesas(
       .sort((a, b) => b.total - a.total),
     foraDoCalculo,
     porLoja,
+    porCategoriaGeral: [...porCategoriaGeral.entries()]
+      .map(([categoria, total]) => ({ categoria, total }))
+      .sort((a, b) => b.total - a.total),
   }
 }

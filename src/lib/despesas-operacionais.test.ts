@@ -216,3 +216,43 @@ test('sem a configuração de caixa, nada é excluído por engano', () => {
   const r = somarDespesas([], [], CONFIG, [{ valor: '90.00', categoria: 'Alimentação' }])
   assert.equal(r.total, 90)
 })
+
+// ── Geral (Empresa) por categoria ────────────────────────────────────────────
+// A despesa sem loja atribuída é a maior fatia do mês. Sem quebrar por categoria
+// ela fica como um número só, impossível de discutir no fechamento.
+
+test('separa por categoria só o que não tem loja', () => {
+  const r = somarDespesas(
+    [
+      saida({ valor: '-1000.00', categoria: 'Aluguel' }),                      // sem loja
+      saida({ valor: '-300.00',  categoria: 'Marketing' }),                    // sem loja
+      saida({ valor: '-500.00',  categoria: 'Aluguel', lojaId: 'loja-1' }),    // de loja
+    ],
+    [],
+    CONFIG,
+  )
+  assert.deepEqual(r.porCategoriaGeral, [
+    { categoria: 'Aluguel', total: 1000 },
+    { categoria: 'Marketing', total: 300 },
+  ])
+  // o total por categoria continua somando tudo
+  assert.deepEqual(r.porCategoria, [
+    { categoria: 'Aluguel', total: 1500 },
+    { categoria: 'Marketing', total: 300 },
+  ])
+})
+
+test('a soma do geral por categoria bate com o porLoja[null]', () => {
+  const r = somarDespesas(
+    [saida({ valor: '-700.00', categoria: 'Aluguel' }), saida({ valor: '-200.00', categoria: 'Internet' })],
+    [],
+    CONFIG,
+  )
+  const soma = r.porCategoriaGeral.reduce((s, c) => s + c.total, 0)
+  assert.equal(soma, r.porLoja.get(null))
+})
+
+test('tudo com loja atribuída deixa o geral vazio', () => {
+  const r = somarDespesas([saida({ valor: '-100.00', categoria: 'Água', lojaId: 'loja-1' })], [], CONFIG)
+  assert.deepEqual(r.porCategoriaGeral, [])
+})
