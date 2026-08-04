@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, vendas, vendasPecas, ordensServico } from '@/lib/db/schema'
+import { conciliacoesCartao, vendas, vendasPecas, ordensServico, grupos } from '@/lib/db/schema'
 import { eq, and, between, sql } from 'drizzle-orm'
-import type { PayloadConciliacao } from '@/lib/conciliacao-cartao'
+import { chaveDedup, type PayloadConciliacao } from '@/lib/conciliacao-cartao'
 
 const TOLERANCE = 0.05 // R$ 0,05 de tolerância no valor
 
@@ -13,10 +13,23 @@ export async function POST(req: NextRequest) {
   }
 
   const body: PayloadConciliacao = await req.json()
-  const { operadora, transacoes } = body
+  const { operadora, grupoCnpj, transacoes } = body
 
-  if (!operadora || !Array.isArray(transacoes) || transacoes.length === 0) {
+  if (!operadora || !grupoCnpj || !Array.isArray(transacoes) || transacoes.length === 0) {
     return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
+  }
+
+  // O grupo vem do payload, nunca do dado: cada grupo tem sua própria conta na
+  // operadora, e adivinhar pelo conteúdo já colocou transação de BH em Sul de
+  // Minas uma vez.
+  const [grupo] = await db
+    .select({ id: grupos.id })
+    .from(grupos)
+    .where(eq(grupos.cnpj, grupoCnpj))
+    .limit(1)
+
+  if (!grupo) {
+    return NextResponse.json({ error: `Grupo não encontrado para o CNPJ ${grupoCnpj}` }, { status: 400 })
   }
 
   let importadas = 0
@@ -27,12 +40,18 @@ export async function POST(req: NextRequest) {
     // Ignora transações não aprovadas
     if (!['aprovado', 'approved', 'captured', 'capturada'].includes(t.status.toLowerCase())) continue
 
-    // Evita duplicata pela chave (operadora, nsu)
-    if (t.nsu) {
+    // Duplicata: NSU é a chave natural; a Stone não manda NSU, então o id da
+    // operadora (guardado em rawData) evita reinserir a mesma venda a cada rodada.
+    const chave = chaveDedup(t)
+    if (chave) {
+      const condicao = chave.campo === 'nsu'
+        ? eq(conciliacoesCartao.nsu, chave.valor)
+        : sql`${conciliacoesCartao.rawData}->>'id' = ${chave.valor}`
+
       const [existente] = await db
         .select({ id: conciliacoesCartao.id })
         .from(conciliacoesCartao)
-        .where(and(eq(conciliacoesCartao.operadora, operadora), eq(conciliacoesCartao.nsu, t.nsu)))
+        .where(and(eq(conciliacoesCartao.operadora, operadora), condicao))
         .limit(1)
       if (existente) { duplicadas++; continue }
     }
@@ -96,12 +115,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Endpoint sem sessão de usuário (autenticado por secret) — não é possível
-    // derivar o grupo ativo. Fixo em Sul de Minas até este endpoint ser
-    // religado a uma automação específica de grupo.
     const matched = vendaId ?? pecaVendaId ?? osId
     await db.insert(conciliacoesCartao).values({
-      grupoId: '00000000-0000-4000-8000-000000000001',
+      grupoId: grupo.id,
       operadora,
       dataTransacao: t.dataTransacao,
       nsu: t.nsu ?? null,
