@@ -91,6 +91,21 @@ export const usuarios = pgTable('usuarios', {
   conecta: text('conecta'), // link individual do usuário (menu Conecta); nullable
 })
 
+// ─── usuarios_dados ──────────────────────────────────────────────────────────
+// Dado pessoal do funcionário, preenchido por ele mesmo em /completar-cadastro.
+// Fica em tabela separada de `usuarios` de propósito: getUsuarioLogado() faz
+// select() na linha inteira de `usuarios`, que circula pelo layout e chega a
+// componentes de cliente — CPF e chave PIX não podem pegar carona nisso.
+export const usuariosDados = pgTable('usuarios_dados', {
+  usuarioId:      uuid('usuario_id').primaryKey().references(() => usuarios.id),
+  cpf:            text('cpf').notNull(),          // só dígitos
+  pixTipo:        text('pix_tipo').notNull(),     // cpf | celular | email | aleatoria
+  pixChave:       text('pix_chave').notNull(),
+  dataNascimento: date('data_nascimento').notNull(),
+  preenchidoEm:   timestamp('preenchido_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm:   timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── modelos ─────────────────────────────────────────────────────────────────
 export const modelos = pgTable('modelos', {
   id: uuid('id').primaryKey().defaultRandom(),
