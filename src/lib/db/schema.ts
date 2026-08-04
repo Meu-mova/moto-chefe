@@ -441,6 +441,10 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
   // false = saída real, mas não é custo de operar a loja (compra de mercadoria,
   // retirada de sócio). Fica de fora do card Despesas Operacionais do /financeiro.
   contaComoDespesa: boolean('conta_como_despesa').notNull().default(true),
+  // Por que fica fora: 'retirada_socio' | 'compra_moto' | 'transferencia_interna'.
+  // Sem isto, tudo que sai do cálculo vira um balaio só e não dá pra separar
+  // retirada de sócio de compra de mercadoria no relatório.
+  motivoNaoOperacional: text('motivo_nao_operacional'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

@@ -37,6 +37,11 @@ export type ConfigDespesas = {
   cnpjsForaDoCalculo: Map<string, MotivoForaDoCalculo>
   /** Categorias de CAIXA com conta_como_despesa = false (ex.: "Depósito"). */
   categoriasCaixaForaDoCalculo?: Set<string>
+  /**
+   * Categoria → por que ela fica fora. Sem isto tudo cai em 'categoria_marcada'
+   * e não dá pra separar retirada de sócio de compra de mercadoria.
+   */
+  motivoPorCategoria?: Map<string, MotivoForaDoCalculo>
 }
 
 /**
@@ -66,7 +71,7 @@ export function motivoForaDoCalculo(
   config: ConfigDespesas,
 ): MotivoForaDoCalculo | null {
   if (saida.categoria && config.categoriasForaDoCalculo.has(saida.categoria)) {
-    return 'categoria_marcada'
+    return config.motivoPorCategoria?.get(saida.categoria) ?? 'categoria_marcada'
   }
 
   // O CNPJ aparece formatado de um jeito no favorecido ("53.780.554 0001-15") e de outro
@@ -99,6 +104,11 @@ export type TotalDespesas = {
    * despesa e a mais opaca — sem isso, "Geral (Empresa)" é um número só.
    */
   porCategoriaGeral: { categoria: string; total: number }[]
+  /**
+   * O que saiu do cálculo, quebrado por categoria e motivo. Permite montar o
+   * quadro de retiradas sem chumbar nome de sócio no código.
+   */
+  foraPorCategoria: { categoria: string; motivo: MotivoForaDoCalculo; total: number }[]
 }
 
 const SEM_CATEGORIA = 'Sem categoria'
@@ -125,6 +135,17 @@ export function somarDespesas(
   }
   let total = 0
 
+  // Uma categoria só tem um motivo, então ela basta como chave — nada de
+  // concatenar motivo+categoria numa string e ter que desfazer o parse depois.
+  const foraPorCategoria = new Map<string, { motivo: MotivoForaDoCalculo; total: number }>()
+  const registrarFora = (motivo: MotivoForaDoCalculo, categoria: string | null, valor: number) => {
+    foraDoCalculo[motivo] += valor
+    const chave = categoria || SEM_CATEGORIA
+    const atual = foraPorCategoria.get(chave)
+    if (atual) atual.total += valor
+    else foraPorCategoria.set(chave, { motivo, total: valor })
+  }
+
   const somar = (categoria: string, lojaId: string | null, valor: number) => {
     total += valor
     porCategoria.set(categoria, (porCategoria.get(categoria) ?? 0) + valor)
@@ -138,7 +159,7 @@ export function somarDespesas(
     const motivo = motivoForaDoCalculo(s, config)
     const valor = valorDespesa(s.valor)
     if (motivo) {
-      foraDoCalculo[motivo] += valor
+      registrarFora(motivo, s.categoria, valor)
       continue
     }
     somar(s.categoria || SEM_CATEGORIA, s.lojaId ?? null, valor)
@@ -148,7 +169,8 @@ export function somarDespesas(
     // O lançamento manual não tem favorecido nem descrição de extrato — só a categoria
     // pode tirá-lo do cálculo.
     if (config.categoriasForaDoCalculo.has(m.categoria)) {
-      foraDoCalculo.categoria_marcada += valorDespesa(m.valor)
+      const motivo = config.motivoPorCategoria?.get(m.categoria) ?? 'categoria_marcada'
+      registrarFora(motivo, m.categoria, valorDespesa(m.valor))
       continue
     }
     somar(m.categoria || SEM_CATEGORIA, m.lojaId ?? null, valorDespesa(m.valor))
@@ -159,7 +181,7 @@ export function somarDespesas(
   const caixaFora = config.categoriasCaixaForaDoCalculo ?? new Set<string>()
   for (const c of caixa) {
     if (caixaFora.has(c.categoria)) {
-      foraDoCalculo.caixa_nao_despesa += valorDespesa(c.valor)
+      registrarFora('caixa_nao_despesa', c.categoria, valorDespesa(c.valor))
       continue
     }
     somar(c.categoria || SEM_CATEGORIA, c.lojaId ?? null, valorDespesa(c.valor))
@@ -174,6 +196,9 @@ export function somarDespesas(
     porLoja,
     porCategoriaGeral: [...porCategoriaGeral.entries()]
       .map(([categoria, total]) => ({ categoria, total }))
+      .sort((a, b) => b.total - a.total),
+    foraPorCategoria: [...foraPorCategoria.entries()]
+      .map(([categoria, { motivo, total }]) => ({ categoria, motivo, total }))
       .sort((a, b) => b.total - a.total),
   }
 }

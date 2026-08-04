@@ -256,3 +256,65 @@ test('tudo com loja atribuída deixa o geral vazio', () => {
   const r = somarDespesas([saida({ valor: '-100.00', categoria: 'Água', lojaId: 'loja-1' })], [], CONFIG)
   assert.deepEqual(r.porCategoriaGeral, [])
 })
+
+// ── Motivo por categoria ─────────────────────────────────────────────────────
+// Categoria com nome de sócio é retirada; compra de moto é mercadoria. Sem
+// separar o motivo, tudo caía em 'categoria_marcada' e o quadro de retiradas
+// teria que adivinhar quais categorias são de sócio pelo nome.
+
+const CONFIG_MOTIVO: ConfigDespesas = {
+  categoriasForaDoCalculo: new Set(['Cesar', 'Mateus', 'Compra de Motos']),
+  cnpjsForaDoCalculo: new Map(),
+  motivoPorCategoria: new Map<string, 'retirada_socio' | 'compra_moto'>([
+    ['Cesar', 'retirada_socio'],
+    ['Mateus', 'retirada_socio'],
+    ['Compra de Motos', 'compra_moto'],
+  ]),
+}
+
+test('categoria de sócio conta como retirada, não como "categoria marcada"', () => {
+  const r = somarDespesas([saida({ valor: '-13000.00', categoria: 'Mateus' })], [], CONFIG_MOTIVO)
+  assert.equal(r.foraDoCalculo.retirada_socio, 13000)
+  assert.equal(r.foraDoCalculo.categoria_marcada, 0)
+})
+
+test('quebra o que ficou fora por categoria e motivo', () => {
+  const r = somarDespesas(
+    [
+      saida({ valor: '-66956.52', categoria: 'Cesar' }),
+      saida({ valor: '-13652.17', categoria: 'Mateus' }),
+      saida({ valor: '-250000.00', categoria: 'Compra de Motos' }),
+    ],
+    [],
+    CONFIG_MOTIVO,
+  )
+  const retiradas = r.foraPorCategoria.filter(f => f.motivo === 'retirada_socio')
+  assert.deepEqual(retiradas, [
+    { motivo: 'retirada_socio', categoria: 'Cesar', total: 66956.52 },
+    { motivo: 'retirada_socio', categoria: 'Mateus', total: 13652.17 },
+  ])
+  assert.equal(r.foraPorCategoria.find(f => f.motivo === 'compra_moto')?.total, 250000)
+})
+
+test('mesma categoria em origens diferentes soma numa linha só', () => {
+  const r = somarDespesas(
+    [saida({ valor: '-1000.00', categoria: 'Cesar' })],
+    [{ valor: '-500.00', categoria: 'Cesar' }],
+    CONFIG_MOTIVO,
+  )
+  const cesar = r.foraPorCategoria.filter(f => f.categoria === 'Cesar')
+  assert.equal(cesar.length, 1)
+  assert.equal(cesar[0].total, 1500)
+})
+
+test('sem o mapa de motivos, o comportamento antigo se mantém', () => {
+  const r = somarDespesas([saida({ valor: '-5000.00', categoria: 'Compra de Motos' })], [], CONFIG)
+  assert.equal(r.foraDoCalculo.categoria_marcada, 5000)
+})
+
+test('retirada detectada pela descrição também aparece na quebra', () => {
+  const r = somarDespesas([saida({ valor: '-30000.00', descricao: 'Retirada Cesar abril' })], [], CONFIG_MOTIVO)
+  const f = r.foraPorCategoria.find(x => x.motivo === 'retirada_socio')
+  assert.equal(f?.total, 30000)
+  assert.equal(f?.categoria, 'Sem categoria')
+})

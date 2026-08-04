@@ -12,6 +12,7 @@ import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
 import { ResumoDespesasPorLoja } from './components/resumo-despesas-loja'
 import { ResumoDespesasGeral } from './components/resumo-despesas-geral'
+import { ResumoRetiradas } from './components/resumo-retiradas'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 
@@ -182,7 +183,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
     // Regras de exclusão: categorias marcadas + CNPJ de fábrica.
     db
-      .select({ nome: categoriasDespesa.nome })
+      .select({ nome: categoriasDespesa.nome, motivo: categoriasDespesa.motivoNaoOperacional })
       .from(categoriasDespesa)
       .where(eq(categoriasDespesa.contaComoDespesa, false)),
 
@@ -280,6 +281,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       categoriasForaDoCalculo:      new Set(categoriasForaRows.map(c => c.nome)),
       cnpjsForaDoCalculo:           new Map(cnpjsForaRows.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
       categoriasCaixaForaDoCalculo: new Set(categoriasCaixaForaRows.map(c => c.nome)),
+      motivoPorCategoria: new Map(
+        categoriasForaRows
+          .filter(c => c.motivo)
+          .map(c => [c.nome, c.motivo as MotivoForaDoCalculo]),
+      ),
     },
     saidasCaixa,
   )
@@ -492,6 +498,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         <ResumoDespesas resumo={resumoDespesas} />
         <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />
         <ResumoDespesasGeral porCategoriaGeral={resumoDespesas.porCategoriaGeral} />
+        <ResumoRetiradas
+          foraPorCategoria={resumoDespesas.foraPorCategoria}
+          lucroLiquido={lucroLiquido}
+        />
       </div>
 
     </div>

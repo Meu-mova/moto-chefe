@@ -2,6 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { ResumoResultado } from '@/lib/resultado-por-loja'
 
+/** Sem "R$" na célula: o símbolo repetido 8 vezes por linha só rouba largura. */
+function num(v: number) {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -10,37 +15,50 @@ function corDoLucro(v: number) {
   return v < 0 ? 'text-red-600' : 'text-emerald-700'
 }
 
+function corDaMargem(m: number) {
+  if (m < 0) return 'bg-red-50 text-red-700'
+  if (m < 5) return 'bg-amber-50 text-amber-700'
+  return 'bg-emerald-50 text-emerald-700'
+}
+
 export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
-  const { lojas, totais, despesaGeralRateada } = resultado
-  const semCusto = lojas.reduce((a, l) => a + l.qtdSemCusto, 0)
+  const { totais, despesaGeralRateada } = resultado
+  const semCusto = resultado.lojas.reduce((a, l) => a + l.qtdSemCusto, 0)
+
+  // Ordenado por resultado, não por nome: num fechamento a pergunta é qual loja
+  // puxa e qual pesa, e isso some numa lista alfabética.
+  const lojas = [...resultado.lojas].sort((a, b) => b.lucroLiquido - a.lucroLiquido)
+
+  // Referência pra barra de comparação — a loja que mais lucrou define a escala.
+  const maiorLucro = Math.max(...lojas.map(l => Math.abs(l.lucroLiquido)), 1)
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Resultado por Loja</CardTitle>
         <p className="text-xs text-slate-400">
-          receita líquida − custo das motos − despesas
+          receita líquida − custo das motos − despesas · valores em R$ · da maior para a menor
         </p>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Loja</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="sticky left-0 bg-white z-10">Loja</TableHead>
                 <TableHead className="text-right">Vendas</TableHead>
                 <TableHead className="text-right">Receita</TableHead>
                 <TableHead className="text-right">Custo motos</TableHead>
                 <TableHead className="text-right">Lucro bruto</TableHead>
                 <TableHead className="text-right">Despesas</TableHead>
                 <TableHead className="text-right">Lucro líquido</TableHead>
-                <TableHead className="text-right">Margem</TableHead>
+                <TableHead className="text-right w-28">Margem</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {lojas.map(l => (
-                <TableRow key={l.lojaId}>
-                  <TableCell className="font-medium whitespace-nowrap">
+                <TableRow key={l.lojaId} className="even:bg-slate-50/40">
+                  <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-inherit z-10">
                     {l.lojaNome}
                     {l.qtdSemCusto > 0 && (
                       <span
@@ -51,42 +69,65 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{l.qtdVendas}</TableCell>
-                  <TableCell className="text-right font-mono">{fmt(l.receitaLiquida)}</TableCell>
-                  <TableCell className="text-right font-mono text-slate-500">{fmt(l.custoMotos)}</TableCell>
-                  <TableCell className="text-right font-mono">{fmt(l.lucroBruto)}</TableCell>
-                  <TableCell className="text-right font-mono text-slate-500">
-                    {fmt(l.despesaPropria + l.despesaRateada)}
+                  <TableCell className="text-right tabular-nums text-slate-500">{l.qtdVendas}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{num(l.receitaLiquida)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-slate-400">
+                    {num(l.custoMotos)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{num(l.lucroBruto)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-slate-400">
+                    {num(l.despesaPropria + l.despesaRateada)}
                     {l.despesaRateada > 0 && (
                       <span
                         className="block text-[10px] text-slate-400"
                         title="Parte da despesa que não tem loja atribuída no Importar do Banco, rateada pelo faturamento"
                       >
-                        rateio {fmt(l.despesaRateada)}
+                        rateio {num(l.despesaRateada)}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${corDoLucro(l.lucroLiquido)}`}>
-                    {fmt(l.lucroLiquido)}
+                  <TableCell className={`text-right font-mono tabular-nums font-semibold ${corDoLucro(l.lucroLiquido)}`}>
+                    {num(l.lucroLiquido)}
+                    {/* Barra proporcional: compara as lojas de relance, sem ler número por número */}
+                    <span className="block mt-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                      <span
+                        className={`block h-full rounded-full ${l.lucroLiquido < 0 ? 'bg-red-400' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min(100, (Math.abs(l.lucroLiquido) / maiorLucro) * 100)}%` }}
+                      />
+                    </span>
                   </TableCell>
-                  <TableCell className={`text-right font-mono ${l.margem === null ? 'text-slate-400' : corDoLucro(l.margem)}`}>
-                    {l.margem === null ? '—' : `${l.margem.toFixed(1)}%`}
+                  <TableCell className="text-right">
+                    {l.margem === null ? (
+                      <span className="text-slate-400">—</span>
+                    ) : (
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${corDaMargem(l.margem)}`}>
+                        {l.margem.toFixed(1)}%
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
 
-              <TableRow className="border-t-2 border-slate-200 font-semibold bg-slate-50/60">
-                <TableCell>Total</TableCell>
-                <TableCell className="text-right">{lojas.reduce((a, l) => a + l.qtdVendas, 0)}</TableCell>
-                <TableCell className="text-right font-mono">{fmt(totais.receitaLiquida)}</TableCell>
-                <TableCell className="text-right font-mono text-slate-500">{fmt(totais.custoMotos)}</TableCell>
-                <TableCell className="text-right font-mono">{fmt(totais.lucroBruto)}</TableCell>
-                <TableCell className="text-right font-mono text-slate-500">{fmt(totais.despesa)}</TableCell>
-                <TableCell className={`text-right font-mono ${corDoLucro(totais.lucroLiquido)}`}>
-                  {fmt(totais.lucroLiquido)}
+              <TableRow className="border-t-2 border-slate-300 font-semibold bg-slate-100/70 hover:bg-slate-100/70">
+                <TableCell className="sticky left-0 bg-slate-100/70 z-10">Total</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {lojas.reduce((a, l) => a + l.qtdVendas, 0)}
                 </TableCell>
-                <TableCell className={`text-right font-mono ${totais.margem === null ? 'text-slate-400' : corDoLucro(totais.margem)}`}>
-                  {totais.margem === null ? '—' : `${totais.margem.toFixed(1)}%`}
+                <TableCell className="text-right font-mono tabular-nums">{num(totais.receitaLiquida)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-slate-500">{num(totais.custoMotos)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{num(totais.lucroBruto)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-slate-500">{num(totais.despesa)}</TableCell>
+                <TableCell className={`text-right font-mono tabular-nums ${corDoLucro(totais.lucroLiquido)}`}>
+                  {num(totais.lucroLiquido)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {totais.margem === null ? (
+                    <span className="text-slate-400">—</span>
+                  ) : (
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${corDaMargem(totais.margem)}`}>
+                      {totais.margem.toFixed(1)}%
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             </TableBody>
