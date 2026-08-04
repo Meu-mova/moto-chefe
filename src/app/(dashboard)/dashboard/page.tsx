@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { db } from '@/lib/db'
-import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig } from '@/lib/db/schema'
-import { eq, or, sql } from 'drizzle-orm'
+import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
+import { eq, or, sql, and, count, gte, lt, inArray } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
@@ -16,6 +16,8 @@ import { placarVendedor, fechamentoSemTarefa } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
 import { PlacarVendedor } from './components/placar-vendedor'
 import { AlertaFechamento } from './components/alerta-fechamento'
+import { MetaMesCards } from './components/meta-mes-cards'
+import { calcularProjecao, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
 import { KpiCards } from './components/kpi-cards'
@@ -217,6 +219,46 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
+// Meta de motos do mês da bandeira ativa, com projeção de fechamento no ritmo atual.
+// Sempre o mês corrente, independente do filtro de período do dashboard: meta é do mês,
+// não do intervalo que o usuário escolheu olhar.
+async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null } }) {
+  const grupo = await getGrupoAtivo(usuario)
+  if (!grupo.metaMotosMes) return null
+
+  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
+  if (lojaIds.length === 0) return null
+
+  const { ano, mes, dia } = hojeEmBrasilia()
+  const inicioMes = new Date(Date.UTC(ano, mes - 1, 1))
+  const inicioProximoMes = new Date(Date.UTC(ano, mes, 1))
+  const inicioHoje = new Date(Date.UTC(ano, mes - 1, dia))
+  const inicioAmanha = new Date(Date.UTC(ano, mes - 1, dia + 1))
+
+  const [[doMes], [deHoje]] = await Promise.all([
+    db.select({ qtd: count() }).from(vendas).where(and(
+      inArray(vendas.lojaId, lojaIds),
+      gte(vendas.dataVenda, inicioMes),
+      lt(vendas.dataVenda, inicioProximoMes),
+    )),
+    db.select({ qtd: count() }).from(vendas).where(and(
+      inArray(vendas.lojaId, lojaIds),
+      gte(vendas.dataVenda, inicioHoje),
+      lt(vendas.dataVenda, inicioAmanha),
+    )),
+  ])
+
+  const projecao = calcularProjecao({
+    meta: grupo.metaMotosMes,
+    vendidas: Number(doMes?.qtd ?? 0),
+    ano, mes, dia,
+  })
+
+  return (
+    <MetaMesCards projecao={projecao} grupoNome={grupo.nome} vendasHoje={Number(deHoje?.qtd ?? 0)} />
+  )
+}
+
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 // Placar de atendimento (Kommo) do vendedor logado — só lê o cache, não sincroniza.
@@ -355,6 +397,14 @@ export default async function DashboardPage({
         <SectionErrorBoundary key={`placar-${filtroKey}`} label="o placar de atendimento">
           <Suspense fallback={null}>
             <PlacarSection usuario={usuario} dataInicio={dataInicio} dataFim={dataFim} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
+
+      {isAdmin && (
+        <SectionErrorBoundary label="a meta do mês">
+          <Suspense fallback={null}>
+            <MetaSection usuario={usuario} />
           </Suspense>
         </SectionErrorBoundary>
       )}

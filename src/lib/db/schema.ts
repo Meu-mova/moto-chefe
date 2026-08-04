@@ -45,6 +45,8 @@ export const grupos = pgTable('grupos', {
   blingClientSecret:  text('bling_client_secret'),
   // Chat/grupo do Telegram que recebe os avisos desta bandeira. Nulo = não avisa.
   telegramChatId:     text('telegram_chat_id'),
+  // Meta de motos vendidas no mês desta bandeira. Nulo = sem meta, o card não aparece.
+  metaMotosMes:       integer('meta_motos_mes'),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────

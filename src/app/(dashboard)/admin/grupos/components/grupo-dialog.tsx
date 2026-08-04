@@ -21,6 +21,7 @@ type Grupo = {
   blingClientId: string | null
   blingClientSecret: string | null
   telegramChatId: string | null
+  metaMotosMes: number | null
 }
 
 type Props = {
@@ -44,6 +45,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
   const [telegramChatId, setTelegramChatId] = useState(inicial?.telegramChatId ?? '')
+  const [metaMotosMes, setMetaMotosMes] = useState(inicial?.metaMotosMes != null ? String(inicial.metaMotosMes) : '')
 
   async function handleSalvar() {
     if (!nome.trim() || !cnpj.trim()) {
@@ -52,7 +54,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret, telegramChatId }
+      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret, telegramChatId, metaMotosMes }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -127,6 +129,20 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               <p className="text-[11px] text-slate-400">
                 Crie um grupo no Telegram, adicione o @MovaMC_bot e envie <code>/chatid</code> lá — ele
                 responde o número para colar aqui. Em branco, esta bandeira não recebe avisos.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Meta de motos no mês</Label>
+              <Input
+                type="number"
+                min={0}
+                value={metaMotosMes}
+                onChange={e => setMetaMotosMes(e.target.value)}
+                placeholder="200"
+                className="h-9 text-sm w-32"
+              />
+              <p className="text-[11px] text-slate-400">
+                Aparece no dashboard dos sócios com a projeção de fechamento. Em branco, o card não aparece.
               </p>
             </div>
             <p className="text-xs text-slate-400">
