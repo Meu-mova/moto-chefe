@@ -1,6 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { db } from '@/lib/db'
+import { db, execRows } from '@/lib/db'
 import { vendas, lojas, usuarios, motos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
 import { eq, ne, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
@@ -126,7 +126,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .groupBy(vendas.vendedorId, usuarios.nome)
       .orderBy(sql`SUM(${vendas.valor}::numeric) DESC`),
 
-    db.execute(sql`
+    execRows(sql`
       SELECT
         p.tipo,
         COALESCE(SUM(p.valor::numeric), 0)::text AS total,
@@ -225,7 +225,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     // vendas; estas duas não tinham de onde sair porque o faturamento antes era só moto.
     // Ancorado na data da venda/conclusão, não na data da transação no extrato, pra taxa
     // e receita caírem sempre no mesmo mês.
-    db.execute(sql`
+    execRows(sql`
       SELECT COALESCE(SUM(c.valor_bruto::numeric - COALESCE(c.valor_liquido::numeric, c.valor_bruto::numeric)), 0)::text AS taxa
       FROM ${conciliacoesCartao} c
       WHERE c.conciliado = true

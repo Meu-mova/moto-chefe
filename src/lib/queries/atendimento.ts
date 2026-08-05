@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { db, execRows } from '@/lib/db'
 import { kommoLeads, kommoUserMap, usuarios, kommoAtividadeDiaria } from '@/lib/db/schema'
 import { sql, eq, and, gte, lte, inArray } from 'drizzle-orm'
 
@@ -121,7 +121,7 @@ export async function placarVendedor(usuarioId: string, inicio: Date, fim: Date,
 // sobre leads criados no período do grupo que tiveram 1ª mensagem do cliente.
 export async function slaAtendimento(inicio: Date, fim: Date, lojaIds: string[]) {
   if (lojaIds.length === 0) return { sla5: 0, sla15: 0, sla60: 0, slaMais: 0, semResposta: 0, respondidos: 0 }
-  const rows = await db.execute(sql`
+  const rows = await execRows(sql`
     SELECT
       count(*) filter (where dt < 300)                as sla5,
       count(*) filter (where dt >= 300 and dt < 900)  as sla15,
@@ -177,7 +177,7 @@ export async function fechamentoSemTarefa(lojaIds: string[], usuarioId?: string,
   }
   if (lojaIds.length === 0) return vazio
 
-  const rows = await db.execute(sql`
+  const rows = await execRows(sql`
     SELECT
       l.lead_id                                   as lead_id,
       coalesce(nullif(l.nome, ''), '(sem nome)')  as nome,
@@ -245,7 +245,7 @@ export async function fechamentoSemTarefa(lojaIds: string[], usuarioId?: string,
 // Funis em que nenhuma etapa casou com "interesse"/"negocia" — provavelmente
 // etapa renomeada no Kommo. Alimenta o aviso na página Atendimento.
 export async function funisSemEtapaDetectada(): Promise<string[]> {
-  const rows = await db.execute(sql`
+  const rows = await execRows(sql`
     SELECT coalesce(pipeline_nome, '(sem nome)') as funil
     FROM kommo_stages
     GROUP BY pipeline_id, pipeline_nome
@@ -258,7 +258,7 @@ export async function funisSemEtapaDetectada(): Promise<string[]> {
 // Motivos de perda no período (leads perdidos fechados no período), do grupo.
 export async function motivosDePerda(inicio: Date, fim: Date, lojaIds: string[]) {
   if (lojaIds.length === 0) return { motivos: [] as { motivo: string; qtd: number }[], total: 0, semMotivo: 0 }
-  const rows = await db.execute(sql`
+  const rows = await execRows(sql`
     SELECT coalesce(r.nome, '(não informado)') as motivo, count(*)::int as qtd,
            bool_or(l.loss_reason_id is null) as vazio
     FROM kommo_leads l

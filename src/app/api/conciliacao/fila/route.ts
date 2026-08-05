@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { db, execRows } from '@/lib/db'
 import { importacoesCartao, grupos } from '@/lib/db/schema'
 import { eq, and, inArray, sql } from 'drizzle-orm'
 import { somenteDigitos } from '@/lib/grupo-cnpj'
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     .limit(1)
   if (!grupo) return NextResponse.json({ error: 'Grupo não encontrado' }, { status: 400 })
 
-  const linhas = await db.execute(sql`
+  const linhas = await execRows(sql`
     UPDATE importacoes_cartao
        SET status = 'rodando', iniciado_em = now()
      WHERE id = (

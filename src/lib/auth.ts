@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { db, keepDbAlive } from '@/lib/db'
+import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
@@ -18,11 +18,6 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 export const getUsuarioLogado = cache(async () => {
-  // Mantém a instância do Fluid viva o suficiente para as conexões do banco
-  // fecharem antes da suspensão, evitando conexões congeladas em ClientRead que
-  // travam as páginas pesadas (folha/estoque). Ver keepDbAlive em @/lib/db.
-  keepDbAlive()
-
   const supabase = await createClient()
   // getUser() é uma chamada HTTP ao auth do Supabase; sem timeout, um soluço dela
   // pendura a página até os 300s. Estoura rápido → error boundary "Tentar de novo".

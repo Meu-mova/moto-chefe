@@ -1,54 +1,57 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
+import { attachDatabasePool } from '@vercel/functions'
 import postgres from 'postgres'
-import { waitUntil } from '@vercel/functions'
+import type { SQL } from 'drizzle-orm'
 import * as schema from './schema'
 
-// Pool para o serverless/Fluid da Vercel + pooler Supavisor (6543, transaction mode).
+// ─── Pool principal: node-postgres (pg) + attachDatabasePool ───────────────────
+// Driver `pg` (não postgres.js) para poder usar o attachDatabasePool OFICIAL da
+// Vercel. Ele gerencia o ciclo do Fluid Compute: libera as conexões antes da
+// instância suspender, em vez de deixá-las congeladas em `active/ClientRead`
+// segurando o pooler — que era o que travava /folha e /estoque (confirmado em
+// pg_stat_activity: query presa 84-99s). O attachDatabasePool NÃO suporta
+// postgres.js, por isso a troca. Ver memória project-conexao-banco.
 //
-// Duas coisas importam, e as duas já foram causa de incidente:
-//  - `max_lifetime`: recicla a conexão após 60s. Sem ele, worker da Vercel que
-//    congela segura a conexão indefinidamente e o pool esgota (incidente da folha,
-//    2026-08-04). NUNCA remover.
-//  - `max` NÃO pode ser baixo demais. O pooler é transaction mode: o Supavisor
-//    multiplexa muitas conexões de cliente sobre poucos backends, então `max` alto
-//    do lado do cliente é seguro (não é conexão direta). Com `max:3`, uma instância
-//    reutilizada pelo Fluid cujas 3 conexões ficaram presas em ClientRead trava
-//    TODA query nova até o timeout — foi o que travou o /estoque em 2026-08-05.
-//    10 dá folga para a instância seguir servindo mesmo com algumas presas.
-//
-// Ver memória project-conexao-banco. Mexer aqui só com evidência de pg_stat_activity.
-const globalForDb = globalThis as unknown as { __dbClient?: ReturnType<typeof postgres> }
+// `pg` funciona com o pooler Supavisor (6543, transaction mode): protocolo
+// estendido com statements sem nome, aceito pelo pooler (testado antes de trocar).
+const globalForDb = globalThis as unknown as {
+  __pgPool?: Pool
+  __pgClient?: ReturnType<typeof postgres>
+}
 
-export const client =
-  globalForDb.__dbClient ??
-  postgres(process.env.DATABASE_URL!, {
+const pool =
+  globalForDb.__pgPool ??
+  new Pool({
+    connectionString: process.env.DATABASE_URL!,
     max: 10,
-    prepare: false,      // obrigatório para o pooler Supavisor (transaction mode)
-    idle_timeout: 10,    // fecha conexão ociosa em 10s (curto, para fechar antes da suspensão do Fluid)
-    max_lifetime: 60,    // recicla conexões; worker congelado não segura backend pra sempre
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 15_000,
+  })
+globalForDb.__pgPool = pool
+attachDatabasePool(pool)
+
+export const db = drizzle(pool, { schema })
+
+// drizzle-orm/node-postgres: db.execute() retorna { rows } em runtime, mas o TIPO
+// do drizzle diz array — descompasso conhecido. Este helper devolve as linhas
+// (array), como o postgres.js fazia, mantendo os call sites de SQL cru simples.
+export async function execRows(query: SQL): Promise<any[]> {
+  const res = (await db.execute(query)) as unknown as { rows: any[] }
+  return res.rows
+}
+
+// ─── postgres.js: só para o Jarvis ─────────────────────────────────────────────
+// O Jarvis (consulta read-only por linguagem natural e a rota de schema) usa a API
+// de tagged-template do postgres.js (`client.begin`, `client\`...\``), que o `pg`
+// não tem. Pool pequeno e separado — read-only e de baixo tráfego.
+export const client =
+  globalForDb.__pgClient ??
+  postgres(process.env.DATABASE_URL!, {
+    max: 2,
+    prepare: false,
+    idle_timeout: 20,
+    max_lifetime: 60,
     connect_timeout: 15,
   })
-
-// Cache do pool no worker: não recria pool a cada avaliação do módulo.
-globalForDb.__dbClient = client
-
-export const db = drizzle(client, { schema })
-
-// ─── Keep-alive contra o congelamento do Fluid Compute ─────────────────────────
-// O Fluid suspende a instância entre requests (e durante I/O), congelando conexões
-// do postgres.js em `active/ClientRead` — foi o que travava /folha e /estoque
-// (confirmado em pg_stat_activity: query presa 84-99s esperando o cliente
-// congelado ler). O `attachDatabasePool` oficial da Vercel resolve isso, mas só
-// suporta pg/mysql/mongo/redis, NÃO postgres.js.
-//
-// keepDbAlive replica o efeito: registra um waitUntil que segura a instância viva
-// por ~12s após ser chamada, dando tempo do idle_timeout (10s) FECHAR as conexões
-// ociosas antes da suspensão — em vez de deixá-las congeladas segurando o pooler.
-// Chamado no getUsuarioLogado, que roda no início de todo request de página.
-export function keepDbAlive() {
-  try {
-    waitUntil(new Promise<void>((resolve) => setTimeout(resolve, 12_000)))
-  } catch {
-    // Fora de um contexto de request (build local, scripts): ignora.
-  }
-}
+globalForDb.__pgClient = client

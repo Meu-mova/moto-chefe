@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { db, execRows } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
@@ -72,7 +72,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
 
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
   const valorV = useLiquido ? valorLiquidoExpr() : sql`${vendas.valor}`
-  const rows = await db.execute(sql`
+  const rows = await execRows(sql`
     SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${valorV}), 0)::numeric AS val FROM ${vendas} WHERE ${vendasCond}
     UNION ALL
     SELECT 'e',        count(*)::int,     coalesce(sum(${motos.precoCompra}),  0)::numeric        FROM ${motos}          WHERE ${estoqueCond}
