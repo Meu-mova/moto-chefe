@@ -25,9 +25,9 @@
 |---|---|
 | `scripts/sql.ts` | **Novo.** Roda um arquivo `.sql` ou uma consulta avulsa contra a `DATABASE_URL` — único caminho de migração que resta |
 | `src/lib/db/schema.ts` | Colunas novas em `lojas` e `pedidos_fabrica_alerta`; remoção das colunas de fábrica em `grupos` |
-| `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql` | Colunas em `lojas` + cópia da credencial do BH |
-| `src/lib/db/migrations/0040_pedidos_fabrica_alerta_loja.sql` | `loja_id` no controle de alertas + troca da unique |
-| `src/lib/db/migrations/0041_grupos_sem_fabrica.sql` | Remove `fabrica_email`/`fabrica_senha` de `grupos` |
+| `src/lib/db/migrations/0044_fabrica_credencial_por_loja.sql` | Colunas em `lojas` + cópia da credencial do BH |
+| `src/lib/db/migrations/0045_pedidos_fabrica_alerta_loja.sql` | `loja_id` no controle de alertas + troca da unique |
+| `src/lib/db/migrations/0046_grupos_sem_fabrica.sql` | Remove `fabrica_email`/`fabrica_senha` de `grupos` |
 | `src/lib/fabrica-contas.ts` | **Novo.** Única regra de escopo: quais contas do portal cada usuário usa |
 | `src/lib/fabrica-contas.test.ts` | **Novo.** Testa a regra de escopo (onde um erro vazaria dado entre lojas) |
 | `src/lib/fabrica-scraper.ts` | Credencial vira obrigatória em `loginFabrica` |
@@ -46,7 +46,7 @@
 
 **Files:**
 - Create: `scripts/sql.ts`
-- Create: `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql`
+- Create: `src/lib/db/migrations/0044_fabrica_credencial_por_loja.sql`
 - Modify: `src/lib/db/schema.ts:71-81` (tabela `lojas`)
 
 **Interfaces:**
@@ -125,7 +125,7 @@ Esperado: `[{"lojas": 8}]`.
 
 - [ ] **Step 2: Escrever o arquivo de migração**
 
-Criar `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql`:
+Criar `src/lib/db/migrations/0044_fabrica_credencial_por_loja.sql`:
 
 ```sql
 -- O portal da fábrica passou a ter um cadastro por loja, não mais por bandeira.
@@ -148,7 +148,7 @@ where l."grupo_id" = g."id"
 - [ ] **Step 3: Aplicar a migração**
 
 ```bash
-npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0039_fabrica_credencial_por_loja.sql
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0044_fabrica_credencial_por_loja.sql
 ```
 
 Expected: `OK — sem linhas de retorno`. Não rodar `npm run db:migrate`.
@@ -207,7 +207,7 @@ Expected: sem erros.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add scripts/sql.ts src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql src/lib/db/schema.ts
+git add scripts/sql.ts src/lib/db/migrations/0044_fabrica_credencial_por_loja.sql src/lib/db/schema.ts
 git commit -m "feat(fabrica): credencial do portal passa a ser por loja"
 ```
 
@@ -870,7 +870,7 @@ git commit -m "feat(garantias): importar da fabrica varre as contas do escopo"
 ### Task 6: Alerta de pedidos de compra por loja
 
 **Files:**
-- Create: `src/lib/db/migrations/0040_pedidos_fabrica_alerta_loja.sql`
+- Create: `src/lib/db/migrations/0045_pedidos_fabrica_alerta_loja.sql`
 - Modify: `src/lib/db/schema.ts:58-68` (`pedidosFabricaAlerta`)
 - Modify: `src/lib/telegram/pedidos-fabrica.ts`
 - Modify: `src/lib/telegram/pedidos-fabrica.test.ts:86-121`
@@ -885,7 +885,7 @@ git commit -m "feat(garantias): importar da fabrica varre as contas do escopo"
 
 - [ ] **Step 1: Escrever a migração**
 
-Criar `src/lib/db/migrations/0040_pedidos_fabrica_alerta_loja.sql`:
+Criar `src/lib/db/migrations/0045_pedidos_fabrica_alerta_loja.sql`:
 
 ```sql
 -- O alerta passou a ser por loja: cada loja tem sua conta no portal e sua
@@ -922,7 +922,7 @@ Esperado: nenhuma linha, ou só `BH` — o Sul de Minas nunca teve credencial no
 - [ ] **Step 3: Aplicar a migração**
 
 ```bash
-npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0040_pedidos_fabrica_alerta_loja.sql
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0045_pedidos_fabrica_alerta_loja.sql
 ```
 
 Expected: `OK — sem linhas de retorno`.
@@ -1171,7 +1171,7 @@ Expected: PASS e sem erros de tipo.
 - [ ] **Step 12: Commit**
 
 ```bash
-git add src/lib/db/migrations/0040_pedidos_fabrica_alerta_loja.sql src/lib/db/schema.ts src/lib/telegram/pedidos-fabrica.ts src/lib/telegram/pedidos-fabrica.test.ts "src/app/api/cron/pedidos-fabrica/route.ts"
+git add src/lib/db/migrations/0045_pedidos_fabrica_alerta_loja.sql src/lib/db/schema.ts src/lib/telegram/pedidos-fabrica.ts src/lib/telegram/pedidos-fabrica.test.ts "src/app/api/cron/pedidos-fabrica/route.ts"
 git commit -m "feat(fabrica): alerta de pedidos de compra passa a ser por loja"
 ```
 
@@ -1180,7 +1180,7 @@ git commit -m "feat(fabrica): alerta de pedidos de compra passa a ser por loja"
 ### Task 7: Tirar a credencial de `grupos` e o fallback de env
 
 **Files:**
-- Create: `src/lib/db/migrations/0041_grupos_sem_fabrica.sql`
+- Create: `src/lib/db/migrations/0046_grupos_sem_fabrica.sql`
 - Modify: `src/lib/fabrica-scraper.ts:50-64`
 - Modify: `src/lib/db/schema.ts:35-53` (tabela `grupos`)
 - Modify: `src/app/(dashboard)/admin/grupos/actions.ts`
@@ -1260,10 +1260,10 @@ Em `src/lib/db/schema.ts`, na tabela `grupos`, apagar as linhas:
 
 - [ ] **Step 6: Escrever e aplicar a migração**
 
-Criar `src/lib/db/migrations/0041_grupos_sem_fabrica.sql`:
+Criar `src/lib/db/migrations/0046_grupos_sem_fabrica.sql`:
 
 ```sql
--- O login da fábrica virou por loja (0039). A coluna de grupo não tem mais uso e
+-- O login da fábrica virou por loja (0044). A coluna de grupo não tem mais uso e
 -- guardar senha em dois lugares só cria divergência.
 alter table "grupos" drop column if exists "fabrica_email";
 alter table "grupos" drop column if exists "fabrica_senha";
@@ -1280,7 +1280,7 @@ Esperado: `fabrica_email` = `motochefe@icloud.com`. Se vier nulo, **parar e repo
 Aplicar:
 
 ```bash
-npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0041_grupos_sem_fabrica.sql
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0046_grupos_sem_fabrica.sql
 ```
 
 - [ ] **Step 7: Rodar testes e tipos**
@@ -1291,7 +1291,7 @@ Expected: PASS e sem erros.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/db/migrations/0041_grupos_sem_fabrica.sql src/lib/db/schema.ts src/lib/fabrica-scraper.ts "src/app/(dashboard)/admin/grupos"
+git add src/lib/db/migrations/0046_grupos_sem_fabrica.sql src/lib/db/schema.ts src/lib/fabrica-scraper.ts "src/app/(dashboard)/admin/grupos"
 git commit -m "refactor(fabrica): credencial sai do grupo e do ambiente"
 ```
 
@@ -1334,7 +1334,7 @@ O login de Pouso Alegre é o antigo, hoje só nas envs `FABRICA_EMAIL` /
 - [ ] **Step 4: Conferir Raja BH**
 
 Abrir a loja Raja BH em `/admin/lojas` e confirmar que o e-mail
-`motochefe@icloud.com` e a senha já vieram da migração 0039. Se a senha estiver
+`motochefe@icloud.com` e a senha já vieram da migração 0044. Se a senha estiver
 vazia, preencher.
 
 - [ ] **Step 5: Validar garantias**
