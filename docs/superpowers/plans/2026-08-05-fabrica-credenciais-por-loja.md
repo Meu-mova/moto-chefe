@@ -10,7 +10,8 @@
 
 ## Global Constraints
 
-- **Migrações só via Supabase MCP** (`apply_migration`). Nunca `npm run db:generate` nem `npm run db:migrate` — o journal do Drizzle deste repo está quebrado. O arquivo `.sql` correspondente também é escrito em `src/lib/db/migrations/` para manter o histórico legível.
+- **Nunca `npm run db:generate` nem `npm run db:migrate`** — o journal do Drizzle deste repo está quebrado. Migração é SQL escrito à mão em `src/lib/db/migrations/`, aplicado pelo script `scripts/sql.ts` (criado na Task 1) contra a `DATABASE_URL` do `.env.local`. O MCP do Supabase, que era o caminho anterior, está com o `client_id` do OAuth rejeitado no lado deles e não autentica.
+- **`DATABASE_URL` do `.env.local` aponta para produção.** Todo passo destrutivo (`delete`, `drop column`) tem um passo de conferência antes; não pule.
 - **Nenhuma senha em arquivo commitado.** Migração cria coluna; credencial é digitada na tela.
 - Rodar testes com `npm test`. Todo arquivo `*.test.ts` novo precisa ser acrescentado à lista do script `test` no `package.json`, senão nunca roda.
 - Rodar `npm run type-check` antes de cada commit.
@@ -22,6 +23,7 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
+| `scripts/sql.ts` | **Novo.** Roda um arquivo `.sql` ou uma consulta avulsa contra a `DATABASE_URL` — único caminho de migração que resta |
 | `src/lib/db/schema.ts` | Colunas novas em `lojas` e `pedidos_fabrica_alerta`; remoção das colunas de fábrica em `grupos` |
 | `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql` | Colunas em `lojas` + cópia da credencial do BH |
 | `src/lib/db/migrations/0040_pedidos_fabrica_alerta_loja.sql` | `loja_id` no controle de alertas + troca da unique |
@@ -43,14 +45,85 @@
 ### Task 1: Colunas de credencial em `lojas`
 
 **Files:**
+- Create: `scripts/sql.ts`
 - Create: `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql`
 - Modify: `src/lib/db/schema.ts:71-81` (tabela `lojas`)
 
 **Interfaces:**
 - Consumes: nada.
-- Produces: `lojas.fabricaEmail` e `lojas.fabricaSenha`, ambos `text | null` no `$inferSelect` de `lojas`.
+- Produces: `lojas.fabricaEmail` e `lojas.fabricaSenha`, ambos `text | null` no `$inferSelect` de `lojas`; e o comando de migração usado pelas Tasks 6 e 7:
+  - `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file <arquivo.sql>`
+  - `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "<select ...>"`
 
-- [ ] **Step 1: Escrever o arquivo de migração**
+- [ ] **Step 1: Criar o script de execução de SQL**
+
+Criar `scripts/sql.ts`:
+
+```ts
+/**
+ * Roda SQL avulso contra a DATABASE_URL — o caminho de migração deste repo.
+ *
+ * `drizzle-kit migrate` não roda aqui: o journal em src/lib/db/migrations/meta
+ * está quebrado desde a fusão multi-grupo. Então a migração é SQL escrito à mão
+ * e aplicado por aqui.
+ *
+ * Uso:
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0039_algo.sql
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"
+ *
+ * O caminho de --file é relativo a src/lib/db/migrations.
+ */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import postgres from 'postgres'
+
+const [modo, valor] = process.argv.slice(2)
+
+if ((modo !== '--file' && modo !== '--query') || !valor) {
+  console.error('Uso: scripts/sql.ts --file <arquivo.sql> | --query "<sql>"')
+  process.exit(1)
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
+  process.exit(1)
+}
+
+const texto = modo === '--file'
+  ? readFileSync(resolve(process.cwd(), 'src/lib/db/migrations', valor), 'utf8')
+  : valor
+
+// max:1 e prepare:false — script avulso, e o pooler Supavisor não aceita prepared.
+const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 15 })
+
+async function main() {
+  // .simple() permite várias instruções num arquivo só; o Postgres trata o lote
+  // como uma transação implícita, então ou passa tudo ou não passa nada.
+  const linhas = await sql.unsafe(texto).simple()
+  if (Array.isArray(linhas) && linhas.length > 0) {
+    console.log(JSON.stringify(linhas, null, 1))
+  } else {
+    console.log('OK — sem linhas de retorno')
+  }
+  await sql.end()
+}
+
+main().catch(async (e: unknown) => {
+  console.error('FALHOU:', e instanceof Error ? e.message : String(e))
+  await sql.end({ timeout: 5 })
+  process.exit(1)
+})
+```
+
+Conferir que roda:
+
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select count(*)::int as lojas from lojas"
+```
+
+Esperado: `[{"lojas": 8}]`.
+
+- [ ] **Step 2: Escrever o arquivo de migração**
 
 Criar `src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql`:
 
@@ -72,22 +145,23 @@ where l."grupo_id" = g."id"
   and l."nome" = 'Raja BH';
 ```
 
-- [ ] **Step 2: Aplicar a migração via Supabase MCP**
+- [ ] **Step 3: Aplicar a migração**
 
-Usar a ferramenta `apply_migration` do MCP do Supabase com o nome `fabrica_credencial_por_loja` e exatamente o SQL acima. Não rodar `npm run db:migrate`.
-
-- [ ] **Step 3: Conferir que a credencial do BH veio junto**
-
-Executar via MCP do Supabase (`execute_sql`):
-
-```sql
-select nome, fabrica_email, fabrica_senha is not null as tem_senha
-from lojas order by nome;
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0039_fabrica_credencial_por_loja.sql
 ```
 
-Esperado: 8 linhas; `Raja BH` com `motochefe@icloud.com`; as outras 7 com `fabrica_email` nulo.
+Expected: `OK — sem linhas de retorno`. Não rodar `npm run db:migrate`.
 
-- [ ] **Step 4: Refletir as colunas no schema Drizzle**
+- [ ] **Step 4: Conferir que a credencial do BH veio junto**
+
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select nome, fabrica_email, fabrica_senha is not null as tem_senha from lojas order by nome"
+```
+
+Esperado: 8 linhas; `Raja BH` com `motochefe@icloud.com` e `tem_senha` verdadeiro; as outras 7 com `fabrica_email` nulo. Se `Raja BH` vier sem senha, anotar no relatório — a Task 7 apaga a coluna de origem.
+
+- [ ] **Step 5: Refletir as colunas no schema Drizzle**
 
 Em `src/lib/db/schema.ts`, na tabela `lojas`, trocar:
 
@@ -125,15 +199,15 @@ export const lojas = pgTable('lojas', {
 })
 ```
 
-- [ ] **Step 5: Verificar tipos**
+- [ ] **Step 6: Verificar tipos**
 
 Run: `npm run type-check`
 Expected: sem erros.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql src/lib/db/schema.ts
+git add scripts/sql.ts src/lib/db/migrations/0039_fabrica_credencial_por_loja.sql src/lib/db/schema.ts
 git commit -m "feat(fabrica): credencial do portal passa a ser por loja"
 ```
 
@@ -839,19 +913,19 @@ alter table "pedidos_fabrica_alerta" add constraint "pedidos_fabrica_alerta_loja
 
 - [ ] **Step 2: Conferir o que será apagado, antes de aplicar**
 
-Rodar via `execute_sql` do MCP do Supabase:
-
-```sql
-select g.nome as grupo, count(*) as linhas
-from pedidos_fabrica_alerta a join grupos g on g.id = a.grupo_id
-group by g.nome;
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select g.nome as grupo, count(*)::int as linhas from pedidos_fabrica_alerta a join grupos g on g.id = a.grupo_id group by g.nome"
 ```
 
-Esperado: só `BH` (o Sul de Minas nunca teve credencial no grupo, então não gerou alerta). Se aparecer um grupo fora de `Sul de Minas`/`BH`, parar e avisar — essas linhas seriam apagadas pelo `delete`.
+Esperado: nenhuma linha, ou só `BH` — o Sul de Minas nunca teve credencial no grupo, então não gerou alerta. **Se aparecer um grupo fora de `Sul de Minas`/`BH`, parar e reportar** com status DONE_WITH_CONCERNS antes de aplicar: essas linhas seriam apagadas pelo `delete` da migração.
 
-- [ ] **Step 3: Aplicar a migração via Supabase MCP**
+- [ ] **Step 3: Aplicar a migração**
 
-Usar `apply_migration` com o nome `pedidos_fabrica_alerta_loja` e o SQL do Step 1.
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0040_pedidos_fabrica_alerta_loja.sql
+```
+
+Expected: `OK — sem linhas de retorno`.
 
 - [ ] **Step 4: Refletir no schema Drizzle**
 
@@ -1195,9 +1269,19 @@ alter table "grupos" drop column if exists "fabrica_email";
 alter table "grupos" drop column if exists "fabrica_senha";
 ```
 
-Aplicar via `apply_migration` do MCP do Supabase, nome `grupos_sem_fabrica`.
+**Antes de aplicar**, confirmar que a credencial do BH chegou na loja — esta migração descarta a origem do dado:
 
-**Antes de aplicar**, confirmar que a credencial do BH chegou na loja (Task 1, Step 3): esta migração descarta a origem do dado.
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select nome, fabrica_email, fabrica_senha is not null as tem_senha from lojas where nome = 'Raja BH'"
+```
+
+Esperado: `fabrica_email` = `motochefe@icloud.com`. Se vier nulo, **parar e reportar DONE_WITH_CONCERNS** em vez de aplicar.
+
+Aplicar:
+
+```bash
+npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0041_grupos_sem_fabrica.sql
+```
 
 - [ ] **Step 7: Rodar testes e tipos**
 
