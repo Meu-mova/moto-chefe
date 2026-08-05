@@ -30,7 +30,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; disponibilidade?: string; loja?: string; modelo?: string; cor?: string; ord?: string; dir?: string; q?: string }>
+  searchParams: Promise<{ status?: string; disponibilidade?: string; loja?: string; modelo?: string; cor?: string; ord?: string; dir?: string; q?: string; transf?: string }>
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
@@ -70,6 +70,7 @@ export default async function EstoquePage({
       lojaId:          lojaValues,
       modeloId:        parseParam(params.modelo),
       cor:             parseParam(params.cor),
+      apenasTransferencia: params.transf === '1',
       ord,
       dir,
     }),

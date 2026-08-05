@@ -16,6 +16,7 @@ export async function listarMotos(filtros?: {
   lojaId?: string[]
   modeloId?: string[]
   cor?: string[]
+  apenasTransferencia?: boolean   // só motos com transferência de loja pendente
   ord?: OrdenacaoCampo
   dir?: 'asc' | 'desc'
 }) {
@@ -173,6 +174,9 @@ export async function listarMotos(filtros?: {
         filtros?.lojaId !== undefined    ? inArray(motos.lojaId, filtros.lojaId)                            : undefined,
         filtros?.modeloId?.length        ? inArray(motos.modeloId, filtros.modeloId)                        : undefined,
         filtros?.cor?.length             ? inArray(motos.cor, filtros.cor)                                  : undefined,
+        filtros?.apenasTransferencia
+          ? sql`EXISTS (SELECT 1 FROM transferencias WHERE transferencias.moto_id = ${motos.id} AND transferencias.status = 'pendente')`
+          : undefined,
       )
     )
     .orderBy(ordenar)

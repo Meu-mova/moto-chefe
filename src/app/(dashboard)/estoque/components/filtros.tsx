@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MultiSelectFiltro } from './multi-select-filtro'
+import { ArrowLeftRight } from 'lucide-react'
 
 type Loja = { id: string; nome: string }
 type Modelo = { id: string; modelo: string }
@@ -63,6 +64,14 @@ export function EstoqueFiltros({ lojas, modelos, cores, lojaIdDefault, chassiIni
   const coresSel     = parse(searchParams.get('cor'))
   const statusSel    = parse(searchParams.get('status'))
   const dispSel      = parse(searchParams.get('disponibilidade'))
+  const transfSel    = searchParams.get('transf') === '1'
+
+  function toggleTransf() {
+    const params = new URLSearchParams(searchParams.toString())
+    if (transfSel) params.delete('transf')
+    else params.set('transf', '1')
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   function atualizar(chave: string, valores: string[]) {
     const params = new URLSearchParams(searchParams.toString())
@@ -137,6 +146,17 @@ export function EstoqueFiltros({ lojas, modelos, cores, lojaIdDefault, chassiIni
         onChange={v => atualizar('disponibilidade', v)}
         className="min-w-[11rem]"
       />
+
+      <Button
+        variant={transfSel ? 'default' : 'outline'}
+        size="sm"
+        onClick={toggleTransf}
+        className="h-9 gap-1.5"
+        title="Mostrar só motos com transferência de loja pendente"
+      >
+        <ArrowLeftRight size={14} />
+        Em transferência
+      </Button>
 
       {temFiltro && (
         <Button variant="ghost" size="sm" onClick={limpar} className="text-slate-500">
