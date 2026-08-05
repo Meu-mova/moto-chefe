@@ -1373,6 +1373,19 @@ Abrir a loja Raja BH em `/admin/lojas` e confirmar que o e-mail
 `motochefe@icloud.com` e a senha já vieram da migração 0044. Se a senha estiver
 vazia, preencher.
 
+- [ ] **Step 4b: Conferir de qual conta são os pedidos antigos**
+
+Antes de sincronizar, entre em `motochefebrasil.store` **como Varginha** e procure um
+pedido de garantia dela que já esteja no sistema. É a pergunta que a revisão final
+não conseguiu fechar: se os pedidos antigos de Varginha/Itajubá vivem na conta velha
+(a de Pouso Alegre, que ficou com o histórico), a garantia daquela loja nunca vai
+achar o próprio pedido pela conta dela.
+
+A correção já aplicada impede o estrago — status não encontrado agora conta como
+erro em vez de apagar o status bom. Mas se o descasamento existir, o Sincronizar de
+Varginha vai reportar erro em todas as garantias antigas, e aí a solução é guardar em
+`garantias` a loja **da conta** que abriu o pedido, separada da loja da moto.
+
 - [ ] **Step 5: Validar garantias**
 
 Logado como admin geral, em `/garantias`, clicar em **Sincronizar Fábrica** e
@@ -1381,6 +1394,13 @@ conferir que o toast lista as lojas do grupo ativo — e que `Galpão Matriz` e
 BH e repetir.
 
 Depois clicar em **Importar da Fábrica** e conferir que o resumo vem por loja.
+
+Uma loja que nunca abriu garantia deve dizer "nenhuma garantia nova", e **não**
+"Sessão da fábrica expirou". A checagem de sessão expirada distingue as duas coisas
+pelo token CSRF, o que só é confiável se a página de trocas vazia não tiver outro
+formulário — ninguém verificou isso contra o HTML real. Se aparecer o erro errado
+numa loja vazia, a condição precisa ancorar em algo exclusivo da tela de login (os
+campos `email` e `senha` no mesmo `<form>`) em vez do token.
 
 - [ ] **Step 6: Validar o escopo do aux_adm**
 
