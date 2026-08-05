@@ -237,7 +237,9 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                               moto.transferenciaPendente
                                 ? (
                                   <span
-                                    title="Transferência pendente"
+                                    title={moto.transferenciaDestino
+                                      ? `Transferência pendente → ${moto.transferenciaDestino}`
+                                      : 'Transferência pendente'}
                                     className="h-8 w-8 flex items-center justify-center text-purple-400 cursor-default"
                                   >
                                     <ArrowLeftRight size={16} />

@@ -52,6 +52,13 @@ export async function listarMotos(filtros?: {
         WHERE transferencias.moto_id = ${motos.id}
         AND transferencias.status = 'pendente'
       )`,
+      // Loja destino da transferência pendente, para o tooltip do ícone na tabela.
+      transferenciaDestino: sql<string | null>`(
+        SELECT ld.nome FROM transferencias t
+        JOIN lojas ld ON ld.id = t.loja_destino_id
+        WHERE t.moto_id = ${motos.id} AND t.status = 'pendente'
+        ORDER BY t.data_solicitacao DESC LIMIT 1
+      )`,
       reservaId: sql<string | null>`(
         SELECT r.id FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
@@ -207,6 +214,13 @@ export async function buscarMoto(id: string) {
         SELECT 1 FROM transferencias
         WHERE transferencias.moto_id = ${motos.id}
         AND transferencias.status = 'pendente'
+      )`,
+      // Loja destino da transferência pendente, para o tooltip do ícone na tabela.
+      transferenciaDestino: sql<string | null>`(
+        SELECT ld.nome FROM transferencias t
+        JOIN lojas ld ON ld.id = t.loja_destino_id
+        WHERE t.moto_id = ${motos.id} AND t.status = 'pendente'
+        ORDER BY t.data_solicitacao DESC LIMIT 1
       )`,
       reservaId: sql<string | null>`(
         SELECT r.id FROM reservas r
