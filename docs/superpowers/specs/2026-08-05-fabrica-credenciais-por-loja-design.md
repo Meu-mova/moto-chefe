@@ -22,15 +22,23 @@ Consequência no sistema hoje:
 
 | Loja | Grupo | Login |
 |---|---|---|
-| Pouso Alegre | Sul de Minas | o login antigo (envs atuais) |
+| Pouso Alegre | Sul de Minas | o login antigo (hoje só nas envs da Vercel) |
 | Varginha | Sul de Minas | `varginha@motochefebrasil.com.br` |
-| Itajubá | Sul de Minas | `itajuba@motochefebrasil.com.br` |
+| Itajuba | Sul de Minas | `itajuba@motochefebrasil.com.br` |
 | Poços de Caldas | Sul de Minas | `pocosdecaldas@motochefebrasil.com.br` |
-| BH Raja | BH | `motochefe@icloud.com` |
+| Raja BH | BH | `motochefe@icloud.com` (já está em `grupos.fabrica_email`) |
 
 Senha igual em todas. Ficam em texto puro no banco, mesmo padrão já usado para
 ValidaPix e Bling — a senha repetida é fragilidade do lado da fábrica, a tratar
 fora deste trabalho.
+
+O banco tem 8 lojas em 3 grupos. Além das cinco acima, ficam **sem login**:
+Galpão Matriz e Lavras (Sul de Minas) e Motochefe Pinda (grupo Vale). Loja sem
+login não é erro — some do escopo e é reportada à parte.
+
+`grupos.fabrica_email` está preenchido só no BH; o Sul de Minas nunca chegou a
+receber, então o login de Pouso Alegre vem das envs `FABRICA_EMAIL` /
+`FABRICA_SENHA` da Vercel.
 
 ## Desenho
 
@@ -46,8 +54,11 @@ alter table lojas add column fabrica_senha text;
 Migração aplicada via Supabase MCP (`apply_migration`), nunca por
 `db:generate`/`db:migrate` — o journal do Drizzle deste repo está quebrado.
 
-A migração já preenche as cinco lojas. Pouso Alegre recebe o valor que hoje está
-em `FABRICA_EMAIL` / `FABRICA_SENHA`.
+A migração **não carrega senha**: arquivo de migração é commitado e o segredo
+ficaria no histórico do git para sempre. Ela só cria as colunas e copia a
+credencial que já está em `grupos.fabrica_email` / `grupos.fabrica_senha` para a
+loja Raja BH — dado que já mora no banco, não vira segredo novo em disco. As
+quatro contas do Sul de Minas são digitadas na tela, depois que ela existir.
 
 Edição em `/admin/lojas` → dialog "Editar Loja", dois campos a mais. A página já é
 admin-guard, então a credencial não aparece para quem opera a loja.
