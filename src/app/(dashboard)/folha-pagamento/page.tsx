@@ -24,6 +24,17 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// A folha é a página mais pesada (buscarDadosFolha dispara ~13 consultas). Se o
+// banco engasgar (instância do Fluid com conexões presas), sem timeout ela
+// pendura até os 300s da Vercel. O throw cai no error boundary de
+// (dashboard)/error.tsx, que mostra "Tentar novamente".
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Timeout ${ms}ms ao carregar a folha`)), ms)),
+  ])
+}
+
 export default async function FolhaPagamentoPage({
   searchParams,
 }: {
@@ -32,8 +43,10 @@ export default async function FolhaPagamentoPage({
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
 
-  const grupo = await getGrupoAtivo(usuario)
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const [grupo, lojaIdsGrupo] = await withTimeout(
+    Promise.all([getGrupoAtivo(usuario), listarLojaIdsDoGrupoAtivo(usuario)]),
+    15000,
+  )
 
   const params = await searchParams
   const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
@@ -47,7 +60,10 @@ export default async function FolhaPagamentoPage({
   const lojaParam = params.loja ?? ''
   const lojaIds = lojaParam && lojaIdsGrupo.includes(lojaParam) ? [lojaParam] : lojaIdsGrupo
 
-  const dados = await buscarDadosFolha({ mes: mesParam, lojaIds, lojaIdsGrupo, grupoId: grupo.id })
+  const dados = await withTimeout(
+    buscarDadosFolha({ mes: mesParam, lojaIds, lojaIdsGrupo, grupoId: grupo.id }),
+    25000,
+  )
   const folha = agregarFolha(dados)
 
   const configPorUsuario = new Map(dados.configs.map(c => [c.usuarioId, c]))
