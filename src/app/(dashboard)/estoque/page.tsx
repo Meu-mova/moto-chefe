@@ -17,6 +17,16 @@ function parseParam(v?: string): string[] {
   return v.split(',').filter(Boolean)
 }
 
+// Falha rápido em vez de pendurar até o timeout de 300s da Vercel quando o banco
+// está sem conexão livre. O throw cai no error boundary de (dashboard)/error.tsx,
+// que mostra "Tentar novamente" — bem melhor que a página rodando sem fim.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Timeout ${ms}ms ao carregar o estoque`)), ms)),
+  ])
+}
+
 export default async function EstoquePage({
   searchParams,
 }: {
@@ -51,7 +61,7 @@ export default async function EstoquePage({
   const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
   const dir = params.dir === 'desc' ? 'desc' : 'asc'
 
-  const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await Promise.all([
+  const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await withTimeout(Promise.all([
     listarMotos({
       status:          parseParam(params.status),
       disponibilidade: dispValues.length ? dispValues : undefined,
@@ -72,10 +82,10 @@ export default async function EstoquePage({
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),
-  ])
+  ]), 20000)
 
   // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)
-  const demandasComSinal = await listarDemandasComSinalAbertas(lojaValues)
+  const demandasComSinal = await withTimeout(listarDemandasComSinalAbertas(lojaValues), 20000)
 
   const counts = {
     total:         motosList.length,
