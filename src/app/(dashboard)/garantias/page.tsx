@@ -84,7 +84,7 @@ export default async function GarantiasPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && <ImportarFabricaButton />}
+          {(isAdmin || usuario.papel === 'aux_adm') && <ImportarFabricaButton />}
           {(isAdmin || usuario.papel === 'aux_adm') && <SincronizarFabricaButton />}
           {(isAdmin || usuario.papel === 'aux_adm') && (
             <RelatorioGarantiasButton

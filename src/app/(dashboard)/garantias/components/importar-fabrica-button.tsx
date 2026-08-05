@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Download } from 'lucide-react'
-import { importarUltimaGarantiaFabricaAction } from '../actions'
+import { importarGarantiasFabricaAction } from '../actions'
 
 export function ImportarFabricaButton() {
   const [loading, setLoading] = useState(false)
@@ -11,15 +11,31 @@ export function ImportarFabricaButton() {
   async function handleImportar() {
     setLoading(true)
     try {
-      const res = await importarUltimaGarantiaFabricaAction()
-      if (res.resultado === 'importada') {
-        toast.success(`Garantia importada — Chassi ${res.chassi} (Pedido #${res.numeroPedido})`)
-      } else if (res.resultado === 'ja_existe') {
-        toast.info(`Pedido #${res.numeroPedido} já está cadastrado no sistema`)
-      } else if (res.resultado === 'lista_vazia') {
-        toast.info('Nenhum pedido encontrado na fábrica')
-      } else if (res.resultado === 'nenhum_chassi_encontrado') {
-        toast.info('Nenhum chassi dos pedidos recentes foi encontrado no sistema')
+      const res = await importarGarantiasFabricaAction()
+      const total = res.porLoja.reduce((s, l) => s + l.importadas, 0)
+      const comErro = res.porLoja.filter(l => l.erro)
+
+      const detalhe = res.porLoja
+        .filter(l => l.importadas > 0)
+        .map(l => `${l.loja}: ${l.importadas}`)
+        .join(' · ')
+
+      const semLogin = res.semCredencial.length > 0
+        ? `\nSem login cadastrado: ${res.semCredencial.join(', ')}`
+        : ''
+
+      if (res.porLoja.length === 0) {
+        toast.info(`Nenhuma loja com login da fábrica cadastrado${semLogin}`)
+      } else if (total === 0 && comErro.length === 0) {
+        toast.info(`Nenhuma garantia nova na fábrica${semLogin}`)
+      } else {
+        const plural = total !== 1 ? 's' : ''
+        const resumo = `${total} garantia${plural} importada${plural}${detalhe ? `\n${detalhe}` : ''}${semLogin}`
+        if (comErro.length > 0) {
+          toast.warning(`${resumo}\nFalhou em: ${comErro.map(l => l.loja).join(', ')}`)
+        } else {
+          toast.success(resumo)
+        }
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao importar da fábrica')

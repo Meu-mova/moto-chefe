@@ -137,75 +137,97 @@ export async function sincronizarFabricaAction(): Promise<{
   return { porLoja, semCredencial }
 }
 
-export async function importarUltimaGarantiaFabricaAction(): Promise<{
-  resultado: 'importada' | 'ja_existe' | 'nenhum_chassi_encontrado' | 'lista_vazia'
-  chassi?: string
-  numeroPedido?: string
-}> {
+export type ResultadoImportacaoFabrica = {
+  porLoja: { loja: string; importadas: number; semChassi: number; erro?: string }[]
+  semCredencial: string[]
+}
+
+export async function importarGarantiasFabricaAction(): Promise<ResultadoImportacaoFabrica> {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão')
   }
 
-  const session = await loginFabrica()
-
-  const lista = await listarPedidosGarantiaFabrica(session)
-  if (lista.length === 0) return { resultado: 'lista_vazia' }
-
+  const { contas, semCredencial } = await listarContasFabrica(usuario)
   const supabase = await createClient()
+  const porLoja: ResultadoImportacaoFabrica['porLoja'] = []
 
-  // Itera pelos pedidos do mais recente ao mais antigo até achar um chassi no nosso sistema
-  for (const { numeroPedido, dataAbertura } of lista) {
-    // Pula se já existe no sistema
-    const [jaExiste] = await db
-      .select({ id: garantias.id })
-      .from(garantias)
-      .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
-      .limit(1)
-    if (jaExiste) return { resultado: 'ja_existe', numeroPedido }
+  for (const conta of contas) {
+    let importadas = 0
+    let semChassi = 0
 
-    const { chassi, peca, status } = await buscarDetalhePedidoGarantia(session, numeroPedido)
-    if (!chassi) continue
+    try {
+      const session = await loginFabrica({ email: conta.email, senha: conta.senha })
+      const lista = await listarPedidosGarantiaFabrica(session)
 
-    // Busca moto pelo chassi — cobre showroom (status disponivel/montada/etc) e vendidas
-    const [moto] = await db
-      .select({ id: motos.id, lojaId: motos.lojaId })
-      .from(motos)
-      .where(eq(motos.chassi, chassi))
-      .limit(1)
-    if (!moto) continue
+      // Do mais recente pro mais antigo, parando no primeiro já cadastrado: é o
+      // corte que evita varrer o histórico inteiro do portal a cada clique.
+      for (const { numeroPedido, dataAbertura } of lista) {
+        const [jaExiste] = await db
+          .select({ id: garantias.id })
+          .from(garantias)
+          .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+          .limit(1)
+        if (jaExiste) break
 
-    // Encontrou — importa
-    const inicio = new Date(dataAbertura)
-    const fim = new Date(inicio)
-    fim.setDate(fim.getDate() + 30)
-    const dataFim = fim.toISOString().split('T')[0]
+        const { chassi, peca, status } = await buscarDetalhePedidoGarantia(session, numeroPedido)
+        if (!chassi) {
+          semChassi++
+          continue
+        }
 
-    const { error } = await supabase.rpc('abrir_garantia', {
-      p_moto_id: moto.id,
-      p_loja_id: moto.lojaId,
-      p_aberta_por: usuario.id,
-      p_os_id: null,
-      p_descricao: peca ?? `Pedido fábrica #${numeroPedido}`,
-      p_data_inicio: dataAbertura,
-      p_data_fim: dataFim,
-      p_data_pedido_peca: null,
-      p_numero_pedido_fabrica: numeroPedido,
-    })
-    if (error) throw new Error(error.message)
+        // Busca na base toda, não só na loja da conta: o chassi é único e a loja
+        // da garantia sai de moto.loja_id, então moto transferida cai certo.
+        const [moto] = await db
+          .select({ id: motos.id, lojaId: motos.lojaId })
+          .from(motos)
+          .where(eq(motos.chassi, chassi))
+          .limit(1)
+        if (!moto) {
+          semChassi++
+          continue
+        }
 
-    if (status) {
-      await db
-        .update(garantias)
-        .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
-        .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+        const fim = new Date(dataAbertura)
+        fim.setDate(fim.getDate() + 30)
+
+        const { error } = await supabase.rpc('abrir_garantia', {
+          p_moto_id: moto.id,
+          p_loja_id: moto.lojaId,
+          p_aberta_por: usuario.id,
+          p_os_id: null,
+          p_descricao: peca ?? `Pedido fábrica #${numeroPedido}`,
+          p_data_inicio: dataAbertura,
+          p_data_fim: fim.toISOString().split('T')[0],
+          p_data_pedido_peca: null,
+          p_numero_pedido_fabrica: numeroPedido,
+        })
+        if (error) throw new Error(error.message)
+
+        if (status) {
+          await db
+            .update(garantias)
+            .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
+            .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+        }
+
+        importadas++
+      }
+
+      porLoja.push({ loja: conta.lojaNome, importadas, semChassi })
+    } catch (e) {
+      // Falha numa loja não pode calar as outras; o que já entrou fica.
+      porLoja.push({
+        loja: conta.lojaNome,
+        importadas,
+        semChassi,
+        erro: e instanceof Error ? e.message : String(e),
+      })
     }
-
-    revalidatePath('/garantias')
-    return { resultado: 'importada', chassi, numeroPedido }
   }
 
-  return { resultado: 'nenhum_chassi_encontrado' }
+  revalidatePath('/garantias')
+  return { porLoja, semCredencial }
 }
 
 export async function encerrarGarantiaAction(garantiaId: string, observacao?: string, dataEncerramento?: string) {
