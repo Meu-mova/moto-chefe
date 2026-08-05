@@ -12,6 +12,11 @@ import { SincronizarFabricaButton } from './components/sincronizar-button'
 import { ImportarFabricaButton } from './components/importar-fabrica-button'
 import { RelatorioGarantiasButton } from './components/relatorio-garantias-button'
 
+// A primeira importação de uma loja varre o histórico inteiro do portal, com uma
+// requisição por pedido. Estourar no meio deixa um buraco que o botão não alcança
+// depois, porque ele para no primeiro pedido já cadastrado.
+export const maxDuration = 300
+
 const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardando Postagem Reversa'])
 
 const ADMINS = ['admin_geral', 'admin_socio']

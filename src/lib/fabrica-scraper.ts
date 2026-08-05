@@ -151,6 +151,12 @@ export async function listarPedidosGarantiaFabrica(
   })
   const html = await resp.text()
 
+  // Sessão expirada volta o formulário de login com HTTP 200 — uma aba de
+  // trocas legitimamente vazia não tem esse formulário, só a lista (vazia ou não).
+  if (/name="csrf_test_name"/i.test(html) && !/\/trocas\/detalhes\//.test(html)) {
+    throw new Error('Sessão da fábrica expirou antes de listar as garantias')
+  }
+
   // Extrai números de pedido pelos links para /trocas/detalhes/NUMBER
   const numerosLinks = [...html.matchAll(/\/trocas\/detalhes\/(\d+)/g)].map(m => m[1])
   const numeros = [...new Set(numerosLinks)]

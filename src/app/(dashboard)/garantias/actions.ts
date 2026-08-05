@@ -115,6 +115,9 @@ export async function sincronizarFabricaAction(): Promise<{
         if (!g.numeroPedidoFabrica) continue
         try {
           const status = await buscarStatusGarantiaFabrica(session, g.numeroPedidoFabrica)
+          // null = portal fora, sessão expirada, ou pedido que não pertence a esta conta.
+          // Gravar isso apagaria um status bom — inclusive os que disparam o alerta na tela.
+          if (!status) { erros++; continue }
           await db
             .update(garantias)
             .set({ statusFabrica: status, statusFabricaSyncEm: agora })
@@ -204,14 +207,20 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         })
         if (error) throw new Error(error.message)
 
-        if (status) {
-          await db
-            .update(garantias)
-            .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
-            .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
-        }
-
+        // A garantia já existe a partir daqui — o update de status abaixo é só
+        // enfeite e não pode derrubar a importação nem deixar de contar a garantia.
         importadas++
+
+        if (status) {
+          try {
+            await db
+              .update(garantias)
+              .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
+              .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+          } catch {
+            // status opcional; a garantia já foi criada e contada acima.
+          }
+        }
       }
 
       porLoja.push({ loja: conta.lojaNome, importadas, semChassi })
