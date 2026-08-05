@@ -48,10 +48,13 @@ export async function editarLojaAction(id: string, formData: FormData): Promise<
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
+    fabricaEmail: (formData.get('fabricaEmail') as string | null)?.trim() || null,
+    fabricaSenha: (formData.get('fabricaSenha') as string | null)?.trim() || null,
     ...geo,
   }).where(eq(lojas.id, id))
   revalidatePath('/admin/lojas')
   revalidatePath('/simulador')
+  revalidatePath('/garantias')
   return { geocodificado }
 }
 

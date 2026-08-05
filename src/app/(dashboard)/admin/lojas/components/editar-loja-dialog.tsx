@@ -10,7 +10,15 @@ import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { editarLojaAction } from '../actions'
 
-type Loja = { id: string; nome: string; cidade: string; endereco: string; cep: string | null }
+type Loja = {
+  id: string
+  nome: string
+  cidade: string
+  endereco: string
+  cep: string | null
+  fabricaEmail: string | null
+  fabricaSenha: string | null
+}
 
 export function EditarLojaDialog({ loja }: { loja: Loja }) {
   const router = useRouter()
@@ -20,12 +28,16 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
   const [cidade, setCidade] = useState(loja.cidade)
   const [endereco, setEndereco] = useState(loja.endereco)
   const [cep, setCep] = useState(loja.cep ?? '')
+  const [fabricaEmail, setFabricaEmail] = useState(loja.fabricaEmail ?? '')
+  const [fabricaSenha, setFabricaSenha] = useState(loja.fabricaSenha ?? '')
 
   function handleOpen() {
     setNome(loja.nome)
     setCidade(loja.cidade)
     setEndereco(loja.endereco)
     setCep(loja.cep ?? '')
+    setFabricaEmail(loja.fabricaEmail ?? '')
+    setFabricaSenha(loja.fabricaSenha ?? '')
     setOpen(true)
   }
 
@@ -41,6 +53,8 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
       formData.set('cidade', cidade)
       formData.set('endereco', endereco)
       formData.set('cep', cep)
+      formData.set('fabricaEmail', fabricaEmail)
+      formData.set('fabricaSenha', fabricaSenha)
       const { geocodificado } = await editarLojaAction(loja.id, formData)
       if (cep.trim() && !geocodificado) {
         toast.warning('Loja atualizada, mas não foi possível localizar o CEP no mapa. O frete não poderá ser calculado até ajustar o endereço.')
@@ -81,6 +95,21 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
               <Label className="text-xs">CEP</Label>
               <CepInput value={cep} onChange={setCep} className="h-9 text-sm" />
               <p className="text-[11px] text-slate-400">Usado pra calcular frete no Simulador.</p>
+            </div>
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Portal da fábrica</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail</Label>
+                <Input value={fabricaEmail} onChange={e => setFabricaEmail(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Senha</Label>
+                <Input type="password" value={fabricaSenha} onChange={e => setFabricaSenha(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Cada loja tem o cadastro dela no portal. Em branco, esta loja fica
+                de fora da sincronização de garantias e do aviso de pedidos.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

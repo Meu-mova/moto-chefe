@@ -19,6 +19,7 @@ export default async function LojasPage() {
       .select({
         id: lojas.id, nome: lojas.nome, cidade: lojas.cidade, endereco: lojas.endereco,
         ativa: lojas.ativa, grupoNome: grupos.nome, cep: lojas.cep,
+        fabricaEmail: lojas.fabricaEmail, fabricaSenha: lojas.fabricaSenha,
       })
       .from(lojas)
       .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
@@ -66,7 +67,7 @@ export default async function LojasPage() {
                   {isSuperAdmin && (
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <EditarLojaDialog loja={{ id: loja.id, nome: loja.nome, cidade: loja.cidade, endereco: loja.endereco, cep: loja.cep }} />
+                        <EditarLojaDialog loja={{ id: loja.id, nome: loja.nome, cidade: loja.cidade, endereco: loja.endereco, cep: loja.cep, fabricaEmail: loja.fabricaEmail, fabricaSenha: loja.fabricaSenha }} />
                         {loja.ativa && <DesativarLojaButton lojaId={loja.id} />}
                       </div>
                     </TableCell>
