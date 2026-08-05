@@ -161,6 +161,8 @@ export async function listarMotos(filtros?: {
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
     .where(
       and(
+        // Motos cadastradas só para garantia de veículo externo nunca são estoque.
+        eq(motos.somenteGarantia, false),
         filtros?.status?.length          ? inArray(motos.status, filtros.status as any[])                   : undefined,
         filtros?.excluirVendidas
           ? sql`(${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`

@@ -50,6 +50,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   const estoqueCond = and(
     sql`${motos.status} != 'vendida'`,
     sql`(${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida')`,
+    eq(motos.somenteGarantia, false), // moto só de garantia não é estoque
     lojaId !== undefined ? lojaFilter(motos.lojaId, lojaId) : undefined,
   )
 
@@ -131,6 +132,7 @@ export async function getVendasPorDia(filtros: Filtros) {
 export async function getEstoquePorLoja(lojaId?: string[]) {
   const conditions: any[] = [
     sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'`,
+    eq(motos.somenteGarantia, false), // moto só de garantia não é estoque
   ]
   if (lojaId !== undefined) conditions.push(lojaFilter(motos.lojaId, lojaId)!)
 

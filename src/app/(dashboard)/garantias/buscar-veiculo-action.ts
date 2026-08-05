@@ -78,6 +78,9 @@ export async function cadastrarVeiculoGarantiaAction(input: {
       status: 'montada', // já elegível para abrir garantia imediatamente
       cor: input.cor.trim().toUpperCase(),
       notaFiscalEntrada: input.notaFiscalEntrada.trim(),
+      // Só existe para registrar a garantia de um veículo externo — NUNCA é
+      // estoque. O filtro em listarMotos a mantém fora do Showroom.
+      somenteGarantia: true,
     }).returning({ id: motos.id, lojaId: motos.lojaId, status: motos.status, cor: motos.cor, chassi: motos.chassi })
 
     await db.insert(historicoEstoque).values({

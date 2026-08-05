@@ -149,6 +149,10 @@ export const motos = pgTable('motos', {
   precoCompra: numeric('preco_compra', { precision: 12, scale: 2 }),
   responsavelMontagemId: uuid('responsavel_montagem_id').references(() => usuarios.id),
   dataMontagem: date('data_montagem'),
+  // Moto cadastrada só para registrar garantia de veículo externo (chassi que não
+  // estava na base). NUNCA é estoque — fica fora do Showroom. Ver
+  // cadastrarVeiculoGarantiaAction e o filtro em listarMotos.
+  somenteGarantia: boolean('somente_garantia').notNull().default(false),
 })
 
 // ─── reservas ────────────────────────────────────────────────────────────────
