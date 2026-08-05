@@ -23,23 +23,29 @@ export type EscopoFabrica = {
   semCredencial: string[]
 }
 
+const PAPEIS_GRUPO_INTEIRO = ['admin_geral', 'admin_socio']
+
 /**
  * Quais contas do portal da fábrica o usuário pode usar.
  *
- * Quem está alocado numa loja só enxerga a conta dela: no portal cada loja é um
- * cadastro distinto, e o adm de Varginha não tem o que fazer com a caixa de
- * trocas de Itajuba. Admin sem loja varre o grupo ativo inteiro.
+ * Quem opera a loja só enxerga a conta dela: no portal cada loja é um cadastro
+ * distinto, e o adm de Varginha não tem o que fazer com a caixa de trocas de
+ * Itajuba. Admin e sócio varrem o grupo ativo inteiro.
+ *
+ * O escopo sai do papel, não de ter `lojaId`: sócio tem loja fixa cadastrada, e
+ * escopar pela loja o prenderia a ela — e o deixaria sem conta nenhuma ao trocar
+ * de grupo, porque a loja fixa dele não está no grupo aberto.
  *
  * Pura de propósito — é aqui que um erro vazaria dado de uma loja pra outra, e
  * é o que os testes cobrem.
  */
 export function filtrarContasDoUsuario(
-  usuario: { lojaId: string | null },
+  usuario: { papel: string; lojaId: string | null },
   lojasDoGrupo: LojaCredencial[],
 ): EscopoFabrica {
-  const noEscopo = usuario.lojaId
-    ? lojasDoGrupo.filter(l => l.id === usuario.lojaId)
-    : lojasDoGrupo
+  const noEscopo = PAPEIS_GRUPO_INTEIRO.includes(usuario.papel)
+    ? lojasDoGrupo
+    : lojasDoGrupo.filter(l => l.id === usuario.lojaId)
 
   const contas: ContaFabrica[] = []
   const semCredencial: string[] = []
