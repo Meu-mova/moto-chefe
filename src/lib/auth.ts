@@ -5,17 +5,28 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
 
+// getUsuarioLogado roda PRIMEIRO em toda página (layout e página). Se a query de
+// usuário fica esperando uma conexão do pool (instância do Fluid com conexões
+// presas), sem timeout ela pendura a requisição inteira até os 300s da Vercel —
+// era a peça do caminho crítico que faltava blindar. Timeout curto que ESTOURA
+// (não desloga): cai no error boundary com "Tentar novamente", em vez de travar.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Timeout ${ms}ms na autenticação`)), ms)),
+  ])
+}
+
 export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
-  const [usuario] = await db
-    .select()
-    .from(usuarios)
-    .where(eq(usuarios.id, user.id))
-    .limit(1)
+  const [usuario] = await withTimeout(
+    db.select().from(usuarios).where(eq(usuarios.id, user.id)).limit(1),
+    8000,
+  )
 
   if (!usuario) redirect('/login')
 

@@ -40,7 +40,7 @@ export default async function EstoquePage({
   // Vendidas nunca aparecem no estoque — sempre excluídas
   const dispValues = parseParam(params.disponibilidade)
 
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const lojaIdsGrupo = await withTimeout(listarLojaIdsDoGrupoAtivo(usuario), 20000)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
   const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
 

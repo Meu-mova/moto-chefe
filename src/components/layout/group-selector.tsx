@@ -5,13 +5,28 @@ const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
 type Props = { usuario: { papel: string; lojaId: string | null } }
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Timeout ${ms}ms no seletor de grupo`)), ms)),
+  ])
+}
+
 export async function GroupSelector({ usuario }: Props) {
   if (!ADMIN_PAPEIS.includes(usuario.papel)) return null
 
-  const [gruposList, grupoAtivo] = await Promise.all([
-    listarGruposAtivos(),
-    getGrupoAtivo(usuario),
-  ])
+  // A barra de grupo roda no layout de toda página. Se o banco engasgar, o app
+  // abre SEM a barra (fail-open) em vez de pendurar a tela inteira até 300s.
+  let gruposList: Awaited<ReturnType<typeof listarGruposAtivos>>
+  let grupoAtivo: Awaited<ReturnType<typeof getGrupoAtivo>>
+  try {
+    [gruposList, grupoAtivo] = await withTimeout(
+      Promise.all([listarGruposAtivos(), getGrupoAtivo(usuario)]),
+      6000,
+    )
+  } catch {
+    return null
+  }
 
   if (gruposList.length <= 1) return null
 
