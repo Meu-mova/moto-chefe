@@ -1,5 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarOSPorLoja, listarTodasOS } from '@/lib/queries/ordens-servico'
+import { listarTodasOS } from '@/lib/queries/ordens-servico'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
@@ -38,13 +38,16 @@ export default async function OrdensServicoPage({
     ? lojaParamBruto
     : lojaIdsGrupo
 
+  // Escopo de loja da consulta: admin usa a seleção do filtro (ou todas do grupo);
+  // não-admin fica na própria loja. Antes o não-admin caía em listarOSPorLoja, que
+  // ignorava data e loja — por isso os valores não acompanhavam os filtros.
+  const lojaScope = isAdmin ? lojaValues : (usuario.lojaId ? [usuario.lojaId] : [])
+
   const dataInicio = params.de  ?? dataDefaultMesAtual()
   const dataFim    = params.ate ?? undefined
 
   const [lista, mecanicos, lojasOpts] = await Promise.all([
-    isAdmin
-      ? listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaValues, dataInicio, dataFim })
-      : listarOSPorLoja(usuario.lojaId!),
+    listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaScope, dataInicio, dataFim }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
