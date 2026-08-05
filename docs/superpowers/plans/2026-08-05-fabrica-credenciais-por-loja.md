@@ -226,8 +226,14 @@ git commit -m "feat(fabrica): credencial do portal passa a ser por loja"
   - `type ContaFabrica = { lojaId: string; lojaNome: string; email: string; senha: string }`
   - `type LojaCredencial = { id: string; nome: string; fabricaEmail: string | null; fabricaSenha: string | null }`
   - `type EscopoFabrica = { contas: ContaFabrica[]; semCredencial: string[] }`
-  - `filtrarContasDoUsuario(usuario: { lojaId: string | null }, lojasDoGrupo: LojaCredencial[]): EscopoFabrica`
+  - `filtrarContasDoUsuario(usuario: { papel: string; lojaId: string | null }, lojasDoGrupo: LojaCredencial[]): EscopoFabrica`
   - `listarContasFabrica(usuario: { papel: string; lojaId: string | null }): Promise<EscopoFabrica>`
+
+O escopo é decidido pelo **papel**, não pela presença de `lojaId`: 3 dos 5 sócios
+têm loja fixa cadastrada, e escopar por `lojaId` os prenderia a uma loja só — e
+os deixaria sem nenhuma conta ao trocar de grupo, já que a loja fixa deles não
+está no grupo aberto. É também o que o resto do sistema faz: `garantias/page.tsx`
+já trata `admin_socio` como admin no filtro de loja.
 
 - [ ] **Step 1: Escrever o teste que falha**
 
@@ -244,39 +250,63 @@ const LOJAS: LojaCredencial[] = [
   { id: 'l3', nome: 'Lavras',       fabricaEmail: null,             fabricaSenha: null },
 ]
 
-test('usuário alocado numa loja só enxerga a conta dela', () => {
-  const { contas } = filtrarContasDoUsuario({ lojaId: 'l2' }, LOJAS)
+const AUX  = { papel: 'aux_adm',     lojaId: 'l2' }
+const SOCIO_COM_LOJA = { papel: 'admin_socio', lojaId: 'l1' }
+const GERAL = { papel: 'admin_geral', lojaId: null }
+
+test('quem opera a loja só enxerga a conta dela', () => {
+  const { contas } = filtrarContasDoUsuario(AUX, LOJAS)
   assert.deepEqual(contas.map(c => c.lojaNome), ['Varginha'])
   assert.equal(contas[0].email, 'varginha@x.com')
 })
 
-test('admin sem loja enxerga todas as lojas do grupo que têm login', () => {
-  const { contas } = filtrarContasDoUsuario({ lojaId: null }, LOJAS)
+test('admin geral enxerga todas as lojas do grupo que têm login', () => {
+  const { contas } = filtrarContasDoUsuario(GERAL, LOJAS)
   assert.deepEqual(contas.map(c => c.lojaNome), ['Pouso Alegre', 'Varginha'])
 })
 
+test('sócio com loja fixa enxerga o grupo inteiro, não só a loja dele', () => {
+  const { contas } = filtrarContasDoUsuario(SOCIO_COM_LOJA, LOJAS)
+  assert.deepEqual(contas.map(c => c.lojaNome), ['Pouso Alegre', 'Varginha'])
+})
+
+test('sócio que trocou de grupo enxerga as lojas do grupo aberto', () => {
+  // A loja fixa dele (l1) não está na lista: é outro grupo. Escopar por lojaId
+  // devolveria vazio — o bug que motivou escopar por papel.
+  const { contas } = filtrarContasDoUsuario(SOCIO_COM_LOJA, [LOJAS[1]])
+  assert.deepEqual(contas.map(c => c.lojaNome), ['Varginha'])
+})
+
 test('loja sem login sai em semCredencial, não vira conta', () => {
-  const { contas, semCredencial } = filtrarContasDoUsuario({ lojaId: null }, LOJAS)
+  const { contas, semCredencial } = filtrarContasDoUsuario(GERAL, LOJAS)
   assert.equal(contas.some(c => c.lojaNome === 'Lavras'), false)
   assert.deepEqual(semCredencial, ['Lavras'])
 })
 
 test('usuário de loja sem login não recebe a conta de outra loja', () => {
-  const { contas, semCredencial } = filtrarContasDoUsuario({ lojaId: 'l3' }, LOJAS)
+  const { contas, semCredencial } = filtrarContasDoUsuario({ papel: 'aux_adm', lojaId: 'l3' }, LOJAS)
   assert.deepEqual(contas, [])
   assert.deepEqual(semCredencial, ['Lavras'])
 })
 
 test('credencial só com espaço em branco conta como ausente', () => {
-  const { contas, semCredencial } = filtrarContasDoUsuario({ lojaId: null }, [
+  const { contas, semCredencial } = filtrarContasDoUsuario(GERAL, [
     { id: 'l4', nome: 'Itajuba', fabricaEmail: '   ', fabricaSenha: 's' },
   ])
   assert.deepEqual(contas, [])
   assert.deepEqual(semCredencial, ['Itajuba'])
 })
 
-test('lojaId que não está no grupo não devolve nada', () => {
-  const { contas, semCredencial } = filtrarContasDoUsuario({ lojaId: 'outro-grupo' }, LOJAS)
+test('senha só com espaço em branco também conta como ausente', () => {
+  const { contas, semCredencial } = filtrarContasDoUsuario(GERAL, [
+    { id: 'l5', nome: 'Poços de Caldas', fabricaEmail: 'pocos@x.com', fabricaSenha: '  ' },
+  ])
+  assert.deepEqual(contas, [])
+  assert.deepEqual(semCredencial, ['Poços de Caldas'])
+})
+
+test('não-admin sem loja não devolve nada', () => {
+  const { contas, semCredencial } = filtrarContasDoUsuario({ papel: 'aux_adm', lojaId: null }, LOJAS)
   assert.deepEqual(contas, [])
   assert.deepEqual(semCredencial, [])
 })
@@ -321,23 +351,29 @@ export type EscopoFabrica = {
   semCredencial: string[]
 }
 
+const PAPEIS_GRUPO_INTEIRO = ['admin_geral', 'admin_socio']
+
 /**
  * Quais contas do portal da fábrica o usuário pode usar.
  *
- * Quem está alocado numa loja só enxerga a conta dela: no portal cada loja é um
- * cadastro distinto, e o adm de Varginha não tem o que fazer com a caixa de
- * trocas de Itajuba. Admin sem loja varre o grupo ativo inteiro.
+ * Quem opera a loja só enxerga a conta dela: no portal cada loja é um cadastro
+ * distinto, e o adm de Varginha não tem o que fazer com a caixa de trocas de
+ * Itajuba. Admin e sócio varrem o grupo ativo inteiro.
+ *
+ * O escopo sai do papel, não de ter `lojaId`: sócio tem loja fixa cadastrada, e
+ * escopar pela loja o prenderia a ela — e o deixaria sem conta nenhuma ao trocar
+ * de grupo, porque a loja fixa dele não está no grupo aberto.
  *
  * Pura de propósito — é aqui que um erro vazaria dado de uma loja pra outra, e
  * é o que os testes cobrem.
  */
 export function filtrarContasDoUsuario(
-  usuario: { lojaId: string | null },
+  usuario: { papel: string; lojaId: string | null },
   lojasDoGrupo: LojaCredencial[],
 ): EscopoFabrica {
-  const noEscopo = usuario.lojaId
-    ? lojasDoGrupo.filter(l => l.id === usuario.lojaId)
-    : lojasDoGrupo
+  const noEscopo = PAPEIS_GRUPO_INTEIRO.includes(usuario.papel)
+    ? lojasDoGrupo
+    : lojasDoGrupo.filter(l => l.id === usuario.lojaId)
 
   const contas: ContaFabrica[] = []
   const semCredencial: string[] = []
