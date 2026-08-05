@@ -78,6 +78,10 @@ export const lojas = pgTable('lojas', {
   cep: text('cep'),
   latitude: numeric('latitude', { precision: 9, scale: 6 }),
   longitude: numeric('longitude', { precision: 9, scale: 6 }),
+  // Login da loja no portal da fábrica (motochefebrasil.store). Cada loja é um
+  // cadastro distinto lá — o que uma conta enxerga a outra não enxerga.
+  fabricaEmail: text('fabrica_email'),
+  fabricaSenha: text('fabrica_senha'),
 })
 
 // ─── usuarios ────────────────────────────────────────────────────────────────
