@@ -5,9 +5,10 @@ import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { eq, isNotNull } from 'drizzle-orm'
+import { and, eq, isNotNull } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
+import { listarContasFabrica } from '@/lib/fabrica-contas'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -79,40 +80,61 @@ export async function abrirGarantiaAction(params: {
   revalidatePath(`/estoque/${params.motoId}`)
 }
 
-export async function sincronizarFabricaAction() {
+export async function sincronizarFabricaAction(): Promise<{
+  porLoja: { loja: string; atualizadas: number; erros: number }[]
+  semCredencial: string[]
+}> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão')
   }
 
-  const lista = await db
-    .select({ id: garantias.id, numeroPedidoFabrica: garantias.numeroPedidoFabrica })
-    .from(garantias)
-    .where(isNotNull(garantias.numeroPedidoFabrica))
+  const { contas, semCredencial } = await listarContasFabrica(usuario)
+  const porLoja: { loja: string; atualizadas: number; erros: number }[] = []
 
-  if (lista.length === 0) return { atualizadas: 0, erros: 0 }
+  // Sequencial: o portal é frágil e login em paralelo na mesma origem arrisca
+  // derrubar a sessão da outra loja.
+  for (const conta of contas) {
+    const lista = await db
+      .select({ id: garantias.id, numeroPedidoFabrica: garantias.numeroPedidoFabrica })
+      .from(garantias)
+      .where(and(eq(garantias.lojaId, conta.lojaId), isNotNull(garantias.numeroPedidoFabrica)))
 
-  const session = await loginFabrica()
-  const agora = new Date()
-  let atualizadas = 0
-  let erros = 0
-
-  for (const g of lista) {
-    if (!g.numeroPedidoFabrica) continue
-    try {
-      const status = await buscarStatusGarantiaFabrica(session, g.numeroPedidoFabrica)
-      await db
-        .update(garantias)
-        .set({ statusFabrica: status, statusFabricaSyncEm: agora })
-        .where(eq(garantias.id, g.id))
-      atualizadas++
-    } catch {
-      erros++
+    if (lista.length === 0) {
+      porLoja.push({ loja: conta.lojaNome, atualizadas: 0, erros: 0 })
+      continue
     }
+
+    let atualizadas = 0
+    let erros = 0
+
+    try {
+      const session = await loginFabrica({ email: conta.email, senha: conta.senha })
+      const agora = new Date()
+      for (const g of lista) {
+        if (!g.numeroPedidoFabrica) continue
+        try {
+          const status = await buscarStatusGarantiaFabrica(session, g.numeroPedidoFabrica)
+          await db
+            .update(garantias)
+            .set({ statusFabrica: status, statusFabricaSyncEm: agora })
+            .where(eq(garantias.id, g.id))
+          atualizadas++
+        } catch {
+          erros++
+        }
+      }
+    } catch {
+      // Login recusado ou portal fora do ar: a loja inteira falhou, mas as
+      // outras ainda têm que sincronizar.
+      erros = lista.length
+    }
+
+    porLoja.push({ loja: conta.lojaNome, atualizadas, erros })
   }
 
   revalidatePath('/garantias')
-  return { atualizadas, erros }
+  return { porLoja, semCredencial }
 }
 
 export async function importarUltimaGarantiaFabricaAction(): Promise<{
