@@ -58,6 +58,8 @@ export const grupos = pgTable('grupos', {
 export const pedidosFabricaAlerta = pgTable('pedidos_fabrica_alerta', {
   id:               uuid('id').primaryKey().defaultRandom(),
   grupoId:          uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  // Cada loja tem sua conta no portal e sua própria fila de pendências.
+  lojaId:           uuid('loja_id').notNull().references(() => lojas.id, { onDelete: 'cascade' }),
   numeroPedido:     text('numero_pedido').notNull(),
   valor:            numeric('valor', { precision: 12, scale: 2 }),
   dataPedido:       text('data_pedido'),
@@ -65,7 +67,7 @@ export const pedidosFabricaAlerta = pgTable('pedidos_fabrica_alerta', {
   ultimoAlertaEm:   timestamp('ultimo_alerta_em', { withTimezone: true }).notNull().defaultNow(),
   // Preenchido quando o pedido some da lista de "aguardando pagamento".
   resolvidoEm:      timestamp('resolvido_em', { withTimezone: true }),
-}, t => [unique('pedidos_fabrica_alerta_grupo_pedido_key').on(t.grupoId, t.numeroPedido)])
+}, t => [unique('pedidos_fabrica_alerta_loja_pedido_key').on(t.lojaId, t.numeroPedido)])
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {

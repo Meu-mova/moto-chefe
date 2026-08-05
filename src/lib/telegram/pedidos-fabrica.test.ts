@@ -84,16 +84,16 @@ const NOVO: PedidoAviso = {
 }
 
 test('aviso lista os novos com valor, método e data', () => {
-  const texto = formatarAvisoPedidosFabrica({ grupo: 'Sul de Minas', novos: [NOVO], pendentes: [] })
+  const texto = formatarAvisoPedidosFabrica({ loja: 'Pouso Alegre', novos: [NOVO], pendentes: [] })
   assert.ok(texto)
-  assert.match(texto, /Sul de Minas/)
+  assert.match(texto, /Pouso Alegre/)
   assert.match(texto, /🆕 Novo:/)
   assert.match(texto, /#24103 · R\$ 202,90 · Pix · aberto 29\/07/)
 })
 
 test('aviso mostra há quantos dias o pendente está parado', () => {
   const texto = formatarAvisoPedidosFabrica({
-    grupo: 'BH',
+    loja: 'Raja BH',
     novos: [],
     pendentes: [{ ...NOVO, numeroPedido: '23900', diasPendente: 3 }],
   })
@@ -104,18 +104,18 @@ test('aviso mostra há quantos dias o pendente está parado', () => {
 
 test('aviso usa singular no primeiro dia', () => {
   const texto = formatarAvisoPedidosFabrica({
-    grupo: 'BH', novos: [], pendentes: [{ ...NOVO, diasPendente: 1 }],
+    loja: 'Raja BH', novos: [], pendentes: [{ ...NOVO, diasPendente: 1 }],
   })
   assert.match(texto!, /há 1 dia$|há 1 dia\n/m)
 })
 
 test('sem pedido nenhum não gera mensagem', () => {
-  assert.equal(formatarAvisoPedidosFabrica({ grupo: 'BH', novos: [], pendentes: [] }), null)
+  assert.equal(formatarAvisoPedidosFabrica({ loja: 'Raja BH', novos: [], pendentes: [] }), null)
 })
 
 test('pedido sem valor não vira "R$ null"', () => {
   const texto = formatarAvisoPedidosFabrica({
-    grupo: 'BH', novos: [{ ...NOVO, valor: null, metodo: null, dataPedido: null }], pendentes: [],
+    loja: 'Raja BH', novos: [{ ...NOVO, valor: null, metodo: null, dataPedido: null }], pendentes: [],
   })
   assert.match(texto!, /#24103 · valor não informado/)
 })

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { alertarPedidosFabrica } from '@/lib/telegram/pedidos-fabrica'
 
-// Login + scraping do portal da fábrica para os dois grupos leva mais que o
-// default do Next.
-export const maxDuration = 120
+// Login + scraping do portal da fábrica, agora uma conta por loja, leva bem mais
+// que o default do Next.
+export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
 function autorizado(req: NextRequest): boolean {

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { grupos, pedidosFabricaAlerta } from '@/lib/db/schema'
+import { grupos, lojas, pedidosFabricaAlerta } from '@/lib/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { enviarMensagem } from './api'
 import {
@@ -45,14 +45,14 @@ function linhaPedido(p: PedidoAviso): string {
  * uma mensagem vazia todo dia em que está tudo pago.
  */
 export function formatarAvisoPedidosFabrica(params: {
-  grupo: string
+  loja: string
   novos: PedidoAviso[]
   pendentes: PedidoAviso[]
 }): string | null {
-  const { grupo, novos, pendentes } = params
+  const { loja, novos, pendentes } = params
   if (novos.length === 0 && pendentes.length === 0) return null
 
-  const linhas: string[] = [`💸 Pedido de compras aguardando pagamento — ${grupo}`]
+  const linhas: string[] = [`💸 Pedido de compras aguardando pagamento — ${loja}`]
 
   if (novos.length > 0) {
     linhas.push('', novos.length === 1 ? '🆕 Novo:' : `🆕 Novos (${novos.length}):`)
@@ -78,7 +78,8 @@ export function diasEntre(de: Date, ate: Date): number {
   return Math.max(0, Math.round((diaAte - diaDe) / 86_400_000))
 }
 
-export type ResultadoGrupo = {
+export type ResultadoLoja = {
+  loja: string
   grupo: string
   status: 'enviado' | 'nada_pendente' | 'sem_chat' | 'sem_credencial' | 'erro'
   novos?: number
@@ -87,21 +88,31 @@ export type ResultadoGrupo = {
 }
 
 /**
- * Roda o alerta para um grupo: entra no portal com a conta daquela bandeira,
- * lista o que está aguardando pagamento e avisa o Telegram do grupo.
+ * Roda o alerta para uma loja: entra no portal com a conta dela, lista o que
+ * está aguardando pagamento e avisa o Telegram da bandeira.
  *
- * Nunca lança — o cron roda os dois grupos e a falha de um não pode calar o outro.
+ * Nunca lança — o cron roda todas as lojas e a falha de uma não pode calar as
+ * outras.
  */
-export async function alertarPedidosFabricaDoGrupo(
-  grupo: { id: string; nome: string; fabricaEmail: string | null; fabricaSenha: string | null; telegramChatId: string | null },
+export async function alertarPedidosFabricaDaLoja(
+  loja: {
+    id: string
+    nome: string
+    grupoId: string
+    grupoNome: string
+    fabricaEmail: string | null
+    fabricaSenha: string | null
+    telegramChatId: string | null
+  },
   agora: Date,
-): Promise<ResultadoGrupo> {
-  const chatId = grupo.telegramChatId?.trim()
-  const email  = grupo.fabricaEmail?.trim()
-  const senha  = grupo.fabricaSenha?.trim()
+): Promise<ResultadoLoja> {
+  const base = { loja: loja.nome, grupo: loja.grupoNome }
+  const chatId = loja.telegramChatId?.trim()
+  const email  = loja.fabricaEmail?.trim()
+  const senha  = loja.fabricaSenha?.trim()
 
-  if (!email || !senha) return { grupo: grupo.nome, status: 'sem_credencial' }
-  if (!chatId)          return { grupo: grupo.nome, status: 'sem_chat' }
+  if (!email || !senha) return { ...base, status: 'sem_credencial' }
+  if (!chatId)          return { ...base, status: 'sem_chat' }
 
   try {
     const session = await loginFabrica({ email, senha })
@@ -121,7 +132,7 @@ export async function alertarPedidosFabricaDoGrupo(
       })
       .from(pedidosFabricaAlerta)
       .where(and(
-        eq(pedidosFabricaAlerta.grupoId, grupo.id),
+        eq(pedidosFabricaAlerta.lojaId, loja.id),
         isNull(pedidosFabricaAlerta.resolvidoEm),
       ))
 
@@ -152,13 +163,13 @@ export async function alertarPedidosFabricaDoGrupo(
       await db.update(pedidosFabricaAlerta)
         .set({ resolvidoEm: agora })
         .where(and(
-          eq(pedidosFabricaAlerta.grupoId, grupo.id),
+          eq(pedidosFabricaAlerta.lojaId, loja.id),
           inArray(pedidosFabricaAlerta.numeroPedido, resolvidos),
         ))
     }
 
-    const texto = formatarAvisoPedidosFabrica({ grupo: grupo.nome, novos, pendentes })
-    if (!texto) return { grupo: grupo.nome, status: 'nada_pendente' }
+    const texto = formatarAvisoPedidosFabrica({ loja: loja.nome, novos, pendentes })
+    if (!texto) return { ...base, status: 'nada_pendente' }
 
     await enviarMensagem(chatId, texto)
 
@@ -167,7 +178,8 @@ export async function alertarPedidosFabricaDoGrupo(
     for (const p of aguardando) {
       await db.insert(pedidosFabricaAlerta)
         .values({
-          grupoId:          grupo.id,
+          grupoId:          loja.grupoId,
+          lojaId:           loja.id,
           numeroPedido:     p.numeroPedido,
           valor:            p.valor != null ? String(p.valor) : null,
           dataPedido:       p.dataPedido,
@@ -175,37 +187,41 @@ export async function alertarPedidosFabricaDoGrupo(
           ultimoAlertaEm:   agora,
         })
         .onConflictDoUpdate({
-          target: [pedidosFabricaAlerta.grupoId, pedidosFabricaAlerta.numeroPedido],
+          target: [pedidosFabricaAlerta.lojaId, pedidosFabricaAlerta.numeroPedido],
           set:    { ultimoAlertaEm: agora, resolvidoEm: null },
         })
     }
 
-    return { grupo: grupo.nome, status: 'enviado', novos: novos.length, pendentes: pendentes.length }
+    return { ...base, status: 'enviado', novos: novos.length, pendentes: pendentes.length }
   } catch (e) {
     const erro = e instanceof Error ? e.message : String(e)
-    console.error(`alerta de pedidos da fábrica falhou para ${grupo.nome}:`, erro)
-    return { grupo: grupo.nome, status: 'erro', erro }
+    console.error(`alerta de pedidos da fábrica falhou para ${loja.nome}:`, erro)
+    return { ...base, status: 'erro', erro }
   }
 }
 
-/** Roda o alerta para todos os grupos ativos. */
-export async function alertarPedidosFabrica(agora: Date = new Date()): Promise<ResultadoGrupo[]> {
-  const ativos = await db
+/** Roda o alerta para todas as lojas ativas de grupos ativos. */
+export async function alertarPedidosFabrica(agora: Date = new Date()): Promise<ResultadoLoja[]> {
+  const ativas = await db
     .select({
-      id:             grupos.id,
-      nome:           grupos.nome,
-      fabricaEmail:   grupos.fabricaEmail,
-      fabricaSenha:   grupos.fabricaSenha,
+      id:             lojas.id,
+      nome:           lojas.nome,
+      grupoId:        lojas.grupoId,
+      grupoNome:      grupos.nome,
+      fabricaEmail:   lojas.fabricaEmail,
+      fabricaSenha:   lojas.fabricaSenha,
       telegramChatId: grupos.telegramChatId,
     })
-    .from(grupos)
-    .where(eq(grupos.ativo, true))
+    .from(lojas)
+    .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
+    .where(and(eq(grupos.ativo, true), eq(lojas.ativa, true)))
+    .orderBy(grupos.nome, lojas.nome)
 
-  const resultados: ResultadoGrupo[] = []
-  // Sequencial: são 2 grupos e o portal da fábrica é frágil — paralelizar login
-  // na mesma origem não vale o risco de derrubar a sessão do outro.
-  for (const g of ativos) {
-    resultados.push(await alertarPedidosFabricaDoGrupo(g, agora))
+  const resultados: ResultadoLoja[] = []
+  // Sequencial: o portal da fábrica é frágil e paralelizar login na mesma origem
+  // não vale o risco de derrubar a sessão de outra loja.
+  for (const l of ativas) {
+    resultados.push(await alertarPedidosFabricaDaLoja(l, agora))
   }
   return resultados
 }
