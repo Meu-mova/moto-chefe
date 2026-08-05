@@ -19,7 +19,9 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getUser() é uma chamada HTTP ao auth do Supabase; sem timeout, um soluço dela
+  // pendura a página até os 300s. Estoura rápido → error boundary "Tentar de novo".
+  const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000)
 
   if (!user) redirect('/login')
 
