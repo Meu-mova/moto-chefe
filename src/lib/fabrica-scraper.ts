@@ -52,16 +52,16 @@ export type FabricaSession = { cookie: string }
 export type CredencialFabrica = { email: string; senha: string }
 
 /**
- * Faz login no portal da fábrica.
+ * Faz login no portal da fábrica com a conta de uma loja.
  *
- * Sem argumento usa FABRICA_EMAIL/FABRICA_SENHA do ambiente (conta única, legado).
- * Com `cred` usa a conta daquela bandeira — cada grupo tem seu próprio cadastro
- * no portal, então o que uma conta enxerga não é o que a outra enxerga.
+ * A credencial é obrigatória: cada loja tem seu próprio cadastro no portal e o
+ * que uma conta enxerga não é o que a outra enxerga. Sem argumento não há como
+ * saber de qual loja é a sessão — por isso não existe mais fallback de ambiente.
  */
-export async function loginFabrica(cred?: CredencialFabrica): Promise<FabricaSession> {
-  const email = cred?.email ?? process.env.FABRICA_EMAIL
-  const senha = cred?.senha ?? process.env.FABRICA_SENHA
-  if (!email || !senha) throw new Error('Variáveis FABRICA_EMAIL / FABRICA_SENHA não configuradas no ambiente')
+export async function loginFabrica(cred: CredencialFabrica): Promise<FabricaSession> {
+  const email = cred.email?.trim()
+  const senha = cred.senha?.trim()
+  if (!email || !senha) throw new Error('Login da fábrica sem e-mail ou senha — confira o cadastro da loja')
 
   // 1. GET /login (sem redirect automático para capturar Set-Cookie)
   const getResp = await fetch(`${BASE}/login`, {

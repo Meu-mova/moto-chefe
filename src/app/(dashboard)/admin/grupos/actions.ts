@@ -21,8 +21,6 @@ type GrupoInput = {
   ativo: boolean
   validapixEmail?: string
   validapixPassword?: string
-  fabricaEmail?: string
-  fabricaSenha?: string
   blingClientId?: string
   blingClientSecret?: string
   telegramChatId?: string
@@ -40,8 +38,6 @@ export async function criarGrupoAction(dados: GrupoInput) {
     ativo: dados.ativo,
     validapixEmail: dados.validapixEmail?.trim() || null,
     validapixPassword: dados.validapixPassword?.trim() || null,
-    fabricaEmail: dados.fabricaEmail?.trim() || null,
-    fabricaSenha: dados.fabricaSenha?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     telegramChatId: dados.telegramChatId?.trim() || null,
@@ -62,8 +58,6 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     ativo: dados.ativo,
     validapixEmail: dados.validapixEmail?.trim() || null,
     validapixPassword: dados.validapixPassword?.trim() || null,
-    fabricaEmail: dados.fabricaEmail?.trim() || null,
-    fabricaSenha: dados.fabricaSenha?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     telegramChatId: dados.telegramChatId?.trim() || null,

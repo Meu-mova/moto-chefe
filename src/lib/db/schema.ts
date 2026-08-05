@@ -39,8 +39,6 @@ export const grupos = pgTable('grupos', {
   ativo:              boolean('ativo').notNull().default(true),
   validapixEmail:     text('validapix_email'),
   validapixPassword:  text('validapix_password'),
-  fabricaEmail:       text('fabrica_email'),
-  fabricaSenha:       text('fabrica_senha'),
   blingClientId:      text('bling_client_id'),
   blingClientSecret:  text('bling_client_secret'),
   // Chat/grupo do Telegram que recebe os avisos desta bandeira. Nulo = não avisa.

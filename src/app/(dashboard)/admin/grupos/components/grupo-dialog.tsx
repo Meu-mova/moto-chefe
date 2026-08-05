@@ -16,8 +16,6 @@ type Grupo = {
   ativo: boolean
   validapixEmail: string | null
   validapixPassword: string | null
-  fabricaEmail: string | null
-  fabricaSenha: string | null
   blingClientId: string | null
   blingClientSecret: string | null
   telegramChatId: string | null
@@ -40,8 +38,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true)
   const [validapixEmail, setValidapixEmail] = useState(inicial?.validapixEmail ?? '')
   const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
-  const [fabricaEmail, setFabricaEmail] = useState(inicial?.fabricaEmail ?? '')
-  const [fabricaSenha, setFabricaSenha] = useState(inicial?.fabricaSenha ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
   const [telegramChatId, setTelegramChatId] = useState(inicial?.telegramChatId ?? '')
@@ -54,7 +50,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, fabricaEmail, fabricaSenha, blingClientId, blingClientSecret, telegramChatId, metaMotosMes }
+      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret, telegramChatId, metaMotosMes }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -99,14 +95,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 <Label className="text-xs">ValidaPix — Senha</Label>
                 <Input type="password" value={validapixPassword} onChange={e => setValidapixPassword(e.target.value)} className="h-9 text-sm" />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Fábrica — E-mail</Label>
-                <Input value={fabricaEmail} onChange={e => setFabricaEmail(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Fábrica — Senha</Label>
-                <Input type="password" value={fabricaSenha} onChange={e => setFabricaSenha(e.target.value)} className="h-9 text-sm" />
-              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -146,7 +134,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               </p>
             </div>
             <p className="text-xs text-slate-400">
-              ValidaPix e Fábrica ainda não são usadas pelo sistema — serão ativadas em uma etapa futura. Bling já está em uso (emissão de NF-e).
+              ValidaPix ainda não é usada pelo sistema — será ativada em uma etapa futura. Bling já está em uso (emissão de NF-e). O login da fábrica agora fica no cadastro de cada loja.
             </p>
           </div>
 
