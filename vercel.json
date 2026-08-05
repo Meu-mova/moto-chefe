@@ -1,5 +1,4 @@
 {
-  "fluid": false,
   "crons": [
     {
       "path": "/api/cron/pedidos-fabrica",
