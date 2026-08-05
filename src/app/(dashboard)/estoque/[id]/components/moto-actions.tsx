@@ -24,6 +24,7 @@ type Moto = {
   modelo: string
   cor: string
   transferenciaPendente: boolean
+  transferenciaDestino: string | null
   reservaId: string | null
   reservaValorEntrada: string | null
   reservaValorTotal: string | null
@@ -210,11 +211,11 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
         acoes.push(
           <span
             key="transf-pendente"
-            title="Transferência pendente"
+            title={moto.transferenciaDestino ?? 'Transferência pendente'}
             className="h-8 flex items-center gap-1.5 text-xs text-purple-400 cursor-default"
           >
             <ArrowLeftRight size={14} />
-            Transf. Pendente
+            {moto.transferenciaDestino ?? 'Transf. pendente'}
           </span>
         )
       } else {
