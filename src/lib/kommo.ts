@@ -473,6 +473,16 @@ type UnsortedKommo = {
 //               WhatsApp, a página do Facebook), casado com o lead da fila.
 // O que nenhuma das duas nomear fica só com o id e o Cesar batiza em
 // /admin/canais — `nome` nunca é sobrescrito aqui.
+//
+// Os limites abaixo são de LATÊNCIA, não de correção: isto roda dentro do
+// caminho de uma requisição de página (a cada 15min, quando o cache vence), e
+// varrer a fila inteira de não distribuídos custaria ~45 chamadas sequenciais.
+// O catálogo é cumulativo — cada rodada acrescenta o que achar, e canal ativo
+// aparece em poucas rodadas. Página lenta é problema recorrente aqui.
+const PAGINAS_TALKS = 2
+const PAGINAS_UNSORTED = 2
+const LOTES_LEAD = 6
+
 export async function sincronizarCanaisKommo(): Promise<{ canais: number }> {
   const achados = new Map<number, { origem: string | null; perfil: string | null }>()
   const guardar = (id: number | null | undefined, origem?: string | null, perfil?: string | null) => {
@@ -482,7 +492,7 @@ export async function sincronizarCanaisKommo(): Promise<{ canais: number }> {
   }
 
   // 1) Conversas — dão o tipo de canal da maior parte do volume.
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; page <= PAGINAS_TALKS; page++) {
     const d = await kommoRequest(`/api/v4/talks?limit=250&page=${page}`) as
       { _embedded?: { talks?: TalkKommo[] }; _links?: { next?: unknown } } | null
     const talks = d?._embedded?.talks ?? []
@@ -494,7 +504,7 @@ export async function sincronizarCanaisKommo(): Promise<{ canais: number }> {
   // 2) Fila de leads não distribuídos — traz o nome do perfil. Precisa casar
   //    com o lead para chegar no source_id, que a fila não expõe.
   const porLead = new Map<number, { service: string | null; perfil: string | null }>()
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; page <= PAGINAS_UNSORTED; page++) {
     const d = await kommoRequest(`/api/v4/leads/unsorted?limit=250&page=${page}`) as
       { _embedded?: { unsorted?: UnsortedKommo[] }; _links?: { next?: unknown } } | null
     const fila = d?._embedded?.unsorted ?? []
@@ -505,7 +515,7 @@ export async function sincronizarCanaisKommo(): Promise<{ canais: number }> {
     }
     if (!d?._links?.next) break
   }
-  const ids = [...porLead.keys()]
+  const ids = [...porLead.keys()].slice(0, LOTES_LEAD * 50)
   for (let i = 0; i < ids.length; i += 50) {
     const filtro = ids.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&')
     const d = await kommoRequest(`/api/v4/leads?limit=250&${filtro}&with=source_id`) as
