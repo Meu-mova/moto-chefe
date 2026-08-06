@@ -158,6 +158,15 @@ export default async function AdminPage() {
               <CardContent><p className="text-sm text-slate-500">Canal de comunicação interna</p></CardContent>
             </Card>
           </Link>
+          <Link href="/admin/canais">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex-row gap-3 items-center pb-2">
+                <Megaphone className="text-slate-600" size={20} />
+                <CardTitle className="text-base">Canais e verba</CardTitle>
+              </CardHeader>
+              <CardContent><p className="text-sm text-slate-500">Origem dos leads, funis por grupo e investimento em mídia</p></CardContent>
+            </Card>
+          </Link>
           <Link href="/admin/kommo">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="flex-row gap-3 items-center pb-2">

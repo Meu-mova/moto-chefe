@@ -704,6 +704,7 @@ export const kommoLeads = pgTable('kommo_leads', {
   pipelineId:   text('pipeline_id'),
   price:        numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),
   lossReasonId: bigint('loss_reason_id', { mode: 'number' }),
+  sourceId:     bigint('source_id', { mode: 'number' }),  // canal de entrada (ver kommo_sources)
   primeiroIncomingEm: timestamp('primeiro_incoming_em', { withTimezone: true }), // 1ª msg do cliente
   primeiraRespostaEm: timestamp('primeira_resposta_em', { withTimezone: true }), // 1ª resposta humana
   criadoEm:     timestamp('criado_em', { withTimezone: true }),
@@ -740,6 +741,37 @@ export const kommoSyncStatus = pgTable('kommo_sync_status', {
   id:                  text('id').primaryKey().default('global'),
   ultimaSincronizacao: timestamp('ultima_sincronizacao', { withTimezone: true }),
   ultimoUpdatedAt:     bigint('ultimo_updated_at', { mode: 'number' }),
+})
+
+// ─── Marketing: canal de entrada, mapa de funil e verba ──────────────────────
+// Catálogo de canal do lead. `origem` e `perfil` são reescritos pelo sync
+// (/talks e /unsorted); `nome` é rótulo humano e o sync nunca toca nele.
+export const kommoSources = pgTable('kommo_sources', {
+  sourceId:     bigint('source_id', { mode: 'number' }).primaryKey(),
+  origem:       text('origem'),
+  perfil:       text('perfil'),
+  nome:         text('nome'),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Funil → grupo. É daqui que o relatório de marketing tira o grupo (o funil está
+// preenchido em 100% dos leads; o vendedor responsável, não).
+export const kommoPipelineGrupo = pgTable('kommo_pipeline_grupo', {
+  pipelineId:   text('pipeline_id').primaryKey(),
+  grupoId:      uuid('grupo_id').references(() => grupos.id),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Verba de mídia lançada à mão. pipelineId nulo = verba do grupo, sem loja.
+export const marketingInvestimento = pgTable('marketing_investimento', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  grupoId:    uuid('grupo_id').notNull().references(() => grupos.id),
+  mes:        date('mes').notNull(),
+  pipelineId: text('pipeline_id'),
+  plataforma: text('plataforma').notNull(),
+  valor:      numeric('valor', { precision: 12, scale: 2 }).notNull().default('0'),
+  observacao: text('observacao'),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Atividade diária por colaborador (mensagens/tarefas/tempo de resposta) — Fase 2

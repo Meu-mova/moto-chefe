@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons, kommoStages, kommoTarefasAbertas } from '@/lib/db/schema'
+import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons, kommoStages, kommoTarefasAbertas, kommoSources } from '@/lib/db/schema'
 import { eq, sql, gte } from 'drizzle-orm'
 import { etapaDeFechamento } from '@/lib/kommo-etapas'
 
@@ -202,7 +202,7 @@ const JANELA_CACHE_MS = 15 * 60 * 1000
 // Piso de backfill na 1ª sincronização (updated_at) — cobre o ano corrente.
 const BACKFILL_FLOOR = Math.floor(new Date(Date.UTC(2026, 0, 1)).getTime() / 1000)
 
-type LeadKommo = {
+export type LeadKommo = {
   id: number
   name?: string | null
   price?: number | null
@@ -210,6 +210,7 @@ type LeadKommo = {
   pipeline_id?: number
   responsible_user_id?: number
   loss_reason_id?: number | null
+  source_id?: number | null
   created_at?: number
   closed_at?: number | null
   updated_at?: number
@@ -239,8 +240,10 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
   let processados = 0
   let maiorUpdated = desde
   for (;;) {
+    // `with=source_id` é obrigatório: sem ele a API omite o campo e o canal de
+    // entrada some — é o eixo do relatório de marketing.
     const data = await kommoRequest(
-      `/api/v4/leads?limit=250&page=${page}&order[updated_at]=asc&filter[updated_at][from]=${desde}`,
+      `/api/v4/leads?limit=250&page=${page}&order[updated_at]=asc&filter[updated_at][from]=${desde}&with=source_id`,
     ) as { _embedded?: { leads?: LeadKommo[] }; _links?: { next?: unknown } } | null
     const leads = data?._embedded?.leads ?? []
     if (leads.length === 0) break
@@ -255,6 +258,7 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
         pipelineId: l.pipeline_id != null ? String(l.pipeline_id) : null,
         price: String(l.price ?? 0),
         lossReasonId: l.loss_reason_id ?? null,
+        sourceId: l.source_id ?? null,
         criadoEm: toDate(l.created_at),
         fechadoEm: toDate(l.closed_at),
         atualizadoEm: toDate(l.updated_at),
@@ -271,6 +275,9 @@ export async function sincronizarLeadsKommo(): Promise<{ processados: number }> 
         pipelineId:   sql`excluded.pipeline_id`,
         price:        sql`excluded.price`,
         lossReasonId: sql`excluded.loss_reason_id`,
+        // COALESCE: se a API vier sem source_id num update, mantém o que o
+        // backfill já descobriu em vez de apagar o canal.
+        sourceId:     sql`coalesce(excluded.source_id, ${kommoLeads.sourceId})`,
         criadoEm:     sql`excluded.criado_em`,
         fechadoEm:    sql`excluded.fechado_em`,
         atualizadoEm: sql`excluded.atualizado_em`,
@@ -452,6 +459,79 @@ export async function sincronizarEtapasKommo(): Promise<{ etapas: number }> {
   return { etapas: rows.length }
 }
 
+type TalkKommo = { source_id?: number | null; origin?: string | null }
+type UnsortedKommo = {
+  metadata?: { service?: string | null; source_name?: string | null }
+  _embedded?: { leads?: { id: number }[] }
+}
+
+// Catálogo de canal de entrada (kommo_sources). A API não dá o nome do canal
+// direto — /api/v4/sources responde 204 porque só lista sources da própria
+// integração. Então monta-se por duas vias:
+//   /talks    → source_id + origin (o tipo do canal: WhatsApp, Instagram, ...)
+//   /unsorted → service + source_name (o PERFIL: motochefepocos, o número do
+//               WhatsApp, a página do Facebook), casado com o lead da fila.
+// O que nenhuma das duas nomear fica só com o id e o Cesar batiza em
+// /admin/canais — `nome` nunca é sobrescrito aqui.
+export async function sincronizarCanaisKommo(): Promise<{ canais: number }> {
+  const achados = new Map<number, { origem: string | null; perfil: string | null }>()
+  const guardar = (id: number | null | undefined, origem?: string | null, perfil?: string | null) => {
+    if (id == null) return
+    const atual = achados.get(id) ?? { origem: null, perfil: null }
+    achados.set(id, { origem: origem ?? atual.origem, perfil: perfil ?? atual.perfil })
+  }
+
+  // 1) Conversas — dão o tipo de canal da maior parte do volume.
+  for (let page = 1; page <= 10; page++) {
+    const d = await kommoRequest(`/api/v4/talks?limit=250&page=${page}`) as
+      { _embedded?: { talks?: TalkKommo[] }; _links?: { next?: unknown } } | null
+    const talks = d?._embedded?.talks ?? []
+    if (talks.length === 0) break
+    for (const t of talks) guardar(t.source_id, t.origin ?? null)
+    if (!d?._links?.next) break
+  }
+
+  // 2) Fila de leads não distribuídos — traz o nome do perfil. Precisa casar
+  //    com o lead para chegar no source_id, que a fila não expõe.
+  const porLead = new Map<number, { service: string | null; perfil: string | null }>()
+  for (let page = 1; page <= 10; page++) {
+    const d = await kommoRequest(`/api/v4/leads/unsorted?limit=250&page=${page}`) as
+      { _embedded?: { unsorted?: UnsortedKommo[] }; _links?: { next?: unknown } } | null
+    const fila = d?._embedded?.unsorted ?? []
+    if (fila.length === 0) break
+    for (const u of fila) {
+      const leadId = u._embedded?.leads?.[0]?.id
+      if (leadId) porLead.set(leadId, { service: u.metadata?.service ?? null, perfil: u.metadata?.source_name ?? null })
+    }
+    if (!d?._links?.next) break
+  }
+  const ids = [...porLead.keys()]
+  for (let i = 0; i < ids.length; i += 50) {
+    const filtro = ids.slice(i, i + 50).map(id => `filter[id][]=${id}`).join('&')
+    const d = await kommoRequest(`/api/v4/leads?limit=250&${filtro}&with=source_id`) as
+      { _embedded?: { leads?: LeadKommo[] } } | null
+    for (const l of d?._embedded?.leads ?? []) {
+      const info = porLead.get(l.id)
+      if (info) guardar(l.source_id, info.service, info.perfil)
+    }
+  }
+
+  if (achados.size === 0) return { canais: 0 }
+  await db.insert(kommoSources)
+    .values([...achados].map(([sourceId, v]) => ({ sourceId, origem: v.origem, perfil: v.perfil })))
+    .onConflictDoUpdate({
+      target: kommoSources.sourceId,
+      set: {
+        // coalesce: uma rodada em que só /talks respondeu não pode apagar o
+        // perfil que a fila já tinha revelado.
+        origem:       sql`coalesce(excluded.origem, ${kommoSources.origem})`,
+        perfil:       sql`coalesce(excluded.perfil, ${kommoSources.perfil})`,
+        atualizadoEm: new Date(),
+      },
+    })
+  return { canais: achados.size }
+}
+
 type TarefaKommo = {
   id: number
   entity_id?: number
@@ -503,6 +583,7 @@ export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima:
     await sincronizarMotivosPerda().catch(() => {})
     await sincronizarEtapasKommo().catch(() => {})
     await sincronizarTarefasAbertas().catch(() => {})
+    await sincronizarCanaisKommo().catch(() => {})
     const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
     return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
   } catch (e) {
