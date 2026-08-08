@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { EfetivarDialog } from './efetivar-dialog'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { cancelarPedidoAction } from '../actions'
 import type { PedidoComDetalhes } from '@/lib/queries/vendas'
 import { format } from 'date-fns'
@@ -23,9 +24,11 @@ type Props = {
   papel: string
   usuarioId: string
   lojaIdUsuario: string | null
+  /** Origens ativas do grupo — a venda só efetiva com uma escolhida. */
+  origens: OrigemParaEscolher[]
 }
 
-export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario }: Props) {
+export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens }: Props) {
   const [cancelarOpen, setCancelarOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(false)
@@ -115,7 +118,7 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario }: Props
           {(podeEfetivar || podeCancelar) && (
             <div className="flex gap-2 pt-1 border-t border-slate-100">
               {podeEfetivar && (
-                <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} />
+                <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} />
               )}
               {podeCancelar && (
                 <Button size="sm" variant="ghost"

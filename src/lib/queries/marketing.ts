@@ -408,3 +408,186 @@ export async function funisNaoClassificados(de: string, ate: string) {
   `) as unknown as { pipeline_id: string; funil: string; leads: number }[]
   return rows.map(r => ({ pipelineId: r.pipeline_id, funil: r.funil, leads: Number(r.leads) || 0 }))
 }
+
+// ─── Vendas por origem ───────────────────────────────────────────────────────
+// Outra fonte, outro lado do funil: aqui é a venda fechada no MOVA, com a origem
+// que o vendedor apontou. Escopo por grupo sai da LOJA da venda (não há funil do
+// Kommo aqui). "Não informado" é venda anterior ao deploy da origem e aparece
+// como faixa própria — diluir no resto mentiria sobre a cobertura.
+// Ver docs/superpowers/specs/2026-08-08-origem-venda-design.md
+
+export type ResumoOrigemVendas = {
+  vendas: number
+  comOrigem: number
+  semOrigem: number
+  faturamento: number
+  cobertura: number
+}
+
+export async function resumoVendasPorOrigem(
+  grupoId: string, de: string, ate: string,
+): Promise<ResumoOrigemVendas> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      count(*)::int                                          as vendas,
+      count(v.origem_id)::int                                as com_origem,
+      count(*) filter (where v.origem_id is null)::int        as sem_origem,
+      coalesce(sum(v.valor), 0)::float8                      as faturamento
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+  `) as unknown as { vendas: number; com_origem: number; sem_origem: number; faturamento: number }[]
+
+  const r = rows[0]
+  const vendas = Number(r?.vendas) || 0
+  const comOrigem = Number(r?.com_origem) || 0
+  return {
+    vendas,
+    comOrigem,
+    semOrigem: Number(r?.sem_origem) || 0,
+    faturamento: Number(r?.faturamento) || 0,
+    cobertura: vendas > 0 ? comOrigem / vendas : 1,
+  }
+}
+
+export type LinhaOrigem = {
+  origem: string
+  tipo: string
+  vendas: number
+  faturamento: number
+  ticket: number
+}
+
+export async function vendasPorOrigem(
+  grupoId: string, de: string, ate: string,
+): Promise<LinhaOrigem[]> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      coalesce(o.nome, 'Não informado') as origem,
+      coalesce(o.tipo, 'Não informado') as tipo,
+      count(*)::int                     as vendas,
+      coalesce(sum(v.valor), 0)::float8 as faturamento
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    LEFT JOIN origens_venda o ON o.id = v.origem_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+    GROUP BY 1, 2
+    ORDER BY faturamento DESC
+  `) as unknown as { origem: string; tipo: string; vendas: number; faturamento: number }[]
+
+  return rows.map(r => {
+    const vendas = Number(r.vendas) || 0
+    const faturamento = Number(r.faturamento) || 0
+    return {
+      origem: r.origem,
+      tipo: r.tipo,
+      vendas,
+      faturamento,
+      ticket: vendas > 0 ? faturamento / vendas : 0,
+    }
+  })
+}
+
+export type CruzamentoOrigem = { origem: string; coluna: string; vendas: number }
+
+/** Origem × loja e origem × vendedor: um canal pode funcionar numa praça e não na outra. */
+export async function vendasPorOrigemELoja(
+  grupoId: string, de: string, ate: string,
+): Promise<CruzamentoOrigem[]> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      coalesce(o.nome, 'Não informado') as origem,
+      lo.nome                           as coluna,
+      count(*)::int                     as vendas
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    LEFT JOIN origens_venda o ON o.id = v.origem_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+    GROUP BY 1, 2
+    ORDER BY vendas DESC
+  `) as unknown as { origem: string; coluna: string; vendas: number }[]
+  return rows.map(r => ({ origem: r.origem, coluna: r.coluna, vendas: Number(r.vendas) || 0 }))
+}
+
+export async function vendasPorOrigemEVendedor(
+  grupoId: string, de: string, ate: string,
+): Promise<CruzamentoOrigem[]> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      coalesce(o.nome, 'Não informado') as origem,
+      u.nome                            as coluna,
+      count(*)::int                     as vendas
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    JOIN usuarios u ON u.id = v.vendedor_id
+    LEFT JOIN origens_venda o ON o.id = v.origem_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+    GROUP BY 1, 2
+    ORDER BY vendas DESC
+  `) as unknown as { origem: string; coluna: string; vendas: number }[]
+  return rows.map(r => ({ origem: r.origem, coluna: r.coluna, vendas: Number(r.vendas) || 0 }))
+}
+
+export type PontoSerieOrigem = { mes: string; tipo: string; vendas: number; faturamento: number }
+
+/** Evolução mês a mês por TIPO de origem — por origem individual a série viraria sopa. */
+export async function serieVendasPorTipoOrigem(
+  grupoId: string, de: string, ate: string,
+): Promise<PontoSerieOrigem[]> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      to_char(date_trunc('month', v.data_venda AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM') as mes,
+      coalesce(o.tipo, 'Não informado') as tipo,
+      count(*)::int                     as vendas,
+      coalesce(sum(v.valor), 0)::float8 as faturamento
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    LEFT JOIN origens_venda o ON o.id = v.origem_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  `) as unknown as { mes: string; tipo: string; vendas: number; faturamento: number }[]
+  return rows.map(r => ({
+    mes: r.mes,
+    tipo: r.tipo,
+    vendas: Number(r.vendas) || 0,
+    faturamento: Number(r.faturamento) || 0,
+  }))
+}
+
+export type Indicacao = { detalhe: string; vendas: number; faturamento: number }
+
+/** Quem mais indica. Vale para qualquer origem que peça detalhe, não só Indicação. */
+export async function indicacoesPorQuem(
+  grupoId: string, de: string, ate: string,
+): Promise<Indicacao[]> {
+  const { ini, fim } = janela(de, ate)
+  const rows = await execRows(sql`
+    SELECT
+      v.origem_detalhe                  as detalhe,
+      count(*)::int                     as vendas,
+      coalesce(sum(v.valor), 0)::float8 as faturamento
+    FROM vendas v
+    JOIN lojas lo ON lo.id = v.loja_id
+    WHERE lo.grupo_id = ${grupoId}
+      AND v.data_venda >= ${ini} AND v.data_venda <= ${fim}
+      AND v.origem_detalhe is not null AND btrim(v.origem_detalhe) <> ''
+    GROUP BY 1
+    ORDER BY vendas DESC, faturamento DESC
+  `) as unknown as { detalhe: string; vendas: number; faturamento: number }[]
+  return rows.map(r => ({
+    detalhe: r.detalhe,
+    vendas: Number(r.vendas) || 0,
+    faturamento: Number(r.faturamento) || 0,
+  }))
+}

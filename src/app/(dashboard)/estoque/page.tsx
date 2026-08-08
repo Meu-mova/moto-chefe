@@ -8,7 +8,8 @@ import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas, getGrupoAtivo } from '@/lib/grupo'
+import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -88,6 +89,10 @@ export default async function EstoquePage({
   // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)
   const demandasComSinal = await withTimeout(listarDemandasComSinalAbertas(lojaValues), 20000)
 
+  // Origem da venda: o catálogo é do grupo, e o /estoque já é escopado por grupo.
+  const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
+  const origens = await withTimeout(listarOrigensAtivasDoGrupo(grupo.id), 8000)
+
   const counts = {
     total:         motosList.length,
     caixa:         motosList.filter(m => m.status === 'caixa').length,
@@ -129,6 +134,7 @@ export default async function EstoquePage({
           mecanicos={mecanicosOpts}
           lojaUsuarioId={usuario.lojaId ?? null}
           podeAprovarPagamentoSensivel={podeAprovarSensivel}
+          origens={origens}
           ord={ord}
           dir={dir}
           baseParams={(() => {

@@ -226,6 +226,25 @@ export const vendas = pgTable('vendas', {
   statusConciliacao: text('status_conciliacao').notNull().default('pendente'),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
   clienteId: uuid('cliente_id').references(() => clientes.id),
+  /** Por onde o cliente chegou. NULL = venda anterior ao deploy da origem. */
+  origemId: uuid('origem_id').references(() => origensVenda.id),
+  origemDetalhe: text('origem_detalhe'),
+})
+
+// ─── origens_venda ───────────────────────────────────────────────────────────
+// Catálogo de "por onde o cliente chegou", editável em /admin/origens e separado
+// por grupo — cada bandeira tem suas campanhas. `tipo` existe para o relatório
+// somar por natureza (todo o Digital) mesmo quando o catálogo enche de campanha
+// pontual, já que a tela da venda tem um select só.
+export const origensVenda = pgTable('origens_venda', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  nome: text('nome').notNull(),
+  tipo: text('tipo').notNull().default('Outro'),
+  pedeDetalhe: boolean('pede_detalhe').notNull().default(false),
+  ativo: boolean('ativo').notNull().default(true),
+  ordem: integer('ordem').notNull().default(0),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── aprovacoes_venda ────────────────────────────────────────────────────────

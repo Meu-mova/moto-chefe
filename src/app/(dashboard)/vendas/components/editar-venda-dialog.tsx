@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { editarVendaAction } from '../actions'
+import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 
 type Pgto = {
@@ -47,6 +49,7 @@ type Props = {
   venda: VendaComDetalhes
   papel: string
   vendedores: { id: string; nome: string }[]
+  origens: OrigemParaEscolher[]
 }
 
 const TIPOS_CARTAO  = new Set(['cartao_credito', 'cartao_debito'])
@@ -57,7 +60,7 @@ const TIPO_LABEL: Record<string, string> = {
   transferencia: 'Transferência Bancária',
 }
 
-export function EditarVendaDialog({ venda: v, vendedores }: Props) {
+export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
   const [open, setOpen] = useState(false)
 
   // Venda
@@ -65,6 +68,8 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
   const [dataVenda,  setDataVenda]  = useState(new Date(v.dataVenda).toISOString().split('T')[0])
   const [nf,         setNf]         = useState(v.notaFiscalSaida ?? '')
   const [vendedorId, setVendedorId] = useState(v.vendedorId)
+  const [origemId,   setOrigemId]   = useState(v.origemId ?? '')
+  const [origemDetalhe, setOrigemDetalhe] = useState(v.origemDetalhe ?? '')
 
   // Pagamentos
   const pgtosSrc = (v.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[] | null) ?? []
@@ -108,6 +113,11 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
       toast.error('Preencha nome, CPF e valor')
       return
     }
+    // Venda antiga pode não ter origem; se mexeram no campo, tem de ficar válido.
+    if (origemId && !origemPreenchida(origens, origemId, origemDetalhe)) {
+      toast.error('Essa origem exige detalhe (quem indicou, qual evento, etc)')
+      return
+    }
     startTransition(async () => {
       try {
         await editarVendaAction(v.id, {
@@ -133,6 +143,7 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
           clienteBairro:      bairro.trim() || null,
           clienteCidade:      cidade.trim() || null,
           clienteEstado:      estado.trim() || null,
+          ...(origemId ? { origemId, origemDetalhe: origemDetalhe.trim() || null } : {}),
         })
         toast.success('Venda atualizada')
         setOpen(false)
@@ -211,6 +222,14 @@ export function EditarVendaDialog({ venda: v, vendedores }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Origem — corrigível aqui; venda antiga entra sem nenhuma. */}
+              <OrigemVendaSelect
+                origens={origens}
+                origemId={origemId}
+                onOrigemChange={setOrigemId}
+                detalhe={origemDetalhe}
+                onDetalheChange={setOrigemDetalhe}
+              />
             </div>
 
             {/* ── Pagamentos ── */}

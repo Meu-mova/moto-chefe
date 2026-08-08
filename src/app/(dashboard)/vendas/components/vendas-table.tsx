@@ -6,6 +6,7 @@ import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
 import { CancelarVendaButton } from './cancelar-venda-button'
 import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
 
@@ -67,9 +68,11 @@ type Props = {
   papel: string
   lojaIdUsuario?: string | null
   vendedores: { id: string; nome: string }[]
+  /** Origens ativas do grupo, para corrigir a origem na edição. */
+  origens: OrigemParaEscolher[]
 }
 
-export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props) {
+export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens }: Props) {
   const podeFazerGarantia  = podeGarantia.has(papel)
   const isAdmin            = ADMINS.has(papel)
   const podeEditarVenda    = podeEditar.has(papel)
@@ -131,7 +134,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores }: Props)
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
                   <DetalhesVendaDialog venda={v} papel={papel} />
-                  {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} />}
+                  {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} origens={origens} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton
                       motoId={v.motoId}

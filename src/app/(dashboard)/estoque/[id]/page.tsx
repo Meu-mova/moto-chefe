@@ -16,6 +16,7 @@ import { EditarMotoButton } from './components/editar-moto-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
+import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
@@ -50,6 +51,10 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
       .limit(1),
     db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupoIdDaMoto)),
   ])
+
+  // Origem da venda: catálogo do grupo da loja da MOTO, que é contra quem a
+  // action valida — não o grupo ativo do usuário.
+  const origens = await listarOrigensAtivasDoGrupo(grupoIdDaMoto)
 
   // Demandas abertas com sinal do mesmo modelo/loja — candidatas a vínculo na venda
   const demandasCompativeis = moto.modeloId
@@ -137,6 +142,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         taxasVenda={taxasVenda}
         podeAprovarPagamentoSensivel={podeAprovarSensivel}
         demandasCompativeis={demandasCompativeis}
+        origens={origens}
       />
       </div>
 

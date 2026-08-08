@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { pedidosVenda, vendas, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
+import { pedidosVenda, vendas, motos, lojas, usuarios, modelos, origensVenda } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -53,6 +53,11 @@ export async function listarVendas(filtros?: {
         THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
         ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
       END`,
+      origemId:         vendas.origemId,
+      origemDetalhe:    vendas.origemDetalhe,
+      // LEFT JOIN: venda anterior ao deploy da origem não tem linha em origens_venda,
+      // e um INNER aqui a apagaria da listagem.
+      origemNome:       origensVenda.nome,
       chassi:           motos.chassi,
       cor:              motos.cor,
       modeloId:         motos.modeloId,
@@ -66,6 +71,7 @@ export async function listarVendas(filtros?: {
     .innerJoin(modelos,  eq(motos.modeloId,    modelos.id))
     .innerJoin(lojas,    eq(vendas.lojaId,     lojas.id))
     .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
+    .leftJoin(origensVenda, eq(vendas.origemId, origensVenda.id))
     .where(
       and(
         filtros?.lojaId !== undefined ? inArray(vendas.lojaId,      filtros.lojaId)                         : undefined,

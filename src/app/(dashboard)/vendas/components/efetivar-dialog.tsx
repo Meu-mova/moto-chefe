@@ -8,11 +8,13 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { efetivarVendaAction } from '../actions'
+import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
 
-type Props = { pedidoId: string; chassi: string; modelo: string }
+type Props = { pedidoId: string; chassi: string; modelo: string; origens: OrigemParaEscolher[] }
 
-export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
+export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
   const [open, setOpen] = useState(false)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
@@ -21,6 +23,8 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
   const [valor, setValor] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('')
   const [loading, setLoading] = useState(false)
+  const [origemId, setOrigemId] = useState('')
+  const [origemDetalhe, setOrigemDetalhe] = useState('')
 
   function handleClienteSelect(id: string, nome: string, cpfCnpj: string | null) {
     setClienteId(id)
@@ -37,10 +41,13 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
   }
 
   async function handleEfetivar() {
-    if (!clienteNome || !clienteCpf || !valor || !formaPagamento) return
+    if (!podeEfetivar) return
     setLoading(true)
     try {
-      await efetivarVendaAction(pedidoId, clienteNome, clienteCpf, valor, formaPagamento, clienteId ?? undefined)
+      await efetivarVendaAction(
+        pedidoId, clienteNome, clienteCpf, valor, formaPagamento, clienteId ?? undefined,
+        origemId, origemDetalhe.trim() || undefined,
+      )
       setOpen(false)
     } catch (e: any) {
       toast.error(e.message)
@@ -48,6 +55,9 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
       setLoading(false)
     }
   }
+
+  const podeEfetivar = !!clienteNome && !!clienteCpf && !!valor && !!formaPagamento
+    && origemPreenchida(origens, origemId, origemDetalhe)
 
   return (
     <>
@@ -76,6 +86,13 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
               <Label>Valor (R$)</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
             </div>
+            <OrigemVendaSelect
+              origens={origens}
+              origemId={origemId}
+              onOrigemChange={setOrigemId}
+              detalhe={origemDetalhe}
+              onDetalheChange={setOrigemDetalhe}
+            />
             <div className="space-y-2">
               <Label>Forma de Pagamento</Label>
               <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v ?? '')}>
@@ -94,7 +111,7 @@ export function EfetivarDialog({ pedidoId, chassi, modelo }: Props) {
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button
               onClick={handleEfetivar}
-              disabled={loading || !clienteNome || !clienteCpf || !valor || !formaPagamento}
+              disabled={loading || !podeEfetivar}
             >
               {loading ? 'Efetivando...' : 'Confirmar Venda'}
             </Button>

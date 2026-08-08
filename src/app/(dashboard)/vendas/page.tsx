@@ -1,5 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel, getGrupoAtivo } from '@/lib/grupo'
+import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
 import { db } from '@/lib/db'
@@ -87,6 +88,10 @@ export default async function VendasPage({
   const podeConciliacao = isAdmin || usuario.papel === 'aux_adm'
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+
+  // Origem da venda, para efetivar pedido: catálogo do grupo ativo.
+  const grupoAtivo = await getGrupoAtivo(usuario)
+  const origens = await listarOrigensAtivasDoGrupo(grupoAtivo.id)
   const lojaIdsPermitidos = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
   const lojaParamBruto = params.loja !== undefined ? parseParam(params.loja) : []
   const lojaValues     = lojaParamBruto.length && lojaParamBruto.every(id => lojaIdsPermitidos.includes(id))
@@ -167,6 +172,7 @@ export default async function VendasPage({
               papel={usuario.papel}
               usuarioId={usuario.id}
               lojaIdUsuario={usuario.lojaId ?? null}
+              origens={origens}
             />
           ))}
         </section>
@@ -227,7 +233,7 @@ export default async function VendasPage({
           podeConciliacao={podeConciliacao}
         />
         <div className="bg-white rounded-lg border overflow-x-auto">
-          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} />
+          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} />
         </div>
       </section>
     </div>

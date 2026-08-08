@@ -167,6 +167,15 @@ export default async function AdminPage() {
               <CardContent><p className="text-sm text-slate-500">Origem dos leads, funis por grupo e investimento em mídia</p></CardContent>
             </Card>
           </Link>
+          <Link href="/admin/origens">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex-row gap-3 items-center pb-2">
+                <Megaphone className="text-slate-600" size={20} />
+                <CardTitle className="text-base">Origens da venda</CardTitle>
+              </CardHeader>
+              <CardContent><p className="text-sm text-slate-500">Por onde o cliente chegou — o que o vendedor escolhe ao fechar a venda</p></CardContent>
+            </Card>
+          </Link>
           <Link href="/admin/kommo">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="flex-row gap-3 items-center pb-2">

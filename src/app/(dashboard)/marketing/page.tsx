@@ -12,6 +12,8 @@ import { calcularCpl, calcularCac, calcularRoas, variacaoPct, periodoAnterior, g
 import { EvolucaoChart } from './components/evolucao-chart'
 import { HeatmapEntrada } from './components/heatmap-entrada'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { VendasOrigemTab } from './components/vendas-origem-tab'
 import { Megaphone, RefreshCw, AlertTriangle, TriangleAlert, ExternalLink, Settings2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -133,6 +135,19 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           </Link>
         </div>
       </div>
+
+      {/* Duas fontes, lado a lado: o lead que entrou (Kommo) e a venda que fechou
+          (MOVA). Não se cruzam — casar lead com venda é projeto próprio. */}
+      <Tabs defaultValue="leads">
+        <TabsList>
+          <TabsTrigger value="leads">Leads (Kommo)</TabsTrigger>
+          <TabsTrigger value="origem">Vendas por origem</TabsTrigger>
+        </TabsList>
+        <TabsContent value="origem">
+          <VendasOrigemTab grupoId={grupo.id} grupoNome={grupo.nome} de={de} ate={ate} />
+        </TabsContent>
+        <TabsContent value="leads">
+      <div className="space-y-6 pt-4">
 
       {!status.conectado && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
@@ -441,6 +456,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           esta página passa a mostrar sem retrabalho.
         </p>
       </div>
+      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

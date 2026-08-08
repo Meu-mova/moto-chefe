@@ -12,6 +12,7 @@ import { MontarButton } from './montar-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
 import type { DemandaCompativel } from '@/lib/queries/demandas'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 
 const dispBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   disponivel: { label: 'Disponível', variant: 'default' },
@@ -47,6 +48,8 @@ type Props = {
   ord: string
   dir: string
   baseParams: string
+  /** Origens ativas do grupo, para o dialog de venda. */
+  origens: OrigemParaEscolher[]
 }
 
 function SortIcon({ campo, ord, dir }: { campo: Campo; ord: string; dir: string }) {
@@ -63,7 +66,7 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
   return `/estoque?${p.toString()}`
 }
 
-export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams }: Props) {
+export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
 
   function th(campo: Campo, label: string) {
@@ -160,6 +163,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    origens={origens}
                                     podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                     demandasCompativeis={demandasComSinal.filter(d => d.modeloId === moto.modeloId && d.lojaId === moto.lojaId)}
                                   />
@@ -174,6 +178,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    origens={origens}
                                     podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                     reservaAtiva={{
                                       valorEntrada: moto.reservaValorEntrada,
@@ -217,6 +222,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                     vendedorNome={vendedorNome}
                                     papel={papel}
                                     usuarios={usuarios}
+                                    origens={origens}
                                     podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
                                     demandasCompativeis={demandasComSinal.filter(d => d.modeloId === moto.modeloId && d.lojaId === moto.lojaId)}
                                     soReserva

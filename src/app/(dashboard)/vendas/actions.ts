@@ -12,10 +12,37 @@ import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaTelegram, type ResultadoAvisoVenda } from '@/lib/telegram/venda'
 import { parseDataInput } from '@/lib/data-venda'
+import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
+import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
   return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
+}
+
+/**
+ * Confere a origem contra o grupo da loja da MOTO e devolve o detalhe já limpo.
+ *
+ * Chamada pelos três caminhos que criam venda (direta, aprovada e pedido
+ * efetivado). Valida contra a loja da moto, não contra o grupo ativo do
+ * usuário: é o que impede um payload forjado gravar venda de BH com origem do
+ * Sul de Minas.
+ */
+async function garantirOrigemValida(
+  lojaIdDaMoto: string,
+  origemId: string | null | undefined,
+  origemDetalhe: string | null | undefined,
+): Promise<{ origemId: string; origemDetalhe: string | null }> {
+  const [grupoId, origem] = await Promise.all([
+    getGrupoIdDaLoja(lojaIdDaMoto),
+    buscarOrigemParaValidar(origemId),
+  ])
+  const resultado = validarOrigemVenda(origem, origemDetalhe, grupoId)
+  if (!resultado.ok) throw new Error(resultado.erro)
+  return {
+    origemId: origem!.id,
+    origemDetalhe: normalizarDetalhe(origemDetalhe, origem!.pedeDetalhe),
+  }
 }
 
 export type PrecoMinimoInfo = {
@@ -104,7 +131,9 @@ export async function efetivarVendaAction(
   clienteCpf: string,
   valor: string,
   formaPagamento: string,
-  clienteId?: string
+  clienteId?: string,
+  origemId?: string,
+  origemDetalhe?: string,
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
@@ -113,6 +142,17 @@ export async function efetivarVendaAction(
   if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !podeAprovarPagamentoSensivel(usuario)) {
     throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
   }
+
+  // A loja sai do pedido, não do usuário: é a loja da moto que define de qual
+  // grupo a origem tem de ser.
+  const [pedido] = await db
+    .select({ lojaId: pedidosVenda.lojaId })
+    .from(pedidosVenda)
+    .where(eq(pedidosVenda.id, pedidoId))
+    .limit(1)
+  if (!pedido) throw new Error('Pedido não encontrado')
+  const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
+
   const supabase = await createClient()
   const { data: vendaId, error } = await supabase.rpc('efetivar_venda', {
     p_pedido_id: pedidoId,
@@ -121,6 +161,8 @@ export async function efetivarVendaAction(
     p_cliente_cpf: clienteCpf,
     p_valor: parseFloat(valor),
     p_forma_pagamento: formaPagamento,
+    p_origem_id: origem.origemId,
+    p_origem_detalhe: origem.origemDetalhe,
   })
   if (error) throw new Error(error.message)
   if (clienteId && vendaId) {
@@ -154,6 +196,9 @@ type DadosVendaCompleta = {
   valorTotal: string
   dataVenda?: string
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
+  /** Por onde o cliente chegou. Obrigatório — viaja no dados_venda da aprovação. */
+  origemId: string
+  origemDetalhe?: string
 }
 
 async function criarVendaTx(
@@ -164,9 +209,11 @@ async function criarVendaTx(
     vendedorId: string
     efetivadoPor: string
     dataVendaFinal: Date
+    /** Já validada pela action com garantirOrigemValida. */
+    origem: { origemId: string; origemDetalhe: string | null }
   }
 ): Promise<{ vendaId: string }> {
-  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal } = params
+  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem } = params
   const valorNum = parseFloat(data.valorTotal)
 
   // Verificar reserva ativa para linkar
@@ -249,6 +296,8 @@ async function criarVendaTx(
     pagamentos: data.pagamentos,
     reservaId: reservaAtiva?.id ?? null,
     dataVenda: dataVendaFinal,
+    origemId: origem.origemId,
+    origemDetalhe: origem.origemDetalhe,
   }).returning({ id: vendas.id })
 
   // Marcar reserva como convertida
@@ -364,8 +413,10 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
 
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
+  const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
+
   await db.transaction(async (tx) => {
-    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
+    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
   })
 
   revalidatePath('/vendas')
@@ -1048,6 +1099,8 @@ export async function editarVendaAction(vendaId: string, dados: {
   clienteBairro?:     string | null
   clienteCidade?:     string | null
   clienteEstado?:     string | null
+  origemId?:          string | null
+  origemDetalhe?:     string | null
 }) {
   const usuario = await getUsuarioLogado()
 
@@ -1066,6 +1119,13 @@ export async function editarVendaAction(vendaId: string, dados: {
   if (usuario.lojaId && vendaAtual.lojaId !== usuario.lojaId) {
     throw new Error('Sem permissão para editar vendas de outra loja')
   }
+
+  // Origem é corrigível: campo obrigatório que só pudesse ser preenchido uma vez
+  // produziria dado ruim para sempre. Só valida quando veio no payload — editar
+  // uma venda antiga sem origem não obriga a inventar uma.
+  const origemCorrigida = dados.origemId
+    ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
+    : null
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
@@ -1111,6 +1171,10 @@ export async function editarVendaAction(vendaId: string, dados: {
         clienteBairro:      dados.clienteBairro || null,
         clienteCidade:      dados.clienteCidade || null,
         clienteEstado:      dados.clienteEstado || null,
+        ...(origemCorrigida ? {
+          origemId:      origemCorrigida.origemId,
+          origemDetalhe: origemCorrigida.origemDetalhe,
+        } : {}),
       })
       .where(eq(vendas.id, vendaId))
 
@@ -1269,6 +1333,10 @@ export async function solicitarAprovacaoVendaAction(
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
+  // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
+  // quebraria na hora de aprovar, na frente de quem aprova.
+  await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
+
   let motivoFinal: string
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
@@ -1377,6 +1445,11 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
+  // Revalida aqui também: o dados_venda pode ter sido gravado antes deste deploy
+  // (sem origem) ou a origem pode ter sido desativada enquanto a venda esperava
+  // aprovação. Falhar aqui é chato; gravar venda sem origem é pior.
+  const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
+
   await db.transaction(async (tx) => {
     // UPDATE condicionado a status = 'pendente' — evita duplicar a venda se
     // dois aprovadores confirmarem ao mesmo tempo.
@@ -1386,7 +1459,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
       .returning({ id: aprovacoesVenda.id })
     if (!claimed) throw new Error('Solicitação não está mais pendente')
 
-    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal })
+    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
   })
 
   revalidatePath('/vendas')

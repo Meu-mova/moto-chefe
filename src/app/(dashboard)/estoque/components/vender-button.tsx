@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { X, Plus, Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
@@ -103,6 +105,8 @@ type Props = {
   taxasVenda?: TaxasVenda | null
   podeAprovarPagamentoSensivel?: boolean
   demandasCompativeis?: DemandaVinculavel[]
+  /** Origens ativas do grupo da loja da moto. Obrigatória para fechar venda. */
+  origens: OrigemParaEscolher[]
 }
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
@@ -127,13 +131,15 @@ function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   return []
 }
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
   const [vendedorSelecionado, setVendedorSelecionado] = useState(vendedorId)
   const [reservaCriadaId, setReservaCriadaId] = useState<string | null>(null)
   const [demandaVinculadaId, setDemandaVinculadaId] = useState<string | null>(null)
+  const [origemId, setOrigemId] = useState('')
+  const [origemDetalhe, setOrigemDetalhe] = useState('')
 
   // Dados de precificação — podem vir via props (detalhe) ou buscados ao abrir (lista)
   const [precoMinimoPix, setPrecoMinimoPix] = useState<number | null>(precoMinimoPixProp ?? null)
@@ -403,7 +409,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
   const vendaValida = clientePreenchido && (
     tipo === 'venda'
-      ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && valorOk)
+      // Origem só vale para venda: reserva não pergunta (fica para o fechamento).
+      ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && valorOk
+          && origemPreenchida(origens, origemId, origemDetalhe))
       : !!(valorReserva && valorTotalVenda && meioPgto && dataPrevista && !reservaCartaoIncompleto
           && (reservaValidacao ? reservaValidacao.entradaOk : true))
   )
@@ -424,6 +432,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           motoId, ...clienteBase, valorTotal: valorVenda,
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
+          origemId,
+          origemDetalhe: origemDetalhe.trim() || undefined,
           dataVenda: dataVenda || undefined,
           pagamentos: pgtos.map(p => ({
             tipo: p.tipo, valor: parseFloat(p.valor),
@@ -568,6 +578,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
             {/* Coluna esquerda — Vendedor + Cliente */}
             <div className="w-[52%] border-r overflow-y-auto px-6 py-5 space-y-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Dados do Cliente</p>
+
+              {/* Origem — obrigatória para fechar venda; reserva não pergunta */}
+              {tipo === 'venda' && (
+                <OrigemVendaSelect
+                  origens={origens}
+                  origemId={origemId}
+                  onOrigemChange={setOrigemId}
+                  detalhe={origemDetalhe}
+                  onDetalheChange={setOrigemDetalhe}
+                />
+              )}
 
               {/* Vínculo com demanda existente (cliente que já deu sinal) */}
               {!reservaAtiva && demandasCompativeis && demandasCompativeis.length > 0 && (

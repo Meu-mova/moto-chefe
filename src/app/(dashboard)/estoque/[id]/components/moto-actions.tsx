@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight, Printer } from 'lucide-react'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { DemandaCompativel } from '@/lib/queries/demandas'
+import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 
 type Usuario = { id: string; nome: string }
 type Mecanico = { id: string; nome: string }
@@ -66,6 +67,8 @@ type Props = {
   taxasVenda: TaxasVenda | null
   podeAprovarPagamentoSensivel: boolean
   demandasCompativeis?: DemandaCompativel[]
+  /** Origens ativas do grupo da loja da moto, para o dialog de venda. */
+  origens: OrigemParaEscolher[]
 }
 
 const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
@@ -74,7 +77,7 @@ const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
-export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis }: Props) {
+export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
@@ -120,6 +123,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
             vendedorNome={vendedorNome}
             papel={papel}
             usuarios={usuarios}
+            origens={origens}
             showLabel
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
@@ -138,6 +142,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
             vendedorNome={vendedorNome}
             papel={papel}
             usuarios={usuarios}
+            origens={origens}
             showLabel
             precoMinimoPix={precoMinimoPix}
             taxasVenda={taxasVenda}
@@ -189,6 +194,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
             vendedorNome={vendedorNome}
             papel={papel}
             usuarios={usuarios}
+            origens={origens}
             soReserva
             showLabel
             precoMinimoPix={precoMinimoPix}
