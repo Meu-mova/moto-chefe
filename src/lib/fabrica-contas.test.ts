@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { filtrarContasDoUsuario, type LojaCredencial } from './fabrica-contas'
+import { filtrarContasDoUsuario, lojaDaContaDaGarantia, type LojaCredencial } from './fabrica-contas'
 
 const LOJAS: LojaCredencial[] = [
   { id: 'l1', nome: 'Pouso Alegre', fabricaEmail: 'pouso@x.com',    fabricaSenha: 's' },
@@ -67,4 +67,12 @@ test('não-admin sem loja não devolve nada', () => {
   const { contas, semCredencial } = filtrarContasDoUsuario({ papel: 'aux_adm', lojaId: null }, LOJAS)
   assert.deepEqual(contas, [])
   assert.deepEqual(semCredencial, [])
+})
+
+test('garantia sem conta marcada sincroniza pela conta da própria loja', () => {
+  assert.equal(lojaDaContaDaGarantia({ lojaId: 'l2', fabricaContaLojaId: null }), 'l2')
+})
+
+test('pedido antigo de Varginha sincroniza pela conta velha, não pela de Varginha', () => {
+  assert.equal(lojaDaContaDaGarantia({ lojaId: 'l2', fabricaContaLojaId: 'l1' }), 'l1')
 })

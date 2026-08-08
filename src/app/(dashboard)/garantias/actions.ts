@@ -5,10 +5,10 @@ import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
-import { listarContasFabrica } from '@/lib/fabrica-contas'
+import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -92,13 +92,27 @@ export async function sincronizarFabricaAction(): Promise<{
   const { contas, semCredencial } = await listarContasFabrica(usuario)
   const porLoja: { loja: string; atualizadas: number; erros: number }[] = []
 
+  // Uma consulta só, do grupo ativo inteiro, agrupada em memória por
+  // `lojaDaContaDaGarantia`: o pedido antigo de Varginha vive na conta velha, e
+  // deixar esse desvio no SQL duplicaria a regra num segundo lugar.
+  const lojaIdsDoGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const doGrupo = await db
+    .select({
+      id: garantias.id,
+      numeroPedidoFabrica: garantias.numeroPedidoFabrica,
+      lojaId: garantias.lojaId,
+      fabricaContaLojaId: garantias.fabricaContaLojaId,
+    })
+    .from(garantias)
+    .where(and(
+      inArray(garantias.lojaId, lojaIdsDoGrupo),
+      isNotNull(garantias.numeroPedidoFabrica),
+    ))
+
   // Sequencial: o portal é frágil e login em paralelo na mesma origem arrisca
   // derrubar a sessão da outra loja.
   for (const conta of contas) {
-    const lista = await db
-      .select({ id: garantias.id, numeroPedidoFabrica: garantias.numeroPedidoFabrica })
-      .from(garantias)
-      .where(and(eq(garantias.lojaId, conta.lojaId), isNotNull(garantias.numeroPedidoFabrica)))
+    const lista = doGrupo.filter(g => lojaDaContaDaGarantia(g) === conta.lojaId)
 
     if (lista.length === 0) {
       porLoja.push({ loja: conta.lojaNome, atualizadas: 0, erros: 0 })
@@ -211,15 +225,19 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         // enfeite e não pode derrubar a importação nem deixar de contar a garantia.
         importadas++
 
-        if (status) {
-          try {
-            await db
-              .update(garantias)
-              .set({ statusFabrica: status, statusFabricaSyncEm: new Date() })
-              .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
-          } catch {
-            // status opcional; a garantia já foi criada e contada acima.
-          }
+        // Marca a conta que trouxe o pedido, mesmo quando é a da própria loja: se
+        // a moto for transferida depois, o Sincronizar tem que continuar batendo
+        // na conta que enxerga o pedido, não na loja nova da moto.
+        try {
+          await db
+            .update(garantias)
+            .set({
+              fabricaContaLojaId: conta.lojaId,
+              ...(status ? { statusFabrica: status, statusFabricaSyncEm: new Date() } : {}),
+            })
+            .where(eq(garantias.numeroPedidoFabrica, numeroPedido))
+        } catch {
+          // Enfeite: a garantia já foi criada e contada acima.
         }
       }
 

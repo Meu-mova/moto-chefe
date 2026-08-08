@@ -426,6 +426,8 @@ export const garantias = pgTable('garantias', {
   numeroPedidoFabrica: text('numero_pedido_fabrica'),
   statusFabrica: text('status_fabrica'),
   statusFabricaSyncEm: timestamp('status_fabrica_sync_em', { withTimezone: true }),
+  /** Loja cuja conta no portal da fábrica enxerga o pedido. NULL = a própria loja da garantia. */
+  fabricaContaLojaId: uuid('fabrica_conta_loja_id').references(() => lojas.id),
 })
 
 // ─── lancamentos_caixa ──────────────────────────────────────────────────────

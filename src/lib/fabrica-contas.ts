@@ -63,6 +63,23 @@ export function filtrarContasDoUsuario(
   return { contas, semCredencial }
 }
 
+/**
+ * Qual loja tem a conta do portal que enxerga o pedido desta garantia.
+ *
+ * Normalmente é a conta da própria loja da garantia, mas o histórico anterior à
+ * separação dos logins (05/08/2026) ficou inteiro na conta antiga — a de Pouso
+ * Alegre —, inclusive os pedidos de Varginha e Itajuba. `fabricaContaLojaId`
+ * guarda essa exceção; quando está nulo, vale a loja da garantia.
+ *
+ * Existe para que a regra viva num lugar só: o Sincronizar agrupa as garantias
+ * por aqui em vez de repetir o `coalesce` em SQL.
+ */
+export function lojaDaContaDaGarantia(
+  garantia: { lojaId: string; fabricaContaLojaId: string | null },
+): string {
+  return garantia.fabricaContaLojaId ?? garantia.lojaId
+}
+
 /** Contas do portal no escopo do usuário, lidas do banco. */
 export async function listarContasFabrica(
   usuario: { papel: string; lojaId: string | null },
