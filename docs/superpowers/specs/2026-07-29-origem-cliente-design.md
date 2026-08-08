@@ -1,7 +1,10 @@
 # Origem do cliente na venda — design
 
 Data: 2026-07-29
-Status: aguardando revisão do Cesar
+Status: **SUBSTITUÍDA** por `2026-08-08-origem-venda-design.md` — nunca implementada.
+Dois erros dela: afirma que `criarVendaTx` é o único insert em `vendas` (a RPC `efetivar_venda`
+também insere) e manda migrar pelo MCP do Supabase, que não autentica mais. Mantida como
+histórico das decisões que continuam valendo.
 
 ## Problema
 
