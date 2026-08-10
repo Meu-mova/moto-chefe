@@ -3,6 +3,7 @@ import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeD
 import { eq, sql, gte } from 'drizzle-orm'
 import { etapaDeFechamento } from '@/lib/kommo-etapas'
 import { sqlEstadoRespostaLead } from '@/lib/kommo-sql'
+import { estadoRespostaDoLead } from '@/lib/kommo-resposta'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
 // Espelha o padrão do Bling (src/lib/bling.ts), mas com config singleton
@@ -360,31 +361,29 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
     const arr = porLead.get(m.entity_id) ?? []
     arr.push(m); porLead.set(m.entity_id, arr)
   }
-  // Estado por lead: 1ª msg do cliente e 1ª resposta humana (Fase 3 — sem resposta / SLA)
+  // Estado por lead: 1ª msg do cliente e 1ª resposta (Fase 3 — sem resposta / SLA)
   const respostaLead: { id: number; fin: string; fr: string | null }[] = []
   for (const [leadId, lista] of porLead) {
     lista.sort((a, b) => a.created_at - b.created_at)
-    let firstIn: number | null = null          // ciclo p/ mediana (reseta)
-    let leadIn: number | null = null           // 1º incoming do lead (uma vez)
-    let leadResp: number | null = null         // 1ª resposta humana do lead (uma vez)
+    // Mediana por colaborador: precisa de autor mapeado, senão não há a quem
+    // atribuir. O ciclo reseta a cada resposta (mede cada ida e volta).
+    let firstIn: number | null = null
     for (const m of lista) {
       if (m.type === 'incoming_chat_message') {
         if (firstIn == null) firstIn = m.created_at
-        if (leadIn == null) leadIn = m.created_at
-      } else if (m.type === 'outgoing_chat_message' && m.created_by) {
-        if (leadIn != null && leadResp == null) leadResp = m.created_at
-        if (firstIn != null && mapeados.has(String(m.created_by))) {
-          const dt = m.created_at - firstIn
-          const h = horaBRT(firstIn)
-          if (dt >= 0 && dt < 3 * 86400 && h >= 8 && h < 18) {
-            const k = `${diaBRT(m.created_at)}|${m.created_by}`
-            const arr = respTimes.get(k) ?? []
-            arr.push(dt); respTimes.set(k, arr)
-          }
-          firstIn = null
+      } else if (m.type === 'outgoing_chat_message' && m.created_by && firstIn != null && mapeados.has(String(m.created_by))) {
+        const dt = m.created_at - firstIn
+        const h = horaBRT(firstIn)
+        if (dt >= 0 && dt < 3 * 86400 && h >= 8 && h < 18) {
+          const k = `${diaBRT(m.created_at)}|${m.created_by}`
+          const arr = respTimes.get(k) ?? []
+          arr.push(dt); respTimes.set(k, arr)
         }
+        firstIn = null
       }
     }
+    // Estado do lead: regra própria (conta saída sem autor, descarta a automática).
+    const { leadIn, leadResp } = estadoRespostaDoLead(lista)
     if (leadIn != null) respostaLead.push({ id: leadId, fin: new Date(leadIn * 1000).toISOString(), fr: leadResp != null ? new Date(leadResp * 1000).toISOString() : null })
   }
 
