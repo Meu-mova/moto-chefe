@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { kommoConfig, kommoLeads, kommoSyncStatus, kommoUserMap, kommoAtividadeDiaria, kommoLossReasons, kommoStages, kommoTarefasAbertas, kommoSources } from '@/lib/db/schema'
 import { eq, sql, gte } from 'drizzle-orm'
 import { etapaDeFechamento } from '@/lib/kommo-etapas'
+import { sqlEstadoRespostaLead } from '@/lib/kommo-sql'
 
 // Integração Kommo (CRM) — conexão OAuth2 GLOBAL (uma conta pra toda a empresa).
 // Espelha o padrão do Bling (src/lib/bling.ts), mas com config singleton
@@ -411,12 +412,7 @@ export async function sincronizarAtividadeKommo(dias = 2): Promise<{ eventos: nu
     const ids = respostaLead.map(r => r.id)
     const fins = respostaLead.map(r => r.fin)
     const frs = respostaLead.map(r => r.fr)
-    await db.execute(sql`
-      UPDATE kommo_leads k SET
-        primeiro_incoming_em = LEAST(COALESCE(k.primeiro_incoming_em, 'infinity'::timestamptz), t.fin::timestamptz),
-        primeira_resposta_em = COALESCE(k.primeira_resposta_em, t.fr::timestamptz)
-      FROM unnest(${ids}::bigint[], ${fins}::text[], ${frs}::text[]) AS t(id, fin, fr)
-      WHERE k.lead_id = t.id`)
+    await db.execute(sqlEstadoRespostaLead(ids, fins, frs))
   }
 
   return { eventos: msgs.length + tarefas.length }
@@ -588,14 +584,30 @@ export async function sincronizarSeNecessario(forcar = false): Promise<{ ultima:
   const stale = !st?.ultimaSincronizacao || (Date.now() - new Date(st.ultimaSincronizacao).getTime()) > JANELA_CACHE_MS
   if (!forcar && !stale) return { ultima: st?.ultimaSincronizacao ?? null, erro: null }
   try {
+    // Cada etapa é isolada e o erro dela aparece na UI. Antes, um estouro na
+    // atividade derrubava calado tudo o que vinha depois (tarefas, etapas,
+    // canais) — foi assim que o UPDATE quebrado do estado de resposta passou
+    // 12 dias sem gravar nada e sem ninguém ver.
+    const erros: string[] = []
+    const passo = async (nome: string, fn: () => Promise<unknown>) => {
+      try { await fn() } catch (e) {
+        const msg = e instanceof Error ? e.message : 'falhou'
+        console.error(`[kommo] etapa "${nome}" falhou:`, e)
+        erros.push(`${nome}: ${msg}`)
+      }
+    }
+    // Leads é pré-requisito de todo o resto — se cair, cai o sync inteiro.
     await sincronizarLeadsKommo()
-    await sincronizarAtividadeKommo()
-    await sincronizarMotivosPerda().catch(() => {})
-    await sincronizarEtapasKommo().catch(() => {})
-    await sincronizarTarefasAbertas().catch(() => {})
-    await sincronizarCanaisKommo().catch(() => {})
+    await passo('atividade', () => sincronizarAtividadeKommo())
+    await passo('motivos de perda', () => sincronizarMotivosPerda())
+    await passo('etapas', () => sincronizarEtapasKommo())
+    await passo('tarefas', () => sincronizarTarefasAbertas())
+    await passo('canais', () => sincronizarCanaisKommo())
     const [novo] = await db.select().from(kommoSyncStatus).where(eq(kommoSyncStatus.id, 'global')).limit(1)
-    return { ultima: novo?.ultimaSincronizacao ?? null, erro: null }
+    return {
+      ultima: novo?.ultimaSincronizacao ?? null,
+      erro: erros.length > 0 ? `Sincronização parcial — ${erros.join(' | ')}` : null,
+    }
   } catch (e) {
     return { ultima: st?.ultimaSincronizacao ?? null, erro: e instanceof Error ? e.message : 'Erro ao sincronizar com o Kommo' }
   }
