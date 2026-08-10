@@ -12,10 +12,10 @@ import {
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
-import { placarVendedor, fechamentoSemTarefa } from '@/lib/queries/atendimento'
+import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
-import { PlacarVendedor } from './components/placar-vendedor'
-import { AlertaFechamento } from './components/alerta-fechamento'
+import { PainelAtendimento } from './components/painel-atendimento'
+import { LeadsCriticos } from './components/leads-criticos'
 import { MetaMesCards } from './components/meta-mes-cards'
 import { calcularProjecao, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { DashboardFiltros } from './components/dashboard-filtros'
@@ -264,26 +264,34 @@ async function MetaSection({ usuario }: { usuario: { id: string; papel: string; 
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-// Placar de atendimento (Kommo) do vendedor logado — só lê o cache, não sincroniza.
-async function PlacarSection({ usuario, dataInicio, dataFim }: { usuario: { id: string; papel: string; lojaId: string | null }; dataInicio: string; dataFim: string }) {
-  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
+// Atendimento (Kommo): leads críticos + cards de desempenho. Só lê o cache, não
+// sincroniza. Vendedor vê os próprios números e a posição dele no ranking do
+// grupo; admin/aux_adm veem o consolidado das lojas filtradas. Os cards seguem o
+// período do filtro; a lista de leads críticos é foto do agora.
+async function AtendimentoSection({
+  usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro,
+}: {
+  usuario: { id: string; papel: string; lojaId: string | null }
+  dataInicio: string
+  dataFim: string
+  usuarioId?: string
+  lojaIdsFiltro?: string[]
+}) {
+  const status = await getKommoStatus()
+  if (!status.conectado) return null
+
+  const lojaIds = lojaIdsFiltro ?? await listarLojaIdsDoGrupoAtivo(usuario)
   const inicio = new Date(dataInicio + 'T00:00:00')
   const fim = new Date(dataFim + 'T23:59:59')
-  const placar = await placarVendedor(usuario.id, inicio, fim, dataInicio, dataFim, lojaIds)
-  if (!placar) return null
-  return <PlacarVendedor placar={placar} mes={MESES[inicio.getMonth()]} />
-}
+  const painel = await painelAtendimento({ lojaIds, inicio, fim, deStr: dataInicio, ateStr: dataFim, usuarioId })
+  if (!painel) return null
 
-// Leads em interesse/negociação sem tarefa agendada — foto do agora, ignora o
-// filtro de período. Só lê o cache, não sincroniza.
-async function FechamentoSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null } }) {
-  const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
-  const [dados, status] = await Promise.all([
-    fechamentoSemTarefa(lojaIds, usuario.id),
-    getKommoStatus(),
-  ])
-  if (!status.conectado || dados.naEtapa === 0) return null
-  return <AlertaFechamento dados={dados} subdominio={status.subdominio} />
+  return (
+    <div className="space-y-4">
+      <LeadsCriticos dados={painel.criticos} subdominio={status.subdominio} mostrarColaborador={!usuarioId} />
+      <PainelAtendimento cards={painel.cards} mes={MESES[inicio.getMonth()]} />
+    </div>
+  )
 }
 
 // Próximos eventos do calendário de gestão, respeitando a visibilidade de cada um.
@@ -402,18 +410,21 @@ export default async function DashboardPage({
         </SectionErrorBoundary>
       )}
 
-      {isVendedor && (
-        <SectionErrorBoundary label="o alerta de fechamento">
+      {(isVendedor || isAdmin || isAuxAdm) && (
+        <SectionErrorBoundary key={`atendimento-${filtroKey}`} label="o painel de atendimento">
           <Suspense fallback={null}>
-            <FechamentoSection usuario={usuario} />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
-
-      {isVendedor && (
-        <SectionErrorBoundary key={`placar-${filtroKey}`} label="o placar de atendimento">
-          <Suspense fallback={null}>
-            <PlacarSection usuario={usuario} dataInicio={dataInicio} dataFim={dataFim} />
+            <AtendimentoSection
+              usuario={usuario}
+              dataInicio={dataInicio}
+              dataFim={dataFim}
+              // Vendedor vê os próprios leads; admin/aux_adm veem o grupo, ou um
+              // vendedor específico quando filtram por ele (mesma regra dos KPIs).
+              usuarioId={filtros.vendedorId}
+              // Vendedor precisa das lojas do grupo inteiro pro ranking sair certo
+              // (o filtro dele é só a própria loja); admin/aux_adm respeitam o
+              // filtro de loja da página.
+              lojaIdsFiltro={!isAdmin && isVendedor ? undefined : lojaIds}
+            />
           </Suspense>
         </SectionErrorBoundary>
       )}
