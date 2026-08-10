@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { alertarPedidosFabrica } from '@/lib/telegram/pedidos-fabrica'
+import { alertarPedidosFabrica } from '@/lib/whatsapp/pedidos-fabrica'
 
 // Login + scraping do portal da fábrica, agora uma conta por loja, leva bem mais
 // que o default do Next.

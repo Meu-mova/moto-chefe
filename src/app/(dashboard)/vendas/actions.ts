@@ -10,7 +10,7 @@ import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensi
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
-import { notificarVendaTelegram, type ResultadoAvisoVenda } from '@/lib/telegram/venda'
+import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
 import { parseDataInput } from '@/lib/data-venda'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
@@ -429,7 +429,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     new Promise<ResultadoVirarLead>(res => setTimeout(() => res({ resultado: 'erro' }), 8000)),
   ]).catch(() => ({ resultado: 'erro' as const }))
 
-  await avisarVendaNoTelegram({
+  await avisarVendaNoWhatsapp({
     lojaId: moto.lojaId, modeloId: moto.modeloId, vendedorId, valor: valorNum,
   })
 
@@ -437,14 +437,14 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
 }
 
 /**
- * Aviso de venda no Telegram — best-effort com timeout, igual ao virarLeadKommo:
- * Telegram fora do ar não pode fazer a venda falhar depois de já estar gravada.
+ * Aviso de venda no WhatsApp — best-effort com timeout, igual ao virarLeadKommo:
+ * WhatsApp fora do ar não pode fazer a venda falhar depois de já estar gravada.
  */
-async function avisarVendaNoTelegram(params: {
+async function avisarVendaNoWhatsapp(params: {
   lojaId: string; modeloId: string; vendedorId: string; valor: number
 }): Promise<void> {
   await Promise.race([
-    notificarVendaTelegram(params),
+    notificarVendaWhatsapp(params),
     new Promise<ResultadoAvisoVenda>(res => setTimeout(() => res('erro'), 8000)),
   ]).catch(() => 'erro' as const)
 }
@@ -1469,7 +1469,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
 
   // Venda aprovada também avisa — senão toda venda negociada abaixo do mínimo
   // sairia do radar do grupo justamente por ter passado por aprovação.
-  await avisarVendaNoTelegram({
+  await avisarVendaNoWhatsapp({
     lojaId: moto.lojaId,
     modeloId: moto.modeloId,
     vendedorId: aprovacao.vendedorId,
