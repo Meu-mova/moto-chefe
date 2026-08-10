@@ -1,4 +1,4 @@
-import { normalizar } from './telegram/texto'
+import { normalizar } from './texto'
 
 // Etapas finais do funil no Kommo: "tem interesse" e "em negociação".
 // Casamos pelo nome (normalizado) para que funil novo entre sozinho, sem
