@@ -23,7 +23,6 @@ type GrupoInput = {
   validapixPassword?: string
   blingClientId?: string
   blingClientSecret?: string
-  telegramChatId?: string
   metaMotosMes?: string
 }
 
@@ -40,7 +39,6 @@ export async function criarGrupoAction(dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
-    telegramChatId: dados.telegramChatId?.trim() || null,
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
   })
   revalidatePath('/admin/grupos')
@@ -60,7 +58,6 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
-    telegramChatId: dados.telegramChatId?.trim() || null,
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')

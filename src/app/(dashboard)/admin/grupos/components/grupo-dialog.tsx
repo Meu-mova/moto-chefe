@@ -18,7 +18,6 @@ type Grupo = {
   validapixPassword: string | null
   blingClientId: string | null
   blingClientSecret: string | null
-  telegramChatId: string | null
   metaMotosMes: number | null
 }
 
@@ -40,7 +39,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
-  const [telegramChatId, setTelegramChatId] = useState(inicial?.telegramChatId ?? '')
   const [metaMotosMes, setMetaMotosMes] = useState(inicial?.metaMotosMes != null ? String(inicial.metaMotosMes) : '')
 
   async function handleSalvar() {
@@ -50,7 +48,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret, telegramChatId, metaMotosMes }
+      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret, metaMotosMes }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -105,19 +103,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 <Label className="text-xs">Bling — Client Secret</Label>
                 <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Telegram — Chat do grupo de avisos</Label>
-              <Input
-                value={telegramChatId}
-                onChange={e => setTelegramChatId(e.target.value)}
-                placeholder="-1001234567890"
-                className="h-9 text-sm"
-              />
-              <p className="text-[11px] text-slate-400">
-                Crie um grupo no Telegram, adicione o @MovaMC_bot e envie <code>/chatid</code> lá — ele
-                responde o número para colar aqui. Em branco, esta bandeira não recebe avisos.
-              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Meta de motos no mês</Label>
