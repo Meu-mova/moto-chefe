@@ -38,8 +38,8 @@ function linhaPedido(p: PedidoAviso): string {
 
 /**
  * Texto do aviso. Puro de propósito — é o que os testes cobrem.
- * Sem parse_mode: `enviarMensagem` manda texto plano, então `#` e `·` não
- * correm risco de virar markdown quebrado.
+ * Texto plano (sem markdown), então `#` e `·` não correm risco de virar
+ * markdown quebrado.
  *
  * Devolve null quando não há nada a dizer, e é o que impede o cron de mandar
  * uma mensagem vazia todo dia em que está tudo pago.

@@ -33,6 +33,17 @@ export function montarChamadaEnvio(numero: string, texto: string): Record<string
 export type ResultadoEnvioWhatsapp = 'enviado' | 'sem_numero' | 'erro'
 
 /**
+ * Interpreta a resposta do envio — puro, é o que o teste cobre. Um tools/call
+ * do MCP pode falhar de duas formas: erro JSON-RPC no envelope, ou
+ * result.isError (ex.: conta do WhatsApp despareada, destinatário inválido).
+ */
+export function avaliarEnvio(json: { result?: unknown; error?: { message?: string } }): ResultadoEnvioWhatsapp {
+  if (json.error) return 'erro'
+  if ((json.result as { isError?: boolean } | undefined)?.isError) return 'erro'
+  return 'enviado'
+}
+
+/**
  * Dispara um alerta de texto no WhatsApp via mcp.ai. Nunca lança — aviso é
  * efeito colateral e não pode derrubar venda nem o cron.
  */
@@ -62,11 +73,11 @@ export async function enviarAlertaWhatsapp(texto: string): Promise<ResultadoEnvi
     }
 
     const envio = await chamarMcp(url, init.sessionId, montarChamadaEnvio(numero, texto))
-    if (envio.json.error) {
-      console.error('whatsapp_send_text falhou:', envio.json.error.message)
-      return 'erro'
+    const resultado = avaliarEnvio(envio.json)
+    if (resultado === 'erro') {
+      console.error('whatsapp_send_text falhou:', envio.json.error?.message ?? 'result.isError')
     }
-    return 'enviado'
+    return resultado
   } catch (e) {
     console.error('envio de whatsapp falhou:', e instanceof Error ? e.message : String(e))
     return 'erro'
