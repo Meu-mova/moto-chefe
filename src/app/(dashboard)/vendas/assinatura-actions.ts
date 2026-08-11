@@ -188,9 +188,18 @@ export async function verificarBloqueioNfAction(motoId: string): Promise<{
   }
 }
 
+/**
+ * Cria o documento e devolve o link.
+ *
+ * `enviarWhatsapp = false` gera o link sem disparar nada — é o caminho para
+ * quando o vendedor quer mandar por outro canal, ou entregar presencialmente.
+ * O código de 6 dígitos continua indo por WhatsApp quando o cliente abrir o
+ * link: o que muda aqui é só a entrega do convite.
+ */
 export async function enviarDocumentoAssinaturaAction(
   vendaId: string,
   tipo: TipoDocumento,
+  enviarWhatsapp = true,
 ): Promise<Resultado<{ url: string }>> {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_ENVIO.includes(usuario.papel)) {
@@ -248,6 +257,14 @@ export async function enviarDocumentoAssinaturaAction(
   }).returning({ id: documentosAssinatura.id })
 
   const url = `${await baseUrl()}/assinar/${token}`
+
+  if (!enviarWhatsapp) {
+    await registrarEvento(doc.id, 'enviado', { envio: 'link_manual', numero })
+    revalidatePath('/vendas')
+    revalidatePath('/estoque')
+    return { ok: true, url }
+  }
+
   const envio = await enviarWhatsappPara(numero, msgConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url))
   await registrarEvento(doc.id, 'enviado', { envio, numero })
 

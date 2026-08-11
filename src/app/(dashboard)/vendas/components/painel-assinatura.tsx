@@ -73,6 +73,22 @@ export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto:
     })
   }
 
+  // Gera o documento sem disparar o WhatsApp e já entrega o link. Serve para
+  // mandar por outro canal ou entregar o celular ao cliente no balcão.
+  function gerarLink(tipo: TipoDocumento) {
+    startTransition(async () => {
+      const r = await enviarDocumentoAssinaturaAction(vendaId, tipo, false)
+      if (!r.ok) { toast.error(r.error); recarregar(); return }
+      try {
+        await navigator.clipboard.writeText(r.url)
+        toast.success('Link criado e copiado — envie por onde preferir')
+      } catch {
+        toast.info(r.url, { duration: 20000 })
+      }
+      recarregar()
+    })
+  }
+
   function reenviar(id: string) {
     startTransition(async () => {
       const r = await reenviarDocumentoAction(id)
@@ -116,14 +132,26 @@ export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto:
             </div>
 
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {(!doc || doc.status === 'cancelado' || expirado || doc.status === 'assinado') && doc?.status !== 'assinado' && (
-                <button
-                  onClick={() => enviar(tipo)}
-                  disabled={pending}
-                  className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  <Send size={12} /> Enviar para assinatura
-                </button>
+              {(!doc || doc.status === 'cancelado' || expirado) && doc?.status !== 'assinado' && (
+                <>
+                  <button
+                    onClick={() => enviar(tipo)}
+                    disabled={pending}
+                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <Send size={12} /> Enviar para assinatura
+                  </button>
+                  {/* Sem documento ainda não existe token, então o link precisa
+                      ser criado na hora. Gera sem disparar o WhatsApp. */}
+                  <button
+                    onClick={() => gerarLink(tipo)}
+                    disabled={pending}
+                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    title="Cria o documento e copia o link, sem mandar no WhatsApp"
+                  >
+                    <Copy size={12} /> Gerar e copiar link
+                  </button>
+                </>
               )}
 
               {doc && estaVivo(doc) && !expirado && (
