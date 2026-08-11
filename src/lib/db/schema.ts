@@ -999,6 +999,13 @@ export const documentosAssinatura = pgTable('documentos_assinatura', {
   respostasJson:  jsonb('respostas_json'),
   dadosJson:      jsonb('dados_json'),
   docHash:        text('doc_hash'),
+  // 'papel': cliente sem acesso digital assinou na loja e a via foi
+  // digitalizada. Entra na mesma tabela para a trava da NF, os ícones e o
+  // dossiê funcionarem sem saber de qual caminho veio a assinatura.
+  assinaturaModo: text('assinatura_modo').notNull().default('digital'),
+  viaFisicaPath:  text('via_fisica_path'),
+  viaFisicaHash:  text('via_fisica_hash'),
+  registradoPor:  uuid('registrado_por').references(() => usuarios.id),
   criadoPor:      uuid('criado_por').references(() => usuarios.id),
   criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   expiraEm:       timestamp('expira_em', { withTimezone: true }).notNull(),

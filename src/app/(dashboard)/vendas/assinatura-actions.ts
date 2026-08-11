@@ -17,6 +17,7 @@ import { enviarWhatsappPara } from '@/lib/whatsapp/client'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { urlBase } from '@/lib/assinatura/url'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const DIAS_VALIDADE = 7
 const PAPEIS_ENVIO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -277,6 +278,115 @@ export async function enviarDocumentoAssinaturaAction(
     return { ok: false, error: 'Documento criado, mas o WhatsApp falhou. Copie o link e envie ao cliente por outro canal.', url }
   }
   return { ok: true, url }
+}
+
+const TAMANHO_MAX_VIA = 10 * 1024 * 1024
+const TIPOS_VIA = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
+/**
+ * Cliente sem acesso digital: assinou o papel na loja e o vendedor anexa a via
+ * digitalizada. O documento entra como assinado, modo 'papel' — daí em diante a
+ * trava da NF, os ícones e o dossiê tratam igual ao digital.
+ *
+ * O anexo é obrigatório: sem a via, a única prova seria a palavra de quem
+ * clicou, e aí a trava não valeria nada.
+ */
+export async function registrarAssinaturaPapelAction(
+  vendaId: string,
+  tipo: TipoDocumento,
+  form: FormData,
+): Promise<Resultado> {
+  const usuario = await getUsuarioLogado()
+  if (!PAPEIS_ENVIO.includes(usuario.papel)) return { ok: false, error: 'Sem permissão' }
+  if (!await vendaNoEscopo(vendaId)) return { ok: false, error: 'Venda não encontrada' }
+
+  const arquivo = form.get('via') as File | null
+  if (!arquivo || arquivo.size === 0) {
+    return { ok: false, error: 'Anexe a foto ou o PDF do documento assinado' }
+  }
+  if (arquivo.size > TAMANHO_MAX_VIA) {
+    return { ok: false, error: 'Arquivo acima de 10 MB. Tire a foto em resolução menor.' }
+  }
+  if (!TIPOS_VIA.includes(arquivo.type)) {
+    return { ok: false, error: 'Envie uma imagem (JPG, PNG, WEBP) ou um PDF' }
+  }
+
+  const montado = await montarDados(vendaId)
+  if (!montado) return { ok: false, error: 'Venda não encontrada' }
+  if (tipo === 'contrato_venda' && !dadosVendedoraCompletos(montado.dados)) {
+    return {
+      ok: false,
+      error: 'Este grupo ainda não tem razão social, endereço da sede, cidade e comarca cadastrados. Preencha em Admin → Grupos.',
+    }
+  }
+
+  // Documento vivo do mesmo tipo perde a vez: a venda tem uma assinatura só.
+  await db.update(documentosAssinatura)
+    .set({ status: 'cancelado' })
+    .where(and(
+      eq(documentosAssinatura.vendaId, vendaId),
+      eq(documentosAssinatura.tipo, tipo),
+      inArray(documentosAssinatura.status, ['pendente', 'visualizado']),
+    ))
+
+  const html = montarHtmlDocumento(tipo, montado.dados)
+  const token = randomBytes(32).toString('base64url')
+  const agora = new Date()
+
+  const [doc] = await db.insert(documentosAssinatura).values({
+    grupoId: montado.grupoId,
+    lojaId: montado.lojaId,
+    vendaId,
+    tipo,
+    token,
+    status: 'assinado',
+    assinaturaModo: 'papel',
+    htmlSnapshot: html,
+    snapshotHash: sha256(html),
+    celularDestino: montado.celular ?? 'não informado',
+    dadosJson: montado.dados,
+    criadoPor: usuario.id,
+    registradoPor: usuario.id,
+    assinadoEm: agora,
+    // Expira junto: em papel o link não é usado, mas a coluna é obrigatória.
+    expiraEm: agora,
+  }).returning({ id: documentosAssinatura.id })
+
+  const buffer = Buffer.from(await arquivo.arrayBuffer())
+  const ext = arquivo.type === 'application/pdf' ? 'pdf' : arquivo.type.split('/')[1]
+  const caminho = `${montado.grupoId}/${doc.id}/via-assinada.${ext}`
+
+  const storage = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { error } = await storage.storage.from('assinaturas')
+    .upload(caminho, buffer, { contentType: arquivo.type, upsert: true })
+  if (error) {
+    // Sem a via anexada o registro não vale — desfaz para não deixar um
+    // documento "assinado" sem prova nenhuma por trás.
+    await db.delete(documentosAssinatura).where(eq(documentosAssinatura.id, doc.id))
+    return { ok: false, error: 'Falha ao enviar o arquivo. Tente novamente.' }
+  }
+
+  const viaHash = sha256(buffer)
+  await db.update(documentosAssinatura)
+    .set({
+      viaFisicaPath: caminho,
+      viaFisicaHash: viaHash,
+      docHash: sha256(`${sha256(html)}:${viaHash}:${usuario.id}:${agora.toISOString()}`),
+    })
+    .where(eq(documentosAssinatura.id, doc.id))
+
+  await registrarEvento(doc.id, 'assinado_em_papel', {
+    registradoPor: usuario.id,
+    arquivo: arquivo.name,
+    viaHash,
+  })
+
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
+  return { ok: true }
 }
 
 export async function reenviarDocumentoAction(documentoId: string): Promise<Resultado<{ url: string }>> {

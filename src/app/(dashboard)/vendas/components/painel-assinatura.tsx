@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, FileSearch, FileSignature, Send, RefreshCw, X, Check } from 'lucide-react'
+import { Copy, FileSearch, FileSignature, Printer, RefreshCw, Send, Upload, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   listarDocumentosDaVendaAction, enviarDocumentoAssinaturaAction,
-  reenviarDocumentoAction, cancelarDocumentoAction, type DocumentoResumo,
+  reenviarDocumentoAction, cancelarDocumentoAction, registrarAssinaturaPapelAction,
+  type DocumentoResumo,
 } from '../assinatura-actions'
 import type { TipoDocumento } from '@/lib/assinatura/documento'
 
@@ -89,6 +90,17 @@ export function PainelAssinatura(
       } catch {
         toast.info(r.url, { duration: 20000 })
       }
+      recarregar()
+    })
+  }
+
+  function registrarPapel(tipo: TipoDocumento, arquivo: File) {
+    startTransition(async () => {
+      const form = new FormData()
+      form.append('via', arquivo)
+      const r = await registrarAssinaturaPapelAction(vendaId, tipo, form)
+      if (r.ok) toast.success('Assinatura em papel registrada — documento consta como assinado')
+      else toast.error(r.error)
       recarregar()
     })
   }
@@ -185,6 +197,39 @@ export function PainelAssinatura(
                 >
                   <Copy size={12} /> Copiar link
                 </button>
+              )}
+
+              {/* Cliente sem acesso digital: imprime, assina à caneta na loja,
+                  e a via digitalizada volta pelo botão ao lado. */}
+              {doc?.status !== 'assinado' && (
+                <>
+                  <a
+                    href={`/vendas/${vendaId}/documento/${tipo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    title="Via em papel, para o cliente assinar à caneta na loja"
+                  >
+                    <Printer size={12} /> Imprimir
+                  </a>
+                  <label
+                    className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 ${pending ? 'opacity-50' : ''}`}
+                    title="Anexar a foto ou o PDF do documento já assinado no papel"
+                  >
+                    <Upload size={12} /> Registrar assinatura em papel
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      disabled={pending}
+                      onChange={e => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ''
+                        if (f) registrarPapel(tipo, f)
+                      }}
+                    />
+                  </label>
+                </>
               )}
 
               {doc?.status === 'assinado' && podeVerDossie && (

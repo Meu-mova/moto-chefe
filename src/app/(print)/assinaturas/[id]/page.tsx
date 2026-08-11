@@ -28,6 +28,7 @@ const LABEL_EVENTO: Record<string, string> = {
   selfie_enviada: 'Registro fotográfico coletado',
   assinado: 'Documento assinado',
   cancelado: 'Documento cancelado pela loja',
+  assinado_em_papel: 'Assinado à caneta na loja e digitalizado',
 }
 
 function dataHora(d: Date | string | null): string {
@@ -72,7 +73,10 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
     const { data } = await admin.storage.from('assinaturas').createSignedUrl(caminho, 600)
     return data?.signedUrl ?? null
   }
-  const [selfieUrl, tracoUrl] = await Promise.all([assinar(doc.selfiePath), assinar(doc.assinaturaPath)])
+  const [selfieUrl, tracoUrl, viaFisicaUrl] = await Promise.all([
+    assinar(doc.selfiePath), assinar(doc.assinaturaPath), assinar(doc.viaFisicaPath),
+  ])
+  const emPapel = doc.assinaturaModo === 'papel'
 
   const ev = doc.evidenciasJson as Evidencias | null
 
@@ -96,7 +100,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
         @media print { .no-print { display: none } }
       `}</style>
 
-      <h1>Dossiê de assinatura eletrônica</h1>
+      <h1>Dossiê de assinatura {emPapel ? 'em papel' : 'eletrônica'}</h1>
       <p style={{ color: '#64748b', marginBottom: 12 }}>
         {LABEL_TIPO[doc.tipo as TipoDocumento]} — venda #{venda?.numero ?? '—'}
       </p>
@@ -105,6 +109,12 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
       <table>
         <tbody>
           <tr><th>Situação</th><td>{doc.status === 'assinado' ? 'ASSINADO' : doc.status.toUpperCase()}</td></tr>
+          <tr>
+            <th>Forma da assinatura</th>
+            <td>{emPapel
+              ? 'Manuscrita, na loja — via digitalizada anexada abaixo'
+              : 'Eletrônica, pelo celular do signatário'}</td>
+          </tr>
           <tr><th>Assinado em</th><td>{dataHora(doc.assinadoEm)} (horário de Brasília)</td></tr>
           <tr><th>Enviado em</th><td>{dataHora(doc.criadoEm)}{enviadoPor?.nome ? ` por ${enviadoPor.nome}` : ''}</td></tr>
           <tr><th>WhatsApp do signatário</th><td>{doc.celularDestino}</td></tr>
@@ -136,6 +146,23 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
         resultado.
       </p>
 
+      {emPapel && (
+        <>
+          <h2>Via assinada à caneta</h2>
+          {viaFisicaUrl
+            ? (doc.viaFisicaPath?.endsWith('.pdf')
+                ? <p><a href={viaFisicaUrl}>Abrir o PDF da via assinada</a> (link válido por 10 minutos)</p>
+                /* eslint-disable-next-line @next/next/no-img-element */
+                : <img src={viaFisicaUrl} alt="Via do documento assinada à caneta" style={{ maxWidth: 420, border: '1px solid #e2e8f0' }} />)
+            : <p style={{ fontSize: 11 }}>Via não localizada no arquivo.</p>}
+          <p style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+            Resumo da via (SHA-256): <span className="mono">{doc.viaFisicaHash ?? '—'}</span>
+          </p>
+        </>
+      )}
+
+      {!emPapel && (
+      <>
       <h2>Registro fotográfico e assinatura</h2>
       <div className="imgs">
         <figure>
@@ -153,6 +180,8 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
           <figcaption>Assinatura lançada na tela</figcaption>
         </figure>
       </div>
+      </>
+      )}
 
       <h2>Trilha de eventos</h2>
       <table>
@@ -180,8 +209,10 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
       <div className="doc" dangerouslySetInnerHTML={{ __html: doc.htmlSnapshot }} />
 
       <p className="rodape">
-        Documento assinado eletronicamente nos termos do art. 10, §2º da Medida Provisória
-        2.200-2/2001, com aceite expresso das partes no próprio instrumento. Dossiê emitido em{' '}
+        {emPapel
+          ? 'Documento assinado de forma manuscrita na loja, com via digitalizada arquivada neste sistema. '
+          : 'Documento assinado eletronicamente nos termos do art. 10, §2º da Medida Provisória 2.200-2/2001, com aceite expresso das partes no próprio instrumento. '}
+        Dossiê emitido em{' '}
         {dataHora(new Date())} por {usuario.nome}.
       </p>
     </>
