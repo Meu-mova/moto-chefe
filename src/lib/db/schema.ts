@@ -49,6 +49,12 @@ export const grupos = pgTable('grupos', {
   // Cor da bandeira (chave da paleta em @/lib/grupo-cores). Deixa a barra de grupo
   // ativo inconfundível, pra não lançar entrada/saída na empresa errada.
   cor:                text('cor'),
+  // Qualificação da pessoa jurídica no contrato de compra e venda. Cada grupo é
+  // uma empresa distinta — sem isso o contrato sairia com o CNPJ da errada.
+  // Editável em /admin/grupos.
+  razaoSocial:        text('razao_social'),
+  enderecoSede:       text('endereco_sede'),
+  comarcaForo:        text('comarca_foro'),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
@@ -230,6 +236,10 @@ export const vendas = pgTable('vendas', {
   /** Por onde o cliente chegou. NULL = venda anterior ao deploy da origem. */
   origemId: uuid('origem_id').references(() => origensVenda.id),
   origemDetalhe: text('origem_detalhe'),
+  /** Liberação de exceção da trava de NF: só admin, e o motivo é obrigatório. */
+  nfLiberadaEm: timestamp('nf_liberada_em', { withTimezone: true }),
+  nfLiberadaPor: uuid('nf_liberada_por'),
+  nfLiberacaoMotivo: text('nf_liberacao_motivo'),
 })
 
 // ─── origens_venda ───────────────────────────────────────────────────────────
@@ -955,3 +965,56 @@ export const calendarioEventoUsuarios = pgTable('calendario_evento_usuarios', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.eventoId, t.usuarioId] }),
 }))
+
+// ─── Assinatura digital de documentos ────────────────────────────────────────
+// O HTML do documento é congelado em html_snapshot no envio: editar a venda
+// depois não altera o que o cliente assinou.
+export const documentosAssinatura = pgTable('documentos_assinatura', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  grupoId:        uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:         uuid('loja_id').references(() => lojas.id),
+  vendaId:        uuid('venda_id').notNull().references(() => vendas.id),
+  tipo:           text('tipo').notNull(),
+  token:          text('token').notNull(),
+  status:         text('status').notNull().default('pendente'),
+  htmlSnapshot:   text('html_snapshot').notNull(),
+  snapshotHash:   text('snapshot_hash').notNull(),
+  celularDestino: text('celular_destino').notNull(),
+  selfiePath:     text('selfie_path'),
+  selfieHash:     text('selfie_hash'),
+  assinaturaPath: text('assinatura_path'),
+  assinaturaHash: text('assinatura_hash'),
+  ipAssinatura:   text('ip_assinatura'),
+  userAgent:      text('user_agent'),
+  geoLat:         numeric('geo_lat', { precision: 10, scale: 7 }),
+  geoLon:         numeric('geo_lon', { precision: 10, scale: 7 }),
+  geoPrecisao:    numeric('geo_precisao', { precision: 10, scale: 2 }),
+  evidenciasJson: jsonb('evidencias_json'),
+  docHash:        text('doc_hash'),
+  criadoPor:      uuid('criado_por').references(() => usuarios.id),
+  criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  expiraEm:       timestamp('expira_em', { withTimezone: true }).notNull(),
+  assinadoEm:     timestamp('assinado_em', { withTimezone: true }),
+})
+
+// Trilha append-only. É esta tabela que responde "prove que foi ele".
+export const assinaturaEventos = pgTable('assinatura_eventos', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  documentoId: uuid('documento_id').notNull().references(() => documentosAssinatura.id),
+  tipo:        text('tipo').notNull(),
+  ip:          text('ip'),
+  userAgent:   text('user_agent'),
+  detalhe:     jsonb('detalhe'),
+  criadoEm:    timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Códigos OTP — guardados em hash, nunca em claro.
+export const assinaturaCodigos = pgTable('assinatura_codigos', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  documentoId: uuid('documento_id').notNull().references(() => documentosAssinatura.id),
+  codigoHash:  text('codigo_hash').notNull(),
+  expiraEm:    timestamp('expira_em', { withTimezone: true }).notNull(),
+  tentativas:  integer('tentativas').notNull().default(0),
+  usadoEm:     timestamp('usado_em', { withTimezone: true }),
+  criadoEm:    timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})

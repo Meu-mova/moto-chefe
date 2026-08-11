@@ -14,6 +14,8 @@ import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp
 import { parseDataInput } from '@/lib/data-venda'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
+import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
+import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
@@ -466,6 +468,11 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
 
   if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
 
+  // Trava: sem contrato assinado não registra NF — nem pelo caminho "nota já
+  // emitida", senão bastaria emitir direto no Bling e voltar aqui.
+  const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
+  if (bloqueio) throw new Error(bloqueio)
+
   await db.transaction(async (tx) => {
     await tx.update(vendas)
       .set({ notaFiscalSaida: notaFiscal })
@@ -516,6 +523,10 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .limit(1)
 
   if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+
+  // Trava: sem contrato assinado, nem rascunho no Bling.
+  const bloqueioNf = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
+  if (bloqueioNf) return { ok: false, error: bloqueioNf }
 
   // Rascunho já criado — retorna URL sem criar novo
   if (venda.blingNfeId) {

@@ -9,6 +9,7 @@ import { buscarHistoricoMotoAction } from '../actions'
 import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 import { TIPOS_CARTAO, type PgtoOS } from '@/lib/conciliacao-status'
 import { PagamentosConciliacao, useConciliacaoAlvo } from '@/components/pagamentos-conciliacao'
+import { PainelAssinatura } from './painel-assinatura'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -129,6 +130,11 @@ export function DetalhesVendaDialog({ venda: v, papel }: Props) {
           {/* ─── Aba Detalhes ─────────────────────────────────────────── */}
           {tab === 'detalhes' && (
             <div className="space-y-5 text-sm">
+              {/* Assinatura digital — contrato trava a NF, então vem no topo */}
+              <PainelAssinatura vendaId={v.id} aberto={open} />
+
+              <div className="h-px bg-slate-100" />
+
               {/* Moto */}
               <div className="space-y-1.5">
                 <p className="font-semibold text-slate-700">Moto</p>

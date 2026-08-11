@@ -5,23 +5,9 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
 
-const ITENS = [
-  'Chave de ignição',
-  'Ignição pelo painel / controle / cartão',
-  'Acelerador',
-  'Freios em funcionamento',
-  'Comandos 1, 2 e 3',
-  'Ré',
-  'Sensor de freio',
-  'Lanterna',
-  'Farol (baixo e alto)',
-  'Buzina',
-  'Setas dianteiras e traseiras',
-  'Alarmes e travas',
-  'Carenagens em perfeito estado',
-  'Carregador em funcionamento',
-  'Abertura do banco / compartimento da bateria',
-]
+// Fonte única: a mesma lista alimenta o checklist assinável em
+// @/lib/assinatura/documento. Duas cópias divergiriam com o tempo.
+import { ITENS_CHECKLIST as ITENS } from '@/lib/assinatura/documento'
 
 export default async function ChecklistEntregaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

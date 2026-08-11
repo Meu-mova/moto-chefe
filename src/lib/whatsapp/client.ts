@@ -48,8 +48,20 @@ export function avaliarEnvio(json: { result?: unknown; error?: { message?: strin
  * efeito colateral e não pode derrubar venda nem o cron.
  */
 export async function enviarAlertaWhatsapp(texto: string): Promise<ResultadoEnvioWhatsapp> {
+  return enviarWhatsappPara(process.env.WHATSAPP_ALERTA_NUMERO?.trim() ?? '', texto)
+}
+
+/**
+ * Envia para um número qualquer. O alerta interno acima é só o caso particular
+ * em que o destinatário vem do env; a assinatura digital manda para o celular
+ * do cliente, que vem do cadastro da venda.
+ *
+ * Nunca lança — devolve o resultado para quem chamou decidir. No fluxo de
+ * assinatura isso importa: falha de envio precisa aparecer para o vendedor,
+ * não sumir num log.
+ */
+export async function enviarWhatsappPara(numero: string, texto: string): Promise<ResultadoEnvioWhatsapp> {
   const url = process.env.MCPAI_WHATSAPP_URL
-  const numero = process.env.WHATSAPP_ALERTA_NUMERO?.trim()
   if (!url) {
     console.error('MCPAI_WHATSAPP_URL não configurada')
     return 'erro'

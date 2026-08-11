@@ -24,6 +24,11 @@ type GrupoInput = {
   blingClientId?: string
   blingClientSecret?: string
   metaMotosMes?: string
+  // Qualificação da empresa no contrato de compra e venda. Sem os três, o envio
+  // de contrato fica bloqueado neste grupo (ver @/lib/assinatura/documento).
+  razaoSocial?: string
+  enderecoSede?: string
+  comarcaForo?: string
 }
 
 export async function criarGrupoAction(dados: GrupoInput) {
@@ -40,6 +45,9 @@ export async function criarGrupoAction(dados: GrupoInput) {
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
+    razaoSocial: dados.razaoSocial?.trim() || null,
+    enderecoSede: dados.enderecoSede?.trim() || null,
+    comarcaForo: dados.comarcaForo?.trim() || null,
   })
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
@@ -59,6 +67,9 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
+    razaoSocial: dados.razaoSocial?.trim() || null,
+    enderecoSede: dados.enderecoSede?.trim() || null,
+    comarcaForo: dados.comarcaForo?.trim() || null,
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')

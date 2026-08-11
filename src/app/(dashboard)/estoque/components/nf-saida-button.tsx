@@ -1,11 +1,12 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { FileCheck, ExternalLink, ClipboardCheck, FileText, RefreshCw } from 'lucide-react'
+import { FileCheck, ExternalLink, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { criarRascunhoBlingAction, confirmarNFSaidaAction, atualizarRascunhoBlingAction } from '../../vendas/actions'
+import { verificarBloqueioNfAction, liberarNfSemContratoAction } from '../../vendas/assinatura-actions'
 
 type Props = {
   motoId: string
@@ -13,7 +14,7 @@ type Props = {
   blingNfeId?: string | null
 }
 
-type Etapa = 'inicial' | 'aguardando' | 'manual'
+type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado'
 
 export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
@@ -23,19 +24,53 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   const [blingUrl, setBlingUrl] = useState(urlExistente)
   const [nf, setNf] = useState('')
   const [erro, setErro] = useState('')
+  const [bloqueio, setBloqueio] = useState<string | null>(null)
+  const [vendaId, setVendaId] = useState<string | null>(null)
+  const [podeLiberar, setPodeLiberar] = useState(false)
+  const [motivo, setMotivo] = useState('')
   const [pending, startTransition] = useTransition()
 
+  // A trava é consultada ao abrir, não na listagem: seria uma consulta por
+  // linha da tabela de estoque. A action de emissão recusa de qualquer forma —
+  // isto é o que faz o vendedor saber ANTES de tentar.
   function abrir() {
     setErro('')
     setNf('')
-    if (blingNfeId) {
-      setBlingUrl(urlExistente)
-      setEtapa('aguardando')
-    } else {
-      setBlingUrl('')
-      setEtapa('inicial')
-    }
     setAberto(true)
+    // 'verificando' até saber da trava — senão o vendedor veria por um instante
+    // a tela normal e clicaria num caminho que a action vai recusar.
+    setEtapa('verificando')
+    startTransition(async () => {
+      const r = await verificarBloqueioNfAction(motoId)
+      setVendaId(r.vendaId)
+      setPodeLiberar(r.podeLiberar)
+      if (r.bloqueio) {
+        setBloqueio(r.bloqueio)
+        setEtapa('bloqueado')
+        return
+      }
+      setBloqueio(null)
+      if (blingNfeId) {
+        setBlingUrl(urlExistente)
+        setEtapa('aguardando')
+      } else {
+        setBlingUrl('')
+        setEtapa('inicial')
+      }
+    })
+  }
+
+  function liberar() {
+    if (!vendaId) return
+    setErro('')
+    startTransition(async () => {
+      const r = await liberarNfSemContratoAction(vendaId, motivo)
+      if (!r.ok) { setErro(r.error); return }
+      setBloqueio(null)
+      setMotivo('')
+      setEtapa(blingNfeId ? 'aguardando' : 'inicial')
+      if (blingNfeId) setBlingUrl(urlExistente)
+    })
   }
 
   function fechar() {
@@ -103,6 +138,53 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
             <DialogTitle>NF-e de Saída</DialogTitle>
             <p className="text-sm text-slate-500">{descricao}</p>
           </DialogHeader>
+
+          {etapa === 'verificando' && (
+            <p className="py-6 text-center text-sm text-slate-500">Verificando o contrato desta venda…</p>
+          )}
+
+          {etapa === 'bloqueado' && (
+            <div className="space-y-3 py-1">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <Lock size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                <p className="text-sm text-amber-800">{bloqueio}</p>
+              </div>
+
+              {podeLiberar ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="motivo-liberacao" className="text-xs">
+                    Liberar mesmo assim — descreva o motivo
+                  </Label>
+                  <textarea
+                    id="motivo-liberacao"
+                    value={motivo}
+                    onChange={e => setMotivo(e.target.value)}
+                    rows={3}
+                    placeholder="Ex: cliente sem WhatsApp, contrato assinado em papel e arquivado na loja"
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Fica registrado com seu nome e a data. Mínimo de 10 caracteres.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Só admin geral ou sócio pode liberar a emissão sem contrato assinado.
+                </p>
+              )}
+
+              {erro && <p className="text-sm text-red-600">{erro}</p>}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={fechar} disabled={pending}>Fechar</Button>
+                {podeLiberar && (
+                  <Button onClick={liberar} disabled={pending || motivo.trim().length < 10}>
+                    {pending ? 'Liberando…' : 'Liberar emissão'}
+                  </Button>
+                )}
+              </DialogFooter>
+            </div>
+          )}
 
           {etapa === 'inicial' && (
             <div className="space-y-3 py-1">
