@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaEventos, vendas, lojas, grupos } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -14,6 +14,8 @@ import {
 import { sha256 } from '@/lib/assinatura/hash'
 import { normalizarCelular, msgConvite } from '@/lib/assinatura/mensagens'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
+import { motivoBloqueioNf } from '@/lib/assinatura/nf'
+import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 
 const DIAS_VALIDADE = 7
 const PAPEIS_ENVIO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -93,6 +95,73 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       formaPagamento: extra.formaPagamento ?? '',
       dataVenda: new Date(venda.dataVenda).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
     },
+  }
+}
+
+export type DocumentoResumo = {
+  id: string
+  tipo: TipoDocumento
+  status: string
+  token: string
+  expiraEm: string
+  assinadoEm: string | null
+}
+
+// Documentos de uma venda, para o painel de assinatura. Carregado sob demanda
+// (ao abrir o dialog), não na listagem — evita uma consulta por linha da tabela.
+export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
+  documentos: DocumentoResumo[]
+  baseUrl: string
+}> {
+  await getUsuarioLogado()
+  const linhas = await db
+    .select({
+      id: documentosAssinatura.id,
+      tipo: documentosAssinatura.tipo,
+      status: documentosAssinatura.status,
+      token: documentosAssinatura.token,
+      expiraEm: documentosAssinatura.expiraEm,
+      assinadoEm: documentosAssinatura.assinadoEm,
+    })
+    .from(documentosAssinatura)
+    .where(eq(documentosAssinatura.vendaId, vendaId))
+    .orderBy(desc(documentosAssinatura.criadoEm))
+
+  return {
+    baseUrl: await baseUrl(),
+    documentos: linhas.map(l => ({
+      id: l.id,
+      tipo: l.tipo as TipoDocumento,
+      status: l.status,
+      token: l.token,
+      expiraEm: l.expiraEm.toISOString(),
+      assinadoEm: l.assinadoEm?.toISOString() ?? null,
+    })),
+  }
+}
+
+// Estado da trava para a tela de NF. Resolvido pelo motoId porque é o que o
+// botão de NF conhece — o mesmo caminho que as actions de emissão usam.
+export async function verificarBloqueioNfAction(motoId: string): Promise<{
+  vendaId: string | null
+  bloqueio: string | null
+  podeLiberar: boolean
+}> {
+  const usuario = await getUsuarioLogado()
+  const [venda] = await db
+    .select({ id: vendas.id })
+    .from(vendas)
+    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+
+  const podeLiberar = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  if (!venda) return { vendaId: null, bloqueio: null, podeLiberar }
+
+  return {
+    vendaId: venda.id,
+    bloqueio: motivoBloqueioNf(await situacaoNfDaVenda(venda.id)),
+    podeLiberar,
   }
 }
 
