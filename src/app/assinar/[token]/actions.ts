@@ -10,6 +10,7 @@ import { msgCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
 import { LABEL_TIPO, type TipoDocumento } from '@/lib/assinatura/documento'
 import { docHash, sha256, type Evidencias } from '@/lib/assinatura/hash'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
+import { urlBase } from '@/app/(dashboard)/vendas/assinatura-actions'
 
 type Resposta = { ok: boolean; error?: string }
 
@@ -188,10 +189,9 @@ export async function selarAssinaturaAction(
   // selada. O vendedor reenvia o link depois.
   const [venda] = await db.select({ nome: vendas.clienteNome }).from(vendas)
     .where(eq(vendas.id, doc.vendaId)).limit(1)
-  const base_ = (process.env.NEXT_PUBLIC_APP_URL ?? process.env.MOVA_URL ?? 'https://moto-chefe.vercel.app').replace(/\/$/, '')
   await enviarWhatsappPara(
     doc.celularDestino,
-    msgAssinado(venda?.nome ?? 'cliente', LABEL_TIPO[doc.tipo as TipoDocumento], `${base_}/assinar/${token}`),
+    msgAssinado(venda?.nome ?? 'cliente', LABEL_TIPO[doc.tipo as TipoDocumento], `${urlBase()}/assinar/${token}`),
   )
 
   return { ok: true }
