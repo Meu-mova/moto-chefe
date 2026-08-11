@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, FileSignature, Send, RefreshCw, X, Check } from 'lucide-react'
+import { Copy, FileSearch, FileSignature, Send, RefreshCw, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   listarDocumentosDaVendaAction, enviarDocumentoAssinaturaAction,
@@ -153,6 +153,18 @@ export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto:
                 >
                   <Copy size={12} /> Copiar link
                 </button>
+              )}
+
+              {doc?.status === 'assinado' && (
+                <a
+                  href={`/assinaturas/${doc.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100"
+                  title="Documento assinado, foto do cliente, hash e trilha de eventos — é o que se leva a uma contestação"
+                >
+                  <FileSearch size={12} /> Ver dossiê
+                </a>
               )}
             </div>
 
