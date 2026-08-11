@@ -73,9 +73,22 @@ export const pedidosFabricaAlerta = pgTable('pedidos_fabrica_alerta', {
   dataPedido:       text('data_pedido'),
   primeiroAlertaEm: timestamp('primeiro_alerta_em', { withTimezone: true }).notNull().defaultNow(),
   ultimoAlertaEm:   timestamp('ultimo_alerta_em', { withTimezone: true }).notNull().defaultNow(),
+  // Quando o aviso saiu no WhatsApp. Nulo = pedido conhecido, mas ainda não
+  // avisado (o disparo falhou) — segue entrando como "novo" na próxima rodada.
+  avisadoEm:        timestamp('avisado_em', { withTimezone: true }),
   // Preenchido quando o pedido some da lista de "aguardando pagamento".
   resolvidoEm:      timestamp('resolvido_em', { withTimezone: true }),
 }, t => [unique('pedidos_fabrica_alerta_loja_pedido_key').on(t.lojaId, t.numeroPedido)])
+
+// Resultado da última leitura do portal da fábrica, por loja. É o que permite ao
+// card do dashboard separar "nenhum pedido pendente" de "ninguém leu esta conta".
+export const fabricaSyncLoja = pgTable('fabrica_sync_loja', {
+  lojaId:      uuid('loja_id').primaryKey().references(() => lojas.id, { onDelete: 'cascade' }),
+  status:      text('status').notNull(),
+  erro:        text('erro'),
+  pedidos:     integer('pedidos').notNull().default(0),
+  executadoEm: timestamp('executado_em', { withTimezone: true }).notNull().defaultNow(),
+})
 
 // ─── lojas ───────────────────────────────────────────────────────────────────
 export const lojas = pgTable('lojas', {

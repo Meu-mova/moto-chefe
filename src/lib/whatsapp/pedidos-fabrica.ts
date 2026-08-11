@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { grupos, lojas, pedidosFabricaAlerta } from '@/lib/db/schema'
+import { grupos, lojas, pedidosFabricaAlerta, fabricaSyncLoja } from '@/lib/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { enviarAlertaWhatsapp } from './client'
 import {
@@ -126,6 +126,7 @@ export async function alertarPedidosFabricaDaLoja(
       .select({
         numeroPedido:     pedidosFabricaAlerta.numeroPedido,
         primeiroAlertaEm: pedidosFabricaAlerta.primeiroAlertaEm,
+        avisadoEm:        pedidosFabricaAlerta.avisadoEm,
       })
       .from(pedidosFabricaAlerta)
       .where(and(
@@ -133,21 +134,24 @@ export async function alertarPedidosFabricaDaLoja(
         isNull(pedidosFabricaAlerta.resolvidoEm),
       ))
 
-    const conhecidos = new Map(jaAlertados.map(a => [a.numeroPedido, a.primeiroAlertaEm]))
+    const conhecidos = new Map(jaAlertados.map(a => [a.numeroPedido, a]))
 
     const novos: PedidoAviso[]     = []
     const pendentes: PedidoAviso[] = []
 
     for (const p of aguardando) {
-      const primeiro = conhecidos.get(p.numeroPedido)
+      const anterior = conhecidos.get(p.numeroPedido)
       const aviso: PedidoAviso = {
         numeroPedido: p.numeroPedido,
         valor:        p.valor,
         metodo:       p.metodo,
         dataPedido:   p.dataPedido,
-        diasPendente: primeiro ? diasEntre(new Date(primeiro), agora) : 0,
+        diasPendente: anterior ? diasEntre(new Date(anterior.primeiroAlertaEm), agora) : 0,
       }
-      if (primeiro) pendentes.push(aviso)
+      // "Novo" é o que ainda não foi AVISADO — não o que ainda não foi visto.
+      // Um pedido conhecido cujo aviso falhou continua entrando como novo até
+      // a mensagem sair de verdade.
+      if (anterior?.avisadoEm) pendentes.push(aviso)
       else novos.push(aviso)
     }
 
@@ -165,16 +169,9 @@ export async function alertarPedidosFabricaDaLoja(
         ))
     }
 
-    const texto = formatarAvisoPedidosFabrica({ loja: loja.nome, novos, pendentes })
-    if (!texto) return { ...base, status: 'nada_pendente' }
-
-    const envio = await enviarAlertaWhatsapp(texto)
-    if (envio !== 'enviado') {
-      // Não grava o controle: pedido segue "novo" e a próxima rodada tenta de novo.
-      return { ...base, status: envio === 'sem_numero' ? 'sem_numero' : 'erro' }
-    }
-
-    // Só grava depois do envio confirmado.
+    // Grava o que foi VISTO, antes e independentemente do aviso. O dashboard lê
+    // desta tabela: se a gravação dependesse do WhatsApp, um disparo com erro
+    // deixaria o card zerado com pedido vencendo na fábrica.
     for (const p of aguardando) {
       await db.insert(pedidosFabricaAlerta)
         .values({
@@ -191,6 +188,24 @@ export async function alertarPedidosFabricaDaLoja(
           set:    { ultimoAlertaEm: agora, resolvidoEm: null },
         })
     }
+
+    const texto = formatarAvisoPedidosFabrica({ loja: loja.nome, novos, pendentes })
+    if (!texto) return { ...base, status: 'nada_pendente' }
+
+    const envio = await enviarAlertaWhatsapp(texto)
+    if (envio !== 'enviado') {
+      // avisado_em fica nulo: o pedido segue como "novo" e a próxima rodada
+      // tenta de novo, mas o dado já está no banco para o dashboard.
+      return { ...base, status: envio === 'sem_numero' ? 'sem_numero' : 'erro' }
+    }
+
+    // Aviso confirmado — só agora o pedido deixa de ser novidade.
+    await db.update(pedidosFabricaAlerta)
+      .set({ avisadoEm: agora })
+      .where(and(
+        eq(pedidosFabricaAlerta.lojaId, loja.id),
+        inArray(pedidosFabricaAlerta.numeroPedido, numeros),
+      ))
 
     return { ...base, status: 'enviado', novos: novos.length, pendentes: pendentes.length }
   } catch (e) {
@@ -220,9 +235,40 @@ export async function alertarPedidosFabrica(agora: Date = new Date()): Promise<R
   // Sequencial: o portal da fábrica é frágil e paralelizar login na mesma origem
   // não vale o risco de derrubar a sessão de outra loja.
   for (const l of ativas) {
-    resultados.push(await alertarPedidosFabricaDaLoja(l, agora))
+    const r = await alertarPedidosFabricaDaLoja(l, agora)
+    resultados.push(r)
+    // Registra o resultado da leitura. É o que permite ao card do dashboard
+    // distinguir "nenhum pedido pendente" de "ninguém conseguiu ler esta conta"
+    // — as duas coisas aparecem como zero pedidos.
+    await db.insert(fabricaSyncLoja).values({
+      lojaId: l.id,
+      status: statusDaLeitura(r),
+      erro: r.erro ?? null,
+      pedidos: (r.novos ?? 0) + (r.pendentes ?? 0),
+      executadoEm: agora,
+    }).onConflictDoUpdate({
+      target: fabricaSyncLoja.lojaId,
+      set: {
+        status: statusDaLeitura(r),
+        erro: r.erro ?? null,
+        pedidos: (r.novos ?? 0) + (r.pendentes ?? 0),
+        executadoEm: agora,
+      },
+    })
   }
   return resultados
+}
+
+/**
+ * O que a leitura conseguiu fazer, do ponto de vista do dado.
+ *
+ * 'sem_numero' (leu certo, mas não havia para quem avisar no WhatsApp) conta
+ * como leitura OK: os pedidos foram lidos e gravados, só o aviso não saiu.
+ */
+export function statusDaLeitura(r: ResultadoLoja): 'ok' | 'sem_credencial' | 'erro' {
+  if (r.status === 'sem_credencial') return 'sem_credencial'
+  if (r.status === 'erro') return 'erro'
+  return 'ok'
 }
 
 export type { PedidoCompraFabrica }

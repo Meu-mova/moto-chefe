@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatarAvisoPedidosFabrica, diasEntre, type PedidoAviso } from './pedidos-fabrica'
+import { formatarAvisoPedidosFabrica, diasEntre, statusDaLeitura, type PedidoAviso } from './pedidos-fabrica'
 import { parsearPedidosCompra } from '@/lib/fabrica-scraper'
 
 // Recorte fiel do HTML de /clientes/pedidos?aba=compras capturado em 30/07/2026.
@@ -127,4 +127,16 @@ test('diasEntre conta dias de calendário', () => {
 
 test('diasEntre não devolve negativo se o relógio voltar', () => {
   assert.equal(diasEntre(new Date('2026-07-30T00:00:00Z'), new Date('2026-07-28T00:00:00Z')), 0)
+})
+
+// O card do dashboard depende disto para não confundir "nenhum pedido" com
+// "ninguém leu a conta desta loja".
+test('statusDaLeitura: só sem_credencial e erro contam como falha de leitura', () => {
+  const base = { loja: 'Poços', grupo: 'Sul de Minas' } as const
+  assert.equal(statusDaLeitura({ ...base, status: 'enviado' }), 'ok')
+  assert.equal(statusDaLeitura({ ...base, status: 'nada_pendente' }), 'ok')
+  // Leu certo, gravou os pedidos, só não tinha para quem avisar.
+  assert.equal(statusDaLeitura({ ...base, status: 'sem_numero' }), 'ok')
+  assert.equal(statusDaLeitura({ ...base, status: 'sem_credencial' }), 'sem_credencial')
+  assert.equal(statusDaLeitura({ ...base, status: 'erro' }), 'erro')
 })

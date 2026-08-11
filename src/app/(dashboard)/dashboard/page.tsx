@@ -20,6 +20,8 @@ import { MetaMesCards } from './components/meta-mes-cards'
 import { calcularProjecao, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
+import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
+import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 import { KpiCards } from './components/kpi-cards'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
 import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoCaixaPorLoja } from './components/charts'
@@ -85,6 +87,23 @@ async function KpiSection({
     )
   } catch (e) {
     console.error('[KpiSection] erro:', e)
+    throw e
+  }
+}
+
+// Quem paga a fábrica é o administrativo: admin, sócio e aux_adm. O card é por
+// GRUPO (cada bandeira tem suas contas no portal), não por loja do usuário.
+async function PedidosFabricaSection({
+  usuario,
+}: {
+  usuario: { papel: string; lojaId: string | null }
+}) {
+  try {
+    const grupo = await getGrupoAtivo(usuario)
+    const dados = await pedidosFabricaDoGrupo(grupo.id)
+    return <PedidosFabricaCard dados={dados} />
+  } catch (e) {
+    console.error('[PedidosFabricaSection] erro:', e)
     throw e
   }
 }
@@ -401,6 +420,14 @@ export default async function DashboardPage({
           <ProximosEventosSection usuario={usuario} />
         </Suspense>
       </SectionErrorBoundary>
+
+      {(isAdmin || isAuxAdm) && (
+        <SectionErrorBoundary label="os pedidos da fábrica">
+          <Suspense fallback={null}>
+            <PedidosFabricaSection usuario={usuario} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
 
       {isAuxAdm && usuario.lojaId && (
         <SectionErrorBoundary label="as pendências da loja">
