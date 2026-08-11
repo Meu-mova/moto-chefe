@@ -116,6 +116,10 @@ export async function selarAssinaturaAction(
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
   // Idempotência: duplo clique não gera segunda assinatura.
   if (doc.status === 'assinado') return { ok: true }
+  // Cancelado no meio do caminho: a loja cancela enquanto o cliente está na
+  // tela da selfie, com o código já validado. Sem esta checagem ele selaria um
+  // documento que a loja já tinha invalidado.
+  if (doc.status === 'cancelado') return { ok: false, error: 'Documento cancelado pela loja' }
   if (new Date() > doc.expiraEm) return { ok: false, error: 'Link expirado' }
 
   // O código precisa ter sido validado antes — selfie sozinha não sela.

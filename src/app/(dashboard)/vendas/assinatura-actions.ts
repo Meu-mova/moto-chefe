@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { documentosAssinatura, assinaturaEventos, vendas, lojas, grupos } from '@/lib/db/schema'
+import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { buscarVenda } from '@/lib/queries/vendas'
 import {
@@ -304,6 +304,14 @@ export async function cancelarDocumentoAction(documentoId: string): Promise<Resu
 
   await db.update(documentosAssinatura).set({ status: 'cancelado' })
     .where(eq(documentosAssinatura.id, documentoId))
+  // Queima os códigos ainda válidos: um código já entregue no WhatsApp não pode
+  // continuar valendo depois do cancelamento.
+  await db.update(assinaturaCodigos)
+    .set({ usadoEm: new Date() })
+    .where(and(
+      eq(assinaturaCodigos.documentoId, documentoId),
+      isNull(assinaturaCodigos.usadoEm),
+    ))
   await registrarEvento(documentoId, 'cancelado', { por: usuario.id })
   revalidatePath('/vendas')
   return { ok: true }
