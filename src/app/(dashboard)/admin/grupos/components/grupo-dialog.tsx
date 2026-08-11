@@ -19,6 +19,9 @@ type Grupo = {
   blingClientId: string | null
   blingClientSecret: string | null
   metaMotosMes: number | null
+  razaoSocial: string | null
+  enderecoSede: string | null
+  comarcaForo: string | null
 }
 
 type Props = {
@@ -40,6 +43,11 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
   const [metaMotosMes, setMetaMotosMes] = useState(inicial?.metaMotosMes != null ? String(inicial.metaMotosMes) : '')
+  const [razaoSocial, setRazaoSocial] = useState(inicial?.razaoSocial ?? '')
+  const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
+  const [comarcaForo, setComarcaForo] = useState(inicial?.comarcaForo ?? '')
+
+  const contratoIncompleto = !razaoSocial.trim() || !enderecoSede.trim() || !comarcaForo.trim()
 
   async function handleSalvar() {
     if (!nome.trim() || !cnpj.trim()) {
@@ -48,7 +56,10 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     }
     setLoading(true)
     try {
-      const dados = { nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret, metaMotosMes }
+      const dados = {
+        nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret,
+        metaMotosMes, razaoSocial, enderecoSede, comarcaForo,
+      }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
         toast.success('Grupo criado!')
@@ -80,6 +91,42 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs">CNPJ *</Label>
             <Input value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" className="h-9 text-sm" />
+          </div>
+
+          <div className="border-t pt-3 space-y-3">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Dados para contrato</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Razão social</Label>
+              <Input
+                value={razaoSocial}
+                onChange={e => setRazaoSocial(e.target.value)}
+                placeholder="MOTOCHEFE SUL DE MINAS LTDA."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Endereço da sede</Label>
+              <Input
+                value={enderecoSede}
+                onChange={e => setEnderecoSede(e.target.value)}
+                placeholder="Avenida X, n° 000, Bairro, CEP: 00.000-000, Cidade – UF"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Comarca do foro</Label>
+              <Input
+                value={comarcaForo}
+                onChange={e => setComarcaForo(e.target.value)}
+                placeholder="Pouso Alegre, Minas Gerais"
+                className="h-9 text-sm"
+              />
+            </div>
+            {contratoIncompleto && (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                Sem estes três campos, o envio de contrato para assinatura fica bloqueado neste grupo.
+              </p>
+            )}
           </div>
 
           <div className="border-t pt-3 space-y-3">
