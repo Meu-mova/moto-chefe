@@ -993,6 +993,11 @@ export const documentosAssinatura = pgTable('documentos_assinatura', {
   geoLon:         numeric('geo_lon', { precision: 10, scale: 7 }),
   geoPrecisao:    numeric('geo_precisao', { precision: 10, scale: 2 }),
   evidenciasJson: jsonb('evidencias_json'),
+  // Checklist preenchido pelo comprador (OK/NÃO/NA + observações) e os dados
+  // estruturados do documento, que permitem remontar o HTML definitivo com as
+  // marcações no momento da assinatura.
+  respostasJson:  jsonb('respostas_json'),
+  dadosJson:      jsonb('dados_json'),
   docHash:        text('doc_hash'),
   criadoPor:      uuid('criado_por').references(() => usuarios.id),
   criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),

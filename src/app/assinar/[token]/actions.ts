@@ -7,7 +7,10 @@ import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaCodigos, assinaturaEventos, vendas } from '@/lib/db/schema'
 import { gerarCodigo, hashCodigo, validarCodigo, codigoAindaVale, VALIDADE_MINUTOS } from '@/lib/assinatura/codigo'
 import { msgCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
-import { LABEL_TIPO, type TipoDocumento } from '@/lib/assinatura/documento'
+import {
+  LABEL_TIPO, montarHtmlDocumento, checklistCompleto,
+  type TipoDocumento, type DadosDocumento, type RespostasChecklist,
+} from '@/lib/assinatura/documento'
 import { docHash, sha256, type Evidencias } from '@/lib/assinatura/hash'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
 import { urlBase } from '@/lib/assinatura/url'
@@ -123,6 +126,7 @@ export async function selarAssinaturaAction(
   selfieDataUrl: string,
   tracoDataUrl: string,
   geo: { lat: number; lon: number; precisao: number } | null,
+  respostas?: RespostasChecklist | null,
 ): Promise<Resposta> {
   const doc = await docPorToken(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
@@ -146,6 +150,22 @@ export async function selarAssinaturaAction(
   const traco = bufferDeDataUrl(tracoDataUrl)
   if (!selfie || !traco) return { ok: false, error: 'Imagem inválida' }
 
+  // Checklist: o documento definitivo é remontado AQUI, com as marcações do
+  // comprador. É essa versão que ele assina e cujo hash entra nas evidências —
+  // o HTML congelado no envio é só o formulário em branco.
+  let html = doc.htmlSnapshot
+  if (doc.tipo === 'checklist_entrega') {
+    if (!checklistCompleto(respostas)) {
+      return { ok: false, error: 'Marque OK, NÃO ou NA em todos os itens antes de assinar' }
+    }
+    const dados = doc.dadosJson as DadosDocumento | null
+    if (!dados) {
+      return { ok: false, error: 'Este checklist é anterior à conferência por item. Peça um novo à loja.' }
+    }
+    html = montarHtmlDocumento('checklist_entrega', dados, respostas)
+  }
+  const snapshotHash = sha256(html)
+
   const admin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -168,7 +188,7 @@ export async function selarAssinaturaAction(
     documentoId: doc.id,
     vendaId: doc.vendaId,
     tipo: doc.tipo,
-    snapshotHash: doc.snapshotHash,
+    snapshotHash,
     selfieHash: sha256(selfie.buffer),
     assinaturaHash: sha256(traco.buffer),
     celularDestino: doc.celularDestino,
@@ -181,6 +201,10 @@ export async function selarAssinaturaAction(
   await db.update(documentosAssinatura).set({
     status: 'assinado',
     assinadoEm,
+    // Para o checklist, html/hash mudam aqui: passam a ser a versão preenchida.
+    htmlSnapshot: html,
+    snapshotHash,
+    respostasJson: respostas ?? null,
     selfiePath, selfieHash: evidencias.selfieHash,
     assinaturaPath: tracoPath, assinaturaHash: evidencias.assinaturaHash,
     ipAssinatura: ip, userAgent,

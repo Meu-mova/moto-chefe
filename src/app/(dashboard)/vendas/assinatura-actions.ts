@@ -9,7 +9,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { buscarVenda } from '@/lib/queries/vendas'
 import {
   montarHtmlDocumento, dadosVendedoraCompletos, LABEL_TIPO,
-  type TipoDocumento, type DadosDocumento,
+  type TipoDocumento, type DadosDocumento, type PagamentoVenda,
 } from '@/lib/assinatura/documento'
 import { sha256 } from '@/lib/assinatura/hash'
 import { normalizarCelular, msgConvite } from '@/lib/assinatura/mensagens'
@@ -62,6 +62,7 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       cep: vendas.clienteCep,
       valor: vendas.valor,
       formaPagamento: vendas.formaPagamento,
+      pagamentos: vendas.pagamentos,
       grupoId: grupos.id,
       razaoSocial: grupos.razaoSocial,
       cnpj: grupos.cnpj,
@@ -111,6 +112,7 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       motor: venda.motor ?? '',
       valor: Number(extra.valor ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
       formaPagamento: extra.formaPagamento ?? '',
+      pagamentos: (extra.pagamentos ?? []) as PagamentoVenda[],
       dataVenda: new Date(venda.dataVenda).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
     },
   }
@@ -237,6 +239,9 @@ export async function enviarDocumentoAssinaturaAction(
     status: 'pendente',
     htmlSnapshot: html,
     snapshotHash: sha256(html),
+    // Dados estruturados: o checklist é remontado na assinatura com as
+    // marcações do comprador, e para isso o HTML em branco não basta.
+    dadosJson: montado.dados,
     celularDestino: numero,
     criadoPor: usuario.id,
     expiraEm,

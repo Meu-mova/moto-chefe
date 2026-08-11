@@ -34,8 +34,53 @@ export type DadosDocumento = {
   cor: string
   motor: string
   valor: string
+  /** Resumo textual da venda (campo forma_pagamento). Só é usado quando a venda
+   *  não tem o detalhe de `pagamentos` — venda antiga, por exemplo. */
   formaPagamento: string
+  /** Detalhe do pagamento, como está gravado na venda. É o que vai para a
+   *  Cláusula Sexta: cada forma com o seu valor e as parcelas. */
+  pagamentos: PagamentoVenda[]
   dataVenda: string
+}
+
+export type PagamentoVenda = {
+  tipo: string
+  valor: number
+  parcelas?: number | null
+  operadora?: string | null
+}
+
+const NOME_PAGAMENTO: Record<string, string> = {
+  pix: 'PIX',
+  dinheiro: 'dinheiro',
+  cartao_credito: 'cartão de crédito',
+  cartao_debito: 'cartão de débito',
+  link_pagamento: 'link de pagamento',
+  boleto: 'boleto',
+  financiamento: 'financiamento',
+  transferencia: 'transferência bancária',
+  deposito: 'depósito',
+  cheque: 'cheque',
+  consorcio: 'consórcio',
+}
+
+export function reais(v: number): string {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/**
+ * "R$ 2.000,00 no PIX", "R$ 4.000,00 no cartão de crédito em 12x".
+ * Uma linha por pagamento — o comprador que dividiu em três formas precisa ver
+ * as três no contrato, não um "Cartão 12x" que esconde o resto.
+ */
+export function descreverPagamentos(pagamentos: PagamentoVenda[] | null | undefined, fallback: string): string[] {
+  const lista = (pagamentos ?? []).filter(p => Number(p.valor) > 0)
+  if (lista.length === 0) return fallback.trim() ? [fallback.trim()] : []
+  return lista.map(p => {
+    const nome = NOME_PAGAMENTO[p.tipo] ?? p.tipo.replace(/_/g, ' ')
+    const parcelas = p.parcelas && p.parcelas > 1 ? ` em ${p.parcelas}x` : ''
+    return `${reais(Number(p.valor))} no ${nome}${parcelas}`
+  })
 }
 
 // Contrato sem a qualificação da vendedora sairia com a empresa errada ou em
@@ -172,7 +217,8 @@ function contrato(d: DadosDocumento): string {
     objeto de furto ou qualquer outra ação criminosa.</p>
 
     <p><b>CLÁUSULA SEXTA</b> – O preço, justo e acertado, é de R$ ${esc(d.valor)}, a ser pago da
-    seguinte forma: ${esc(d.formaPagamento)}.</p>
+    seguinte forma:</p>
+    <ul>${descreverPagamentos(d.pagamentos, d.formaPagamento).map(l => `<li>${esc(l)}</li>`).join('')}</ul>
 
     <p><b>CLÁUSULA SÉTIMA</b> – Através da assinatura deste instrumento, o(a) COMPRADOR(A) declara
     que foi previamente informado(a) pela VENDEDORA de que, caso o bem não esteja disponível no
@@ -276,10 +322,42 @@ function contrato(d: DadosDocumento): string {
     CUIDADOSAMENTE ESTAS RECOMENDAÇÕES DE SEGURANÇA E PREVENÇÃO.</p>`
 }
 
-function checklist(d: DadosDocumento): string {
-  const linhas = ITENS_CHECKLIST
-    .map(i => `<tr><td>${esc(i)}</td><td style="width:60px;text-align:center">OK</td></tr>`)
-    .join('')
+export type RespostaItem = 'ok' | 'nao' | 'na'
+
+export const LABEL_RESPOSTA: Record<RespostaItem, string> = {
+  ok: 'OK',
+  nao: 'NÃO',
+  na: 'NA',
+}
+
+export type RespostasChecklist = {
+  /** item → resposta. Chave é o texto do item, para o jsonb ser legível anos depois. */
+  itens: Record<string, RespostaItem>
+  observacoes: string
+}
+
+/** Todo item respondido? É o que libera a assinatura do checklist. */
+export function checklistCompleto(r: RespostasChecklist | null | undefined): boolean {
+  if (!r) return false
+  return ITENS_CHECKLIST.every(i => r.itens?.[i] === 'ok' || r.itens?.[i] === 'nao' || r.itens?.[i] === 'na')
+}
+
+// Três colunas por item. Sem respostas (documento ainda em branco, antes de o
+// comprador preencher) as células saem vazias, prontas para marcar à caneta se
+// alguém imprimir.
+function checklist(d: DadosDocumento, r?: RespostasChecklist | null): string {
+  const celula = (item: string, valor: RespostaItem) => {
+    const marcado = r?.itens?.[item] === valor
+    return `<td style="width:44px;text-align:center;${marcado ? 'font-weight:700;background:#f1f5f9' : ''}">${marcado ? '✓' : ''}</td>`
+  }
+  const linhas = ITENS_CHECKLIST.map(i => `
+    <tr>
+      <td>${esc(i)}</td>
+      ${celula(i, 'ok')}${celula(i, 'nao')}${celula(i, 'na')}
+    </tr>`).join('')
+
+  const obs = (r?.observacoes ?? '').trim()
+
   return `
     <h1>CHECKLIST DE ENTREGA</h1>
     <table>
@@ -288,16 +366,35 @@ function checklist(d: DadosDocumento): string {
       <tr><th>Veículo</th><td>${esc(d.marca)} ${esc(d.modelo)}, cor ${esc(d.cor)}, chassi ${esc(d.chassi)}, motor ${esc(d.motor)}</td></tr>
     </table>
     <h2>Itens conferidos na entrega</h2>
-    <table>${linhas}</table>
+    <table>
+      <tr>
+        <th>Item</th>
+        <th style="width:44px;text-align:center">OK</th>
+        <th style="width:44px;text-align:center">NÃO</th>
+        <th style="width:44px;text-align:center">NA</th>
+      </tr>
+      ${linhas}
+    </table>
+    <p style="font-size:10px;color:#64748b">NA = não se aplica a este veículo.</p>
+    <h2>Observações</h2>
+    <p style="min-height:34px;border:1px solid #e2e8f0;padding:6px;white-space:pre-wrap">${obs ? esc(obs) : '—'}</p>
     <p>O comprador declara ter recebido o veículo na data de ${esc(d.dataVenda)}, conferido os
     itens acima e recebido as orientações de uso, carga e manutenção.</p>
     <p class="clausula">${CLAUSULA_ACEITE}</p>`
 }
 
-// O HTML gerado aqui é CONGELADO no banco no momento do envio. Precisa ser
-// determinístico: nada de data de hoje, random ou qualquer coisa que mude
-// entre duas chamadas com os mesmos dados.
-export function montarHtmlDocumento(tipo: TipoDocumento, d: DadosDocumento): string {
-  const corpo = tipo === 'contrato_venda' ? contrato(d) : checklist(d)
+// O HTML gerado aqui é CONGELADO no banco. Precisa ser determinístico: nada de
+// data de hoje, random ou qualquer coisa que mude entre duas chamadas com os
+// mesmos dados.
+//
+// O checklist é montado duas vezes: em branco no envio, e de novo na assinatura
+// com as marcações do comprador — é essa segunda versão que ele assina e que
+// entra no hash.
+export function montarHtmlDocumento(
+  tipo: TipoDocumento,
+  d: DadosDocumento,
+  respostas?: RespostasChecklist | null,
+): string {
+  const corpo = tipo === 'contrato_venda' ? contrato(d) : checklist(d, respostas)
   return `<style>${ESTILO}</style><article class="doc">${corpo}</article>`
 }

@@ -53,6 +53,20 @@ export async function listarVendas(filtros?: {
         THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
         ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
       END`,
+      // Status de assinatura por tipo, para os ícones da lista. O ORDER BY
+      // prioriza o assinado: se houve um cancelado antes e o seguinte foi
+      // assinado, o que vale é o assinado.
+      contratoStatus: sql<string | null>`(
+        SELECT status FROM documentos_assinatura
+        WHERE venda_id = ${vendas.id} AND tipo = 'contrato_venda'
+        ORDER BY (status = 'assinado') DESC, criado_em DESC LIMIT 1
+      )`,
+      checklistStatus: sql<string | null>`(
+        SELECT status FROM documentos_assinatura
+        WHERE venda_id = ${vendas.id} AND tipo = 'checklist_entrega'
+        ORDER BY (status = 'assinado') DESC, criado_em DESC LIMIT 1
+      )`,
+      nfLiberadaEm:     vendas.nfLiberadaEm,
       origemId:         vendas.origemId,
       origemDetalhe:    vendas.origemDetalhe,
       // LEFT JOIN: venda anterior ao deploy da origem não tem linha em origens_venda,

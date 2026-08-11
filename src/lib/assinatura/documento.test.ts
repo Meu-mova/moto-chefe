@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   montarHtmlDocumento, CLAUSULA_ACEITE, LABEL_TIPO, ITENS_CARTILHA_BATERIA,
-  dadosVendedoraCompletos, type DadosDocumento,
+  dadosVendedoraCompletos, checklistCompleto, descreverPagamentos, ITENS_CHECKLIST,
+  type DadosDocumento, type RespostasChecklist,
 } from './documento'
 
 const DADOS: DadosDocumento = {
@@ -25,6 +26,11 @@ const DADOS: DadosDocumento = {
   motor: 'MOT987654',
   valor: '12.990,00',
   formaPagamento: 'Cartão 12x',
+  pagamentos: [
+    { tipo: 'pix', valor: 2000 },
+    { tipo: 'cartao_credito', valor: 4000, parcelas: 12, operadora: 'infinitypay' },
+    { tipo: 'cartao_credito', valor: 6990, parcelas: 21, operadora: 'stone' },
+  ],
   dataVenda: '11/08/2026',
 }
 
@@ -44,6 +50,37 @@ test('o contrato reproduz as cláusulas do modelo', () => {
   }
   assert.ok(html.includes('Resolução CONTRAN nº 996'))
   assert.ok(html.includes('1.000 W'))
+})
+
+// O comprador que dividiu em três formas precisa ver as três no contrato — um
+// "Cartão 12x" sozinho esconderia os outros R$ 8.990.
+test('a cláusula do preço lista cada forma de pagamento com seu valor', () => {
+  const html = montarHtmlDocumento('contrato_venda', DADOS)
+  assert.ok(html.includes('R$ 2.000,00 no PIX'))
+  assert.ok(html.includes('R$ 4.000,00 no cartão de crédito em 12x'))
+  assert.ok(html.includes('R$ 6.990,00 no cartão de crédito em 21x'))
+})
+
+test('pagamento à vista não inventa parcelas', () => {
+  const linhas = descreverPagamentos([{ tipo: 'dinheiro', valor: 500, parcelas: 1 }], '')
+  assert.deepEqual(linhas, ['R$ 500,00 no dinheiro'])
+})
+
+test('venda antiga sem detalhe cai no texto da forma de pagamento', () => {
+  assert.deepEqual(descreverPagamentos([], 'Cartão 12x'), ['Cartão 12x'])
+  assert.deepEqual(descreverPagamentos(null, 'Cartão 12x'), ['Cartão 12x'])
+  assert.deepEqual(descreverPagamentos(null, ''), [])
+})
+
+test('pagamento zerado não entra na lista', () => {
+  const linhas = descreverPagamentos(
+    [{ tipo: 'pix', valor: 1000 }, { tipo: 'dinheiro', valor: 0 }], '')
+  assert.deepEqual(linhas, ['R$ 1.000,00 no PIX'])
+})
+
+test('tipo de pagamento desconhecido sai legível, não some', () => {
+  assert.deepEqual(descreverPagamentos([{ tipo: 'carta_credito', valor: 300 }], ''),
+    ['R$ 300,00 no carta credito'])
 })
 
 test('o Anexo I (cartilha da bateria) faz parte do contrato', () => {
@@ -99,6 +136,55 @@ test('checklist lista os itens conferidos na entrega', () => {
   for (const item of ['Freios em funcionamento', 'Buzina', 'Carregador em funcionamento']) {
     assert.ok(html.includes(item), `faltou o item "${item}"`)
   }
+})
+
+test('checklist tem as três colunas OK / NÃO / NA', () => {
+  const html = montarHtmlDocumento('checklist_entrega', DADOS)
+  assert.ok(html.includes('>OK<'))
+  assert.ok(html.includes('>NÃO<'))
+  assert.ok(html.includes('>NA<'))
+  assert.ok(html.includes('não se aplica'))
+})
+
+test('checklist sem respostas sai em branco; com respostas sai marcado', () => {
+  const branco = montarHtmlDocumento('checklist_entrega', DADOS)
+  assert.ok(!branco.includes('✓'))
+
+  const respostas = {
+    itens: Object.fromEntries(ITENS_CHECKLIST.map((i, n) =>
+      [i, n === 1 ? 'nao' : n === 2 ? 'na' : 'ok'] as const)),
+    observacoes: 'Retrovisor esquerdo riscado',
+  } as RespostasChecklist
+  const preenchido = montarHtmlDocumento('checklist_entrega', DADOS, respostas)
+  assert.ok(preenchido.includes('✓'))
+  assert.ok(preenchido.includes('Retrovisor esquerdo riscado'))
+})
+
+test('observação em branco vira travessão, não some da via', () => {
+  const html = montarHtmlDocumento('checklist_entrega', DADOS, {
+    itens: Object.fromEntries(ITENS_CHECKLIST.map(i => [i, 'ok' as const])),
+    observacoes: '   ',
+  })
+  assert.ok(html.includes('Observações'))
+  assert.ok(html.includes('—'))
+})
+
+test('checklist só está completo com todos os itens respondidos', () => {
+  const todos = Object.fromEntries(ITENS_CHECKLIST.map(i => [i, 'ok' as const]))
+  assert.equal(checklistCompleto({ itens: todos, observacoes: '' }), true)
+
+  const { [ITENS_CHECKLIST[0]]: _, ...faltando } = todos
+  assert.equal(checklistCompleto({ itens: faltando, observacoes: '' }), false)
+  assert.equal(checklistCompleto(null), false)
+})
+
+test('observação do comprador é escapada — checklist aceita texto livre', () => {
+  const html = montarHtmlDocumento('checklist_entrega', DADOS, {
+    itens: Object.fromEntries(ITENS_CHECKLIST.map(i => [i, 'ok' as const])),
+    observacoes: '<img src=x onerror=alert(1)>',
+  })
+  assert.ok(html.includes('&lt;img'))
+  assert.ok(!html.includes('<img src=x'))
 })
 
 test('o HTML é determinístico — mesmo dado, mesmo documento', () => {

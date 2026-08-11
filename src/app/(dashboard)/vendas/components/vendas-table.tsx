@@ -9,6 +9,43 @@ import { EditarVendaDialog } from './editar-venda-dialog'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
+import { ClipboardCheck, FileSignature, type LucideIcon } from 'lucide-react'
+
+/**
+ * Estado da assinatura na listagem. Verde = assinado; âmbar = enviado e
+ * aguardando; cinza = nem enviado. Só o contrato trava a NF — o checklist é
+ * conferência de entrega e não bloqueia nada.
+ */
+function IconeAssinatura({
+  status, rotulo, Icone, trava = false, liberada = false,
+}: {
+  status: string | null
+  rotulo: string
+  Icone: LucideIcon
+  trava?: boolean
+  liberada?: boolean
+}) {
+  const assinado = status === 'assinado'
+  const pendente = status === 'pendente' || status === 'visualizado'
+
+  const cor = assinado ? 'text-emerald-600'
+    : pendente ? 'text-amber-500'
+    : 'text-slate-300'
+
+  const descricao = assinado ? `${rotulo}: assinado`
+    : pendente ? `${rotulo}: aguardando assinatura do cliente`
+    : `${rotulo}: não enviado`
+
+  const nota = !assinado && trava
+    ? (liberada ? ' — NF liberada por exceção' : ' — a NF fica bloqueada até assinar')
+    : ''
+
+  return (
+    <span title={descricao + nota} className={cor}>
+      <Icone size={15} />
+    </span>
+  )
+}
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeCancelar = new Set(['admin_geral', 'admin_socio'])
@@ -101,6 +138,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens 
           <TableHead>Cor</TableHead>
           <TableHead>Loja</TableHead>
           <TableHead>Vendedor</TableHead>
+          <TableHead className="w-16">Assin.</TableHead>
           <TableHead>NF Saída</TableHead>
           <TableHead>Valor</TableHead>
           {podeConciliacao && <TableHead>Conciliação</TableHead>}
@@ -122,6 +160,22 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens 
               <TableCell>{v.cor}</TableCell>
               <TableCell>{v.lojaNome}</TableCell>
               <TableCell>{v.vendedorNome}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <IconeAssinatura
+                    status={v.contratoStatus}
+                    rotulo="Contrato"
+                    Icone={FileSignature}
+                    trava
+                    liberada={!!v.nfLiberadaEm}
+                  />
+                  <IconeAssinatura
+                    status={v.checklistStatus}
+                    rotulo="Checklist de entrega"
+                    Icone={ClipboardCheck}
+                  />
+                </div>
+              </TableCell>
               <TableCell className="text-slate-500">
                 {v.notaFiscalSaida ?? '—'}
               </TableCell>

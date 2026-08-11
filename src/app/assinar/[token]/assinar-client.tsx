@@ -3,6 +3,10 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Check, FileText, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { solicitarCodigoAction, conferirCodigoAction, selarAssinaturaAction } from './actions'
+import {
+  ITENS_CHECKLIST, LABEL_RESPOSTA, checklistCompleto,
+  type RespostaItem, type RespostasChecklist,
+} from '@/lib/assinatura/documento'
 import { ViaAssinada } from './via-assinada'
 
 type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
@@ -34,6 +38,9 @@ export function AssinarClient(props: Props) {
   // A foto fica em ref, não em estado: base64 de imagem é grande e não precisa
   // redesenhar a tela quando muda.
   const fotoRef = useRef<string | null>(null)
+  // Checklist preenchido pelo comprador. Fica no estado porque a tela precisa
+  // refletir cada marcação e habilitar o botão só quando estiver completo.
+  const [respostas, setRespostas] = useState<RespostasChecklist>({ itens: {}, observacoes: '' })
 
   if (assinado) {
     return (
@@ -52,15 +59,26 @@ export function AssinarClient(props: Props) {
   return (
     <div className="mx-auto max-w-3xl px-3 py-4">
       <Etapas passo={passo} />
-      {passo === 'leitura' && <Leitura html={props.html} onOk={() => setPasso('codigo')} />}
+      {passo === 'leitura' && (
+        props.tipo === 'checklist_entrega'
+          ? <PreencherChecklist
+              html={props.html}
+              respostas={respostas}
+              setRespostas={setRespostas}
+              onOk={() => setPasso('codigo')}
+            />
+          : <Leitura html={props.html} onOk={() => setPasso('codigo')} />
+      )}
       {passo === 'codigo' && <Codigo token={props.token} onOk={() => setPasso('selfie')} />}
       {passo === 'selfie' && <Selfie onOk={() => setPasso('traco')} onFoto={f => (fotoRef.current = f)} />}
       {passo === 'traco' && (
         <Traco
           token={props.token}
           getFoto={() => fotoRef.current}
+          respostas={props.tipo === 'checklist_entrega' ? respostas : null}
           onAssinado={() => { setAssinado(true); router.refresh() }}
           onVoltarSelfie={() => setPasso('selfie')}
+          onVoltarChecklist={() => setPasso('leitura')}
         />
       )}
     </div>
@@ -136,6 +154,92 @@ function Leitura({ html, onOk }: { html: string; onOk: () => void }) {
         className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white disabled:bg-slate-300"
       >
         {leuTudo ? 'Li e concordo — assinar' : 'Role até o fim do documento'}
+      </button>
+    </>
+  )
+}
+
+// Checklist: o comprador não só lê, ele confere item a item. As três colunas
+// são OK, NÃO e NA (não se aplica), e nada avança com item em branco.
+function PreencherChecklist({
+  html, respostas, setRespostas, onOk,
+}: {
+  html: string
+  respostas: RespostasChecklist
+  setRespostas: (r: RespostasChecklist) => void
+  onOk: () => void
+}) {
+  const completo = checklistCompleto(respostas)
+  const faltam = ITENS_CHECKLIST.filter(i => !respostas.itens[i]).length
+
+  function marcar(item: string, valor: RespostaItem) {
+    setRespostas({ ...respostas, itens: { ...respostas.itens, [item]: valor } })
+  }
+
+  return (
+    <>
+      <div className="rounded-lg border bg-white px-4 py-3 mb-3">
+        <p className="text-sm font-medium text-slate-800">Confira o veículo item a item</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Marque <b>OK</b> se está certo, <b>NÃO</b> se tem problema, ou <b>NA</b> se não se
+          aplica a este veículo.
+        </p>
+      </div>
+
+      {/* Cabeçalho do documento (dados da venda), sem a tabela em branco */}
+      <details className="rounded-lg border bg-white mb-3">
+        <summary className="cursor-pointer px-4 py-2.5 text-sm text-slate-600">
+          Ver dados do documento
+        </summary>
+        <div className="border-t p-4 text-xs" dangerouslySetInnerHTML={{ __html: html }} />
+      </details>
+
+      <div className="rounded-lg border bg-white divide-y">
+        {ITENS_CHECKLIST.map(item => (
+          <div key={item} className="px-3 py-2.5">
+            <p className="text-sm text-slate-700 mb-1.5">{item}</p>
+            <div className="flex gap-1.5">
+              {(['ok', 'nao', 'na'] as RespostaItem[]).map(v => {
+                const ativo = respostas.itens[item] === v
+                const cor = v === 'ok'
+                  ? 'bg-emerald-600 border-emerald-600'
+                  : v === 'nao' ? 'bg-red-600 border-red-600' : 'bg-slate-500 border-slate-500'
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => marcar(item, v)}
+                    className={`flex-1 rounded-md border py-2 text-xs font-medium ${
+                      ativo ? `${cor} text-white` : 'border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {LABEL_RESPOSTA[v]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border bg-white p-3 mt-3">
+        <label htmlFor="obs" className="text-sm text-slate-700">Observações</label>
+        <textarea
+          id="obs"
+          rows={4}
+          value={respostas.observacoes}
+          onChange={e => setRespostas({ ...respostas, observacoes: e.target.value })}
+          placeholder="Algo a registrar sobre a entrega? (opcional)"
+          className="mt-1.5 w-full rounded-md border px-3 py-2 text-sm"
+        />
+      </div>
+
+      <button
+        onClick={onOk}
+        disabled={!completo}
+        className="mt-3 w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+      >
+        {completo ? 'Continuar para a assinatura' : `Faltam ${faltam} ${faltam === 1 ? 'item' : 'itens'}`}
       </button>
     </>
   )
@@ -295,12 +399,14 @@ function Selfie({ onOk, onFoto }: { onOk: () => void; onFoto: (f: string) => voi
 }
 
 function Traco({
-  token, getFoto, onAssinado, onVoltarSelfie,
+  token, getFoto, respostas, onAssinado, onVoltarSelfie, onVoltarChecklist,
 }: {
   token: string
   getFoto: () => string | null
+  respostas: RespostasChecklist | null
   onAssinado: () => void
   onVoltarSelfie: () => void
+  onVoltarChecklist: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const desenhando = useRef(false)
@@ -364,9 +470,12 @@ function Traco({
     setErro('')
     startTransition(async () => {
       const geo = await pegarGeo()
-      const r = await selarAssinaturaAction(token, foto, traco, geo)
-      if (r.ok) onAssinado()
-      else setErro(r.error ?? 'Não foi possível assinar')
+      const r = await selarAssinaturaAction(token, foto, traco, geo, respostas)
+      if (r.ok) { onAssinado(); return }
+      setErro(r.error ?? 'Não foi possível assinar')
+      // Item do checklist em branco: manda de volta para a conferência, senão
+      // o cliente fica preso numa tela que não tem como corrigir o problema.
+      if (r.error?.includes('todos os itens')) onVoltarChecklist()
     })
   }
 
