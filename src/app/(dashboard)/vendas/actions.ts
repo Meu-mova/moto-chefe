@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, documentosAssinatura } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -877,7 +877,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   // Sem soltar esses vínculos primeiro, o DELETE estoura violação de chave
   // estrangeira e o cancelamento inteiro faz rollback — era o que acontecia em
   // qualquer venda que já tivesse recebimento conciliado.
-  const desvinculados = { cartao: 0, pix: 0, demandas: 0, valor: 0 }
+  const desvinculados = { cartao: 0, pix: 0, demandas: 0, valor: 0, documentosAssinados: 0 }
 
   await db.transaction(async (tx) => {
     // Reverter moto para montada/disponível
@@ -929,12 +929,25 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     // Remover lancamentos antes da venda (lancamentos_caixa tem FK para vendas.id)
     await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
 
+    // Documentos de assinatura também têm FK para vendas.id — sem isto o banco
+    // recusa o delete. Eventos e códigos saem junto por ON DELETE CASCADE.
+    // Cancelar a venda apaga o contrato daquela venda: o documento perde objeto
+    // junto com ela. Por isso a contagem vai para o histórico do estoque, e um
+    // contrato assinado nunca some calado.
+    const docsAssinatura = await tx.delete(documentosAssinatura)
+      .where(eq(documentosAssinatura.vendaId, vendaId))
+      .returning({ status: documentosAssinatura.status })
+    desvinculados.documentosAssinados = docsAssinatura.filter(d => d.status === 'assinado').length
+
     // Remover a venda
     await tx.delete(vendas).where(eq(vendas.id, vendaId))
 
     // Registrar no histórico
     const recebido = desvinculados.valor > 0
       ? ` — Recebimentos desvinculados: ${desvinculados.cartao} cartão + ${desvinculados.pix} PIX (R$ ${desvinculados.valor.toFixed(2)})`
+      : ''
+    const assinaturas = desvinculados.documentosAssinados > 0
+      ? ` — ${desvinculados.documentosAssinados} documento(s) ASSINADO(S) removido(s) com a venda`
       : ''
     await tx.insert(historicoEstoque).values({
       motoId: vendaRecord.motoId,
@@ -943,7 +956,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       tipo: 'mudanca_status',
       statusAnterior: 'vendida',
       statusNovo: 'montada',
-      observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido} — Motivo: ${motivo}`,
+      observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido}${assinaturas} — Motivo: ${motivo}`,
     })
   })
 
