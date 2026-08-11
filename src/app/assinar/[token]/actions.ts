@@ -5,7 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaCodigos, assinaturaEventos, vendas } from '@/lib/db/schema'
-import { gerarCodigo, hashCodigo, validarCodigo, VALIDADE_MINUTOS } from '@/lib/assinatura/codigo'
+import { gerarCodigo, hashCodigo, validarCodigo, codigoAindaVale, VALIDADE_MINUTOS } from '@/lib/assinatura/codigo'
 import { msgCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
 import { LABEL_TIPO, type TipoDocumento } from '@/lib/assinatura/documento'
 import { docHash, sha256, type Evidencias } from '@/lib/assinatura/hash'
@@ -30,12 +30,23 @@ async function docPorToken(token: string) {
   return doc ?? null
 }
 
-export async function solicitarCodigoAction(token: string): Promise<Resposta> {
+export async function solicitarCodigoAction(token: string, forcarNovo = false): Promise<Resposta> {
   const doc = await docPorToken(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
   if (doc.status === 'assinado') return { ok: false, error: 'Documento já assinado' }
   if (doc.status === 'cancelado') return { ok: false, error: 'Documento cancelado' }
   if (new Date() > doc.expiraEm) return { ok: false, error: 'Link expirado. Peça um novo à loja.' }
+
+  // Já existe código válido? Não gera outro. O cliente PRECISA sair para o
+  // WhatsApp e voltar — e voltar recarrega a página. Gerar um código novo aí
+  // invalidaria justamente o que ele acabou de copiar, e o fluxo se sabotava
+  // no movimento que ele mesmo obriga a fazer. Só o botão "Reenviar" força.
+  if (!forcarNovo) {
+    const [vigente] = await db.select().from(assinaturaCodigos)
+      .where(eq(assinaturaCodigos.documentoId, doc.id))
+      .orderBy(desc(assinaturaCodigos.criadoEm)).limit(1)
+    if (codigoAindaVale(vigente, new Date())) return { ok: true }
+  }
 
   const codigo = gerarCodigo()
   await db.insert(assinaturaCodigos).values({

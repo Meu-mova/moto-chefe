@@ -14,6 +14,7 @@ const DADOS: DadosDocumento = {
   vendedoraRazaoSocial: 'MOTOCHEFE SUL DE MINAS LTDA.',
   vendedoraCnpj: '57.113.017/0001-72',
   vendedoraEndereco: 'Avenida Prefeito Tuany Toledo, n° 249, Bairro Fátima II, CEP: 37.553-571, Pouso Alegre – MG',
+  cidadeSede: 'Pouso Alegre',
   comarcaForo: 'Pouso Alegre, Minas Gerais',
   lojaNome: 'Motochefe Poços',
   lojaCidade: 'Poços de Caldas',
@@ -50,6 +51,14 @@ test('o Anexo I (cartilha da bateria) faz parte do contrato', () => {
   assert.ok(html.includes('ANEXO I'))
   assert.equal(ITENS_CARTILHA_BATERIA.length, 14)
   for (const item of ITENS_CARTILHA_BATERIA) assert.ok(html.includes(item.slice(0, 30)))
+})
+
+// O fecho é o local do ato da pessoa jurídica. Uma venda feita na loja de
+// Poços, pela empresa do Sul de Minas, fecha em Pouso Alegre.
+test('o fecho usa a cidade da sede, não a da loja que vendeu', () => {
+  const html = montarHtmlDocumento('contrato_venda', DADOS)
+  assert.ok(html.includes('Pouso Alegre, 11/08/2026'))
+  assert.ok(!html.includes('Poços de Caldas, 11/08/2026'))
 })
 
 test('a comarca do foro vem do grupo, não fixa em Pouso Alegre', () => {
@@ -108,6 +117,7 @@ test('dado do cliente com < ou & não quebra o HTML', () => {
 test('grupo sem qualificação cadastrada não pode emitir contrato', () => {
   assert.equal(dadosVendedoraCompletos({ ...DADOS, vendedoraRazaoSocial: '' }), false)
   assert.equal(dadosVendedoraCompletos({ ...DADOS, comarcaForo: '  ' }), false)
+  assert.equal(dadosVendedoraCompletos({ ...DADOS, cidadeSede: '' }), false)
   assert.equal(dadosVendedoraCompletos(DADOS), true)
 })
 

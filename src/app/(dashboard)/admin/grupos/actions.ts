@@ -28,6 +28,7 @@ type GrupoInput = {
   // de contrato fica bloqueado neste grupo (ver @/lib/assinatura/documento).
   razaoSocial?: string
   enderecoSede?: string
+  cidadeSede?: string
   comarcaForo?: string
 }
 
@@ -47,6 +48,7 @@ export async function criarGrupoAction(dados: GrupoInput) {
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
     razaoSocial: dados.razaoSocial?.trim() || null,
     enderecoSede: dados.enderecoSede?.trim() || null,
+    cidadeSede: dados.cidadeSede?.trim() || null,
     comarcaForo: dados.comarcaForo?.trim() || null,
   })
   revalidatePath('/admin/grupos')
@@ -69,6 +71,7 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
     razaoSocial: dados.razaoSocial?.trim() || null,
     enderecoSede: dados.enderecoSede?.trim() || null,
+    cidadeSede: dados.cidadeSede?.trim() || null,
     comarcaForo: dados.comarcaForo?.trim() || null,
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')

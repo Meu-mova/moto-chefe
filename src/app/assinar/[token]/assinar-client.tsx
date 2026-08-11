@@ -5,6 +5,8 @@ import { Camera, Check, FileText, RefreshCw, ShieldCheck, X } from 'lucide-react
 import { solicitarCodigoAction, conferirCodigoAction, selarAssinaturaAction } from './actions'
 import { ViaAssinada } from './via-assinada'
 
+type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
+
 type Props = {
   token: string
   html: string
@@ -15,9 +17,10 @@ type Props = {
   docHash: string | null
   assinadoEm: string | null
   ipAssinatura: string | null
+  /** Passo retomado do servidor: o cliente sai para o WhatsApp e volta, e no
+   *  celular voltar costuma recarregar a página. */
+  passoInicial: Passo
 }
-
-type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
 
 const AVISO_LGPD =
   'Vamos pedir uma foto sua para comprovar quem está assinando. A imagem fica guardada ' +
@@ -26,7 +29,7 @@ const AVISO_LGPD =
 
 export function AssinarClient(props: Props) {
   const router = useRouter()
-  const [passo, setPasso] = useState<Passo>('leitura')
+  const [passo, setPasso] = useState<Passo>(props.passoInicial)
   const [assinado, setAssinado] = useState(props.status === 'assinado')
   // A foto fica em ref, não em estado: base64 de imagem é grande e não precisa
   // redesenhar a tela quando muda.
@@ -145,6 +148,9 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
   const [pending, startTransition] = useTransition()
   const pediu = useRef(false)
 
+  // Ao entrar no passo, garante que existe um código válido. A action não gera
+  // outro se o anterior ainda vale — voltar do WhatsApp não invalida o código
+  // que o cliente acabou de copiar.
   useEffect(() => {
     if (pediu.current) return
     pediu.current = true
@@ -155,11 +161,13 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
     })
   }, [token])
 
+  // Reenviar é o único caminho que gera código novo — aí o anterior perde a vez
+  // por decisão explícita do cliente, não por um recarregamento de página.
   function reenviar() {
     setErro('')
     startTransition(async () => {
-      const r = await solicitarCodigoAction(token)
-      if (r.ok) setEnviado(true)
+      const r = await solicitarCodigoAction(token, true)
+      if (r.ok) { setEnviado(true); setCodigo('') }
       else setErro(r.error ?? 'Falha ao enviar o código')
     })
   }
@@ -186,12 +194,18 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
 
       <input
         inputMode="numeric"
+        autoComplete="one-time-code"
         maxLength={6}
         value={codigo}
         onChange={e => setCodigo(e.target.value.replace(/\D/g, ''))}
         placeholder="000000"
         className="w-full rounded-lg border px-4 py-3 text-center text-2xl tracking-[0.4em] font-mono"
       />
+
+      <p className="mt-2 text-xs text-slate-500">
+        Pode sair para o WhatsApp e voltar — você volta direto para esta etapa, e o código
+        continua valendo.
+      </p>
 
       {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
 

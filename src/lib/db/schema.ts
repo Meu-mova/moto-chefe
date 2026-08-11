@@ -54,6 +54,9 @@ export const grupos = pgTable('grupos', {
   // Editável em /admin/grupos.
   razaoSocial:        text('razao_social'),
   enderecoSede:       text('endereco_sede'),
+  // Cidade da sede: é o local do fecho do contrato ("Pouso Alegre, 11/08/2026").
+  // Não é a cidade da loja que vendeu, nem se deriva da comarca.
+  cidadeSede:         text('cidade_sede'),
   comarcaForo:        text('comarca_foro'),
 })
 

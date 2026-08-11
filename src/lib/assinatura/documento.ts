@@ -17,6 +17,9 @@ export type DadosDocumento = {
   vendedoraRazaoSocial: string
   vendedoraCnpj: string
   vendedoraEndereco: string
+  /** Cidade da SEDE — é o local do fecho do contrato. Não é a cidade da loja
+   *  que atendeu: quem assina é a pessoa jurídica. */
+  cidadeSede: string
   comarcaForo: string
   lojaNome: string
   lojaCidade: string
@@ -39,7 +42,7 @@ export type DadosDocumento = {
 // branco — melhor recusar o envio do que emitir assim.
 export function dadosVendedoraCompletos(d: DadosDocumento): boolean {
   return !!(d.vendedoraRazaoSocial?.trim() && d.vendedoraCnpj?.trim()
-    && d.vendedoraEndereco?.trim() && d.comarcaForo?.trim())
+    && d.vendedoraEndereco?.trim() && d.cidadeSede?.trim() && d.comarcaForo?.trim())
 }
 
 // Cláusula Décima Quinta do modelo do advogado, palavra por palavra. É ela que
@@ -265,7 +268,7 @@ function contrato(d: DadosDocumento): string {
     <p>E por assim estarem justos e contratados, extrai-se o presente instrumento digital, para
     gerar os efeitos de direito, assinando-o eletronicamente.</p>
 
-    <p>${esc(d.lojaCidade)}, ${esc(d.dataVenda)}.</p>
+    <p>${esc(d.cidadeSede)}, ${esc(d.dataVenda)}.</p>
 
     <h2>ANEXO I — Cartilha de Uso da Bateria</h2>
     <ul>${cartilha}</ul>

@@ -24,6 +24,16 @@ export function hashCodigo(codigo: string, documentoId: string): string {
   return sha256(`${documentoId}:${codigo}`)
 }
 
+// Um código já enviado ainda serve? Se serve, NÃO se gera outro: o cliente
+// precisa sair para o WhatsApp e voltar, e voltar recarrega a página no
+// celular. Gerar um código novo aí invalidaria o que ele acabou de copiar.
+export function codigoAindaVale(estado: EstadoCodigo | null | undefined, agora: Date): boolean {
+  if (!estado) return false
+  return !estado.usadoEm
+    && estado.tentativas < MAX_TENTATIVAS
+    && estado.expiraEm > agora
+}
+
 export function validarCodigo(
   estado: EstadoCodigo,
   digitado: string,

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { documentosAssinatura, assinaturaEventos } from '@/lib/db/schema'
+import { documentosAssinatura, assinaturaEventos, assinaturaCodigos } from '@/lib/db/schema'
 import { AssinarClient } from './assinar-client'
 
 export default async function AssinarPage({ params }: { params: Promise<{ token: string }> }) {
@@ -27,8 +27,27 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
 
   const expirado = new Date() > doc.expiraEm && doc.status !== 'assinado'
 
+  // Em que passo o cliente estava. Ele TEM que sair para o WhatsApp buscar o
+  // código, e voltar costuma recarregar a página no celular — sem isto, ele
+  // recomeçaria do zero toda vez, que foi o erro relatado em 11/08.
+  const [codigo] = await db.select({
+    usadoEm: assinaturaCodigos.usadoEm,
+    expiraEm: assinaturaCodigos.expiraEm,
+  })
+    .from(assinaturaCodigos)
+    .where(eq(assinaturaCodigos.documentoId, doc.id))
+    .orderBy(desc(assinaturaCodigos.criadoEm))
+    .limit(1)
+
+  const passoInicial = codigo?.usadoEm
+    ? 'selfie'                                        // código já conferido
+    : codigo && codigo.expiraEm > new Date()
+      ? 'codigo'                                      // código enviado e no prazo
+      : 'leitura'
+
   return (
     <AssinarClient
+      passoInicial={passoInicial}
       token={token}
       html={doc.htmlSnapshot}
       tipo={doc.tipo}

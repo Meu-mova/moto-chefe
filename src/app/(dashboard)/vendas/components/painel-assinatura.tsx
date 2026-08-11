@@ -155,6 +155,14 @@ export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto:
                 </button>
               )}
             </div>
+
+            {/* O link à vista, não só atrás do botão: quando o WhatsApp falha, o
+                vendedor precisa enxergar e mandar por outro canal na hora. */}
+            {doc && doc.status !== 'cancelado' && base && (
+              <p className="mt-2 select-all break-all rounded bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-500">
+                {base}/assinar/{doc.token}
+              </p>
+            )}
           </div>
         )
       })}

@@ -21,6 +21,7 @@ type Grupo = {
   metaMotosMes: number | null
   razaoSocial: string | null
   enderecoSede: string | null
+  cidadeSede: string | null
   comarcaForo: string | null
 }
 
@@ -45,9 +46,10 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [metaMotosMes, setMetaMotosMes] = useState(inicial?.metaMotosMes != null ? String(inicial.metaMotosMes) : '')
   const [razaoSocial, setRazaoSocial] = useState(inicial?.razaoSocial ?? '')
   const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
+  const [cidadeSede, setCidadeSede] = useState(inicial?.cidadeSede ?? '')
   const [comarcaForo, setComarcaForo] = useState(inicial?.comarcaForo ?? '')
 
-  const contratoIncompleto = !razaoSocial.trim() || !enderecoSede.trim() || !comarcaForo.trim()
+  const contratoIncompleto = !razaoSocial.trim() || !enderecoSede.trim() || !cidadeSede.trim() || !comarcaForo.trim()
 
   async function handleSalvar() {
     if (!nome.trim() || !cnpj.trim()) {
@@ -58,7 +60,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     try {
       const dados = {
         nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret,
-        metaMotosMes, razaoSocial, enderecoSede, comarcaForo,
+        metaMotosMes, razaoSocial, enderecoSede, cidadeSede, comarcaForo,
       }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
@@ -112,6 +114,18 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 placeholder="Avenida X, n° 000, Bairro, CEP: 00.000-000, Cidade – UF"
                 className="h-9 text-sm"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cidade da sede</Label>
+              <Input
+                value={cidadeSede}
+                onChange={e => setCidadeSede(e.target.value)}
+                placeholder="Pouso Alegre"
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-slate-400">
+                Sai no fecho do contrato ("Pouso Alegre, 11/08/2026"), independente da loja que vendeu.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Comarca do foro</Label>

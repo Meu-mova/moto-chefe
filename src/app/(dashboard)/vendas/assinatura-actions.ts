@@ -66,6 +66,7 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       razaoSocial: grupos.razaoSocial,
       cnpj: grupos.cnpj,
       enderecoSede: grupos.enderecoSede,
+      cidadeSede: grupos.cidadeSede,
       comarcaForo: grupos.comarcaForo,
     })
     .from(vendas)
@@ -99,6 +100,7 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       vendedoraRazaoSocial: extra.razaoSocial ?? '',
       vendedoraCnpj: extra.cnpj ?? '',
       vendedoraEndereco: extra.enderecoSede ?? '',
+      cidadeSede: extra.cidadeSede ?? '',
       comarcaForo: extra.comarcaForo ?? '',
       lojaNome: venda.lojaNome ?? '',
       lojaCidade: venda.lojaCidade ?? '',
