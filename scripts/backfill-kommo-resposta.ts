@@ -17,6 +17,7 @@
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/backfill-kommo-resposta.ts --dias 14
  */
 import postgres from 'postgres'
+import { estadoRespostaDoLead } from '../src/lib/kommo-resposta'
 
 const arg = (nome: string) => {
   const i = process.argv.indexOf(nome)
@@ -74,12 +75,9 @@ async function main() {
   }
   const upd: { id: number; fin: string; fr: string | null }[] = []
   for (const [leadId, lista] of porLead) {
-    lista.sort((a, b) => a.created_at - b.created_at)
-    let leadIn: number | null = null, leadResp: number | null = null
-    for (const m of lista) {
-      if (m.type === 'incoming_chat_message') { if (leadIn == null) leadIn = m.created_at }
-      else if (m.type === 'outgoing_chat_message' && m.created_by) { if (leadIn != null && leadResp == null) leadResp = m.created_at }
-    }
+    // Mesma regra do sync — importada, não recopiada, senão backfill e
+    // incremental divergem e ninguém percebe.
+    const { leadIn, leadResp } = estadoRespostaDoLead(lista)
     if (leadIn != null) {
       upd.push({
         id: leadId,
@@ -90,15 +88,15 @@ async function main() {
   }
   console.log(`leads com 1º contato do cliente: ${upd.length}`)
 
-  // Mesmo LEAST/COALESCE do sync — nunca atrasa o 1º contato nem reescreve a
-  // 1ª resposta já conhecida, então rodar de novo é inofensivo.
+  // Mesmo LEAST do sync: guarda o instante mais antigo conhecido, então rodar
+  // de novo é inofensivo e ainda corrige 1ª resposta que ficou tarde demais.
   let gravados = 0
   for (let i = 0; i < upd.length; i += 2000) {
     const c = upd.slice(i, i + 2000)
     const r = await sql`
       UPDATE kommo_leads k SET
-        primeiro_incoming_em = LEAST(COALESCE(k.primeiro_incoming_em, 'infinity'::timestamptz), t.fin::timestamptz),
-        primeira_resposta_em = COALESCE(k.primeira_resposta_em, t.fr::timestamptz)
+        primeiro_incoming_em = LEAST(k.primeiro_incoming_em, t.fin::timestamptz),
+        primeira_resposta_em = LEAST(k.primeira_resposta_em, t.fr::timestamptz)
       FROM unnest(${c.map(r => r.id)}::bigint[], ${c.map(r => r.fin)}::text[], ${c.map(r => r.fr)}::text[]) AS t(id, fin, fr)
       WHERE k.lead_id = t.id`
     gravados += r.count
