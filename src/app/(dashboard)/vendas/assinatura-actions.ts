@@ -16,26 +16,12 @@ import { normalizarCelular, msgConvite } from '@/lib/assinatura/mensagens'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
+import { urlBase } from '@/lib/assinatura/url'
 
 const DIAS_VALIDADE = 7
 const PAPEIS_ENVIO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; error: string; url?: string }
-
-// MOVA_URL é a env que o projeto já usa para se referir a si mesmo (agente de
-// conciliação). NEXT_PUBLIC_APP_URL fica como override, caso um dia o domínio
-// próprio entre no ar antes de a MOVA_URL ser atualizada.
-//
-// Em preview, o link tem que apontar para o PRÓPRIO deployment: MOVA_URL é a
-// produção, onde a rota /assinar pode nem existir ainda — o link chegaria no
-// WhatsApp do cliente dando 404. VERCEL_URL é o host deste deployment.
-export function urlBase(): string {
-  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' && process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-  return (process.env.NEXT_PUBLIC_APP_URL ?? process.env.MOVA_URL ?? 'https://moto-chefe.vercel.app')
-    .replace(/\/$/, '')
-}
 
 export async function baseUrl(): Promise<string> {
   return urlBase()

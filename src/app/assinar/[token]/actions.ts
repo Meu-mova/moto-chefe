@@ -10,7 +10,7 @@ import { msgCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
 import { LABEL_TIPO, type TipoDocumento } from '@/lib/assinatura/documento'
 import { docHash, sha256, type Evidencias } from '@/lib/assinatura/hash'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
-import { urlBase } from '@/app/(dashboard)/vendas/assinatura-actions'
+import { urlBase } from '@/lib/assinatura/url'
 
 type Resposta = { ok: boolean; error?: string }
 
