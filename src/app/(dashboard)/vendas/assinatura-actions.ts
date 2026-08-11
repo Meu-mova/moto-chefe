@@ -22,9 +22,12 @@ const PAPEIS_ENVIO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; error: string; url?: string }
 
+// MOVA_URL é a env que o projeto já usa para se referir a si mesmo (agente de
+// conciliação). NEXT_PUBLIC_APP_URL fica como override, caso um dia o domínio
+// próprio entre no ar antes de a MOVA_URL ser atualizada.
 export async function baseUrl(): Promise<string> {
-  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
-    ?? 'https://mova.motochefesuldeminas.com.br'
+  return (process.env.NEXT_PUBLIC_APP_URL ?? process.env.MOVA_URL ?? 'https://moto-chefe.vercel.app')
+    .replace(/\/$/, '')
 }
 
 // Escopo de loja — mesmo padrão das páginas de impressão: admin_geral e
