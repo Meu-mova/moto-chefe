@@ -131,7 +131,7 @@ export function DetalhesVendaDialog({ venda: v, papel }: Props) {
           {tab === 'detalhes' && (
             <div className="space-y-5 text-sm">
               {/* Assinatura digital — contrato trava a NF, então vem no topo */}
-              <PainelAssinatura vendaId={v.id} aberto={open} />
+              <PainelAssinatura vendaId={v.id} aberto={open} papel={papel} />
 
               <div className="h-px bg-slate-100" />
 

@@ -43,11 +43,15 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
     .where(eq(documentosAssinatura.id, id)).limit(1)
   if (!doc) notFound()
 
-  // Mesmo escopo do resto do sistema: admin vê tudo, os demais só a própria loja.
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  // Restrito a admin_geral e admin_socio — mais fechado que o resto do sistema,
+  // de propósito: aqui está a FOTO do cliente, o dado mais sensível do conjunto.
+  // Vendedor e aux_adm continuam enviando, reenviando e vendo o status pelo
+  // painel da venda; só não abrem o registro fotográfico. Ver o spec (LGPD:
+  // acesso restrito a quem precisa).
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) notFound()
+
   const [venda] = await db.select({ lojaId: vendas.lojaId, numero: vendas.numero })
     .from(vendas).where(eq(vendas.id, doc.vendaId)).limit(1)
-  if (!isAdmin && venda?.lojaId !== usuario.lojaId) notFound()
 
   const eventos = await db.select().from(assinaturaEventos)
     .where(eq(assinaturaEventos.documentoId, doc.id))

@@ -33,7 +33,11 @@ function Badge({ status, expirado }: { status: string; expirado: boolean }) {
   return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Não enviado</span>
 }
 
-export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto: boolean }) {
+export function PainelAssinatura(
+  { vendaId, aberto, papel }: { vendaId: string; aberto: boolean; papel: string },
+) {
+  // O dossiê traz a foto do cliente — só admin geral e sócio abrem.
+  const podeVerDossie = ['admin_geral', 'admin_socio'].includes(papel)
   const router = useRouter()
   const [docs, setDocs] = useState<DocumentoResumo[] | null>(null)
   const [base, setBase] = useState('')
@@ -183,7 +187,7 @@ export function PainelAssinatura({ vendaId, aberto }: { vendaId: string; aberto:
                 </button>
               )}
 
-              {doc?.status === 'assinado' && (
+              {doc?.status === 'assinado' && podeVerDossie && (
                 <a
                   href={`/assinaturas/${doc.id}`}
                   target="_blank"
