@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, FileSearch, FileSignature, Printer, RefreshCw, Send, Upload, X, Check } from 'lucide-react'
+import { Copy, FileSearch, FileSignature, Printer, RefreshCw, Send, ShieldAlert, Upload, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   listarDocumentosDaVendaAction, enviarDocumentoAssinaturaAction,
   reenviarDocumentoAction, cancelarDocumentoAction, registrarAssinaturaPapelAction,
-  type DocumentoResumo,
+  liberarNfSemContratoAction, type DocumentoResumo, type LiberacaoNf,
 } from '../assinatura-actions'
 import type { TipoDocumento } from '@/lib/assinatura/documento'
 
@@ -39,20 +39,43 @@ export function PainelAssinatura(
 ) {
   // O dossiê traz a foto do cliente — só admin geral e sócio abrem.
   const podeVerDossie = ['admin_geral', 'admin_socio'].includes(papel)
+  // Autorizar NF sem contrato assinado é decisão de gestor.
+  const podeAutorizar = ['admin_geral', 'admin_socio'].includes(papel)
   const router = useRouter()
   const [docs, setDocs] = useState<DocumentoResumo[] | null>(null)
   const [base, setBase] = useState('')
+  const [liberacao, setLiberacao] = useState<LiberacaoNf | null>(null)
+  const [autorizando, setAutorizando] = useState(false)
+  const [motivo, setMotivo] = useState('')
   const [pending, startTransition] = useTransition()
 
   useEffect(() => {
     if (!aberto) return
-    listarDocumentosDaVendaAction(vendaId).then(r => { setDocs(r.documentos); setBase(r.baseUrl) })
+    listarDocumentosDaVendaAction(vendaId)
+      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao) })
   }, [aberto, vendaId])
 
   function recarregar() {
-    listarDocumentosDaVendaAction(vendaId).then(r => { setDocs(r.documentos); setBase(r.baseUrl) })
+    listarDocumentosDaVendaAction(vendaId)
+      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao) })
     router.refresh()
   }
+
+  function autorizar() {
+    startTransition(async () => {
+      const r = await liberarNfSemContratoAction(vendaId, motivo)
+      if (!r.ok) { toast.error(r.error); return }
+      toast.success('Emissão de NF autorizada — o motivo ficou registrado')
+      setAutorizando(false)
+      setMotivo('')
+      recarregar()
+    })
+  }
+
+  // Contrato assinado (por qualquer caminho) dispensa autorização.
+  const contratoAssinado = (docs ?? []).some(
+    d => d.tipo === 'contrato_venda' && d.status === 'assinado',
+  )
 
   async function copiar(token: string) {
     const url = `${base}/assinar/${token}`
@@ -255,6 +278,68 @@ export function PainelAssinatura(
           </div>
         )
       })}
+
+      {/* A exceção mora aqui, ao lado do status, e não escondida no dialog de
+          emissão da NF: quem autoriza é o gestor, e ele olha esta tela. */}
+      {docs !== null && (
+        contratoAssinado ? null : liberacao?.liberadaEm ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+            <p className="text-xs font-medium text-sky-800">
+              NF autorizada sem assinatura do contrato
+            </p>
+            <p className="text-[11px] text-sky-700 mt-0.5">
+              {liberacao.por ? `${liberacao.por} · ` : ''}
+              {new Date(liberacao.liberadaEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+            </p>
+            {liberacao.motivo && (
+              <p className="text-[11px] text-sky-900 mt-1 italic">“{liberacao.motivo}”</p>
+            )}
+          </div>
+        ) : podeAutorizar ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-xs text-slate-600">
+              A emissão da NF está bloqueada até o contrato ser assinado.
+            </p>
+            {!autorizando ? (
+              <button
+                onClick={() => setAutorizando(true)}
+                className="mt-1.5 inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              >
+                <ShieldAlert size={12} /> Autorizar emissão sem assinatura
+              </button>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                <textarea
+                  rows={3}
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value)}
+                  placeholder="Ex: cliente sem celular; contrato assinado em papel e arquivado na loja"
+                  className="w-full rounded-md border px-2 py-1.5 text-xs"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Fica registrado com o seu nome e a data. Mínimo de 10 caracteres.
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { setAutorizando(false); setMotivo('') }}
+                    disabled={pending}
+                    className="rounded border px-2 py-1 text-xs text-slate-600"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={autorizar}
+                    disabled={pending || motivo.trim().length < 10}
+                    className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:bg-slate-300"
+                  >
+                    {pending ? 'Autorizando…' : 'Confirmar autorização'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null
+      )}
 
       <p className="text-[11px] text-slate-400">
         O link pode ser enviado por qualquer canal, mas o código de 6 dígitos sempre vai pelo

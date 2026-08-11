@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos } from '@/lib/db/schema'
+import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos, usuarios } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { buscarVenda } from '@/lib/queries/vendas'
 import {
@@ -130,11 +130,21 @@ export type DocumentoResumo = {
 
 // Documentos de uma venda, para o painel de assinatura. Carregado sob demanda
 // (ao abrir o dialog), não na listagem — evita uma consulta por linha da tabela.
+export type LiberacaoNf = {
+  liberadaEm: string | null
+  motivo: string | null
+  por: string | null
+}
+
 export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
   documentos: DocumentoResumo[]
   baseUrl: string
+  liberacao: LiberacaoNf
 }> {
-  if (!await vendaNoEscopo(vendaId)) return { baseUrl: await baseUrl(), documentos: [] }
+  const vazio = { liberadaEm: null, motivo: null, por: null }
+  if (!await vendaNoEscopo(vendaId)) {
+    return { baseUrl: await baseUrl(), documentos: [], liberacao: vazio }
+  }
 
   const linhas = await db
     .select({
@@ -149,8 +159,27 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
     .where(eq(documentosAssinatura.vendaId, vendaId))
     .orderBy(desc(documentosAssinatura.criadoEm))
 
+  // Quem autorizou emitir NF sem assinatura, e por quê. Vai para o painel da
+  // venda: o gestor precisa enxergar a exceção onde já está olhando o status,
+  // não escondida dentro do dialog de emissão.
+  const [lib] = await db
+    .select({
+      liberadaEm: vendas.nfLiberadaEm,
+      motivo: vendas.nfLiberacaoMotivo,
+      por: usuarios.nome,
+    })
+    .from(vendas)
+    .leftJoin(usuarios, eq(usuarios.id, vendas.nfLiberadaPor))
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+
   return {
     baseUrl: await baseUrl(),
+    liberacao: {
+      liberadaEm: lib?.liberadaEm?.toISOString() ?? null,
+      motivo: lib?.motivo ?? null,
+      por: lib?.por ?? null,
+    },
     documentos: linhas.map(l => ({
       id: l.id,
       tipo: l.tipo as TipoDocumento,
