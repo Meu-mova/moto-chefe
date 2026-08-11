@@ -27,8 +27,18 @@ sustentam o documento em juízo:
 3. **Prova de integridade** — hash que permite demonstrar que o documento não mudou desde a
    assinatura.
 
-Isto não é parecer jurídico. O texto do contrato e a cláusula de aceite devem passar pelo advogado
-da empresa antes de ir para produção.
+**O item 1 já está resolvido no modelo do advogado.** A Cláusula Décima Quinta do contrato fornecido
+(`Compra e Venda Motochefe.docx`) diz, literalmente, que as partes concordam que o documento pode
+ser assinado por meio eletrônico "ainda que por meio de plataforma de assinatura eletrônica não
+credenciada pela infraestrutura de chaves públicas brasileira (ICP Brasil) e/ou sem certificado de
+assinatura digital", e que não contestarão validade, autenticidade e integridade. Nada precisa ser
+inventado — o sistema reproduz essa cláusula como ela é.
+
+As Cláusulas Décima Terceira (uso de imagem) e Décima Quarta (LGPD) do mesmo modelo já cobrem o
+tratamento de dados e a coleta de imagem do cliente.
+
+Isto não é parecer jurídico. As alterações que este projeto faz no modelo (ver "Alterações no
+modelo do contrato") devem passar pelo advogado antes de ir para produção.
 
 ## Decisões tomadas (com o Cesar)
 
@@ -41,8 +51,9 @@ da empresa antes de ir para produção.
    documento é um campo), então acrescentar certificado de bateria, reserva ou OS depois é registrar
    mais um tipo.
 4. **O contrato passa a ser gerado pelo sistema**, com os dados da venda, igual ao checklist de
-   entrega que já existe em `src/app/(print)/vendas/[id]/checklist-entrega`. Modelo único (não varia
-   por grupo nesta versão).
+   entrega que já existe em `src/app/(print)/vendas/[id]/checklist-entrega`. O texto das cláusulas é
+   único; **os dados da pessoa jurídica vendedora e a comarca do foro vêm do cadastro do grupo**
+   (decidido em 11/08, ao receber o modelo real — ver "Alterações no modelo do contrato").
 5. **Identificação: selfie + IP + código de 6 dígitos no WhatsApp.** O código prova posse do número
    que está no cadastro — é o elo mais forte e mais barato da trilha.
 6. **Só o cliente assina.** A loja consta como emissora (dados da loja, vendedor, data). Sem
@@ -51,6 +62,40 @@ da empresa antes de ir para produção.
    pelo próprio navegador se quiser. Nada de Chromium headless na Vercel.
 8. **NF travada sem contrato assinado**, com liberação de exceção por `admin_geral`/`admin_socio`
    mediante motivo escrito e registrado.
+
+## Alterações no modelo do contrato
+
+O modelo oficial (`Compra e Venda Motochefe.docx`, recebido em 11/08/2026) é um contrato de
+**Equipamento de Mobilidade Individual Autopropelido**, 16 cláusulas mais o Anexo I (Cartilha de
+Uso da Bateria). O sistema o reproduz integralmente, com três desvios decididos com o Cesar:
+
+1. **Qualificação do comprador reduzida.** O modelo pede nome, estado civil, profissão, CPF, RG,
+   endereço e e-mail. **Estado civil, profissão e RG não existem em nenhuma tabela do sistema** e
+   coletá-los travaria o balcão. Saem do documento; ficam nome, CPF, endereço e e-mail.
+   **Precisa de aval do advogado** — qualificação mais enxuta enfraquece a identificação da parte.
+2. **Sem testemunhas.** O modelo prevê duas testemunhas com nome e CPF. Elas saem do documento
+   eletrônico. Consequência assumida: sem as duas testemunhas o contrato **não é título executivo
+   extrajudicial** (art. 784, III do CPC), então uma cobrança judicial exigiria ação de
+   conhecimento, mais lenta que a execução direta.
+3. **Vendedora e foro por grupo.** O modelo traz fixos a razão social MOTOCHEFE SUL DE MINAS LTDA.,
+   o CNPJ 57.113.017/0001-72, o endereço de Pouso Alegre e o foro da Comarca de Pouso Alegre. BH e
+   Vale são outras pessoas jurídicas — os CNPJs já estão em `grupos` (BH 63.009.605/0001-63, Vale
+   65.126.949/0001-88), mas faltam razão social, endereço da sede e comarca. Viram colunas de
+   `grupos`, **editáveis em `/admin/grupos`** (a tela já existe, com dialog de edição), para o
+   Cesar cadastrar sem depender de migração.
+4. **Descrição do veículo enxuta.** A Cláusula Primeira do modelo pede marca, modelo, ano de
+   fabricação, cor e número de série. Fica marca, modelo, cor e chassi: **ano de fabricação não
+   existe em nenhuma tabela** do sistema, e o Cesar decidiu não levar potência nem número do motor
+   para o contrato. Os limites da Resolução CONTRAN 996 na Cláusula Terceira permanecem como estão
+   no modelo — são texto legal, não característica medida deste veículo. O número do motor continua
+   no checklist de entrega, onde serve à conferência do veículo.
+
+O Anexo I (Cartilha de Uso da Bateria, 14 itens) faz parte integrante do contrato pelo Parágrafo
+Segundo da Cláusula Décima Primeira, e entra no mesmo documento assinado — o "Ciente/De acordo"
+separado do anexo é absorvido pela assinatura única do instrumento.
+
+**Enquanto um grupo não tiver razão social, endereço e comarca preenchidos, o envio de contrato
+falha com mensagem clara naquele grupo.** Nada de contrato saindo com o CNPJ da empresa errada.
 
 ## Fluxo
 
@@ -126,6 +171,13 @@ Trilha completa, append-only: `id`, `documento_id`, `tipo` (`link_aberto`, `codi
 ### Colunas novas em `vendas`
 
 `nf_liberada_em` (timestamptz), `nf_liberada_por` (uuid → usuarios), `nf_liberacao_motivo` (text).
+
+### Colunas novas em `grupos`
+
+`razao_social` (text), `endereco_sede` (text), `comarca_foro` (text) — a qualificação da pessoa
+jurídica vendedora no contrato, editável em `/admin/grupos`. Sul de Minas já vai preenchido pela
+migração, com os dados do modelo. BH e Vale ficam nulos até o Cesar cadastrar, e a listagem do
+Admin mostra quais grupos ainda não podem emitir contrato.
 
 ### Storage
 
@@ -221,9 +273,15 @@ Certificado ICP-Brasil; carimbo de tempo externo; PDF gerado no servidor; assina
 de testemunhas; contrato com texto diferente por grupo; os demais documentos (certificado de
 bateria, recibo de reserva, OS, demanda).
 
-## Pendência que bloqueia parte da implementação
+## Pendências
 
-**O texto do contrato de venda.** O modelo em Word/PDF que as lojas usam hoje precisa ser fornecido
-para virar a página do sistema. Enquanto não vier, o checklist de entrega (que já existe como
-página) e todo o mecanismo de assinatura podem ser construídos e testados; só a página do contrato
-fica pendente.
+1. **Razão social, endereço da sede e comarca do foro de BH e do Vale.** O Cesar cadastra em
+   `/admin/grupos` assim que a tela estiver no ar. Até lá, o envio de contrato funciona apenas nas
+   lojas do Sul de Minas — os outros dois grupos recebem uma mensagem pedindo o cadastro. Não
+   bloqueia a implementação.
+2. **Aval do advogado** sobre os desvios do modelo: qualificação reduzida (sem estado civil,
+   profissão e RG), ausência de testemunhas e descrição do veículo sem ano de fabricação. Bloqueia
+   o uso com cliente real, não a construção.
+3. **Conferir a versão revisada do .docx.** Em 11/08 o Cesar informou ter corrigido o arquivo, mas
+   a versão nova ainda não chegou nesta máquina — o texto transcrito no plano vem do arquivo de
+   20/07. Comparar cláusula a cláusula antes de subir o contrato para produção.
