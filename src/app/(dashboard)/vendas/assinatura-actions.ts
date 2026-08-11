@@ -27,6 +27,22 @@ export async function baseUrl(): Promise<string> {
     ?? 'https://mova.motochefesuldeminas.com.br'
 }
 
+// Escopo de loja — mesmo padrão das páginas de impressão: admin_geral e
+// admin_socio enxergam tudo; os demais só a própria loja. Sem isso, um vendedor
+// de outra loja listaria o TOKEN dos documentos alheios, e o token é a
+// credencial que assina o documento.
+async function vendaNoEscopo(vendaId: string): Promise<{ id: string; lojaId: string | null } | null> {
+  const usuario = await getUsuarioLogado()
+  const [venda] = await db
+    .select({ id: vendas.id, lojaId: vendas.lojaId })
+    .from(vendas)
+    .where(eq(vendas.id, vendaId))
+    .limit(1)
+  if (!venda) return null
+  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) return venda
+  return venda.lojaId === usuario.lojaId ? venda : null
+}
+
 async function registrarEvento(documentoId: string, tipo: string, detalhe?: unknown) {
   await db.insert(assinaturaEventos).values({
     documentoId, tipo, detalhe: detalhe ? (detalhe as object) : null,
@@ -113,7 +129,8 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
   documentos: DocumentoResumo[]
   baseUrl: string
 }> {
-  await getUsuarioLogado()
+  if (!await vendaNoEscopo(vendaId)) return { baseUrl: await baseUrl(), documentos: [] }
+
   const linhas = await db
     .select({
       id: documentosAssinatura.id,
@@ -157,6 +174,8 @@ export async function verificarBloqueioNfAction(motoId: string): Promise<{
 
   const podeLiberar = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   if (!venda) return { vendaId: null, bloqueio: null, podeLiberar }
+  // Moto de outra loja: responde como se não houvesse venda pendente.
+  if (!await vendaNoEscopo(venda.id)) return { vendaId: null, bloqueio: null, podeLiberar }
 
   return {
     vendaId: venda.id,
@@ -173,6 +192,8 @@ export async function enviarDocumentoAssinaturaAction(
   if (!PAPEIS_ENVIO.includes(usuario.papel)) {
     return { ok: false, error: 'Sem permissão para enviar documento para assinatura' }
   }
+
+  if (!await vendaNoEscopo(vendaId)) return { ok: false, error: 'Venda não encontrada' }
 
   const montado = await montarDados(vendaId)
   if (!montado) return { ok: false, error: 'Venda não encontrada' }
@@ -241,6 +262,7 @@ export async function reenviarDocumentoAction(documentoId: string): Promise<Resu
   const [doc] = await db.select().from(documentosAssinatura)
     .where(eq(documentosAssinatura.id, documentoId)).limit(1)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
+  if (!await vendaNoEscopo(doc.vendaId)) return { ok: false, error: 'Documento não encontrado' }
   if (doc.status === 'assinado') return { ok: false, error: 'Documento já assinado' }
 
   const expiraEm = new Date(Date.now() + DIAS_VALIDADE * 86400_000)
@@ -270,9 +292,11 @@ export async function cancelarDocumentoAction(documentoId: string): Promise<Resu
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     return { ok: false, error: 'Sem permissão' }
   }
-  const [doc] = await db.select({ status: documentosAssinatura.status })
+  const [doc] = await db
+    .select({ status: documentosAssinatura.status, vendaId: documentosAssinatura.vendaId })
     .from(documentosAssinatura).where(eq(documentosAssinatura.id, documentoId)).limit(1)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
+  if (!await vendaNoEscopo(doc.vendaId)) return { ok: false, error: 'Documento não encontrado' }
   if (doc.status === 'assinado') return { ok: false, error: 'Documento assinado não pode ser cancelado' }
 
   await db.update(documentosAssinatura).set({ status: 'cancelado' })
@@ -292,6 +316,8 @@ export async function liberarNfSemContratoAction(
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
     return { ok: false, error: 'Só administrador libera NF sem contrato assinado' }
   }
+  if (!await vendaNoEscopo(vendaId)) return { ok: false, error: 'Venda não encontrada' }
+
   const texto = motivo.trim()
   if (texto.length < 10) return { ok: false, error: 'Descreva o motivo da liberação (mínimo 10 caracteres)' }
 
