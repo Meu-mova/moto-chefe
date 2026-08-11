@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, documentosAssinatura } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
@@ -878,6 +879,8 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   // estrangeira e o cancelamento inteiro faz rollback — era o que acontecia em
   // qualquer venda que já tivesse recebimento conciliado.
   const desvinculados = { cartao: 0, pix: 0, demandas: 0, valor: 0, documentosAssinados: 0 }
+  // Caminhos no bucket, coletados dentro da transação e apagados depois dela.
+  const arquivosAssinatura: string[] = []
 
   await db.transaction(async (tx) => {
     // Reverter moto para montada/disponível
@@ -936,8 +939,17 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     // contrato assinado nunca some calado.
     const docsAssinatura = await tx.delete(documentosAssinatura)
       .where(eq(documentosAssinatura.vendaId, vendaId))
-      .returning({ status: documentosAssinatura.status })
+      .returning({
+        status: documentosAssinatura.status,
+        selfiePath: documentosAssinatura.selfiePath,
+        assinaturaPath: documentosAssinatura.assinaturaPath,
+      })
     desvinculados.documentosAssinados = docsAssinatura.filter(d => d.status === 'assinado').length
+    // Guarda os caminhos para limpar o bucket DEPOIS da transação: Storage é
+    // outro serviço e não participa do rollback do Postgres.
+    arquivosAssinatura.push(
+      ...docsAssinatura.flatMap(d => [d.selfiePath, d.assinaturaPath].filter((p): p is string => !!p)),
+    )
 
     // Remover a venda
     await tx.delete(vendas).where(eq(vendas.id, vendaId))
@@ -959,6 +971,22 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido}${assinaturas} — Motivo: ${motivo}`,
     })
   })
+
+  // Selfies e traços da assinatura. Fora da transação porque o Storage é outro
+  // serviço; best-effort, pois a venda já foi cancelada e um erro aqui só
+  // deixaria arquivo órfão — nunca deve derrubar o cancelamento.
+  if (arquivosAssinatura.length > 0) {
+    try {
+      const storage = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      )
+      const { error } = await storage.storage.from('assinaturas').remove(arquivosAssinatura)
+      if (error) console.error('[assinatura] falha ao apagar arquivos do bucket:', error.message)
+    } catch (e) {
+      console.error('[assinatura] falha ao apagar arquivos do bucket:', e)
+    }
+  }
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
