@@ -21,7 +21,7 @@ type StatusFiltro = 'todas' | 'lancadas' | 'pendentes'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function SaidasTable({ saidas, lojas, categorias }: { saidas: SaidaRow[]; lojas: Loja[]; categorias: string[] }) {
+export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { saidas: SaidaRow[]; lojas: Loja[]; categorias: string[]; podeCategorizar: boolean }) {
   const [status, setStatus] = useState<StatusFiltro>('todas')
 
   const filtradas = useMemo(() => saidas.filter(s => {
@@ -78,6 +78,7 @@ export function SaidasTable({ saidas, lojas, categorias }: { saidas: SaidaRow[];
                     id={s.id}
                     lojas={lojas}
                     categorias={categorias}
+                    podeCategorizar={podeCategorizar}
                     jaLancado={s.despesaId ? {
                       categoria: s.categoria,
                       lojaId: s.lojaId,

@@ -1,5 +1,5 @@
 'use server'
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, despesasOpenFinance } from '@/lib/db/schema'
@@ -21,6 +21,15 @@ type DespesaInput = {
 function assertAdmin(papel: string) {
   if (!ADMINS.includes(papel as typeof ADMINS[number])) {
     throw new Error('Sem permissão')
+  }
+}
+
+// A aba "Importar do Banco" é mais restrita que o resto da tela: todo sócio vê,
+// mas só quem passa por aqui categoriza. Ver podeCategorizarDespesaBanco.
+function assertPodeCategorizar(usuario: { papel: string; email: string }) {
+  assertAdmin(usuario.papel)
+  if (!podeCategorizarDespesaBanco(usuario)) {
+    throw new Error('Sem permissão para categorizar saídas do banco')
   }
 }
 
@@ -100,7 +109,7 @@ export async function excluirDespesaAction(id: string) {
 
 export async function lancarDespesaOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
   const usuario = await getUsuarioLogado()
-  assertAdmin(usuario.papel)
+  assertPodeCategorizar(usuario)
   if (!categoria.trim()) throw new Error('Categoria é obrigatória')
 
   const grupo = await getGrupoAtivo(usuario)
@@ -147,7 +156,7 @@ export async function lancarDespesaOpenFinanceAction(id: string, categoria: stri
 
 export async function editarCategorizacaoOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
   const usuario = await getUsuarioLogado()
-  assertAdmin(usuario.papel)
+  assertPodeCategorizar(usuario)
   if (!categoria.trim()) throw new Error('Categoria é obrigatória')
 
   const grupo = await getGrupoAtivo(usuario)
@@ -177,7 +186,7 @@ export async function editarCategorizacaoOpenFinanceAction(id: string, categoria
 
 export async function cancelarCategorizacaoOpenFinanceAction(id: string) {
   const usuario = await getUsuarioLogado()
-  assertAdmin(usuario.papel)
+  assertPodeCategorizar(usuario)
   const grupo = await getGrupoAtivo(usuario)
 
   const [linha] = await db.select().from(despesasOpenFinance)

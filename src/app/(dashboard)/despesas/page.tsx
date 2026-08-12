@@ -1,4 +1,4 @@
-import { getUsuarioLogado } from '@/lib/auth'
+import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
@@ -26,6 +26,10 @@ export default async function DespesasPage({
 }) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
+
+  // Todo admin/sócio vê a aba "Importar do Banco" inteira; categorizar é só de
+  // quem passa por podeCategorizarDespesaBanco.
+  const podeCategorizar = podeCategorizarDespesaBanco(usuario)
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
@@ -368,6 +372,7 @@ export default async function DespesasPage({
             }))}
             lojas={lojasOpts}
             categorias={categoriasAtivas}
+            podeCategorizar={podeCategorizar}
           />
         </TabsContent>
       </Tabs>

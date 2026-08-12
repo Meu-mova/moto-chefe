@@ -22,9 +22,10 @@ type Props = {
   lojas: { id: string; nome: string }[]
   categorias: string[]
   jaLancado: JaLancado | null
+  podeCategorizar: boolean
 }
 
-export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
+export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCategorizar }: Props) {
   const [pending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
   const [categoria, setCategoria] = useState(jaLancado?.categoria ?? '')
@@ -88,23 +89,36 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado }: Props) {
             <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
           )}
         </div>
-        <button
-          onClick={() => setEditando(true)}
-          disabled={pending}
-          title="Editar categorização"
-          className="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-50"
-        >
-          <Pencil size={13} />
-        </button>
-        <button
-          onClick={cancelarCategorizacao}
-          disabled={pending}
-          title="Cancelar categorização"
-          className="text-slate-400 hover:text-red-600 p-1 disabled:opacity-50"
-        >
-          <X size={13} />
-        </button>
+        {podeCategorizar && (
+          <>
+            <button
+              onClick={() => setEditando(true)}
+              disabled={pending}
+              title="Editar categorização"
+              className="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-50"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              onClick={cancelarCategorizacao}
+              disabled={pending}
+              title="Cancelar categorização"
+              className="text-slate-400 hover:text-red-600 p-1 disabled:opacity-50"
+            >
+              <X size={13} />
+            </button>
+          </>
+        )}
       </div>
+    )
+  }
+
+  // Quem não categoriza vê a saída e o status, só não tem os controles.
+  if (!podeCategorizar) {
+    return (
+      <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+        Pendente de categorização
+      </span>
     )
   }
 

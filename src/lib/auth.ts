@@ -66,6 +66,20 @@ export function podeRegistrarEntradaMotos(usuario: { papel: string; email: strin
   return usuario.email === EMAIL_ENTRADA_MOTOS
 }
 
+// ─── Exceção pontual: categorizar saída do banco (/despesas) ──────────────────
+// Decisão do Cesar (12/08/2026): lançar, editar e cancelar a categorização das
+// saídas do Open Finance é só dele e do Mateus. Os demais sócios (João Brito,
+// Luiz Paulo, Marina) continuam vendo a aba inteira — só não mexem.
+//
+// É nominal porque o Mateus é admin_socio igual aos outros: não existe papel que
+// separe os dois grupos. Mesmo padrão de podeRegistrarEntradaMotos acima.
+const EMAIL_CATEGORIZA_DESPESA_BANCO = 'mateus@motochefesuldeminas.com.br'
+
+export function podeCategorizarDespesaBanco(usuario: { papel: string; email: string }) {
+  if (usuario.papel === 'admin_geral') return true
+  return usuario.email === EMAIL_CATEGORIZA_DESPESA_BANCO
+}
+
 export function canEditLoja(usuarioLojaId: string | null, targetLojaId: string, papel: string) {
   if (papel === 'admin_geral') return true
   return usuarioLojaId === targetLojaId
