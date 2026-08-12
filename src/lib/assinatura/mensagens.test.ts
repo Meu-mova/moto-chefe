@@ -24,7 +24,7 @@ test('mensagem do código avisa para não repassar', () => {
 
 test('e-mail de convite: assunto com o tipo, corpo com link e nome', () => {
   const { assunto, texto, html } = emailConvite('Maria', 'Contrato de venda', 'https://x/assinar/abc')
-  assert.ok(assunto.startsWith('MOVA INFORMA'))
+  assert.ok(!assunto.includes('MOVA'), 'e-mail do cliente não deve gritar MOVA INFORMA')
   assert.ok(assunto.includes('Contrato de venda'))
   assert.ok(texto.includes('https://x/assinar/abc') && texto.includes('Maria'))
   assert.ok(html.includes('https://x/assinar/abc'))
@@ -34,7 +34,7 @@ test('e-mail do código: código no corpo, NUNCA no assunto', () => {
   const { assunto, texto, html } = emailCodigo('482913')
   // prova de posse: o assunto aparece em prévia/notificação e não pode vazar o código
   assert.ok(!assunto.includes('482913'), 'o código vazou no assunto')
-  assert.ok(assunto.startsWith('MOVA INFORMA'))
+  assert.ok(!assunto.includes('MOVA'), 'e-mail do cliente não deve gritar MOVA INFORMA')
   assert.ok(texto.includes('482913'))
   assert.ok(html.includes('482913'))
   assert.match(texto, /não .*(compartilh|repass)/i)

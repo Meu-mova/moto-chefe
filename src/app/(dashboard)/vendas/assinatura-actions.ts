@@ -304,7 +304,7 @@ export async function enviarDocumentoAssinaturaAction(
   }
 
   // Convite por e-mail: leva o cliente ao link para conferir e assinar.
-  const convite = emailConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url)
+  const convite = emailConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url, montado.dados.lojaNome || 'MotoChefe')
   const envio = await enviarEmail({ para: email, assunto: convite.assunto, texto: convite.texto, html: convite.html })
   await registrarEvento(doc.id, 'enviado', { envio, canal: 'email' })
 

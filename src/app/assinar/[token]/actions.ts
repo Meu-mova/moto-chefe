@@ -61,7 +61,7 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
   // O código vai por E-MAIL, para a caixa pessoal do cliente — é o que prova
   // que foi ele (e não um atendente) que assinou. O atendente pode ver o link,
   // nunca o código.
-  const { assunto, texto, html } = emailCodigo(codigo)
+  const { assunto, texto, html } = emailCodigo(codigo, (doc.dadosJson as DadosDocumento | null)?.lojaNome || 'MotoChefe')
   const envio = await enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html })
   const { ip, userAgent } = await contextoRequisicao()
   await db.insert(assinaturaEventos).values({
