@@ -178,8 +178,9 @@ export function PainelAssinatura(
                     onClick={() => reenviar(doc.id)}
                     disabled={pending}
                     className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    title="Renova o prazo do link (+7 dias) e copia — não envia nada"
                   >
-                    <RefreshCw size={12} /> Reenviar
+                    <RefreshCw size={12} /> Renovar link
                   </button>
                   <button
                     onClick={() => cancelar(doc.id)}
