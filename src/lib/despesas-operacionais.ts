@@ -20,6 +20,11 @@ export type MotivoForaDoCalculo =
   | 'transferencia_interna'
   // Saída do caixa da loja que não é gasto: "Depósito" leva a gaveta pro banco.
   | 'caixa_nao_despesa'
+  // Dinheiro devolvido ao cliente (sinal, venda desfeita, cobrança a maior). É
+  // saída real, mas não é custo de operar: a entrada correspondente já foi
+  // contada como receita e o estorno apenas a desfaz. Somar dos dois lados
+  // faria a loja "gastar" um dinheiro que nunca foi dela.
+  | 'estorno_cliente'
 
 export type SaidaBanco = {
   valor: string | number
@@ -59,6 +64,35 @@ export function soDigitos(s: string): string {
   return s.replace(/\D/g, '')
 }
 
+/**
+ * Chave de comparação de categoria: sem caixa e sem espaço nas pontas.
+ *
+ * O catálogo e o lançamento nem sempre têm a mesma grafia — "Estorno ao Cliente"
+ * no cadastro e "Estorno ao CLIENTE" no extrato. Com casamento exato, a
+ * categoria ficava marcada como não-operacional e mesmo assim entrava no custo.
+ */
+export function chaveCategoria(nome: string): string {
+  return nome.trim().toLowerCase()
+}
+
+/** A categoria está no conjunto, ignorando caixa e espaços? */
+export function temCategoria(conjunto: Set<string>, categoria: string): boolean {
+  const alvo = chaveCategoria(categoria)
+  for (const c of conjunto) if (chaveCategoria(c) === alvo) return true
+  return false
+}
+
+/** Motivo cadastrado para a categoria; 'categoria_marcada' quando não há um. */
+export function motivoDaCategoria(
+  mapa: Map<string, MotivoForaDoCalculo> | undefined,
+  categoria: string,
+): MotivoForaDoCalculo {
+  if (!mapa) return 'categoria_marcada'
+  const alvo = chaveCategoria(categoria)
+  for (const [nome, motivo] of mapa) if (chaveCategoria(nome) === alvo) return motivo
+  return 'categoria_marcada'
+}
+
 // "Retirada Cesar abril", "RETIRADA DE LUCRO" — o extrato costuma dizer na descrição
 // mesmo quando ninguém categorizou a saída no Importar do Banco.
 const RETIRADA_RE = /\bretirad[ao]s?\b/i
@@ -70,8 +104,8 @@ export function motivoForaDoCalculo(
   saida: SaidaBanco,
   config: ConfigDespesas,
 ): MotivoForaDoCalculo | null {
-  if (saida.categoria && config.categoriasForaDoCalculo.has(saida.categoria)) {
-    return config.motivoPorCategoria?.get(saida.categoria) ?? 'categoria_marcada'
+  if (saida.categoria && temCategoria(config.categoriasForaDoCalculo, saida.categoria)) {
+    return motivoDaCategoria(config.motivoPorCategoria, saida.categoria)
   }
 
   // O CNPJ aparece formatado de um jeito no favorecido ("53.780.554 0001-15") e de outro
@@ -132,6 +166,7 @@ export function somarDespesas(
     categoria_marcada: 0,
     transferencia_interna: 0,
     caixa_nao_despesa: 0,
+    estorno_cliente: 0,
   }
   let total = 0
 
@@ -168,8 +203,8 @@ export function somarDespesas(
   for (const m of manuais) {
     // O lançamento manual não tem favorecido nem descrição de extrato — só a categoria
     // pode tirá-lo do cálculo.
-    if (config.categoriasForaDoCalculo.has(m.categoria)) {
-      const motivo = config.motivoPorCategoria?.get(m.categoria) ?? 'categoria_marcada'
+    if (temCategoria(config.categoriasForaDoCalculo, m.categoria)) {
+      const motivo = motivoDaCategoria(config.motivoPorCategoria, m.categoria)
       registrarFora(motivo, m.categoria, valorDespesa(m.valor))
       continue
     }

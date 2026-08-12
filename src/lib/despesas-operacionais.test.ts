@@ -318,3 +318,29 @@ test('retirada detectada pela descrição também aparece na quebra', () => {
   assert.equal(f?.total, 30000)
   assert.equal(f?.categoria, 'Sem categoria')
 })
+
+// Estorno ao cliente sai do custo operacional: a entrada correspondente já foi
+// contada como receita, e o estorno apenas a desfaz.
+test('categoria marcada pega mesmo com grafia diferente de caixa', () => {
+  const config = {
+    categoriasForaDoCalculo: new Set(['Estorno ao Cliente']),
+    cnpjsForaDoCalculo: new Map(),
+    motivoPorCategoria: new Map([['Estorno ao Cliente', 'estorno_cliente' as const]]),
+  }
+  // O catálogo tem uma grafia e o lançamento tem outra — foi exatamente o que
+  // fez o estorno continuar entrando no custo.
+  const saida = { valor: 298, categoria: 'Estorno ao CLIENTE', favorecidoNome: null, descricao: null }
+  assert.equal(motivoForaDoCalculo(saida, config), 'estorno_cliente')
+
+  const comEspaco = { ...saida, categoria: '  estorno ao cliente  ' }
+  assert.equal(motivoForaDoCalculo(comEspaco, config), 'estorno_cliente')
+})
+
+test('categoria fora do cálculo sem motivo cadastrado cai no genérico', () => {
+  const config = {
+    categoriasForaDoCalculo: new Set(['Alguma Coisa']),
+    cnpjsForaDoCalculo: new Map(),
+  }
+  const saida = { valor: 10, categoria: 'ALGUMA COISA', favorecidoNome: null, descricao: null }
+  assert.equal(motivoForaDoCalculo(saida, config), 'categoria_marcada')
+})
