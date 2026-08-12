@@ -11,6 +11,29 @@ export function msgCodigo(codigo: string): string {
 }
 
 /**
+ * E-mail de convite: leva o cliente ao link para conferir e assinar o
+ * documento. O link não autentica ninguém (a identidade é o código, enviado
+ * depois) — então pode ir por e-mail sem risco.
+ */
+export function emailConvite(nome: string, tipoLabel: string, url: string): { assunto: string; texto: string; html: string } {
+  const assunto = `${CABECALHO} — ${tipoLabel} para assinatura`
+  const texto =
+    `${CABECALHO}\n\nOlá, ${nome}! Seu ${tipoLabel} está pronto para assinatura digital.\n\n` +
+    `Acesse o link, confira o documento e assine pelo celular:\n${url}\n\n` +
+    `O link é pessoal e vale por 7 dias.`
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;color:#0F1419">` +
+    `<p style="font-size:12px;letter-spacing:.08em;color:#10986A;font-weight:700;margin:0 0 12px">${CABECALHO}</p>` +
+    `<p style="margin:0 0 12px;font-size:15px">Olá, ${nome}! Seu <b>${tipoLabel}</b> está pronto para assinatura digital.</p>` +
+    `<p style="margin:0 0 16px;font-size:14px;color:#475569">Confira o documento e assine pelo celular:</p>` +
+    `<p style="margin:0 0 16px"><a href="${url}" style="display:inline-block;background:#10D98A;color:#0F1419;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:15px">Abrir e assinar</a></p>` +
+    `<p style="margin:0;font-size:12px;color:#94a3b8;word-break:break-all">Ou copie: ${url}</p>` +
+    `<p style="margin:12px 0 0;font-size:12px;color:#94a3b8">O link é pessoal e vale por 7 dias.</p>` +
+    `</div>`
+  return { assunto, texto, html }
+}
+
+/**
  * E-mail do código de assinatura. O código vai SÓ no corpo — nunca no assunto,
  * que aparece em prévia/notificação e não pode carregar o segredo. É o que
  * mantém a prova de posse: só quem abre a caixa do cliente vê o código.

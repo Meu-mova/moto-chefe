@@ -12,9 +12,8 @@ import {
   type TipoDocumento, type DadosDocumento, type PagamentoVenda,
 } from '@/lib/assinatura/documento'
 import { sha256 } from '@/lib/assinatura/hash'
-import { normalizarCelular, msgConvite } from '@/lib/assinatura/mensagens'
-import { emailValido } from '@/lib/email'
-import { enviarWhatsappPara } from '@/lib/whatsapp/client'
+import { normalizarCelular, emailConvite } from '@/lib/assinatura/mensagens'
+import { emailValido, enviarEmail } from '@/lib/email'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { urlBase } from '@/lib/assinatura/url'
@@ -231,9 +230,10 @@ export async function verificarBloqueioNfAction(motoId: string): Promise<{
 export async function enviarDocumentoAssinaturaAction(
   vendaId: string,
   tipo: TipoDocumento,
-  // Padrão manual: cria o documento e devolve o link para o adm enviar. O
-  // envio por WhatsApp continua possível (futuro), mas não é mais o padrão.
-  enviarWhatsapp = false,
+  // Padrão: cria o documento e manda o convite (com o link) por e-mail para o
+  // cliente. Passar false só cria e devolve o link, para o adm copiar e enviar
+  // à mão (cliente sem e-mail, e-mail errado, ou outro canal).
+  enviarConviteEmail = true,
 ): Promise<Resultado<{ url: string }>> {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_ENVIO.includes(usuario.papel)) {
@@ -296,17 +296,17 @@ export async function enviarDocumentoAssinaturaAction(
 
   const url = `${await baseUrl()}/assinar/${token}`
 
-  if (!enviarWhatsapp) {
+  if (!enviarConviteEmail) {
     await registrarEvento(doc.id, 'enviado', { envio: 'link_manual', numero })
     revalidatePath('/vendas')
     revalidatePath('/estoque')
     return { ok: true, url }
   }
 
-  const envio = numero
-    ? await enviarWhatsappPara(numero, msgConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url))
-    : ('sem_numero' as const)
-  await registrarEvento(doc.id, 'enviado', { envio, numero })
+  // Convite por e-mail: leva o cliente ao link para conferir e assinar.
+  const convite = emailConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url)
+  const envio = await enviarEmail({ para: email, assunto: convite.assunto, texto: convite.texto, html: convite.html })
+  await registrarEvento(doc.id, 'enviado', { envio, canal: 'email' })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -314,7 +314,7 @@ export async function enviarDocumentoAssinaturaAction(
   if (envio !== 'enviado') {
     // O documento existe e o link é válido — só a entrega falhou. Devolver o
     // link é melhor do que perder o documento: o vendedor manda por outro canal.
-    return { ok: false, error: 'Documento criado, mas o WhatsApp falhou. Copie o link e envie ao cliente por outro canal.', url }
+    return { ok: false, error: 'Documento criado, mas o e-mail do convite falhou. Copie o link e envie ao cliente por outro canal.', url }
   }
   return { ok: true, url }
 }

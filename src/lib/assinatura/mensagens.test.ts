@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { msgConvite, msgCodigo, msgAssinado, normalizarCelular, emailCodigo } from './mensagens'
+import { msgConvite, msgCodigo, msgAssinado, normalizarCelular, emailCodigo, emailConvite } from './mensagens'
 
 test('toda mensagem começa com MOVA INFORMA', () => {
   for (const m of [
@@ -20,6 +20,14 @@ test('mensagem do código avisa para não repassar', () => {
   const m = msgCodigo('123456')
   assert.ok(m.includes('123456'))
   assert.match(m, /não .*(compartilh|repass)/i)
+})
+
+test('e-mail de convite: assunto com o tipo, corpo com link e nome', () => {
+  const { assunto, texto, html } = emailConvite('Maria', 'Contrato de venda', 'https://x/assinar/abc')
+  assert.ok(assunto.startsWith('MOVA INFORMA'))
+  assert.ok(assunto.includes('Contrato de venda'))
+  assert.ok(texto.includes('https://x/assinar/abc') && texto.includes('Maria'))
+  assert.ok(html.includes('https://x/assinar/abc'))
 })
 
 test('e-mail do código: código no corpo, NUNCA no assunto', () => {
