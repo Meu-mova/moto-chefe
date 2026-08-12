@@ -996,6 +996,9 @@ export const documentosAssinatura = pgTable('documentos_assinatura', {
   htmlSnapshot:   text('html_snapshot').notNull(),
   snapshotHash:   text('snapshot_hash').notNull(),
   celularDestino: text('celular_destino').notNull(),
+  // Destino do código de assinatura (por e-mail). Preenchido do cadastro da
+  // venda na criação; nulo em documentos antigos/em papel.
+  emailDestino:   text('email_destino'),
   selfiePath:     text('selfie_path'),
   selfieHash:     text('selfie_hash'),
   assinaturaPath: text('assinatura_path'),

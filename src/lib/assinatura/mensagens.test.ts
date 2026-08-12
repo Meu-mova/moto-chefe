@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { msgConvite, msgCodigo, msgAssinado, normalizarCelular } from './mensagens'
+import { msgConvite, msgCodigo, msgAssinado, normalizarCelular, emailCodigo } from './mensagens'
 
 test('toda mensagem começa com MOVA INFORMA', () => {
   for (const m of [
@@ -20,6 +20,16 @@ test('mensagem do código avisa para não repassar', () => {
   const m = msgCodigo('123456')
   assert.ok(m.includes('123456'))
   assert.match(m, /não .*(compartilh|repass)/i)
+})
+
+test('e-mail do código: código no corpo, NUNCA no assunto', () => {
+  const { assunto, texto, html } = emailCodigo('482913')
+  // prova de posse: o assunto aparece em prévia/notificação e não pode vazar o código
+  assert.ok(!assunto.includes('482913'), 'o código vazou no assunto')
+  assert.ok(assunto.startsWith('MOVA INFORMA'))
+  assert.ok(texto.includes('482913'))
+  assert.ok(html.includes('482913'))
+  assert.match(texto, /não .*(compartilh|repass)/i)
 })
 
 test('celular ganha 55 e perde máscara', () => {

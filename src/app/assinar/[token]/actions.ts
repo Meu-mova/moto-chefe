@@ -6,13 +6,13 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaCodigos, assinaturaEventos, vendas } from '@/lib/db/schema'
 import { gerarCodigo, hashCodigo, validarCodigo, codigoAindaVale, VALIDADE_MINUTOS } from '@/lib/assinatura/codigo'
-import { msgCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
+import { emailCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
 import {
   LABEL_TIPO, montarHtmlDocumento, checklistCompleto,
   type TipoDocumento, type DadosDocumento, type RespostasChecklist,
 } from '@/lib/assinatura/documento'
 import { docHash, sha256, type Evidencias } from '@/lib/assinatura/hash'
-import { enviarWhatsappPara } from '@/lib/whatsapp/client'
+import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
 
 type Resposta = { ok: boolean; error?: string }
@@ -41,7 +41,7 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
   if (new Date() > doc.expiraEm) return { ok: false, error: 'Link expirado. Peça um novo à loja.' }
 
   // Já existe código válido? Não gera outro. O cliente PRECISA sair para o
-  // WhatsApp e voltar — e voltar recarrega a página. Gerar um código novo aí
+  // e-mail e voltar — e voltar recarrega a página. Gerar um código novo aí
   // invalidaria justamente o que ele acabou de copiar, e o fluxo se sabotava
   // no movimento que ele mesmo obriga a fazer. Só o botão "Reenviar" força.
   if (!forcarNovo) {
@@ -58,15 +58,22 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
     expiraEm: new Date(Date.now() + VALIDADE_MINUTOS * 60_000),
   })
 
-  const envio = await enviarWhatsappPara(doc.celularDestino, msgCodigo(codigo))
+  // O código vai por E-MAIL, para a caixa pessoal do cliente — é o que prova
+  // que foi ele (e não um atendente) que assinou. O atendente pode ver o link,
+  // nunca o código.
+  const { assunto, texto, html } = emailCodigo(codigo)
+  const envio = await enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html })
   const { ip, userAgent } = await contextoRequisicao()
   await db.insert(assinaturaEventos).values({
-    documentoId: doc.id, tipo: 'codigo_enviado', ip, userAgent, detalhe: { envio },
+    documentoId: doc.id, tipo: 'codigo_enviado', ip, userAgent, detalhe: { envio, canal: 'email' },
   })
 
   // O código NUNCA volta na resposta — nem em erro, nem em log.
+  if (envio === 'sem_email') {
+    return { ok: false, error: 'Não há e-mail cadastrado para este cliente. A loja precisa completar o e-mail no cadastro da venda.' }
+  }
   if (envio !== 'enviado') {
-    return { ok: false, error: 'Não conseguimos enviar o código agora. Tente novamente em instantes.' }
+    return { ok: false, error: 'Não conseguimos enviar o código por e-mail agora. Tente novamente em instantes.' }
   }
   return { ok: true }
 }
@@ -220,14 +227,15 @@ export async function selarAssinaturaAction(
     { documentoId: doc.id, tipo: 'assinado', ip, userAgent },
   ])
 
-  // Envio do link final: falhar aqui NÃO desfaz a assinatura — ela já está
-  // selada. O vendedor reenvia o link depois.
+  // Envio do link final por e-mail: falhar aqui NÃO desfaz a assinatura — ela
+  // já está selada. O vendedor reenvia o link depois.
   const [venda] = await db.select({ nome: vendas.clienteNome }).from(vendas)
     .where(eq(vendas.id, doc.vendaId)).limit(1)
-  await enviarWhatsappPara(
-    doc.celularDestino,
-    msgAssinado(venda?.nome ?? 'cliente', LABEL_TIPO[doc.tipo as TipoDocumento], `${urlBase()}/assinar/${token}`),
-  )
+  await enviarEmail({
+    para: doc.emailDestino ?? '',
+    assunto: 'MOVA INFORMA — documento assinado',
+    texto: msgAssinado(venda?.nome ?? 'cliente', LABEL_TIPO[doc.tipo as TipoDocumento], `${urlBase()}/assinar/${token}`),
+  })
 
   return { ok: true }
 }

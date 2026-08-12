@@ -13,6 +13,7 @@ import {
 } from '@/lib/assinatura/documento'
 import { sha256 } from '@/lib/assinatura/hash'
 import { normalizarCelular, msgConvite } from '@/lib/assinatura/mensagens'
+import { emailValido } from '@/lib/email'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
@@ -52,7 +53,7 @@ async function registrarEvento(documentoId: string, tipo: string, detalhe?: unkn
 
 // Monta o snapshot com tudo que o documento precisa. A vendedora vem do GRUPO
 // (cada grupo é uma empresa distinta), não da loja nem de constante no código.
-async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; grupoId: string; lojaId: string | null; celular: string | null } | null> {
+async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; grupoId: string; lojaId: string | null; celular: string | null; email: string | null } | null> {
   const venda = await buscarVenda(vendaId)
   if (!venda) return null
 
@@ -93,6 +94,7 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
     grupoId: extra.grupoId,
     lojaId: venda.lojaId ?? null,
     celular: extra.celular,
+    email: extra.email,
     dados: {
       vendaId,
       clienteNome: venda.clienteNome ?? '',
@@ -229,7 +231,9 @@ export async function verificarBloqueioNfAction(motoId: string): Promise<{
 export async function enviarDocumentoAssinaturaAction(
   vendaId: string,
   tipo: TipoDocumento,
-  enviarWhatsapp = true,
+  // Padrão manual: cria o documento e devolve o link para o adm enviar. O
+  // envio por WhatsApp continua possível (futuro), mas não é mais o padrão.
+  enviarWhatsapp = false,
 ): Promise<Resultado<{ url: string }>> {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_ENVIO.includes(usuario.papel)) {
@@ -241,10 +245,13 @@ export async function enviarDocumentoAssinaturaAction(
   const montado = await montarDados(vendaId)
   if (!montado) return { ok: false, error: 'Venda não encontrada' }
 
-  const numero = normalizarCelular(montado.celular ?? '')
-  if (!numero) {
-    return { ok: false, error: 'O celular do cliente está vazio ou incompleto no cadastro. Corrija o cadastro antes de enviar.' }
+  // O código de assinatura vai por E-MAIL, então o e-mail é obrigatório aqui.
+  // O celular passa a ser opcional (guardado só para registro).
+  const email = (montado.email ?? '').trim()
+  if (!emailValido(email)) {
+    return { ok: false, error: 'O e-mail do cliente está vazio ou inválido no cadastro. O código de assinatura é enviado por e-mail — corrija o cadastro antes de enviar (ou use a via em papel).' }
   }
+  const numero = normalizarCelular(montado.celular ?? '')
 
   // Contrato exige a qualificação da empresa. Sem ela sairia com o CNPJ errado
   // ou em branco — melhor recusar e mandar cadastrar.
@@ -281,7 +288,8 @@ export async function enviarDocumentoAssinaturaAction(
     // Dados estruturados: o checklist é remontado na assinatura com as
     // marcações do comprador, e para isso o HTML em branco não basta.
     dadosJson: montado.dados,
-    celularDestino: numero,
+    celularDestino: numero ?? 'não informado',
+    emailDestino: email,
     criadoPor: usuario.id,
     expiraEm,
   }).returning({ id: documentosAssinatura.id })
@@ -295,7 +303,9 @@ export async function enviarDocumentoAssinaturaAction(
     return { ok: true, url }
   }
 
-  const envio = await enviarWhatsappPara(numero, msgConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url))
+  const envio = numero
+    ? await enviarWhatsappPara(numero, msgConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url))
+    : ('sem_numero' as const)
   await registrarEvento(doc.id, 'enviado', { envio, numero })
 
   revalidatePath('/vendas')
@@ -373,6 +383,7 @@ export async function registrarAssinaturaPapelAction(
     htmlSnapshot: html,
     snapshotHash: sha256(html),
     celularDestino: montado.celular ?? 'não informado',
+    emailDestino: montado.email,
     dadosJson: montado.dados,
     criadoPor: usuario.id,
     registradoPor: usuario.id,
@@ -433,20 +444,11 @@ export async function reenviarDocumentoAction(documentoId: string): Promise<Resu
     .set({ status: 'pendente', expiraEm })
     .where(eq(documentosAssinatura.id, documentoId))
 
-  const [venda] = await db.select({ nome: vendas.clienteNome }).from(vendas)
-    .where(eq(vendas.id, doc.vendaId)).limit(1)
-
+  // Reativa e devolve o link para o adm copiar e mandar ao cliente. O código
+  // de assinatura em si vai por e-mail quando o cliente abrir o link.
   const url = `${await baseUrl()}/assinar/${doc.token}`
-  const envio = await enviarWhatsappPara(
-    doc.celularDestino,
-    msgConvite(venda?.nome ?? 'cliente', LABEL_TIPO[doc.tipo as TipoDocumento], url),
-  )
-  await registrarEvento(documentoId, 'reenviado', { envio })
+  await registrarEvento(documentoId, 'reenviado', { envio: 'link_manual' })
   revalidatePath('/vendas')
-
-  if (envio !== 'enviado') {
-    return { ok: false, error: 'O WhatsApp falhou. Copie o link e envie ao cliente por outro canal.', url }
-  }
   return { ok: true, url }
 }
 

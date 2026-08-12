@@ -21,8 +21,8 @@ type Props = {
   docHash: string | null
   assinadoEm: string | null
   ipAssinatura: string | null
-  /** Passo retomado do servidor: o cliente sai para o WhatsApp e volta, e no
-   *  celular voltar costuma recarregar a página. */
+  /** Passo retomado do servidor: o cliente sai para o e-mail e volta, e ao
+   *  voltar costuma recarregar a página. */
   passoInicial: Passo
 }
 
@@ -253,7 +253,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
   const pediu = useRef(false)
 
   // Ao entrar no passo, garante que existe um código válido. A action não gera
-  // outro se o anterior ainda vale — voltar do WhatsApp não invalida o código
+  // outro se o anterior ainda vale — voltar do e-mail não invalida o código
   // que o cliente acabou de copiar.
   useEffect(() => {
     if (pediu.current) return
@@ -292,8 +292,8 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
       <h1 className="text-base font-semibold text-slate-800">Confirme que é você</h1>
       <p className="text-sm text-slate-500 mt-1 mb-4">
         {enviado
-          ? 'Enviamos um código de 6 dígitos no seu WhatsApp. Digite abaixo.'
-          : 'Enviando o código para o seu WhatsApp…'}
+          ? 'Enviamos um código de 6 dígitos no seu e-mail. Digite abaixo.'
+          : 'Enviando o código para o seu e-mail…'}
       </p>
 
       <input
@@ -307,7 +307,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
       />
 
       <p className="mt-2 text-xs text-slate-500">
-        Pode sair para o WhatsApp e voltar — você volta direto para esta etapa, e o código
+        Pode abrir o seu e-mail e voltar — você volta direto para esta etapa, e o código
         continua valendo.
       </p>
 

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, FileSearch, FileSignature, Printer, RefreshCw, Send, ShieldAlert, Upload, X, Check } from 'lucide-react'
+import { Copy, FileSearch, FileSignature, Printer, RefreshCw, ShieldAlert, Upload, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   listarDocumentosDaVendaAction, enviarDocumentoAssinaturaAction,
@@ -88,21 +88,9 @@ export function PainelAssinatura(
     }
   }
 
-  function enviar(tipo: TipoDocumento) {
-    startTransition(async () => {
-      const r = await enviarDocumentoAssinaturaAction(vendaId, tipo)
-      if (r.ok) toast.success('Documento enviado no WhatsApp do cliente')
-      else {
-        toast.error(r.error)
-        // Envio falhou mas o documento existe: o link volta para mandar à mão.
-        if (r.url) toast.info(r.url, { duration: 20000 })
-      }
-      recarregar()
-    })
-  }
-
-  // Gera o documento sem disparar o WhatsApp e já entrega o link. Serve para
-  // mandar por outro canal ou entregar o celular ao cliente no balcão.
+  // Cria o documento e já entrega o link para o adm mandar ao cliente por
+  // onde preferir. O código de 6 dígitos vai por e-mail quando o cliente
+  // abrir o link e pedir — não passa pelo adm.
   function gerarLink(tipo: TipoDocumento) {
     startTransition(async () => {
       const r = await enviarDocumentoAssinaturaAction(vendaId, tipo, false)
@@ -131,10 +119,12 @@ export function PainelAssinatura(
   function reenviar(id: string) {
     startTransition(async () => {
       const r = await reenviarDocumentoAction(id)
-      if (r.ok) toast.success('Link reenviado')
-      else {
-        toast.error(r.error)
-        if (r.url) toast.info(r.url, { duration: 20000 })
+      if (!r.ok) { toast.error(r.error); recarregar(); return }
+      try {
+        await navigator.clipboard.writeText(r.url)
+        toast.success('Link reativado e copiado — envie ao cliente')
+      } catch {
+        toast.info(r.url, { duration: 20000 })
       }
       recarregar()
     })
@@ -172,25 +162,14 @@ export function PainelAssinatura(
 
             <div className="flex flex-wrap gap-1.5 mt-2">
               {(!doc || doc.status === 'cancelado' || expirado) && doc?.status !== 'assinado' && (
-                <>
-                  <button
-                    onClick={() => enviar(tipo)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <Send size={12} /> Enviar para assinatura
-                  </button>
-                  {/* Sem documento ainda não existe token, então o link precisa
-                      ser criado na hora. Gera sem disparar o WhatsApp. */}
-                  <button
-                    onClick={() => gerarLink(tipo)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                    title="Cria o documento e copia o link, sem mandar no WhatsApp"
-                  >
-                    <Copy size={12} /> Gerar e copiar link
-                  </button>
-                </>
+                <button
+                  onClick={() => gerarLink(tipo)}
+                  disabled={pending}
+                  className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  title="Cria o documento e copia o link para você enviar ao cliente"
+                >
+                  <Copy size={12} /> Criar link de assinatura
+                </button>
               )}
 
               {doc && estaVivo(doc) && !expirado && (
@@ -342,8 +321,8 @@ export function PainelAssinatura(
       )}
 
       <p className="text-[11px] text-slate-400">
-        O link pode ser enviado por qualquer canal, mas o código de 6 dígitos sempre vai pelo
-        WhatsApp cadastrado do cliente.
+        Você envia o link ao cliente por qualquer canal. O código de 6 dígitos vai por e-mail
+        para o cliente — é o que garante que foi ele quem assinou.
       </p>
     </div>
   )

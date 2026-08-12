@@ -27,7 +27,7 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
 
   const expirado = new Date() > doc.expiraEm && doc.status !== 'assinado'
 
-  // Em que passo o cliente estava. Ele TEM que sair para o WhatsApp buscar o
+  // Em que passo o cliente estava. Ele TEM que sair para o e-mail buscar o
   // código, e voltar costuma recarregar a página no celular — sem isto, ele
   // recomeçaria do zero toda vez, que foi o erro relatado em 11/08.
   const [codigo] = await db.select({

@@ -51,7 +51,7 @@ export function ViaAssinada({ html, docHash, assinadoEm, ipAssinatura }: Props) 
           </div>
           <div className="flex gap-2">
             <dt className="w-40 shrink-0 text-slate-500">Confirmação</dt>
-            <dd>Código enviado ao WhatsApp cadastrado do signatário</dd>
+            <dd>Código enviado ao e-mail cadastrado do signatário</dd>
           </div>
           <div className="flex gap-2">
             <dt className="w-40 shrink-0 text-slate-500">Registro fotográfico</dt>
