@@ -279,6 +279,14 @@ export function PainelAssinatura(
                 {base}/assinar/{doc.token}
               </p>
             )}
+
+            {/* O Resend avisou por webhook que o e-mail voltou (bounce/spam):
+                o cliente NÃO recebeu, mesmo o painel tendo dito "enviado". */}
+            {doc?.emailVoltou && (
+              <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+                ⚠️ O e-mail voltou (o endereço rejeitou) — o cliente não recebeu. Confira o e-mail no cadastro da venda e reenvie.
+              </p>
+            )}
           </div>
         )
       })}

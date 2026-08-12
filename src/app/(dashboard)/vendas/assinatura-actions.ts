@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos, usuarios } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -127,6 +127,8 @@ export type DocumentoResumo = {
   token: string
   expiraEm: string
   assinadoEm: string | null
+  /** Um e-mail deste documento voltou (bounce/spam) — cliente não recebeu. */
+  emailVoltou: boolean
 }
 
 // Documentos de uma venda, para o painel de assinatura. Carregado sob demanda
@@ -155,6 +157,7 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
       token: documentosAssinatura.token,
       expiraEm: documentosAssinatura.expiraEm,
       assinadoEm: documentosAssinatura.assinadoEm,
+      emailVoltou: sql<boolean>`exists(select 1 from assinatura_eventos e where e.documento_id = ${sql.raw('"documentos_assinatura"."id"')} and e.tipo = 'email_bounce')`,
     })
     .from(documentosAssinatura)
     .where(eq(documentosAssinatura.vendaId, vendaId))
@@ -188,6 +191,7 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
       token: l.token,
       expiraEm: l.expiraEm.toISOString(),
       assinadoEm: l.assinadoEm?.toISOString() ?? null,
+      emailVoltou: !!l.emailVoltou,
     })),
   }
 }
@@ -306,12 +310,12 @@ export async function enviarDocumentoAssinaturaAction(
   // Convite por e-mail: leva o cliente ao link para conferir e assinar.
   const convite = emailConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url, montado.dados.lojaNome || 'MotoChefe')
   const envio = await enviarEmail({ para: email, assunto: convite.assunto, texto: convite.texto, html: convite.html })
-  await registrarEvento(doc.id, 'enviado', { envio, canal: 'email' })
+  await registrarEvento(doc.id, 'enviado', { envio: envio.status, canal: 'email', resendId: envio.id })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 
-  if (envio !== 'enviado') {
+  if (envio.status !== 'enviado') {
     // O documento existe e o link é válido — só a entrega falhou. Devolver o
     // link é melhor do que perder o documento: o vendedor manda por outro canal.
     return { ok: false, error: 'Documento criado, mas o e-mail do convite falhou. Copie o link e envie ao cliente por outro canal.', url }

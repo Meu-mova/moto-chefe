@@ -2,6 +2,9 @@ import { Resend } from 'resend'
 
 export type ResultadoEmail = 'enviado' | 'sem_email' | 'erro'
 
+/** Resultado do envio + o id do Resend (para casar bounce no webhook). */
+export type EnvioEmail = { status: ResultadoEmail; id: string | null }
+
 // Validação simples e conservadora — o objetivo é barrar vazio/lixo antes de
 // gastar uma chamada no Resend, não validar RFC 5322 inteira.
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -23,20 +26,20 @@ export async function enviarEmail(params: {
   assunto: string
   texto: string
   html?: string
-}): Promise<ResultadoEmail> {
+}): Promise<EnvioEmail> {
   const para = params.para?.trim()
-  if (!emailValido(para)) return 'sem_email'
+  if (!emailValido(para)) return { status: 'sem_email', id: null }
 
   const key = process.env.RESEND_API_KEY
   const from = process.env.EMAIL_FROM
   if (!key || !from) {
     console.error('RESEND_API_KEY/EMAIL_FROM não configurados')
-    return 'erro'
+    return { status: 'erro', id: null }
   }
 
   try {
     const resend = new Resend(key)
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from,
       to: para,
       subject: params.assunto,
@@ -45,11 +48,11 @@ export async function enviarEmail(params: {
     })
     if (error) {
       console.error('envio de e-mail (resend) falhou:', error.message ?? String(error))
-      return 'erro'
+      return { status: 'erro', id: null }
     }
-    return 'enviado'
+    return { status: 'enviado', id: data?.id ?? null }
   } catch (e) {
     console.error('envio de e-mail falhou:', e instanceof Error ? e.message : String(e))
-    return 'erro'
+    return { status: 'erro', id: null }
   }
 }

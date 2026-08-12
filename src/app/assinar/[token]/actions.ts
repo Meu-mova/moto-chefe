@@ -65,14 +65,15 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
   const envio = await enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html })
   const { ip, userAgent } = await contextoRequisicao()
   await db.insert(assinaturaEventos).values({
-    documentoId: doc.id, tipo: 'codigo_enviado', ip, userAgent, detalhe: { envio, canal: 'email' },
+    documentoId: doc.id, tipo: 'codigo_enviado', ip, userAgent,
+    detalhe: { envio: envio.status, canal: 'email', resendId: envio.id },
   })
 
   // O código NUNCA volta na resposta — nem em erro, nem em log.
-  if (envio === 'sem_email') {
+  if (envio.status === 'sem_email') {
     return { ok: false, error: 'Não há e-mail cadastrado para este cliente. A loja precisa completar o e-mail no cadastro da venda.' }
   }
-  if (envio !== 'enviado') {
+  if (envio.status !== 'enviado') {
     return { ok: false, error: 'Não conseguimos enviar o código por e-mail agora. Tente novamente em instantes.' }
   }
   return { ok: true }
