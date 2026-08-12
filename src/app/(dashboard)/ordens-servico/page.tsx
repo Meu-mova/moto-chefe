@@ -24,13 +24,14 @@ function dataDefaultMesAtual() {
 export default async function OrdensServicoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; loja?: string; de?: string; ate?: string }>
+  searchParams: Promise<{ status?: string; q?: string; loja?: string; de?: string; ate?: string; mecanico?: string }>
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
 
-  const statusFiltro = parseParam(params.status)
+  const statusFiltro   = parseParam(params.status)
+  const mecanicoFiltro = parseParam(params.mecanico)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
   const lojaParamBruto = parseParam(params.loja)
@@ -47,7 +48,7 @@ export default async function OrdensServicoPage({
   const dataFim    = params.ate ?? undefined
 
   const [lista, mecanicos, lojasOpts] = await Promise.all([
-    listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaScope, dataInicio, dataFim }),
+    listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
@@ -149,7 +150,7 @@ export default async function OrdensServicoPage({
         </div>
       )}
 
-      <OSFiltros lojas={isAdmin ? lojasOpts : []} dataInicioInicial={dataInicio} dataFimInicial={params.ate ?? ''} />
+      <OSFiltros lojas={isAdmin ? lojasOpts : []} mecanicos={mecanicos} dataInicioInicial={dataInicio} dataFimInicial={params.ate ?? ""} />
 
       {lista.length === 0 && (
         <p className="text-sm text-slate-400 text-center py-16">Nenhuma ordem de serviço encontrada.</p>

@@ -30,15 +30,21 @@ function ToggleChip({ label, active, onClick }: { label: string; active: boolean
   )
 }
 
-type Props = { lojas: { id: string; nome: string }[]; dataInicioInicial: string; dataFimInicial: string }
+type Props = {
+  lojas: { id: string; nome: string }[]
+  mecanicos: { id: string; nome: string }[]
+  dataInicioInicial: string
+  dataFimInicial: string
+}
 
-export function OSFiltros({ lojas, dataInicioInicial, dataFimInicial }: Props) {
+export function OSFiltros({ lojas, mecanicos, dataInicioInicial, dataFimInicial }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
   const status = searchParams.get('status')?.split(',').filter(Boolean) ?? []
   const busca  = searchParams.get('q') ?? ''
   const lojaSel = searchParams.get('loja')?.split(',').filter(Boolean) ?? []
+  const mecSel  = searchParams.get('mecanico')?.split(',').filter(Boolean) ?? []
 
   const update = useCallback((key: string, value: string) => {
     const p = new URLSearchParams(searchParams.toString())
@@ -66,6 +72,16 @@ export function OSFiltros({ lojas, dataInicioInicial, dataFimInicial }: Props) {
           opcoes={lojas.map(l => ({ value: l.id, label: l.nome }))}
           selecionados={lojaSel}
           onChange={v => update('loja', v.join(','))}
+          className="min-w-[11rem]"
+        />
+      )}
+
+      {mecanicos.length > 0 && (
+        <MultiSelectFiltro
+          placeholder="Mecânico"
+          opcoes={mecanicos.map(m => ({ value: m.id, label: m.nome }))}
+          selecionados={mecSel}
+          onChange={v => update('mecanico', v.join(','))}
           className="min-w-[11rem]"
         />
       )}

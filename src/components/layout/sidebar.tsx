@@ -54,6 +54,7 @@ export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/atendimento', label: 'Atendimento', icon: Headset }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/marketing', label: 'Marketing', icon: Megaphone }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/servicos', label: 'Serviços', icon: ListChecks }] : []),
+    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/montagens', label: 'Montagens', icon: Wrench }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/relatorio-fabrica', label: 'Relatório Fábrica', icon: FileBarChart }] : []),
     ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/pecas', label: 'Peças', icon: Package2 }] : []),
     ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),

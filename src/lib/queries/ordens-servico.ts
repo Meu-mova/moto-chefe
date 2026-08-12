@@ -94,6 +94,8 @@ export async function listarTodasOS(filtros?: {
   lojaId?: string[]
   dataInicio?: string
   dataFim?: string
+  /** OS atribuídas a estes mecânicos. Vazio/ausente = todos. */
+  mecanicoId?: string[]
 }) {
   const mecanico = alias(usuarios, 'mecanico')
   return db
@@ -108,6 +110,7 @@ export async function listarTodasOS(filtros?: {
     .where(and(
       filtros?.status?.length   ? inArray(ordensServico.status, filtros.status as any[]) : undefined,
       filtros?.lojaId !== undefined ? inArray(ordensServico.lojaId, filtros.lojaId) : undefined,
+      filtros?.mecanicoId?.length ? inArray(ordensServico.mecanicoId, filtros.mecanicoId) : undefined,
       filtros?.dataInicio       ? gte(ordensServico.dataAbertura, inicioDoDiaBrt(filtros.dataInicio)) : undefined,
       filtros?.dataFim          ? lte(ordensServico.dataAbertura, fimDoDiaBrt(filtros.dataFim)) : undefined,
       filtros?.busca?.trim()    ? or(
