@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
+import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
 
 type Modelo = { id: string; modelo: string; marca: string; precoCompraPadrao: string | null }
 type Loja = { id: string; nome: string }
@@ -26,6 +27,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
   const [loading, setLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const xlsxRef = useRef<HTMLInputElement>(null)
+  const xmlRef = useRef<HTMLInputElement>(null)
 
   // --- Manual helpers ---
   function addLinha() {
@@ -115,6 +117,53 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
+  }
+
+  // --- XMLs de NF-e ---
+  async function handleXMLs(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length) return
+
+    const nomesMova = modelos.map(m => m.modelo)
+    const novas: MotoLinhaPlanilha[] = []
+    const avisos: string[] = []
+
+    for (const file of files) {
+      try {
+        const xml = await file.text()
+        const { nNF, infCpl, qtdProdutos } = extrairDaNfe(xml)
+        const motos = parseMotosInfCpl(infCpl)
+        // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
+        if (qtdProdutos && motos.length !== qtdProdutos) {
+          avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdProdutos} produto(s) — confira`)
+        }
+        for (const m of motos) {
+          novas.push({
+            chassi: m.chassi,
+            cor: m.cor,
+            motor: m.motor,
+            modelo: mapearModelo(m.modelo, nomesMova) ?? m.modelo, // de-para NF → MOVA
+            nf: nNF,
+          })
+        }
+      } catch {
+        avisos.push(`${file.name}: falha ao ler o XML`)
+      }
+    }
+
+    if (!novas.length) {
+      toast.error('Nenhuma moto encontrada nos XMLs')
+      return
+    }
+
+    setLinhasPlanilha(prev => {
+      const vistos = new Set(prev.map(l => l.chassi.toUpperCase()))
+      const add = novas.filter(n => n.chassi && !vistos.has(n.chassi.toUpperCase()))
+      return [...prev, ...add]
+    })
+    toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
+    avisos.forEach(a => toast.warning(a, { duration: 9000 }))
   }
 
   // --- Submit manual ---
@@ -239,9 +288,11 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
       {modo === 'planilha' && (
         <form onSubmit={handleSubmitPlanilha} className="space-y-6">
           <div className="bg-white rounded-lg border p-4 space-y-4">
-            <h3 className="font-semibold text-slate-700">Importar Planilha Padrão</h3>
+            <h3 className="font-semibold text-slate-700">Importar NF-e (XML) ou Planilha</h3>
             <p className="text-xs text-slate-400">
-              Formato: NF ENTRADA, MODELO, POTÊNCIA, CHASSI, MOTOR, COR, CATEGORIA, MARCA
+              Baixe os XMLs das notas (FSist) e importe direto — o MOVA lê as Informações
+              Complementares e extrai modelo, chassi, motor e cor, casando o modelo com o
+              cadastro. Ou use a planilha (colunas: NF ENTRADA, MODELO, CHASSI, MOTOR, COR).
             </p>
 
             <div>
@@ -260,7 +311,29 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
             </div>
 
             <div>
-              <label className="block text-sm text-slate-500 mb-1">Arquivo XLSX *</label>
+              <label className="block text-sm text-slate-500 mb-1">XMLs de NF-e (recomendado)</label>
+              <input
+                ref={xmlRef}
+                type="file"
+                accept=".xml"
+                multiple
+                onChange={handleXMLs}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => xmlRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-md px-3 py-2.5 text-sm text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
+              >
+                <Upload size={16} />
+                {linhasPlanilha.length > 0
+                  ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para adicionar mais XMLs`
+                  : 'Selecionar XMLs das notas (.xml) — pode escolher vários'}
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-500 mb-1">Ou planilha (.xlsx)</label>
               <input
                 ref={xlsxRef}
                 type="file"
@@ -274,9 +347,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-2.5 text-sm text-slate-500 hover:border-slate-400 hover:bg-slate-50"
               >
                 <Upload size={16} />
-                {linhasPlanilha.length > 0
-                  ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para trocar`
-                  : 'Selecionar planilha (.xlsx)'}
+                Selecionar planilha (.xlsx)
               </button>
             </div>
           </div>
