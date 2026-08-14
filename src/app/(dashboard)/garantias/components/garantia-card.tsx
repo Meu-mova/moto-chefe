@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -79,7 +80,7 @@ const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardan
 export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
   const [open, setOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
-  const [dataEncerramento, setDataEncerramento] = useState(new Date().toISOString().split('T')[0])
+  const [dataEncerramento, setDataEncerramento] = useState(hojeBrt())
   const [loading, setLoading] = useState(false)
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)

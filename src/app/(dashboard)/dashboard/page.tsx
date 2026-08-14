@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { db } from '@/lib/db'
 import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
 import { eq, or, sql, and, count, gte, lt, inArray } from 'drizzle-orm'
@@ -320,7 +321,7 @@ async function ProximosEventosSection({ usuario }: { usuario: Awaited<ReturnType
 }
 
 function hojeISO() {
-  return new Date().toISOString().substring(0, 10)
+  return hojeBrt()
 }
 
 function inicioMesAtualISO() {

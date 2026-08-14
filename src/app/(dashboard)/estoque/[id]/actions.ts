@@ -1,6 +1,7 @@
 // src/app/(dashboard)/estoque/[id]/actions.ts
 'use server'
 import { createClient } from '@/lib/supabase/server'
+import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { motos, usuarios, reservas } from '@/lib/db/schema'
@@ -78,7 +79,7 @@ export async function alterarStatusAction(
     await db.update(motos)
       .set({
         responsavelMontagemId: mecanicoId,
-        dataMontagem: dataMontagem ?? new Date().toISOString().split('T')[0],
+        dataMontagem: dataMontagem ?? hojeBrt(),
         disponibilidade: reservaAtiva ? 'reservada' : 'disponivel',
       })
       .where(eq(motos.id, motoId))

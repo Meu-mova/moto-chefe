@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -32,7 +33,7 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeBrt()
 
   const [lojaId, setLojaId]               = useState(inicial?.lojaId ?? '')
   const [categoria, setCategoria]         = useState(inicial?.categoria ?? '')

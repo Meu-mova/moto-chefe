@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -163,7 +164,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
   // ── Venda ──
   const [valorVenda, setValorVenda] = useState('')
-  const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
+  const [dataVenda, setDataVenda] = useState(hojeBrt())
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [motivo, setMotivo] = useState('')
 
@@ -243,7 +244,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       setVendedorSelecionado(vendedorId)
       setPgtos([{ id: '1', tipo: '', valor: '' }])
     }
-    setDataVenda(new Date().toISOString().split('T')[0])
+    setDataVenda(hojeBrt())
     setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
     setMotivo('')
   }

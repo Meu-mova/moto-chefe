@@ -13,6 +13,16 @@ export function parseDataInput(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T12:00:00.000Z`)
 }
 
+// Hoje no calendário de Brasília, como "YYYY-MM-DD" — para default de <input
+// type="date"> e de datas gravadas "de hoje".
+//
+// `new Date().toISOString().slice(0,10)` dá o dia em UTC: das 21h à meia-noite de
+// Brasília já é o dia SEGUINTE lá. Uma venda lançada às 22h do dia 31 nascia com
+// data 01 — e sumia do filtro do mês. `en-CA` formata como YYYY-MM-DD.
+export function hojeBrt(agora: Date = new Date()): string {
+  return agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 // ─── limites de um dia do calendário de Brasília ──────────────────────────────
 // Toda coluna de data do sistema é `timestamptz`, mas o negócio raciocina em dia
 // do calendário daqui. Filtrar com `new Date("2026-07-31")` compara contra a

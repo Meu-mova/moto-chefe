@@ -1,6 +1,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDataInput, inicioDoDiaBrt, fimDoDiaBrt } from './data-venda'
+import { parseDataInput, inicioDoDiaBrt, fimDoDiaBrt, hojeBrt } from './data-venda'
+
+test('hojeBrt: noite de Brasília NÃO vira o dia seguinte (o bug do lançamento de venda)', () => {
+  // 01/08 02:00Z = 31/07 23:00 em Brasília — a venda é do dia 31.
+  const instante = new Date('2026-08-01T02:00:00.000Z')
+  assert.equal(hojeBrt(instante), '2026-07-31')
+  // Prova do bug antigo: toISOString daria o dia 01 (UTC), que escondia a venda do filtro de julho.
+  assert.equal(instante.toISOString().slice(0, 10), '2026-08-01')
+})
+
+test('hojeBrt: durante o dia bate com o dia UTC', () => {
+  assert.equal(hojeBrt(new Date('2026-07-31T15:00:00.000Z')), '2026-07-31')
+})
 
 test('ancora no meio-dia UTC, não na meia-noite', () => {
   assert.equal(parseDataInput('2026-07-31').toISOString(), '2026-07-31T12:00:00.000Z')

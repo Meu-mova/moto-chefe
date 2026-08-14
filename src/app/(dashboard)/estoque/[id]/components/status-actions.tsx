@@ -1,6 +1,7 @@
 // src/app/(dashboard)/estoque/[id]/components/status-actions.tsx
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,10 +62,10 @@ export function StatusActions({
   function abrirDialog(tipo: 'status' | 'disponibilidade', valor: string) {
     setAlvo({ tipo, valor })
     setMecanicoId('')
-    setDataMontagem(new Date().toISOString().split('T')[0])
+    setDataMontagem(hojeBrt())
     setObservacao('')
     setGarantiaDescricao('')
-    setGarantiaDataPedido(new Date().toISOString().split('T')[0])
+    setGarantiaDataPedido(hojeBrt())
     setGarantiaNumeroPedido('')
     setOpen(true)
   }

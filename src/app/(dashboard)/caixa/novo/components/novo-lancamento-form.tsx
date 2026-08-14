@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -33,7 +34,7 @@ export function NovoLancamentoForm({
   const [categoria, setCategoria] = useState('')
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
-  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [data, setData] = useState(hojeBrt())
   const [lojaId, setLojaId] = useState(lojaUsuarioId ?? lojas[0]?.id ?? '')
   const [arquivo, setArquivo] = useState<File | null>(null)
 

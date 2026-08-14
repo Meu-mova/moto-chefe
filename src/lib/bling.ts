@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { hojeBrt } from './data-venda'
 import { blingConfig, grupos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
@@ -178,7 +179,7 @@ const tipoLabel: Record<string, string> = {
 }
 
 function montarPayloadNFe(dados: DadosNFe, vendedorBlingId?: number | null) {
-  const dataHoje = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const dataHoje = hojeBrt() // YYYY-MM-DD
   const valorTotal = parseFloat(dados.valor)
 
   const parcelas = dados.pagamentos.length > 0

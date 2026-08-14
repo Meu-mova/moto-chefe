@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -39,7 +40,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
   const [categoria, setCategoria] = useState('')
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
-  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [data, setData] = useState(hojeBrt())
   const [lojaId, setLojaId] = useState(lojaUsuarioId ?? lojas[0]?.id ?? '')
 
   const [arquivo, setArquivo] = useState<File | null>(null)
@@ -50,7 +51,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
     setCategoria('')
     setDescricao('')
     setValor('')
-    setData(new Date().toISOString().split('T')[0])
+    setData(hojeBrt())
     setLojaId(lojaUsuarioId ?? lojas[0]?.id ?? '')
     setArquivo(null)
     setOpen(true)

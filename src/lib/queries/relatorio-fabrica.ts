@@ -1,4 +1,5 @@
 import { listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { hojeBrt } from '../data-venda'
 import { db } from '@/lib/db'
 import { vendas, motos, modelos, lojas } from '@/lib/db/schema'
 import { eq, inArray, and, gte, lt, sql } from 'drizzle-orm'
@@ -16,7 +17,7 @@ function primeiroDiaDoMes(): string {
   return `${h.getUTCFullYear()}-${String(h.getUTCMonth() + 1).padStart(2, '0')}-01`
 }
 function hoje(): string {
-  return new Date().toISOString().slice(0, 10)
+  return hojeBrt()
 }
 
 // Limites em UTC, de propósito: é a mesma convenção de /financeiro e da Folha de

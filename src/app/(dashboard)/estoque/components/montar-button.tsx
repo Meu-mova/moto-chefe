@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +29,7 @@ export function MontarButton({ motoId, descricao, mecanicos, showLabel }: Props)
 
   function handleOpen() {
     setMecanicoId('')
-    setDataMontagem(new Date().toISOString().split('T')[0])
+    setDataMontagem(hojeBrt())
     setObservacao('')
     setOpen(true)
   }

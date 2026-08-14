@@ -1,3 +1,4 @@
+import { hojeBrt } from './data-venda'
 const BASE = 'https://motochefebrasil.store'
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
@@ -172,7 +173,7 @@ export async function listarPedidosGarantiaFabrica(
 
   return numeros.map((num, i) => ({
     numeroPedido: num,
-    dataAbertura: datas[i] ? parseFabricaDate(datas[i]) : new Date().toISOString().split('T')[0],
+    dataAbertura: datas[i] ? parseFabricaDate(datas[i]) : hojeBrt(),
   }))
 }
 

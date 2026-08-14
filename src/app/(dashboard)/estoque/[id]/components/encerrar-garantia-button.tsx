@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -19,7 +20,7 @@ type Props = {
 
 export function EncerrarGarantiaButton({ garantiaId, descricao, dataInicio, papel, lojaIdUsuario, lojaIdGarantia }: Props) {
   const [open, setOpen] = useState(false)
-  const [dataEncerramento, setDataEncerramento] = useState(new Date().toISOString().split('T')[0])
+  const [dataEncerramento, setDataEncerramento] = useState(hojeBrt())
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(false)
 
