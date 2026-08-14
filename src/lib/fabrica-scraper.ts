@@ -324,3 +324,66 @@ export async function buscarStatusGarantiaFabrica(
   const match = html.match(/rounded-lg text-sm font-semibold[^>]*>\s*([^<\n]+?)\s*<\/span>/)
   return match?.[1]?.trim() ?? null
 }
+
+// ─── Detalhe do pedido de compra (peças) ──────────────────────────────────────
+
+/** Status de um pedido de compra cuja peça a fábrica já separou. */
+export const STATUS_SEPARADO = 'Separado'
+
+export type ItemPedidoCompra = {
+  peca: string
+  /** Quantidade pedida, ou null se o portal não a expôs. */
+  quantidade: number | null
+  /** "Categoria" do item no portal — costuma ser o modelo (ex.: "JET"). */
+  categoria: string | null
+}
+
+export type DetalheCompraFabrica = {
+  /** "Retirada na Loja" | "Correios" | ... como vem do portal. */
+  tipoEntrega: string | null
+  itens: ItemPedidoCompra[]
+}
+
+/** A peça é retirada em mãos (não vai pelos Correios) — a que se pega no galpão. */
+export function ehRetiradaNaLoja(tipoEntrega: string | null): boolean {
+  return /retirada/i.test(tipoEntrega ?? '')
+}
+
+/**
+ * Extrai tipo de entrega e itens do detalhe de /clientes/pedido/N.
+ *
+ * Puro de propósito — é o que o teste cobre, já que o HTML é de terceiro. Cada
+ * item é um <h3> (nome da peça) seguido logo abaixo por "Quantidade: N"; ancorar
+ * na dupla h3+Quantidade ignora <h3> de título ou de outras seções da página.
+ */
+export function parsearDetalheCompra(html: string): DetalheCompraFabrica {
+  const tipoEntrega = html
+    .match(/Tipo de Entrega:\s*<\/label>\s*<span[^>]*>\s*([^<]+?)\s*<\/span>/i)?.[1]
+    ?.trim() ?? null
+
+  const itens: ItemPedidoCompra[] = []
+  // Nem o nome (grupo 1) nem o gap até "Quantidade" (grupo 2) podem cruzar outro
+  // <h3>, senão o <h3> de um título (sem Quantidade abaixo) se estenderia por
+  // backtracking até casar a Quantidade do item seguinte.
+  const re = /<h3\b[^>]*>((?:(?!<h3)[\s\S])*?)<\/h3>((?:(?!<h3)[\s\S]){0,400}?)Quantidade:\s*(\d+)/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html)) !== null) {
+    const peca = limparHtml(m[1])
+    if (!peca) continue
+    const categoria = m[2].match(/Categoria:\s*([^<]+?)\s*</i)?.[1]?.trim() || null
+    itens.push({ peca, quantidade: Number(m[3]), categoria })
+  }
+  return { tipoEntrega, itens }
+}
+
+export async function buscarDetalheCompraFabrica(
+  session: FabricaSession,
+  numeroPedido: string,
+): Promise<DetalheCompraFabrica> {
+  const resp = await fetch(`${BASE}/clientes/pedido/${numeroPedido}`, {
+    headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+    redirect: 'follow',
+  })
+  const html = await resp.text()
+  return parsearDetalheCompra(html)
+}
