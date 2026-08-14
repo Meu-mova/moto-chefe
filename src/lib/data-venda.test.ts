@@ -1,6 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDataInput, inicioDoDiaBrt, fimDoDiaBrt, hojeBrt } from './data-venda'
+import { parseDataInput, inicioDoDiaBrt, fimDoDiaBrt, hojeBrt, mesBrt } from './data-venda'
+
+test('mesBrt: virada de mês à noite NÃO pula pro mês seguinte', () => {
+  // 01/08 02:00Z = 31/07 23:00 em Brasília — ainda é julho.
+  assert.equal(mesBrt(new Date('2026-08-01T02:00:00.000Z')), '2026-07')
+  assert.equal(new Date('2026-08-01T02:00:00.000Z').toISOString().slice(0, 7), '2026-08')
+})
 
 test('hojeBrt: noite de Brasília NÃO vira o dia seguinte (o bug do lançamento de venda)', () => {
   // 01/08 02:00Z = 31/07 23:00 em Brasília — a venda é do dia 31.

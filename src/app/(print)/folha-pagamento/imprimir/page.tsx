@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { mesBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -28,7 +29,7 @@ export default async function FolhaImprimirPage({
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const params = await searchParams
-  const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
+  const mesParam = params.mes ?? mesBrt()
   const lojaParam = params.loja ?? ''
   const lojaIds = lojaParam && lojaIdsGrupo.includes(lojaParam) ? [lojaParam] : lojaIdsGrupo
 

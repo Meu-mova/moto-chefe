@@ -1,4 +1,5 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
+import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
@@ -35,7 +36,7 @@ export default async function DespesasPage({
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const params = await searchParams
-  const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
+  const mesParam = params.mes ?? mesBrt()
   const [ano, mes] = mesParam.split('-').map(Number)
   const inicioMes = `${mesParam}-01`
   const ultimoDia = new Date(ano, mes, 0).toISOString().split('T')[0]

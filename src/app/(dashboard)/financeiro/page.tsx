@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db, execRows } from '@/lib/db'
 import { vendas, lojas, usuarios, motos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
@@ -41,7 +42,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const grupo = await getGrupoAtivo(usuario)
 
   const params = await searchParams
-  const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
+  const mesParam = params.mes ?? mesBrt()
   const lojaParam = params.loja ?? ''
   const lojaParamValido = lojaParam && lojaIdsGrupo.includes(lojaParam) ? lojaParam : ''
 

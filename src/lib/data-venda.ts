@@ -23,6 +23,13 @@ export function hojeBrt(agora: Date = new Date()): string {
   return agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
+// Mês corrente no calendário de Brasília, como "YYYY-MM" — para default de
+// seletor de mês. Mesmo motivo do hojeBrt: `toISOString().slice(0,7)` daria o
+// mês em UTC, que na virada do mês à noite já é o mês seguinte lá.
+export function mesBrt(agora: Date = new Date()): string {
+  return hojeBrt(agora).slice(0, 7)
+}
+
 // ─── limites de um dia do calendário de Brasília ──────────────────────────────
 // Toda coluna de data do sistema é `timestamptz`, mas o negócio raciocina em dia
 // do calendário daqui. Filtrar com `new Date("2026-07-31")` compara contra a

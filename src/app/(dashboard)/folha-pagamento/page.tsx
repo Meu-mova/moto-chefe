@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,7 +50,7 @@ export default async function FolhaPagamentoPage({
   )
 
   const params = await searchParams
-  const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
+  const mesParam = params.mes ?? mesBrt()
 
   // O filtro entra ANTES das consultas. Filtrar a lista já calculada daria o
   // valor certo por pessoa e o total errado, porque a base de comissão de vários

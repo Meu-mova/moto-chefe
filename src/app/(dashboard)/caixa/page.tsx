@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { mesBrt } from '@/lib/data-venda'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { lancamentosCaixa, lojas, usuarios } from '@/lib/db/schema'
@@ -16,7 +17,7 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
 
   const params = await searchParams
-  const mesParam = params.mes ?? new Date().toISOString().slice(0, 7)
+  const mesParam = params.mes ?? mesBrt()
   const lojaParam = params.loja ?? ''
 
   const [ano, mes] = mesParam.split('-').map(Number)
