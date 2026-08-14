@@ -487,6 +487,7 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   data: date('data').notNull(),
   vendaId: uuid('venda_id').references(() => vendas.id),
+  osId: uuid('os_id').references(() => ordensServico.id),
   comprovanteUrl: text('comprovante_url'),
   statusAprovacao: text('status_aprovacao').notNull().default('pendente'),
   aprovadoPorId: uuid('aprovado_por_id').references(() => usuarios.id),

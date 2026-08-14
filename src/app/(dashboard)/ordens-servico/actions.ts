@@ -1,7 +1,7 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
+import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
@@ -198,7 +198,7 @@ export type DadosPagamentoOS = {
 // tanto pelo fechamento direto quanto pela aprovação de pagamento sensível.
 export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
   const [osAtual] = await db
-    .select({ status: ordensServico.status })
+    .select({ status: ordensServico.status, lojaId: ordensServico.lojaId, numero: ordensServico.numero })
     .from(ordensServico)
     .where(eq(ordensServico.id, osId))
     .limit(1)
@@ -211,16 +211,46 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
     ? [{ tipo: legado.formaPagamento, valor: dados.valorTotal }]
     : [])
 
-  await db.update(ordensServico).set({
-    valorTotal:     String(dados.valorTotal),
-    formaPagamento: pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
-    pagamentos:     pagamentos.length > 0 ? pagamentos : null,
-    ...(osAtual?.status === 'pendente_pagamento'
-      ? { status: 'concluida' as any, dataConclusao: new Date() }
-      : {}),
-  }).where(eq(ordensServico.id, osId))
+  const usuario = await getUsuarioLogado()
+  const pagamentosDinheiro = pagamentos.filter(p => p.tipo === 'dinheiro')
+  // Data no fuso de SP — evita cair no dia anterior à noite (toISOString é UTC).
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+  await db.transaction(async (tx) => {
+    await tx.update(ordensServico).set({
+      valorTotal:     String(dados.valorTotal),
+      formaPagamento: pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
+      pagamentos:     pagamentos.length > 0 ? pagamentos : null,
+      ...(osAtual?.status === 'pendente_pagamento'
+        ? { status: 'concluida' as any, dataConclusao: new Date() }
+        : {}),
+    }).where(eq(ordensServico.id, osId))
+
+    // Recebimento em dinheiro entra no caixa da loja, como na venda de moto.
+    // Re-sincroniza: apaga os lançamentos de dinheiro anteriores desta OS e
+    // recria — assim editar o pagamento (ou trocá-lo por outra forma, ou zerar
+    // uma OS gratuita) não duplica nem deixa resíduo no caixa.
+    if (osAtual?.lojaId) {
+      await tx.delete(lancamentosCaixa)
+        .where(and(eq(lancamentosCaixa.osId, osId), eq(lancamentosCaixa.tipo, 'entrada')))
+      for (const pgto of pagamentosDinheiro) {
+        await tx.insert(lancamentosCaixa).values({
+          lojaId:    osAtual.lojaId,
+          usuarioId: usuario.id,
+          tipo:      'entrada',
+          categoria: 'Serviço',
+          descricao: `OS #${osAtual.numero ?? '—'} dinheiro`,
+          valor:     Number(pgto.valor).toFixed(2),
+          data:      hoje,
+          osId,
+        })
+      }
+    }
+  })
+
   revalidatePath('/ordens-servico')
   revalidatePath(`/ordens-servico/${osId}`)
+  revalidatePath('/caixa')
 }
 
 export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
