@@ -8,7 +8,7 @@ import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivel, listarTodasLojasAtivas, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, listarTodasLojasAtivas, getGrupoAtivo } from '@/lib/grupo'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -43,7 +43,7 @@ export default async function EstoquePage({
 
   const lojaIdsGrupo = await withTimeout(listarLojaIdsDoGrupoAtivo(usuario), 20000)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
-  const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
+  const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
 
   // params.loja é validado contra as lojas do grupo ativo (nunca vaza loja de
   // outro grupo/CNPJ). Se a seleção for válida, vale tanto pra admin quanto

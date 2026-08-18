@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import { podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
 
@@ -186,7 +186,7 @@ export async function atualizarOSAction(osId: string, dados: {
 }
 
 // 'transferencia' precisa da mesma aprovação exigida em venda de moto — só quem tem
-// podeAprovarPagamentoSensivel vê esse dado. Ver src/lib/grupo.ts.
+// podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
 
 export type DadosPagamentoOS = {
@@ -264,7 +264,8 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
     throw new Error('OS gratuita não deve ter formas de pagamento lançadas')
   }
 
-  if (dados.pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_OS.has(p.tipo)) && !podeAprovarPagamentoSensivel(usuario)) {
+  if (dados.pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_OS.has(p.tipo))) {
+    // A loja da OS é quem define o grupo em que a permissão é avaliada.
     const [os] = await db
       .select({ lojaId: ordensServico.lojaId, numero: ordensServico.numero })
       .from(ordensServico)
@@ -272,20 +273,22 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
       .limit(1)
     if (!os) throw new Error('OS não encontrada')
 
-    await db.insert(aprovacoesVenda).values({
-      origem: 'os',
-      osId,
-      lojaId: os.lojaId,
-      vendedorId: usuario.id,
-      valor: String(dados.valorTotal),
-      dadosVenda: dados,
-      motivo: `Pagamento via Transferência Bancária — OS #${os.numero ?? '—'}`,
-      tipo: 'pagamento_sensivel',
-      status: 'pendente',
-    })
-    revalidatePath('/ordens-servico')
-    revalidatePath(`/ordens-servico/${osId}`)
-    return { aguardandoAprovacao: true }
+    if (!(await podeAprovarPagamentoSensivelNaLoja(usuario, os.lojaId))) {
+      await db.insert(aprovacoesVenda).values({
+        origem: 'os',
+        osId,
+        lojaId: os.lojaId,
+        vendedorId: usuario.id,
+        valor: String(dados.valorTotal),
+        dadosVenda: dados,
+        motivo: `Pagamento via Transferência Bancária — OS #${os.numero ?? '—'}`,
+        tipo: 'pagamento_sensivel',
+        status: 'pendente',
+      })
+      revalidatePath('/ordens-servico')
+      revalidatePath(`/ordens-servico/${osId}`)
+      return { aguardandoAprovacao: true }
+    }
   }
 
   await aplicarPagamentoOS(osId, dados)

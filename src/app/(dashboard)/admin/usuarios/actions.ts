@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
-import { usuarios } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { usuarios, grupos } from '@/lib/db/schema'
+import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -33,6 +33,25 @@ function validarConecta(conecta: string | null): string | null {
   return conecta
 }
 
+// Só admin_geral/admin_socio aprovam venda — guardar grupo de aprovação para um
+// vendedor seria permissão fantasma, que não faz nada mas confunde a auditoria.
+// Também não aceita id de grupo inexistente/inativo vindo do cliente.
+async function validarAprovacao(papel: string, gruposAprovacao: string[], aprovaPagamentoSensivel: boolean) {
+  if (!['admin_geral', 'admin_socio'].includes(papel)) {
+    return { gruposAprovacao: [] as string[], aprovaPagamentoSensivel: false }
+  }
+  const ids = [...new Set(gruposAprovacao)]
+  if (ids.length === 0) return { gruposAprovacao: [], aprovaPagamentoSensivel }
+
+  const validos = await db
+    .select({ id: grupos.id })
+    .from(grupos)
+    .where(inArray(grupos.id, ids))
+  if (validos.length !== ids.length) throw new Error('Grupo de aprovação inválido')
+
+  return { gruposAprovacao: ids, aprovaPagamentoSensivel }
+}
+
 export async function criarUsuarioAction(dados: {
   nome: string
   email: string
@@ -40,10 +59,13 @@ export async function criarUsuarioAction(dados: {
   papel: string
   lojaId: string | null
   conecta: string | null
+  gruposAprovacao: string[]
+  aprovaPagamentoSensivel: boolean
 }) {
   await assertAdmin()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
   const conecta = validarConecta(dados.conecta)
+  const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -60,6 +82,8 @@ export async function criarUsuarioAction(dados: {
     papel: dados.papel as any,
     lojaId: dados.lojaId,
     conecta,
+    gruposAprovacao:         aprovacao.gruposAprovacao,
+    aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
   })
 
   revalidatePath('/admin/usuarios')
@@ -72,8 +96,11 @@ export async function editarUsuarioAction(id: string, dados: {
   papel: string
   lojaId: string | null
   conecta: string | null
+  gruposAprovacao: string[]
+  aprovaPagamentoSensivel: boolean
 }) {
   await assertAdmin()
+  const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
 
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({
@@ -82,6 +109,8 @@ export async function editarUsuarioAction(id: string, dados: {
       papel: dados.papel as any,
       lojaId: dados.lojaId,
       conecta: validarConecta(dados.conecta),
+      gruposAprovacao:         aprovacao.gruposAprovacao,
+      aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

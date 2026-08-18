@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction } from '../actions'
 
 type Loja = { id: string; nome: string }
+type Grupo = { id: string; nome: string }
 type Usuario = {
   id: string
   nome: string
@@ -20,7 +21,24 @@ type Usuario = {
   lojaId: string | null
   lojaNome: string | null
   conecta: string | null
+  gruposAprovacao: string[]
+  aprovaPagamentoSensivel: boolean
+  grupoDaLojaId: string | null
 }
+
+type DadosForm = {
+  nome: string
+  email: string
+  senha: string
+  papel: string
+  lojaId: string | null
+  conecta: string | null
+  gruposAprovacao: string[]
+  aprovaPagamentoSensivel: boolean
+}
+
+// Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
+const PAPEIS_APROVADORES = ['admin_geral', 'admin_socio']
 
 const PAPEIS: { value: string; label: string }[] = [
   { value: 'admin_geral',  label: 'Admin Geral' },
@@ -63,13 +81,15 @@ function SenhaInput({ value, onChange, placeholder }: { value: string; onChange:
 function FormUsuario({
   inicial,
   lojas,
+  grupos,
   onSubmit,
   onCancel,
   isEdit,
 }: {
   inicial?: Partial<Usuario>
   lojas: Loja[]
-  onSubmit: (dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) => void
+  grupos: Grupo[]
+  onSubmit: (dados: DadosForm) => void
   onCancel: () => void
   isEdit: boolean
 }) {
@@ -79,13 +99,30 @@ function FormUsuario({
   const [papel,   setPapel]   = useState(inicial?.papel   ?? '')
   const [lojaId,  setLojaId]  = useState(inicial?.lojaId  ?? '')
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
+  const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
+  const [aprovaSensivel, setAprovaSensivel] = useState(inicial?.aprovaPagamentoSensivel ?? false)
+
+  const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
+
+  function toggleGrupo(id: string) {
+    setGruposAprov(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
+  }
 
   function handleSubmit() {
     if (!nome.trim())  { toast.error('Informe o nome');  return }
     if (!email.trim()) { toast.error('Informe o e-mail'); return }
     if (!papel)        { toast.error('Selecione a função'); return }
     if (!isEdit && !senha.trim()) { toast.error('Informe a senha'); return }
-    onSubmit({ nome: nome.trim(), email: email.trim(), senha, papel, lojaId: lojaId || null, conecta: conecta.trim() || null })
+    onSubmit({
+      nome: nome.trim(),
+      email: email.trim(),
+      senha,
+      papel,
+      lojaId: lojaId || null,
+      conecta: conecta.trim() || null,
+      gruposAprovacao: mostrarAprovacao ? gruposAprov : [],
+      aprovaPagamentoSensivel: mostrarAprovacao && aprovaSensivel,
+    })
   }
 
   return (
@@ -142,6 +179,50 @@ function FormUsuario({
             placeholder="https://checkout.aride.com.br/?org=…&seller=…"
           />
         </div>
+
+        {mostrarAprovacao && (
+          <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
+            <div>
+              <Label>Aprovação de venda</Label>
+              <p className="text-xs text-slate-500">
+                O grupo da loja deste usuário já é aprovado por ele. Marque aqui os grupos <strong>a mais</strong>.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {grupos.map(g => (
+                <label key={g.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300"
+                    checked={gruposAprov.includes(g.id)}
+                    onChange={() => toggleGrupo(g.id)}
+                  />
+                  <span>
+                    {g.nome}
+                    {g.id === inicial?.grupoDaLojaId && (
+                      <span className="text-slate-400"> — grupo da loja (já aprova)</span>
+                    )}
+                  </span>
+                </label>
+              ))}
+              {grupos.length === 0 && <p className="text-sm text-slate-400">Nenhum grupo ativo.</p>}
+            </div>
+            <label className="flex items-center gap-2 text-sm border-t pt-2">
+              <input
+                type="checkbox"
+                className="rounded border-slate-300"
+                checked={aprovaSensivel}
+                onChange={e => setAprovaSensivel(e.target.checked)}
+              />
+              <span>
+                Aprova financiamento e transferência bancária
+                <span className="block text-xs text-slate-500">
+                  Vale nos mesmos grupos acima. Sem isto, ele só aprova venda abaixo do preço.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -151,13 +232,15 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas: Loja[] }) {
+export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[] }) {
   const [criando,    setCriando]    = useState(false)
   const [editando,   setEditando]   = useState<Usuario | null>(null)
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
   const [pending, startTransition]  = useTransition()
 
-  function handleCriar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) {
+  const nomeGrupo = (id: string) => grupos.find(g => g.id === id)?.nome ?? id
+
+  function handleCriar(dados: DadosForm) {
     startTransition(async () => {
       try {
         await criarUsuarioAction(dados)
@@ -169,7 +252,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
     })
   }
 
-  function handleEditar(dados: { nome: string; email: string; senha: string; papel: string; lojaId: string | null; conecta: string | null }) {
+  function handleEditar(dados: DadosForm) {
     if (!editando) return
     startTransition(async () => {
       try {
@@ -180,6 +263,8 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
           papel:     dados.papel,
           lojaId:    dados.lojaId,
           conecta:   dados.conecta,
+          gruposAprovacao:         dados.gruposAprovacao,
+          aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
         })
         toast.success('Usuário atualizado')
         setEditando(null)
@@ -219,6 +304,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
               <TableHead>E-mail</TableHead>
               <TableHead>Função</TableHead>
               <TableHead>Loja</TableHead>
+              <TableHead>Aprova</TableHead>
               <TableHead className="text-right w-24">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -233,6 +319,24 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
                   </span>
                 </TableCell>
                 <TableCell className="text-slate-500">{u.lojaNome ?? <span className="text-slate-300">—</span>}</TableCell>
+                <TableCell>
+                  {PAPEIS_APROVADORES.includes(u.papel) && (u.gruposAprovacao.length > 0 || u.aprovaPagamentoSensivel) ? (
+                    <div className="flex flex-wrap gap-1">
+                      {u.gruposAprovacao.map(gid => (
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[11px]">
+                          + {nomeGrupo(gid)}
+                        </span>
+                      ))}
+                      {u.aprovaPagamentoSensivel && (
+                        <span className="inline-flex px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px]">
+                          financiamento
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
                     <Button
@@ -255,7 +359,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
             ))}
             {usuarios.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={6} className="text-center text-slate-400 py-8">
                   Nenhum usuário cadastrado.
                 </TableCell>
               </TableRow>
@@ -272,6 +376,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
           </DialogHeader>
           <FormUsuario
             lojas={lojas}
+            grupos={grupos}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -290,6 +395,7 @@ export function UsuariosTable({ usuarios, lojas }: { usuarios: Usuario[]; lojas:
             <FormUsuario
               inicial={editando}
               lojas={lojas}
+              grupos={grupos}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

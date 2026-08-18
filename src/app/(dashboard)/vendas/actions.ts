@@ -7,7 +7,7 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
@@ -142,18 +142,20 @@ export async function efetivarVendaAction(
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão para efetivar venda')
   }
-  if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !podeAprovarPagamentoSensivel(usuario)) {
-    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
-  }
 
   // A loja sai do pedido, não do usuário: é a loja da moto que define de qual
-  // grupo a origem tem de ser.
+  // grupo a origem tem de ser — e em qual grupo a aprovação é avaliada.
   const [pedido] = await db
     .select({ lojaId: pedidosVenda.lojaId })
     .from(pedidosVenda)
     .where(eq(pedidosVenda.id, pedidoId))
     .limit(1)
   if (!pedido) throw new Error('Pedido não encontrado')
+
+  if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
+    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
+  }
+
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
 
   const supabase = await createClient()
@@ -392,8 +394,8 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   }
 
   // Financiamento/transferência sempre precisam da aprovação do responsável,
-  // independente de valor ou papel — ver podeAprovarPagamentoSensivel.
-  if (temPagamentoSensivel(data.pagamentos) && !podeAprovarPagamentoSensivel(usuario)) {
+  // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
+  if (temPagamentoSensivel(data.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId))) {
     throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
   }
 
@@ -1452,7 +1454,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
-    ? podeAprovarPagamentoSensivel(usuario)
+    ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
     throw new Error('Sem permissão para aprovar esta venda')
@@ -1537,7 +1539,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
   if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
-    ? podeAprovarPagamentoSensivel(usuario)
+    ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
     throw new Error('Sem permissão para recusar esta venda')

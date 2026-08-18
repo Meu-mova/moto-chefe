@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, asc, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivel } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 const PAPEIS_VENDA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
@@ -101,7 +101,7 @@ export type DadosVendaPeca = {
 }
 
 // 'financiamento' precisa da mesma aprovação exigida em venda de moto/OS — só quem tem
-// podeAprovarPagamentoSensivel vê esse dado. Ver src/lib/grupo.ts.
+// podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_PECA = new Set(['financiamento'])
 function temPagamentoSensivelPeca(pagamentos: PagamentoVendaPecaInput[]): boolean {
   return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_PECA.has(p.tipo))
@@ -173,7 +173,7 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
   if (valorTotal <= 0) throw new Error('Valor total inválido')
 
-  if (temPagamentoSensivelPeca(input.pagamentos) && !podeAprovarPagamentoSensivel(usuario)) {
+  if (temPagamentoSensivelPeca(input.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, input.lojaId))) {
     await db.insert(aprovacoesVenda).values({
       origem: 'peca',
       lojaId: input.lojaId,

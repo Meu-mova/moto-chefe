@@ -119,6 +119,11 @@ export const usuarios = pgTable('usuarios', {
   papeisExtras: text('papeis_extras').array().notNull().default([]),
   lojaId: uuid('loja_id').references(() => lojas.id), // nullable para admin_geral
   conecta: text('conecta'), // link individual do usuário (menu Conecta); nullable
+  // Grupos EXTRAS onde este usuário aprova venda (além do grupo da própria loja).
+  // Ver src/lib/aprovacao-permissao.ts — editável em /admin/usuarios.
+  gruposAprovacao: uuid('grupos_aprovacao').array().notNull().default([]),
+  // Libera aprovar financiamento/transferência, nos mesmos grupos acima.
+  aprovaPagamentoSensivel: boolean('aprova_pagamento_sensivel').notNull().default(false),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────

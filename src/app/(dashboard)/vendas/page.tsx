@@ -1,5 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivel, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
@@ -138,7 +138,9 @@ export default async function VendasPage({
     // então uma checagem com qualquer loja do grupo já vale pra todas — ver podeAprovarVendaBaixoValor.
     isAdmin && lojaIdsGrupo.length > 0 ? podeAprovarVendaBaixoValor(usuario, lojaIdsGrupo[0]) : Promise.resolve(false),
   ])
-  const podeAprovarSensivel = podeAprovarPagamentoSensivel(usuario)
+  // Mesma lógica do podeAprovarValorMinimo acima: a lista já vem filtrada pelo
+  // grupo ativo, então uma checagem no grupo ativo vale pra todas as linhas.
+  const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
 
   const pendentes   = pedidos.filter(p => p.status === 'pendente')
   const concStats   = podeConciliacao ? calcConcStats(vendasList) : null
