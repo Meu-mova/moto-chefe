@@ -19,7 +19,9 @@ export async function criarModeloAction(formData: FormData) {
     modelo: formData.get('modelo') as string,
     categoria: formData.get('categoria') as any,
     potenciaW: formData.get('potencia_w') as string,
-    motor: formData.get('motor') as string,
+    // Motor não é do modelo: cada moto recebe o número do dela na importação do
+    // XML. A coluna é NOT NULL, então grava vazio.
+    motor: '',
     velocidadeMax: formData.get('velocidade_max') as string,
   })
   revalidatePath('/admin/modelos')
@@ -27,12 +29,13 @@ export async function criarModeloAction(formData: FormData) {
 
 export async function editarModeloAction(id: string, formData: FormData) {
   await assertAdmin()
+  // `motor` fica de fora do set de propósito — preserva o valor dos modelos
+  // antigos que ainda o usam como tipo de motor.
   await db.update(modelos).set({
     marca: formData.get('marca') as string,
     modelo: formData.get('modelo') as string,
     categoria: formData.get('categoria') as any,
     potenciaW: formData.get('potencia_w') as string,
-    motor: formData.get('motor') as string,
     velocidadeMax: formData.get('velocidade_max') as string,
   }).where(eq(modelos.id, id))
   revalidatePath('/admin/modelos')

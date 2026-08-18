@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BlingCodigoCell } from './components/bling-codigo-cell'
+import { ModeloFormButton } from './components/modelo-form-button'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
@@ -23,11 +24,14 @@ export default async function ModelosPage() {
   return (
     <AdminGuard>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Modelos</h1>
-          <p className="text-slate-500 text-sm">
-            Clique na coluna <strong>Cód. Bling</strong> para editar inline — código do grupo <strong>{grupo.nome}</strong>
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Modelos</h1>
+            <p className="text-slate-500 text-sm">
+              Clique na coluna <strong>Cód. Bling</strong> para editar inline — código do grupo <strong>{grupo.nome}</strong>
+            </p>
+          </div>
+          <ModeloFormButton />
         </div>
         <div className="bg-white rounded-lg border">
           <Table>
@@ -40,6 +44,7 @@ export default async function ModelosPage() {
                 <TableHead>Motor</TableHead>
                 <TableHead>Vel. Máx.</TableHead>
                 <TableHead>Cód. Bling</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -55,6 +60,12 @@ export default async function ModelosPage() {
                   <TableCell>{m.velocidadeMax} km/h</TableCell>
                   <TableCell>
                     <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />
+                  </TableCell>
+                  <TableCell>
+                    <ModeloFormButton modelo={{
+                      id: m.id, marca: m.marca, modelo: m.modelo,
+                      categoria: m.categoria, potenciaW: m.potenciaW, velocidadeMax: m.velocidadeMax,
+                    }} />
                   </TableCell>
                 </TableRow>
               ))}
