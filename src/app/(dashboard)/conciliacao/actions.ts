@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
-import { eq, and, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
+import { eq, and, or, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
@@ -104,7 +104,9 @@ function parseStone(text: string) {
       valorLiquido:  parseBRL(c[8] ?? '0'),
       nsu:           c[5]?.trim() || null,   // STONE ID para deduplicação
       portador:      c[12]?.trim() || null,  // número do cartão mascarado
-      terminal:      null,                   // Stone não identifica o aparelho no arquivo
+      // Serial da maquininha (coluna "N DE SÉRIE"). Vazio em venda por e-commerce,
+      // que não passa por aparelho. Usado pra barrar arquivo no grupo errado.
+      terminal:      c[14]?.trim() || null,
     })
   }
   return rows
@@ -160,14 +162,19 @@ export async function importarRelatorioAction(formData: FormData) {
   // grupo, as transações ficam presas onde nenhuma venda pode alcançá-las — foi
   // o que aconteceu com uma transação de BH importada em Sul de Minas.
   // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
-  // engano antes de gravar qualquer coisa.
+  // engano antes de gravar qualquer coisa. O serial é achado por dois caminhos:
+  // na InfinityPay ele vem embutido no NSU; na Stone vem na coluna própria e é
+  // guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     const vistos = await db
       .selectDistinct({ grupoId: conciliacoesCartao.grupoId, grupoNome: grupos.nome })
       .from(conciliacoesCartao)
       .innerJoin(grupos, eq(conciliacoesCartao.grupoId, grupos.id))
-      .where(ilike(conciliacoesCartao.nsu, padraoNsuDoTerminal(terminal)))
+      .where(or(
+        ilike(conciliacoesCartao.nsu, padraoNsuDoTerminal(terminal)),
+        eq(sql`${conciliacoesCartao.rawData}->>'serial'`, terminal),
+      ))
 
     if (vistos.length > 0 && !vistos.some(v => v.grupoId === grupo.id)) {
       const onde = vistos.map(v => v.grupoNome).join(', ')
@@ -267,7 +274,7 @@ export async function importarRelatorioAction(formData: FormData) {
       parcelas:       r.parcelas,
       tipo:           r.tipo,
       status:         'aprovado',
-      rawData:        { bandeira: r.bandeira, portador: r.portador },
+      rawData:        { bandeira: r.bandeira, portador: r.portador, serial: r.terminal ?? null },
       ...(matched ? { vendaId, pecaVendaId, osId, conciliado: true, conciliadoEm: new Date() } : {}),
     })
 
