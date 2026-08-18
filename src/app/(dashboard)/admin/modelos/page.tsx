@@ -41,8 +41,6 @@ export default async function ModelosPage() {
                 <TableHead>Modelo</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Potência</TableHead>
-                <TableHead>Motor</TableHead>
-                <TableHead>Vel. Máx.</TableHead>
                 <TableHead>Cód. Bling</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
@@ -56,15 +54,13 @@ export default async function ModelosPage() {
                     <Badge variant="outline">{m.categoria}</Badge>
                   </TableCell>
                   <TableCell>{m.potenciaW}W</TableCell>
-                  <TableCell>{m.motor}</TableCell>
-                  <TableCell>{m.velocidadeMax} km/h</TableCell>
                   <TableCell>
                     <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />
                   </TableCell>
                   <TableCell>
                     <ModeloFormButton modelo={{
                       id: m.id, marca: m.marca, modelo: m.modelo,
-                      categoria: m.categoria, potenciaW: m.potenciaW, velocidadeMax: m.velocidadeMax,
+                      categoria: m.categoria, potenciaW: m.potenciaW,
                     }} />
                   </TableCell>
                 </TableRow>

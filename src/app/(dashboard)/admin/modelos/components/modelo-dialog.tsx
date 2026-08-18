@@ -15,7 +15,6 @@ export type ModeloEditavel = {
   modelo: string
   categoria: string
   potenciaW: string
-  velocidadeMax: string
 }
 
 export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | null; onClose: () => void }) {
@@ -23,13 +22,12 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
   const [nome, setNome] = useState(modelo?.modelo ?? '')
   const [categoria, setCategoria] = useState(modelo?.categoria ?? 'autopropelido')
   const [potencia, setPotencia] = useState(modelo?.potenciaW ?? '')
-  const [velocidade, setVelocidade] = useState(modelo?.velocidadeMax ?? '')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!marca.trim() || !nome.trim() || !potencia.trim() || !velocidade.trim()) {
-      toast.error('Preencha marca, modelo, potência e velocidade')
+    if (!marca.trim() || !nome.trim() || !potencia.trim()) {
+      toast.error('Preencha marca, modelo e potência')
       return
     }
     setLoading(true)
@@ -39,7 +37,6 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
       fd.set('modelo', nome.trim())
       fd.set('categoria', categoria)
       fd.set('potencia_w', potencia.trim())
-      fd.set('velocidade_max', velocidade.trim())
       if (modelo) {
         await editarModeloAction(modelo.id, fd)
         toast.success('Modelo atualizado')
@@ -84,15 +81,9 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Potência (W) *</Label>
-              <Input value={potencia} onChange={e => setPotencia(e.target.value)} placeholder="Ex: 1000" inputMode="numeric" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Velocidade máx. (km/h) *</Label>
-              <Input value={velocidade} onChange={e => setVelocidade(e.target.value)} placeholder="Ex: 45" inputMode="numeric" />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Potência (W) *</Label>
+            <Input value={potencia} onChange={e => setPotencia(e.target.value)} placeholder="Ex: 1000" inputMode="numeric" />
           </div>
           <p className="text-xs text-slate-400">
             O número do motor não é do modelo — cada moto recebe o seu na importação do XML.
