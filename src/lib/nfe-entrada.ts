@@ -1,25 +1,39 @@
 // Extração de motos das NF-e de entrada (XML) para o módulo Entrada.
 //
 // As motos vêm no campo "Informações Complementares" (infAdic/infCpl) do XML,
-// uma por ";", no formato:  MODELO POTÊNCIA [VARIANTE] CHASSI [MOTOR] COR
-// Variações reais tratadas: modelo com espaço ("GIGA C/ BAU"), moto sem número
-// de motor ("SOMA 1000W <chassi> BRANCO"), variante da fábrica entre parênteses
-// ("X12 1000W (RC) ..." e "X12 1000W(RC) ..."), cor com mais de uma palavra
-// ("AZUL TURQUESA") e lixo no fim (linha de ICMS, ";;;").
+// uma por ";", no formato:  MODELO [POTÊNCIA] [VARIANTE] CHASSI [MOTOR] COR
+//
+// A âncora é o CHASSI, achado pelo formato — não a posição nem a potência.
+// A potência é opcional na nota (cada fornecedor escreve de um jeito: "1000W"
+// solto, "X12-1000W" colado, ou nada) e de todo modo não interessa: ela vem do
+// cadastro de Modelos (modelos.potencia_w). Ancorar nela fazia notas inteiras
+// virarem zero moto, em silêncio.
+//
+// Variações reais tratadas: modelo com espaço ("GIGA C/ BAU", "JET C/ NFC"),
+// moto sem número de motor ("SOMA 1000W <chassi> BRANCO"), variante da fábrica
+// entre parênteses ("X12 1000W (RC) ..." e "X12 1000W(RC) ..."), cor com mais
+// de uma palavra ("AZUL TURQUESA") e lixo no fim (linha de ICMS, ";;;").
 
 export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: string }
 
-// Chassi é VIN: 17 alfanuméricos. Vale para todos os fornecedores vistos
-// (LYDAE3936T1205576, MCBRSOMA251031042, HL5TCAH3XT9W50420, R5XWL6315TM050036).
-const RE_CHASSI = /^[A-Z0-9]{17}$/i
+// Chassi: bloco alfanumérico longo com pelo menos um dígito. Não dá para exigir
+// os 17 do VIN (o BIG TRI usa 12: XL2026042062) nem exigir letra (o JOY SUPER
+// usa só dígitos: 172922506150880). Nome de modelo não chega a 10 caracteres
+// grudados com dígito ("X12", "MC20"; "X12-1000W" tem hífen e 9).
+const RE_CHASSI = /^(?=.*\d)[A-Z0-9]{10,}$/i
 
-// Número de motor: código longo com letra E dígito (JYX1000W260580054,
-// 10ZW6073316YA26190420, HRD48/60V1000W202604120315 — o BIG TRI tem barra).
-// O que não casa é cor: nome de cor não tem dígito nem chega a 10 letras.
+// Número de motor: mesmo formato do chassi, mas aceita barra
+// (HRD48/60V1000W202604120315, do BIG TRI). O que não casa é cor: nome de cor
+// não tem dígito nem chega a 10 letras.
 const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/-]{10,}$/i
 
-// Marcador de variante da fábrica, ex.: "(RC)". Não é chassi nem cor.
-const RE_VARIANTE = /^\(.*\)$/
+// Marcador de variante da fábrica: "(RC)", "(RP)" — e "(RP" sem fechar, que
+// aparece nas notas 40743 e 40957. Não é modelo, nem chassi, nem cor.
+const RE_VARIANTE = /^\(|\)$/
+
+// Potência solta no meio do texto ("1000W", "1000W(RC)"). Sai do nome do modelo:
+// quem manda é o cadastro. Colada ("X12-1000W") fica, e o de-para resolve.
+const RE_POTENCIA = /^\d+w($|\()/i
 
 export function normalizarModelo(s: string): string {
   return (s ?? '').toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -27,9 +41,8 @@ export function normalizarModelo(s: string): string {
 
 /**
  * Quebra o infCpl em motos. Puro — é o que os testes cobrem com notas reais.
- * A "potência" (token tipo 1000W) é a âncora: o que vem antes é o modelo.
- * Depois dela, chassi e motor são achados pelo formato — não pela posição,
- * porque a fábrica intercala variante ("(RC)") e usa cor de duas palavras.
+ * O chassi é a âncora: antes dele vem o modelo, depois o motor (opcional) e a
+ * cor. Linha sem chassi não é moto (ex.: a linha de ICMS no fim da nota).
  */
 export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
   return (infCpl ?? '')
@@ -37,27 +50,21 @@ export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
     .map(s => s.trim())
     .filter(Boolean)
     .map(entrada => {
-      const t = entrada.split(/\s+/)
-      // Âncora: token de potência (1000W, 3000W, 1000W(RC)). Fica DENTRO de
-      // motor (JYX1000W...) mas ali não começa com dígito, então não casa.
-      const pIdx = t.findIndex(x => /^\d+w($|\()/i.test(x))
-      if (pIdx < 1) return null // sem modelo antes da potência → não é moto (ex.: linha de ICMS)
-      const modelo = t.slice(0, pIdx).join(' ')
+      const t = entrada.split(/\s+/).filter(x => !RE_VARIANTE.test(x))
 
-      const resto = t.slice(pIdx + 1).filter(x => !RE_VARIANTE.test(x))
-      if (resto.length < 1) return null
+      const iChassi = t.findIndex(x => RE_CHASSI.test(x))
+      if (iChassi < 1) return null // sem chassi, ou sem modelo antes dele
+      const chassi = t[iChassi]
 
-      // Chassi pelo formato; se a nota fugir do padrão, cai no primeiro token
-      // (comportamento antigo) em vez de descartar a moto em silêncio.
-      const ci = resto.findIndex(x => RE_CHASSI.test(x))
-      const iChassi = ci >= 0 ? ci : 0
-      const chassi = resto[iChassi]
+      // Potência solta não faz parte do nome do modelo — vem do cadastro.
+      const modelo = t.slice(0, iChassi).filter(x => !RE_POTENCIA.test(x)).join(' ')
+      if (!modelo) return null
 
       // Motor é opcional (a SOMA não tem): só conta se o token seguinte tiver
       // cara de código. Tudo o que sobra é cor — inclusive "AZUL TURQUESA".
-      const temMotor = RE_MOTOR.test(resto[iChassi + 1] ?? '')
-      const motor = temMotor ? resto[iChassi + 1] : ''
-      const cor = resto.slice(iChassi + (temMotor ? 2 : 1)).join(' ')
+      const temMotor = RE_MOTOR.test(t[iChassi + 1] ?? '')
+      const motor = temMotor ? t[iChassi + 1] : ''
+      const cor = t.slice(iChassi + (temMotor ? 2 : 1)).join(' ')
       if (!cor) return null
 
       return { modelo, chassi, motor, cor }
