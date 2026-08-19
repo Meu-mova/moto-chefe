@@ -38,11 +38,21 @@ export async function middleware(request: NextRequest) {
   // frente — a própria página revalida a sessão (getUsuarioLogado) e redireciona
   // pro /login se não houver usuário. Assim um soluço do auth vira, no pior caso,
   // uma falha rápida na página, nunca um 504 de 5 minutos no site inteiro.
+  //
+  // O catch era MUDO, e isso cegou o diagnóstico do incidente de 19/08: como o
+  // fail-open não deixa rastro, a ausência de erro do middleware nos logs parecia
+  // prova de que o auth estava rápido — não era, era só silêncio. Agora avisa.
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+  const inicioAuth = Date.now()
   try {
     const res = await withTimeout(supabase.auth.getUser(), 10000)
     user = res.data.user
-  } catch {
+    const gasto = Date.now() - inicioAuth
+    if (gasto > 2000) console.warn(`[middleware] getUser lento: ${gasto}ms`)
+  } catch (e) {
+    console.warn(
+      `[middleware] fail-open após ${Date.now() - inicioAuth}ms: ${(e as Error).message}`
+    )
     return supabaseResponse
   }
 

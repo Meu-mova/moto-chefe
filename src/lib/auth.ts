@@ -10,10 +10,22 @@ import { cache } from 'react'
 // presas), sem timeout ela pendura a requisição inteira até os 300s da Vercel —
 // era a peça do caminho crítico que faltava blindar. Timeout curto que ESTOURA
 // (não desloga): cai no error boundary com "Tentar novamente", em vez de travar.
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+//
+// `etapa` existe porque as duas chamadas abaixo (auth do Supabase e banco) davam
+// a MESMA mensagem: no incidente de 19/08 os logs só diziam "Timeout 8000ms na
+// autenticação", sem dizer qual das duas travou — e as duas respondiam em ~150ms
+// quando medidas por fora. Sem o nome da etapa não dá para fechar o diagnóstico.
+function withTimeout<T>(p: Promise<T>, ms: number, etapa: string): Promise<T> {
+  const inicio = Date.now()
   return Promise.race([
-    p,
-    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`Timeout ${ms}ms na autenticação`)), ms)),
+    p.then((v) => {
+      const gasto = Date.now() - inicio
+      if (gasto > 2000) console.warn(`[auth] ${etapa} lento: ${gasto}ms`)
+      return v
+    }),
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`Timeout ${ms}ms na autenticação (${etapa})`)), ms)
+    ),
   ])
 }
 
@@ -21,13 +33,14 @@ export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
   // getUser() é uma chamada HTTP ao auth do Supabase; sem timeout, um soluço dela
   // pendura a página até os 300s. Estoura rápido → error boundary "Tentar de novo".
-  const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000)
+  const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000, 'getUser do Supabase')
 
   if (!user) redirect('/login')
 
   const [usuario] = await withTimeout(
     db.select().from(usuarios).where(eq(usuarios.id, user.id)).limit(1),
     8000,
+    'consulta do usuário no banco',
   )
 
   if (!usuario) redirect('/login')
