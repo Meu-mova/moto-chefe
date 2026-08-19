@@ -1,6 +1,7 @@
 // src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { fetchResiliente } from '@/lib/supabase/fetch-resiliente'
 
 // O middleware roda ANTES de toda página e valida a sessão. Usa getClaims(), que
 // confere a assinatura ES256 do JWT localmente (WebCrypto, JWKS cacheado) — sem
@@ -24,6 +25,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: fetchResiliente },
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {

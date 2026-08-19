@@ -29,9 +29,14 @@ export default async function LoginPage({
               <Label htmlFor="password">Senha</Label>
               <Input id="password" name="password" type="password" required />
             </div>
-            {error && (
+            {error === 'indisponivel' ? (
+              <p className="text-sm text-red-600">
+                Não foi possível falar com o serviço de login agora. Espere um
+                pouco e tente de novo — sua senha está certa.
+              </p>
+            ) : error ? (
               <p className="text-sm text-red-600">Email ou senha inválidos.</p>
-            )}
+            ) : null}
             <Button type="submit" className="w-full">Entrar</Button>
           </form>
         </CardContent>

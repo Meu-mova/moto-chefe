@@ -8,10 +8,20 @@ export async function loginAction(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  // Separar "senha errada" de "não falei com o Supabase" não é preciosismo: no
+  // incidente de 19/08 a chamada ficava pendurada e, quando enfim falhava, a
+  // tela dizia "email ou senha inválidos" — o pessoal ficava tentando de novo
+  // achando que tinha errado a senha.
+  let error
+  try {
+    ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
+  } catch {
+    redirect('/login?error=indisponivel')
+  }
 
   if (error) {
-    redirect('/login?error=1')
+    const falhaDeRede = error.name === 'AuthRetryableFetchError' || !error.status
+    redirect(falhaDeRede ? '/login?error=indisponivel' : '/login?error=1')
   }
 
   redirect('/dashboard')
