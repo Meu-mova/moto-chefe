@@ -2,11 +2,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-// O middleware roda ANTES de toda página. A única coisa que ele faz é validar a
-// sessão via supabase.auth.getUser() — uma chamada HTTP ao servidor de auth do
-// Supabase, sem timeout. Se essa chamada trava (auth lento/rate-limit), o request
-// inteiro pendura até os 300s da Vercel, antes mesmo da página renderizar — e
-// nenhum timeout dentro da página adianta. Este helper limita a espera.
+// O middleware roda ANTES de toda página e valida a sessão. Usa getClaims(), que
+// confere a assinatura ES256 do JWT localmente (WebCrypto, JWKS cacheado) — sem
+// ida ao servidor de auth. Era getUser(), uma chamada HTTP por request: em 19/08
+// ela passou a levar mais de 10s de dentro da Vercel (com o endpoint respondendo
+// em 150ms medido de fora) e derrubou todas as páginas logadas.
+//
+// O timeout fica como rede de proteção: getClaims ainda vai à rede quando o token
+// está perto de expirar (renovação) ou na primeira busca do JWKS.
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     p,
@@ -42,13 +45,14 @@ export async function middleware(request: NextRequest) {
   // O catch era MUDO, e isso cegou o diagnóstico do incidente de 19/08: como o
   // fail-open não deixa rastro, a ausência de erro do middleware nos logs parecia
   // prova de que o auth estava rápido — não era, era só silêncio. Agora avisa.
-  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+  type Claims = NonNullable<Awaited<ReturnType<typeof supabase.auth.getClaims>>['data']>['claims']
+  let user: Claims | null = null
   const inicioAuth = Date.now()
   try {
-    const res = await withTimeout(supabase.auth.getUser(), 10000)
-    user = res.data.user
+    const res = await withTimeout(supabase.auth.getClaims(), 10000)
+    user = res.data?.claims ?? null
     const gasto = Date.now() - inicioAuth
-    if (gasto > 2000) console.warn(`[middleware] getUser lento: ${gasto}ms`)
+    if (gasto > 2000) console.warn(`[middleware] getClaims lento: ${gasto}ms`)
   } catch (e) {
     console.warn(
       `[middleware] fail-open após ${Date.now() - inicioAuth}ms: ${(e as Error).message}`

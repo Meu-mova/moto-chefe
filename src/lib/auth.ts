@@ -31,14 +31,18 @@ function withTimeout<T>(p: Promise<T>, ms: number, etapa: string): Promise<T> {
 
 export const getUsuarioLogado = cache(async () => {
   const supabase = await createClient()
-  // getUser() é uma chamada HTTP ao auth do Supabase; sem timeout, um soluço dela
-  // pendura a página até os 300s. Estoura rápido → error boundary "Tentar de novo".
-  const { data: { user } } = await withTimeout(supabase.auth.getUser(), 8000, 'getUser do Supabase')
+  // getClaims() valida a assinatura ES256 do JWT localmente (WebCrypto + JWKS
+  // cacheado), sem ida ao servidor de auth — a garantia é criptográfica, não é
+  // confiar no cookie. Era getUser(), uma chamada HTTP por página: em 19/08 ela
+  // passou a estourar os 8s aqui e os 10s do middleware, com o auth do Supabase
+  // respondendo em 150ms quando medido de fora. Ver memória project-auth-getclaims.
+  const { data } = await withTimeout(supabase.auth.getClaims(), 8000, 'getClaims do Supabase')
+  const userId = data?.claims.sub
 
-  if (!user) redirect('/login')
+  if (!userId) redirect('/login')
 
   const [usuario] = await withTimeout(
-    db.select().from(usuarios).where(eq(usuarios.id, user.id)).limit(1),
+    db.select().from(usuarios).where(eq(usuarios.id, userId)).limit(1),
     8000,
     'consulta do usuário no banco',
   )
