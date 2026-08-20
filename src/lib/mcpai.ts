@@ -14,6 +14,18 @@ type ResultadoSaldos =
   | { ok: true; contas: ContaBancaria[] }
   | { ok: false; erro: string }
 
+/**
+ * Cada CNPJ conectado é um "item" próprio no mcp.ai, e o list_accounts devolve
+ * TODOS eles de uma vez — as contas da BH vêm junto com as do Sul de Minas.
+ * Comparar por dígitos porque o cadastro do grupo pode vir sem pontuação
+ * enquanto o mcp.ai devolve formatado.
+ */
+function mesmoCnpj(a: string | null | undefined, b: string | null | undefined): boolean {
+  const so = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '')
+  const x = so(a)
+  return x.length > 0 && x === so(b)
+}
+
 type RespostaMcp = {
   json: { result?: unknown; error?: { message?: string } }
   sessionId: string | null
@@ -187,7 +199,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     }
     const bancosExcluidos = BANCOS_EXCLUIDOS_POR_CNPJ[cnpjGrupo] ?? []
     const contas = (contasPayload.results ?? []).filter(
-      c => c.subtype !== 'SAVINGS_ACCOUNT' && c.taxNumber === cnpjGrupo && !bancosExcluidos.includes(c.bank),
+      c => c.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(c.taxNumber, cnpjGrupo) && !bancosExcluidos.includes(c.bank),
     )
 
     const inicioMs = dataInicio.getTime()
@@ -326,7 +338,13 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
   return { ok: true, transacoes }
 }
 
-export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
+/**
+ * Saldo das contas correntes do grupo.
+ *
+ * O filtro por CNPJ não é detalhe: sem ele a página somava a Sicredi da BH
+ * (00030201-7) no total do Sul de Minas.
+ */
+export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<ResultadoSaldos> {
   try {
     const init = await chamarMcp(null, {
       jsonrpc: '2.0',
@@ -368,8 +386,11 @@ export async function buscarSaldosBancarios(): Promise<ResultadoSaldos> {
       subtype: string
       number: string
       balance: string
+      taxNumber: string
     }> }
-    const resultados = (payload.results ?? []).filter(r => r.subtype !== 'SAVINGS_ACCOUNT')
+    const resultados = (payload.results ?? []).filter(
+      r => r.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(r.taxNumber, cnpjGrupo),
+    )
 
     const saldosAoVivo = await buscarSaldosAoVivo(init.sessionId, resultados.map(r => r.id))
 

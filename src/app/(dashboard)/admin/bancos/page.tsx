@@ -8,15 +8,19 @@ function fmt(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-async function BancosConteudo() {
-  const resultado = await buscarSaldosBancarios()
+async function BancosConteudo({ grupo }: { grupo: { nome: string; cnpj: string } }) {
+  const resultado = await buscarSaldosBancarios(grupo.cnpj)
 
   if (!resultado.ok) {
     return <p className="text-sm text-red-600">Não foi possível buscar os saldos: {resultado.erro}</p>
   }
 
   if (resultado.contas.length === 0) {
-    return <p className="text-sm text-slate-400">Nenhuma conta conectada.</p>
+    return (
+      <p className="text-sm text-slate-400">
+        Nenhuma conta do {grupo.nome} conectada ao Open Finance.
+      </p>
+    )
   }
 
   const comSaldo = resultado.contas.filter(c => c.saldo != null)
@@ -66,16 +70,16 @@ export default async function BancosPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Bancos</h1>
-          <p className="text-slate-500 text-sm">Saldo das contas conectadas via Open Finance</p>
+          {/* O grupo no subtítulo é proposital: o mcp.ai devolve as contas de
+              todos os CNPJs conectados de uma vez, e uma conta de outra bandeira
+              somando no total passou despercebida justamente por não ter de quem
+              a tela era. */}
+          <p className="text-slate-500 text-sm">
+            Saldo das contas do <b>{grupo.nome}</b> conectadas via Open Finance
+          </p>
         </div>
 
-        {grupo.nome !== 'Sul de Minas' ? (
-          <p className="text-sm text-slate-500">
-            Esta integração está disponível apenas para o grupo Sul de Minas. Troque o grupo ativo para visualizar.
-          </p>
-        ) : (
-          <BancosConteudo />
-        )}
+        <BancosConteudo grupo={grupo} />
       </div>
     </AdminGuard>
   )
