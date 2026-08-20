@@ -35,6 +35,10 @@ import { ImportarCartaoButton } from './components/importar-cartao-button'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
 
+// O botão "Atualizar" do card da fábrica roda por Server Action nesta rota, e
+// ele faz login + scraping no portal, uma conta por loja. Não cabe no default.
+export const maxDuration = 300
+
 type Filtros = { dataInicio: string; dataFim: string; lojaId?: string[]; vendedorId?: string }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

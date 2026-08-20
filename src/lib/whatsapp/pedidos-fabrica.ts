@@ -81,11 +81,15 @@ export function diasEntre(de: Date, ate: Date): number {
 export type ResultadoLoja = {
   loja: string
   grupo: string
-  status: 'enviado' | 'nada_pendente' | 'sem_numero' | 'sem_credencial' | 'erro'
+  /** 'lido' = portal lido e gravado, sem tentar avisar (leitura manual). */
+  status: 'enviado' | 'lido' | 'nada_pendente' | 'sem_numero' | 'sem_credencial' | 'erro'
   novos?: number
   pendentes?: number
   erro?: string
 }
+
+/** `avisar: false` lê e grava, mas não manda WhatsApp — é o modo da leitura manual. */
+export type OpcoesLeitura = { avisar?: boolean }
 
 /**
  * Roda o alerta para uma loja: entra no portal com a conta dela, lista o que
@@ -104,6 +108,7 @@ export async function alertarPedidosFabricaDaLoja(
     fabricaSenha: string | null
   },
   agora: Date,
+  opcoes: OpcoesLeitura = {},
 ): Promise<ResultadoLoja> {
   const base = { loja: loja.nome, grupo: loja.grupoNome }
   const email  = loja.fabricaEmail?.trim()
@@ -189,6 +194,14 @@ export async function alertarPedidosFabricaDaLoja(
         })
     }
 
+    // Leitura manual (botão do dashboard) para aqui: o dado já está gravado e é
+    // isso que o card mostra. Não mandamos WhatsApp porque quem clica está
+    // olhando a tela, e um refresh não pode virar mensagem no grupo da bandeira.
+    // `avisado_em` continua nulo, então o cron ainda anuncia o pedido novo.
+    if (opcoes.avisar === false) {
+      return { ...base, status: 'lido', novos: novos.length, pendentes: pendentes.length }
+    }
+
     const texto = formatarAvisoPedidosFabrica({ loja: loja.nome, novos, pendentes })
     if (!texto) return { ...base, status: 'nada_pendente' }
 
@@ -215,8 +228,16 @@ export async function alertarPedidosFabricaDaLoja(
   }
 }
 
-/** Roda o alerta para todas as lojas ativas de grupos ativos. */
-export async function alertarPedidosFabrica(agora: Date = new Date()): Promise<ResultadoLoja[]> {
+/**
+ * Roda o alerta para todas as lojas ativas de grupos ativos.
+ *
+ * `grupoId` limita a um grupo — a leitura manual do dashboard é da bandeira que
+ * o usuário está olhando, e não faz sentido logar nas contas da outra.
+ */
+export async function alertarPedidosFabrica(
+  agora: Date = new Date(),
+  opcoes: OpcoesLeitura & { grupoId?: string } = {},
+): Promise<ResultadoLoja[]> {
   const ativas = await db
     .select({
       id:             lojas.id,
@@ -228,14 +249,18 @@ export async function alertarPedidosFabrica(agora: Date = new Date()): Promise<R
     })
     .from(lojas)
     .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
-    .where(and(eq(grupos.ativo, true), eq(lojas.ativa, true)))
+    .where(and(
+      eq(grupos.ativo, true),
+      eq(lojas.ativa, true),
+      opcoes.grupoId ? eq(lojas.grupoId, opcoes.grupoId) : undefined,
+    ))
     .orderBy(grupos.nome, lojas.nome)
 
   const resultados: ResultadoLoja[] = []
   // Sequencial: o portal da fábrica é frágil e paralelizar login na mesma origem
   // não vale o risco de derrubar a sessão de outra loja.
   for (const l of ativas) {
-    const r = await alertarPedidosFabricaDaLoja(l, agora)
+    const r = await alertarPedidosFabricaDaLoja(l, agora, opcoes)
     resultados.push(r)
     // Registra o resultado da leitura. É o que permite ao card do dashboard
     // distinguir "nenhum pedido pendente" de "ninguém conseguiu ler esta conta"

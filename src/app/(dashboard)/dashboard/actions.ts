@@ -5,6 +5,8 @@ import { eq, and, inArray, desc } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { situacaoDoPedido, type SituacaoPedido } from '@/lib/importacao-cartao'
+import { alertarPedidosFabrica } from '@/lib/whatsapp/pedidos-fabrica'
+import { pedidosFabricaDoGrupo, type PedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 
 const PAPEIS_IMPORTACAO = ['admin_geral', 'admin_socio', 'aux_adm']
 
@@ -91,4 +93,39 @@ export async function consultarImportacaoAction(id: string): Promise<{
     resultado: pedido.resultado as Record<string, ResumoOperadora> | null,
     erro: pedido.erro,
   }
+}
+
+// Mesmos papéis do card no dashboard: quem paga a fábrica é o administrativo.
+const PAPEIS_FABRICA = ['admin_geral', 'admin_socio', 'aux_adm']
+
+/**
+ * Relê o portal da fábrica agora, para as lojas do grupo ativo, e devolve o
+ * card já atualizado.
+ *
+ * A leitura normal é o cron das 12h; este é o botão para quem acabou de pagar
+ * (ou de abrir um pedido) e não quer esperar até amanhã para o card bater com a
+ * realidade.
+ *
+ * Não dispara WhatsApp (`avisar: false`): quem clicou está olhando a tela, e um
+ * refresh não pode virar mensagem no grupo da bandeira. O pedido novo continua
+ * sem `avisado_em`, então o cron ainda o anuncia.
+ */
+export async function atualizarPedidosFabricaAction(): Promise<
+  { dados: PedidosFabricaDoGrupo } | { erro: string }
+> {
+  const usuario = await getUsuarioLogado()
+  if (!PAPEIS_FABRICA.includes(usuario.papel)) return { erro: 'Sem permissão' }
+
+  const grupo = await getGrupoAtivo(usuario)
+
+  try {
+    await alertarPedidosFabrica(new Date(), { grupoId: grupo.id, avisar: false })
+  } catch (e) {
+    // alertarPedidosFabricaDaLoja já engole a falha de cada loja; se estourou
+    // aqui foi a listagem/gravação. Ainda assim devolvemos o card: o banco pode
+    // ter sido atualizado para parte das lojas.
+    console.error('[atualizarPedidosFabricaAction] erro:', e)
+  }
+
+  return { dados: await pedidosFabricaDoGrupo(grupo.id) }
 }

@@ -1,4 +1,8 @@
-import { AlertTriangle, EyeOff, PackageX } from 'lucide-react'
+'use client'
+import { useState, useTransition } from 'react'
+import { AlertTriangle, EyeOff, PackageX, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { atualizarPedidosFabricaAction } from '../actions'
 import type { PedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 
 const URL_PORTAL = 'https://motochefebrasil.store/clientes/pedidos?aba=compras'
@@ -26,10 +30,36 @@ const MOTIVO: Record<string, string> = {
  * A fábrica cancela por prazo, então o custo de não ver é perder o pedido. Por
  * isso o card aparece mesmo com zero pendências quando alguma loja do grupo não
  * está sendo lida: nesse caso o zero não significa "tudo pago".
+ *
+ * O botão relê o portal na hora. O resultado entra em estado local em vez de
+ * `revalidatePath`: quando a releitura zera tudo, o card sumiria no meio do
+ * clique e quem apertou não veria nada acontecer.
  */
-export function PedidosFabricaCard({ dados }: { dados: PedidosFabricaDoGrupo }) {
+export function PedidosFabricaCard({ dados: iniciais }: { dados: PedidosFabricaDoGrupo }) {
+  const [dados, setDados] = useState(iniciais)
+  const [erro, setErro] = useState<string | null>(null)
+  const [releu, setReleu] = useState(false)
+  const [lendo, iniciarLeitura] = useTransition()
+
   const { pendentes, total, valorTotal, lojasSemLeitura, ultimaLeitura } = dados
-  if (total === 0 && lojasSemLeitura.length === 0) return null
+
+  function atualizar() {
+    setErro(null)
+    iniciarLeitura(async () => {
+      try {
+        const r = await atualizarPedidosFabricaAction()
+        if ('erro' in r) { setErro(r.erro); return }
+        setDados(r.dados)
+        setReleu(true)
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Falha ao ler o portal da fábrica')
+      }
+    })
+  }
+
+  // `releu` segura o card na tela quando a leitura manual zerou tudo — some
+  // sozinho no próximo carregamento da página.
+  if (total === 0 && lojasSemLeitura.length === 0 && !releu) return null
 
   const critico = pendentes.some(p => p.dias >= 3)
 
@@ -37,14 +67,26 @@ export function PedidosFabricaCard({ dados }: { dados: PedidosFabricaDoGrupo }) 
     <section className={`rounded-lg border p-4 space-y-2 ${
       total > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
     }`}>
-      <h2 className={`font-semibold text-sm flex items-center gap-1.5 ${
-        total > 0 ? 'text-amber-800' : 'text-slate-700'
-      }`}>
-        {total > 0
-          ? <AlertTriangle size={15} className="text-amber-600" />
-          : <PackageX size={15} className="text-slate-400" />}
-        Pedidos de peças aguardando pagamento na fábrica
-      </h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className={`font-semibold text-sm flex items-center gap-1.5 ${
+          total > 0 ? 'text-amber-800' : 'text-slate-700'
+        }`}>
+          {total > 0
+            ? <AlertTriangle size={15} className="text-amber-600" />
+            : <PackageX size={15} className="text-slate-400" />}
+          Pedidos de peças aguardando pagamento na fábrica
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={atualizar}
+          disabled={lendo}
+          className="shrink-0 bg-white"
+        >
+          <RefreshCw className={lendo ? 'animate-spin' : undefined} />
+          {lendo ? 'Lendo o portal…' : 'Atualizar'}
+        </Button>
+      </div>
 
       {total > 0 && (
         <>
@@ -77,7 +119,7 @@ export function PedidosFabricaCard({ dados }: { dados: PedidosFabricaDoGrupo }) 
         </>
       )}
 
-      {total === 0 && lojasSemLeitura.length > 0 && (
+      {total === 0 && (
         <p className="text-sm text-slate-600">
           Nenhum pedido pendente nas lojas que o sistema consegue ler.
         </p>
@@ -94,7 +136,12 @@ export function PedidosFabricaCard({ dados }: { dados: PedidosFabricaDoGrupo }) 
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400">Última leitura do portal: {quando(ultimaLeitura)}</p>
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+
+      <p className="text-[11px] text-slate-400">
+        Última leitura do portal: {quando(ultimaLeitura)}
+        {lendo && ' · lendo agora…'}
+      </p>
     </section>
   )
 }

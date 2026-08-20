@@ -137,6 +137,8 @@ test('statusDaLeitura: só sem_credencial e erro contam como falha de leitura', 
   assert.equal(statusDaLeitura({ ...base, status: 'nada_pendente' }), 'ok')
   // Leu certo, gravou os pedidos, só não tinha para quem avisar.
   assert.equal(statusDaLeitura({ ...base, status: 'sem_numero' }), 'ok')
+  // Leitura manual do dashboard: leu e gravou, e de propósito não avisou.
+  assert.equal(statusDaLeitura({ ...base, status: 'lido' }), 'ok')
   assert.equal(statusDaLeitura({ ...base, status: 'sem_credencial' }), 'sem_credencial')
   assert.equal(statusDaLeitura({ ...base, status: 'erro' }), 'erro')
 })
