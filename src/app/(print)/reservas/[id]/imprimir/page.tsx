@@ -80,6 +80,25 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
         </div>
       </div>
 
+      {reserva.status === 'cancelada' && (
+        // O link do comprovante continua funcionando depois do cancelamento (e
+        // alguém pode ter guardado a URL). Sem esta tarja, o papel impresso
+        // segue valendo como comprovante de uma reserva que não existe mais.
+        <div style={{
+          border: '2px solid #b91c1c', background: '#fef2f2', color: '#b91c1c',
+          borderRadius: 8, padding: '10px 12px', marginBottom: 14,
+          fontWeight: 800, fontSize: 14, textAlign: 'center', letterSpacing: '.04em',
+        }}>
+          RESERVA CANCELADA
+          {reserva.canceladaEm && (
+            <span style={{ display: 'block', fontWeight: 600, fontSize: 11, marginTop: 3 }}>
+              em {format(new Date(reserva.canceladaEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              {reserva.cancelamentoMotivo ? ` — ${reserva.cancelamentoMotivo}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid2">
         <div className="card">
           <h2>Cliente</h2>

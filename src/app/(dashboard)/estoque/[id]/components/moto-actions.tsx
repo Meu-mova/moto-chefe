@@ -4,6 +4,7 @@ import { GarantiaButton } from '../../components/garantia-button'
 import { LogisticaButton } from '../../components/logistica-button'
 import { NfSaidaButton } from '../../components/nf-saida-button'
 import { MontarButton } from '../../components/montar-button'
+import { CancelarReservaButton } from '../../components/cancelar-reserva-button'
 import { ResolverGarantiaButton } from './resolver-garantia-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeftRight, Printer } from 'lucide-react'
@@ -75,6 +76,9 @@ const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeGarantia  = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
+// Cancelar reserva mexe em sinal já recebido — fica com o administrativo, não
+// com quem vende.
+const podeCancelarReserva = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
 export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis, origens }: Props) {
@@ -204,6 +208,19 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
           />
         )
       }
+    }
+
+    if (podeAlterar && podeCancelarReserva.has(papel) && moto.disponibilidade === 'reservada' && moto.reservaId) {
+      acoes.push(
+        <CancelarReservaButton
+          key="cancelar-reserva"
+          reservaId={moto.reservaId}
+          descricao={descricao}
+          clienteNome={moto.reservaClienteNome}
+          valorEntrada={moto.reservaValorEntrada}
+          showLabel
+        />
+      )
     }
 
     if (podeAlterar && podeMontar.has(papel) && moto.status === 'caixa') {

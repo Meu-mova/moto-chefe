@@ -9,6 +9,7 @@ import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
 import { NfSaidaButton } from './nf-saida-button'
 import { MontarButton } from './montar-button'
+import { CancelarReservaButton } from './cancelar-reserva-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
 import type { DemandaCompativel } from '@/lib/queries/demandas'
@@ -25,6 +26,9 @@ const podeVender    = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedo
 const podeGarantia  = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const podeLogistica = new Set(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'])
 const podeMontar    = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
+// Cancelar reserva mexe em sinal já recebido — fica com o administrativo, não
+// com quem vende.
+const podeCancelarReserva = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
 type Campo = 'modelo' | 'cor' | 'loja' | 'status' | 'disponibilidade'
@@ -211,6 +215,14 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   >
                                     <Printer size={16} />
                                   </a>
+                                )}
+                                {moto.disponibilidade === 'reservada' && moto.reservaId && podeAlterar && podeCancelarReserva.has(papel) && (
+                                  <CancelarReservaButton
+                                    reservaId={moto.reservaId}
+                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    clienteNome={moto.reservaClienteNome}
+                                    valorEntrada={moto.reservaValorEntrada}
+                                  />
                                 )}
                                 {/* Caixa ainda não reservada: só reserva */}
                                 {moto.status === 'caixa' && moto.disponibilidade == null && (

@@ -209,6 +209,11 @@ export const reservas = pgTable('reservas', {
   cartaoOperadora: text('cartao_operadora'),
   cartaoParcelas: numeric('cartao_parcelas'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Cancelamento (status 'cancelada'). O motivo é obrigatório na action: reserva
+  // cancelada some da tela da moto, e sem motivo ninguém reconstrói o porquê.
+  canceladaEm: timestamp('cancelada_em', { withTimezone: true }),
+  canceladaPor: uuid('cancelada_por').references(() => usuarios.id),
+  cancelamentoMotivo: text('cancelamento_motivo'),
 })
 
 // ─── pedidos_venda ───────────────────────────────────────────────────────────

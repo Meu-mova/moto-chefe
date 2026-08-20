@@ -36,6 +36,8 @@ export async function buscarReserva(id: string) {
       clienteBairro: reservas.clienteBairro,
       clienteCidade: reservas.clienteCidade,
       clienteEstado: reservas.clienteEstado,
+      canceladaEm: reservas.canceladaEm,
+      cancelamentoMotivo: reservas.cancelamentoMotivo,
     })
     .from(reservas)
     .innerJoin(motos, eq(reservas.motoId, motos.id))

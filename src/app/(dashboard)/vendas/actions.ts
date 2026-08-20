@@ -1044,6 +1044,20 @@ export async function registrarReservaAction(data: DadosReserva) {
     throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de reservar')
   }
 
+  // A checagem acima olha a disponibilidade da MOTO, que é editável no "Editar
+  // moto" — e foi por aí que o chassi 192922510890343 ganhou duas reservas
+  // ativas. A trava que vale é a própria reserva.
+  const [jaReservada] = await db
+    .select({ id: reservas.id, cliente: reservas.clienteNome })
+    .from(reservas)
+    .where(and(eq(reservas.motoId, data.motoId), eq(reservas.status, 'ativa')))
+    .limit(1)
+  if (jaReservada) {
+    throw new Error(
+      `Moto já tem reserva ativa${jaReservada.cliente ? ` (${jaReservada.cliente})` : ''} — cancele antes de reservar de novo`,
+    )
+  }
+
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
 
@@ -1126,6 +1140,104 @@ export async function registrarReservaAction(data: DadosReserva) {
 
   revalidatePath('/estoque')
   return { id: reservaId }
+}
+
+const PAPEIS_CANCELAR_RESERVA = ['admin_geral', 'admin_socio', 'aux_adm']
+
+/**
+ * Cancela uma reserva ativa e devolve a moto para venda.
+ *
+ * Não mexe em dinheiro de propósito: a reserva nunca lançou o sinal no caixa
+ * (quem lança é a venda, quando a reserva é convertida), então um estorno aqui
+ * criaria uma saída sem a entrada correspondente. A devolução do sinal ao
+ * cliente, se houver, é combinada fora do sistema — por isso o motivo é
+ * obrigatório e fica gravado.
+ *
+ * A disponibilidade só é mexida se ainda estiver 'reservada': se nesse meio
+ * tempo a moto entrou em venda aguardando aprovação, quem manda é a venda.
+ */
+export async function cancelarReservaAction(reservaId: string, motivo: string) {
+  const usuario = await getUsuarioLogado()
+  if (!PAPEIS_CANCELAR_RESERVA.includes(usuario.papel)) {
+    throw new Error('Sem permissão para cancelar reserva')
+  }
+
+  const motivoLimpo = motivo.trim()
+  if (motivoLimpo.length < 3) throw new Error('Informe o motivo do cancelamento')
+
+  const [reserva] = await db
+    .select({
+      id: reservas.id,
+      motoId: reservas.motoId,
+      lojaId: reservas.lojaId,
+      status: reservas.status,
+      clienteNome: reservas.clienteNome,
+      valorReserva: reservas.valorReserva,
+    })
+    .from(reservas)
+    .where(eq(reservas.id, reservaId))
+    .limit(1)
+  if (!reserva) throw new Error('Reserva não encontrada')
+
+  if (reserva.status === 'cancelada') throw new Error('Reserva já está cancelada')
+  if (reserva.status === 'convertida') {
+    throw new Error('Reserva já virou venda — cancele a venda, não a reserva')
+  }
+
+  // Mesmo recorte do resto do módulo: admin_geral não tem loja e enxerga tudo.
+  if (usuario.lojaId && reserva.lojaId !== usuario.lojaId) {
+    throw new Error('Sem permissão para cancelar reserva de outra loja')
+  }
+
+  await db.transaction(async (tx) => {
+    // O filtro por status no UPDATE evita corrida com quem estiver convertendo
+    // a reserva em venda neste instante.
+    const cancelada = await tx.update(reservas)
+      .set({
+        status: 'cancelada',
+        canceladaEm: new Date(),
+        canceladaPor: usuario.id,
+        cancelamentoMotivo: motivoLimpo,
+      })
+      .where(and(eq(reservas.id, reservaId), eq(reservas.status, 'ativa')))
+      .returning({ id: reservas.id })
+    if (cancelada.length === 0) throw new Error('A reserva mudou de estado — recarregue a página')
+
+    const [moto] = await tx
+      .select({ status: motos.status, disponibilidade: motos.disponibilidade })
+      .from(motos)
+      .where(eq(motos.id, reserva.motoId))
+      .limit(1)
+
+    // Uma moto não deveria ter duas reservas ativas, mas tem na base (o buraco
+    // que este botão fecha). Enquanto sobrar outra, a moto continua reservada.
+    const [outraAtiva] = await tx
+      .select({ id: reservas.id })
+      .from(reservas)
+      .where(and(eq(reservas.motoId, reserva.motoId), eq(reservas.status, 'ativa')))
+      .limit(1)
+
+    if (!outraAtiva && moto?.disponibilidade === 'reservada') {
+      await tx.update(motos)
+        // Moto ainda na caixa volta para disponibilidade nula — é o estado de
+        // quem não foi montada; 'disponivel' a colocaria à venda sem montagem.
+        .set({ disponibilidade: moto.status === 'caixa' ? null : 'disponivel' })
+        .where(eq(motos.id, reserva.motoId))
+    }
+
+    const valor = parseFloat(reserva.valorReserva)
+    await tx.insert(historicoEstoque).values({
+      motoId: reserva.motoId,
+      lojaOrigemId: reserva.lojaId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      observacao: `Reserva CANCELADA — Cliente: ${reserva.clienteNome ?? '—'} — Entrada: R$ ${(isNaN(valor) ? 0 : valor).toFixed(2)} — Motivo: ${motivoLimpo}`,
+    })
+  })
+
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${reserva.motoId}`)
+  return { motoId: reserva.motoId }
 }
 
 export type PagamentoEditar = {
