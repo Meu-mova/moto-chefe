@@ -251,6 +251,22 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
   const [enviado, setEnviado] = useState(false)
   const [pending, startTransition] = useTransition()
   const pediu = useRef(false)
+  // Espera até poder pedir outro código, e quantos ainda restam. Vêm do
+  // servidor — quem recarrega a página precisa voltar com o botão no estado
+  // certo, e não liberado até clicar e tomar o erro.
+  const [espera, setEspera] = useState(0)
+  const [restantes, setRestantes] = useState<number | null>(null)
+
+  function aplicarCota(r: { restantes?: number; esperarSegundos?: number }) {
+    if (typeof r.restantes === 'number') setRestantes(r.restantes)
+    if (typeof r.esperarSegundos === 'number') setEspera(r.esperarSegundos)
+  }
+
+  useEffect(() => {
+    if (espera <= 0) return
+    const t = setTimeout(() => setEspera(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [espera])
 
   // Ao entrar no passo, garante que existe um código válido. A action não gera
   // outro se o anterior ainda vale — voltar do e-mail não invalida o código
@@ -260,6 +276,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
     pediu.current = true
     startTransition(async () => {
       const r = await solicitarCodigoAction(token)
+      aplicarCota(r)
       if (r.ok) setEnviado(true)
       else setErro(r.error ?? 'Falha ao enviar o código')
     })
@@ -271,6 +288,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
     setErro('')
     startTransition(async () => {
       const r = await solicitarCodigoAction(token, true)
+      aplicarCota(r)
       if (r.ok) { setEnviado(true); setCodigo('') }
       else setErro(r.error ?? 'Falha ao enviar o código')
     })
@@ -320,13 +338,22 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
       >
         {pending ? 'Verificando…' : 'Confirmar'}
       </button>
-      <button
-        onClick={reenviar}
-        disabled={pending}
-        className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-sm text-slate-500 disabled:opacity-50"
-      >
-        <RefreshCw size={14} /> Reenviar código
-      </button>
+      {restantes === 0 ? (
+        // Sem reenvio sobrando. A saída é pela loja: reenviar o documento
+        // cancela este e cria outro, com link e cota novos.
+        <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+          Você já pediu o código o máximo de vezes. Fale com a loja para receber um link novo.
+        </p>
+      ) : (
+        <button
+          onClick={reenviar}
+          disabled={pending || espera > 0}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-sm text-slate-500 disabled:opacity-50"
+        >
+          <RefreshCw size={14} />
+          {espera > 0 ? `Reenviar em ${espera}s` : 'Reenviar código'}
+        </button>
+      )}
     </div>
   )
 }

@@ -2,10 +2,13 @@
 
 import { headers } from 'next/headers'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { desc, eq } from 'drizzle-orm'
+import { and, count, desc, eq, max, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaCodigos, assinaturaEventos, vendas } from '@/lib/db/schema'
-import { gerarCodigo, hashCodigo, validarCodigo, codigoAindaVale, VALIDADE_MINUTOS } from '@/lib/assinatura/codigo'
+import {
+  gerarCodigo, hashCodigo, validarCodigo, codigoAindaVale, podeEnviarCodigo,
+  VALIDADE_MINUTOS, MAX_CODIGOS, COOLDOWN_SEGUNDOS,
+} from '@/lib/assinatura/codigo'
 import { emailCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
 import {
   LABEL_TIPO, montarHtmlDocumento, checklistCompleto,
@@ -16,6 +19,38 @@ import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
 
 type Resposta = { ok: boolean; error?: string }
+
+/**
+ * Estado da cota de códigos, devolvido junto com a resposta para a tela acertar
+ * o botão já no carregamento — sem isso, quem recarrega a página volta com
+ * "Reenviar" liberado e descobre a trava só depois de clicar.
+ */
+export type RespostaCodigo = Resposta & {
+  enviados?: number
+  restantes?: number
+  esperarSegundos?: number
+}
+
+/** Quantos códigos já saíram deste documento, e quando saiu o último. */
+async function historicoEnvios(documentoId: string) {
+  const [linha] = await db
+    .select({
+      enviados: count(),
+      ultimo: max(assinaturaEventos.criadoEm),
+    })
+    .from(assinaturaEventos)
+    .where(and(
+      eq(assinaturaEventos.documentoId, documentoId),
+      eq(assinaturaEventos.tipo, 'codigo_enviado'),
+      // Só envio que deu certo consome a cota — falha não gastou reputação do
+      // domínio nem entregou código nenhum ao cliente.
+      sql`${assinaturaEventos.detalhe}->>'envio' = 'enviado'`,
+    ))
+  return {
+    enviados: Number(linha?.enviados ?? 0),
+    ultimoEnvioEm: linha?.ultimo ? new Date(linha.ultimo) : null,
+  }
+}
 
 // IP e user-agent de quem está assinando. Na Vercel o IP real vem no
 // x-forwarded-for; o primeiro da lista é o cliente, o resto são proxies.
@@ -33,7 +68,7 @@ async function docPorToken(token: string) {
   return doc ?? null
 }
 
-export async function solicitarCodigoAction(token: string, forcarNovo = false): Promise<Resposta> {
+export async function solicitarCodigoAction(token: string, forcarNovo = false): Promise<RespostaCodigo> {
   const doc = await docPorToken(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
   if (doc.status === 'assinado') return { ok: false, error: 'Documento já assinado' }
@@ -44,11 +79,36 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
   // e-mail e voltar — e voltar recarrega a página. Gerar um código novo aí
   // invalidaria justamente o que ele acabou de copiar, e o fluxo se sabotava
   // no movimento que ele mesmo obriga a fazer. Só o botão "Reenviar" força.
+  const historico = await historicoEnvios(doc.id)
+  const restantes = Math.max(0, MAX_CODIGOS - historico.enviados)
   if (!forcarNovo) {
     const [vigente] = await db.select().from(assinaturaCodigos)
       .where(eq(assinaturaCodigos.documentoId, doc.id))
       .orderBy(desc(assinaturaCodigos.criadoEm)).limit(1)
-    if (codigoAindaVale(vigente, new Date())) return { ok: true }
+    if (codigoAindaVale(vigente, new Date())) {
+      return { ok: true, enviados: historico.enviados, restantes }
+    }
+  }
+
+  // Trava de rajada. Vale para os dois caminhos: a tela recarrega e o botão dá
+  // pra burlar, e o que se protege aqui é a reputação do domínio de envio.
+  const permissao = podeEnviarCodigo(historico, new Date())
+  if (!permissao.ok) {
+    if (permissao.motivo === 'excedeu') {
+      return {
+        ok: false,
+        error: `Este documento já enviou ${MAX_CODIGOS} códigos e nenhum funcionou. Fale com a loja para receber um link novo.`,
+        enviados: historico.enviados,
+        restantes: 0,
+      }
+    }
+    return {
+      ok: false,
+      error: `Aguarde ${permissao.segundos}s para pedir outro código.`,
+      enviados: historico.enviados,
+      restantes,
+      esperarSegundos: permissao.segundos,
+    }
   }
 
   const codigo = gerarCodigo()
@@ -74,9 +134,22 @@ export async function solicitarCodigoAction(token: string, forcarNovo = false): 
     return { ok: false, error: 'Não há e-mail cadastrado para este cliente. A loja precisa completar o e-mail no cadastro da venda.' }
   }
   if (envio.status !== 'enviado') {
-    return { ok: false, error: 'Não conseguimos enviar o código por e-mail agora. Tente novamente em instantes.' }
+    // Falha de envio não consome a cota, então o cliente pode tentar de novo
+    // assim que o cooldown passar.
+    return {
+      ok: false,
+      error: 'Não conseguimos enviar o código por e-mail agora. Tente novamente em instantes.',
+      enviados: historico.enviados,
+      restantes,
+      esperarSegundos: COOLDOWN_SEGUNDOS,
+    }
   }
-  return { ok: true }
+  return {
+    ok: true,
+    enviados: historico.enviados + 1,
+    restantes: restantes - 1,
+    esperarSegundos: COOLDOWN_SEGUNDOS,
+  }
 }
 
 export async function conferirCodigoAction(token: string, digitado: string): Promise<Resposta> {
