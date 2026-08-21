@@ -301,6 +301,13 @@ export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   tipo: aprovacaoVendaTipoEnum('tipo').notNull().default('valor_minimo'),
   disponibilidadeAnterior: disponibilidadeEnum('disponibilidade_anterior'),
   status: aprovacaoVendaStatusEnum('status').notNull().default('pendente'),
+  // Snapshot do desconto, gravado na criação do pedido (só tipo 'valor_minimo').
+  // O desconto é derivado — valorMinimoSnapshot - liquidoSnapshot — porque a
+  // precificação muda e recalcular depois reescreve o histórico. estimado = true
+  // marca as linhas reconstruídas pelo backfill, não medidas na hora.
+  valorMinimoSnapshot: numeric('valor_minimo_snapshot', { precision: 12, scale: 2 }),
+  liquidoSnapshot: numeric('liquido_snapshot', { precision: 12, scale: 2 }),
+  snapshotEstimado: boolean('snapshot_estimado').notNull().default(false),
   respondidoPor: uuid('respondido_por').references(() => usuarios.id),
   dataSolicitacao: timestamp('data_solicitacao', { withTimezone: true }).notNull().defaultNow(),
   dataResposta: timestamp('data_resposta', { withTimezone: true }),

@@ -1504,6 +1504,9 @@ export async function solicitarAprovacaoVendaAction(
   await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
 
   let motivoFinal: string
+  // Snapshot do desconto: só existe no fluxo de valor mínimo. Fica NULL em
+  // 'pagamento_sensivel', onde a trava não é sobre preço.
+  let snapshot: { valorMinimo: string; liquido: string } | null = null
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
       throw new Error('Nenhum pagamento por financiamento ou transferência nesta venda')
@@ -1520,6 +1523,9 @@ export async function solicitarAprovacaoVendaAction(
     if (liquido >= prec.valorMinimoPix - 0.01) {
       throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
     }
+    // Congela os dois lados da conta que acabou de reprovar a venda. Recalcular
+    // isso depois usaria a precificação de então, que muda — ver a migração 0065.
+    snapshot = { valorMinimo: prec.valorMinimoPix.toFixed(2), liquido: liquido.toFixed(2) }
     motivoFinal = motivo.trim()
   }
 
@@ -1537,6 +1543,8 @@ export async function solicitarAprovacaoVendaAction(
       tipo: tipoAprovacao,
       disponibilidadeAnterior: moto.disponibilidade,
       status: 'pendente',
+      valorMinimoSnapshot: snapshot?.valorMinimo ?? null,
+      liquidoSnapshot: snapshot?.liquido ?? null,
     })
 
     await tx.update(motos)
