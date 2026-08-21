@@ -13,6 +13,8 @@ import { VendasTable } from './components/vendas-table'
 import { AprovacoesPendentesPanel } from './components/aprovacoes-pendentes-panel'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { valorConciliadoManual } from '@/lib/conciliacao-status'
+import { descontosDasVendas } from '@/lib/queries/descontos'
+import { percentualComDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const TIPOS_CARTAO_CONC = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
@@ -146,6 +148,19 @@ export default async function VendasPage({
   const concStats   = podeConciliacao ? calcConcStats(vendasList) : null
   const semNfSaida  = vendasList.filter(v => !v.notaFiscalSaida).length
 
+  // Desconto é dado do administrativo: a listagem é da loja inteira, então dar a
+  // coluna ao vendedor mostraria o desconto dos colegas dele.
+  const podeVerDescontos = podeConciliacao
+  const descontos = podeVerDescontos
+    ? await descontosDasVendas(vendasList.map(v => v.id))
+    : undefined
+  const resumoDesconto = descontos
+    ? [...descontos.values()].reduce(
+        (a, d) => ({ qtd: a.qtd + 1, margem: a.margem + d.margem, preco: a.preco + d.preco, estimados: a.estimados + (d.estimado ? 1 : 0) }),
+        { qtd: 0, margem: 0, preco: 0, estimados: 0 },
+      )
+    : null
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -185,14 +200,30 @@ export default async function VendasPage({
           Vendas Realizadas ({vendasList.length})
         </h2>
 
-        {(concStats || semNfSaida > 0) && (
-          <div className={`grid gap-3 ${concStats ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-1 max-w-xs'}`}>
+        {(concStats || semNfSaida > 0 || (resumoDesconto && resumoDesconto.qtd > 0)) && (
+          <div className={`grid gap-3 ${concStats ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-2 max-w-md'}`}>
             {/* NF Saída pendente — sempre visível quando há pendências */}
             {semNfSaida > 0 && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
                 <p className="text-xs font-medium text-orange-500 uppercase tracking-wide">Sem NF Saída</p>
                 <p className="text-2xl font-bold text-orange-700 mt-0.5">{semNfSaida}</p>
                 <p className="text-xs text-orange-500 mt-0.5">venda{semNfSaida !== 1 ? 's' : ''} sem nota fiscal</p>
+              </div>
+            )}
+
+            {/* Desconto concedido no recorte filtrado. Filtrando por um vendedor,
+                este card é o total dele no período. */}
+            {resumoDesconto && resumoDesconto.qtd > 0 && (
+              <div className="bg-rose-50 border border-rose-200 rounded-lg px-4 py-3">
+                <p className="text-xs font-medium text-rose-500 uppercase tracking-wide">Descontos</p>
+                <p className="text-2xl font-bold text-rose-700 mt-0.5">
+                  {fmt(resumoDesconto.margem)}{resumoDesconto.estimados > 0 ? '*' : ''}
+                </p>
+                <p className="text-xs text-rose-500 mt-0.5">
+                  {resumoDesconto.qtd} de {vendasList.length} vendas
+                  {vendasList.length > 0 && ` · ${percentualComDesconto(resumoDesconto.qtd, vendasList.length)}%`}
+                  {resumoDesconto.preco > 0 && ` · ${fmt(resumoDesconto.preco)} de preço`}
+                </p>
               </div>
             )}
 
@@ -235,8 +266,19 @@ export default async function VendasPage({
           podeConciliacao={podeConciliacao}
         />
         <div className="bg-white rounded-lg border overflow-x-auto">
-          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} />
+          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         </div>
+        {resumoDesconto && resumoDesconto.estimados > 0 && (
+          <p className="text-[11px] text-slate-400">
+            * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a
+            tabela de preços atual — as aprovações anteriores a 21/08/2026 não guardavam o preço mínimo da época.
+          </p>
+        )}
+        {podeVerDescontos && periodoAnteriorAoRegistro(dataInicio) && (
+          <p className="text-[11px] text-slate-400">
+            Desconto só é registrado a partir de 10/07/2026 — antes disso o pedido de aprovação não existia no sistema.
+          </p>
+        )}
       </section>
     </div>
   )

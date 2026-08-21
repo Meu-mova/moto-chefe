@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Trophy, HandCoins, Minus, CreditCard, Receipt } from 'lucide-react'
+import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Trophy, HandCoins, Minus, CreditCard, Receipt, Tag } from 'lucide-react'
+import { percentualComDesconto, type SomaDescontos } from '@/lib/desconto'
 import { calcularPremiacao } from '@/lib/premiacao'
 
 type KPIs = {
@@ -21,6 +22,8 @@ type Props = {
   conciliacaoPendentes?: number
   faturamentoOS?: { servicos: number; pecas: number }
   faixasOTE?: { valorMinimoVendas: string; premiacao: string }[]
+  /** Descontos aprovados no período. Ausente = período sem registro ou sem permissão. */
+  descontos?: SomaDescontos
 }
 
 const formatCurrency = (v: number) =>
@@ -65,7 +68,26 @@ function VariacaoBadge({ atual, anterior }: { atual: number; anterior: number })
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [] }: Props) {
+// Desconto no card é a MARGEM — o que faltou pro piso já com as taxas, que é a
+// medida completa. A quebra entre margem e preço fica no ranking, onde há espaço
+// pra duas colunas. O percentual é o que dá contexto: desconto absoluto favorece
+// quem vende pouco, então o número sozinho compara mal.
+function cardDesconto(d: { qtd: number; margem: number; estimados: number }, totalVendas: number) {
+  const pct = percentualComDesconto(d.qtd, totalVendas)
+  const partes = [`${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'}`]
+  if (pct > 0) partes.push(`${pct}% do período`)
+  if (d.estimados > 0) partes.push(`${d.estimados} estimada${d.estimados === 1 ? '' : 's'}`)
+  return {
+    label: 'Descontos',
+    value: formatCurrency(d.margem),
+    icon: Tag,
+    color: d.margem > 0 ? 'text-rose-600' : 'text-slate-400',
+    bg: d.margem > 0 ? 'bg-rose-50' : 'bg-slate-50',
+    hint: partes.join(' · '),
+  }
+}
+
+export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [], descontos }: Props) {
   const isAdmin = ADMINS.includes(papel)
   // Quem acumula a função de vendedor sem ter o papel principal vem pela prop.
   const isVendedor = isVendedorProp ?? papel === 'vendedor'
@@ -79,6 +101,7 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
     variacao?: { atual: number; anterior: number }
     href?: string
     highlight?: boolean
+    hint?: string
   }
 
   const cards: Card[] = []
@@ -95,6 +118,7 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
       { label: 'Comissão', value: formatCurrency(comissao), icon: HandCoins, color: 'text-emerald-600', bg: 'bg-emerald-50', variacao: { atual: comissao, anterior: comissaoAnt } },
       { label: 'Premiação OTE', value: formatCurrency(premiacao), icon: Trophy, color: 'text-amber-700', bg: 'bg-amber-50', variacao: { atual: premiacao, anterior: premiacaoAnt } },
     )
+    if (descontos) cards.push(cardDesconto(descontos, kpis.totalVendas))
   } else {
     cards.push(
       { label: 'Motos Vendidas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
@@ -128,13 +152,15 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
         highlight: pendentes > 0,
       })
     }
+
+    if (descontos) cards.push(cardDesconto(descontos, kpis.totalVendas))
   }
 
-  const gridCols = isVendedor ? 'lg:grid-cols-5' : 'lg:grid-cols-7'
+  const gridCols = isVendedor ? (descontos ? 'lg:grid-cols-6' : 'lg:grid-cols-5') : 'lg:grid-cols-7'
 
   return (
     <div className={`grid grid-cols-2 md:grid-cols-3 ${gridCols} gap-4`}>
-      {cards.map(({ label, value, icon: Icon, color, bg, variacao, href, highlight }) => {
+      {cards.map(({ label, value, icon: Icon, color, bg, variacao, href, highlight, hint }) => {
         const inner = (
           <div className={`bg-white rounded-lg border p-4 flex flex-col gap-2 ${highlight ? 'border-amber-300 ring-1 ring-amber-200' : ''} ${href ? 'hover:shadow-sm transition-shadow' : ''}`}>
             <div className="flex items-center justify-between">
@@ -149,6 +175,9 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
                 <VariacaoBadge atual={variacao.atual} anterior={variacao.anterior} />
                 <span className="text-[10px] text-slate-400">vs mês anterior</span>
               </div>
+            )}
+            {hint && (
+              <span className="text-[10px] text-slate-400 mt-auto">{hint}</span>
             )}
             {href && (
               <span className="text-[10px] text-slate-400 mt-auto">Clique para ver →</span>

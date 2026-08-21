@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Eye, History, FileText } from 'lucide-react'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import type { DescontoDaVenda } from '@/lib/queries/descontos'
 import { buscarHistoricoMotoAction } from '../actions'
 import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 import { TIPOS_CARTAO, type PgtoOS } from '@/lib/conciliacao-status'
@@ -50,9 +51,9 @@ type Hist        = Awaited<ReturnType<typeof buscarHistoricoMotoAction>>[number]
 type Pgto        = PgtoOS
 
 type Tab = 'detalhes' | 'historico'
-type Props = { venda: VendaComDetalhes; papel: string }
+type Props = { venda: VendaComDetalhes; papel: string; desconto?: DescontoDaVenda }
 
-export function DetalhesVendaDialog({ venda: v, papel }: Props) {
+export function DetalhesVendaDialog({ venda: v, papel, desconto }: Props) {
   const [open, setOpen]        = useState(false)
   const [tab, setTab]          = useState<Tab>('detalhes')
   const [hist, setHist]        = useState<Hist[] | null>(null)
@@ -198,6 +199,31 @@ export function DetalhesVendaDialog({ venda: v, papel }: Props) {
                       </>
                     )
                   })()}
+                  {desconto && (
+                    <div className="col-span-2 mt-1 rounded-md bg-rose-50 border border-rose-200 px-3 py-2 space-y-0.5">
+                      <p className="font-semibold text-rose-700">
+                        Vendida abaixo do preço mínimo{desconto.estimado ? ' (valor estimado)' : ''}
+                      </p>
+                      <p className="text-rose-700">
+                        Margem: <span className="font-bold">{formatCurrency(desconto.margem)}</span>
+                        <span className="ml-1 text-xs text-rose-500">o que faltou pro piso depois das taxas</span>
+                      </p>
+                      <p className="text-rose-700">
+                        Preço: <span className="font-bold">{formatCurrency(desconto.preco)}</span>
+                        <span className="ml-1 text-xs text-rose-500">
+                          {desconto.preco > 0 ? 'cedido na negociação' : 'nada cedido — a diferença é taxa de cartão'}
+                        </span>
+                      </p>
+                      {desconto.motivo && (
+                        <p className="text-xs text-slate-500 pt-0.5">Motivo informado: {desconto.motivo}</p>
+                      )}
+                      {desconto.estimado && (
+                        <p className="text-[11px] text-slate-400">
+                          Reconstruído com a tabela de preços atual — esta aprovação é anterior a 21/08/2026 e não guardou o preço mínimo da época.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

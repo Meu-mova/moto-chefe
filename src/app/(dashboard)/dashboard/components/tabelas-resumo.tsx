@@ -1,3 +1,5 @@
+import { percentualComDesconto } from '@/lib/desconto'
+
 type Venda = {
   id: string
   clienteNome: string
@@ -225,11 +227,33 @@ type RankingVendedor = {
   faturamento: string | null
 }
 
-export function TabelaRankingVendedores({ ranking, vendedorAtualId }: { ranking: RankingVendedor[]; vendedorAtualId?: string }) {
+/**
+ * Descontos por vendedor, indexados por vendedorId. Ausente = sem permissão para
+ * ver (o vendedor comum só enxerga a própria linha) ou período sem registro.
+ */
+export type DescontosRanking = {
+  porVendedor: Map<string, { qtd: number; margem: number; preco: number; estimados: number }>
+  /** O período começa antes de 10/07/2026, quando o fluxo de aprovação não existia. */
+  periodoSemRegistro: boolean
+}
+
+export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }: {
+  ranking: RankingVendedor[]
+  vendedorAtualId?: string
+  descontos?: DescontosRanking
+}) {
+  const temEstimativa = descontos
+    ? [...descontos.porVendedor.values()].some(d => d.estimados > 0)
+    : false
   return (
     <div className="bg-white rounded-lg border">
       <div className="px-4 py-3 border-b">
         <h3 className="text-sm font-semibold text-slate-700">Ranking de vendedores</h3>
+        {descontos?.periodoSemRegistro && (
+          <p className="text-xs text-slate-400 mt-1">
+            Desconto só é registrado a partir de 10/07/2026 — antes disso o pedido de aprovação não existia no sistema.
+          </p>
+        )}
       </div>
       {ranking.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">Nenhuma venda no período</p>
@@ -242,6 +266,16 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId }: { ranking:
               <th className="text-left px-4 py-2 font-medium">Loja</th>
               <th className="text-right px-4 py-2 font-medium">Vendas</th>
               <th className="text-right px-4 py-2 font-medium">Total de Vendas</th>
+              {descontos && (
+                <>
+                  <th className="text-right px-4 py-2 font-medium" title="Quanto faltou para o preço mínimo depois das taxas de cartão">
+                    Desc. margem
+                  </th>
+                  <th className="text-right px-4 py-2 font-medium" title="Quanto foi cedido na negociação, sobre o valor cheio da venda">
+                    Desc. preço
+                  </th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -256,13 +290,49 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId }: { ranking:
                   <td className="px-4 py-2 text-slate-500">{r.loja}</td>
                   <td className="px-4 py-2 text-right">{r.totalVendas}</td>
                   <td className="px-4 py-2 text-right text-green-700">{formatCurrency(r.faturamento ?? 0)}</td>
+                  {descontos && <CelulasDesconto d={descontos.porVendedor.get(r.vendedorId)} totalVendas={r.totalVendas} />}
                 </tr>
               )
             })}
           </tbody>
         </table>
       )}
+      {temEstimativa && (
+        <p className="px-4 py-2 text-[11px] text-slate-400 border-t">
+          * Reconstruído com a tabela de preços atual — as aprovações anteriores a 21/08/2026 não guardavam o preço mínimo da época.
+        </p>
+      )}
     </div>
+  )
+}
+
+// Duas medidas porque a diferença entre elas é a taxa da maquininha: uma venda
+// acima da tabela parcelada em 12x tem desconto de preço zero e margem positiva.
+function CelulasDesconto({ d, totalVendas }: {
+  d?: { qtd: number; margem: number; preco: number; estimados: number }
+  totalVendas: number
+}) {
+  if (!d || d.qtd === 0) {
+    return (
+      <>
+        <td className="px-4 py-2 text-right text-slate-300">—</td>
+        <td className="px-4 py-2 text-right text-slate-300">—</td>
+      </>
+    )
+  }
+  const pct = percentualComDesconto(d.qtd, totalVendas)
+  return (
+    <>
+      <td className="px-4 py-2 text-right text-rose-700">
+        {formatCurrency(d.margem)}{d.estimados > 0 ? '*' : ''}
+        <span className="block text-[10px] text-slate-400">
+          {d.qtd} {d.qtd === 1 ? 'venda' : 'vendas'}{pct > 0 ? ` · ${pct}%` : ''}
+        </span>
+      </td>
+      <td className="px-4 py-2 text-right text-rose-700">
+        {d.preco > 0 ? formatCurrency(d.preco) : <span className="text-slate-300">—</span>}
+      </td>
+    </>
   )
 }
 

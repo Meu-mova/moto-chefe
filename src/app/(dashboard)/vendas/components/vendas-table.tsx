@@ -10,6 +10,23 @@ import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
 import { ClipboardCheck, FileSignature, type LucideIcon } from 'lucide-react'
+import type { DescontoDaVenda } from '@/lib/queries/descontos'
+
+/**
+ * Só o administrativo recebe o mapa — o vendedor veria o desconto dos colegas,
+ * já que a listagem é da loja inteira. Sem mapa, a coluna nem existe.
+ */
+function CelulaDesconto({ d }: { d?: DescontoDaVenda }) {
+  if (!d) return <TableCell className="text-slate-300">—</TableCell>
+  return (
+    <TableCell className="tabular-nums text-rose-700 whitespace-nowrap" title={d.motivo}>
+      {formatarValor(String(d.margem))}{d.estimado ? '*' : ''}
+      <span className="block text-[10px] text-slate-400">
+        {d.preco > 0 ? `preço ${formatarValor(String(d.preco))}` : 'só taxa'}
+      </span>
+    </TableCell>
+  )
+}
 
 /**
  * Estado da assinatura na listagem. Verde = assinado; âmbar = enviado e
@@ -107,14 +124,16 @@ type Props = {
   vendedores: { id: string; nome: string }[]
   /** Origens ativas do grupo, para corrigir a origem na edição. */
   origens: OrigemParaEscolher[]
+  /** Desconto por venda. Ausente = sem permissão pra ver, e a coluna some. */
+  descontos?: Map<string, DescontoDaVenda>
 }
 
-export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens }: Props) {
+export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens, descontos }: Props) {
   const podeFazerGarantia  = podeGarantia.has(papel)
   const isAdmin            = ADMINS.has(papel)
   const podeEditarVenda    = podeEditar.has(papel)
   const podeConciliacao    = isAdmin || papel === 'aux_adm'
-  const colSpan = podeFazerGarantia ? (podeConciliacao ? 11 : 10) : (podeConciliacao ? 10 : 9)
+  const colSpan = (podeFazerGarantia ? (podeConciliacao ? 11 : 10) : (podeConciliacao ? 10 : 9)) + (descontos ? 1 : 0)
 
   const searchParams = useSearchParams()
   const concFiltro = (searchParams.get('conc') ?? '').split(',').filter(Boolean)
@@ -141,6 +160,11 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens 
           <TableHead className="w-16">Assin.</TableHead>
           <TableHead>NF Saída</TableHead>
           <TableHead>Valor</TableHead>
+          {descontos && (
+            <TableHead title="Desconto sobre o preço mínimo. Margem = o que faltou pro piso depois das taxas; preço = o que foi cedido na negociação.">
+              Desconto
+            </TableHead>
+          )}
           {podeConciliacao && <TableHead>Conciliação</TableHead>}
           <TableHead className="text-right">Ações</TableHead>
         </TableRow>
@@ -180,6 +204,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens 
                 {v.notaFiscalSaida ?? '—'}
               </TableCell>
               <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
+              {descontos && <CelulaDesconto d={descontos.get(v.id)} />}
               {podeConciliacao && (
                 <TableCell>
                   <ConcBadge status={status} />
@@ -187,7 +212,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens 
               )}
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
-                  <DetalhesVendaDialog venda={v} papel={papel} />
+                  <DetalhesVendaDialog venda={v} papel={papel} desconto={descontos?.get(v.id)} />
                   {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} origens={origens} />}
                   {!v.notaFiscalSaida && podeFazerGarantia && (
                     <NfSaidaButton

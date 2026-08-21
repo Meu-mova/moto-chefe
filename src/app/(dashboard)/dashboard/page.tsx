@@ -13,6 +13,8 @@ import {
   getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
+import { descontosPorVendedor, totalDescontos } from '@/lib/queries/descontos'
+import { periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
 import { PainelAtendimento } from './components/painel-atendimento'
@@ -64,10 +66,11 @@ async function KpiSection({
 }: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
+  const isAuxAdm = papel === 'aux_adm'
   const isVendedor = temPapel(usuario, 'vendedor')
   const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
@@ -78,13 +81,18 @@ async function KpiSection({
         isVendedor ? Promise.resolve({ servicos: 0, pecas: 0 }) : getFaturamentoOS(filtros),
         isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
         isVendedor ? db.select().from(funcionariosConfig).where(eq(funcionariosConfig.usuarioId, usuario.id)).then(r => r[0]) : Promise.resolve(undefined),
+        // O vendedor vê só o próprio desconto porque filtros.vendedorId já é o id dele.
+        // Mecânico e afins não recebem o card.
+        (isAdmin || isAuxAdm || isVendedor)
+          ? totalDescontos({ ...filtros, vendedorId: filtros.vendedorId ? [filtros.vendedorId] : undefined })
+          : Promise.resolve(undefined),
       ]),
       25000,
     )
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} />
+        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}
@@ -154,19 +162,39 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
 }
 
 async function RankingSection({
-  filtros, filtrosRanking,
-}: { filtros: Filtros; filtrosRanking: { dataInicio: string; dataFim: string } }) {
+  filtros, filtrosRanking, podeVerTodosDescontos, vendedorAtualId,
+}: {
+  filtros: Filtros
+  filtrosRanking: { dataInicio: string; dataFim: string; lojaId?: string[] }
+  podeVerTodosDescontos: boolean
+  vendedorAtualId?: string
+}) {
   let rankingVendedores: Awaited<ReturnType<typeof getRankingVendedores>>,
       rankingLojas: Awaited<ReturnType<typeof getRankingLojas>>,
-      modelosMaisVendidos: Awaited<ReturnType<typeof getModelosMaisVendidos>>
+      modelosMaisVendidos: Awaited<ReturnType<typeof getModelosMaisVendidos>>,
+      descontos: Awaited<ReturnType<typeof descontosPorVendedor>>
   try {
-    ;[rankingVendedores, rankingLojas, modelosMaisVendidos] = await withTimeout(
-      Promise.all([getRankingVendedores(filtrosRanking), getRankingLojas(filtrosRanking), getModelosMaisVendidos(filtros)]),
+    ;[rankingVendedores, rankingLojas, modelosMaisVendidos, descontos] = await withTimeout(
+      Promise.all([
+        getRankingVendedores(filtrosRanking),
+        getRankingLojas(filtrosRanking),
+        getModelosMaisVendidos(filtros),
+        // Quem não pode ver o desconto dos colegas recebe só a própria linha —
+        // a query já filtra por vendedor, então o dado nem chega ao cliente.
+        descontosPorVendedor({
+          ...filtrosRanking,
+          vendedorId: podeVerTodosDescontos ? undefined : (vendedorAtualId ? [vendedorAtualId] : []),
+        }),
+      ]),
       25000,
     )
   } catch (e) {
     console.error('[RankingSection] erro:', e)
     throw e
+  }
+  const descontosRanking = {
+    porVendedor: new Map(descontos.map(d => [d.vendedorId, d])),
+    periodoSemRegistro: periodoAnteriorAoRegistro(filtrosRanking.dataInicio),
   }
   return (
     <>
@@ -174,7 +202,7 @@ async function RankingSection({
         <TabelaModelosMaisVendidos modelos={modelosMaisVendidos} />
         <TabelaRankingLojas ranking={rankingLojas} />
       </div>
-      <TabelaRankingVendedores ranking={rankingVendedores} />
+      <TabelaRankingVendedores ranking={rankingVendedores} vendedorAtualId={vendedorAtualId} descontos={descontosRanking} />
     </>
   )
 }
@@ -483,7 +511,12 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`ranking-${filtroKey}`} label="o ranking">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
-          <RankingSection filtros={filtros} filtrosRanking={filtrosRanking} />
+          <RankingSection
+            filtros={filtros}
+            filtrosRanking={filtrosRanking}
+            podeVerTodosDescontos={isAdmin || isAuxAdm}
+            vendedorAtualId={isVendedor ? usuario.id : undefined}
+          />
         </Suspense>
       </SectionErrorBoundary>
 
