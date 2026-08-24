@@ -318,15 +318,18 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 // Atendimento (Kommo): leads críticos + cards de desempenho. Só lê o cache, não
 // sincroniza. Vendedor vê os próprios números e a posição dele no ranking do
 // grupo; admin/aux_adm veem o consolidado das lojas filtradas. Os cards seguem o
-// período do filtro; a lista de leads críticos é foto do agora.
+// período do filtro; a lista de leads críticos é foto do agora — e não vai para
+// o sócio (mostrarCriticos).
 async function AtendimentoSection({
-  usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro,
+  usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro, mostrarCriticos = true,
 }: {
   usuario: { id: string; papel: string; lojaId: string | null }
   dataInicio: string
   dataFim: string
   usuarioId?: string
   lojaIdsFiltro?: string[]
+  /** A lista vermelha de leads críticos. Os cards de desempenho vêm sempre. */
+  mostrarCriticos?: boolean
 }) {
   const status = await getKommoStatus()
   if (!status.conectado) return null
@@ -339,7 +342,9 @@ async function AtendimentoSection({
 
   return (
     <div className="space-y-4">
-      <LeadsCriticos dados={painel.criticos} subdominio={status.subdominio} mostrarColaborador={!usuarioId} />
+      {mostrarCriticos && (
+        <LeadsCriticos dados={painel.criticos} subdominio={status.subdominio} mostrarColaborador={!usuarioId} />
+      )}
       <PainelAtendimento cards={painel.cards} mes={MESES[inicio.getMonth()]} />
     </div>
   )
@@ -385,6 +390,9 @@ export default async function DashboardPage({
   const isAdmin = ADMINS.includes(usuario.papel)
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
+  // Sócio não recebe a lista de leads críticos: cobrar atendimento lead a lead é
+  // trabalho de quem opera. O papel admin_geral (Cesar) continua vendo.
+  const isSocio = usuario.papel === 'admin_socio'
 
   const deDefault = inicioMesAtualISO()
   const ateDefault = hojeISO()
@@ -481,6 +489,7 @@ export default async function DashboardPage({
               // (o filtro dele é só a própria loja); admin/aux_adm respeitam o
               // filtro de loja da página.
               lojaIdsFiltro={!isAdmin && isVendedor ? undefined : lojaIds}
+              mostrarCriticos={!isSocio}
             />
           </Suspense>
         </SectionErrorBoundary>
