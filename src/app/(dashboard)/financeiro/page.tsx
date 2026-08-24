@@ -34,6 +34,9 @@ function valorLiquidoExpr() {
   )`
 }
 
+/** Valor do filtro de loja que significa "só o balde da empresa". */
+const ESCOPO_GERAL = 'geral'
+
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
@@ -44,7 +47,15 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const params = await searchParams
   const mesParam = params.mes ?? mesBrt()
   const lojaParam = params.loja ?? ''
-  const lojaParamValido = lojaParam && lojaIdsGrupo.includes(lojaParam) ? lojaParam : ''
+  // "Geral" é o balde da empresa: as despesas que o Importar do Banco deixou sem
+  // loja atribuída — contabilidade, pró-labore, sistema. Não é uma loja, então não
+  // tem faturamento, OS, peça nem caixa: o recorte zera todas as receitas de
+  // propósito e sobra o custo da estrutura. Sem isso não havia como olhar essas
+  // despesas isoladas — elas só apareciam somadas à loja que você escolhesse.
+  const escopoGeral = lojaParam === ESCOPO_GERAL
+  const lojaParamValido = !escopoGeral && lojaParam && lojaIdsGrupo.includes(lojaParam) ? lojaParam : ''
+  /** Nada casa: o Geral não tem receita nenhuma atribuída. */
+  const nenhumaLinha = sql`false`
 
   const [ano, mes] = mesParam.split('-').map(Number)
   const inicioMes = `${mesParam}-01`
@@ -52,19 +63,28 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const inicioTs = new Date(`${inicioMes}T00:00:00Z`)
   const fimTs = new Date(`${ano}-${String(mes + 1).padStart(2, '0')}-01T00:00:00Z`)
 
-  const lojaFiltroVendas = lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)
-  const lojaCondPagamento = lojaParamValido
+  const lojaFiltroVendas = escopoGeral ? nenhumaLinha
+    : lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)
+  const lojaCondPagamento = escopoGeral
+    ? sql`AND false`
+    : lojaParamValido
     ? sql`AND v.loja_id = ${lojaParamValido}`
     : sql`AND v.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const lojaFiltroOS = lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
-  const lojaFiltroPecas = lojaParamValido ? eq(vendasPecas.lojaId, lojaParamValido) : inArray(vendasPecas.lojaId, lojaIdsGrupo)
+  const lojaFiltroOS = escopoGeral ? nenhumaLinha
+    : lojaParamValido ? eq(ordensServico.lojaId, lojaParamValido) : inArray(ordensServico.lojaId, lojaIdsGrupo)
+  const lojaFiltroPecas = escopoGeral ? nenhumaLinha
+    : lojaParamValido ? eq(vendasPecas.lojaId, lojaParamValido) : inArray(vendasPecas.lojaId, lojaIdsGrupo)
 
   // Versões em SQL cru dos mesmos filtros, pra usar dentro dos subselects da taxa.
-  const lojaCondOSTaxa = lojaParamValido
+  const lojaCondOSTaxa = escopoGeral
+    ? sql`AND false`
+    : lojaParamValido
     ? sql`AND o.loja_id = ${lojaParamValido}`
     : sql`AND o.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
-  const lojaCondPecaTaxa = lojaParamValido
+  const lojaCondPecaTaxa = escopoGeral
+    ? sql`AND false`
+    : lojaParamValido
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
@@ -157,7 +177,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         eq(despesasOpenFinance.grupoId, grupo.id),
         gte(despesasOpenFinance.data, inicioTs),
         lte(despesasOpenFinance.data, fimTs),
-        lojaParamValido
+        escopoGeral
+          ? sql`${despesasOpenFinance.lojaId} IS NULL`
+          : lojaParamValido
           ? sql`(${despesasOpenFinance.lojaId} = ${lojaParamValido} OR ${despesasOpenFinance.lojaId} IS NULL)`
           : undefined,
       )),
@@ -177,7 +199,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         gte(despesas.data, inicioMes),
         lte(despesas.data, ultimoDia),
         sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
-        lojaParamValido
+        escopoGeral
+          ? sql`${despesas.lojaId} IS NULL`
+          : lojaParamValido
           ? sql`(${despesas.lojaId} = ${lojaParamValido} OR ${despesas.lojaId} IS NULL)`
           : undefined,
       )),
@@ -260,7 +284,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         gte(lancamentosCaixa.data, inicioMes),
         lte(lancamentosCaixa.data, ultimoDia),
         ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
-        lojaParamValido
+        // Caixa é sempre de uma loja — no recorte Geral não entra nenhum.
+        escopoGeral
+          ? nenhumaLinha
+          : lojaParamValido
           ? eq(lancamentosCaixa.lojaId, lojaParamValido)
           : inArray(lancamentosCaixa.lojaId, lojaIdsGrupo),
       )),
@@ -369,6 +396,14 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       <h1 className="text-2xl font-bold">Financeiro</h1>
 
       <FinanceiroFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} />
+
+      {escopoGeral && (
+        <p className="text-sm text-slate-500 bg-slate-50 border rounded-lg px-4 py-2">
+          Recorte <strong>Geral (Empresa)</strong>: só as despesas que ficaram sem loja atribuída no
+          Importar do Banco. Não há faturamento aqui — venda, OS e peça pertencem sempre a uma
+          loja —, então o lucro abaixo é o custo da estrutura, negativo por natureza.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="md:col-span-2 xl:col-span-1 xl:row-span-2">
@@ -488,16 +523,22 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         </p>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ResumoLojas resultado={resultadoLojas} />
-        <ResumoPagamentos resumo={resumoPorPagamento} />
-      </div>
+      {/* No recorte Geral estes quadros seriam só células vazias: resultado, forma de
+          pagamento, vendedor e despesa por loja só existem quando há loja. */}
+      {!escopoGeral && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ResumoLojas resultado={resultadoLojas} />
+            <ResumoPagamentos resumo={resumoPorPagamento} />
+          </div>
 
-      <ResumoVendedores resumo={resumoPorVendedor} />
+          <ResumoVendedores resumo={resumoPorVendedor} />
+        </>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ResumoDespesas resumo={resumoDespesas} />
-        <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />
+        {!escopoGeral && <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />}
         <ResumoDespesasGeral porCategoriaGeral={resumoDespesas.porCategoriaGeral} />
         <ResumoRetiradas
           foraPorCategoria={resumoDespesas.foraPorCategoria}

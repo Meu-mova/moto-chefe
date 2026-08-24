@@ -37,6 +37,9 @@ export function FinanceiroFiltros({ lojas, mesAtual, lojaAtual }: {
         className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none w-48"
       >
         <option value="">Todas as lojas</option>
+        {/* O balde da empresa: despesas sem loja atribuída. Não é uma loja, mas é
+            um recorte de dinheiro — e este seletor é onde se escolhe o recorte. */}
+        <option value="geral">Geral (Empresa)</option>
         {lojas.map(l => (
           <option key={l.id} value={l.id}>{l.nome}</option>
         ))}
