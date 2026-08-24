@@ -33,7 +33,6 @@ import {
   TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos,
 } from './components/tabelas-resumo'
 import { SectionErrorBoundary } from './section-error-boundary'
-import { ImportarCartaoButton } from './components/importar-cartao-button'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
 
@@ -445,8 +444,6 @@ export default async function DashboardPage({
           ateDefault={ateDefault}
         />
       </div>
-
-      {['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel) && <ImportarCartaoButton />}
 
       <SectionErrorBoundary label="os próximos eventos">
         <Suspense fallback={null}>
