@@ -6,6 +6,7 @@ import {
   diasDeVendaAte,
   diasNoMes,
   hojeEmBrasilia,
+  montarMetaDoMes,
 } from './meta-vendas'
 
 // ── contagem de dias ─────────────────────────────────────────────────────────
@@ -109,4 +110,59 @@ test('meio-dia UTC é o mesmo dia nos dois fusos', () => {
 test('virada de mês respeita Brasília', () => {
   // 2026-08-01T01:00Z = 2026-07-31T22:00 em Brasília
   assert.deepEqual(hojeEmBrasilia(new Date('2026-08-01T01:00:00Z')), { ano: 2026, mes: 7, dia: 31 })
+})
+
+// ── consolidação por loja ──────────────────────────────────────
+
+const loja = (nome: string, meta: number, realizado: number) => ({
+  lojaId: nome.toLowerCase(), loja: nome, meta, realizado,
+})
+
+test('total do mês soma metas e realizado das lojas', () => {
+  const r = montarMetaDoMes({
+    linhas: [loja('Itajubá', 450000, 312400), loja('Lavras', 380000, 401900)],
+    ano: 2026, mes: 8, dia: 15,
+  })
+  assert.equal(r?.total.meta, 830000)
+  assert.equal(r?.total.vendidas, 714300)
+})
+
+test('loja sem meta não entra nem na lista nem no total', () => {
+  // O Galpão Matriz é depósito: somar o faturamento dele contra meta zero daria
+  // ao grupo um percentual que nenhuma loja precisou entregar.
+  const r = montarMetaDoMes({
+    linhas: [loja('Itajubá', 450000, 312400), loja('Galpão Matriz', 0, 90000)],
+    ano: 2026, mes: 8, dia: 15,
+  })
+  assert.equal(r?.lojas.length, 1)
+  assert.equal(r?.total.meta, 450000)
+  assert.equal(r?.total.vendidas, 312400)
+})
+
+test('nenhuma loja com meta: sem card', () => {
+  assert.equal(montarMetaDoMes({ linhas: [], ano: 2026, mes: 8, dia: 15 }), null)
+  assert.equal(
+    montarMetaDoMes({ linhas: [loja('Itajubá', 0, 5000)], ano: 2026, mes: 8, dia: 15 }),
+    null,
+  )
+})
+
+test('lojas saem da maior para a menor porcentagem', () => {
+  const r = montarMetaDoMes({
+    linhas: [
+      loja('Pouso Alegre', 520000, 288150),   // 55,4%
+      loja('Lavras', 380000, 401900),         // 105,8%
+      loja('Itajubá', 450000, 312400),        // 69,4%
+    ],
+    ano: 2026, mes: 8, dia: 15,
+  })
+  assert.deepEqual(r?.lojas.map(l => l.loja), ['Lavras', 'Itajubá', 'Pouso Alegre'])
+  assert.equal(r?.lojas[0].batida, true)
+  assert.equal(r?.lojas[2].batida, false)
+})
+
+test('realizado exato na meta conta como batida', () => {
+  const r = montarMetaDoMes({ linhas: [loja('Lavras', 380000, 380000)], ano: 2026, mes: 8, dia: 15 })
+  assert.equal(r?.lojas[0].batida, true)
+  assert.equal(r?.lojas[0].percentual, 100)
 })

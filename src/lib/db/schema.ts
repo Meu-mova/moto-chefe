@@ -44,7 +44,8 @@ export const grupos = pgTable('grupos', {
   // OBSOLETO: avisos migraram para WhatsApp (env WHATSAPP_ALERTA_NUMERO).
   // Coluna mantida só pra evitar migração de drop; remover numa migração futura.
   telegramChatId:     text('telegram_chat_id'),
-  // Meta de motos vendidas no mês desta bandeira. Nulo = sem meta, o card não aparece.
+  // OBSOLETO desde a migração 0066: a meta virou `metasLoja` — por loja, em R$ e
+  // por mês. Nada lê esta coluna; mantida só pra não misturar drop com a entrega.
   metaMotosMes:       integer('meta_motos_mes'),
   // Cor da bandeira (chave da paleta em @/lib/grupo-cores). Deixa a barra de grupo
   // ativo inconfundível, pra não lançar entrada/saída na empresa errada.
@@ -1067,3 +1068,23 @@ export const assinaturaCodigos = pgTable('assinatura_codigos', {
   usadoEm:     timestamp('usado_em', { withTimezone: true }),
   criadoEm:    timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── metas_loja ──────────────────────────────────────────────────────────────
+/**
+ * Meta de faturamento do mês, uma linha por loja por mês (migração 0066).
+ *
+ * O grupo vem da loja, não é coluna daqui — duplicar abriria a chance de a meta
+ * apontar para um grupo e a loja para outro. Mês sem linha é mês sem meta: o
+ * card do dashboard some em vez de mostrar 0%.
+ */
+export const metasLoja = pgTable('metas_loja', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  lojaId:        uuid('loja_id').notNull().references(() => lojas.id),
+  ano:           integer('ano').notNull(),
+  mes:           integer('mes').notNull(),
+  // Medida contra o valor cheio da venda (vendas.valor), não contra o líquido de
+  // taxas: é o preço que o vendedor fecha, e o que o vendedor controla.
+  valorMeta:     numeric('valor_meta', { precision: 12, scale: 2 }).notNull(),
+  atualizadoEm:  timestamp('atualizado_em').notNull().defaultNow(),
+  atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
+}, t => [unique('metas_loja_unica').on(t.lojaId, t.ano, t.mes)])

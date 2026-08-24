@@ -20,7 +20,8 @@ import { getKommoStatus } from '@/lib/kommo'
 import { PainelAtendimento } from './components/painel-atendimento'
 import { LeadsCriticos } from './components/leads-criticos'
 import { MetaMesCards } from './components/meta-mes-cards'
-import { calcularProjecao, hojeEmBrasilia } from '@/lib/meta-vendas'
+import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
+import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
@@ -273,44 +274,25 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-// Meta de motos do mês da bandeira ativa, com projeção de fechamento no ritmo atual.
-// Sempre o mês corrente, independente do filtro de período do dashboard: meta é do mês,
-// não do intervalo que o usuário escolheu olhar.
+// Meta de faturamento do mês, por loja da bandeira ativa, com projeção de
+// fechamento no ritmo atual. Sempre o mês corrente, independente do filtro de
+// período do dashboard: meta é do mês, não do intervalo que o usuário escolheu
+// olhar. Sem meta cadastrada em /admin/metas, a seção inteira não aparece.
 async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null } }) {
   const grupo = await getGrupoAtivo(usuario)
-  if (!grupo.metaMotosMes) return null
-
   const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
   if (lojaIds.length === 0) return null
 
   const { ano, mes, dia } = hojeEmBrasilia()
-  const inicioMes = new Date(Date.UTC(ano, mes - 1, 1))
-  const inicioProximoMes = new Date(Date.UTC(ano, mes, 1))
-  const inicioHoje = new Date(Date.UTC(ano, mes - 1, dia))
-  const inicioAmanha = new Date(Date.UTC(ano, mes - 1, dia + 1))
-
-  const [[doMes], [deHoje]] = await Promise.all([
-    db.select({ qtd: count() }).from(vendas).where(and(
-      inArray(vendas.lojaId, lojaIds),
-      gte(vendas.dataVenda, inicioMes),
-      lt(vendas.dataVenda, inicioProximoMes),
-    )),
-    db.select({ qtd: count() }).from(vendas).where(and(
-      inArray(vendas.lojaId, lojaIds),
-      gte(vendas.dataVenda, inicioHoje),
-      lt(vendas.dataVenda, inicioAmanha),
-    )),
+  const [linhas, hoje] = await Promise.all([
+    linhasMetaDoMes(lojaIds, ano, mes),
+    vendidoNoDia(lojaIds, ano, mes, dia),
   ])
 
-  const projecao = calcularProjecao({
-    meta: grupo.metaMotosMes,
-    vendidas: Number(doMes?.qtd ?? 0),
-    ano, mes, dia,
-  })
+  const meta = montarMetaDoMes({ linhas, ano, mes, dia })
+  if (!meta) return null
 
-  return (
-    <MetaMesCards projecao={projecao} grupoNome={grupo.nome} vendasHoje={Number(deHoje?.qtd ?? 0)} />
-  )
+  return <MetaMesCards meta={meta} grupoNome={grupo.nome} vendidoHoje={hoje} />
 }
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -495,7 +477,9 @@ export default async function DashboardPage({
         </SectionErrorBoundary>
       )}
 
-      {isAdmin && (
+      {/* aux_adm entra junto: é quem cadastra a meta em /admin/metas e cobra a loja —
+          não faz sentido preencher o alvo e não enxergar o placar. */}
+      {(isAdmin || isAuxAdm) && (
         <SectionErrorBoundary label="a meta do mês">
           <Suspense fallback={null}>
             <MetaSection usuario={usuario} />

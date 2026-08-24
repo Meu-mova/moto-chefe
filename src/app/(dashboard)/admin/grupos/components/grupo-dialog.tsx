@@ -18,7 +18,6 @@ type Grupo = {
   validapixPassword: string | null
   blingClientId: string | null
   blingClientSecret: string | null
-  metaMotosMes: number | null
   razaoSocial: string | null
   enderecoSede: string | null
   cidadeSede: string | null
@@ -43,7 +42,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
-  const [metaMotosMes, setMetaMotosMes] = useState(inicial?.metaMotosMes != null ? String(inicial.metaMotosMes) : '')
   const [razaoSocial, setRazaoSocial] = useState(inicial?.razaoSocial ?? '')
   const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
   const [cidadeSede, setCidadeSede] = useState(inicial?.cidadeSede ?? '')
@@ -60,7 +58,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     try {
       const dados = {
         nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret,
-        metaMotosMes, razaoSocial, enderecoSede, cidadeSede, comarcaForo,
+        razaoSocial, enderecoSede, cidadeSede, comarcaForo,
       }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
@@ -164,20 +162,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 <Label className="text-xs">Bling — Client Secret</Label>
                 <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Meta de motos no mês</Label>
-              <Input
-                type="number"
-                min={0}
-                value={metaMotosMes}
-                onChange={e => setMetaMotosMes(e.target.value)}
-                placeholder="200"
-                className="h-9 text-sm w-32"
-              />
-              <p className="text-[11px] text-slate-400">
-                Aparece no dashboard dos sócios com a projeção de fechamento. Em branco, o card não aparece.
-              </p>
             </div>
             <p className="text-xs text-slate-400">
               ValidaPix ainda não é usada pelo sistema — será ativada em uma etapa futura. Bling já está em uso (emissão de NF-e). O login da fábrica agora fica no cadastro de cada loja.

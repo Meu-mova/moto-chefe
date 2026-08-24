@@ -23,7 +23,6 @@ type GrupoInput = {
   validapixPassword?: string
   blingClientId?: string
   blingClientSecret?: string
-  metaMotosMes?: string
   // Qualificação da empresa no contrato de compra e venda. Sem os três, o envio
   // de contrato fica bloqueado neste grupo (ver @/lib/assinatura/documento).
   razaoSocial?: string
@@ -45,7 +44,6 @@ export async function criarGrupoAction(dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
-    metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
     razaoSocial: dados.razaoSocial?.trim() || null,
     enderecoSede: dados.enderecoSede?.trim() || null,
     cidadeSede: dados.cidadeSede?.trim() || null,
@@ -68,7 +66,6 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
-    metaMotosMes: dados.metaMotosMes?.trim() ? Number(dados.metaMotosMes) : null,
     razaoSocial: dados.razaoSocial?.trim() || null,
     enderecoSede: dados.enderecoSede?.trim() || null,
     cidadeSede: dados.cidadeSede?.trim() || null,
