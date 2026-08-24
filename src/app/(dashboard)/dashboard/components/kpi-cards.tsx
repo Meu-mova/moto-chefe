@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Package, DollarSign, Warehouse, ArrowLeftRight, Shield, Wrench, TrendingUp, TrendingDown, Star, Trophy, HandCoins, Minus, CreditCard, Receipt, Tag } from 'lucide-react'
-import { percentualComDesconto, type SomaDescontos } from '@/lib/desconto'
+import { percentualDesconto, type SomaDescontos } from '@/lib/desconto'
 import { calcularPremiacao } from '@/lib/premiacao'
 
 type KPIs = {
@@ -70,12 +70,12 @@ const ADMINS = ['admin_geral', 'admin_socio']
 
 // Desconto no card é a MARGEM — o que faltou pro piso já com as taxas, que é a
 // medida completa. A quebra entre margem e preço fica no ranking, onde há espaço
-// pra duas colunas. O percentual é o que dá contexto: desconto absoluto favorece
-// quem vende pouco, então o número sozinho compara mal.
-function cardDesconto(d: { qtd: number; margem: number; estimados: number }, totalVendas: number) {
-  const pct = percentualComDesconto(d.qtd, totalVendas)
+// pra duas colunas. O percentual é o que dá contexto: quanto do faturamento do
+// período virou desconto — o valor absoluto sozinho compara mal.
+function cardDesconto(d: { qtd: number; margem: number; estimados: number }, faturamento: number) {
+  const pct = percentualDesconto(d.margem, faturamento)
   const partes = [`${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'}`]
-  if (pct > 0) partes.push(`${pct}% do período`)
+  if (pct > 0) partes.push(`${pct}% do faturamento`)
   if (d.estimados > 0) partes.push(`${d.estimados} estimada${d.estimados === 1 ? '' : 's'}`)
   return {
     label: 'Descontos',
@@ -118,7 +118,7 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
       { label: 'Comissão', value: formatCurrency(comissao), icon: HandCoins, color: 'text-emerald-600', bg: 'bg-emerald-50', variacao: { atual: comissao, anterior: comissaoAnt } },
       { label: 'Premiação OTE', value: formatCurrency(premiacao), icon: Trophy, color: 'text-amber-700', bg: 'bg-amber-50', variacao: { atual: premiacao, anterior: premiacaoAnt } },
     )
-    if (descontos) cards.push(cardDesconto(descontos, kpis.totalVendas))
+    if (descontos) cards.push(cardDesconto(descontos, kpis.faturamento))
   } else {
     cards.push(
       { label: 'Motos Vendidas', value: kpis.totalVendas, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', variacao: { atual: kpis.totalVendas, anterior: kpisAnt.totalVendas } },
@@ -153,7 +153,7 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
       })
     }
 
-    if (descontos) cards.push(cardDesconto(descontos, kpis.totalVendas))
+    if (descontos) cards.push(cardDesconto(descontos, kpis.faturamento))
   }
 
   const gridCols = isVendedor ? (descontos ? 'lg:grid-cols-6' : 'lg:grid-cols-5') : 'lg:grid-cols-7'

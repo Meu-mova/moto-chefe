@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  calcDesconto, somarDescontos, percentualComDesconto,
+  calcDesconto, somarDescontos, percentualDesconto,
   periodoAnteriorAoRegistro, DESCONTO_REGISTRADO_DESDE,
 } from './desconto'
 
@@ -71,15 +71,22 @@ test('soma de lista vazia é zero, não NaN', () => {
   assert.deepEqual(r, { qtd: 0, margem: 0, preco: 0, estimados: 0 })
 })
 
-test('percentual de vendas que precisaram de aprovação', () => {
-  assert.equal(percentualComDesconto(12, 39), 30.8)
-  assert.equal(percentualComDesconto(0, 30), 0)
+test('percentual é o desconto sobre o faturamento, não sobre a contagem', () => {
+  // 700 de desconto em 25.000 vendidos — 2,8%. Pela contagem antiga, duas de
+  // duas vendas dariam 100%, que não diz nada sobre quanto dinheiro saiu.
+  assert.equal(percentualDesconto(700, 25000), 2.8)
+  assert.equal(percentualDesconto(0, 25000), 0)
+})
+
+test('percentual arredonda em uma casa', () => {
+  // 500 em 300.000 é 0,1666...% — sem arredondar sujaria a célula.
+  assert.equal(percentualDesconto(500, 300000), 0.2)
 })
 
 test('percentual não divide por zero', () => {
-  assert.equal(percentualComDesconto(0, 0), 0)
-  // Mais descontos que vendas no período é sinal de filtro torto, não de 300%.
-  assert.equal(percentualComDesconto(3, 0), 0)
+  assert.equal(percentualDesconto(0, 0), 0)
+  // Desconto sem faturamento no recorte é sinal de filtro torto, não de 300%.
+  assert.equal(percentualDesconto(3000, 0), 0)
 })
 
 test('período anterior a 10/07/2026 não tem registro de desconto', () => {

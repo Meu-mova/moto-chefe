@@ -1,4 +1,4 @@
-import { percentualComDesconto } from '@/lib/desconto'
+import { percentualDesconto } from '@/lib/desconto'
 
 type Venda = {
   id: string
@@ -268,10 +268,10 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
               <th className="text-right px-4 py-2 font-medium">Total de Vendas</th>
               {descontos && (
                 <>
-                  <th className="text-right px-4 py-2 font-medium" title="Quanto faltou para o preço mínimo depois das taxas de cartão">
+                  <th className="text-right px-4 py-2 font-medium" title="Quanto faltou para o preço mínimo depois das taxas de cartão. O % é sobre o faturamento do vendedor no período.">
                     Desc. margem
                   </th>
-                  <th className="text-right px-4 py-2 font-medium" title="Quanto foi cedido na negociação, sobre o valor cheio da venda">
+                  <th className="text-right px-4 py-2 font-medium" title="Quanto foi cedido na negociação, sobre o valor cheio da venda. O % é sobre o faturamento do vendedor no período.">
                     Desc. preço
                   </th>
                 </>
@@ -290,7 +290,7 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
                   <td className="px-4 py-2 text-slate-500">{r.loja}</td>
                   <td className="px-4 py-2 text-right">{r.totalVendas}</td>
                   <td className="px-4 py-2 text-right text-green-700">{formatCurrency(r.faturamento ?? 0)}</td>
-                  {descontos && <CelulasDesconto d={descontos.porVendedor.get(r.vendedorId)} totalVendas={r.totalVendas} />}
+                  {descontos && <CelulasDesconto d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} />}
                 </tr>
               )
             })}
@@ -308,9 +308,11 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
 
 // Duas medidas porque a diferença entre elas é a taxa da maquininha: uma venda
 // acima da tabela parcelada em 12x tem desconto de preço zero e margem positiva.
-function CelulasDesconto({ d, totalVendas }: {
+// Cada uma leva o próprio percentual sobre o faturamento do vendedor no período —
+// é a taxa que compara quem vendeu 3 motos com quem vendeu 30.
+function CelulasDesconto({ d, faturamento }: {
   d?: { qtd: number; margem: number; preco: number; estimados: number }
-  totalVendas: number
+  faturamento: number
 }) {
   if (!d || d.qtd === 0) {
     return (
@@ -320,17 +322,23 @@ function CelulasDesconto({ d, totalVendas }: {
       </>
     )
   }
-  const pct = percentualComDesconto(d.qtd, totalVendas)
+  const pctMargem = percentualDesconto(d.margem, faturamento)
+  const pctPreco  = percentualDesconto(d.preco, faturamento)
   return (
     <>
       <td className="px-4 py-2 text-right text-rose-700">
         {formatCurrency(d.margem)}{d.estimados > 0 ? '*' : ''}
         <span className="block text-[10px] text-slate-400">
-          {d.qtd} {d.qtd === 1 ? 'venda' : 'vendas'}{pct > 0 ? ` · ${pct}%` : ''}
+          {d.qtd} {d.qtd === 1 ? 'venda' : 'vendas'}{pctMargem > 0 ? ` · ${pctMargem}%` : ''}
         </span>
       </td>
       <td className="px-4 py-2 text-right text-rose-700">
-        {d.preco > 0 ? formatCurrency(d.preco) : <span className="text-slate-300">—</span>}
+        {d.preco > 0 ? (
+          <>
+            {formatCurrency(d.preco)}
+            {pctPreco > 0 && <span className="block text-[10px] text-slate-400">{pctPreco}%</span>}
+          </>
+        ) : <span className="text-slate-300">—</span>}
       </td>
     </>
   )

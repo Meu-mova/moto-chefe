@@ -71,12 +71,17 @@ export function somarDescontos(linhas: LinhaDesconto[]): SomaDescontos {
 }
 
 /**
- * Fatia das vendas do período que precisou de aprovação, em %.
- * Desconto absoluto favorece quem vende pouco — quem vende mais desconta mais.
+ * O desconto vale quanto por cento do que foi vendido, em R$.
+ *
+ * O denominador é o faturamento do recorte, não a quantidade de vendas: uma
+ * venda descontada em R$ 300 e outra em R$ 3.000 pesam igual na contagem, e
+ * pesar igual é justamente o que esconde quem está cedendo dinheiro. Sobre o
+ * valor, os dois lados da conta estão na mesma unidade e a taxa compara direto
+ * entre vendedores, independente de quanto cada um vendeu.
  */
-export function percentualComDesconto(comDesconto: number, totalVendas: number): number {
-  if (totalVendas <= 0) return 0
-  return Math.round((comDesconto / totalVendas) * 1000) / 10
+export function percentualDesconto(desconto: number, faturamento: number): number {
+  if (faturamento <= 0) return 0
+  return Math.round((desconto / faturamento) * 1000) / 10
 }
 
 /** O período começa antes de existir registro de desconto? A tela precisa avisar. */

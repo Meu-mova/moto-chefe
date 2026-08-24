@@ -14,7 +14,7 @@ import { AprovacoesPendentesPanel } from './components/aprovacoes-pendentes-pane
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { valorConciliadoManual } from '@/lib/conciliacao-status'
 import { descontosDasVendas } from '@/lib/queries/descontos'
-import { percentualComDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
+import { percentualDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const TIPOS_CARTAO_CONC = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
@@ -160,6 +160,9 @@ export default async function VendasPage({
         { qtd: 0, margem: 0, preco: 0, estimados: 0 },
       )
     : null
+  // Denominador do % de desconto: o valor das vendas listadas, não a contagem
+  // delas — desconto é dinheiro e só compara contra dinheiro.
+  const faturamentoLista = vendasList.reduce((a, v) => a + (Number(v.valor) || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -221,7 +224,7 @@ export default async function VendasPage({
                 </p>
                 <p className="text-xs text-rose-500 mt-0.5">
                   {resumoDesconto.qtd} de {vendasList.length} vendas
-                  {vendasList.length > 0 && ` · ${percentualComDesconto(resumoDesconto.qtd, vendasList.length)}%`}
+                  {faturamentoLista > 0 && ` · ${percentualDesconto(resumoDesconto.margem, faturamentoLista)}% do faturamento`}
                   {resumoDesconto.preco > 0 && ` · ${fmt(resumoDesconto.preco)} de preço`}
                 </p>
               </div>
