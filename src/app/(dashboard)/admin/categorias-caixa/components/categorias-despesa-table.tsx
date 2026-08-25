@@ -255,7 +255,7 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
         <p className="text-xs text-slate-500 max-w-2xl">
           <strong>Operacional</strong> é custo de tocar a loja e reduz o lucro.{' '}
           <strong>Não operacional</strong> é saída real que não é custo de operar — compra de
-          mercadoria, retirada de sócio, transferência entre CNPJs, estorno ao cliente — e fica
+          mercadoria, retirada de sócio, transferência interna, estorno ao cliente — e fica
           fora do cálculo. Hoje são {categorias.length - naoOperacionais} operacionais e{' '}
           {naoOperacionais} não operacionais. A classificação é aplicada na hora do relatório,
           então mudá-la altera também os meses já fechados.

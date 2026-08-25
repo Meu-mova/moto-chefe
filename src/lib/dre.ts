@@ -120,7 +120,7 @@ export function montarDre(e: EntradaDre): LinhaDre[] {
   linhas.push(
     linha('memo_retiradas',      'Retiradas de sócios',        'memo', 1, m?.retiradasSocios ?? 0),
     linha('memo_mercadoria',     'Compra de mercadoria',       'memo', 1, m?.compraMercadoria ?? 0),
-    linha('memo_transferencias', 'Transferências entre CNPJs', 'memo', 1, m?.transferenciasInternas ?? 0),
+    linha('memo_transferencias', 'Transferências internas',    'memo', 1, m?.transferenciasInternas ?? 0),
     linha('memo_estornos',       'Estornos a cliente',         'memo', 1, m?.estornosCliente ?? 0),
   )
 

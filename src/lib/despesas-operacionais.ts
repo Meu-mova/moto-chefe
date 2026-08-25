@@ -14,9 +14,10 @@ export type MotivoForaDoCalculo =
   | 'compra_moto'
   | 'retirada_socio'
   | 'categoria_marcada'
-  // PIX entre os CNPJs do próprio grupo (BH → Sul de Minas e vice-versa). Sai do caixa
-  // de uma empresa e entra no da outra — contando dos dois lados, o grupo "gasta" um
-  // dinheiro que nunca saiu do grupo.
+  // Dinheiro que mudou de bolso dentro da empresa: PIX entre os CNPJs do grupo
+  // (BH → Sul de Minas e vice-versa) e saída do banco para abastecer a gaveta da
+  // loja. Contando dos dois lados, o grupo "gasta" um dinheiro que nunca saiu
+  // dele — e a nota abastecida ainda é lançada de novo quando é gasta em /caixa.
   | 'transferencia_interna'
   // Saída do caixa da loja que não é gasto: "Depósito" leva a gaveta pro banco.
   | 'caixa_nao_despesa'
