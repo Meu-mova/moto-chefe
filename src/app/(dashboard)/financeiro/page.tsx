@@ -13,6 +13,7 @@ import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoDespesas } from './components/resumo-despesas'
 import { ResumoDespesasPorLoja } from './components/resumo-despesas-loja'
 import { ResumoDespesasGeral } from './components/resumo-despesas-geral'
+import { ResumoDespesasLojaCategoria } from './components/resumo-despesas-loja-categoria'
 import { ResumoRetiradas } from './components/resumo-retiradas'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
@@ -381,6 +382,18 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     resumoDespesas.porLoja,
   )
 
+  // Em que cada loja gasta. Ordenado pelo total: o card abre na que mais gastou,
+  // que é a que alguém vai querer olhar primeiro.
+  const despesasPorLojaCategoria = lojasOpts
+    .map(l => ({
+      lojaId: l.id,
+      nome: l.nome,
+      total: resumoDespesas.porLoja.get(l.id) ?? 0,
+      categorias: resumoDespesas.porCategoriaPorLoja.get(l.id) ?? [],
+    }))
+    .filter(l => l.total > 0)
+    .sort((a, b) => b.total - a.total)
+
   const resumoPorPagamento = (resumoPorPagamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
     total: r.total as string,
@@ -540,6 +553,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         <ResumoDespesas resumo={resumoDespesas} />
         {!escopoGeral && <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />}
         <ResumoDespesasGeral porCategoriaGeral={resumoDespesas.porCategoriaGeral} />
+        {!escopoGeral && <ResumoDespesasLojaCategoria lojas={despesasPorLojaCategoria} />}
         <ResumoRetiradas
           foraPorCategoria={resumoDespesas.foraPorCategoria}
           lucroLiquido={lucroLiquido}

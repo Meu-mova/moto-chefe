@@ -257,6 +257,63 @@ test('tudo com loja atribuída deixa o geral vazio', () => {
   assert.deepEqual(r.porCategoriaGeral, [])
 })
 
+// ── Categorias de cada loja ──────────────────────────────────────────────────
+
+test('cada loja tem as próprias categorias, da maior pra menor', () => {
+  const r = somarDespesas(
+    [
+      saida({ valor: '-500.00',  categoria: 'Aluguel',  lojaId: 'loja-1' }),
+      saida({ valor: '-1200.00', categoria: 'Salários', lojaId: 'loja-1' }),
+      saida({ valor: '-100.00',  categoria: 'Aluguel',  lojaId: 'loja-1' }),
+      saida({ valor: '-300.00',  categoria: 'Aluguel',  lojaId: 'loja-2' }),
+      saida({ valor: '-900.00',  categoria: 'Internet' }),                     // sem loja
+    ],
+    [],
+    CONFIG,
+  )
+  assert.deepEqual(r.porCategoriaPorLoja.get('loja-1'), [
+    { categoria: 'Salários', total: 1200 },
+    { categoria: 'Aluguel', total: 600 },
+  ])
+  assert.deepEqual(r.porCategoriaPorLoja.get('loja-2'), [
+    { categoria: 'Aluguel', total: 300 },
+  ])
+})
+
+test('o que não tem loja não entra em loja nenhuma', () => {
+  const r = somarDespesas([saida({ valor: '-900.00', categoria: 'Contabilidade' })], [], CONFIG)
+  assert.equal(r.porCategoriaPorLoja.size, 0)
+  assert.deepEqual(r.porCategoriaGeral, [{ categoria: 'Contabilidade', total: 900 }])
+})
+
+test('a soma das categorias da loja bate com o porLoja dela', () => {
+  const r = somarDespesas(
+    [
+      saida({ valor: '-500.00', categoria: 'Aluguel', lojaId: 'loja-1' }),
+      saida({ valor: '-250.00', categoria: 'Energia', lojaId: 'loja-1' }),
+    ],
+    [{ valor: '-125.00', categoria: 'Água', lojaId: 'loja-1' }],
+    CONFIG,
+  )
+  const soma = (r.porCategoriaPorLoja.get('loja-1') ?? []).reduce((s, c) => s + c.total, 0)
+  assert.equal(soma, r.porLoja.get('loja-1'))
+  assert.equal(soma, 875)
+})
+
+test('despesa não operacional não entra nas categorias da loja', () => {
+  // Mesmo motivo do card Geral: retirada de sócio é distribuição de lucro, não
+  // custo de operar — some do quadro de custos e vai pro de Retiradas.
+  const r = somarDespesas(
+    [
+      saida({ valor: '-500.00',  categoria: 'Aluguel', lojaId: 'loja-1' }),
+      saida({ valor: '-4000.00', categoria: 'Retiradas', lojaId: 'loja-1' }),
+    ],
+    [],
+    CONFIG,
+  )
+  assert.deepEqual(r.porCategoriaPorLoja.get('loja-1'), [{ categoria: 'Aluguel', total: 500 }])
+})
+
 // ── Motivo por categoria ─────────────────────────────────────────────────────
 // Categoria com nome de sócio é retirada; compra de moto é mercadoria. Sem
 // separar o motivo, tudo caía em 'categoria_marcada' e o quadro de retiradas

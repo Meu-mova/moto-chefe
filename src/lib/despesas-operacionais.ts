@@ -139,6 +139,11 @@ export type TotalDespesas = {
    */
   porCategoriaGeral: { categoria: string; total: number }[]
   /**
+   * O mesmo detalhe, mas de cada loja: lojaId → categorias, da maior pra menor.
+   * `porLoja` responde quanto a loja gastou; isto responde em quê.
+   */
+  porCategoriaPorLoja: Map<string, { categoria: string; total: number }[]>
+  /**
    * O que saiu do cálculo, quebrado por categoria e motivo. Permite montar o
    * quadro de retiradas sem chumbar nome de sócio no código.
    */
@@ -160,6 +165,7 @@ export function somarDespesas(
   const porCategoria = new Map<string, number>()
   const porCategoriaGeral = new Map<string, number>()
   const porLoja = new Map<string | null, number>()
+  const porLojaCategoria = new Map<string, Map<string, number>>()
   const foraDoCalculo: Record<MotivoForaDoCalculo, number> = {
     compra_moto: 0,
     retirada_socio: 0,
@@ -187,6 +193,10 @@ export function somarDespesas(
     porLoja.set(lojaId, (porLoja.get(lojaId) ?? 0) + valor)
     if (lojaId === null) {
       porCategoriaGeral.set(categoria, (porCategoriaGeral.get(categoria) ?? 0) + valor)
+    } else {
+      const daLoja = porLojaCategoria.get(lojaId) ?? new Map<string, number>()
+      daLoja.set(categoria, (daLoja.get(categoria) ?? 0) + valor)
+      porLojaCategoria.set(lojaId, daLoja)
     }
   }
 
@@ -232,6 +242,14 @@ export function somarDespesas(
     porCategoriaGeral: [...porCategoriaGeral.entries()]
       .map(([categoria, total]) => ({ categoria, total }))
       .sort((a, b) => b.total - a.total),
+    porCategoriaPorLoja: new Map(
+      [...porLojaCategoria.entries()].map(([lojaId, cats]) => [
+        lojaId,
+        [...cats.entries()]
+          .map(([categoria, total]) => ({ categoria, total }))
+          .sort((a, b) => b.total - a.total),
+      ]),
+    ),
     foraPorCategoria: [...foraPorCategoria.entries()]
       .map(([categoria, { motivo, total }]) => ({ categoria, motivo, total }))
       .sort((a, b) => b.total - a.total),
