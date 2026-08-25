@@ -17,23 +17,7 @@ import { ResumoDespesasLojaCategoria } from './components/resumo-despesas-loja-c
 import { ResumoRetiradas } from './components/resumo-retiradas'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
-
-// Parte não paga em cartão fica como está; a parte paga em cartão e já conciliada é trocada
-// pelo valor líquido. Cobre vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte
-// não-cartão não pode ser descartada do total.
-function valorLiquidoExpr() {
-  return sql<string>`(
-    ${vendas.valor}::numeric
-    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-  )`
-}
+import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
 
 /** Valor do filtro de loja que significa "só o balde da empresa". */
 const ESCOPO_GERAL = 'geral'

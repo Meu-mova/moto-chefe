@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers, TrendingDown, Landmark, HandCoins, Headset, CalendarRange, IdCard, Target } from 'lucide-react'
+import { Building2, Users, Bike, Settings2, Tags, Megaphone, BarChart3, PackagePlus, ShoppingBag, Tag, FileText, Database, Layers, TrendingDown, Landmark, HandCoins, Headset, CalendarRange, IdCard, Target, FileSpreadsheet } from 'lucide-react'
 
 export default async function AdminPage() {
   const usuario = await getUsuarioLogado()
@@ -165,6 +165,15 @@ export default async function AdminPage() {
                 <CardTitle className="text-base">Canais e verba</CardTitle>
               </CardHeader>
               <CardContent><p className="text-sm text-slate-500">Origem dos leads, funis por grupo e investimento em mídia</p></CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/dre">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex-row gap-3 items-center pb-2">
+                <FileSpreadsheet className="text-slate-600" size={20} />
+                <CardTitle className="text-base">DRE</CardTitle>
+              </CardHeader>
+              <CardContent><p className="text-sm text-slate-500">Demonstração do resultado, por loja e mês a mês</p></CardContent>
             </Card>
           </Link>
           <Link href="/admin/metas">

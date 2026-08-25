@@ -540,6 +540,11 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
   // Sem isto, tudo que sai do cálculo vira um balaio só e não dá pra separar
   // retirada de sócio de compra de mercadoria no relatório.
   motivoNaoOperacional: text('motivo_nao_operacional'),
+  // Linha do DRE em que esta categoria entra (ver @/lib/dre). Fica na categoria e
+  // não num de-para no código porque categoria nova nasce toda semana pela tela —
+  // no código, toda nova entraria calada em "Outras". NULL cai em "Outras" na
+  // leitura, nunca some do total.
+  grupoDre: text('grupo_dre'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

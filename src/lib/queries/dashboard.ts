@@ -4,6 +4,7 @@ import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } f
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
+import { valorLiquidoExpr } from './valor-liquido'
 
 type Filtros = {
   dataInicio: string
@@ -16,20 +17,6 @@ type Filtros = {
 // a parte paga em cartão e já conciliada é trocada pelo valor líquido (descontada a taxa da operadora).
 // Cobre também vendas com forma "multiplos" (cartão + pix/dinheiro), onde a parte não-cartão não pode
 // ser descartada do total.
-function valorLiquidoExpr() {
-  return sql`(
-    ${vendas.valor}::numeric
-    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-  )`
-}
-
 function lojaFilter(col: Column, ids: string[]) {
   return ids.length === 1 ? eq(col, ids[0]) : inArray(col, ids)
 }

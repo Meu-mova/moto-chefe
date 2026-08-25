@@ -18,6 +18,7 @@ import {
   contarLancamentosDaCategoriaAction,
 } from '../actions'
 import { MOTIVOS_CATEGORIA, rotuloMotivo } from '@/lib/categoria-despesa'
+import { GRUPOS_DRE, rotuloGrupo } from '@/lib/dre'
 
 type CategoriaDespesa = {
   id: string
@@ -26,6 +27,7 @@ type CategoriaDespesa = {
   ordem: number
   contaComoDespesa: boolean
   motivoNaoOperacional: string | null
+  grupoDre: string | null
 }
 
 function CategoriaDespesaDialog({
@@ -40,6 +42,7 @@ function CategoriaDespesaDialog({
   const [nome, setNome] = useState(inicial?.nome ?? '')
   const [operacional, setOperacional] = useState(inicial?.contaComoDespesa ?? true)
   const [motivo, setMotivo] = useState(inicial?.motivoNaoOperacional ?? '')
+  const [grupoDre, setGrupoDre] = useState(inicial?.grupoDre ?? '')
   const [lancamentos, setLancamentos] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -61,6 +64,7 @@ function CategoriaDespesaDialog({
       nome,
       contaComoDespesa: operacional,
       motivoNaoOperacional: operacional ? null : motivo,
+      grupoDre: operacional ? grupoDre : null,
     }
     startTransition(async () => {
       try {
@@ -130,6 +134,26 @@ function CategoriaDespesaDialog({
               <p className="text-[11px] text-slate-400">
                 O card &quot;Retiradas de Sócios&quot; do Financeiro só mostra o que estiver
                 como retirada de sócio.
+              </p>
+            </div>
+          )}
+
+          {operacional && (
+            <div className="space-y-1.5">
+              <Label>Grupo do DRE</Label>
+              <select
+                value={grupoDre}
+                onChange={e => setGrupoDre(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none"
+              >
+                <option value="">— sem grupo (entra em Outras) —</option>
+                {GRUPOS_DRE.map(g => (
+                  <option key={g.valor} value={g.valor}>{g.rotulo}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400">
+                Em que linha do DRE esta categoria entra. Sem grupo, ela cai em &quot;Outras&quot;
+                — nada some do total.
               </p>
             </div>
           )}
@@ -247,6 +271,7 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Tipo</TableHead>
+              <TableHead>Grupo do DRE</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24" />
             </TableRow>
@@ -271,6 +296,15 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
                         </span>
                       </span>
                     )}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  <button onClick={() => setEditando(cat)} className="cursor-pointer text-left text-slate-600">
+                    {cat.contaComoDespesa
+                      ? (cat.grupoDre
+                          ? rotuloGrupo(cat.grupoDre)
+                          : <span className="text-amber-600">sem grupo</span>)
+                      : <span className="text-slate-300">—</span>}
                   </button>
                 </TableCell>
                 <TableCell>

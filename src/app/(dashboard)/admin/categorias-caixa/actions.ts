@@ -70,6 +70,7 @@ function revalidarDespesa() {
   revalidatePath('/admin/categorias-caixa')
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
+  revalidatePath('/admin/dre')
 }
 
 export async function listarCategoriasDespesaAction() {
@@ -83,6 +84,7 @@ export type DadosCategoriaDespesa = {
   nome: string
   contaComoDespesa: boolean
   motivoNaoOperacional?: string | null
+  grupoDre?: string | null
 }
 
 export async function criarCategoriaDespesaAction(dados: DadosCategoriaDespesa) {

@@ -4,7 +4,7 @@ import { normalizarClassificacao, rotuloMotivo, MOTIVOS_CATEGORIA } from './cate
 
 test('operacional não guarda motivo', () => {
   const r = normalizarClassificacao({ contaComoDespesa: true, motivoNaoOperacional: 'retirada_socio' })
-  assert.deepEqual(r, { contaComoDespesa: true, motivoNaoOperacional: null })
+  assert.deepEqual(r, { contaComoDespesa: true, motivoNaoOperacional: null, grupoDre: null })
 })
 
 test('não operacional exige motivo', () => {
@@ -45,4 +45,28 @@ test('rótulo cai no próprio valor quando o motivo é antigo', () => {
   // Linha gravada antes desta tela, com motivo que a tela não oferece: mostra o
   // valor cru em vez de sumir.
   assert.equal(rotuloMotivo('categoria_marcada'), 'categoria_marcada')
+})
+
+test('grupo do DRE só vale em categoria operacional', () => {
+  const r = normalizarClassificacao({ contaComoDespesa: true, grupoDre: 'pessoal' })
+  assert.equal(r.grupoDre, 'pessoal')
+
+  // Não operacional aparece no memorando, classificada pelo motivo — guardar um
+  // grupo do DRE nela seria dado que ninguém lê.
+  const naoOp = normalizarClassificacao({
+    contaComoDespesa: false, motivoNaoOperacional: 'retirada_socio', grupoDre: 'pessoal',
+  })
+  assert.equal(naoOp.grupoDre, null)
+})
+
+test('grupo em branco é permitido — a leitura joga em Outras', () => {
+  assert.equal(normalizarClassificacao({ contaComoDespesa: true }).grupoDre, null)
+  assert.equal(normalizarClassificacao({ contaComoDespesa: true, grupoDre: '  ' }).grupoDre, null)
+})
+
+test('grupo inventado não passa', () => {
+  assert.throws(
+    () => normalizarClassificacao({ contaComoDespesa: true, grupoDre: 'marketing_digital' }),
+    /Grupo do DRE inválido/,
+  )
 })

@@ -11,6 +11,7 @@
 // aqui, mesmo o banco aceitando nulo.
 
 import type { MotivoForaDoCalculo } from './despesas-operacionais'
+import { GRUPOS_DRE, type GrupoDre } from './dre'
 
 /** Só os motivos que fazem sentido para uma CATEGORIA de despesa. */
 export const MOTIVOS_CATEGORIA = [
@@ -26,6 +27,7 @@ export type MotivoCategoria = (typeof MOTIVOS_CATEGORIA)[number]['valor']
 // na tela seria pedir para escolher "não escolhi". 'caixa_nao_despesa' pertence
 // às categorias de caixa, que não têm motivo.
 const VALIDOS = new Set<string>(MOTIVOS_CATEGORIA.map(m => m.valor))
+const GRUPOS_VALIDOS = new Set<string>(GRUPOS_DRE.map(g => g.valor))
 
 export function rotuloMotivo(motivo: string | null): string {
   if (!motivo) return 'Sem motivo'
@@ -35,6 +37,8 @@ export function rotuloMotivo(motivo: string | null): string {
 export type Classificacao = {
   contaComoDespesa: boolean
   motivoNaoOperacional: MotivoCategoria | null
+  /** Linha do DRE. Só faz sentido para categoria operacional. */
+  grupoDre: GrupoDre | null
 }
 
 /**
@@ -48,9 +52,19 @@ export type Classificacao = {
 export function normalizarClassificacao(entrada: {
   contaComoDespesa: boolean
   motivoNaoOperacional?: string | null
+  grupoDre?: string | null
 }): Classificacao {
   if (entrada.contaComoDespesa) {
-    return { contaComoDespesa: true, motivoNaoOperacional: null }
+    // Grupo em branco é permitido: a leitura do DRE joga em "Outras". Exigir aqui
+    // travaria o cadastro de uma categoria por causa de uma classificação que dá
+    // pra ajustar depois.
+    const grupo = entrada.grupoDre?.trim() || ''
+    if (grupo && !GRUPOS_VALIDOS.has(grupo)) throw new Error('Grupo do DRE inválido')
+    return {
+      contaComoDespesa: true,
+      motivoNaoOperacional: null,
+      grupoDre: (grupo || null) as GrupoDre | null,
+    }
   }
   const motivo = entrada.motivoNaoOperacional?.trim() || ''
   if (!motivo) {
@@ -59,5 +73,7 @@ export function normalizarClassificacao(entrada: {
   if (!VALIDOS.has(motivo)) {
     throw new Error('Motivo inválido')
   }
-  return { contaComoDespesa: false, motivoNaoOperacional: motivo as MotivoCategoria }
+  // Não operacional não entra no corpo do DRE — aparece no memorando, e lá quem
+  // classifica é o motivo. Guardar um grupo aqui seria dado que ninguém lê.
+  return { contaComoDespesa: false, motivoNaoOperacional: motivo as MotivoCategoria, grupoDre: null }
 }
