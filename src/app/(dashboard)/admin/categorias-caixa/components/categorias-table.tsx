@@ -15,6 +15,7 @@ import {
   editarCategoriaAction,
   excluirCategoriaAction,
   toggleAtivoAction,
+  toggleContaComoDespesaCaixaAction,
 } from '../actions'
 
 type Categoria = {
@@ -23,6 +24,7 @@ type Categoria = {
   tipo: string
   ativo: boolean
   ordem: number
+  contaComoDespesa: boolean
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -69,7 +71,7 @@ function CategoriaDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-sm" showCloseButton={false}>
+      <DialogContent className="sm:max-w-sm" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{inicial ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
         </DialogHeader>
@@ -126,7 +128,7 @@ function ConfirmarExclusaoDialog({
 
   return (
     <Dialog open={!!categoria} onOpenChange={(v: boolean) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-sm" showCloseButton={false}>
+      <DialogContent className="sm:max-w-sm" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Excluir categoria?</DialogTitle>
         </DialogHeader>
@@ -166,14 +168,34 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
     })
   }
 
+  // Sem motivo a escolher: a saída de caixa que não é gasto tem um motivo só
+  // ('caixa_nao_despesa'), então aqui alterna direto no clique.
+  function handleToggleDespesa(cat: Categoria) {
+    startTransition(async () => {
+      try {
+        await toggleContaComoDespesaCaixaAction(cat.id, !cat.contaComoDespesa)
+        toast.success(cat.contaComoDespesa
+          ? 'Fora das despesas operacionais'
+          : 'Conta como despesa operacional')
+      } catch {
+        toast.error('Erro ao alterar')
+      }
+    })
+  }
+
   const saidas   = categorias.filter(c => c.tipo === 'saida')
   const entradas = categorias.filter(c => c.tipo === 'entrada')
   const ambos    = categorias.filter(c => c.tipo === 'ambos')
 
   return (
     <>
-      <div className="flex justify-end">
-        <Button onClick={() => setCriando(true)} size="sm">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-xs text-slate-500 max-w-2xl">
+          Categoria de saída marcada como <strong>não operacional</strong> fica fora do cálculo do
+          lucro no Financeiro: &quot;Depósito&quot; é dinheiro indo da gaveta pro banco, não gasto.
+          A regra vale para o histórico inteiro, então muda também os meses já fechados.
+        </p>
+        <Button onClick={() => setCriando(true)} size="sm" className="shrink-0">
           <Plus size={16} className="mr-1.5" /> Nova Categoria
         </Button>
       </div>
@@ -184,6 +206,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Tipo</TableHead>
+              <TableHead>Despesa</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24" />
             </TableRow>
@@ -196,6 +219,25 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
                   <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${TIPO_CLS[cat.tipo] ?? ''}`}>
                     {TIPO_LABEL[cat.tipo] ?? cat.tipo}
                   </span>
+                </TableCell>
+                <TableCell>
+                  {cat.tipo === 'entrada' ? (
+                    <span className="text-xs text-slate-300">--</span>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleDespesa(cat)}
+                      disabled={pending}
+                      className="cursor-pointer"
+                    >
+                      {cat.contaComoDespesa ? (
+                        <Badge variant="outline">Operacional</Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                          Não operacional
+                        </Badge>
+                      )}
+                    </button>
+                  )}
                 </TableCell>
                 <TableCell>
                   <button
