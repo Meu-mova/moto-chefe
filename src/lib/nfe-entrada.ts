@@ -84,9 +84,12 @@ export function extrairDaNfe(xml: string): { nNF: string; infCpl: string; qtdPro
 
 /**
  * De-para do nome do modelo da NF para o modelo cadastrado no MOVA.
- * 1) match exato (normalizado); 2) senão, o MAIOR modelo cujo nome é prefixo
- * (palavra a palavra) do nome da NF — assim "GIGA C/ BAU" cai em "GIGA", mas
- * "MC20 MINI" continua batendo o exato e não vira "MC20".
+ * 1) match exato (normalizado); 2) senão, o MAIOR modelo cadastrado que seja
+ * prefixo do nome da NF — comparado SEM os espaços, porque a fábrica alterna
+ * "JETMAX" e "JET MAX" para o mesmo modelo. A fronteira do prefixo tem de cair
+ * no fim de uma palavra da NF, senão "JET" casaria dentro de "JETMAX"; e como
+ * vence o maior, "JET MAX" fica em JETMAX em vez de cair no JET, que também
+ * existe no cadastro. "GIGA C/ BAU" continua caindo em "GIGA".
  * Devolve o nome cadastrado (para casar no registrarEntradaLote) ou null.
  */
 export function mapearModelo(nomeNf: string, modelosMova: string[]): string | null {
@@ -95,13 +98,19 @@ export function mapearModelo(nomeNf: string, modelosMova: string[]): string | nu
   if (mapa.has(alvo)) return mapa.get(alvo)!
 
   const tokens = alvo.split(' ')
+  const compacto = tokens.join('')
+  // Onde uma palavra da NF termina, contando o texto já sem espaços.
+  const fronteiras = new Set<number>()
+  let acc = 0
+  for (const tk of tokens) { acc += tk.length; fronteiras.add(acc) }
+
   let melhor: string | null = null
   let melhorLen = 0
   for (const [norm, orig] of mapa) {
-    const nt = norm.split(' ')
-    if (nt.length <= tokens.length && nt.length > melhorLen && nt.every((tk, i) => tk === tokens[i])) {
+    const c = norm.replace(/ /g, '')
+    if (c.length > melhorLen && fronteiras.has(c.length) && compacto.startsWith(c)) {
       melhor = orig
-      melhorLen = nt.length
+      melhorLen = c.length
     }
   }
   return melhor

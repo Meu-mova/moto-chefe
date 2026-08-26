@@ -183,3 +183,16 @@ test('extrairDaNfe pega nNF e conta quantidade dos produtos', () => {
   assert.equal(r.qtdProdutos, 1)
   assert.equal(parseMotosInfCpl(r.infCpl).length, r.qtdProdutos)
 })
+
+// NF 41671/41700 (ago/2026): a fábrica passou a escrever "JET MAX" com espaço,
+// mas o cadastro é "JETMAX". Sem casar ignorando o espaço, o fallback de prefixo
+// derrubava as 33 motos para o modelo "JET", que também existe.
+test('de-para: JET MAX (com espaço) casa com JETMAX, não com JET', () => {
+  assert.equal(mapearModelo('JET MAX', MODELOS), 'JETMAX')
+  assert.equal(mapearModelo('JET MAX 1000W', MODELOS), 'JETMAX')
+})
+
+test('de-para: espaço a mais/a menos casa nos dois sentidos', () => {
+  assert.equal(mapearModelo('MC20MINI', MODELOS), 'MC20 MINI')
+  assert.equal(mapearModelo('BIGTRI', ['BIG TRI', 'BIG']), 'BIG TRI')
+})
