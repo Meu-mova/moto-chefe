@@ -4,16 +4,19 @@ import { toast } from 'sonner'
 import { CheckCircle2, Clock, Search, Loader2, Zap, Undo2, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { TIPOS_CARTAO, matchPagamentos, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
+import { matchPagamentos, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import {
   buscarConciliacoesDoAlvo,
   buscarPixDoAlvo,
   buscarConciliacoesPorValor,
   buscarConciliacoesLivres,
+  buscarPixLivres,
   vincularVendaAction,
+  vincularPixAlvoAction,
   forcarConciliacaoAction,
   desfazerConciliacaoForcadaAction,
   type AlvoConciliacao,
+  type PixLivre,
 } from '@/app/(dashboard)/conciliacao/actions'
 
 type Conc      = Awaited<ReturnType<typeof buscarConciliacoesDoAlvo>>[number]
@@ -81,12 +84,17 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
   const podeForcar = papel === 'admin_geral'
 
   const [buscandoIdx, setBuscandoIdx]   = useState<number | null>(null)
+  // Cartão e PIX moram em tabelas diferentes; a linha aberta manda qual das duas
+  // buscar, e só uma das listas fica preenchida por vez.
+  const [buscandoPix, setBuscandoPix]   = useState(false)
   const [candidatos, setCandidatos]     = useState<Candidato[]>([])
+  const [candidatosPix, setCandidatosPix] = useState<PixLivre[]>([])
   const [buscaLoading, setBuscaLoading] = useState(false)
   const [vinculando, setVinculando]     = useState(false)
 
   const [buscaLivre, setBuscaLivre]         = useState('')
   const [livres, setLivres]                 = useState<Candidato[]>([])
+  const [livresPix, setLivresPix]           = useState<PixLivre[]>([])
   const [livreLoading, setLivreLoading]     = useState(false)
   const [buscouLivre, setBuscouLivre]       = useState(false)
 
@@ -96,18 +104,26 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
 
   const conciliados = matchPagamentos(pagamentos, concs, pixRecs)
 
-  async function abrirBusca(idx: number, valor: number) {
-    if (buscandoIdx === idx) { setBuscandoIdx(null); return }
-    setBuscandoIdx(idx)
-    setBuscaLoading(true)
+  function limparBusca() {
     setCandidatos([])
+    setCandidatosPix([])
     setLivres([])
+    setLivresPix([])
     setBuscaLivre('')
     setBuscouLivre(false)
+  }
+
+  async function abrirBusca(idx: number, valor: number, ehPix: boolean) {
+    if (buscandoIdx === idx) { setBuscandoIdx(null); return }
+    setBuscandoIdx(idx)
+    setBuscandoPix(ehPix)
+    setBuscaLoading(true)
+    limparBusca()
     try {
-      setCandidatos(await buscarConciliacoesPorValor(valor))
+      if (ehPix) setCandidatosPix(await buscarPixLivres(valor))
+      else       setCandidatos(await buscarConciliacoesPorValor(valor))
     } catch {
-      toast.error('Erro ao buscar transações')
+      toast.error(ehPix ? 'Erro ao buscar recebimentos PIX' : 'Erro ao buscar transações')
       setBuscandoIdx(null)
     } finally {
       setBuscaLoading(false)
@@ -119,7 +135,8 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
     setLivreLoading(true)
     setBuscouLivre(false)
     try {
-      setLivres(await buscarConciliacoesLivres(buscaLivre))
+      if (buscandoPix) setLivresPix(await buscarPixLivres(0, buscaLivre))
+      else             setLivres(await buscarConciliacoesLivres(buscaLivre))
       setBuscouLivre(true)
     } catch {
       toast.error('Erro na busca')
@@ -134,11 +151,25 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
       await vincularVendaAction(conciliacaoId, alvo.id, alvo.tipo)
       await recarregar()
       setBuscandoIdx(null)
-      setCandidatos([])
-      setLivres([])
+      limparBusca()
       toast.success('Pagamento conciliado')
     } catch {
       toast.error('Erro ao vincular')
+    } finally {
+      setVinculando(false)
+    }
+  }
+
+  async function vincularPix(pixId: string) {
+    setVinculando(true)
+    try {
+      await vincularPixAlvoAction(pixId, alvo)
+      await recarregar()
+      setBuscandoIdx(null)
+      limparBusca()
+      toast.success('PIX conciliado')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao vincular')
     } finally {
       setVinculando(false)
     }
@@ -207,6 +238,33 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
     )
   }
 
+  function renderCandidatoPix(p: PixLivre) {
+    return (
+      <button
+        key={p.id}
+        onClick={() => vincularPix(p.id)}
+        disabled={vinculando}
+        className="w-full text-left rounded px-2.5 py-2 bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs disabled:opacity-50"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-medium text-slate-800 truncate">{p.pagadorNome ?? 'Pagador não informado'}</p>
+            {p.descricao && <p className="text-slate-500 truncate">{p.descricao}</p>}
+            <p className="text-slate-400">
+              {new Date(p.data).toLocaleString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
+              })}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 text-blue-600 shrink-0 mt-0.5">
+            {vinculando ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+            <span className="font-semibold">{fmt(p.valor)}</span>
+          </div>
+        </div>
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-1.5">
       {pagamentos.map((p, i) => {
@@ -259,10 +317,10 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                   {fmt(p.valor)}
                 </span>
 
-                {podeBuscar && pendente && TIPOS_CARTAO.has(p.tipo) && (
+                {podeBuscar && pendente && precisa && (
                   <button
-                    onClick={() => abrirBusca(i, p.valor)}
-                    title="Buscar transação para conciliar"
+                    onClick={() => abrirBusca(i, p.valor, p.tipo === 'pix')}
+                    title={p.tipo === 'pix' ? 'Buscar recebimento PIX para conciliar' : 'Buscar transação para conciliar'}
                     className={`p-1 rounded transition-colors ${
                       aberto ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
                     }`}
@@ -311,7 +369,9 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
               <div className="ml-4 border border-blue-100 rounded-lg bg-blue-50 p-2 space-y-1">
                 <p className="text-xs font-medium text-blue-700 mb-1.5 flex items-center gap-1">
                   <Search size={11} />
-                  Transações com valor próximo não vinculadas
+                  {buscandoPix
+                    ? 'Recebimentos PIX com valor próximo, ainda não vinculados'
+                    : 'Transações com valor próximo não vinculadas'}
                 </p>
 
                 {buscaLoading && (
@@ -321,19 +381,20 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                   </div>
                 )}
 
-                {!buscaLoading && candidatos.length === 0 && (
+                {!buscaLoading && (buscandoPix ? candidatosPix.length === 0 : candidatos.length === 0) && (
                   <p className="text-xs text-slate-500 py-1">
-                    Nenhuma transação com este valor. Importe o relatório da operadora em /conciliação
-                    ou procure abaixo.
+                    {buscandoPix
+                      ? 'Nenhum PIX livre com este valor. Sincronize o Open Finance em /pix-mcp ou procure abaixo.'
+                      : 'Nenhuma transação com este valor. Importe o relatório da operadora em /conciliação ou procure abaixo.'}
                   </p>
                 )}
 
-                {!buscaLoading && candidatos.map(renderCandidato)}
+                {!buscaLoading && (buscandoPix ? candidatosPix.map(renderCandidatoPix) : candidatos.map(renderCandidato))}
 
                 {/* Busca livre — quando o valor não bate com nada */}
                 <div className="border-t border-blue-100 pt-2 mt-2">
                   <p className="text-xs font-medium text-blue-700 mb-1.5">
-                    Procurar outra transação
+                    {buscandoPix ? 'Procurar outro PIX' : 'Procurar outra transação'}
                   </p>
                   <div className="flex gap-1.5">
                     <input
@@ -341,7 +402,9 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                       value={buscaLivre}
                       onChange={e => { setBuscaLivre(e.target.value); setBuscouLivre(false) }}
                       onKeyDown={e => e.key === 'Enter' && buscarLivre()}
-                      placeholder="Autorização, NSU, data (AAAA-MM-DD) ou valor"
+                      placeholder={buscandoPix
+                        ? 'Pagador, descrição, data (AAAA-MM-DD) ou valor'
+                        : 'Autorização, NSU, data (AAAA-MM-DD) ou valor'}
                       className="flex-1 border border-blue-200 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                     <Button
@@ -355,12 +418,16 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                     </Button>
                   </div>
 
-                  {buscouLivre && livres.length === 0 && (
-                    <p className="text-xs text-slate-500 mt-1.5">Nenhuma transação encontrada.</p>
+                  {buscouLivre && (buscandoPix ? livresPix.length === 0 : livres.length === 0) && (
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      {buscandoPix ? 'Nenhum PIX encontrado.' : 'Nenhuma transação encontrada.'}
+                    </p>
                   )}
 
-                  {livres.length > 0 && (
-                    <div className="mt-1.5 space-y-1">{livres.map(renderCandidato)}</div>
+                  {(buscandoPix ? livresPix.length > 0 : livres.length > 0) && (
+                    <div className="mt-1.5 space-y-1">
+                      {buscandoPix ? livresPix.map(renderCandidatoPix) : livres.map(renderCandidato)}
+                    </div>
                   )}
                 </div>
               </div>

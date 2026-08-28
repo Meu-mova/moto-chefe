@@ -37,8 +37,11 @@ export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
   return params?.apenasAtivos ? todas.filter(p => p.ativo) : todas
 }
 
+// Vendedor também cria: a peça nova aparece no balcão antes de alguém do escritório
+// cadastrar, e sem isso a venda não sai. Editar preço/estoque e inativar seguem só
+// com gestor — ver atualizarPecaAction abaixo.
 export async function criarPecaAction(input: PecaInput) {
-  await verificarAcesso()
+  await verificarAcessoVenda()
   const nome = input.nome.trim()
   if (!nome) throw new Error('Nome é obrigatório')
   if (input.valor < 0) throw new Error('Valor não pode ser negativo')
@@ -48,7 +51,12 @@ export async function criarPecaAction(input: PecaInput) {
     nome,
     valor: String(input.valor),
     quantidadeEstoque: input.quantidadeEstoque,
-  }).returning({ id: pecasCatalogo.id })
+  }).returning({
+    id: pecasCatalogo.id,
+    nome: pecasCatalogo.nome,
+    valor: pecasCatalogo.valor,
+    quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
+  })
 
   revalidatePath('/pecas')
   return nova
@@ -91,7 +99,10 @@ export async function reativarPecaAction(id: string) {
 // Vendida junto com OS (via os_itens, já existente) ou avulsa no balcão (aqui).
 // Não emite nota fiscal — só baixa estoque e registra o recebimento.
 
-export type ItemVendaPecaInput = { pecaId: string; quantidade: number }
+// `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
+// balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
+// registrarVendaPecaAction.
+export type ItemVendaPecaInput = { pecaId: string; quantidade: number; valorUnitario?: number }
 export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
 export type DadosVendaPeca = {
   lojaId: string
@@ -147,12 +158,17 @@ export async function aplicarVendaPeca(
 
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)!
+    // O `valorUnitario` já chega saneado por registrarVendaPecaAction: quem não pode
+    // mexer no preço não tem esse campo aqui. Ausente = preço do catálogo.
+    const valorUnitario = item.valorUnitario != null && item.valorUnitario >= 0
+      ? item.valorUnitario.toFixed(2)
+      : peca.valor
     await tx.insert(vendasPecasItens).values({
       vendaPecaId: venda.id,
       pecaId: item.pecaId,
       descricao: peca.nome,
       quantidade: String(item.quantidade),
-      valorUnitario: peca.valor,
+      valorUnitario,
     })
     await tx.update(pecasCatalogo)
       .set({ quantidadeEstoque: peca.quantidadeEstoque - item.quantidade, atualizadoEm: new Date() })
@@ -173,13 +189,21 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
   if (valorTotal <= 0) throw new Error('Valor total inválido')
 
-  if (temPagamentoSensivelPeca(input.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, input.lojaId))) {
+  // Preço fora do catálogo é decisão de gestor. Descartar aqui (e não lá embaixo)
+  // faz a venda que vai pra aprovação já ficar gravada com o preço certo — senão o
+  // ajuste sumiria só quando alguém aprovasse, dias depois.
+  const podeDefinirPreco = (GESTORES as readonly string[]).includes(usuario.papel)
+  const saneado: DadosVendaPeca = podeDefinirPreco
+    ? input
+    : { ...input, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
+
+  if (temPagamentoSensivelPeca(saneado.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, saneado.lojaId))) {
     await db.insert(aprovacoesVenda).values({
       origem: 'peca',
-      lojaId: input.lojaId,
+      lojaId: saneado.lojaId,
       vendedorId: usuario.id,
       valor: valorTotal.toFixed(2),
-      dadosVenda: input,
+      dadosVenda: saneado,
       motivo: 'Pagamento via Financiamento — venda de peças',
       tipo: 'pagamento_sensivel',
       status: 'pendente',
@@ -188,7 +212,7 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
     return { aguardandoAprovacao: true as const }
   }
 
-  const resultado = await db.transaction(tx => aplicarVendaPeca(tx, usuario.id, input))
+  const resultado = await db.transaction(tx => aplicarVendaPeca(tx, usuario.id, saneado))
   revalidatePath('/pecas')
   return { aguardandoAprovacao: false as const, id: resultado.id }
 }

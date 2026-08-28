@@ -5,6 +5,7 @@ import { eq, and, or, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
+import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay, padraoNsuDoTerminal } from '@/lib/conciliacao-terminal'
 import { grupos } from '@/lib/db/schema'
@@ -392,6 +393,17 @@ export type AlvoConciliacao = { tipo: AlvoTipo; id: string }
 
 const GESTORES_CONC = ['admin_geral', 'admin_socio', 'aux_adm']
 
+// O mesmo status de conciliação aparece em várias telas; todas revalidam juntas
+// para nunca divergirem (uma dizendo "pendente" e a outra "conciliada").
+function revalidatePathsConciliacao() {
+  revalidatePath('/vendas')
+  revalidatePath('/pecas')
+  revalidatePath('/ordens-servico')
+  revalidatePath('/dashboard')
+  revalidatePath('/conciliacao')
+  revalidatePath('/pix-mcp')
+}
+
 async function lojaIdDoAlvo(alvo: AlvoConciliacao): Promise<string | null> {
   if (alvo.tipo === 'peca') {
     const [r] = await db.select({ lojaId: vendasPecas.lojaId }).from(vendasPecas).where(eq(vendasPecas.id, alvo.id)).limit(1)
@@ -511,6 +523,128 @@ export async function buscarConciliacoesLivres(query: string) {
     .limit(15)
 }
 
+// ─── PIX por alvo (venda de moto, peça ou OS) ────────────────────────────────
+// O cartão sempre teve mão dupla: da venda dá pra achar a transação, e da transação
+// dá pra achar a venda. O PIX só tinha um lado — quem quisesse conciliar um PIX
+// precisava sair da venda, ir em /pix-mcp e digitar o número de cabeça. Estas duas
+// funções fecham a outra mão, com as mesmas regras de grupo e papel do cartão.
+
+/** Recebimento PIX ainda não vinculado a nada, do grupo ativo. */
+export type PixLivre = {
+  id: string
+  data: Date
+  valor: string
+  pagadorNome: string | null
+  descricao: string | null
+}
+
+/**
+ * PIX livres pra conciliar com o alvo. Sem `query`, procura por valor aproximado
+ * (o mesmo ±5 do cartão); com `query`, casa por pagador, descrição, data
+ * (AAAA-MM-DD) ou valor.
+ */
+export async function buscarPixLivres(valor: number, query?: string): Promise<PixLivre[]> {
+  const usuario = await getUsuarioLogado()
+  if (!GESTORES_CONC.includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
+
+  const q = (query ?? '').trim()
+  let filtro
+  if (!q) {
+    filtro = sql`ABS(${pixRecebimentosMcp.valor}::numeric - ${valor}) <= 5`
+  } else {
+    const valorBusca = parseFloat(q.replace(/\./g, '').replace(',', '.'))
+    if (/^\d{4}-\d{2}-\d{2}$/.test(q)) {
+      filtro = sql`${pixRecebimentosMcp.data}::date = ${q}::date`
+    } else if (Number.isFinite(valorBusca) && valorBusca > 0) {
+      filtro = sql`ABS(${pixRecebimentosMcp.valor}::numeric - ${valorBusca}) <= 5`
+    } else {
+      filtro = or(
+        ilike(pixRecebimentosMcp.pagadorNome, `%${q}%`),
+        ilike(pixRecebimentosMcp.descricao, `%${q}%`),
+      )
+    }
+  }
+
+  const linhas = await db
+    .select({
+      id:          pixRecebimentosMcp.id,
+      data:        pixRecebimentosMcp.data,
+      valor:       pixRecebimentosMcp.valor,
+      pagadorNome: pixRecebimentosMcp.pagadorNome,
+      descricao:   pixRecebimentosMcp.descricao,
+    })
+    .from(pixRecebimentosMcp)
+    .where(and(
+      eq(pixRecebimentosMcp.grupoId, grupo.id),
+      isNull(pixRecebimentosMcp.tipoCorrespondencia),
+      filtro,
+    ))
+    .orderBy(desc(pixRecebimentosMcp.data))
+    .limit(30)
+
+  // Liquidação da maquininha e transferência entre contas do grupo não é dinheiro de
+  // cliente — filtrar em JS porque a regra é de nome, não de coluna. Ver pix-internos.ts.
+  return linhas.filter(l => !ehTransferenciaInterna(l.pagadorNome)).slice(0, 15)
+}
+
+export async function vincularPixAlvoAction(pixId: string, alvo: AlvoConciliacao) {
+  const usuario = await getUsuarioLogado()
+  if (!GESTORES_CONC.includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
+
+  const lojaId = await lojaIdDoAlvo(alvo)
+  if (!lojaId) throw new Error('Venda não encontrada')
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  if (!lojaIdsGrupo.includes(lojaId)) throw new Error('Venda não pertence ao grupo ativo')
+
+  const [pix] = await db
+    .select({ pagadorNome: pixRecebimentosMcp.pagadorNome })
+    .from(pixRecebimentosMcp)
+    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+    .limit(1)
+  if (!pix) throw new Error('PIX não encontrado no grupo ativo')
+  if (ehTransferenciaInterna(pix.pagadorNome)) {
+    throw new Error('Essa transferência é interna (maquininha/conta do próprio grupo) e não pode ser conciliada com uma venda')
+  }
+
+  // `tipoCorrespondencia` usa 'venda' pra moto — é o enum que /pix-mcp já grava.
+  const tipo = alvo.tipo === 'moto' ? 'venda' : alvo.tipo
+
+  await db.update(pixRecebimentosMcp)
+    .set({
+      tipoCorrespondencia: tipo,
+      vendaId:     alvo.tipo === 'moto' ? alvo.id : null,
+      pecaVendaId: alvo.tipo === 'peca' ? alvo.id : null,
+      osId:        alvo.tipo === 'os'   ? alvo.id : null,
+      pedidoId:    null,
+      lancadoPorId: usuario.id,
+      lancadoEm:   new Date(),
+    })
+    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+
+  revalidatePathsConciliacao()
+}
+
+export async function desvincularPixAlvoAction(pixId: string) {
+  const usuario = await getUsuarioLogado()
+  if (!GESTORES_CONC.includes(usuario.papel)) throw new Error('Sem permissão')
+  const grupo = await getGrupoAtivo(usuario)
+
+  const atualizadas = await db.update(pixRecebimentosMcp)
+    .set({
+      tipoCorrespondencia: null,
+      vendaId: null, pecaVendaId: null, osId: null, pedidoId: null,
+      lancadoPorId: null, lancadoEm: null,
+    })
+    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+    .returning({ id: pixRecebimentosMcp.id })
+
+  if (atualizadas.length === 0) throw new Error('PIX não encontrado no grupo ativo')
+
+  revalidatePathsConciliacao()
+}
+
 // ─── Forçar conciliação na mão (admin_geral) ─────────────────────────────────
 // Fecha a pendência quando o dinheiro entrou mas não existe lançamento no sistema.
 // A marcação mora no próprio item do array `pagamentos` — ver
@@ -565,12 +699,7 @@ async function gravarPagamentos(alvo: AlvoConciliacao, pgtos: PgtoOS[]) {
     await db.update(vendas).set({ pagamentos: pgtos }).where(eq(vendas.id, alvo.id))
   }
 
-  // O mesmo status aparece em 6 telas; todas revalidam juntas para nunca divergirem.
-  revalidatePath('/vendas')
-  revalidatePath('/pecas')
-  revalidatePath('/ordens-servico')
-  revalidatePath('/dashboard')
-  revalidatePath('/conciliacao')
+  revalidatePathsConciliacao()
 }
 
 export async function forcarConciliacaoAction(alvo: AlvoConciliacao, idx: number, motivo: string) {

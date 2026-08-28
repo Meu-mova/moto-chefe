@@ -1,6 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parsearDetalheCompra, ehRetiradaNaLoja } from './fabrica-scraper'
+import {
+  parsearDetalheCompra,
+  ehRetiradaNaLoja,
+  parsearStatusCompra,
+  ehStatusFinalizado,
+} from './fabrica-scraper'
 
 // Markup fiel ao portal real (/clientes/pedido/N): rótulo "Tipo de Entrega" num
 // <label> seguido de um <span> com o valor, e cada item num <h3> com "Categoria"
@@ -70,4 +75,57 @@ test('ehRetiradaNaLoja: pega "Retirada na Loja", rejeita Correios/nulo', () => {
   assert.equal(ehRetiradaNaLoja('retirada'), true)
   assert.equal(ehRetiradaNaLoja('Correios'), false)
   assert.equal(ehRetiradaNaLoja(null), false)
+})
+
+// ─── Status dos pedidos de compra ────────────────────────────────────────────
+
+const selectStatus = (opcoes: string[]) => `
+  <form method="get" action="/clientes/pedidos">
+    <input type="hidden" name="aba" value="compras">
+    <select name="status" class="bg-gray-700 text-white rounded px-3 py-2">
+      <option value="">Todos os status</option>
+      ${opcoes.map(o => `<option value="${o}">${o}</option>`).join('')}
+    </select>
+  </form>`
+
+test('parsearStatusCompra: le as opcoes do filtro e ignora o "Todos" de value vazio', () => {
+  const html = selectStatus(['Aguardando pagamento', 'Separado', 'Entregue'])
+  assert.deepEqual(parsearStatusCompra(html).map(o => o.valor), [
+    'Aguardando pagamento', 'Separado', 'Entregue',
+  ])
+})
+
+test('parsearStatusCompra: sem select de status devolve vazio', () => {
+  assert.deepEqual(parsearStatusCompra('<html><body>nada aqui</body></html>'), [])
+})
+
+test('parsearStatusCompra: nao repete status duplicado', () => {
+  const html = selectStatus(['Separado', 'Separado'])
+  assert.deepEqual(parsearStatusCompra(html), [{ valor: 'Separado', rotulo: 'Separado' }])
+})
+
+// Se o portal trocar o texto por id no value, é o rótulo que continua dizendo se
+// o pedido já chegou — por isso os dois voltam separados.
+test('parsearStatusCompra: separa o value (filtro) do rotulo (texto lido)', () => {
+  const html = `<select name="status">
+    <option value="">Todos</option>
+    <option value="3">Em Transito</option>
+    <option value="9">Entregue</option>
+  </select>`
+  assert.deepEqual(parsearStatusCompra(html), [
+    { valor: '3', rotulo: 'Em Transito' },
+    { valor: '9', rotulo: 'Entregue' },
+  ])
+})
+
+test('ehStatusFinalizado: pedido que ja chegou (ou morreu) sai da conferencia', () => {
+  for (const s of ['Entregue', 'entregue', 'Cancelado', 'Finalizado', 'Concluido', 'Devolvido', 'Recusado']) {
+    assert.equal(ehStatusFinalizado(s), true, s)
+  }
+})
+
+test('ehStatusFinalizado: pedido em aberto continua na lista', () => {
+  for (const s of ['Aguardando pagamento', 'Separado', 'Em Transito', 'Em separacao', null]) {
+    assert.equal(ehStatusFinalizado(s), false, String(s))
+  }
 })

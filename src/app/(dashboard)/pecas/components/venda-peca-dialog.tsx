@@ -7,13 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Plus, Trash2, ShoppingCart } from 'lucide-react'
 import { registrarVendaPecaAction } from '../actions'
+import { PecaLookup } from './peca-lookup'
 
 type Peca = { id: string; nome: string; valor: string; quantidadeEstoque: number }
 type Loja = { id: string; nome: string }
 
-type ItemLinha = { id: string; pecaId: string; quantidade: string }
+/** `valor` vazio = usa o preço do catálogo; preenchido = preço ajustado pelo gestor. */
+type ItemLinha = { id: string; pecaId: string; quantidade: string; valor: string }
 type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
 
 const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
@@ -44,30 +47,46 @@ type Props = {
   lojas: Loja[]
   lojaUsuarioId: string | null
   isAdmin: boolean
+  /** Gestor pode sobrepor o preço do catálogo naquela venda. O servidor revalida. */
+  podeDefinirPreco: boolean
 }
 
-export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props) {
+export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefinirPreco }: Props) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const [lojaId, setLojaId] = useState(isAdmin ? '' : (lojaUsuarioId ?? ''))
   const [clienteNome, setClienteNome] = useState('')
-  const [itens, setItens] = useState<ItemLinha[]>([{ id: gerarId(), pecaId: '', quantidade: '1' }])
+  const [itens, setItens] = useState<ItemLinha[]>([{ id: gerarId(), pecaId: '', quantidade: '1', valor: '' }])
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: gerarId(), tipo: 'pix', valor: '' }])
+  // Peça cadastrada aqui dentro precisa aparecer na busca das outras linhas antes do
+  // revalidatePath chegar com a lista nova do servidor.
+  const [pecasNovas, setPecasNovas] = useState<Peca[]>([])
 
-  const pecaById = useMemo(() => new Map(pecas.map(p => [p.id, p])), [pecas])
+  const pecasDisponiveis = useMemo(
+    () => (pecasNovas.length === 0 ? pecas : [...pecas, ...pecasNovas]),
+    [pecas, pecasNovas],
+  )
+  const pecaById = useMemo(() => new Map(pecasDisponiveis.map(p => [p.id, p])), [pecasDisponiveis])
 
-  const totalItens = itens.reduce((s, i) => {
-    const peca = pecaById.get(i.pecaId)
-    const qtd = parseFloat(i.quantidade) || 0
-    return s + (peca ? parseFloat(peca.valor) * qtd : 0)
-  }, 0)
+  /** Preço que vale na linha: o ajustado, se houver; senão o do catálogo. */
+  function precoLinha(item: ItemLinha): number {
+    if (item.valor.trim()) return parseBRL(item.valor)
+    const peca = pecaById.get(item.pecaId)
+    return peca ? parseFloat(peca.valor) : 0
+  }
+
+  const totalItens = itens.reduce((s, i) => s + precoLinha(i) * (parseFloat(i.quantidade) || 0), 0)
 
   function addItem() {
-    setItens(prev => [...prev, { id: gerarId(), pecaId: '', quantidade: '1' }])
+    setItens(prev => [...prev, { id: gerarId(), pecaId: '', quantidade: '1', valor: '' }])
   }
   function updateItem(id: string, campo: keyof ItemLinha, valor: string) {
     setItens(prev => prev.map(i => i.id !== id ? i : { ...i, [campo]: valor }))
+  }
+  function selecionarPeca(id: string, peca: Peca | null) {
+    // Trocar a peça zera o preço ajustado — senão o valor da anterior gruda na nova.
+    setItens(prev => prev.map(i => i.id !== id ? i : { ...i, pecaId: peca?.id ?? '', valor: '' }))
   }
   function removeItem(id: string) {
     setItens(prev => prev.filter(i => i.id !== id))
@@ -90,8 +109,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
   function resetForm() {
     setLojaId(isAdmin ? '' : (lojaUsuarioId ?? ''))
     setClienteNome('')
-    setItens([{ id: gerarId(), pecaId: '', quantidade: '1' }])
+    setItens([{ id: gerarId(), pecaId: '', quantidade: '1', valor: '' }])
     setPgtos([{ id: gerarId(), tipo: 'pix', valor: '' }])
+    // `pecasNovas` não é limpo de propósito: a peça continua cadastrada no banco e
+    // a próxima venda tem que achá-la mesmo antes do refresh da página.
   }
 
   const itensValidos = itens.filter(i => i.pecaId && parseFloat(i.quantidade) > 0)
@@ -108,7 +129,11 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
         const resultado = await registrarVendaPecaAction({
           lojaId,
           clienteNome: clienteNome.trim() || undefined,
-          itens: itensValidos.map(i => ({ pecaId: i.pecaId, quantidade: parseFloat(i.quantidade) })),
+          itens: itensValidos.map(i => ({
+            pecaId: i.pecaId,
+            quantidade: parseFloat(i.quantidade),
+            ...(podeDefinirPreco && i.valor.trim() ? { valorUnitario: parseBRL(i.valor) } : {}),
+          })),
           pagamentos: pgtosValidos.map(p => ({
             tipo: p.tipo,
             valor: parseBRL(p.valor),
@@ -134,7 +159,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
         <ShoppingCart size={15} /> Nova Venda
       </Button>
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) resetForm() }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nova Venda de Peças e Acessórios</DialogTitle></DialogHeader>
 
           <div className="space-y-5 text-sm">
@@ -169,30 +194,35 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
                 </Button>
               </div>
               {itens.map(item => {
-                const peca = pecaById.get(item.pecaId)
+                const peca = pecaById.get(item.pecaId) ?? null
                 const qtd = parseFloat(item.quantidade) || 0
-                const subtotal = peca ? parseFloat(peca.valor) * qtd : 0
+                const preco = precoLinha(item)
+                const subtotal = preco * qtd
                 const estoqueInsuficiente = peca && qtd > peca.quantidadeEstoque
+                const precoAjustado = Boolean(peca && item.valor.trim() && Math.abs(preco - parseFloat(peca.valor)) > 0.005)
                 return (
                   <div key={item.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
-                    <div className="grid grid-cols-[1fr_100px_auto] gap-2 items-end">
+                    <div className={`grid gap-2 items-end ${podeDefinirPreco ? 'grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_100px_auto]'}`}>
                       <div className="space-y-1">
                         <Label className="text-xs">Peça / Capacete</Label>
-                        <Select value={item.pecaId} onValueChange={v => updateItem(item.id, 'pecaId', v ?? '')}>
-                          <SelectTrigger className="h-8 text-xs">
-                            <span className={item.pecaId ? 'text-foreground' : 'text-muted-foreground'}>
-                              {peca?.nome ?? 'Selecione'}
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {pecas.map(p => (
-                              <SelectItem key={p.id} value={p.id} className="text-xs">
-                                {p.nome} — {fmtBRL(parseFloat(p.valor))} (estoque: {p.quantidadeEstoque})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <PecaLookup
+                          pecas={pecasDisponiveis}
+                          selecionada={peca}
+                          onSelecionar={p => selecionarPeca(item.id, p)}
+                          onPecaCriada={p => setPecasNovas(prev => [...prev, p])}
+                        />
                       </div>
+                      {podeDefinirPreco && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Valor unit.</Label>
+                          <CurrencyInput
+                            value={item.valor}
+                            onChange={v => updateItem(item.id, 'valor', v)}
+                            placeholder={peca ? parseFloat(peca.valor).toFixed(2).replace('.', ',') : '0,00'}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <Label className="text-xs">Qtd</Label>
                         <Input
@@ -211,6 +241,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin }: Props)
                     {peca && (
                       <p className={`text-xs ${estoqueInsuficiente ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
                         Subtotal: {fmtBRL(subtotal)}
+                        {precoAjustado ? ` — preço ajustado (catálogo: ${fmtBRL(parseFloat(peca.valor))})` : ''}
                         {estoqueInsuficiente ? ` — estoque insuficiente (disponível: ${peca.quantidadeEstoque})` : ''}
                       </p>
                     )}

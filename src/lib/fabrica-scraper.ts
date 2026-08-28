@@ -388,3 +388,72 @@ export async function buscarDetalheCompraFabrica(
   const html = await resp.text()
   return parsearDetalheCompra(html)
 }
+
+// ─── Status dos pedidos de compra ─────────────────────────────────────────────
+// O código só conhecia dois status por terem sido os únicos necessários até aqui
+// ("Aguardando pagamento" pro alerta do WhatsApp, "Separado" pra retirada). Pra
+// listar "o que ainda não chegou" precisamos do vocabulário inteiro, e ele não
+// está documentado em lugar nenhum — então lemos do próprio filtro do portal.
+
+/** Fallback se a descoberta falhar: os únicos status que sabemos existir. */
+export const STATUS_COMPRA_CONHECIDOS = [STATUS_AGUARDANDO_PAGAMENTO, STATUS_SEPARADO]
+
+/** O pedido já chegou (ou morreu) — não interessa pra conferência do que está por vir. */
+export function ehStatusFinalizado(status: string | null): boolean {
+  const s = (status ?? '').toLowerCase()
+  return /entregue|cancelad|finalizad|conclu|devolvid|estornad|recusad|reprovad/.test(s)
+}
+
+export type StatusCompraOpcao = {
+  /** O que vai na querystring `?status=` — pode ser o próprio texto ou um id. */
+  valor: string
+  /** O texto que o humano lê; é ele que diz se o pedido já chegou. */
+  rotulo: string
+}
+
+/**
+ * Lê as opções do filtro de status em /clientes/pedidos.
+ *
+ * Puro de propósito — o HTML é de terceiro e é o teste que segura a mudança.
+ * Aceita qualquer <select> cujo name/id mencione status. A opção de `value`
+ * vazio é o "Todos" do filtro e não serve como status; e valor e rótulo voltam
+ * separados porque o portal poderia usar id no value — aí só o rótulo diria se
+ * aquele status é de pedido entregue.
+ */
+export function parsearStatusCompra(html: string): StatusCompraOpcao[] {
+  const select = html.match(/<select\b[^>]*(?:name|id)="[^"]*status[^"]*"[^>]*>([\s\S]*?)<\/select>/i)?.[1]
+  if (!select) return []
+
+  const opcoes: StatusCompraOpcao[] = []
+  for (const m of select.matchAll(/<option\b[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/option>/gi)) {
+    const valor = limparHtml(m[1])
+    const rotulo = limparHtml(m[2])
+    if (!valor) continue
+    if (!opcoes.some(o => o.valor === valor)) opcoes.push({ valor, rotulo: rotulo || valor })
+  }
+  return opcoes
+}
+
+/**
+ * Status de compra que ainda representam pedido em aberto, descobertos no portal.
+ * Cai nos dois conhecidos se o filtro sumir ou o HTML mudar — melhor listar de
+ * menos do que estourar a tela inteira.
+ */
+export async function listarStatusCompraAbertos(session: FabricaSession): Promise<string[]> {
+  const url = new URL(`${BASE}/clientes/pedidos`)
+  url.searchParams.set('aba', 'compras')
+
+  try {
+    const resp = await fetch(url.toString(), {
+      headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+      redirect: 'follow',
+    })
+    if (!resp.ok) return STATUS_COMPRA_CONHECIDOS
+    const abertos = parsearStatusCompra(await resp.text())
+      .filter(o => !ehStatusFinalizado(o.rotulo))
+      .map(o => o.valor)
+    return abertos.length > 0 ? abertos : STATUS_COMPRA_CONHECIDOS
+  } catch {
+    return STATUS_COMPRA_CONHECIDOS
+  }
+}

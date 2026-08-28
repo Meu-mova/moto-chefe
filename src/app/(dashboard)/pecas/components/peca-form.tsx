@@ -20,26 +20,40 @@ type Props = {
   trigger: React.ReactNode
   pecaInicial?: PecaInicial
   onSaved?: () => void
+  /** Pré-preenche o nome — o que o balconista já digitou na busca da venda. */
+  nomeInicial?: string
+  /** Só no cadastro: devolve a peça criada pra quem chamou já poder usá-la. */
+  onCriada?: (peca: PecaInicial) => void
+  /** O wrapper do trigger é inline por padrão; item de menu precisa ocupar a linha. */
+  triggerClassName?: string
 }
 
 type FormState = { nome: string; valor: string; quantidadeEstoque: string }
 
 const FORM_VAZIO: FormState = { nome: '', valor: '', quantidadeEstoque: '0' }
 
-function paraFormState(p?: PecaInicial): FormState {
-  if (!p) return FORM_VAZIO
+function paraFormState(p?: PecaInicial, nomeInicial?: string): FormState {
+  if (!p) return { ...FORM_VAZIO, nome: nomeInicial ?? '' }
   return { nome: p.nome, valor: p.valor, quantidadeEstoque: String(p.quantidadeEstoque) }
 }
 
-export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
+export function PecaForm({
+  trigger,
+  pecaInicial,
+  onSaved,
+  nomeInicial,
+  onCriada,
+  triggerClassName = 'inline-flex cursor-pointer',
+}: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState<FormState>(paraFormState(pecaInicial))
+  const [form, setForm] = useState<FormState>(paraFormState(pecaInicial, nomeInicial))
 
   const isEdit = Boolean(pecaInicial)
 
   function handleOpen() {
-    setForm(paraFormState(pecaInicial))
+    // Relê o nome digitado a cada abertura — o `useState` só valeu na primeira.
+    setForm(paraFormState(pecaInicial, nomeInicial))
     setOpen(true)
   }
 
@@ -63,8 +77,9 @@ export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
         await atualizarPecaAction(pecaInicial.id, input)
         toast.success('Peça atualizada!')
       } else {
-        await criarPecaAction(input)
+        const nova = await criarPecaAction(input)
         toast.success('Peça cadastrada!')
+        onCriada?.(nova)
       }
       setOpen(false)
       onSaved?.()
@@ -77,11 +92,11 @@ export function PecaForm({ trigger, pecaInicial, onSaved }: Props) {
 
   return (
     <>
-      <div onClick={handleOpen} className="inline-flex cursor-pointer">
+      <div onClick={handleOpen} className={triggerClassName}>
         {trigger}
       </div>
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v && !pecaInicial) setForm(FORM_VAZIO) }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Editar Peça' : 'Nova Peça'}</DialogTitle>
           </DialogHeader>

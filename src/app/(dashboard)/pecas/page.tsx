@@ -13,6 +13,7 @@ import { PecaForm } from './components/peca-form'
 import { PecaAtivoToggle } from './components/peca-ativo-toggle'
 import { VendaPecaDialog } from './components/venda-peca-dialog'
 import { VendasPecasTable } from './components/vendas-pecas-table'
+import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 const PAPEIS_PECAS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -40,6 +41,8 @@ export default async function PecasPage() {
         <TabsList>
           <TabsTrigger value="vendas">Vendas</TabsTrigger>
           <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
+          {/* Só gestor: a leitura usa o login da loja no portal da fábrica. */}
+          {isGestor && <TabsTrigger value="pedidos-fabrica">Pedidos na fábrica</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="vendas" className="mt-4 space-y-4">
@@ -49,6 +52,7 @@ export default async function PecasPage() {
               lojas={lojasOpts}
               lojaUsuarioId={usuario.lojaId}
               isAdmin={isAdmin}
+              podeDefinirPreco={isGestor}
             />
           </div>
           <VendasPecasTable vendas={vendas} papel={usuario.papel} />
@@ -118,6 +122,12 @@ export default async function PecasPage() {
             </Table>
           </div>
         </TabsContent>
+
+        {isGestor && (
+          <TabsContent value="pedidos-fabrica" className="mt-4">
+            <PedidosFabricaTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

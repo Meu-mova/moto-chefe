@@ -69,6 +69,7 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
                       numero={v.numero}
                       pagamentos={v.pagamentos}
                       papel={papel}
+                      status={statusConc}
                     />
                   </div>
                 </TableCell>
