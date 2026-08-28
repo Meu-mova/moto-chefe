@@ -4,18 +4,34 @@ import { createClient } from '@/lib/supabase/server'
 import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, usuarios, reservas } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { motos, usuarios, reservas, vendas } from '@/lib/db/schema'
+import { eq, and, desc } from 'drizzle-orm'
 import {
   getTransicoesStatusPermitidas,
   getTransicoesDisponibilidadePermitidas,
+  motivoBloqueioPorVenda,
   statusLabel,
   disponibilidadeLabel,
   type Status,
   type Disponibilidade,
+  type VendaVinculada,
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
+
+/**
+ * A venda não cancelada desta moto, se houver. Cancelar venda apaga a linha
+ * (ver cancelarVendaCompletaAction), então qualquer linha aqui é venda de pé.
+ */
+async function vendaDaMoto(motoId: string): Promise<VendaVinculada | null> {
+  const [venda] = await db
+    .select({ numero: vendas.numero, notaFiscalSaida: vendas.notaFiscalSaida })
+    .from(vendas)
+    .where(eq(vendas.motoId, motoId))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+  return venda ?? null
+}
 
 export async function alterarStatusAction(
   motoId: string,
@@ -32,6 +48,12 @@ export async function alterarStatusAction(
 
   if (!(novoStatus in statusLabel)) throw new Error('Status inválido')
   const status = novoStatus as Status
+
+  // Moto vendida não volta a ser estoque. A checagem de transição abaixo olha só
+  // o motos.status e não pega o caso em que o status já foi revertido por fora —
+  // foi assim que a LYDAE3936T1207627 acabou remontada depois de faturada.
+  const bloqueioVenda = motivoBloqueioPorVenda(await vendaDaMoto(motoId), { status: novoStatus })
+  if (bloqueioVenda) throw new Error(bloqueioVenda)
 
   if (novoStatus === 'montada' && !mecanicoId) {
     throw new Error('Selecione o mecânico responsável pela montagem')
@@ -110,6 +132,21 @@ export async function editarMotoAction(
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
 
+  // Esta action é a ferramenta de correção do admin, e por isso aceita pular a
+  // máquina de estados. O que ela NÃO pode fazer é aceitar valor fora do enum
+  // nem tirar do estado vendido uma moto que tem venda de pé.
+  const statusEditaveis = new Set([...Object.keys(statusLabel), 'vendida'])
+  if (dados.status !== undefined && !statusEditaveis.has(dados.status)) {
+    throw new Error('Status inválido')
+  }
+  if (
+    dados.disponibilidade !== undefined &&
+    dados.disponibilidade !== null &&
+    !(dados.disponibilidade in disponibilidadeLabel)
+  ) {
+    throw new Error('Disponibilidade inválida')
+  }
+
   const updates: Record<string, unknown> = {}
   if (dados.chassi !== undefined && dados.chassi !== moto.chassi) updates.chassi = dados.chassi
   if (dados.cor !== undefined && dados.cor !== moto.cor) updates.cor = dados.cor
@@ -122,7 +159,39 @@ export async function editarMotoAction(
 
   if (Object.keys(updates).length === 0) return
 
-  await db.update(motos).set(updates).where(eq(motos.id, motoId))
+  // Só chaves presentes em updates chegam aqui — campo não mexido não vira
+  // bloqueio, então corrigir cor/chassi de uma moto vendida segue liberado.
+  const bloqueioVenda = motivoBloqueioPorVenda(await vendaDaMoto(motoId), {
+    status: updates.status as string | undefined,
+    disponibilidade: updates.disponibilidade as string | null | undefined,
+  })
+  if (bloqueioVenda) throw new Error(bloqueioVenda)
+
+  // Toda edição por aqui deixa rastro. A alteração silenciosa de 24/08/2026 na
+  // LYDAE3936T1207627 saiu desta action e não gerou linha nenhuma no histórico:
+  // sem rastro, a reconstrução do que houve virou dedução em vez de leitura.
+  const rotulos: Record<string, string> = {
+    chassi: 'Chassi', cor: 'Cor', motor: 'Motor', modeloId: 'Modelo',
+    lojaId: 'Loja', notaFiscalEntrada: 'NF de entrada',
+    status: 'Status', disponibilidade: 'Disponibilidade',
+  }
+  const valor = (v: unknown) => (v === null || v === undefined || v === '' ? '(vazio)' : String(v))
+  const descricao = Object.keys(updates)
+    .map(campo => `${rotulos[campo] ?? campo}: ${valor((moto as Record<string, unknown>)[campo])} → ${valor(updates[campo])}`)
+    .join(' — ')
+
+  await db.transaction(async (tx) => {
+    await tx.update(motos).set(updates).where(eq(motos.id, motoId))
+
+    await tx.insert(historicoEstoque).values({
+      motoId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      statusAnterior: updates.status ? (moto.status as any) : null,
+      statusNovo: updates.status ? (updates.status as any) : null,
+      observacao: `Edição manual (admin) — ${descricao}`,
+    })
+  })
 
   revalidatePath(`/estoque/${motoId}`)
   revalidatePath('/estoque')

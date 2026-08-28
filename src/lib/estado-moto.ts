@@ -55,6 +55,45 @@ export function getTransicoesDisponibilidadePermitidas(
   return []
 }
 
+// ─── Trava: moto com venda registrada não volta a ser estoque ────────────────
+//
+// Em 24/08/2026 a JetMax LYDAE3936T1207627 foi remontada quatro dias depois de
+// vendida e faturada, e reapareceu no Showroom como disponível — pronta pra ser
+// vendida de novo. As transições acima não pegam esse caso: elas olham só o
+// motos.status, e o status já tinha sido revertido para 'caixa' por fora. A
+// fonte da verdade de "esta moto saiu" é a tabela vendas, não o status.
+
+/** O que a trava precisa saber da venda não cancelada vinculada à moto. */
+export type VendaVinculada = { numero: number; notaFiscalSaida: string | null }
+
+/**
+ * Retorna o motivo pelo qual esta alteração de estoque deve ser recusada, ou
+ * null se ela é permitida. `alteracao` traz só os campos que estão sendo
+ * mexidos — chave ausente significa "não estou tocando nisso".
+ */
+export function motivoBloqueioPorVenda(
+  venda: VendaVinculada | null,
+  alteracao: { status?: string; disponibilidade?: string | null },
+): string | null {
+  if (!venda) return null
+
+  const mexeEmStatus = alteracao.status !== undefined
+  const mexeEmDisponibilidade = alteracao.disponibilidade !== undefined
+  if (!mexeEmStatus && !mexeEmDisponibilidade) return null
+
+  // O estado correto de uma moto vendida: status 'vendida', e disponibilidade
+  // nula até a NF de saída sair, 'vendida' depois dela. Escrever esse mesmo
+  // estado é permitido — senão a trava impediria a confirmação de NF e a
+  // própria correção de uma moto que ficou com o estado torto.
+  const statusOk = !mexeEmStatus || alteracao.status === 'vendida'
+  const disponibilidadeEsperada = venda.notaFiscalSaida ? 'vendida' : null
+  const disponibilidadeOk =
+    !mexeEmDisponibilidade || alteracao.disponibilidade === disponibilidadeEsperada
+  if (statusOk && disponibilidadeOk) return null
+
+  return `Moto já vendida na venda nº ${venda.numero} — não pode voltar ao estoque. Se a venda foi um engano, cancele a venda primeiro; o cancelamento devolve a moto ao Showroom.`
+}
+
 export const statusLabel: Record<Status, string> = {
   caixa:       'Caixa',
   montada:     'Montada',
