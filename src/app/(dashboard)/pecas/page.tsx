@@ -5,15 +5,14 @@ import { pecasCatalogo } from '@/lib/db/schema'
 import { asc } from 'drizzle-orm'
 import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { listarVendasPecasAction } from './actions'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { buttonVariants } from '@/components/ui/button'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { PecaForm } from './components/peca-form'
-import { PecaAtivoToggle } from './components/peca-ativo-toggle'
 import { VendaPecaDialog } from './components/venda-peca-dialog'
 import { VendasPecasTable } from './components/vendas-pecas-table'
 import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
+import { CatalogoTable } from './components/catalogo-table'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 const PAPEIS_PECAS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -69,58 +68,8 @@ export default async function PecasPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Estoque</TableHead>
-                  <TableHead>Status</TableHead>
-                  {isGestor && <TableHead />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pecas.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.nome}</TableCell>
-                    <TableCell>
-                      {parseFloat(p.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </TableCell>
-                    <TableCell className={p.quantidadeEstoque <= 0 ? 'text-red-600 font-medium' : ''}>
-                      {p.quantidadeEstoque}
-                    </TableCell>
-                    <TableCell>
-                      {isGestor ? (
-                        <PecaAtivoToggle id={p.id} ativo={p.ativo} />
-                      ) : (
-                        <span className="text-xs text-slate-500">{p.ativo ? 'Ativo' : 'Inativo'}</span>
-                      )}
-                    </TableCell>
-                    {isGestor && (
-                      <TableCell>
-                        <PecaForm
-                          pecaInicial={{ id: p.id, nome: p.nome, valor: p.valor, quantidadeEstoque: p.quantidadeEstoque }}
-                          trigger={
-                            <button className="text-slate-400 hover:text-slate-700">
-                              <Pencil size={14} />
-                            </button>
-                          }
-                        />
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-                {pecas.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={isGestor ? 5 : 4} className="text-center text-slate-400 py-8">
-                      Nenhuma peça cadastrada.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <CatalogoTable pecas={pecas} isGestor={isGestor} />
+
         </TabsContent>
 
         {isGestor && (
