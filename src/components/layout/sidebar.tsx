@@ -28,6 +28,10 @@ export function Sidebar({ itensIds, conecta }: Props) {
     if (daCategoria.length === 0) return []
     if (daCategoria.length === 1) {
       const unico = daCategoria[0]
+      // Se o único item da categoria já é destaque, ele já saiu solto no topo
+      // (linha abaixo, via `destaques`) — não duplicar aqui, senão vira link
+      // repetido (mesmo href) com key de React colidindo.
+      if (unico.destaque) return []
       return [{ href: unico.href, label: unico.label, icon: unico.icon, hub: false }]
     }
     return [{ href: `/areas/${slug}`, label: nome, icon, hub: true }]
