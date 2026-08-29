@@ -114,6 +114,9 @@ export const ITENS: ItemNav[] = [
   { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS },
 ]
 
+// Cópia deliberada de temPapel em @/lib/auth:68 — este arquivo não pode
+// importar @/lib/auth (carrega o db no topo do módulo). As duas funções
+// precisam mudar juntas se a regra de papel/papeisExtras mudar.
 function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
   return usuario.papel === papel || (usuario.papeisExtras ?? []).includes(papel)
 }

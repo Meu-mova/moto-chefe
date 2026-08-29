@@ -56,10 +56,16 @@ test('mecânico fica com o menu enxuto da oficina', () => {
   ].sort())
 })
 
-test('papeisExtras conta — aux_adm com vendedor extra ganha os itens de vendedor', () => {
+test('papeisExtras conta — papel principal sozinho não dá o item, o extra dá', () => {
+  const mecanicoVendedor: UsuarioNav = { papel: 'mecanico', papeisExtras: ['vendedor'] }
+  assert.ok(!ids(MECANICO).includes('vendas'))
+  assert.ok(ids(mecanicoVendedor).includes('vendas'))
+
+  const vendedorAux: UsuarioNav = { papel: 'vendedor', papeisExtras: ['aux_adm'] }
+  assert.ok(!ids(VENDEDOR).includes('marketing'))
+  assert.ok(ids(vendedorAux).includes('marketing'))
+
   const tiago: UsuarioNav = { papel: 'aux_adm', papeisExtras: ['vendedor'] }
-  // aux_adm já vê quase tudo de vendedor; o teste prova que o extra é lido.
-  assert.ok(ids(tiago).length >= ids(AUX).length)
   assert.ok(podeAcessar(tiago, '/pecas', SEM_REGRA_PROPRIA))
 })
 
@@ -96,5 +102,15 @@ test('todo item tem id único', () => {
   for (const i of ITENS) {
     assert.ok(!vistos.has(i.id), `id repetido: ${i.id}`)
     vistos.add(i.id)
+  }
+})
+
+test('todo item tem href único', () => {
+  // podeAcessar resolve por ITENS.find(i => i.href === href); dois itens com o
+  // mesmo href fariam a rota herdar em silêncio a permissão do primeiro.
+  const vistos = new Set<string>()
+  for (const i of ITENS) {
+    assert.ok(!vistos.has(i.href), `href repetido: ${i.href}`)
+    vistos.add(i.href)
   }
 })
