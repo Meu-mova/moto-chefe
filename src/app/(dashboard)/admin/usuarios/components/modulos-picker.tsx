@@ -1,5 +1,6 @@
 'use client'
-import { CATEGORIAS, ITENS, type Papel } from '@/lib/navegacao'
+import { CATEGORIAS, ITENS } from '@/lib/navegacao'
+import { estado as estadoModulo, alternar as alternarModulo } from '@/lib/modulos-picker-estado'
 
 type Props = {
   papel: string
@@ -9,33 +10,12 @@ type Props = {
 }
 
 export function ModulosPicker({ papel, extras, bloqueados, onChange }: Props) {
-  const doPapel = (id: string) =>
-    ITENS.find(i => i.id === id)?.papeis.includes(papel as Papel) ?? false
-
-  // Dois estados, e o significado depende do papel dar ou não o módulo:
-  // o que o papel dá alterna entre "do papel" e "bloqueado"; o que ele não dá
-  // alterna entre "não tem" e "liberado". Só a diferença é gravada.
   function alternar(id: string) {
-    if (doPapel(id)) {
-      onChange({
-        extras,
-        bloqueados: bloqueados.includes(id)
-          ? bloqueados.filter(x => x !== id)
-          : [...bloqueados, id],
-      })
-    } else {
-      onChange({
-        extras: extras.includes(id) ? extras.filter(x => x !== id) : [...extras, id],
-        bloqueados,
-      })
-    }
+    onChange(alternarModulo(papel, extras, bloqueados, id))
   }
 
-  function estado(id: string): 'papel' | 'liberado' | 'bloqueado' | 'sem' {
-    if (bloqueados.includes(id)) return 'bloqueado'
-    if (doPapel(id)) return 'papel'
-    if (extras.includes(id)) return 'liberado'
-    return 'sem'
+  function estado(id: string) {
+    return estadoModulo(papel, extras, bloqueados, id)
   }
 
   const rotulo = { papel: 'do papel', liberado: 'liberado', bloqueado: 'bloqueado', sem: '' }
