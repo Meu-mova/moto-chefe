@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { contarVeiculosHistoricoAction } from './actions'
 import { ImportarVeiculosClient } from './importar-client'
 import { ArrowLeft, Database } from 'lucide-react'
@@ -7,7 +8,7 @@ import Link from 'next/link'
 
 export default async function VeiculosHistoricoPage() {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/admin/veiculos-historico')) redirect('/dashboard')
 
   const total = await contarVeiculosHistoricoAction()
 

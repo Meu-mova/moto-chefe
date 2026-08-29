@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
@@ -12,7 +13,6 @@ import { AjustesBaseTable } from './components/ajustes-base-table'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
-const ADMINS = ['admin_geral', 'admin_socio']
 const PAPEL_LABEL: Record<string, string> = {
   admin_geral: 'Admin Geral',
   admin_socio: 'Admin Sócio',
@@ -42,7 +42,7 @@ export default async function FolhaPagamentoPage({
   searchParams: Promise<Record<string, string | undefined>>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/folha-pagamento')) redirect('/dashboard')
 
   const [grupo, lojaIdsGrupo] = await withTimeout(
     Promise.all([getGrupoAtivo(usuario), listarLojaIdsDoGrupoAtivo(usuario)]),

@@ -1,14 +1,12 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { colunasDoMes, colunasEvolucao } from '@/lib/queries/dre'
 import { DreTabela } from '@/components/dre/dre-tabela'
 import { DreFiltros } from './components/dre-filtros'
 import { mesBrt } from '@/lib/data-venda'
 import { AlertTriangle } from 'lucide-react'
-
-// Mesmo público do /financeiro: o DRE é a mesma informação, aberta.
-const PAPEIS = ['admin_geral', 'admin_socio']
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
@@ -28,7 +26,7 @@ export default async function DrePage({
   searchParams,
 }: { searchParams: Promise<{ mes?: string; aba?: string }> }) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/admin/dre')) redirect('/dashboard')
 
   const params = await searchParams
   const { ano, mes, texto } = mesDoParametro(params.mes)

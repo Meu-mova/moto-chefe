@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { marketingInvestimento } from '@/lib/db/schema'
@@ -12,12 +13,9 @@ import { FunisTable } from './components/funis-table'
 import { InvestimentoTable } from './components/investimento-table'
 import { Megaphone } from 'lucide-react'
 
-// aux_adm entra junto: é quem opera a loja e lança a verba na prática.
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
-
 export default async function CanaisPage() {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/estoque')
+  if (!usuarioPodeAcessar(usuario, '/admin/canais')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
   const [canais, funis, grupos, investimentos] = await Promise.all([

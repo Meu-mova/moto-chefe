@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { servicosCatalogo } from '@/lib/db/schema'
@@ -9,11 +10,9 @@ import { Plus, Pencil } from 'lucide-react'
 import { ServicoForm } from './components/servico-form'
 import { ServicoAtivoToggle } from './components/servico-ativo-toggle'
 
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
-
 export default async function ServicosPage() {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/servicos')) redirect('/dashboard')
 
   const servicos = await db.select().from(servicosCatalogo).orderBy(asc(servicosCatalogo.nome))
 

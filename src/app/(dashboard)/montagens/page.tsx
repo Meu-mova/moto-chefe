@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { montagensPorMecanico, montagensDetalhadas } from '@/lib/queries/montagens'
 import { MontagensFiltros } from './components/montagens-filtros'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
 
 /** Primeiro dia do mês corrente em BRT — mesmo default das outras telas. */
 function inicioDoMes(): string {
@@ -19,7 +18,7 @@ export default async function MontagensPage({
   searchParams: Promise<{ de?: string; ate?: string; mecanico?: string; loja?: string }>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/montagens')) redirect('/dashboard')
 
   const params = await searchParams
   const dataInicio = params.de ?? inicioDoMes()

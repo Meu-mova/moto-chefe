@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { getKommoStatus, sincronizarSeNecessario } from '@/lib/kommo'
 import { metricasAtendimento, slaAtendimento, motivosDePerda, fechamentoSemTarefa, funisSemEtapaDetectada } from '@/lib/queries/atendimento'
@@ -10,7 +11,6 @@ import { Headset, RefreshCw, AlertTriangle, TriangleAlert, CheckCircle2, Externa
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDur = (s: number | null) => {
   if (s == null) return '—'
@@ -22,7 +22,7 @@ const fmtDur = (s: number | null) => {
 
 export default async function AtendimentoPage({ searchParams }: { searchParams: Promise<{ de?: string; ate?: string; sync?: string }> }) {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/atendimento')) redirect('/dashboard')
 
   const params = await searchParams
   const status = await getKommoStatus()

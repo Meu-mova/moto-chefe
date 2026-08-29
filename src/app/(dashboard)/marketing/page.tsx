@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { getKommoStatus, sincronizarSeNecessario } from '@/lib/kommo'
 import {
@@ -17,8 +18,6 @@ import { VendasOrigemTab } from './components/vendas-origem-tab'
 import { Megaphone, RefreshCw, AlertTriangle, TriangleAlert, ExternalLink, Settings2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 const fmtBRLc = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -57,7 +56,7 @@ function Kpi({ titulo, valor, sub, variacao, menorMelhor, destaque }: {
 
 export default async function MarketingPage({ searchParams }: { searchParams: Promise<{ de?: string; ate?: string; sync?: string }> }) {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/marketing')) redirect('/dashboard')
 
   const params = await searchParams
   const status = await getKommoStatus()

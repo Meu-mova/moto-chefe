@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -14,7 +15,7 @@ import { CaixaFiltros } from './components/caixa-filtros'
 
 export default async function CaixaPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/caixa')) redirect('/dashboard')
 
   const params = await searchParams
   const mesParam = params.mes ?? mesBrt()

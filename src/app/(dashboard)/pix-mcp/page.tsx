@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
@@ -12,8 +13,6 @@ import { PixFiltros } from '../pix/components/pix-filtros'
 import { CorrespondenciaForm } from './components/correspondencia-form'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import Link from 'next/link'
-
-const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 // Enquanto a última sincronização com o mcp.ai for mais recente que isso, a
 // página lê só do nosso banco — evita bater no mcp.ai (lento, baixa o
@@ -48,7 +47,7 @@ export default async function PixMcpPage({
   searchParams: Promise<{ from?: string; to?: string; sync?: string }>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/pix-mcp')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
 

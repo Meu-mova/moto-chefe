@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db, execRows } from '@/lib/db'
@@ -25,7 +26,7 @@ const ESCOPO_GERAL = 'geral'
 
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/financeiro')) redirect('/dashboard')
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const grupo = await getGrupoAtivo(usuario)

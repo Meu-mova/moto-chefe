@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { pecasCatalogo } from '@/lib/db/schema'
@@ -15,11 +16,10 @@ import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 import { CatalogoTable } from './components/catalogo-table'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
-const PAPEIS_PECAS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function PecasPage() {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_PECAS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/pecas')) redirect('/dashboard')
   const isGestor = GESTORES.includes(usuario.papel)
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
 

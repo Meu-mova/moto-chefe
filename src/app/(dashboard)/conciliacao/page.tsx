@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, desc, and, isNull, isNotNull, inArray, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
@@ -23,7 +24,7 @@ export default async function ConciliacaoPage({
   searchParams: Promise<{ filtro?: string }>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/conciliacao')) redirect('/dashboard')
 
   const { filtro = 'pendentes' } = await searchParams
   const grupo = await getGrupoAtivo(usuario)

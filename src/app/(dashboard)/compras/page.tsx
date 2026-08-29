@@ -1,5 +1,7 @@
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarDadosCompras } from '@/lib/queries/compras'
 import type { ItemCompra, GrupoCompra } from '@/lib/queries/compras'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -115,6 +117,7 @@ export default async function ComprasPage({
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/compras')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : (usuario.lojaId ? [usuario.lojaId] : [])

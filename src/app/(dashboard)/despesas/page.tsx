@@ -1,4 +1,5 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -18,15 +19,13 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
 
-const ADMINS = ['admin_geral', 'admin_socio']
-
 export default async function DespesasPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/despesas')) redirect('/dashboard')
 
   // Todo admin/sócio vê a aba "Importar do Banco" inteira; categorizar é só de
   // quem passa por podeCategorizarDespesaBanco.

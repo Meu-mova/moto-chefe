@@ -1,17 +1,17 @@
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas, lojas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { asc, eq, and } from 'drizzle-orm'
 import { SimuladorClient } from './components/simulador-client'
 import { redirect } from 'next/navigation'
 
-const BLOQUEADOS = ['mecanico']
 const ADMINS = ['admin_geral', 'admin_socio']
 
 export default async function SimuladorPage() {
   const usuario = await getUsuarioLogado()
-  if (BLOQUEADOS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/simulador')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
   const isAdmin = ADMINS.includes(usuario.papel)

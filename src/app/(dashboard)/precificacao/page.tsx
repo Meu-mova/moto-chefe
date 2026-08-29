@@ -1,16 +1,15 @@
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas, motos, modelos as modelosTable } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { asc, eq, and, inArray, sql } from 'drizzle-orm'
 import { PrecificacaoClient } from './components/precificacao-client'
 import { redirect } from 'next/navigation'
 
-const ADMINS = ['admin_geral', 'admin_socio']
-
 export default async function PrecificacaoPage() {
   const usuario = await getUsuarioLogado()
-  if (!ADMINS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/precificacao')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)

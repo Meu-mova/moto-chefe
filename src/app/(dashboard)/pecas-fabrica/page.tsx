@@ -1,12 +1,11 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { PecasFabricaClient } from './components/pecas-fabrica-client'
 
-const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm']
-
 export default async function PecasFabricaPage() {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_PERMITIDOS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/pecas-fabrica')) redirect('/dashboard')
 
   return (
     <div className="space-y-6">

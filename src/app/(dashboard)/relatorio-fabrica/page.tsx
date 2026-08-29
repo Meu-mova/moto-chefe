@@ -1,10 +1,9 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { carregarRelatorioFabrica } from '@/lib/queries/relatorio-fabrica'
 import { PrintButton } from './print-button'
-
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -14,7 +13,7 @@ export default async function RelatorioFabricaPage({
   searchParams: Promise<{ de?: string; ate?: string }>
 }) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, '/relatorio-fabrica')) redirect('/dashboard')
 
   const params = await searchParams
   const { de, ate, grupo, grupos, totalQtd, totalValor, lojasForaNoGrupo } =

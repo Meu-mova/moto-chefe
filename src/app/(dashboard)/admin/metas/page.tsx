@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { lojas } from '@/lib/db/schema'
@@ -7,9 +8,6 @@ import { and, asc, eq } from 'drizzle-orm'
 import { metasDoMes, realizadoDoMes } from '@/lib/queries/metas'
 import { hojeEmBrasilia } from '@/lib/meta-vendas'
 import { MetasForm } from './components/metas-form'
-
-// aux_adm entra junto: é quem toca a loja no dia a dia e cobra a meta.
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 
 /** "2026-08" → {ano, mes}. Texto inválido cai no mês corrente de Brasília. */
 function mesDoParametro(valor?: string) {
@@ -24,7 +22,7 @@ export default async function MetasPage({
   searchParams,
 }: { searchParams: Promise<{ mes?: string }> }) {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/estoque')
+  if (!usuarioPodeAcessar(usuario, '/admin/metas')) redirect('/dashboard')
 
   const { mes: mesParam } = await searchParams
   const { ano, mes } = mesDoParametro(mesParam)

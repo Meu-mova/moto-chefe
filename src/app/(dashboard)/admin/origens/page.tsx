@@ -1,15 +1,13 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { listarOrigensDoGrupo } from '@/lib/queries/origens-venda'
 import { OrigensTable } from './components/origens-table'
 
-// aux_adm entra junto: é quem opera a loja e cadastra a origem de uma ação local.
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
-
 export default async function OrigensPage() {
   const usuario = await getUsuarioLogado()
-  if (!GESTORES.includes(usuario.papel)) redirect('/estoque')
+  if (!usuarioPodeAcessar(usuario, '/admin/origens')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
   const origens = await listarOrigensDoGrupo(grupo.id)
