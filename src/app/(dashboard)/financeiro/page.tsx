@@ -17,6 +17,7 @@ import { ResumoDespesasLojaCategoria } from './components/resumo-despesas-loja-c
 import { ResumoRetiradas } from './components/resumo-retiradas'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
+import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
 
 /** Valor do filtro de loja que significa "só o balde da empresa". */
@@ -302,7 +303,32 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     },
     saidasCaixa,
   )
-  const totalDespesas = resumoDespesas.total
+  // Resultado por loja, com a despesa sem dono rateada na proporção do que cada
+  // uma faturou. Calculado ANTES dos cards de propósito: quando há uma loja no
+  // filtro, o card de despesa lê a linha dela aqui, pra card e tabela saírem da
+  // mesma fonte. As vendas por loja nunca são filtradas (a query traz as seis),
+  // então a proporção do rateio não se distorce com o filtro ligado.
+  const resultadoLojas = calcularResultadoPorLoja(
+    resumoPorLoja.map(r => ({
+      lojaId:         r.lojaId,
+      lojaNome:       r.lojaNome,
+      qtdVendas:      Number(r.qtdVendas),
+      receitaBruta:   Number(r.totalVendas),
+      receitaLiquida: Number(r.totalLiquido),
+      custoMotos:     Number(r.totalCusto),
+      qtdSemCusto:    Number(r.qtdSemCusto),
+    })),
+    resumoDespesas.porLoja,
+  )
+
+  // Com uma loja no filtro, a query de despesa traz a loja MAIS o balde da
+  // estrutura (loja_id IS NULL). Somar os dois fazia a loja carregar sozinha a
+  // estrutura do grupo inteiro — ver despesa-loja-filtrada.ts.
+  const visaoLoja = lojaParamValido
+    ? despesaDaLojaFiltrada(resumoDespesas, resultadoLojas, lojaParamValido)
+    : null
+
+  const totalDespesas = visaoLoja ? visaoLoja.total : resumoDespesas.total
   const totalCusto = Number(totaisVendas[0]?.totalCusto ?? 0)
   const qtdSemCusto = Number(totaisVendas[0]?.qtdSemCusto ?? 0)
 
@@ -350,21 +376,6 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
   // Margem líquida: quanto de cada real faturado sobrou como lucro.
   const percentualLucro = faturamentoLiquido > 0 ? (lucroLiquido / faturamentoLiquido) * 100 : 0
-
-  // Mesma conta do card de lucro líquido acima, quebrada por loja. A despesa sem loja
-  // atribuída é rateada na proporção do que cada uma faturou.
-  const resultadoLojas = calcularResultadoPorLoja(
-    resumoPorLoja.map(r => ({
-      lojaId:         r.lojaId,
-      lojaNome:       r.lojaNome,
-      qtdVendas:      Number(r.qtdVendas),
-      receitaBruta:   Number(r.totalVendas),
-      receitaLiquida: Number(r.totalLiquido),
-      custoMotos:     Number(r.totalCusto),
-      qtdSemCusto:    Number(r.qtdSemCusto),
-    })),
-    resumoDespesas.porLoja,
-  )
 
   // Em que cada loja gasta. Ordenado pelo total: o card abre na que mais gastou,
   // que é a que alguém vai querer olhar primeiro.
@@ -534,7 +545,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ResumoDespesas resumo={resumoDespesas} />
+        <ResumoDespesas resumo={visaoLoja ? { ...resumoDespesas, total: visaoLoja.total, porCategoria: visaoLoja.porCategoria } : resumoDespesas} />
         {!escopoGeral && <ResumoDespesasPorLoja porLoja={resumoDespesas.porLoja} lojas={lojasOpts} />}
         <ResumoDespesasGeral porCategoriaGeral={resumoDespesas.porCategoriaGeral} />
         {!escopoGeral && <ResumoDespesasLojaCategoria lojas={despesasPorLojaCategoria} />}
