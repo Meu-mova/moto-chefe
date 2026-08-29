@@ -121,17 +121,33 @@ test('PIX: maquininha entra — PIX de cliente cai na conta da Stone/InfinitePay
   assert.equal(bancoEntraNoPix('InfinitePay Empresas', '57.113.017/0001-72'), true)
 })
 
-test('Despesa: só Sicoob e Sicredi entram', () => {
-  assert.equal(bancoEntraNaDespesa('Sicoob Empresas'), true)
-  assert.equal(bancoEntraNaDespesa('Sicredi Empresas'), true)
+const SUL_DE_MINAS = '57.113.017/0001-72'
+const BH = '63.009.605/0001-63'
+
+test('Despesa: no Sul de Minas só Sicoob e Sicredi entram', () => {
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', SUL_DE_MINAS), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', SUL_DE_MINAS), true)
 })
 
-test('Despesa: maquininha nunca entra — nem Stone, nem InfinitePay', () => {
-  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas'), false)
-  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas'), false)
+test('Despesa: a Stone do Sul de Minas é maquininha e continua fora', () => {
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS), false)
+  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas', SUL_DE_MINAS), false)
+})
+
+// A mesma bandeira tem papel diferente em cada grupo: na BH a Stone é conta de
+// pagar, como a Sicredi. Lista única não representa isso — liberar a Stone pra BH
+// traria a do Sul de Minas junto, desfazendo a limpeza de R$ 2,1 milhões.
+test('Despesa: a Stone da BH entra, e isso não solta a do Sul de Minas', () => {
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', BH), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', BH), true)
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS), false)
 })
 
 test('Despesa: conta nova fica de fora até ser liberada', () => {
-  assert.equal(bancoEntraNaDespesa('Itaú Empresas'), false)
-  assert.equal(bancoEntraNaDespesa('Nubank Empresas'), false)
+  assert.equal(bancoEntraNaDespesa('Itaú Empresas', SUL_DE_MINAS), false)
+  assert.equal(bancoEntraNaDespesa('Nubank Empresas', BH), false)
+})
+
+test('Despesa: grupo sem liberação cadastrada não traz nada', () => {
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', '65.126.949/0001-88'), false)
 })

@@ -310,15 +310,23 @@ export function bancoEntraNoPix(banco: string, cnpjGrupo: string): boolean {
   return !(BANCOS_FORA_DO_PIX_POR_CNPJ[cnpjGrupo] ?? []).includes(banco)
 }
 
-// Contas cujas saídas viram despesa no Importar do Banco. É uma lista de
-// LIBERAÇÃO, não de bloqueio: conta nova — banco ou maquininha — fica de fora
-// até alguém pedir. Maquininha (Stone, InfinitePay) não é conta operacional:
-// o extrato dela é repasse de venda e varredura pra conta principal, e jogar
-// isso em despesa levou R$ 5,9 milhões de saída falsa pro Sul de Minas.
-const BANCOS_DE_DESPESA = ['Sicoob Empresas', 'Sicredi Empresas']
+/// Contas cujas saídas viram despesa no Importar do Banco, POR GRUPO. É uma lista
+// de LIBERAÇÃO: conta nova — banco ou maquininha — fica de fora até ser
+// adicionada aqui. E é por CNPJ porque a mesma bandeira tem papel diferente em
+// cada grupo: a Stone do Sul de Minas é maquininha (o extrato dela é repasse de
+// venda e varredura pra conta principal, R$ 2,1 mi de saída falsa no card),
+// enquanto a Stone da BH é conta de pagar, como a Sicredi. Lista única não
+// consegue representar isso — liberar a Stone pra BH traria a do Sul de Minas
+// junto.
+const BANCOS_DE_DESPESA_POR_CNPJ: Record<string, string[]> = {
+  // Sul de Minas
+  '57.113.017/0001-72': ['Sicoob Empresas', 'Sicredi Empresas'],
+  // BH
+  '63.009.605/0001-63': ['Sicredi Empresas', 'Stone Pagamentos Empresas'],
+}
 
-export function bancoEntraNaDespesa(banco: string): boolean {
-  return BANCOS_DE_DESPESA.includes(banco)
+export function bancoEntraNaDespesa(banco: string, cnpjGrupo: string): boolean {
+  return (BANCOS_DE_DESPESA_POR_CNPJ[cnpjGrupo] ?? []).includes(banco)
 }
 
 type TransacaoPix = {
@@ -384,7 +392,7 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'DEBIT' && bancoEntraNaDespesa(t.banco))
+    .filter(t => t.tipo === 'DEBIT' && bancoEntraNaDespesa(t.banco, cnpjGrupo))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,
