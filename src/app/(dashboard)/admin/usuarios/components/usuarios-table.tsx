@@ -19,6 +19,7 @@ type Usuario = {
   nome: string
   email: string
   papel: string
+  papeisExtras: string[]
   lojaId: string | null
   lojaNome: string | null
   conecta: string | null
@@ -173,6 +174,7 @@ function FormUsuario({
           </div>
           <ModulosPicker
             papel={papel}
+            papeisExtras={inicial?.papeisExtras ?? []}
             extras={modulosExtras}
             bloqueados={modulosBloqueados}
             onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}

@@ -22,7 +22,7 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
   const status = await getKommoStatusAction()
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/kommo">
       <div className="space-y-6 max-w-xl">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

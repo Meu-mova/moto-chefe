@@ -9,7 +9,7 @@ export default async function ComunicadosPage() {
   const lista = await listarComunicadosAction()
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/comunicados">
       <div className="space-y-6 max-w-3xl">
         <div>
           <h1 className="text-2xl font-bold">Comunicados</h1>

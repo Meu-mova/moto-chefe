@@ -17,7 +17,7 @@ export default async function CalendarioCategoriasPage() {
     .orderBy(asc(calendarioCategorias.ordem), asc(calendarioCategorias.nome))
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/calendario-categorias">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Categorias do calendário</h1>

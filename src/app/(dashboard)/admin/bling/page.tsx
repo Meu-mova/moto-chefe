@@ -11,7 +11,7 @@ export default async function BlingPage({ searchParams }: { searchParams: Promis
   const status = await getBlingStatusAction()
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/bling">
       <div className="space-y-6 max-w-xl">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

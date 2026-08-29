@@ -1,20 +1,21 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 
-const PAPEIS_ADMIN = ['admin_geral', 'admin_socio']
-
-// Mantidos como componente para não tocar em 12 arquivos de /admin/*, mas o
-// destino do redirect agora é o mesmo das demais guardas (/dashboard). A
-// checagem por papel continua aqui porque o guard embrulha páginas diferentes
-// e não sabe qual item da tabela de navegação está protegendo.
-export async function AdminGuard({ children }: { children: React.ReactNode }) {
+// Mantidos como componente para não tocar em 12 arquivos de /admin/*, mas a
+// checagem agora sai da tabela de navegação (modulos_extras/bloqueados
+// entram na conta) em vez de checar papel direto — senão liberar um item de
+// /admin/* pela tela de usuários não abre a rota, e vira link morto. Cada
+// página passa o próprio href porque o guard embrulha páginas diferentes e
+// não sabe sozinho qual item da tabela está protegendo.
+export async function AdminGuard({ href, children }: { href: string; children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_ADMIN.includes(usuario.papel)) redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, href)) redirect('/dashboard')
   return <>{children}</>
 }
 
-export async function SuperAdminGuard({ children }: { children: React.ReactNode }) {
+export async function SuperAdminGuard({ href, children }: { href: string; children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel !== 'admin_geral') redirect('/dashboard')
+  if (!usuarioPodeAcessar(usuario, href)) redirect('/dashboard')
   return <>{children}</>
 }

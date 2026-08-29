@@ -20,7 +20,7 @@ export default async function AcoesAdminPage() {
   ])
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/acoes">
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Ações Administrativas</h1>
         <ReatribuirLojaForm motos={motosFaturadas} lojas={todasLojas} />

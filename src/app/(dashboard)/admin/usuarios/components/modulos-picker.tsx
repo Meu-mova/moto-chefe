@@ -4,18 +4,19 @@ import { estado as estadoModulo, alternar as alternarModulo } from '@/lib/modulo
 
 type Props = {
   papel: string
+  papeisExtras: string[]
   extras: string[]
   bloqueados: string[]
   onChange: (v: { extras: string[]; bloqueados: string[] }) => void
 }
 
-export function ModulosPicker({ papel, extras, bloqueados, onChange }: Props) {
+export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChange }: Props) {
   function alternar(id: string) {
-    onChange(alternarModulo(papel, extras, bloqueados, id))
+    onChange(alternarModulo(papel, papeisExtras, extras, bloqueados, id))
   }
 
   function estado(id: string) {
-    return estadoModulo(papel, extras, bloqueados, id)
+    return estadoModulo(papel, papeisExtras, extras, bloqueados, id)
   }
 
   const rotulo = { papel: 'do papel', liberado: 'liberado', bloqueado: 'bloqueado', sem: '' }

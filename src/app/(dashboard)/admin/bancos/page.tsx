@@ -66,7 +66,7 @@ export default async function BancosPage() {
   const grupo = await getGrupoAtivo(usuario)
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/bancos">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Bancos</h1>

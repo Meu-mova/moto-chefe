@@ -16,17 +16,21 @@ import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 import { CatalogoTable } from './components/catalogo-table'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
+// Espelha PAPEIS_VENDA de actions.ts:10 — quem não está aqui só consulta o
+// catálogo (é o caso do mecânico, que a tabela de navegação deixa entrar).
+const PAPEIS_VENDA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function PecasPage() {
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/pecas')) redirect('/dashboard')
   const isGestor = GESTORES.includes(usuario.papel)
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const podeVender = PAPEIS_VENDA.includes(usuario.papel)
 
   const [pecas, lojasOpts, vendas] = await Promise.all([
     db.select().from(pecasCatalogo).orderBy(asc(pecasCatalogo.nome)),
     listarLojasDoGrupoAtivo(usuario),
-    listarVendasPecasAction(),
+    podeVender ? listarVendasPecasAction() : Promise.resolve([]),
   ])
 
   return (
@@ -36,26 +40,29 @@ export default async function PecasPage() {
         <p className="text-slate-500 text-sm">Catálogo, estoque e vendas de peças e capacetes</p>
       </div>
 
-      <Tabs defaultValue="vendas">
+      <Tabs defaultValue={podeVender ? 'vendas' : 'catalogo'}>
         <TabsList>
-          <TabsTrigger value="vendas">Vendas</TabsTrigger>
+          {/* Mecânico só consulta o catálogo — vender peça não é papel dele. */}
+          {podeVender && <TabsTrigger value="vendas">Vendas</TabsTrigger>}
           <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
           {/* Só gestor: a leitura usa o login da loja no portal da fábrica. */}
           {isGestor && <TabsTrigger value="pedidos-fabrica">Pedidos na fábrica</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="vendas" className="mt-4 space-y-4">
-          <div className="flex justify-end">
-            <VendaPecaDialog
-              pecas={pecas.filter(p => p.ativo)}
-              lojas={lojasOpts}
-              lojaUsuarioId={usuario.lojaId}
-              isAdmin={isAdmin}
-              podeDefinirPreco={isGestor}
-            />
-          </div>
-          <VendasPecasTable vendas={vendas} papel={usuario.papel} />
-        </TabsContent>
+        {podeVender && (
+          <TabsContent value="vendas" className="mt-4 space-y-4">
+            <div className="flex justify-end">
+              <VendaPecaDialog
+                pecas={pecas.filter(p => p.ativo)}
+                lojas={lojasOpts}
+                lojaUsuarioId={usuario.lojaId}
+                isAdmin={isAdmin}
+                podeDefinirPreco={isGestor}
+              />
+            </div>
+            <VendasPecasTable vendas={vendas} papel={usuario.papel} />
+          </TabsContent>
+        )}
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">
           {isGestor && (

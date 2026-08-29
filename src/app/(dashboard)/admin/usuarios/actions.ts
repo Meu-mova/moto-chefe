@@ -4,7 +4,17 @@ import { usuarios, grupos } from '@/lib/db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
+import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
+
+const IDS_VALIDOS = new Set(ITENS.map(i => i.id))
+
+// Grava só ids que existem hoje na tabela de navegação — evita lixo permanente
+// no banco se um id de item mudar de nome (o valor antigo nunca mais casaria
+// com nada e ficaria preso em modulos_extras/bloqueados para sempre).
+function filtrarIdsValidos(ids: string[]): string[] {
+  return ids.filter(id => IDS_VALIDOS.has(id))
+}
 
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -86,8 +96,8 @@ export async function criarUsuarioAction(dados: {
     conecta,
     gruposAprovacao:         aprovacao.gruposAprovacao,
     aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
-    modulosExtras:     dados.modulosExtras,
-    modulosBloqueados: dados.modulosBloqueados,
+    modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
+    modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
   })
 
   revalidatePath('/admin/usuarios')
@@ -117,8 +127,8 @@ export async function editarUsuarioAction(id: string, dados: {
       conecta: validarConecta(dados.conecta),
       gruposAprovacao:         aprovacao.gruposAprovacao,
       aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
-      modulosExtras:     dados.modulosExtras,
-      modulosBloqueados: dados.modulosBloqueados,
+      modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
+      modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

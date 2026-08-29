@@ -22,7 +22,7 @@ export default async function ModelosPage() {
   const codigoPorModelo = new Map(codigos.map(c => [c.modeloId, c.codigo]))
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/modelos">
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>

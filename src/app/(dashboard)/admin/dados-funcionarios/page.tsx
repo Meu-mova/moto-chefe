@@ -34,7 +34,7 @@ export default async function DadosFuncionariosPage() {
   const faltando = linhas.filter(l => !l.cpf).length
 
   return (
-    <AdminGuard>
+    <AdminGuard href="/admin/dados-funcionarios">
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Dados dos funcionários</h1>

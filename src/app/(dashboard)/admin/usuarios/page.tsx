@@ -16,6 +16,7 @@ export default async function UsuariosPage() {
         nome:     usuarios.nome,
         email:    usuarios.email,
         papel:    usuarios.papel,
+        papeisExtras: usuarios.papeisExtras,
         lojaId:   usuarios.lojaId,
         lojaNome: lojas.nome,
         conecta:  usuarios.conecta,
@@ -37,7 +38,7 @@ export default async function UsuariosPage() {
   ])
 
   return (
-    <SuperAdminGuard>
+    <SuperAdminGuard href="/admin/usuarios">
       <div className="space-y-2">
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
