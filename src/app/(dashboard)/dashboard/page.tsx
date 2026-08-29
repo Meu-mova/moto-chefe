@@ -24,6 +24,8 @@ import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
+import { PendenciasDocumentosCard } from './components/pendencias-documentos-card'
+import { pendenciasDeVendas } from '@/lib/queries/pendencias-venda'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 import { KpiCards } from './components/kpi-cards'
@@ -129,6 +131,32 @@ async function PendenciasSection({ lojaId }: { lojaId: string }) {
     return <PendenciasLojaCard {...pendencias} />
   } catch (e) {
     console.error('[PendenciasSection] erro:', e)
+    throw e
+  }
+}
+
+// Contrato, checklist, NF e conciliação das vendas desde que a regra entrou no ar.
+// Não recebe `filtros` de propósito: o período é sempre desde INICIO_REGRA_DOCUMENTOS,
+// senão a pendência de agosto sumiria da tela em setembro sem ninguém resolver.
+async function PendenciasDocumentosSection({
+  usuario, isVendedor, isAdmin,
+}: {
+  usuario: { id: string; papel: string; lojaId: string | null }
+  isVendedor: boolean
+  isAdmin: boolean
+}) {
+  try {
+    const lojaIds = isAdmin
+      ? await listarLojaIdsDoGrupoAtivo(usuario)
+      : (usuario.lojaId ? [usuario.lojaId] : [])
+    // Vendedor vê só as próprias vendas; admin e aux_adm cobram o time inteiro.
+    const dados = await pendenciasDeVendas({
+      lojaIds,
+      vendedorId: isVendedor ? usuario.id : undefined,
+    })
+    return <PendenciasDocumentosCard dados={dados} modo={isVendedor ? 'vendedor' : 'gestao'} />
+  } catch (e) {
+    console.error('[PendenciasDocumentosSection] erro:', e)
     throw e
   }
 }
@@ -492,6 +520,14 @@ export default async function DashboardPage({
           <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
         </Suspense>
       </SectionErrorBoundary>
+
+      {(isVendedor || isAdmin || isAuxAdm) && (
+        <SectionErrorBoundary label="as pendências de contrato e checklist">
+          <Suspense fallback={null}>
+            <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
 
       <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
