@@ -46,12 +46,16 @@ export function clienteCompleto(v: ClienteForm): boolean {
   return !!(v.clienteNome.trim() && cpf.length === 11 && validarCpf(cpf) && v.clienteCelular.trim())
 }
 
-export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChange: (v: ClienteForm) => void }) {
+export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChange: React.Dispatch<React.SetStateAction<ClienteForm>> }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [buscandoCliente, setBuscandoCliente] = useState(false)
   const [status, setStatus] = useState<'encontrado' | 'nao-encontrado' | null>(null)
 
-  const set = (patch: Partial<ClienteForm>) => onChange({ ...value, ...patch })
+  // Atualização funcional, não `{ ...value, ...patch }`: as buscas de CPF e CEP
+  // são disparadas no mesmo render em que o campo muda, então o `value` que elas
+  // enxergam é o de ANTES da última tecla. Mesclar contra ele devolvia o campo ao
+  // estado anterior — o CPF perdia o último dígito e o botão nunca habilitava.
+  const set = (patch: Partial<ClienteForm>) => onChange(prev => ({ ...prev, ...patch }))
 
   function handleCpf(v: string) {
     const d = v.replace(/\D/g, '').slice(0, 11)

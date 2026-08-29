@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { demandas, lojas, usuarios } from '@/lib/db/schema'
+import { demandas, grupos, lojas, usuarios } from '@/lib/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 
 export type DemandaRecibo = Awaited<ReturnType<typeof buscarDemandaParaRecibo>>
@@ -19,6 +19,7 @@ export async function buscarDemandaParaRecibo(id: string) {
       criadoEm: demandas.criadoEm,
       lojaId: demandas.lojaId,
       lojaNome: lojas.nome,
+      grupoNome: grupos.nome,
       solicitanteNome: usuarios.nome,
       clienteNome: demandas.clienteNome,
       clienteCpf: demandas.clienteCpf,
@@ -34,6 +35,7 @@ export async function buscarDemandaParaRecibo(id: string) {
     })
     .from(demandas)
     .innerJoin(lojas, eq(demandas.lojaId, lojas.id))
+    .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
     .innerJoin(usuarios, eq(demandas.solicitanteId, usuarios.id))
     .where(eq(demandas.id, id))
     .limit(1)
