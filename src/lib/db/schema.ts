@@ -118,6 +118,11 @@ export const usuarios = pgTable('usuarios', {
   // Só acrescenta permissão, nunca tira. Ler sempre via temPapel() de @/lib/auth,
   // não comparando com .papel direto.
   papeisExtras: text('papeis_extras').array().notNull().default([]),
+  // Exceção de acesso por pessoa, em cima do padrão do papel definido em
+  // @/lib/navegacao. Guardam o `id` do item, não o href. Ler sempre via
+  // itensVisiveis()/podeAcessar(), nunca comparando direto.
+  modulosExtras:     text('modulos_extras').array().notNull().default([]),
+  modulosBloqueados: text('modulos_bloqueados').array().notNull().default([]),
   lojaId: uuid('loja_id').references(() => lojas.id), // nullable para admin_geral
   conecta: text('conecta'), // link individual do usuário (menu Conecta); nullable
   // Grupos EXTRAS onde este usuário aprova venda (além do grupo da própria loja).
