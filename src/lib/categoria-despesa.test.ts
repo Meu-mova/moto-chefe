@@ -31,7 +31,7 @@ test('motivo fora da lista não passa', () => {
   )
 })
 
-test('os quatro motivos da tela são aceitos', () => {
+test('todos os motivos da tela são aceitos', () => {
   for (const m of MOTIVOS_CATEGORIA) {
     const r = normalizarClassificacao({ contaComoDespesa: false, motivoNaoOperacional: m.valor })
     assert.equal(r.motivoNaoOperacional, m.valor)
@@ -69,4 +69,11 @@ test('grupo inventado não passa', () => {
     () => normalizarClassificacao({ contaComoDespesa: true, grupoDre: 'marketing_digital' }),
     /Grupo do DRE inválido/,
   )
+})
+
+test('"já lançada manualmente" é um motivo escolhível na tela', () => {
+  const r = normalizarClassificacao({ contaComoDespesa: false, motivoNaoOperacional: 'ja_lancada_manual' })
+  assert.equal(r.motivoNaoOperacional, 'ja_lancada_manual')
+  assert.equal(r.contaComoDespesa, false)
+  assert.equal(rotuloMotivo('ja_lancada_manual'), 'Já lançada manualmente')
 })

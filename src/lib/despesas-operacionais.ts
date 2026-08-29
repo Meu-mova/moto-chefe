@@ -26,6 +26,10 @@ export type MotivoForaDoCalculo =
   // contada como receita e o estorno apenas a desfaz. Somar dos dois lados
   // faria a loja "gastar" um dinheiro que nunca foi dela.
   | 'estorno_cliente'
+  // A saída do banco cuja despesa já foi digitada à mão na aba de lançamentos.
+  // Não é que o gasto não exista — ele existe e conta, só que pelo outro lado.
+  // Deixar a linha do extrato contar também soma o mesmo dinheiro duas vezes.
+  | 'ja_lancada_manual'
 
 export type SaidaBanco = {
   valor: string | number
@@ -174,6 +178,7 @@ export function somarDespesas(
     transferencia_interna: 0,
     caixa_nao_despesa: 0,
     estorno_cliente: 0,
+    ja_lancada_manual: 0,
   }
   let total = 0
 

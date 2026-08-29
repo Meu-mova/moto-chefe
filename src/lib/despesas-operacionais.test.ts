@@ -401,3 +401,26 @@ test('categoria fora do cálculo sem motivo cadastrado cai no genérico', () => 
   const saida = { valor: 10, categoria: 'ALGUMA COISA', favorecidoNome: null, descricao: null }
   assert.equal(motivoForaDoCalculo(saida, config), 'categoria_marcada')
 })
+
+// "Despesa lançada manual" marca a saída do banco cuja despesa já foi digitada
+// à mão na outra aba. Sem tirá-la do cálculo, o mesmo gasto entra duas vezes:
+// uma pela linha do extrato e outra pelo lançamento manual.
+test('saída já lançada manualmente não conta como despesa operacional', () => {
+  const config = {
+    categoriasForaDoCalculo: new Set(['Despesa lançada manual']),
+    cnpjsForaDoCalculo: new Map(),
+    motivoPorCategoria: new Map([['Despesa lançada manual', 'ja_lancada_manual' as const]]),
+  }
+  const saida = { valor: 9253.88, categoria: 'Despesa lançada manual', favorecidoNome: null, descricao: null }
+  assert.equal(motivoForaDoCalculo(saida, config), 'ja_lancada_manual')
+})
+
+test('transferência entre lojas continua fora, com motivo de transferência interna', () => {
+  const config = {
+    categoriasForaDoCalculo: new Set(['Transferencia entre Lojas']),
+    cnpjsForaDoCalculo: new Map(),
+    motivoPorCategoria: new Map([['Transferencia entre Lojas', 'transferencia_interna' as const]]),
+  }
+  const saida = { valor: 10909, categoria: 'Transferencia entre Lojas', favorecidoNome: null, descricao: null }
+  assert.equal(motivoForaDoCalculo(saida, config), 'transferencia_interna')
+})

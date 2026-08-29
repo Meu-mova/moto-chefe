@@ -19,6 +19,7 @@ export const MOTIVOS_CATEGORIA = [
   { valor: 'compra_moto',           rotulo: 'Compra de mercadoria' },
   { valor: 'transferencia_interna', rotulo: 'Transferência interna (entre CNPJs ou para o caixa da loja)' },
   { valor: 'estorno_cliente',       rotulo: 'Estorno ao cliente' },
+  { valor: 'ja_lancada_manual',     rotulo: 'Já lançada manualmente' },
 ] as const satisfies readonly { valor: MotivoForaDoCalculo; rotulo: string }[]
 
 export type MotivoCategoria = (typeof MOTIVOS_CATEGORIA)[number]['valor']
