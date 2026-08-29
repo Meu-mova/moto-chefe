@@ -112,22 +112,50 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
 }
 
 
-// Formato da descrição da transação muda por banco (serve tanto pra PIX
-// recebido quanto pra saídas em geral):
-// - Sicoob: pseudo-CSV separado por "|@", ex. "PIX RECEBIDO - OUTRA IF -
-//   Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@" — nome
-//   é o segmento [1].
+/// Formato da descrição da transação muda por banco E por tipo de crédito
+// dentro do mesmo banco (serve tanto pra crédito quanto pra saídas em geral):
+// - Sicoob, PIX de outra instituição: pseudo-CSV separado por "|@", ex. "PIX
+//   RECEBIDO - OUTRA IF - Recebimento Pix|@GISELLE BOTELHO VILAS BOAS|@***.206.316-**|@"
+//   — nome é o segmento [1].
+// - Sicoob, PIX entre contas Sicoob: "TRANSF.RECEBIDA - PIX SICOOB - REM.:
+//   <NOME>|@Transferência Pix|@<NOME>|@<DOC>|@" — o [1] aqui é o rótulo
+//   "Transferência Pix", NÃO o nome. Ler o [1] às cegas gravava a palavra
+//   "Transferência Pix" como pagador em 50 recebimentos.
+// - Sicoob, TED recebida: "CRÉD.TED-STR - <NOME>|@<CPF>|@CODIGO TED: T…" — o
+//   nome vem ANTES do primeiro "|@" e o [1] é o CPF.
 // - Sicredi: "RECEBIMENTO PIX <documento sem pontuação> <NOME>" — nome é
 //   tudo depois do documento (que costuma vir truncado/abreviado quando
 //   comparado ao paymentData, por isso só usamos como fallback).
-function extrairContraparteDaDescricao(descricao: string | null | undefined): string | null {
+export function extrairContraparteDaDescricao(descricao: string | null | undefined): string | null {
   if (!descricao) return null
+
+  const ted = descricao.match(/^CR[ÉE]D\.TED-STR\s*-\s*([^|]+)/i)
+  if (ted) return ted[1].trim() || null
+
+  if (/^TRANSF\.RECEBIDA/i.test(descricao)) {
+    const segmentos = descricao.split('|@')
+    // O segmento [2] é o nome completo; o "REM.:" do [0] vem cortado em ~34
+    // caracteres ("CENTRO FORMACAO DE CONDUTORES AROU"). Só caímos nele quando
+    // o Sicoob não manda os segmentos — e quando nem isso vem, é null: 19
+    // desses recebimentos não têm remetente nenhum no Open Finance, e chutar
+    // um nome errado é pior que deixar a conciliação manual.
+    const doSegmento = segmentos[2]?.trim()
+    if (doSegmento) return doSegmento
+    const rem = segmentos[0].match(/REM\.:\s*(.+)$/i)
+    return rem?.[1]?.trim() || null
+  }
 
   if (descricao.includes('|@')) {
     const nome = descricao.split('|@')[1]?.trim()
     return nome || null
   }
 
+  // Stone/InfinitePay: "Transferência | Pix | NOME", "Transferência | TED | NOME"
+  // — tipo no meio, contraparte sempre no último segmento.
+  if (descricao.includes(' | ')) {
+    const ultimo = descricao.split(' | ').pop()?.trim()
+    return ultimo || null
+  }
   const match = descricao.match(/^(?:RECEBIMENTO|PAGAMENTO)\s+\S+\s+\S+\s+(.+)$/i)
   return match?.[1]?.trim() || null
 }
@@ -278,18 +306,27 @@ type TransacaoPix = {
   valor: string
   pagadorNome: string | null
   descricao: string | null
+  /** 'PIX' ou 'TED' — a tela mostra pra não confundir os dois na conciliação. */
+  tipoOperacao: string
 }
 
 type ResultadoPix =
   | { ok: true; transacoes: TransacaoPix[] }
   | { ok: false; erro: string }
 
+// Créditos que entram na conciliação de /pix-mcp. TED entrou em 29/08/2026 a
+// pedido do Cesar: cliente que paga moto por TED caía fora da tela e sobrava
+// pra conferência manual. Transferência entre contas do mesmo banco que não é
+// PIX ("CRED.TRANSF.CONTAS INTERCREDIS" no Sicoob) segue de fora de propósito
+// — ela nunca traz o nome do remetente, então não dá pra conciliar mesmo.
+const OPERACOES_CONCILIAVEIS = ['PIX', 'TED']
+
 export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
   const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'CREDIT' && t.operationType === 'PIX')
+    .filter(t => t.tipo === 'CREDIT' && OPERACOES_CONCILIAVEIS.includes(t.operationType))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,
@@ -298,6 +335,7 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
       valor: t.valor,
       pagadorNome: t.paymentData?.payer?.trim() || extrairContraparteDaDescricao(t.descricao),
       descricao: t.descricao,
+      tipoOperacao: t.operationType,
     }))
 
   return { ok: true, transacoes }

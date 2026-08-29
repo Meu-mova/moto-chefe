@@ -694,6 +694,9 @@ export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   valor:               numeric('valor', { precision: 12, scale: 2 }).notNull(),
   pagadorNome:         text('pagador_nome'),
   descricao:           text('descricao'),
+  // 'PIX' ou 'TED' (operationType do Open Finance). Null nas linhas gravadas
+  // antes de 29/08/2026, quando só PIX entrava — o upsert do sync preenche.
+  tipoOperacao:        text('tipo_operacao'),
   tipoCorrespondencia: tipoCorrespondenciaPixEnum('tipo_correspondencia'),
   vendaId:             uuid('venda_id').references(() => vendas.id),
   osId:                uuid('os_id').references(() => ordensServico.id),

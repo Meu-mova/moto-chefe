@@ -4,7 +4,7 @@ import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarPixRecebidos } from '@/lib/mcpai'
 import { db } from '@/lib/db'
 import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
-import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
+import { inArray, and, eq, gte, lte, desc, sql } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TrendingUp, RefreshCw, Building2 } from 'lucide-react'
@@ -88,8 +88,24 @@ export default async function PixMcpPage({
             valor: tx.valor,
             pagadorNome: tx.pagadorNome,
             descricao: tx.descricao,
+            tipoOperacao: tx.tipoOperacao,
           })))
-          .onConflictDoNothing({ target: pixRecebimentosMcp.transacaoId })
+          // Upsert, não DoNothing: a linha que já entrou precisa poder se
+          // corrigir. Foi assim que 50 recebimentos ficaram com o pagador
+          // gravado como "Transferência Pix" mesmo depois de a leitura da
+          // descrição ser consertada. Só os campos descritivos são
+          // reescritos — venda_id/os_id/pedido_id/peca_venda_id/lancado_* NÃO
+          // são tocados, então nada que já foi conciliado se perde. E o
+          // coalesce impede que um sync que venha sem remetente apague um
+          // nome que já temos.
+          .onConflictDoUpdate({
+            target: pixRecebimentosMcp.transacaoId,
+            set: {
+              pagadorNome: sql`coalesce(excluded.pagador_nome, ${pixRecebimentosMcp.pagadorNome})`,
+              descricao: sql`coalesce(excluded.descricao, ${pixRecebimentosMcp.descricao})`,
+              tipoOperacao: sql`coalesce(excluded.tipo_operacao, ${pixRecebimentosMcp.tipoOperacao})`,
+            },
+          })
       }
       await db.insert(pixMcpSyncStatus)
         .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
@@ -153,7 +169,7 @@ export default async function PixMcpPage({
         <div>
           <h1 className="text-2xl font-bold">PIX Recebidos (teste — Open Finance)</h1>
           <p className="text-slate-500 text-sm">
-            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai, sem passar pelo ValidaPix. Correspondência lançada manualmente.
+            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai, sem passar pelo ValidaPix. Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
           </p>
           <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
             {syncStatusAtual
@@ -210,6 +226,7 @@ export default async function PixMcpPage({
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Data</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Pagador</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="pr-4">Correspondência</TableHead>
@@ -224,7 +241,18 @@ export default async function PixMcpPage({
                       {formatData(l.data)}
                     </TableCell>
                     <TableCell>
-                      <p className="font-medium text-sm" title={l.descricao ?? ''}>{l.pagadorNome || '—'}</p>
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                        l.tipoOperacao === 'TED'
+                          ? 'bg-violet-50 text-violet-700'
+                          : 'bg-sky-50 text-sky-700'
+                      }`}>
+                        {l.tipoOperacao ?? 'PIX'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-medium text-sm" title={l.descricao ?? ''}>
+                        {l.pagadorNome || <span className="text-slate-400 font-normal" title="O banco não informou o remetente nesta transação">— sem remetente</span>}
+                      </p>
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums text-slate-900">
                       {formatValor(l.valor)}
@@ -254,9 +282,9 @@ export default async function PixMcpPage({
               })}
               {linhas.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-slate-400 py-12">
+                  <TableCell colSpan={5} className="text-center text-slate-400 py-12">
                     <TrendingUp size={32} className="mx-auto mb-2 opacity-20" />
-                    Nenhum PIX recebido no período
+                    Nenhum recebimento no período
                   </TableCell>
                 </TableRow>
               )}
