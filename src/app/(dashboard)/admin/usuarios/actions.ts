@@ -61,6 +61,8 @@ export async function criarUsuarioAction(dados: {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  modulosExtras: string[]
+  modulosBloqueados: string[]
 }) {
   await assertAdmin()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
@@ -84,6 +86,8 @@ export async function criarUsuarioAction(dados: {
     conecta,
     gruposAprovacao:         aprovacao.gruposAprovacao,
     aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+    modulosExtras:     dados.modulosExtras,
+    modulosBloqueados: dados.modulosBloqueados,
   })
 
   revalidatePath('/admin/usuarios')
@@ -98,6 +102,8 @@ export async function editarUsuarioAction(id: string, dados: {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  modulosExtras: string[]
+  modulosBloqueados: string[]
 }) {
   await assertAdmin()
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
@@ -111,6 +117,8 @@ export async function editarUsuarioAction(id: string, dados: {
       conecta: validarConecta(dados.conecta),
       gruposAprovacao:         aprovacao.gruposAprovacao,
       aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+      modulosExtras:     dados.modulosExtras,
+      modulosBloqueados: dados.modulosBloqueados,
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

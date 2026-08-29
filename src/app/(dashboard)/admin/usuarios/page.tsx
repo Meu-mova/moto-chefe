@@ -21,6 +21,8 @@ export default async function UsuariosPage() {
         conecta:  usuarios.conecta,
         gruposAprovacao:         usuarios.gruposAprovacao,
         aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
+        modulosExtras:           usuarios.modulosExtras,
+        modulosBloqueados:       usuarios.modulosBloqueados,
         // Grupo da loja fixa: já aprova nele por padrão, então o formulário
         // mostra esse grupo como fixo em vez de oferecê-lo como opção.
         grupoDaLojaId:           lojas.grupoId,

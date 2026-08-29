@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction } from '../actions'
+import { ModulosPicker } from './modulos-picker'
 
 type Loja = { id: string; nome: string }
 type Grupo = { id: string; nome: string }
@@ -24,6 +25,8 @@ type Usuario = {
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
   grupoDaLojaId: string | null
+  modulosExtras: string[]
+  modulosBloqueados: string[]
 }
 
 type DadosForm = {
@@ -35,6 +38,8 @@ type DadosForm = {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  modulosExtras: string[]
+  modulosBloqueados: string[]
 }
 
 // Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
@@ -101,6 +106,8 @@ function FormUsuario({
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
   const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
   const [aprovaSensivel, setAprovaSensivel] = useState(inicial?.aprovaPagamentoSensivel ?? false)
+  const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
+  const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
 
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
 
@@ -122,6 +129,8 @@ function FormUsuario({
       conecta: conecta.trim() || null,
       gruposAprovacao: mostrarAprovacao ? gruposAprov : [],
       aprovaPagamentoSensivel: mostrarAprovacao && aprovaSensivel,
+      modulosExtras,
+      modulosBloqueados,
     })
   }
 
@@ -154,6 +163,20 @@ function FormUsuario({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
+          <div>
+            <Label>Acesso a módulos</Label>
+            <p className="text-xs text-slate-500">
+              A função já dá acesso ao que está marcado como &quot;do papel&quot;. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
+            </p>
+          </div>
+          <ModulosPicker
+            papel={papel}
+            extras={modulosExtras}
+            bloqueados={modulosBloqueados}
+            onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
+          />
         </div>
         <div className="col-span-2 space-y-1.5">
           <Label>Loja</Label>
@@ -265,6 +288,8 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           conecta:   dados.conecta,
           gruposAprovacao:         dados.gruposAprovacao,
           aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
+          modulosExtras:           dados.modulosExtras,
+          modulosBloqueados:       dados.modulosBloqueados,
         })
         toast.success('Usuário atualizado')
         setEditando(null)
