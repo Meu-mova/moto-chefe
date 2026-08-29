@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairContraparteDaDescricao } from './mcpai'
+import { extrairContraparteDaDescricao, bancoEntraNoPix, bancoEntraNaDespesa } from './mcpai'
 
 // Todas as descrições abaixo foram capturadas ao vivo do mcp.ai em 2026-08-29
 // (contas Sicoob/Sicredi do Sul de Minas). O formato muda por banco E por tipo
@@ -99,4 +99,39 @@ test('Stone: PIX enviado (débito) — contraparte no último segmento', () => {
     extrairContraparteDaDescricao('Transferência | Pix | ECOMOV MOBILIDADE LTDA'),
     'ECOMOV MOBILIDADE LTDA',
   )
+})
+
+// ─── Quais contas do grupo entram em cada módulo ─────────────────────────────
+// Até 29/08/2026 existia UMA lista só, aplicada antes de baixar as transações,
+// e ela servia os dois módulos. Criada pra tirar a Sicredi do Sul de Minas do
+// /pix, ela tirou a conta das despesas junto: R$ 1.051.359 em 72 débitos nunca
+// apareceram no Importar do Banco. Agora cada módulo tem a sua regra.
+
+test('PIX: Sicredi do Sul de Minas continua fora — não é conta de receber venda', () => {
+  assert.equal(bancoEntraNoPix('Sicredi Empresas', '57.113.017/0001-72'), false)
+  assert.equal(bancoEntraNoPix('Sicoob Empresas', '57.113.017/0001-72'), true)
+})
+
+test('PIX: a Sicredi da BH entra — a trava é só do Sul de Minas', () => {
+  assert.equal(bancoEntraNoPix('Sicredi Empresas', '63.009.605/0001-63'), true)
+})
+
+test('PIX: maquininha entra — PIX de cliente cai na conta da Stone/InfinitePay', () => {
+  assert.equal(bancoEntraNoPix('Stone Pagamentos Empresas', '57.113.017/0001-72'), true)
+  assert.equal(bancoEntraNoPix('InfinitePay Empresas', '57.113.017/0001-72'), true)
+})
+
+test('Despesa: só Sicoob e Sicredi entram', () => {
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas'), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas'), true)
+})
+
+test('Despesa: maquininha nunca entra — nem Stone, nem InfinitePay', () => {
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas'), false)
+  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas'), false)
+})
+
+test('Despesa: conta nova fica de fora até ser liberada', () => {
+  assert.equal(bancoEntraNaDespesa('Itaú Empresas'), false)
+  assert.equal(bancoEntraNaDespesa('Nubank Empresas'), false)
 })

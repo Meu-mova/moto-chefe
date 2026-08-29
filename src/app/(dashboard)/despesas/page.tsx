@@ -361,6 +361,7 @@ export default async function DespesasPage({
             saidas={saidasFiltradas.map(s => ({
               id: s.id,
               data: s.data.toISOString(),
+              banco: s.banco,
               favorecidoNome: s.favorecidoNome,
               descricao: s.descricao,
               valor: s.valor,

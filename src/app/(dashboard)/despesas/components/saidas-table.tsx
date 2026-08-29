@@ -6,6 +6,7 @@ import type { Loja } from '../types'
 export type SaidaRow = {
   id: string
   data: string
+  banco: string
   favorecidoNome: string | null
   descricao: string | null
   valor: string
@@ -20,6 +21,10 @@ export type SaidaRow = {
 type StatusFiltro = 'todas' | 'lancadas' | 'pendentes'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+// "Sicoob Empresas" → "Sicoob". O nome vem do conector do mcp.ai e o sufixo
+// não diz nada numa coluna estreita.
+const nomeCurtoBanco = (banco: string) => banco.replace(/\s+Empresas$/i, '').replace(/\s+Pagamentos$/i, '')
 
 export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { saidas: SaidaRow[]; lojas: Loja[]; categorias: string[]; podeCategorizar: boolean }) {
   const [status, setStatus] = useState<StatusFiltro>('todas')
@@ -57,6 +62,7 @@ export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { sa
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Data</th>
+              <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Banco</th>
               <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Favorecido / Descrição</th>
               <th className="text-right px-4 py-2 text-xs text-slate-500 font-medium">Valor</th>
               <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Categoria / Loja</th>
@@ -67,6 +73,11 @@ export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { sa
               <tr key={s.id} className="hover:bg-slate-50/50">
                 <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
                   {new Date(s.data).toLocaleDateString('pt-BR')}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap">
+                  <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600" title={s.banco}>
+                    {nomeCurtoBanco(s.banco)}
+                  </span>
                 </td>
                 <td className="px-4 py-2">
                   <p className="font-medium">{s.favorecidoNome || '—'}</p>
@@ -92,7 +103,7 @@ export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { sa
             ))}
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-center text-slate-400 py-8">
+                <td colSpan={5} className="text-center text-slate-400 py-8">
                   {saidas.length === 0 ? 'Nenhuma saída no período.' : 'Nenhuma saída para o filtro selecionado.'}
                 </td>
               </tr>

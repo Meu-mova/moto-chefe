@@ -220,14 +220,12 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     }
     // Cada CNPJ conectado aparece como um "item" próprio no mcp.ai — filtramos
     // pelo CNPJ do grupo ativo pra não misturar contas de grupos diferentes
-    // (ex: Sicredi do Sul de Minas vs Sicredi da BH, ambas com o mesmo nome de banco).
-    // Sicredi do Sul de Minas não é usada pra receber PIX de venda — só a Sicoob.
-    const BANCOS_EXCLUIDOS_POR_CNPJ: Record<string, string[]> = {
-      '57.113.017/0001-72': ['Sicredi Empresas'],
-    }
-    const bancosExcluidos = BANCOS_EXCLUIDOS_POR_CNPJ[cnpjGrupo] ?? []
+    // (ex: Sicredi do Sul de Minas vs Sicredi da BH, ambas com o mesmo nome de
+    // banco). Quais dessas contas interessam é decisão de CADA módulo, não
+    // daqui: ver bancoEntraNoPix() e bancoEntraNaDespesa(). Filtrar banco neste
+    // ponto foi o que sumiu com a Sicredi do Sul de Minas das despesas.
     const contas = (contasPayload.results ?? []).filter(
-      c => c.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(c.taxNumber, cnpjGrupo) && !bancosExcluidos.includes(c.bank),
+      c => c.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(c.taxNumber, cnpjGrupo),
     )
 
     const inicioMs = dataInicio.getTime()
@@ -298,6 +296,31 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
   }
 }
 
+// Contas que NÃO entram na conciliação de PIX, por grupo. A Sicredi do Sul de
+// Minas está aqui porque não é a conta usada pra receber pagamento de venda
+// (só a Sicoob é) — decisão do Cesar, não limitação técnica. Nada a ver com a
+// lista de despesa abaixo: a mesma conta pode valer pra um módulo e não pro
+// outro, e foi justamente misturar as duas que escondeu a Sicredi do
+// Importar do Banco por quase dois meses.
+const BANCOS_FORA_DO_PIX_POR_CNPJ: Record<string, string[]> = {
+  '57.113.017/0001-72': ['Sicredi Empresas'],
+}
+
+export function bancoEntraNoPix(banco: string, cnpjGrupo: string): boolean {
+  return !(BANCOS_FORA_DO_PIX_POR_CNPJ[cnpjGrupo] ?? []).includes(banco)
+}
+
+// Contas cujas saídas viram despesa no Importar do Banco. É uma lista de
+// LIBERAÇÃO, não de bloqueio: conta nova — banco ou maquininha — fica de fora
+// até alguém pedir. Maquininha (Stone, InfinitePay) não é conta operacional:
+// o extrato dela é repasse de venda e varredura pra conta principal, e jogar
+// isso em despesa levou R$ 5,9 milhões de saída falsa pro Sul de Minas.
+const BANCOS_DE_DESPESA = ['Sicoob Empresas', 'Sicredi Empresas']
+
+export function bancoEntraNaDespesa(banco: string): boolean {
+  return BANCOS_DE_DESPESA.includes(banco)
+}
+
 type TransacaoPix = {
   contaId: string
   banco: string
@@ -326,7 +349,7 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'CREDIT' && OPERACOES_CONCILIAVEIS.includes(t.operationType))
+    .filter(t => t.tipo === 'CREDIT' && OPERACOES_CONCILIAVEIS.includes(t.operationType) && bancoEntraNoPix(t.banco, cnpjGrupo))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,
@@ -361,7 +384,7 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'DEBIT')
+    .filter(t => t.tipo === 'DEBIT' && bancoEntraNaDespesa(t.banco))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,
