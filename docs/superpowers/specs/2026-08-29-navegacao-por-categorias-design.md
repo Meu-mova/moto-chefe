@@ -243,9 +243,16 @@ sejam o mesmo fato. Cada página guardada troca seu array literal por
 `podeAcessar(usuario, '/rota')`, e o redirect de acesso negado passa a ser sempre
 `/dashboard`.
 
-`AdminGuard` e `SuperAdminGuard` continuam existindo para as páginas de
-`/admin/*`, reescritos por dentro em cima de `podeAcessar` — assim não é preciso
-tocar em 17 arquivos para trocar o mecanismo.
+`AdminGuard` e `SuperAdminGuard` continuam existindo para as páginas de `/admin/*`
+e **continuam checando o papel diretamente**: eles embrulham 12 páginas diferentes e
+não sabem qual item estão protegendo, e `podeAcessar` precisa de um href. Passar o
+href como prop significaria tocar nos 12 arquivos, que é justamente o que esses
+componentes existem para evitar. Deles só muda o destino do redirect. As páginas de
+`/admin/*` com guarda própria — dre, canais, metas, origens, veiculos-historico —
+essas passam por `podeAcessar`.
+
+Consequência aceita: para essas 12 páginas a regra fica escrita em dois lugares
+(tabela e guard), ambos dizendo `ADMINS`.
 
 ## Testes
 

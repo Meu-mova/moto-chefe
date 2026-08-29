@@ -2021,7 +2021,8 @@ Criar `enviar-assinatura-button.tsx` (client component):
 
 - Props: `{ vendaId: string; documentos: { id: string; tipo: string; status: string }[] }`.
 - Para cada tipo (`contrato_venda`, `checklist_entrega`), mostra um badge: cinza "não enviado", âmbar "aguardando assinatura", verde "assinado", vermelho "expirado".
-- Botão "Enviar para assinatura" quando não há documento vivo; "Reenviar" e "Cancelar" quando há pendente; nada além do badge quando assinado.
+- Botão "Enviar para assinatura" quando não há documento vivo; "Reenviar", **"Copiar link"** e "Cancelar" quando há pendente; badge e "Copiar link" quando assinado.
+- **"Copiar link" é sempre visível**, não só quando o envio falha (pedido do Cesar em 11/08): se o mcp.ai estiver fora, o vendedor manda o link por outro caminho. O `token` vem por prop do server component. Ressalva a exibir junto do botão: *"O código de 6 dígitos continua indo por WhatsApp"* — sem o mcp.ai o cliente abre o documento mas não conclui a assinatura.
 - Erros da action aparecem em `toast` (`sonner`, já usado no projeto). O erro de WhatsApp devolve o link no texto — mostrar num toast que permita copiar, ou num bloco de texto selecionável.
 - Usar `useTransition` e desabilitar durante `pending`, como nos outros botões do projeto.
 
