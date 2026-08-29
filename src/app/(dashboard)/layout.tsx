@@ -6,7 +6,8 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
-import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { getUsuarioLogado } from '@/lib/auth'
+import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
 
@@ -46,9 +47,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <Providers>
       <div className="flex min-h-screen">
         <Sidebar
-          papel={usuario.papel}
+          itensIds={itensDoUsuario(usuario).map(i => i.id)}
           conecta={usuario.conecta}
-          mostrarEntrada={podeRegistrarEntradaMotos(usuario)}
         />
         <div className="flex-1 flex flex-col">
           <Header />

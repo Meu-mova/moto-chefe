@@ -4,36 +4,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import {
-  ArrowLeftRight, ShoppingCart, Wrench, Shield, Settings,
-  Wallet, Home, Package, QrCode, Calculator,
-  ChevronLeft, ChevronRight, Zap, CreditCard, ClipboardList, Users,
-  Radar, CalendarDays, ListChecks, Package2, Link as LinkIcon, Headset, PackagePlus, Megaphone,
-  FileBarChart, CalendarRange, PackageCheck, Target,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Zap, Link as LinkIcon } from 'lucide-react'
+import { CATEGORIAS, ITENS } from '@/lib/navegacao'
 
-const baseNavItems = [
-  { href: '/dashboard',      label: 'Dashboard',         icon: Home           },
-  { href: '/estoque',        label: 'Showroom',          icon: Package        },
-  { href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight },
-  { href: '/vendas',         label: 'Vendas',            icon: ShoppingCart   },
-  { href: '/agenda',         label: 'Agenda Oficina',    icon: CalendarDays   },
-  { href: '/calendario',     label: 'Calendário',        icon: CalendarRange  },
-  { href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench         },
-  { href: '/garantias',      label: 'Garantias',         icon: Shield         },
-  { href: '/simulador',      label: 'Simulador',         icon: Calculator     },
-  { href: '/radar',          label: 'RADAR',             icon: Radar          },
-]
+type Props = { itensIds: string[]; conecta: string | null }
 
-const adminPapeis = ['admin_geral', 'admin_socio']
-const PAPEIS_PIX_MCP = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
-
-// mostrarEntrada é decidido no servidor (podeRegistrarEntradaMotos) porque a regra
-// depende do e-mail, não só do papel. Admin também vê o item aqui — além do card
-// no /admin — pra que o menu seja o mesmo caminho pra todos.
-type Props = { papel: string; conecta: string | null; mostrarEntrada: boolean }
-
-export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
+export function Sidebar({ itensIds, conecta }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -41,27 +17,24 @@ export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
   // Só renderiza/abre o link Conecta se for http(s) — evita esquemas perigosos (javascript:, etc.)
   const conectaSeguro = conecta && /^https?:\/\//i.test(conecta) ? conecta : null
 
-  const isAdmin = adminPapeis.includes(papel)
-  const navItems = [
-    ...baseNavItems,
-    ...(mostrarEntrada                 ? [{ href: '/entrada',     label: 'Entrada',     icon: PackagePlus  }] : []),
-    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/caixa',       label: 'Caixa',       icon: Wallet       }] : []),
-    // ValidaPix (/pix) abolido do menu — código/dados mantidos intactos, revertível.
-    ...(PAPEIS_PIX_MCP.includes(papel) ? [{ href: '/pix-mcp',     label: 'PIX',         icon: QrCode       }] : []),
-    ...(isAdmin || papel === 'aux_adm' ? [{ href: '/conciliacao', label: 'Conciliação', icon: CreditCard   }] : []),
-    ...(papel !== 'mecanico'           ? [{ href: '/demandas',    label: 'Demandas',    icon: ClipboardList }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/clientes', label: 'Clientes', icon: Users }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/atendimento', label: 'Atendimento', icon: Headset }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/marketing', label: 'Marketing', icon: Megaphone }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/servicos', label: 'Serviços', icon: ListChecks }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/montagens', label: 'Montagens', icon: Wrench }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/relatorio-fabrica', label: 'Relatório Fábrica', icon: FileBarChart }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/pecas-fabrica', label: 'Retirada de Peças', icon: PackageCheck }] : []),
-    ...(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel) ? [{ href: '/pecas', label: 'Peças', icon: Package2 }] : []),
-    // Metas fica fora do /admin porque o aux_adm precisa chegar lá — e o /admin
-    // redireciona quem não é admin/sócio. O admin vê o item aqui também.
-    ...(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? [{ href: '/admin/metas', label: 'Metas', icon: Target }] : []),
-    ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
+  const permitidos = new Set(itensIds)
+  const itens = ITENS.filter(i => permitidos.has(i.id))
+
+  // Linhas do menu: destaques soltos, depois uma linha por categoria.
+  // Categoria com um item só vira link direto — hub com um card é ruído.
+  const destaques = itens.filter(i => i.destaque)
+  const linhasCategoria = CATEGORIAS.flatMap(({ slug, nome, icon }) => {
+    const daCategoria = itens.filter(i => i.categoria === slug)
+    if (daCategoria.length === 0) return []
+    if (daCategoria.length === 1) {
+      const unico = daCategoria[0]
+      return [{ href: unico.href, label: unico.label, icon: unico.icon, hub: false }]
+    }
+    return [{ href: `/areas/${slug}`, label: nome, icon, hub: true }]
+  })
+  const linhas = [
+    ...destaques.map(i => ({ href: i.href, label: i.label, icon: i.icon, hub: false })),
+    ...linhasCategoria,
   ]
 
   return (
@@ -88,7 +61,7 @@ export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
       {/* Navegação */}
       <TooltipProvider delay={100}>
         <nav className="flex-1 p-3 space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon }) => {
+          {linhas.map(({ href, label, icon: Icon, hub }) => {
             const active = pathname.startsWith(href)
             const linkClass = cn(
               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
@@ -116,6 +89,7 @@ export function Sidebar({ papel, conecta, mostrarEntrada }: Props) {
               <Link key={href} href={href} className={linkClass}>
                 <Icon size={18} className="shrink-0" />
                 <span className="truncate">{label}</span>
+                {hub && <ChevronRight size={14} className="ml-auto opacity-50" />}
               </Link>
             )
           })}
