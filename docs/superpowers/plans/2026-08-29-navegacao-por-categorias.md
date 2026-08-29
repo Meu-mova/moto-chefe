@@ -122,7 +122,7 @@ Esta é a task de risco. O teste de não-regressão é o que garante que nenhuma
   - `type ItemNav = { id: string; href: string; label: string; icon: LucideIcon; categoria: Slug | null; papeis: Papel[]; destaque?: true; regraPropria?: true }`
   - `type UsuarioNav = { papel: string; papeisExtras?: string[] | null; modulosExtras?: string[] | null; modulosBloqueados?: string[] | null }`
   - `type RegrasProprias = Record<string, boolean>`
-  - `const CATEGORIAS: { slug: Slug; nome: string }[]`
+  - `const CATEGORIAS: { slug: Slug; nome: string; icon: LucideIcon }[]`
   - `const ITENS: ItemNav[]`
   - `itensVisiveis(usuario: UsuarioNav, regras: RegrasProprias): ItemNav[]`
   - `podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasProprias): boolean`
@@ -289,13 +289,16 @@ export type UsuarioNav = {
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
 export type RegrasProprias = Record<string, boolean>
 
-export const CATEGORIAS: { slug: Slug; nome: string }[] = [
-  { slug: 'comercial',    nome: 'Comercial' },
-  { slug: 'oficina',      nome: 'Oficina' },
-  { slug: 'estoque',      nome: 'Estoque & Fábrica' },
-  { slug: 'financeiro',   nome: 'Financeiro' },
-  { slug: 'gestao',       nome: 'Gestão' },
-  { slug: 'configuracao', nome: 'Configuração' },
+// A categoria tem ícone próprio. Não usar o ícone do primeiro item visível: o
+// primeiro item muda conforme a permissão de quem olha, e o menu ficaria com
+// ícone diferente para cada papel.
+export const CATEGORIAS: { slug: Slug; nome: string; icon: LucideIcon }[] = [
+  { slug: 'comercial',    nome: 'Comercial',         icon: ShoppingCart },
+  { slug: 'oficina',      nome: 'Oficina',           icon: Wrench },
+  { slug: 'estoque',      nome: 'Estoque & Fábrica', icon: Package },
+  { slug: 'financeiro',   nome: 'Financeiro',        icon: Wallet },
+  { slug: 'gestao',       nome: 'Gestão',            icon: Target },
+  { slug: 'configuracao', nome: 'Configuração',      icon: Settings2 },
 ]
 
 const SUPER:     Papel[] = ['admin_geral']
@@ -484,14 +487,14 @@ export function Sidebar({ itensIds, conecta }: Props) {
   // Linhas do menu: destaques soltos, depois uma linha por categoria.
   // Categoria com um item só vira link direto — hub com um card é ruído.
   const destaques = itens.filter(i => i.destaque)
-  const linhasCategoria = CATEGORIAS.flatMap(({ slug, nome }) => {
+  const linhasCategoria = CATEGORIAS.flatMap(({ slug, nome, icon }) => {
     const daCategoria = itens.filter(i => i.categoria === slug)
     if (daCategoria.length === 0) return []
     if (daCategoria.length === 1) {
       const unico = daCategoria[0]
       return [{ href: unico.href, label: unico.label, icon: unico.icon, hub: false }]
     }
-    return [{ href: `/areas/${slug}`, label: nome, icon: daCategoria[0].icon, hub: true }]
+    return [{ href: `/areas/${slug}`, label: nome, icon, hub: true }]
   })
   const linhas = [
     ...destaques.map(i => ({ href: i.href, label: i.label, icon: i.icon, hub: false })),
