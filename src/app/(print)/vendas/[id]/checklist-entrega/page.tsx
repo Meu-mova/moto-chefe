@@ -62,7 +62,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 40, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>MotoChefe Sul de Minas</p>
+            <p style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>MotoChefe {venda.grupoNome}</p>
             <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{venda.lojaNome}</p>
           </div>
         </div>

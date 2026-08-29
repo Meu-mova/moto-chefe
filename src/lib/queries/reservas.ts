@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { reservas, motos, modelos, lojas, usuarios } from '@/lib/db/schema'
+import { reservas, motos, modelos, lojas, grupos, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 export type ReservaComDetalhes = Awaited<ReturnType<typeof buscarReserva>>
@@ -14,6 +14,7 @@ export async function buscarReserva(id: string) {
       motoId: reservas.motoId,
       lojaId: reservas.lojaId,
       lojaNome: lojas.nome,
+      grupoNome: grupos.nome,
       marca: modelos.marca,
       modelo: modelos.modelo,
       cor: motos.cor,
@@ -43,6 +44,7 @@ export async function buscarReserva(id: string) {
     .innerJoin(motos, eq(reservas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(reservas.lojaId, lojas.id))
+    .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
     .innerJoin(usuarios, eq(reservas.vendedorId, usuarios.id))
     .where(eq(reservas.id, id))
     .limit(1)

@@ -94,7 +94,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe Sul de Minas</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe {os.grupoNome}</p>
             <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{os.lojaNome}</p>
           </div>
         </div>
@@ -262,7 +262,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="ftr">
-        <p>MOVA — Sistema de Gestão · MotoChefe Sul de Minas</p>
+        <p>MOVA — Sistema de Gestão · MotoChefe {os.grupoNome}</p>
         <p>Gerado em {geradoEm}</p>
       </div>
     </>

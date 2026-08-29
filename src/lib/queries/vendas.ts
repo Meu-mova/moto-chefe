@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { pedidosVenda, vendas, motos, lojas, usuarios, modelos, origensVenda } from '@/lib/db/schema'
+import { pedidosVenda, vendas, motos, lojas, grupos, usuarios, modelos, origensVenda } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -196,6 +196,7 @@ export async function buscarVenda(id: string) {
       lojaId: vendas.lojaId,
       lojaNome: lojas.nome,
       lojaCidade: lojas.cidade,
+      grupoNome: grupos.nome,
       marca: modelos.marca,
       modelo: modelos.modelo,
       chassi: motos.chassi,
@@ -214,6 +215,7 @@ export async function buscarVenda(id: string) {
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
+    .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
     .where(eq(vendas.id, id))
     .limit(1)
   return venda ?? null

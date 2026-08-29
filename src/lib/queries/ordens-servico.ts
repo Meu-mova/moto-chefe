@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { ordensServico, osItens, motos, lojas, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
+import { ordensServico, osItens, motos, lojas, grupos, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
 import { eq, desc, and, or, ilike, inArray, sql, gte, lte } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -129,9 +129,11 @@ export async function listarTodasOS(filtros?: {
 export async function buscarOS(id: string) {
   const mecanico = alias(usuarios, 'mecanico')
   const [os] = await db
-    .select(buildSelect(mecanico))
+    // grupoNome só aqui: é o impresso que precisa dizer de qual empresa é a OS.
+    .select({ ...buildSelect(mecanico), grupoNome: grupos.nome })
     .from(ordensServico)
     .innerJoin(lojas,    eq(ordensServico.lojaId,    lojas.id))
+    .innerJoin(grupos,   eq(lojas.grupoId,           grupos.id))
     .innerJoin(usuarios, eq(ordensServico.abertaPor,  usuarios.id))
     .leftJoin(motos,     eq(ordensServico.motoId,    motos.id))
     .leftJoin(modelos,   eq(motos.modeloId,          modelos.id))
