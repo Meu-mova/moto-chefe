@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { listarEventosDoMes, listarUsuariosDoGrupo, listarCategoriasAtivas, hojeBRT } from '@/lib/queries/calendario'
 import { CalendarioMes } from './components/calendario-mes'
@@ -11,6 +13,7 @@ export default async function CalendarioPage({
   searchParams: Promise<{ mes?: string }>
 }) {
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/calendario')) redirect('/dashboard')
   const params = await searchParams
   const mes = /^\d{4}-\d{2}$/.test(params.mes ?? '') ? params.mes! : hojeBRT().slice(0, 7)
 

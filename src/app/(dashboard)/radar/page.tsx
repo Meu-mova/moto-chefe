@@ -1,3 +1,6 @@
+import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
+import { redirect } from 'next/navigation'
 import { listarMotos } from '@/lib/queries/motos'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -12,6 +15,8 @@ export default async function RadarPage({
   searchParams: Promise<{ q?: string }>
 }) {
   const { q } = await searchParams
+  const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/radar')) redirect('/dashboard')
   const busca = q?.trim() ?? ''
 
   const motos = busca

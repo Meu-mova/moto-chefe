@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -8,6 +9,7 @@ import { EstoqueFiltros } from './components/filtros'
 import { listarMotos } from '@/lib/queries/motos'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, listarTodasLojasAtivas, getGrupoAtivo } from '@/lib/grupo'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
@@ -35,6 +37,7 @@ export default async function EstoquePage({
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
 
   const isAdmin = ADMINS.includes(usuario.papel)
 

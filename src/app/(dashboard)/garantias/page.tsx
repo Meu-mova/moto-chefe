@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarGarantias } from '@/lib/queries/garantias'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -28,6 +30,7 @@ export default async function GarantiasPage({
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/garantias')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
 
   // Filtros de busca

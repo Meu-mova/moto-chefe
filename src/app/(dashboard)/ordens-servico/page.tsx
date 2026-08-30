@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTodasOS } from '@/lib/queries/ordens-servico'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -28,6 +30,7 @@ export default async function OrdensServicoPage({
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/ordens-servico')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const statusFiltro   = parseParam(params.status)

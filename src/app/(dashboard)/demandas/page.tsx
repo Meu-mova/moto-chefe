@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { db } from '@/lib/db'
 import { demandas, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, inArray, and, desc, asc } from 'drizzle-orm'
@@ -10,6 +12,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 
 export default async function DemandasPage() {
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/demandas')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const lojasOpts = await listarLojasDoGrupoAtivo(usuario)

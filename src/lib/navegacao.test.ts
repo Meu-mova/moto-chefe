@@ -50,9 +50,11 @@ test('vendedor vê o comercial, a oficina de balcão e o PIX', () => {
   ].sort())
 })
 
-test('mecânico fica com o menu enxuto da oficina', () => {
+test('mecânico fica com o menu enxuto da oficina, mais o calendário da empresa', () => {
+  // Calendário é TODOS de propósito: é informação da empresa (feriado, evento,
+  // férias) e o mecânico não tem outro caminho para ela no sistema.
   assert.deepEqual(ids(MECANICO), [
-    'agenda', 'dashboard', 'garantias', 'ordens-servico', 'pecas',
+    'agenda', 'calendario', 'dashboard', 'garantias', 'ordens-servico', 'pecas',
   ].sort())
 })
 

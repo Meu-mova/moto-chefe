@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
@@ -86,6 +88,7 @@ export default async function VendasPage({
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/vendas')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
   const podeConciliacao = isAdmin || usuario.papel === 'aux_adm'
 

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buscarClientePorIdAction, buscarHistoricoClienteAction } from '../actions'
@@ -54,7 +55,9 @@ const osStatusVariant: Record<string, 'outline' | 'secondary' | 'default'> = {
 export default async function ClienteDetalhePage({ params }: Props) {
   const { id } = await params
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') redirect('/dashboard')
+  // Pergunta pela rota do PAI: a tabela não tem item por id, e href dinâmico
+  // não casaria com nada — barraria todo mundo.
+  if (!usuarioPodeAcessar(usuario, '/clientes')) redirect('/dashboard')
 
   const cliente = await buscarClientePorIdAction(id)
   if (!cliente) notFound()

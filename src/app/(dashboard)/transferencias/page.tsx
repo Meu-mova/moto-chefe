@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTransferencias } from '@/lib/queries/transferencias'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -22,6 +24,7 @@ export default async function TransferenciasPage({
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/transferencias')) redirect('/dashboard')
   const isAdmin = ADMINS.includes(usuario.papel)
 
   // Todos os papéis enxergam a movimentação entre todas as lojas do grupo ativo —

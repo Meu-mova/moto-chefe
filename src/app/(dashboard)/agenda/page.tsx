@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarAgendamentos } from '@/lib/queries/agendamentos'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -22,6 +24,7 @@ export default async function AgendaPage({
 }) {
   const params  = await searchParams
   const usuario = await getUsuarioLogado()
+  if (!usuarioPodeAcessar(usuario, '/agenda')) redirect('/dashboard')
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const podeGerenciar = GESTORES.includes(usuario.papel)
 

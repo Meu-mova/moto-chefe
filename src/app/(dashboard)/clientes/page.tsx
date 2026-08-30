@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
 import { ClienteForm } from './components/cliente-form'
@@ -29,14 +31,7 @@ export default async function ClientesPage({
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
-
-  if (usuario.papel === 'mecanico') {
-    return (
-      <div className="p-6">
-        <p className="text-slate-500">Sem permissão para acessar esta página.</p>
-      </div>
-    )
-  }
+  if (!usuarioPodeAcessar(usuario, '/clientes')) redirect('/dashboard')
 
   const isAdmin = usuario.papel === 'admin_geral'
   const pagina = Math.max(1, parseInt(params.page ?? '1', 10) || 1)

@@ -1,7 +1,8 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { db } from '@/lib/db'
 import { usuarios, servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
@@ -37,6 +38,9 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
     db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
     db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, id), eq(aprovacoesVenda.status, 'pendente'))).then(n => n > 0),
   ])
+
+  // Rota do PAI: a tabela não tem item por id.
+  if (!usuarioPodeAcessar(usuario, '/ordens-servico')) redirect('/dashboard')
 
   if (!os) notFound()
 

@@ -1,8 +1,9 @@
 // src/app/(dashboard)/estoque/[id]/page.tsx
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
@@ -26,6 +27,8 @@ import { ArrowLeft } from 'lucide-react'
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const [moto, usuario] = await Promise.all([buscarMoto(id), getUsuarioLogado()])
+  // Rota do PAI: a tabela não tem item por id.
+  if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
 
   if (!moto) notFound()
 
