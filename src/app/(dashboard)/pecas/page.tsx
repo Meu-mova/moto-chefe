@@ -6,6 +6,7 @@ import { pecasCatalogo } from '@/lib/db/schema'
 import { asc } from 'drizzle-orm'
 import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { listarVendasPecasAction } from './actions'
+import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { buttonVariants } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -15,17 +16,13 @@ import { VendasPecasTable } from './components/vendas-pecas-table'
 import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 import { CatalogoTable } from './components/catalogo-table'
 
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
-// Espelha PAPEIS_VENDA de actions.ts:10 — quem não está aqui só consulta o
-// catálogo (é o caso do mecânico, que a tabela de navegação deixa entrar).
-const PAPEIS_VENDA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function PecasPage() {
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/pecas')) redirect('/dashboard')
-  const isGestor = GESTORES.includes(usuario.papel)
+  const isGestor = podeGerirPecas(usuario.papel)
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const podeVender = PAPEIS_VENDA.includes(usuario.papel)
+  const podeVender = podeVenderPeca(usuario.papel)
 
   const [pecas, lojasOpts, vendas] = await Promise.all([
     db.select().from(pecasCatalogo).orderBy(asc(pecasCatalogo.nome)),

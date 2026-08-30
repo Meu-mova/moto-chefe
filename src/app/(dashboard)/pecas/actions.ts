@@ -5,13 +5,12 @@ import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovaco
 import { eq, asc, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { podeGerirPecas, podeVenderPeca } from './papeis'
 
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
-const PAPEIS_VENDA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
 
 async function verificarAcesso() {
   const usuario = await getUsuarioLogado()
-  if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
+  if (!podeGerirPecas(usuario.papel)) {
     throw new Error('Sem permissão')
   }
   return usuario
@@ -19,7 +18,7 @@ async function verificarAcesso() {
 
 async function verificarAcessoVenda() {
   const usuario = await getUsuarioLogado()
-  if (!(PAPEIS_VENDA as readonly string[]).includes(usuario.papel)) {
+  if (!podeVenderPeca(usuario.papel)) {
     throw new Error('Sem permissão')
   }
   return usuario
@@ -192,7 +191,7 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   // Preço fora do catálogo é decisão de gestor. Descartar aqui (e não lá embaixo)
   // faz a venda que vai pra aprovação já ficar gravada com o preço certo — senão o
   // ajuste sumiria só quando alguém aprovasse, dias depois.
-  const podeDefinirPreco = (GESTORES as readonly string[]).includes(usuario.papel)
+  const podeDefinirPreco = podeGerirPecas(usuario.papel)
   const saneado: DadosVendaPeca = podeDefinirPreco
     ? input
     : { ...input, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
