@@ -1,19 +1,26 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { RefreshCw, Package2, AlertTriangle, KeyRound } from 'lucide-react'
+import { RefreshCw, Package2, AlertTriangle, KeyRound, Printer } from 'lucide-react'
 import { listarPecasSeparadasAction, type LojaPecasSeparadas } from '../actions'
+import { AreaImpressao } from './area-impressao'
 
-export function PecasFabricaClient() {
+export function PecasFabricaClient({ grupo }: { grupo: string }) {
   const [loading, setLoading] = useState(false)
   const [resultado, setResultado] = useState<LojaPecasSeparadas[] | null>(null)
+  const [filtroStatus, setFiltroStatus] = useState('')
+  const [filtroLoja, setFiltroLoja] = useState('')
 
   async function sincronizar() {
     setLoading(true)
     try {
       const res = await listarPecasSeparadasAction()
       setResultado(res)
+      // Filtro velho apontando pra uma loja que não veio nesta leitura esconderia
+      // tudo sem explicação — cada sincronização começa do zero.
+      setFiltroStatus('')
+      setFiltroLoja('')
       const total = res.reduce((s, l) => s + l.pecas.length, 0)
       const comErro = res.filter(l => l.status === 'erro')
       if (comErro.length > 0) {
@@ -30,19 +37,72 @@ export function PecasFabricaClient() {
     }
   }
 
-  const totalPecas = resultado?.reduce((s, l) => s + l.pecas.length, 0) ?? 0
+  // Sai do que veio, não de uma lista fixa: se a fábrica criar outro rótulo de
+  // pronto-para-retirar, ele aparece no filtro em vez de sumir da tela.
+  const statusDisponiveis = useMemo(() => {
+    const vistos = new Set<string>()
+    for (const l of resultado ?? []) for (const p of l.pecas) vistos.add(p.status)
+    return [...vistos].sort()
+  }, [resultado])
+
+  const filtradas = useMemo(() => {
+    if (!resultado) return null
+    return resultado
+      .filter(l => !filtroLoja || l.lojaId === filtroLoja)
+      .map(l => ({
+        ...l,
+        pecas: filtroStatus ? l.pecas.filter(p => p.status === filtroStatus) : l.pecas,
+      }))
+  }, [resultado, filtroStatus, filtroLoja])
+
+  const totalPecas = filtradas?.reduce((s, l) => s + l.pecas.length, 0) ?? 0
+  const comPecas = filtradas?.filter(l => l.pecas.length > 0) ?? []
+  const filtrando = Boolean(filtroStatus || filtroLoja)
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button onClick={sincronizar} disabled={loading}>
           <RefreshCw size={16} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Consultando a fábrica...' : 'Sincronizar'}
         </Button>
+
         {resultado && !loading && (
-          <span className="text-sm text-slate-500">
-            {totalPecas} peça(s) para retirar · {resultado.length} loja(s) consultada(s)
-          </span>
+          <>
+            <select
+              value={filtroStatus}
+              onChange={e => setFiltroStatus(e.target.value)}
+              className="border border-slate-200 rounded-md px-3 py-1.5 text-sm bg-white"
+            >
+              <option value="">Todos os status</option>
+              {statusDisponiveis.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* <select> nativo: o value é uuid e o label é o nome da loja. */}
+            <select
+              value={filtroLoja}
+              onChange={e => setFiltroLoja(e.target.value)}
+              className="border border-slate-200 rounded-md px-3 py-1.5 text-sm bg-white"
+            >
+              <option value="">Todas as lojas</option>
+              {resultado.map(l => <option key={l.lojaId} value={l.lojaId}>{l.loja}</option>)}
+            </select>
+
+            <Button
+              variant="outline"
+              onClick={() => window.print()}
+              disabled={totalPecas === 0}
+              className="gap-1.5"
+            >
+              <Printer size={15} />
+              Imprimir para a fábrica
+            </Button>
+
+            <span className="text-sm text-slate-500">
+              {totalPecas} peça(s) para retirar
+              {filtrando ? ' (filtrado)' : ` · ${resultado.length} loja(s) consultada(s)`}
+            </span>
+          </>
         )}
       </div>
 
@@ -52,7 +112,7 @@ export function PecasFabricaClient() {
         </p>
       )}
 
-      {resultado?.map(loja => (
+      {filtradas?.map(loja => (
         <div key={loja.lojaId} className="rounded-lg border border-slate-200 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
             <h2 className="font-semibold text-slate-800">{loja.loja}</h2>
@@ -77,7 +137,8 @@ export function PecasFabricaClient() {
 
           {loja.status === 'ok' && loja.pecas.length === 0 && (
             <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
-              <Package2 size={15} /> Nenhuma peça pronta para retirada.
+              <Package2 size={15} />
+              {filtroStatus ? `Nenhuma peça com status "${filtroStatus}".` : 'Nenhuma peça pronta para retirada.'}
             </p>
           )}
 
@@ -121,6 +182,17 @@ export function PecasFabricaClient() {
           )}
         </div>
       ))}
+
+      {/* Só as lojas com peça entram no papel — bloco vazio de loja sem retirada
+          só gastaria folha na fábrica. */}
+      {totalPecas > 0 && (
+        <AreaImpressao
+          lojas={comPecas}
+          grupo={grupo}
+          filtroStatus={filtroStatus}
+          filtroLoja={filtroLoja}
+        />
+      )}
     </div>
   )
 }
