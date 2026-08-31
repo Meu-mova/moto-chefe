@@ -1,9 +1,10 @@
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
-import { eq, desc, and, isNull, isNotNull, inArray, sql } from 'drizzle-orm'
+import { eq, desc, and, isNull, isNotNull, inArray, gte, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
+import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { UploadRelatorio } from './components/upload-relatorio'
@@ -34,10 +35,13 @@ export default async function ConciliacaoPage({
     filtro === 'todas'       ? undefined :
     eq(conciliacoesCartao.conciliado, false)
 
-  const whereClause = and(
+  // Nada de antes do início do período de conciliação — ver INICIO_CONCILIACAO.
+  const doPeriodo = and(
     eq(conciliacoesCartao.grupoId, grupo.id),
-    filtroStatus,
+    gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
   )
+
+  const whereClause = and(doPeriodo, filtroStatus)
 
   const transacoes = await db
     .select({
@@ -97,8 +101,8 @@ export default async function ConciliacaoPage({
   }
 
   const [totalPendentes, totalConciliadas] = await Promise.all([
-    db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.grupoId, grupo.id), eq(conciliacoesCartao.conciliado, false))),
-    db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.grupoId, grupo.id), eq(conciliacoesCartao.conciliado, true))),
+    db.$count(conciliacoesCartao, and(doPeriodo, eq(conciliacoesCartao.conciliado, false))),
+    db.$count(conciliacoesCartao, and(doPeriodo, eq(conciliacoesCartao.conciliado, true))),
   ])
 
   return (

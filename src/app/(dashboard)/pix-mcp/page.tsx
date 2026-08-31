@@ -12,6 +12,7 @@ import { TrendingUp, RefreshCw, Building2 } from 'lucide-react'
 import { PixFiltros } from '../pix/components/pix-filtros'
 import { CorrespondenciaForm } from './components/correspondencia-form'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
+import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import Link from 'next/link'
 
 // Enquanto a última sincronização com o mcp.ai for mais recente que isso, a
@@ -57,7 +58,10 @@ export default async function PixMcpPage({
   // confusão de "sumiu recebimento antigo" quando na verdade só não tava no filtro.
   const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
-  const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(inicioMesAtual) + 'T00:00:00.000Z')
+  const fromPedido = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(inicioMesAtual) + 'T00:00:00.000Z')
+  // Antes do início do período de conciliação não existe recebimento pra
+  // mostrar (só histórico importado) — ver INICIO_CONCILIACAO.
+  const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
   const forcarSync = params.sync === '1'
 
@@ -179,7 +183,7 @@ export default async function PixMcpPage({
             </Link>
           </p>
         </div>
-        <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} />
+        <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} min={INICIO_CONCILIACAO} />
       </div>
 
       {erroSync && (

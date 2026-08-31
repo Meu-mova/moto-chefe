@@ -14,6 +14,7 @@ import {
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
 import { descontosPorVendedor, totalDescontos } from '@/lib/queries/descontos'
+import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
 import { periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
@@ -78,7 +79,12 @@ async function KpiSection({
         getKPIs(filtrosAnt, kpiOpts),
         getMotoMaisVendida(filtros),
         isAdmin
-          ? db.$count(conciliacoesCartao, eq(conciliacoesCartao.conciliado, false))
+          // Mesmo corte da tela de /conciliacao, senão o card mostra um número
+          // de pendentes que a tela não lista — ver INICIO_CONCILIACAO.
+          ? db.$count(conciliacoesCartao, and(
+              eq(conciliacoesCartao.conciliado, false),
+              gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
+            ))
           : Promise.resolve(0),
         isVendedor ? Promise.resolve({ servicos: 0, pecas: 0 }) : getFaturamentoOS(filtros),
         isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
