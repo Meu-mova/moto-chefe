@@ -243,7 +243,9 @@ export default async function PixMcpPage({
                       <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${
                         l.tipoOperacao === 'TED'
                           ? 'bg-violet-50 text-violet-700'
-                          : 'bg-sky-50 text-sky-700'
+                          : l.tipoOperacao === 'TRANSF'
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-sky-50 text-sky-700'
                       }`}>
                         {l.tipoOperacao ?? 'PIX'}
                       </span>

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairContraparteDaDescricao, bancoEntraNoPix, bancoEntraNaDespesa } from './mcpai'
+import { extrairContraparteDaDescricao, bancoEntraNoPix, bancoEntraNaDespesa, ehTransferenciaEntreContas } from './mcpai'
 
 // Todas as descrições abaixo foram capturadas ao vivo do mcp.ai em 2026-08-29
 // (contas Sicoob/Sicredi do Sul de Minas). O formato muda por banco E por tipo
@@ -150,4 +150,17 @@ test('Despesa: conta nova fica de fora até ser liberada', () => {
 
 test('Despesa: grupo sem liberação cadastrada não traz nada', () => {
   assert.equal(bancoEntraNaDespesa('Sicoob Empresas', '65.126.949/0001-88'), false)
+})
+
+// ── ehTransferenciaEntreContas ───────────────────────────────────────────────
+// Descrições capturadas ao vivo na conta Sicoob do Sul de Minas em 24-27/08/2026.
+
+test('transferência entre contas correntes do Sicoob entra na conciliação (NF 2284)', () => {
+  assert.equal(ehTransferenciaEntreContas('CRED.TRANSF.CONTAS INTERCREDIS'), true)
+})
+
+test('resgate da poupança e depósito em espécie continuam fora', () => {
+  assert.equal(ehTransferenciaEntreContas('CRÉD.TRANSF.POUPANÇA INTERCREDIS'), false)
+  assert.equal(ehTransferenciaEntreContas('DEP.DINHEIRO - INTERCREDIS - NOME: MOTOCHEFE SUL DE MINAS LTDA|@CPF CNPJ'), false)
+  assert.equal(ehTransferenciaEntreContas(null), false)
 })

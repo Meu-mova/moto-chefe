@@ -347,17 +347,33 @@ type ResultadoPix =
 
 // Créditos que entram na conciliação de /pix-mcp. TED entrou em 29/08/2026 a
 // pedido do Cesar: cliente que paga moto por TED caía fora da tela e sobrava
-// pra conferência manual. Transferência entre contas do mesmo banco que não é
-// PIX ("CRED.TRANSF.CONTAS INTERCREDIS" no Sicoob) segue de fora de propósito
-// — ela nunca traz o nome do remetente, então não dá pra conciliar mesmo.
+// pra conferência manual.
 const OPERACOES_CONCILIAVEIS = ['PIX', 'TED']
+
+// Transferência entre contas correntes do mesmo banco — no Sicoob vem como
+// operationType OUTROS e descrição "CRED.TRANSF.CONTAS INTERCREDIS". Ficou fora
+// da tela até 31/08/2026 porque não traz o nome do remetente, mas é dinheiro de
+// cliente que entrou: a venda da NF 2284 recebeu R$ 4.490 assim e a linha nunca
+// apareceu pra conciliar. Entra sem remetente mesmo — a conferência é pelo valor.
+//
+// O que continua fora, de propósito, é o resto do INTERCREDIS: "CRÉD.TRANSF.
+// POUPANÇA" é resgate da aplicação da própria empresa e "DEP.DINHEIRO" é depósito
+// em espécie no caixa — nenhum dos dois é pagamento a conciliar.
+export function ehTransferenciaEntreContas(descricao: string | null | undefined): boolean {
+  return /TRANSF\.CONTAS/i.test(descricao ?? '')
+}
+
+/** Rótulo mostrado na coluna "tipo" de /pix-mcp para esses créditos. */
+const TIPO_TRANSFERENCIA_CONTAS = 'TRANSF'
 
 export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
   const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'CREDIT' && OPERACOES_CONCILIAVEIS.includes(t.operationType) && bancoEntraNoPix(t.banco, cnpjGrupo))
+    .filter(t => t.tipo === 'CREDIT'
+      && (OPERACOES_CONCILIAVEIS.includes(t.operationType) || ehTransferenciaEntreContas(t.descricao))
+      && bancoEntraNoPix(t.banco, cnpjGrupo))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,
@@ -366,7 +382,9 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
       valor: t.valor,
       pagadorNome: t.paymentData?.payer?.trim() || extrairContraparteDaDescricao(t.descricao),
       descricao: t.descricao,
-      tipoOperacao: t.operationType,
+      tipoOperacao: OPERACOES_CONCILIAVEIS.includes(t.operationType)
+        ? t.operationType
+        : TIPO_TRANSFERENCIA_CONTAS,
     }))
 
   return { ok: true, transacoes }
