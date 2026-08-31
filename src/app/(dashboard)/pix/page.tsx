@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CheckCircle2, AlertCircle, MinusCircle, TrendingUp } from 'lucide-react'
 import { PixFiltros } from './components/pix-filtros'
+import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm']
 
@@ -41,7 +42,11 @@ export default async function PixPage({
   const params = await searchParams
   const hoje = new Date()
 
-  const fromDate = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date('2026-05-28T00:00:00.000Z')
+  const fromPedido = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date('2026-05-28T00:00:00.000Z')
+  // Nada de antes do início do período de conciliação — ver INICIO_CONCILIACAO.
+  // Aqui o corte já vale na chamada ao ValidaPix, então lista, totais e o que é
+  // gravado em pix_recebimentos saem todos do mesmo período.
+  const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
   // ── Buscar PIX ──────────────────────────────────────────────────────────────
@@ -176,6 +181,7 @@ export default async function PixPage({
         <PixFiltros
           defaultFrom={toInputDate(fromDate)}
           defaultTo={toInputDate(toDate)}
+          min={INICIO_CONCILIACAO}
         />
       </div>
 
