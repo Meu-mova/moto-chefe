@@ -331,6 +331,18 @@ export async function buscarStatusGarantiaFabrica(
 /** Status de um pedido de compra cuja peça a fábrica já separou. */
 export const STATUS_SEPARADO = 'Separado'
 
+/**
+ * Peça separada e já conferida — também está pronta para retirar no galpão.
+ *
+ * Não consta no <select> de status do portal (lá o parecido é "Em conferência"),
+ * mas o filtro da querystring aceita o texto e devolve certo; status inexistente
+ * devolve lista vazia, então não há risco de cair na lista inteira.
+ */
+export const STATUS_CONFERIDO = 'Conferido'
+
+/** Status em que a peça já está pronta para retirar. */
+export const STATUS_PRONTOS_RETIRADA = [STATUS_SEPARADO, STATUS_CONFERIDO]
+
 export type ItemPedidoCompra = {
   peca: string
   /** Quantidade pedida, ou null se o portal não a expôs. */

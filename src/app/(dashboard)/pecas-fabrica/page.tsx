@@ -12,7 +12,7 @@ export default async function PecasFabricaPage() {
       <div>
         <h1 className="text-2xl font-bold">Retirada de Peças</h1>
         <p className="text-slate-500 text-sm">
-          Peças de troca já separadas na fábrica, prontas para retirar no galpão quando for buscar motos.
+          Peças de troca já separadas ou conferidas na fábrica, prontas para retirar no galpão quando for buscar motos.
         </p>
       </div>
       <PecasFabricaClient />

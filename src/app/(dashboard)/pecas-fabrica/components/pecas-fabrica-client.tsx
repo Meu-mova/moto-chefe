@@ -19,9 +19,9 @@ export function PecasFabricaClient() {
       if (comErro.length > 0) {
         toast.warning(`${total} peça(s) para retirar · falha ao ler: ${comErro.map(l => l.loja).join(', ')}`)
       } else if (total === 0) {
-        toast.info('Nenhuma peça separada para retirada no momento')
+        toast.info('Nenhuma peça pronta para retirada no momento')
       } else {
-        toast.success(`${total} peça(s) separada(s) para retirada`)
+        toast.success(`${total} peça(s) pronta(s) para retirada`)
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao consultar a fábrica')
@@ -48,7 +48,7 @@ export function PecasFabricaClient() {
 
       {!resultado && !loading && (
         <p className="text-sm text-slate-500">
-          Clique em <strong>Sincronizar</strong> para ler as peças separadas na fábrica.
+          Clique em <strong>Sincronizar</strong> para ler as peças separadas e conferidas na fábrica.
         </p>
       )}
 
@@ -77,7 +77,7 @@ export function PecasFabricaClient() {
 
           {loja.status === 'ok' && loja.pecas.length === 0 && (
             <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
-              <Package2 size={15} /> Nenhuma peça separada para retirada.
+              <Package2 size={15} /> Nenhuma peça pronta para retirada.
             </p>
           )}
 
@@ -91,6 +91,7 @@ export function PecasFabricaClient() {
                     <th className="px-4 py-2 font-medium">Modelo</th>
                     <th className="px-4 py-2 font-medium">Pedido</th>
                     <th className="px-4 py-2 font-medium">Data</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -101,6 +102,17 @@ export function PecasFabricaClient() {
                       <td className="px-4 py-2 text-slate-600">{p.categoria ?? '—'}</td>
                       <td className="px-4 py-2 text-slate-600">#{p.numeroPedido}</td>
                       <td className="px-4 py-2 text-slate-600">{p.dataPedido?.split(' ')[0] ?? '—'}</td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium border ${
+                            p.status.toLowerCase() === 'conferido'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-teal-50 text-teal-700 border-teal-200'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
