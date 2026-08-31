@@ -1,10 +1,11 @@
 'use server'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
-import { eq, and, or, desc, sql, isNull, ilike, inArray } from 'drizzle-orm'
+import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
+import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay, padraoNsuDoTerminal } from '@/lib/conciliacao-terminal'
@@ -376,6 +377,8 @@ export async function buscarConciliacoesPorValor(valor: number) {
     .where(
       and(
         eq(conciliacoesCartao.grupoId, grupo.id),
+        // Fora do período de conciliação não é candidato — ver INICIO_CONCILIACAO.
+        gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
         sql`${conciliacoesCartao.vendaId} IS NULL`,
         sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 0.05`,
       )
@@ -516,6 +519,7 @@ export async function buscarConciliacoesLivres(query: string) {
     .from(conciliacoesCartao)
     .where(and(
       eq(conciliacoesCartao.grupoId, grupo.id),
+      gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
       eq(conciliacoesCartao.conciliado, false),
       filtro,
     ))
@@ -577,6 +581,7 @@ export async function buscarPixLivres(valor: number, query?: string): Promise<Pi
     .from(pixRecebimentosMcp)
     .where(and(
       eq(pixRecebimentosMcp.grupoId, grupo.id),
+      gte(pixRecebimentosMcp.data, INICIO_CONCILIACAO_EM),
       isNull(pixRecebimentosMcp.tipoCorrespondencia),
       filtro,
     ))
