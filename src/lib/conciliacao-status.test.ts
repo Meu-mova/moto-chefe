@@ -168,3 +168,16 @@ test('venda #30751 real: PIX curto deixa linha aberta e badge parcial', () => {
   assert.deepEqual(conciliados(matchPagamentos(pgtos, concs, pixRecs)), [false, true])
   assert.equal(calcStatusMultiPagamento(pgtos, 6590, 6000, '13590'), 'parcial')
 })
+
+test('PIX casa pela linha de mesmo valor antes de ratear (NF 2284)', () => {
+  // Venda 556bb9b2: três PIX lançados, e os recebimentos de 5.000 e 1.000 conciliados.
+  // O rateio na ordem pintava a linha de 4.490 e deixava as duas certas em vermelho.
+  const pgtos: PgtoOS[] = [
+    { tipo: 'pix', valor: 4490 },
+    { tipo: 'pix', valor: 5000 },
+    { tipo: 'pix', valor: 1000 },
+  ]
+  const r = matchPagamentos(pgtos, [], [{ id: 'p1', valor: 5000 }, { id: 'p2', valor: 1000 }])
+  assert.deepEqual(conciliados(r), [false, true, true])
+  assert.equal(r[0].coberto, 0)
+})

@@ -88,12 +88,25 @@ export function matchPagamentos(pgtos: PgtoOS[], concs: ConcMatch[], pixRecs: Pi
     sobraCartao -= usa
   })
 
-  // PIX não tem autorização para casar: rateia o total recebido entre os pagamentos
-  // PIX, na ordem. Dois PIX lançados e um só recebimento fecham um, não os dois.
-  let poolPix = pixRecs.reduce((a, r) => a + (Number(r.valor) || 0), 0)
+  // PIX não tem autorização para casar, mas o valor identifica: quando o recebimento
+  // bate com uma das linhas, é dela. Casa por valor primeiro — o rateio puro na ordem
+  // pintava a linha errada na venda com PIX de 4.490 + 5.000 + 1.000 (NF 2284), onde os
+  // recebimentos conciliados eram justamente os de 5.000 e 1.000.
+  const pixUsados = new Set<string>()
+  pgtos.forEach((p, i) => {
+    if (p.tipo !== 'pix' || resultado[i].conciliado) return
+    const m = pixRecs.find(r => !pixUsados.has(r.id) && Math.abs(Number(r.valor) - p.valor) <= 0.05)
+    if (m) { resultado[i].coberto += Number(m.valor); pixUsados.add(m.id) }
+  })
+
+  // O que sobrou rateia entre as linhas PIX ainda descobertas, na ordem. Dois PIX
+  // lançados e um só recebimento fecham um, não os dois.
+  let poolPix = pixRecs.filter(r => !pixUsados.has(r.id)).reduce((a, r) => a + (Number(r.valor) || 0), 0)
   pgtos.forEach((p, i) => {
     if (p.tipo !== 'pix' || resultado[i].conciliado || poolPix <= 0) return
-    const usa = Math.min(p.valor, poolPix)
+    const falta = p.valor - resultado[i].coberto
+    if (falta <= 0.05) return
+    const usa = Math.min(falta, poolPix)
     resultado[i].coberto += usa
     poolPix -= usa
   })
