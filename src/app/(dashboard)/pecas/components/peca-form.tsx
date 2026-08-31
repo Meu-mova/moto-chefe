@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,7 +17,8 @@ import { criarPecaAction, atualizarPecaAction, type PecaInput } from '../actions
 type PecaInicial = { id: string; nome: string; valor: string; quantidadeEstoque: number }
 
 type Props = {
-  trigger: React.ReactNode
+  /** Sem trigger o form vira controlado por quem chama — ver `open`/`onOpenChange`. */
+  trigger?: React.ReactNode
   pecaInicial?: PecaInicial
   onSaved?: () => void
   /** Pré-preenche o nome — o que o balconista já digitou na busca da venda. */
@@ -26,6 +27,14 @@ type Props = {
   onCriada?: (peca: PecaInicial) => void
   /** O wrapper do trigger é inline por padrão; item de menu precisa ocupar a linha. */
   triggerClassName?: string
+  /**
+   * Abertura controlada de fora. Existe porque dentro do PecaLookup o form NÃO pode
+   * morar no mesmo bloco condicional da lista de resultados: o dialog do base-ui vai
+   * pra um portal, o clique nele conta como "clique fora" da lista, a lista fecha e
+   * levava o form junto — a janela de cadastro sumia antes de dar pra digitar.
+   */
+  open?: boolean
+  onOpenChange?: (aberto: boolean) => void
 }
 
 type FormState = { nome: string; valor: string; quantidadeEstoque: string }
@@ -44,18 +53,27 @@ export function PecaForm({
   nomeInicial,
   onCriada,
   triggerClassName = 'inline-flex cursor-pointer',
+  open,
+  onOpenChange,
 }: Props) {
-  const [open, setOpen] = useState(false)
+  const [openInterno, setOpenInterno] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState<FormState>(paraFormState(pecaInicial, nomeInicial))
 
   const isEdit = Boolean(pecaInicial)
+  const controlado = open !== undefined
+  const aberto = controlado ? open : openInterno
 
-  function handleOpen() {
-    // Relê o nome digitado a cada abertura — o `useState` só valeu na primeira.
-    setForm(paraFormState(pecaInicial, nomeInicial))
-    setOpen(true)
+  function mudarAberto(v: boolean) {
+    if (controlado) onOpenChange?.(v)
+    else setOpenInterno(v)
   }
+
+  // Relê o nome digitado a cada abertura — o `useState` só valeu na primeira, e no
+  // modo controlado a abertura nem passa por aqui dentro.
+  useEffect(() => {
+    if (aberto) setForm(paraFormState(pecaInicial, nomeInicial))
+  }, [aberto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function setCampo(campo: keyof FormState, valor: string) {
     setForm(prev => ({ ...prev, [campo]: valor }))
@@ -81,7 +99,7 @@ export function PecaForm({
         toast.success('Peça cadastrada!')
         onCriada?.(nova)
       }
-      setOpen(false)
+      mudarAberto(false)
       onSaved?.()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -92,10 +110,12 @@ export function PecaForm({
 
   return (
     <>
-      <div onClick={handleOpen} className={triggerClassName}>
-        {trigger}
-      </div>
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v && !pecaInicial) setForm(FORM_VAZIO) }}>
+      {trigger && (
+        <div onClick={() => mudarAberto(true)} className={triggerClassName}>
+          {trigger}
+        </div>
+      )}
+      <Dialog open={aberto} onOpenChange={(v) => { mudarAberto(v); if (!v && !pecaInicial) setForm(FORM_VAZIO) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Editar Peça' : 'Nova Peça'}</DialogTitle>

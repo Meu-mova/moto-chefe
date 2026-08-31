@@ -29,19 +29,23 @@ function fmtBRL(v: number) {
 export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: Props) {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(false)
+  const [cadastroAberto, setCadastroAberto] = useState(false)
   const [destaque, setDestaque] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const resultados = useMemo(() => filtrarPecas(pecas, busca), [pecas, busca])
 
+  // Com o dialog de cadastro aberto o "clique fora" fica suspenso: o dialog vive num
+  // portal, então clicar nos campos dele conta como fora daqui e fechava a lista.
   useEffect(() => {
     function onClickFora(e: MouseEvent) {
+      if (cadastroAberto) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setAberta(false)
     }
     document.addEventListener('mousedown', onClickFora)
     return () => document.removeEventListener('mousedown', onClickFora)
-  }, [])
+  }, [cadastroAberto])
 
   // Digitar reposiciona o destaque no topo — senão a seta do teclado continuaria
   // apontando pro índice de uma lista que já mudou.
@@ -142,20 +146,26 @@ export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: P
           )}
 
           <div className="border-t border-slate-100 sticky bottom-0 bg-white">
-            <PecaForm
-              nomeInicial={busca.trim()}
-              onCriada={peca => { onPecaCriada(peca); escolher(peca) }}
-              triggerClassName="block cursor-pointer"
-              trigger={
-                <span className="w-full flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50">
-                  <Plus size={12} />
-                  {busca.trim() ? `Cadastrar «${busca.trim()}»` : 'Cadastrar nova peça'}
-                </span>
-              }
-            />
+            <button
+              type="button"
+              onClick={() => setCadastroAberto(true)}
+              className="w-full flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              <Plus size={12} />
+              {busca.trim() ? `Cadastrar «${busca.trim()}»` : 'Cadastrar nova peça'}
+            </button>
           </div>
         </div>
       )}
+
+      {/* Fora do bloco da lista de propósito: aqui dentro o form era desmontado junto
+          com ela e a janela de cadastro sumia sem salvar nada. */}
+      <PecaForm
+        open={cadastroAberto}
+        onOpenChange={setCadastroAberto}
+        nomeInicial={busca.trim()}
+        onCriada={peca => { onPecaCriada(peca); escolher(peca) }}
+      />
     </div>
   )
 }

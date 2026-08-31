@@ -135,13 +135,15 @@ export async function aplicarVendaPeca(
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
 
+  // Estoque NÃO barra a venda (decisão do Cesar em 31/08/2026). O catálogo veio da
+  // fábrica com 1.732 das 1.733 peças zeradas, então a trava reprovava toda venda de
+  // balcão — nenhuma chegou a ser registrada. A contagem segue sendo atualizada e pode
+  // ficar negativa: é indicador de que falta lançar entrada, não impedimento de vender.
+  // A tela já mostra o saldo em vermelho quando está zerado ou negativo.
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new Error('Peça não encontrada')
     if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
-    if (peca.quantidadeEstoque < item.quantidade) {
-      throw new Error(`Estoque insuficiente de ${peca.nome}: disponível ${peca.quantidadeEstoque}, pedido ${item.quantidade}`)
-    }
   }
 
   const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
@@ -169,8 +171,13 @@ export async function aplicarVendaPeca(
       quantidade: String(item.quantidade),
       valorUnitario,
     })
+    // Decremento relativo, não `lido - quantidade`: a mesma peça em duas linhas do
+    // carrinho partia do mesmo valor lido e a segunda baixa apagava a primeira.
     await tx.update(pecasCatalogo)
-      .set({ quantidadeEstoque: peca.quantidadeEstoque - item.quantidade, atualizadoEm: new Date() })
+      .set({
+        quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${item.quantidade}`,
+        atualizadoEm: new Date(),
+      })
       .where(eq(pecasCatalogo.id, item.pecaId))
   }
 
