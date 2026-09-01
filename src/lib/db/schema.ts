@@ -950,6 +950,10 @@ export const comunicadosLidos = pgTable('comunicados_lidos', {
 export const funcionariosConfig = pgTable('funcionarios_config', {
   usuarioId:          uuid('usuario_id').primaryKey().references(() => usuarios.id),
   salario:            numeric('salario', { precision: 10, scale: 2 }).notNull().default('0'),
+  // LEGADO desde a migração 0076: a comissão virou N regras por pessoa, em
+  // folhaRegrasComissao. Estas duas colunas não são mais lidas pelo cálculo nem
+  // escritas pela tela — ficaram como registro do que foi migrado. Não apagar sem
+  // conferir que nenhuma folha antiga precisa ser reconstruída a partir delas.
   comissaoPercentual: numeric('comissao_percentual', { precision: 5, scale: 2 }).notNull().default('0'),
   ajudaCusto:         numeric('ajuda_custo', { precision: 10, scale: 2 }),
   // Vale fixo combinado com a pessoa, descontado TODO mês (migração 0075). Não
@@ -1178,6 +1182,39 @@ export const folhaAdiantamentos = pgTable('folha_adiantamentos', {
   /** Data em que o dinheiro saiu para a pessoa. Só informativo — a folha usa `mes`. */
   data: date('data'),
   observacao: text('observacao'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor: uuid('criado_por').references(() => usuarios.id),
+})
+
+
+// ─── folha_regras_comissao ───────────────────────────────────────────────────
+/**
+ * Regras de comissão e premiação por funcionário, migração 0076.
+ *
+ * Cada pessoa pode ter VÁRIAS: a Julia Sampaio recebe 5% sobre as peças que vende
+ * (comissão) e 0,2% sobre as motos da loja dela (premiação). Antes era uma regra
+ * só, presa em funcionariosConfig — aquelas colunas viraram legado.
+ *
+ * `vigenciaInicio` NULL = sempre valeu, que é como as regras migradas nasceram: a
+ * folha é recalculada a cada abertura, então dar data de início a elas mudaria o
+ * valor de meses já pagos. Regra nova nasce com o mês preenchido pela tela.
+ *
+ * Premiação por FAIXA (tabela OTE do vendedor) é outro mecanismo e continua em
+ * premiacaoFaixas — as duas se somam na coluna Premiação da folha.
+ */
+export const folhaRegrasComissao = pgTable('folha_regras_comissao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  /** 'comissao' | 'premiacao' — ver TIPOS_REGRA em @/lib/folha. */
+  tipo: text('tipo').notNull(),
+  /** Ver BASES_COMISSAO em @/lib/folha. */
+  base: text('base').notNull(),
+  percentual: numeric('percentual', { precision: 6, scale: 3 }).notNull(),
+  /** 'YYYY-MM' em text, comparado como string — ordena como data e não pega fuso. */
+  vigenciaInicio: text('vigencia_inicio'),
+  /** 'YYYY-MM' inclusive. NULL = sem fim. */
+  vigenciaFim: text('vigencia_fim'),
+  descricao: text('descricao'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   criadoPor: uuid('criado_por').references(() => usuarios.id),
 })

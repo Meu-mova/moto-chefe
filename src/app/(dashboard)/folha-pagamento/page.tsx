@@ -11,6 +11,8 @@ import { MesSelectorFolha } from './components/mes-selector-folha'
 import { LojaSelectorFolha } from './components/loja-selector-folha'
 import { AjustesBaseTable } from './components/ajustes-base-table'
 import { AdiantamentosTable } from './components/adiantamentos-table'
+import { RegrasComissaoTable } from './components/regras-comissao-table'
+import { labelDaBase } from '@/lib/folha'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
@@ -69,6 +71,15 @@ export default async function FolhaPagamentoPage({
   const folha = agregarFolha(dados)
 
   const configPorUsuario = new Map(dados.configs.map(c => [c.usuarioId, c]))
+  // As regras aparecem na aba Funcionários só como resumo; o cadastro é na aba
+  // Comissões, onde cabe a vigência.
+  const regrasPorUsuario = new Map<string, typeof dados.regras>()
+  for (const r of dados.regras) {
+    const lista = regrasPorUsuario.get(r.usuarioId)
+    if (lista) lista.push(r)
+    else regrasPorUsuario.set(r.usuarioId, [r])
+  }
+
   const funcionariosParaConfig = dados.funcionarios.map(f => {
     const config = configPorUsuario.get(f.id)
     return {
@@ -77,13 +88,26 @@ export default async function FolhaPagamentoPage({
       papel: f.papel,
       lojaNome: f.lojaNome,
       salario: config?.salario ?? '0',
-      comissaoPercentual: config?.comissaoPercentual ?? '0',
       ajudaCusto: config?.ajudaCusto ?? null,
       adiantamentoFixo: config?.adiantamentoFixo ?? null,
       ativo: config?.ativo ?? true,
-      baseComissao: config?.baseComissao ?? 'padrao',
+      regras: (regrasPorUsuario.get(f.id) ?? []).map(r => ({
+        tipo: r.tipo, base: r.base, percentual: r.percentual,
+        vigenciaInicio: r.vigenciaInicio, vigenciaFim: r.vigenciaFim,
+      })),
     }
   })
+
+  // Escopo de grupo: a aba Comissões precisa cadastrar regra de qualquer loja,
+  // mesmo com o filtro de loja ligado — mesmo motivo da aba Ajustes.
+  const nomePorUsuario = new Map(dados.funcionariosGrupo.map(f => [f.id, f.nome]))
+  const lojaPorId = new Map(dados.lojas.map(l => [l.id, l.nome]))
+  const lojaDoUsuario = new Map(dados.funcionariosGrupo.map(f => [f.id, f.lojaId]))
+  const regrasParaUI = dados.regras.map(r => ({
+    ...r,
+    usuarioNome: nomePorUsuario.get(r.usuarioId) ?? '—',
+    lojaNome: lojaPorId.get(lojaDoUsuario.get(r.usuarioId) ?? '') ?? null,
+  })).sort((a, b) => a.usuarioNome.localeCompare(b.usuarioNome))
 
   // Grupo inteiro de propósito: com o filtro de loja ligado, ainda tem que dar
   // para lançar ajuste de qualquer loja. A aba Ajustes não segue o filtro.
@@ -105,6 +129,7 @@ export default async function FolhaPagamentoPage({
         <TabsList>
           <TabsTrigger value="mes">Folha do Mês</TabsTrigger>
           <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
+          <TabsTrigger value="comissoes">Comissões</TabsTrigger>
           <TabsTrigger value="premiacao">Premiação (OTE)</TabsTrigger>
           <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
           <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
@@ -157,7 +182,6 @@ export default async function FolhaPagamentoPage({
               <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Base Comissão (líquido)</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Salário</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Comissão</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
@@ -173,10 +197,30 @@ export default async function FolhaPagamentoPage({
                       <p className="font-medium">{f.nome}</p>
                       <p className="text-xs text-slate-400">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
                     </td>
-                    <td className="px-4 py-2 text-right text-slate-500">{f.baseComissao > 0 ? fmt(f.baseComissao) : '—'}</td>
                     <td className="px-4 py-2 text-right">{fmt(f.salario)}</td>
-                    <td className="px-4 py-2 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
-                    <td className="px-4 py-2 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
+                    {/* A base saiu de coluna própria: com N regras por pessoa, cada
+                        uma tem a sua. Vai embaixo do valor, junto do percentual. */}
+                    <td className="px-4 py-2 text-right align-top">
+                      {f.comissao > 0 ? fmt(f.comissao) : '—'}
+                      {f.regras.filter(r => r.tipo !== 'premiacao').map(r => (
+                        <span key={r.id} className="block text-[11px] text-slate-400 whitespace-nowrap">
+                          {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
+                        </span>
+                      ))}
+                    </td>
+                    <td className="px-4 py-2 text-right align-top">
+                      {f.premiacao > 0 ? fmt(f.premiacao) : '—'}
+                      {f.premiacaoFaixa > 0 && (
+                        <span className="block text-[11px] text-slate-400 whitespace-nowrap">
+                          faixa OTE · {fmt(f.premiacaoFaixa)}
+                        </span>
+                      )}
+                      {f.regras.filter(r => r.tipo === 'premiacao').map(r => (
+                        <span key={r.id} className="block text-[11px] text-slate-400 whitespace-nowrap">
+                          {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
+                        </span>
+                      ))}
+                    </td>
                     <td className="px-4 py-2 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
                     {/* Uma coluna só, com a quebra no title: fixo e eventual descontam
                         igual, e separar em duas colunas alargaria a tabela por nada. */}
@@ -197,7 +241,7 @@ export default async function FolhaPagamentoPage({
                   </tr>
                 ))}
                 {folha.ativos.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
+                  <tr><td colSpan={7} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
                 )}
               </tbody>
             </table>
@@ -211,7 +255,22 @@ export default async function FolhaPagamentoPage({
           <FuncionariosConfigTable funcionarios={funcionariosParaConfig} />
         </TabsContent>
 
-        <TabsContent value="premiacao" className="mt-4">
+        <TabsContent value="comissoes" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500 capitalize">
+              Vigência conferida contra {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </p>
+            <MesSelectorFolha mesAtual={mesParam} />
+          </div>
+          <RegrasComissaoTable regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
+        </TabsContent>
+
+        <TabsContent value="premiacao" className="mt-4 space-y-3">
+          <p className="text-sm text-slate-500">
+            Faixa OTE é premiação em <strong>valor fixo</strong> por meta batida, só para vendedor e sempre sobre as
+            motos que a própria pessoa vendeu. Ela <strong>soma</strong> com as regras de premiação em percentual
+            cadastradas na aba Comissões.
+          </p>
           <PremiacaoFaixasTable faixas={faixasParaUI} />
         </TabsContent>
 

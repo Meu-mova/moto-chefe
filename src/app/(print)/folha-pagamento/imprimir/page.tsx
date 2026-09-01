@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
+import { labelDaBase } from '@/lib/folha'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -63,7 +64,6 @@ export default async function FolhaImprimirPage({
           <tr className="border-b-2 border-black text-left">
             <th className="py-1">Funcionário</th>
             <th className="py-1">CPF</th>
-            <th className="py-1 text-right">Base comissão</th>
             <th className="py-1 text-right">Salário</th>
             <th className="py-1 text-right">Comissão</th>
             <th className="py-1 text-right">Premiação</th>
@@ -81,10 +81,26 @@ export default async function FolhaImprimirPage({
                 {/* Quem ainda não preencheu o cadastro sai com "—": o papel sinaliza
                     quem falta, em vez de esconder a pessoa da folha. */}
                 <td className="py-1">{cpf ? formatCpf(cpf) : '—'}</td>
-                <td className="py-1 text-right">{f.baseComissao > 0 ? fmt(f.baseComissao) : '—'}</td>
                 <td className="py-1 text-right">{fmt(f.salario)}</td>
-                <td className="py-1 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
-                <td className="py-1 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
+                {/* A regra vai no papel: é o que a contabilidade confere quando o
+                    funcionário pergunta de onde saiu o número. */}
+                <td className="py-1 text-right align-top">
+                  {f.comissao > 0 ? fmt(f.comissao) : '—'}
+                  {f.regras.filter(r => r.tipo !== 'premiacao').map(r => (
+                    <span key={r.id} className="block text-slate-500">
+                      {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()}
+                    </span>
+                  ))}
+                </td>
+                <td className="py-1 text-right align-top">
+                  {f.premiacao > 0 ? fmt(f.premiacao) : '—'}
+                  {f.premiacaoFaixa > 0 && <span className="block text-slate-500">faixa OTE</span>}
+                  {f.regras.filter(r => r.tipo === 'premiacao').map(r => (
+                    <span key={r.id} className="block text-slate-500">
+                      {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()}
+                    </span>
+                  ))}
+                </td>
                 <td className="py-1 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
                 <td className="py-1 text-right">
                   {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
@@ -99,12 +115,12 @@ export default async function FolhaImprimirPage({
             )
           })}
           {folha.ativos.length === 0 && (
-            <tr><td colSpan={9} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
+            <tr><td colSpan={8} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
           )}
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-black font-bold">
-            <td className="py-1" colSpan={3}>Totais</td>
+            <td className="py-1" colSpan={2}>Totais</td>
             <td className="py-1 text-right">{fmt(folha.totais.salarios)}</td>
             <td className="py-1 text-right">{fmt(folha.totais.comissoes)}</td>
             <td className="py-1 text-right">{fmt(folha.totais.premiacoes)}</td>

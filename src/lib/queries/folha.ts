@@ -13,16 +13,21 @@ import { db } from '@/lib/db'
 import {
   usuarios, lojas, funcionariosConfig, premiacaoFaixas,
   vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase, folhaAdiantamentos,
+  folhaRegrasComissao,
 } from '@/lib/db/schema'
 import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { calcularPremiacao } from '@/lib/premiacao'
-import { resolverBaseComissao, type TotaisBase } from '@/lib/folha'
+import { calcularRegrasFolha, type TotaisBase, type RegraFolha, type RegraCalculada } from '@/lib/folha'
 import { temPapel } from '@/lib/auth'
 
 export type DadosFolha = {
+  /** 'YYYY-MM' do recorte. A vigência das regras é resolvida contra ele. */
+  mes: string
   funcionarios: { id: string; nome: string; papel: string; papeisExtras: string[] | null; lojaId: string | null; lojaNome: string }[]
-  configs: { usuarioId: string; salario: string; comissaoPercentual: string; ajudaCusto: string | null; adiantamentoFixo: string | null; ativo: boolean; baseComissao: string }[]
+  configs: { usuarioId: string; salario: string; ajudaCusto: string | null; adiantamentoFixo: string | null; ativo: boolean }[]
+  /** Regras de comissão/premiação de todo o grupo. A vigência é filtrada no cálculo. */
+  regras: RegraFolha[]
   faixas: { id: string; valorMinimoVendas: string; premiacao: string }[]
   vendasPorVendedor: { vendedorId: string; total: string }[]
   pecasPorVendedor: { vendedorId: string; total: string }[]
@@ -31,6 +36,8 @@ export type DadosFolha = {
   motosPorLoja: { lojaId: string; total: string }[]
   pecasPorLoja: { lojaId: string; total: string }[]
   osPecasPorLoja: { lojaId: string; total: string }[]
+  /** Mão de obra das OS concluídas, por loja. Base 'loja_servicos'. */
+  servicosPorLoja: { lojaId: string; total: string }[]
   ajustes: { id: string; lojaId: string; lojaNome: string; tipo: string; usuarioId: string | null; usuarioNome: string | null; valor: string; observacao: string | null }[]
   /** Adiantamento salarial do mês. Desconta do total a pagar — não entra em caixa nem despesa. */
   adiantamentos: { id: string; lojaId: string; lojaNome: string; usuarioId: string; usuarioNome: string | null; valor: string; data: string | null; observacao: string | null }[]
@@ -45,11 +52,13 @@ export type FuncionarioFolha = {
   papel: string
   lojaNome: string
   salario: number
-  comissaoPercentual: number
   ajudaCusto: number
   ativo: boolean
-  baseComissao: number
+  /** Uma linha por regra vigente no mês — é o que a tela e o impresso detalham. */
+  regras: RegraCalculada[]
   comissao: number
+  /** Premiação por faixa OTE (só vendedor). Somada às regras de premiação. */
+  premiacaoFaixa: number
   premiacao: number
   /** Vale fixo do cadastro, descontado todo mês. */
   adiantamentoFixo: number
@@ -115,7 +124,8 @@ export async function buscarDadosFolha({
 
   const [
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
-    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, adiantamentos, lojasDoGrupo, funcionariosGrupo,
+    motosPorLoja, pecasPorLoja, osPecasPorLoja, servicosPorLoja, regras, ajustes, adiantamentos,
+    lojasDoGrupo, funcionariosGrupo,
   ] = await Promise.all([
     db
       .select({
@@ -244,6 +254,41 @@ export async function buscarDadosFolha({
       ))
       .groupBy(ordensServico.lojaId),
 
+    // Mão de obra das OS concluídas por loja — base 'loja_servicos'. Separada de
+    // osPecasPorLoja, que é a PEÇA usada na OS: quem comissiona sobre serviço não
+    // pode levar a peça junto.
+    db
+      .select({
+        lojaId: ordensServico.lojaId,
+        total: sql<string>`COALESCE(SUM(${ordensServico.valorServicos}::numeric), 0)`,
+      })
+      .from(ordensServico)
+      .where(and(
+        inArray(ordensServico.lojaId, lojaIds),
+        eq(ordensServico.status, 'concluida'),
+        gte(ordensServico.dataConclusao, inicioTs),
+        lte(ordensServico.dataConclusao, fimTs),
+      ))
+      .groupBy(ordensServico.lojaId),
+
+    // Regras de comissão/premiação do grupo inteiro. Não filtra por vigência aqui:
+    // a mesma lista alimenta o cálculo (que filtra pelo mês) e a aba de cadastro,
+    // que precisa mostrar inclusive regra futura e regra encerrada.
+    db
+      .select({
+        id: folhaRegrasComissao.id,
+        usuarioId: folhaRegrasComissao.usuarioId,
+        tipo: folhaRegrasComissao.tipo,
+        base: folhaRegrasComissao.base,
+        percentual: folhaRegrasComissao.percentual,
+        vigenciaInicio: folhaRegrasComissao.vigenciaInicio,
+        vigenciaFim: folhaRegrasComissao.vigenciaFim,
+        descricao: folhaRegrasComissao.descricao,
+      })
+      .from(folhaRegrasComissao)
+      .innerJoin(usuarios, eq(folhaRegrasComissao.usuarioId, usuarios.id))
+      .where(inArray(usuarios.lojaId, lojaIdsGrupo)),
+
     // Escopo de GRUPO de propósito: a aba Ajustes não muda com o filtro de loja.
     // Ajuste de outra loja não contamina o cálculo da loja filtrada — os
     // funcionários também estão filtrados, então essas chaves de mapa nunca são lidas.
@@ -301,8 +346,10 @@ export async function buscarDadosFolha({
   ])
 
   return {
+    mes,
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
-    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, adiantamentos, lojas: lojasDoGrupo, funcionariosGrupo,
+    motosPorLoja, pecasPorLoja, osPecasPorLoja, servicosPorLoja, regras, ajustes, adiantamentos,
+    lojas: lojasDoGrupo, funcionariosGrupo,
   }
 }
 
@@ -321,6 +368,7 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
   }
 
   const motosPorLojaId = new Map(dados.motosPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
+  const servicosPorLojaId = new Map(dados.servicosPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
   const pecasPorLojaId = new Map(dados.pecasPorLoja.map(l => [l.lojaId, parseFloat(l.total)]))
   for (const l of dados.osPecasPorLoja) {
     pecasPorLojaId.set(l.lojaId, (pecasPorLojaId.get(l.lojaId) ?? 0) + parseFloat(l.total))
@@ -342,8 +390,18 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       somar(pecasPorLojaId, a.lojaId, valor)
       somar(pecasPorId, a.usuarioId, valor)
     } else if (a.tipo === 'servicos') {
+      somar(servicosPorLojaId, a.lojaId, valor)
       somar(osPorId, a.usuarioId, valor)
     }
+  }
+
+  // Regras de comissão/premiação por pessoa. A vigência é resolvida dentro de
+  // calcularRegrasFolha, contra o mês do recorte.
+  const regrasPorUsuario = new Map<string, RegraFolha[]>()
+  for (const r of dados.regras) {
+    const lista = regrasPorUsuario.get(r.usuarioId)
+    if (lista) lista.push(r)
+    else regrasPorUsuario.set(r.usuarioId, [r])
   }
 
   // Vários adiantamentos no mesmo mês somam para a mesma pessoa.
@@ -355,7 +413,6 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
   const todos = dados.funcionarios.map(f => {
     const config = configPorUsuario.get(f.id)
     const salario = config ? parseFloat(config.salario) : 0
-    const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0
     const ajudaCusto = config?.ajudaCusto ? parseFloat(config.ajudaCusto) : 0
     const adiantamentoFixo = config?.adiantamentoFixo ? parseFloat(config.adiantamentoFixo) : 0
     const ativo = config?.ativo ?? true
@@ -366,13 +423,19 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       propriosServicos: osPorId.get(f.id) ?? 0,
       lojaMotos:        f.lojaId ? (motosPorLojaId.get(f.lojaId) ?? 0) : 0,
       lojaPecas:        f.lojaId ? (pecasPorLojaId.get(f.lojaId) ?? 0) : 0,
+      lojaServicos:     f.lojaId ? (servicosPorLojaId.get(f.lojaId) ?? 0) : 0,
     }
-    const baseComissao = resolverBaseComissao(config?.baseComissao ?? 'padrao', f.papel, totais)
 
-    const comissao = baseComissao * (comissaoPercentual / 100)
-    // OTE sempre sobre as motos que a própria pessoa vendeu, nunca sobre a base de
-    // comissão — senão quem tem base de loja tiraria prêmio sobre o faturamento inteiro.
-    const premiacao = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, dados.faixas) : 0
+    // Uma pessoa pode ter várias regras, de comissão e de premiação (migração 0076).
+    const aplicadas = calcularRegrasFolha(regrasPorUsuario.get(f.id) ?? [], f.papel, totais, dados.mes)
+    const comissao = aplicadas.comissao
+
+    // Faixa OTE é outro mecanismo: valor fixo em R$ por faixa atingida, só para
+    // vendedor, e sempre sobre as motos que a própria pessoa vendeu — nunca sobre a
+    // base das regras, senão quem tem base de loja tiraria prêmio sobre o
+    // faturamento inteiro. As duas premiações se somam.
+    const premiacaoFaixa = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, dados.faixas) : 0
+    const premiacao = premiacaoFaixa + aplicadas.premiacao
     // Vale fixo e adiantamento avulso se somam: quem tem vale de R$ 500 e pegou
     // mais R$ 300 num mês desconta R$ 800 naquele mês.
     const adiantamentoEventual = adiantadoPorId.get(f.id) ?? 0
@@ -385,11 +448,11 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       papel: f.papel,
       lojaNome: f.lojaNome,
       salario,
-      comissaoPercentual,
       ajudaCusto,
       ativo,
-      baseComissao,
+      regras: aplicadas.detalhes,
       comissao,
+      premiacaoFaixa,
       premiacao,
       adiantamentoFixo,
       adiantamentoEventual,
