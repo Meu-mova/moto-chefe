@@ -40,15 +40,18 @@ export type EntradaLeitura = {
   faturamento: number
   faturamentoAnterior: number
   atendimento: AtendVendedor | null
+  /** Desconto concedido como % do faturamento do vendedor; null se não descontou. */
+  descontoPct?: number | null
 }
 
 /**
  * Pontos fortes e oportunidades do vendedor — para a conversa individual.
- * Comparado à média do time (conversão em %, tempo de resposta em segundos).
+ * Comparado à média do time (conversão em %, tempo de resposta em segundos,
+ * desconto em % do faturamento).
  */
 export function leitura(
   v: EntradaLeitura,
-  media: { conversao: number; tempoRespSeg: number },
+  media: { conversao: number; tempoRespSeg: number; descontoPct: number },
 ): { fortes: string[]; oportunidades: string[] } {
   const fortes: string[] = []
   const oportunidades: string[] = []
@@ -58,6 +61,12 @@ export function leitura(
 
   if (vs != null && vs >= 50) fortes.push(`Cresceu ${vs}% sobre o mês anterior — em plena aceleração.`)
   if (vs != null && vs < 0) oportunidades.push(`Caiu ${Math.abs(vs)}% vs o mês anterior. Vale entender o que mudou e retomar.`)
+
+  const dp = v.descontoPct
+  if (dp != null && v.motos >= 8 && dp <= 1)
+    fortes.push(`Segura bem o preço — cedeu só ${dp.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% em desconto.`)
+  if (dp != null && dp > media.descontoPct + 1.5)
+    oportunidades.push(`Cedeu ${dp.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do faturamento em desconto (média do time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%). Negociar com mais firmeza protege a margem.`)
 
   const a = v.atendimento
   if (a) {

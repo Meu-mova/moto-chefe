@@ -73,13 +73,29 @@ function Sec({ children }: { children: React.ReactNode }) {
   return <h2 className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-slate-500 mt-7 mb-4 first:mt-0">{children}<span className="flex-1 h-px bg-slate-200" /></h2>
 }
 
-function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; media: { conversao: number; tempoRespSeg: number } }) {
+function CanalBars({ items }: { items: { nome: string; qtd: number }[] }) {
+  if (!items.length) return <div className="text-sm text-slate-400">Sem dados no mês.</div>
+  const max = Math.max(...items.map(i => i.qtd), 1)
+  return (
+    <div className="space-y-2.5">
+      {items.map(it => (
+        <div key={it.nome} className="grid grid-cols-[130px_1fr_auto] items-center gap-3">
+          <div className="text-sm truncate">{it.nome}</div>
+          <div className="h-5 rounded bg-slate-100 overflow-hidden"><div className="h-full rounded bg-slate-600" style={{ width: `${(it.qtd / max) * 100}%` }} /></div>
+          <div className="text-sm text-slate-500 whitespace-nowrap"><b className="text-slate-800">{it.qtd}</b></div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; media: { conversao: number; tempoRespSeg: number; descontoPct: number } }) {
   const vs = v.faturamentoAnterior > 0 ? Math.round(((v.faturamento - v.faturamentoAnterior) / v.faturamentoAnterior) * 100) : null
   const vsTxt = vs == null ? <span className="text-emerald-700 font-semibold">estreia no mês</span>
     : <span className={vs >= 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{vs >= 0 ? '+' : ''}{vs}% <span className="font-normal text-slate-500">vs mês ant.</span></span>
   const mMax = Math.max(...v.modelos.map(m => m.qtd), 1)
   const a = v.atendimento
-  const { fortes, oportunidades } = leitura({ motos: v.motos, faturamento: v.faturamento, faturamentoAnterior: v.faturamentoAnterior, atendimento: a }, media)
+  const { fortes, oportunidades } = leitura({ motos: v.motos, faturamento: v.faturamento, faturamentoAnterior: v.faturamentoAnterior, atendimento: a, descontoPct: v.desconto?.pct ?? null }, media)
   const respPct = a && a.comIncoming > 0 ? Math.round(((a.comIncoming - a.semResposta) / a.comIncoming) * 100) : null
 
   return (
@@ -98,6 +114,13 @@ function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; me
           <div key={l} className="bg-slate-50 px-4 py-3"><div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{l}</div><div className="text-lg font-bold tabular-nums mt-0.5">{val}</div></div>
         ))}
         <div className="bg-slate-50 px-4 py-3"><div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">vs mês ant.</div><div className="text-sm font-bold mt-1.5">{vsTxt}</div></div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+        <Metric label="Desconto concedido" value={v.desconto ? brl(v.desconto.total) : '—'}
+          sub={v.desconto ? `${v.desconto.qtd} venda(s) · ${v.desconto.pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do faturamento (time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)` : 'sem desconto no mês'}
+          tone={v.desconto ? (v.desconto.pct > media.descontoPct + 1.5 ? 'bad' : v.desconto.pct <= 1 ? 'good' : 'warn') : undefined} />
+        <Metric label="Vendas — MOVA × Kommo" value={`${v.motos} × ${a ? a.ganhos : '—'}`} sub="motos registradas no MOVA × leads ganhos no Kommo" />
       </div>
 
       <Sec>Modelos que mais vende</Sec>
@@ -123,12 +146,20 @@ function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; me
           <Metric label="Leads sem resposta" value={String(a.semResposta)} sub={`de ${a.comIncoming} com contato`}
             tone={a.semResposta <= 15 ? 'good' : a.semResposta >= 50 ? 'bad' : 'warn'} />
           <Metric label="Ganhos · Perdidos" value={`${a.ganhos} · ${a.perdidos}`} sub="no funil Kommo" />
+          <Metric label="Tarefas atrasadas" value={String(v.tarefas?.atrasadas ?? 0)} sub={v.tarefas ? `${v.tarefas.abertas} em aberto (agora)` : 'sem tarefas'}
+            tone={(v.tarefas?.atrasadas ?? 0) > 0 ? 'bad' : 'good'} />
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm text-slate-400">
           Sem dados de atendimento (Kommo) para este vendedor no mês.
         </div>
       )}
+
+      <Sec>Canais</Sec>
+      <div className="grid md:grid-cols-2 gap-7">
+        <div><p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Canais de venda (origem)</p><CanalBars items={v.canaisVendas} /></div>
+        <div><p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Canais de lead (Kommo)</p><CanalBars items={v.canaisLeads} /></div>
+      </div>
 
       <Sec>Leitura da conversa</Sec>
       <div className="grid md:grid-cols-2 gap-4">

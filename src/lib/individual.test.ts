@@ -17,7 +17,7 @@ test('tempoResposta', () => {
   assert.equal(tempoResposta(null), '—')
 })
 
-const MEDIA = { conversao: 4.2, tempoRespSeg: 4935 }
+const MEDIA = { conversao: 4.2, tempoRespSeg: 4935, descontoPct: 1.5 }
 
 test('leitura: responde rápido + converte acima da média = pontos fortes', () => {
   const r = leitura({
@@ -44,4 +44,11 @@ test('leitura: sem atendimento não quebra e ainda dá leitura de vendas', () =>
   const r = leitura({ motos: 11, faturamento: 127610, faturamentoAnterior: 0, atendimento: null }, MEDIA)
   assert.ok(r.fortes.length >= 1)
   assert.ok(r.oportunidades.length >= 1)
+})
+
+test('leitura: desconto alto vira oportunidade; desconto baixo com volume vira ponto forte', () => {
+  const alto = leitura({ motos: 20, faturamento: 200000, faturamentoAnterior: 0, atendimento: null, descontoPct: 5 }, MEDIA)
+  assert.ok(alto.oportunidades.some(t => /desconto/i.test(t)))
+  const baixo = leitura({ motos: 20, faturamento: 200000, faturamentoAnterior: 0, atendimento: null, descontoPct: 0.4 }, MEDIA)
+  assert.ok(baixo.fortes.some(t => /pre[çc]o|desconto/i.test(t)))
 })

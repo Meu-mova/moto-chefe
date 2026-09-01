@@ -1,6 +1,8 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metricasAtendimento } from './atendimento'
+import { descontosPorVendedor } from './descontos'
+import { percentualDesconto } from '@/lib/desconto'
 import { posicoes, type AtendVendedor } from '@/lib/individual'
 
 // Desempenho individual dos vendedores de um grupo, num mês. Vendas (MOVA) por
@@ -21,12 +23,21 @@ export type VendedorIndividual = {
   posicao: string
   modelos: Modelo[]
   atendimento: AtendVendedor | null
+  /** Desconto concedido (medida "preço": quanto cedeu abaixo do piso). */
+  desconto: { total: number; qtd: number; pct: number } | null
+  /** Tarefas do Kommo em aberto AGORA (snapshot), e quantas estão atrasadas. */
+  tarefas: { abertas: number; atrasadas: number } | null
+  /** Canais de onde vieram as VENDAS (origem da venda). */
+  canaisVendas: Canal[]
+  /** Canais de onde vieram os LEADS (source do Kommo). */
+  canaisLeads: Canal[]
 }
+export type Canal = { nome: string; qtd: number }
 export type DadosIndividual = {
   ano: number
   mes: number
   vendedores: VendedorIndividual[]
-  media: { conversao: number; tempoRespSeg: number }
+  media: { conversao: number; tempoRespSeg: number; descontoPct: number }
 }
 
 const n = (v: unknown) => Number(v ?? 0)
@@ -45,7 +56,7 @@ export async function dadosIndividual(opts: {
   const jFim = ini
   const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
 
-  const [vendRows, modRows, atend] = await Promise.all([
+  const [vendRows, modRows, atend, descRows, tarRows, canVenRows, canLeadRows] = await Promise.all([
     execRows(sql`
       select v.vendedor_id, u.nome, l.nome as loja, gr.nome as grupo,
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as motos,
@@ -62,6 +73,34 @@ export async function dadosIndividual(opts: {
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.vendedor_id, mo.modelo`),
     metricasAtendimento(new Date(ini), new Date(Date.UTC(ano, mes, 1) - 1), `${ano}-${pad(mes)}-01`, `${ano}-${pad(mes)}-${pad(ultimoDia)}`, lojaIds),
+    descontosPorVendedor({ dataInicio: `${ano}-${pad(mes)}-01`, dataFim: `${ano}-${pad(mes)}-${pad(ultimoDia)}`, lojaId: lojaIds }),
+    // Tarefas do Kommo em aberto AGORA (snapshot), por vendedor — atrasadas = passou do prazo.
+    execRows(sql`
+      select k.usuario_id as vendedor_id, count(*)::int as abertas,
+             count(*) filter (where t.prazo < now())::int as atrasadas
+      from kommo_tarefas_abertas t
+      left join kommo_leads l on l.lead_id = t.lead_id
+      join kommo_user_map k on k.kommo_user_id = coalesce(t.kommo_user_id, l.kommo_user_id)
+      join usuarios u on u.id = k.usuario_id
+      join lojas lo on lo.id = u.loja_id
+      where lo.grupo_id = ${g} and (l.status_id is null or l.status_id not in (142, 143))
+      group by k.usuario_id`),
+    // Canais das VENDAS (origem da venda) por vendedor
+    execRows(sql`
+      select v.vendedor_id, coalesce(o.nome,'(sem origem)') as nome, count(*)::int as qtd
+      from vendas v left join origens_venda o on o.id=v.origem_id join lojas l on l.id=v.loja_id
+      where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
+      group by v.vendedor_id, o.nome`),
+    // Canais dos LEADS (source do Kommo) por vendedor
+    execRows(sql`
+      select k.usuario_id as vendedor_id, coalesce(s.nome, s.origem, '(sem canal)') as nome, count(*)::int as qtd
+      from kommo_leads lead
+      join kommo_user_map k on k.kommo_user_id = lead.kommo_user_id
+      join usuarios u on u.id = k.usuario_id
+      join lojas lo on lo.id = u.loja_id
+      left join kommo_sources s on s.source_id = lead.source_id
+      where lo.grupo_id = ${g} and lead.criado_em >= ${ini} and lead.criado_em < ${fim}
+      group by k.usuario_id, coalesce(s.nome, s.origem, '(sem canal)')`),
   ])
 
   // Merge vendas por vendedor (Pablo aparece em 2 lojas — soma e pega a loja principal)
@@ -83,6 +122,16 @@ export async function dadosIndividual(opts: {
   }
 
   const atendByUser = new Map(atend.filter(a => a.usuarioId).map(a => [a.usuarioId as string, a]))
+  const descByVend = new Map((descRows as any[]).map(d => [d.vendedorId as string, d]))
+  const tarByVend = new Map((tarRows as any[]).map(r => [r.vendedor_id as string, r]))
+  const agruparCanal = (rows: any[]) => {
+    const m = new Map<string, Canal[]>()
+    for (const r of rows) { const arr = m.get(r.vendedor_id) ?? []; arr.push({ nome: r.nome, qtd: n(r.qtd) }); m.set(r.vendedor_id, arr) }
+    for (const arr of m.values()) arr.sort((x, y) => y.qtd - x.qtd)
+    return m
+  }
+  const canVenByVend = agruparCanal(canVenRows as any[])
+  const canLeadByVend = agruparCanal(canLeadRows as any[])
 
   const lista = [...porVend.values()]
     .map(a => {
@@ -93,12 +142,19 @@ export async function dadosIndividual(opts: {
         tempoRespSeg: at.tempoRespSeg, mensagens: n(at.mensagens), tarefas: n(at.tarefas),
         ganhos: n(at.ganhos), perdidos: n(at.perdidos), conversao: n(at.conversao) * 100,
       } : null
+      const desc = descByVend.get(a.usuarioId)
+      const tar = tarByVend.get(a.usuarioId)
       return {
         usuarioId: a.usuarioId, nome: a.nome, loja: lojaPrincipal, grupo: a.grupo,
         motos: a.motos, faturamento: a.fat, faturamentoAnterior: a.fatAnt,
         ticket: a.motos ? a.fat / a.motos : 0, clientes: a.clientes,
         modelos: (modByVend.get(a.usuarioId) ?? []).sort((x, y) => y.total - x.total),
-        atendimento, posicao: '',
+        atendimento,
+        desconto: desc ? { total: n(desc.preco), qtd: n(desc.qtd), pct: percentualDesconto(n(desc.preco), a.fat) } : null,
+        tarefas: tar ? { abertas: n(tar.abertas), atrasadas: n(tar.atrasadas) } : null,
+        canaisVendas: canVenByVend.get(a.usuarioId) ?? [],
+        canaisLeads: canLeadByVend.get(a.usuarioId) ?? [],
+        posicao: '',
       }
     })
     .sort((x, y) => y.motos - x.motos)
@@ -107,12 +163,15 @@ export async function dadosIndividual(opts: {
   lista.forEach((v, i) => { v.posicao = rotulos[i] })
 
   const comAtend = lista.filter(v => v.atendimento) as (VendedorIndividual & { atendimento: AtendVendedor })[]
+  const totDesconto = (descRows as any[]).reduce((s, d) => s + n(d.preco), 0)
+  const totFaturamento = lista.reduce((s, v) => s + v.faturamento, 0)
   const media = {
     conversao: comAtend.length ? comAtend.reduce((s, v) => s + v.atendimento.conversao, 0) / comAtend.length : 0,
     tempoRespSeg: (() => {
       const t = comAtend.map(v => v.atendimento.tempoRespSeg).filter((x): x is number => x != null)
       return t.length ? t.reduce((s, x) => s + x, 0) / t.length : 0
     })(),
+    descontoPct: percentualDesconto(totDesconto, totFaturamento),
   }
 
   return { ano, mes, vendedores: lista, media }
