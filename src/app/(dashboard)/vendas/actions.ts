@@ -18,7 +18,11 @@ import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 
-const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
+// Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
+// aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
+// — o financiamento nasce pendente e só o admin_geral confirma que caiu na conta.
+// Ver precisaConciliar em @/lib/conciliacao-status.
+const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
   return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
 }
@@ -393,10 +397,10 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     throw new Error('Somatório das formas de pagamento difere do valor da venda')
   }
 
-  // Financiamento/transferência sempre precisam da aprovação do responsável,
+  // Transferência bancária sempre precisa da aprovação do responsável,
   // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
   if (temPagamentoSensivel(data.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId))) {
-    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
+    throw new Error('Venda com transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
   }
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
@@ -1509,11 +1513,11 @@ export async function solicitarAprovacaoVendaAction(
   let snapshot: { valorMinimo: string; liquido: string } | null = null
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
-      throw new Error('Nenhum pagamento por financiamento ou transferência nesta venda')
+      throw new Error('Nenhum pagamento por transferência bancária nesta venda')
     }
     const tiposUsados = data.pagamentos
       .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
-      .map(p => p.tipo === 'financiamento' ? 'Financiamento' : 'Transferência Bancária')
+      .map(() => 'Transferência Bancária')
     motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
   } else {
     if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')

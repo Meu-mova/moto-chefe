@@ -240,7 +240,7 @@ function FormUsuario({
                 onChange={e => setAprovaSensivel(e.target.checked)}
               />
               <span>
-                Aprova financiamento e transferência bancária
+                Aprova transferência bancária
                 <span className="block text-xs text-slate-500">
                   Vale nos mesmos grupos acima. Sem isto, ele só aprova venda abaixo do preço.
                 </span>
@@ -356,7 +356,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                       ))}
                       {u.aprovaPagamentoSensivel && (
                         <span className="inline-flex px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px]">
-                          financiamento
+                          transferência
                         </span>
                       )}
                     </div>

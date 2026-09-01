@@ -318,7 +318,9 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                   {fmt(p.valor)}
                 </span>
 
-                {podeBuscar && pendente && precisa && (
+                {/* Financiamento não tem o que buscar: o banco deposita e nada
+                    no sistema registra. A confirmação é sempre na mão. */}
+                {podeBuscar && pendente && precisa && p.tipo !== 'financiamento' && (
                   <button
                     onClick={() => abrirBusca(i, p.valor, p.tipo === 'pix')}
                     title={p.tipo === 'pix' ? 'Buscar recebimento PIX para conciliar' : 'Buscar transação para conciliar'}
@@ -333,7 +335,9 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                 {podeForcar && pendente && !forcado && (
                   <button
                     onClick={() => { setForcandoIdx(i); setMotivo('') }}
-                    title="Forçar conciliação deste pagamento"
+                    title={p.tipo === 'financiamento'
+                      ? 'Confirmar que o financiamento caiu na conta'
+                      : 'Forçar conciliação deste pagamento'}
                     className="p-1 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
                   >
                     <Zap size={13} />

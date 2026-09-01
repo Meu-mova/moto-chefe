@@ -22,11 +22,20 @@ export type PgtoOS = {
 
 type PgtoItem = { tipo: string; valor: number; conciliadoManual?: ConciliadoManual | null }
 
-// Só cartão e PIX entram na conta do que precisa ser conciliado — dinheiro,
-// financiamento, cortesia e cupom de revisão nunca geram pendência (não há dinheiro
-// entrando por eles), então forçá-los não soma nada.
+/**
+ * O pagamento precisa ser conferido contra dinheiro que entrou?
+ *
+ * Cartão e PIX têm origem automática (relatório da operadora, Open Finance).
+ * FINANCIAMENTO não tem: o banco deposita e nada no sistema sabe disso, então ele
+ * fica pendente até alguém confirmar na mão que caiu — decisão do Cesar em
+ * 01/09/2026, que trocou a aprovação no momento da venda por essa conferência
+ * depois. Só admin_geral força (ver forcarConciliacaoAction).
+ *
+ * Dinheiro, cortesia, bonificação e cupom de revisão ficam de fora: não há
+ * depósito a esperar, e cobrá-los criaria pendência que nunca fecha.
+ */
 export function precisaConciliar(tipo: string): boolean {
-  return TIPOS_CARTAO.has(tipo) || tipo === 'pix'
+  return TIPOS_CARTAO.has(tipo) || tipo === 'pix' || tipo === 'financiamento'
 }
 
 // Total dos pagamentos marcados como conciliados na mão. Usado por
@@ -138,14 +147,17 @@ export function calcStatusMultiPagamento(
   const pgtos = (pagamentos ?? []) as PgtoItem[]
   if (pgtos.length === 0) return 'na'
 
-  const totalCartao = pgtos.filter(p => TIPOS_CARTAO.has(p.tipo)).reduce((a, p) => a + (Number(p.valor) || 0), 0)
-  const totalPix     = pgtos.filter(p => p.tipo === 'pix').reduce((a, p) => a + (Number(p.valor) || 0), 0)
   const totalLancado = pgtos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
 
   if (totalLancado < Number(valorTotal) - 0.05) return 'parcial'
 
-  const totalNecessario = totalCartao + totalPix
-  if (totalNecessario < 0.01) return 'conciliada' // só dinheiro/financiamento/cortesia
+  // Sai de precisaConciliar em vez de listar cartão e PIX aqui: sem isso,
+  // financiamento entrou na regra de lá e continuou fora da conta daqui, e a venda
+  // financiada aparecia conciliada com a linha vermelha na tela de detalhes.
+  const totalNecessario = pgtos
+    .filter(p => precisaConciliar(p.tipo))
+    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+  if (totalNecessario < 0.01) return 'conciliada' // só dinheiro/cortesia/bonificação
 
   const conciliado = (Number(conciliadoValor) || 0)
     + (Number(pixConciliadoValor) || 0)

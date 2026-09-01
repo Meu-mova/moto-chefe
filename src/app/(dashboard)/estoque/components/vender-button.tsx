@@ -110,7 +110,11 @@ type Props = {
   origens: OrigemParaEscolher[]
 }
 
-const TIPOS_PAGAMENTO_SENSIVEL = new Set(['financiamento', 'transferencia'])
+// Financiamento saiu daqui em 01/09/2026: a venda financiada é lançada direto e a
+// conferência acontece depois, na conciliação, onde o financiamento nasce pendente
+// até o admin_geral confirmar que caiu na conta. Ver precisaConciliar em
+// @/lib/conciliacao-status.
+const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 
 function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
   if (!taxas) return []
@@ -445,7 +449,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         }
         if (precisaAprovacaoSensivel) {
           await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
-          toast.success('Venda com financiamento/transferência enviada para aprovação!')
+          toast.success('Venda com transferência bancária enviada para aprovação!')
         } else if (precisaAprovacao) {
           await solicitarAprovacaoVendaAction(payload, motivo)
           toast.success('Pedido de aprovação enviado!')
@@ -884,8 +888,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                       <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                       <p className="text-xs">
                         {podeAprovarPagamentoSensivel
-                          ? 'Pagamento por financiamento/transferência — você pode confirmar direto.'
-                          : 'Pagamento por financiamento ou transferência bancária precisa de aprovação do responsável antes de confirmar.'}
+                          ? 'Pagamento por transferência bancária — você pode confirmar direto.'
+                          : 'Pagamento por transferência bancária precisa de aprovação do responsável antes de confirmar.'}
                       </p>
                     </div>
                   )}

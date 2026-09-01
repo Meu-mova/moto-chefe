@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   calcStatusMultiPagamento,
   matchPagamentos,
+  precisaConciliar,
   valorConciliadoManual,
   type ConciliadoManual,
   type PgtoOS,
@@ -180,4 +181,40 @@ test('PIX casa pela linha de mesmo valor antes de ratear (NF 2284)', () => {
   const r = matchPagamentos(pgtos, [], [{ id: 'p1', valor: 5000 }, { id: 'p2', valor: 1000 }])
   assert.deepEqual(conciliados(r), [false, true, true])
   assert.equal(r[0].coberto, 0)
+})
+
+// ── Financiamento (decisão do Cesar em 01/09/2026) ───────────────────────────
+// A venda financiada deixou de esperar aprovação para ser lançada. Em troca, o
+// financiamento nasce PENDENTE e só fecha quando alguém confirma que caiu na
+// conta — antes ele não gerava pendência nenhuma e a venda saía conciliada.
+
+test('financiamento precisa ser conferido, dinheiro e cortesia não', () => {
+  assert.equal(precisaConciliar('financiamento'), true)
+  assert.equal(precisaConciliar('dinheiro'), false)
+  assert.equal(precisaConciliar('cortesia'), false)
+  assert.equal(precisaConciliar('bonificacao'), false)
+  assert.equal(precisaConciliar('cupom_revisao'), false)
+})
+
+test('venda só de financiamento fica pendente até alguém confirmar', () => {
+  const pgtos = [{ tipo: 'financiamento', valor: 15000 }]
+  assert.equal(calcStatusMultiPagamento(pgtos, 0, 0, '15000'), 'pendente')
+})
+
+test('financiamento confirmado na mão fecha a venda', () => {
+  const pgtos = [{
+    tipo: 'financiamento',
+    valor: 15000,
+    conciliadoManual: { motivo: 'Caiu na conta do Sicoob', porId: 'u1', porNome: 'Cesar', em: '2026-09-01' },
+  }]
+  assert.equal(calcStatusMultiPagamento(pgtos, 0, 0, '15000'), 'conciliada')
+})
+
+test('entrada em PIX já conciliada + financiamento em aberto fica parcial', () => {
+  const pgtos = [{ tipo: 'pix', valor: 5000 }, { tipo: 'financiamento', valor: 10000 }]
+  assert.equal(calcStatusMultiPagamento(pgtos, 0, 5000, '15000'), 'parcial')
+})
+
+test('dinheiro puro continua conciliado sem nada a conferir', () => {
+  assert.equal(calcStatusMultiPagamento([{ tipo: 'dinheiro', valor: 9000 }], 0, 0, '9000'), 'conciliada')
 })
