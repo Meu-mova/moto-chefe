@@ -14,13 +14,17 @@ export type PgtoOS = {
   operadora?: string
   parcelas?: number
   autorizacao?: string
+  /** Código do cupom de revisão gratuita, quando `tipo` é 'cupom_revisao'.
+   *  Ver src/lib/cupom-revisao.ts. */
+  cupom?: string
   conciliadoManual?: ConciliadoManual | null
 }
 
 type PgtoItem = { tipo: string; valor: number; conciliadoManual?: ConciliadoManual | null }
 
 // Só cartão e PIX entram na conta do que precisa ser conciliado — dinheiro,
-// financiamento e cortesia nunca geram pendência, então forçá-los não soma nada.
+// financiamento, cortesia e cupom de revisão nunca geram pendência (não há dinheiro
+// entrando por eles), então forçá-los não soma nada.
 export function precisaConciliar(tipo: string): boolean {
   return TIPOS_CARTAO.has(tipo) || tipo === 'pix'
 }

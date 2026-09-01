@@ -375,6 +375,10 @@ export const ordensServico = pgTable('ordens_servico', {
   km: integer('km'),
   clienteNomeExterno: text('cliente_nome_externo'),
   clienteFoneExterno: text('cliente_fone_externo'),
+  // Cliente que não está no cadastro (`clienteId` nulo). Sem documento não dá pra
+  // fechar OS para empresa — ver migração 0074.
+  clienteDocumentoExterno: text('cliente_documento_externo'),
+  clienteTipoPessoaExterno: text('cliente_tipo_pessoa_externo'),
   dataAbertura: timestamp('data_abertura', { withTimezone: true }).notNull().defaultNow(),
   dataConclusao: timestamp('data_conclusao', { withTimezone: true }),
   oficinaEm: timestamp('oficina_em', { withTimezone: true }),
@@ -450,6 +454,12 @@ export const vendasPecas = pgTable('vendas_pecas', {
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
   vendedorId: uuid('vendedor_id').notNull().references(() => usuarios.id),
   clienteNome: text('cliente_nome'),
+  // Tomador da venda. `clienteId` liga no cadastro quando existe; os campos soltos
+  // atendem o balcão, que vende sem cadastrar ninguém. 'juridica' é o que faz o
+  // recibo sair no CNPJ da empresa — ver src/app/(print)/pecas.
+  clienteId: uuid('cliente_id').references(() => clientes.id),
+  clienteDocumento: text('cliente_documento'),
+  clienteTipoPessoa: text('cliente_tipo_pessoa').notNull().default('fisica'),
   formaPagamento: text('forma_pagamento').notNull(),
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   valorTotal: numeric('valor_total', { precision: 12, scale: 2 }).notNull(),
@@ -497,6 +507,12 @@ export const garantias = pgTable('garantias', {
   statusFabricaSyncEm: timestamp('status_fabrica_sync_em', { withTimezone: true }),
   /** Loja cuja conta no portal da fábrica enxerga o pedido. NULL = a própria loja da garantia. */
   fabricaContaLojaId: uuid('fabrica_conta_loja_id').references(() => lojas.id),
+  // Preenchidos pelo RPC encerrar_garantia (migração 0074). Antes a observação só
+  // existia em historico_estoque, e só quando a moto voltava pra disponível — o
+  // comprovante de encerramento precisa dela sempre.
+  observacaoEncerramento: text('observacao_encerramento'),
+  encerradaPor: uuid('encerrada_por').references(() => usuarios.id),
+  encerradaEm: timestamp('encerrada_em', { withTimezone: true }),
 })
 
 // ─── lancamentos_caixa ──────────────────────────────────────────────────────
@@ -1101,3 +1117,63 @@ export const metasLoja = pgTable('metas_loja', {
   atualizadoEm:  timestamp('atualizado_em').notNull().defaultNow(),
   atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
 }, t => [unique('metas_loja_unica').on(t.lojaId, t.ano, t.mes)])
+
+
+// ─── cupons_revisao (revisão gratuita) ───────────────────────────────────────
+/**
+ * Cupom de revisão gratuita, migração 0074.
+ *
+ * Emissão é SEMPRE manual pelo módulo /cupons — vender moto não gera cupom
+ * sozinho (decisão do Cesar em 01/09/2026). O resgate acontece no pagamento da
+ * OS: o operador digita o código e o cupom abate a MÃO DE OBRA (os_itens do tipo
+ * 'servico'); peça e óleo continuam sendo cobrados.
+ *
+ * Vencido não é status — sai da comparação com `validoAte`. O status guardado só
+ * muda por ação humana ('cancelado') ou pelo resgate ('usado'), então nenhum job
+ * precisa rodar pra lista ficar correta.
+ */
+export const cuponsRevisao = pgTable('cupons_revisao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  /** Loja que emitiu. O cupom vale em qualquer loja do mesmo grupo. */
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  codigo: text('codigo').notNull().unique(),
+  clienteId: uuid('cliente_id').references(() => clientes.id),
+  clienteNome: text('cliente_nome'),
+  motoId: uuid('moto_id').references(() => motos.id),
+  chassi: text('chassi'),
+  observacao: text('observacao'),
+  validoAte: date('valido_ate').notNull(),
+  /** 'ativo' | 'usado' | 'cancelado' */
+  status: text('status').notNull().default('ativo'),
+  osId: uuid('os_id').references(() => ordensServico.id),
+  usadoEm: timestamp('usado_em', { withTimezone: true }),
+  valorAbatido: numeric('valor_abatido', { precision: 10, scale: 2 }),
+  emitidoPor: uuid('emitido_por').references(() => usuarios.id),
+  emitidoEm: timestamp('emitido_em', { withTimezone: true }).notNull().defaultNow(),
+  canceladoPor: uuid('cancelado_por').references(() => usuarios.id),
+  canceladoEm: timestamp('cancelado_em', { withTimezone: true }),
+  motivoCancelamento: text('motivo_cancelamento'),
+})
+
+// ─── folha_adiantamentos ─────────────────────────────────────────────────────
+/**
+ * Adiantamento salarial, migração 0074. SÓ desconta do total a pagar da folha do
+ * mês — não vira despesa nem saída de caixa (decisão do Cesar em 01/09/2026): o
+ * salário cheio já é contabilizado quando pago, e lançar os dois contaria o mesmo
+ * dinheiro duas vezes.
+ *
+ * `mes` em text 'YYYY-MM' pelo mesmo motivo de folhaAjustesBase: date cairia no fuso.
+ */
+export const folhaAdiantamentos = pgTable('folha_adiantamentos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  mes: text('mes').notNull(),
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  /** Data em que o dinheiro saiu para a pessoa. Só informativo — a folha usa `mes`. */
+  data: date('data'),
+  observacao: text('observacao'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor: uuid('criado_por').references(() => usuarios.id),
+})

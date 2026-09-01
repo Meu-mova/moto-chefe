@@ -23,7 +23,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
   assert.deepEqual(ids(SOCIO), [
     'agenda', 'atendimento', 'bancos', 'bling', 'caixa', 'calendario',
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
-    'comunicados', 'compras', 'conciliacao', 'dados-funcionarios', 'dashboard',
+    'comunicados', 'compras', 'conciliacao', 'cupons', 'dados-funcionarios', 'dashboard',
     'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'kommo',
     'lojas', 'marketing', 'metas', 'modelos', 'montagens', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar',
@@ -35,7 +35,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
 test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
   assert.deepEqual(ids(AUX), [
     'agenda', 'atendimento', 'caixa', 'calendario', 'canais', 'clientes',
-    'conciliacao', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas',
+    'conciliacao', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas',
     'montagens', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
     'radar', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas',
@@ -44,7 +44,7 @@ test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
 
 test('vendedor vê o comercial, a oficina de balcão e o PIX', () => {
   assert.deepEqual(ids(VENDEDOR), [
-    'agenda', 'calendario', 'clientes', 'dashboard', 'demandas', 'garantias',
+    'agenda', 'calendario', 'clientes', 'cupons', 'dashboard', 'demandas', 'garantias',
     'ordens-servico', 'pecas', 'pix', 'radar', 'showroom', 'simulador',
     'transferencias', 'vendas',
   ].sort())
@@ -53,8 +53,10 @@ test('vendedor vê o comercial, a oficina de balcão e o PIX', () => {
 test('mecânico fica com o menu enxuto da oficina, mais o calendário da empresa', () => {
   // Calendário é TODOS de propósito: é informação da empresa (feriado, evento,
   // férias) e o mecânico não tem outro caminho para ela no sistema.
+  // 'cupons' entra aqui porque o mecânico precisa conferir no balcão se o código
+  // que o cliente trouxe existe e ainda vale — emitir e cancelar continua com gestor.
   assert.deepEqual(ids(MECANICO), [
-    'agenda', 'calendario', 'dashboard', 'garantias', 'ordens-servico', 'pecas',
+    'agenda', 'calendario', 'cupons', 'dashboard', 'garantias', 'ordens-servico', 'pecas',
   ].sort())
 })
 

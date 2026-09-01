@@ -1,12 +1,17 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa } from '@/lib/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa, cuponsRevisao } from '@/lib/db/schema'
+import { and, eq, inArray, notInArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
+import { validarDocumento, isTipoPessoa } from '@/lib/documento'
+import { hojeBrt } from '@/lib/data-venda'
+import {
+  TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom, motivoCupomInvalido,
+} from '@/lib/cupom-revisao'
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
@@ -74,6 +79,10 @@ type AbrirOSInput = {
   km?: number | null
   clienteNomeExterno?: string | null
   clienteFoneExterno?: string | null
+  /** 'fisica' (padrão) ou 'juridica' — OS aberta para empresa. */
+  clienteTipoPessoaExterno?: string | null
+  /** CPF/CNPJ do cliente que não está no cadastro. Obrigatório quando é empresa. */
+  clienteDocumentoExterno?: string | null
 }
 
 export async function abrirOSAction(input: AbrirOSInput) {
@@ -86,6 +95,18 @@ export async function abrirOSAction(input: AbrirOSInput) {
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
   const lojaId  = isAdmin ? (input.lojaId || usuario.lojaId) : usuario.lojaId
   if (!lojaId) throw new Error('Loja não identificada')
+
+  // OS para empresa: sem CNPJ e razão social a impressão não identifica o tomador,
+  // e é ela que a empresa leva pra lançar o serviço. Só vale para cliente fora do
+  // cadastro — quem tem `clienteId` já carrega tipo e documento em `clientes`.
+  const tipoPessoa = input.clienteTipoPessoaExterno && isTipoPessoa(input.clienteTipoPessoaExterno)
+    ? input.clienteTipoPessoaExterno
+    : 'fisica'
+  const doc = validarDocumento(tipoPessoa, input.clienteDocumentoExterno)
+  if (!doc.ok) throw new Error(doc.erro)
+  if (!input.clienteId && tipoPessoa === 'juridica' && !input.clienteNomeExterno?.trim()) {
+    throw new Error('Informe a razão social da empresa')
+  }
 
   await db.insert(ordensServico).values({
     lojaId,
@@ -101,6 +122,8 @@ export async function abrirOSAction(input: AbrirOSInput) {
     km:                 input.km     || null,
     clienteNomeExterno: input.clienteNomeExterno || null,
     clienteFoneExterno: input.clienteFoneExterno || null,
+    clienteTipoPessoaExterno: input.clienteId ? null : tipoPessoa,
+    clienteDocumentoExterno:  input.clienteId ? null : doc.documento,
   })
 
   revalidatePath('/ordens-servico')
@@ -246,6 +269,30 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
         })
       }
     }
+
+    // Cupom de revisão: re-sincroniza como o caixa acima. Primeiro SOLTA os cupons
+    // presos a esta OS que sumiram do pagamento — trocar o cupom por dinheiro numa
+    // reedição deixaria o cupom queimado sem nada em troca —, depois prende os que
+    // ficaram. Fora da transação isso abriria janela pra dois caixas gastarem o
+    // mesmo código.
+    const linhasCupom = pagamentos.filter(p => p.tipo === TIPO_PAGAMENTO_CUPOM && p.cupom)
+    const codigosCupom = linhasCupom.map(p => normalizarCodigoCupom(p.cupom))
+
+    await tx.update(cuponsRevisao)
+      .set({ status: 'ativo', osId: null, usadoEm: null, valorAbatido: null })
+      .where(and(
+        eq(cuponsRevisao.osId, osId),
+        codigosCupom.length > 0 ? notInArray(cuponsRevisao.codigo, codigosCupom) : undefined,
+      ))
+
+    for (const linha of linhasCupom) {
+      await tx.update(cuponsRevisao).set({
+        status: 'usado',
+        osId,
+        usadoEm: new Date(),
+        valorAbatido: Number(linha.valor).toFixed(2),
+      }).where(eq(cuponsRevisao.codigo, normalizarCodigoCupom(linha.cupom)))
+    }
   })
 
   revalidatePath('/ordens-servico')
@@ -255,6 +302,8 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
 
 export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
+
+  await validarCupomDoPagamento(usuario, osId, dados.pagamentos)
 
   const somatorio = dados.pagamentos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
   if (dados.valorTotal >= 0.01 && Math.abs(somatorio - dados.valorTotal) > 0.01) {
@@ -293,6 +342,52 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
 
   await aplicarPagamentoOS(osId, dados)
   return { aguardandoAprovacao: false }
+}
+
+/**
+ * Trava do cupom de revisão. A tela já consulta o código antes de salvar, mas ela é
+ * conveniência: quem impede o resgate indevido é aqui.
+ *
+ * O cupom cobre EXATAMENTE a mão de obra da OS (decisão do Cesar em 01/09/2026) —
+ * peça e óleo o cliente paga. Deixar o operador digitar outro valor transformaria o
+ * cupom num desconto livre sem rastro de quem autorizou.
+ */
+async function validarCupomDoPagamento(
+  usuario: { id: string; papel: string; lojaId: string | null },
+  osId: string,
+  pagamentos: PgtoOS[],
+) {
+  const linhas = pagamentos.filter(p => p.tipo === TIPO_PAGAMENTO_CUPOM)
+  if (linhas.length === 0) return
+  if (linhas.length > 1) throw new Error('Só um cupom de revisão por OS')
+
+  const codigo = normalizarCodigoCupom(linhas[0].cupom)
+  if (!codigo) throw new Error('Informe o código do cupom de revisão')
+
+  const [os] = await db
+    .select({ valorServicos: ordensServico.valorServicos })
+    .from(ordensServico)
+    .where(eq(ordensServico.id, osId))
+    .limit(1)
+  if (!os) throw new Error('OS não encontrada')
+  const valorServicos = parseFloat(os.valorServicos ?? '0')
+
+  // Escopo de grupo: cupom emitido em Pouso Alegre vale na revisão feita em Varginha.
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const [cupom] = await db
+    .select({ status: cuponsRevisao.status, validoAte: cuponsRevisao.validoAte, osId: cuponsRevisao.osId })
+    .from(cuponsRevisao)
+    .where(and(eq(cuponsRevisao.codigo, codigo), inArray(cuponsRevisao.lojaId, lojaIdsGrupo)))
+    .limit(1)
+
+  const motivo = motivoCupomInvalido(cupom ?? null, { hoje: hojeBrt(), osId, valorServicos })
+  if (motivo) throw new Error(motivo)
+
+  if (Math.abs(Number(linhas[0].valor) - valorServicos) > 0.01) {
+    throw new Error(
+      `O cupom cobre exatamente a mão de obra da OS (${valorServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`,
+    )
+  }
 }
 
 // Mexer no valor da OS depois que o pagamento já foi conferido no extrato faria o

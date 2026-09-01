@@ -1,6 +1,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
+import { formatarCpfCnpj } from '@/lib/documento'
 import { ConcBadge } from '@/components/conciliacao-badge'
+import { Printer } from 'lucide-react'
 import { ConciliacaoPecaDialog } from './conciliacao-peca-dialog'
 import { ExcluirVendaPecaButton } from './excluir-venda-peca-button'
 import { podeGerirPecas } from '../papeis'
@@ -11,6 +13,8 @@ type VendaPeca = {
   lojaNome: string
   vendedorNome: string
   clienteNome: string | null
+  clienteDocumento: string | null
+  clienteTipoPessoa: string
   formaPagamento: string
   pagamentos: unknown
   valorTotal: string
@@ -38,6 +42,9 @@ function fmtData(d: Date) {
 export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel: string }) {
   // Apagar venda é o mesmo nível de quem define preço no catálogo — vendedor não mexe.
   const podeExcluir = podeGerirPecas(papel)
+  // A última coluna existe sempre — o recibo é para todo mundo que vende; só a
+  // lixeira dentro dela é que some para o vendedor.
+  const colunas = 10
 
   return (
     <div className="bg-white rounded-lg border">
@@ -53,19 +60,28 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
             <TableHead>Conciliação</TableHead>
             <TableHead className="text-right">Valor</TableHead>
             <TableHead className="text-right">Data</TableHead>
-            {podeExcluir && <TableHead className="w-10" />}
+            <TableHead className="w-16" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {vendas.map(v => {
             const statusConc = calcStatusMultiPagamento(v.pagamentos, v.conciliadoValor, v.pixConciliadoValor, v.valorTotal)
+            const bonificada = parseFloat(v.valorTotal) < 0.01
             return (
               <TableRow key={v.id}>
                 <TableCell className="font-mono text-xs">#{v.numero}</TableCell>
                 <TableCell className="text-sm text-slate-600 max-w-[240px] truncate" title={v.itens ?? ''}>{v.itens ?? '—'}</TableCell>
                 <TableCell>{v.lojaNome}</TableCell>
                 <TableCell>{v.vendedorNome}</TableCell>
-                <TableCell>{v.clienteNome ?? '—'}</TableCell>
+                <TableCell>
+                  {v.clienteNome ?? '—'}
+                  {v.clienteDocumento && (
+                    <p className="text-xs text-slate-400 font-mono">
+                      {v.clienteTipoPessoa === 'juridica' ? 'CNPJ ' : 'CPF '}
+                      {formatarCpfCnpj(v.clienteDocumento)}
+                    </p>
+                  )}
+                </TableCell>
                 <TableCell>{TIPO_LABEL[v.formaPagamento] ?? v.formaPagamento}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
@@ -79,20 +95,33 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
                     />
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-medium text-green-700">{fmtBRL(v.valorTotal)}</TableCell>
+                <TableCell className={`text-right font-medium ${bonificada ? 'text-amber-600' : 'text-green-700'}`}>
+                  {fmtBRL(v.valorTotal)}
+                </TableCell>
                 <TableCell className="text-right text-slate-500">{fmtData(v.dataVenda)}</TableCell>
-                {podeExcluir && (
-                  <TableCell className="text-right">
-                    <ExcluirVendaPecaButton vendaId={v.id} numero={v.numero} />
-                  </TableCell>
-                )}
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {/* Link, não botão: a página do recibo já dispara window.print()
+                        sozinha, e Server Component não aceita onClick. */}
+                    <a
+                      href={`/pecas/${v.id}/imprimir`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Imprimir recibo"
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <Printer size={15} />
+                    </a>
+                    {podeExcluir && <ExcluirVendaPecaButton vendaId={v.id} numero={v.numero} />}
+                  </div>
+                </TableCell>
               </TableRow>
             )
           })}
           {vendas.length === 0 && (
             <TableRow>
-              <TableCell colSpan={podeExcluir ? 10 : 9} className="text-center text-slate-400 py-8">
-                Nenhuma venda de peça registrada ainda.
+              <TableCell colSpan={colunas} className="text-center text-slate-400 py-8">
+                Nenhuma venda de peça neste recorte.
               </TableCell>
             </TableRow>
           )}

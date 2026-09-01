@@ -23,6 +23,9 @@ type ClienteInfo = { id: string; nome: string; cpfCnpj: string | null; celular: 
 const FORM_VAZIO = {
   lojaId: '', mecanicoId: '', descricao: '', dataPrevisao: '',
   km: '', clienteNomeExterno: '', clienteFoneExterno: '',
+  // Só valem quando o cliente NÃO está no cadastro: quem tem ficha já carrega
+  // tipo de pessoa e documento em `clientes`.
+  clienteTipoPessoaExterno: 'fisica', clienteDocumentoExterno: '',
 }
 
 export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props) {
@@ -41,12 +44,19 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
     setForm({ ...FORM_VAZIO, lojaId: lojaIdUsuario ?? '' })
   }
 
+  const ehEmpresa = !cliente && form.clienteTipoPessoaExterno === 'juridica'
+  const digitosDoc = form.clienteDocumentoExterno.replace(/D/g, '')
+
   function salvar() {
     if (!veiculo?.chassi.trim()) {
       toast.error('Informe o chassi do veículo'); return
     }
     if (!form.descricao.trim()) {
       toast.error('Informe a descrição / reclamação'); return
+    }
+    // Espelha a trava do servidor pra dar o erro antes de fechar a OS torta.
+    if (ehEmpresa && (digitosDoc.length !== 14 || !form.clienteNomeExterno.trim())) {
+      toast.error('OS para empresa exige razão social e CNPJ com 14 dígitos'); return
     }
 
     start(async () => {
@@ -64,6 +74,8 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           km:                 form.km ? parseInt(form.km) : null,
           clienteNomeExterno: !cliente ? (form.clienteNomeExterno || null) : null,
           clienteFoneExterno: !cliente ? (form.clienteFoneExterno || null) : null,
+          clienteTipoPessoaExterno: !cliente ? form.clienteTipoPessoaExterno : null,
+          clienteDocumentoExterno:  !cliente ? (digitosDoc || null) : null,
         })
         toast.success('OS aberta com sucesso')
         setOpen(false)
@@ -117,8 +129,28 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
             {!cliente && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Nome do cliente</Label>
-                  <Input value={form.clienteNomeExterno} onChange={e => set('clienteNomeExterno', e.target.value)} placeholder="Nome completo" />
+                  <Label>Tipo de cliente</Label>
+                  <select
+                    value={form.clienteTipoPessoaExterno}
+                    onChange={e => set('clienteTipoPessoaExterno', e.target.value)}
+                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="fisica">Pessoa física</option>
+                    <option value="juridica">Empresa (CNPJ)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{ehEmpresa ? 'CNPJ' : 'CPF (opcional)'}</Label>
+                  <Input
+                    value={form.clienteDocumentoExterno}
+                    onChange={e => set('clienteDocumentoExterno', e.target.value)}
+                    placeholder={ehEmpresa ? '00.000.000/0000-00' : '000.000.000-00'}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{ehEmpresa ? 'Razão social' : 'Nome do cliente'}</Label>
+                  <Input value={form.clienteNomeExterno} onChange={e => set('clienteNomeExterno', e.target.value)} placeholder={ehEmpresa ? 'Razão social da empresa' : 'Nome completo'} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Telefone</Label>

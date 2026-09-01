@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Printer } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -173,6 +174,20 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
 
         {podeEncerrar && (
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Encerrar Garantia</Button>
+        )}
+
+        {/* Só depois de encerrada: o comprovante afirma que o atendimento acabou.
+            Link e não Button porque a página de impressão dispara window.print()
+            sozinha ao abrir. */}
+        {g.status === 'encerrada' && (
+          <a
+            href={`/garantias/${g.id}/comprovante`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-400 rounded-md px-3 py-1.5 transition-colors"
+          >
+            <Printer size={13} /> Comprovante de encerramento
+          </a>
         )}
       </CardContent>
 

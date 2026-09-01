@@ -4,7 +4,7 @@ import {
   ClipboardList, CreditCard, Database, FileBarChart, FileSpreadsheet, FileText,
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
-  ShoppingBag, ShoppingCart, Tag, Tags, Target, TrendingDown, Users, Wallet,
+  ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet,
   Wrench, ListChecks, Calculator,
 } from 'lucide-react'
 
@@ -70,6 +70,7 @@ export const ITENS: ItemNav[] = [
   { id: 'ordens-servico', href: '/ordens-servico', label: 'Ordens de Serviço', icon: Wrench,        categoria: 'oficina',      papeis: TODOS,     destaque: true },
   { id: 'agenda',         href: '/agenda',         label: 'Agenda Oficina',    icon: CalendarDays,  categoria: 'oficina',      papeis: TODOS },
   { id: 'garantias',      href: '/garantias',      label: 'Garantias',         icon: Shield,        categoria: 'oficina',      papeis: TODOS },
+  { id: 'cupons',         href: '/cupons',         label: 'Cupons de Revisão', icon: Ticket,        categoria: 'oficina',      papeis: TODOS },
   { id: 'servicos',       href: '/servicos',       label: 'Serviços',          icon: ListChecks,    categoria: 'oficina',      papeis: GESTORES },
   { id: 'montagens',      href: '/montagens',      label: 'Montagens',         icon: Wrench,        categoria: 'oficina',      papeis: GESTORES },
   { id: 'pecas',          href: '/pecas',          label: 'Peças',             icon: Package2,      categoria: 'oficina',      papeis: TODOS },

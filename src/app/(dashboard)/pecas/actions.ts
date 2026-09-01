@@ -2,7 +2,9 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
-import { eq, asc, desc, inArray, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
+import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
+import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
@@ -106,6 +108,10 @@ export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?:
 export type DadosVendaPeca = {
   lojaId: string
   clienteNome?: string
+  /** 'fisica' (padrão) ou 'juridica'. Jurídica é o que faz o recibo sair no CNPJ. */
+  clienteTipoPessoa?: string
+  /** CPF/CNPJ só com dígitos. Obrigatório quando `clienteTipoPessoa` é 'juridica'. */
+  clienteDocumento?: string | null
   itens: ItemVendaPecaInput[]
   pagamentos: PagamentoVendaPecaInput[]
 }
@@ -163,6 +169,9 @@ export async function aplicarVendaPeca(
     lojaId: input.lojaId,
     vendedorId,
     clienteNome: input.clienteNome?.trim() || null,
+    // Já chega validado por registrarVendaPecaAction — aqui é só gravação.
+    clienteTipoPessoa: input.clienteTipoPessoa === 'juridica' ? 'juridica' : 'fisica',
+    clienteDocumento: input.clienteDocumento || null,
     formaPagamento,
     pagamentos: input.pagamentos,
     valorTotal: valorTotal.toFixed(2),
@@ -203,6 +212,17 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
 
+  // Venda para empresa: sem CNPJ o recibo não identifica o tomador, e é justamente
+  // o recibo que a empresa leva pra lançar a compra.
+  const tipoPessoa = input.clienteTipoPessoa && isTipoPessoa(input.clienteTipoPessoa)
+    ? input.clienteTipoPessoa
+    : 'fisica'
+  const doc = validarDocumento(tipoPessoa, input.clienteDocumento)
+  if (!doc.ok) throw new Error(doc.erro)
+  if (tipoPessoa === 'juridica' && !input.clienteNome?.trim()) {
+    throw new Error('Informe a razão social da empresa')
+  }
+
   const pagamentos = zerarBonificacoes(input.pagamentos)
   const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
   if (valorTotal < 0) throw new Error('Valor total inválido')
@@ -214,9 +234,10 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   // faz a venda que vai pra aprovação já ficar gravada com o preço certo — senão o
   // ajuste sumiria só quando alguém aprovasse, dias depois.
   const podeDefinirPreco = podeGerirPecas(usuario.papel)
+  const comCliente = { ...input, pagamentos, clienteTipoPessoa: tipoPessoa, clienteDocumento: doc.documento }
   const saneado: DadosVendaPeca = podeDefinirPreco
-    ? { ...input, pagamentos }
-    : { ...input, pagamentos, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
+    ? comCliente
+    : { ...comCliente, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
 
   if (temPagamentoSensivelPeca(saneado.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, saneado.lojaId))) {
     await db.insert(aprovacoesVenda).values({
@@ -240,12 +261,68 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
 export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
 
-export async function listarVendasPecasAction() {
+export type FiltrosVendasPecas = {
+  /** 'YYYY-MM-DD'. A página manda o mês corrente quando ninguém escolheu nada. */
+  de?: string
+  ate?: string
+  lojaId?: string
+  vendedorId?: string
+  /** Tipo de pagamento ('pix', 'bonificacao', …). Casa também dentro de venda múltipla. */
+  forma?: string
+  /** Cliente, documento, número da venda ou descrição de um item. */
+  q?: string
+}
+
+/**
+ * Vendas de peça do recorte pedido.
+ *
+ * O teto de 500 linhas não é paginação: a tela sempre chega com um período (o mês
+ * corrente, por padrão), e os cards da página são somados EM CIMA DESTA LISTA. Se a
+ * lista fosse cortada, o card mostraria um total menor que o real sem avisar — por
+ * isso o período é obrigatório na prática, e não um "todos os tempos" com limit.
+ */
+export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) {
   const usuario = await verificarAcessoVenda()
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const lojaFiltro = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
-  if (lojaFiltro.length === 0) return []
+  const lojaPermitida = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
+  if (lojaPermitida.length === 0) return []
+
+  // O filtro de loja só ESTREITA o que a pessoa já podia ver: id de fora do escopo
+  // é ignorado, nunca amplia.
+  const lojaFiltro = filtros.lojaId && lojaPermitida.includes(filtros.lojaId)
+    ? [filtros.lojaId]
+    : lojaPermitida
+
+  const busca = filtros.q?.trim()
+  const buscaLike = busca ? `%${busca}%` : null
+  const numeroBusca = busca && /^d+$/.test(busca) ? Number(busca) : null
+
+  const condicoes = [
+    inArray(vendasPecas.lojaId, lojaFiltro),
+    filtros.de  ? gte(vendasPecas.dataVenda, inicioDoDiaBrt(filtros.de))  : undefined,
+    filtros.ate ? lte(vendasPecas.dataVenda, fimDoDiaBrt(filtros.ate))    : undefined,
+    filtros.vendedorId ? eq(vendasPecas.vendedorId, filtros.vendedorId)   : undefined,
+    // `formaPagamento` guarda 'multiplo' quando a venda tem mais de uma forma; nesses
+    // casos o tipo só existe dentro do array `pagamentos`, daí o EXISTS.
+    filtros.forma
+      ? sql`(${vendasPecas.formaPagamento} = ${filtros.forma} OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements(COALESCE(${vendasPecas.pagamentos}, '[]'::jsonb)) pg
+          WHERE pg->>'tipo' = ${filtros.forma}
+        ))`
+      : undefined,
+    buscaLike
+      ? sql`(
+          ${vendasPecas.clienteNome} ILIKE ${buscaLike}
+          OR ${vendasPecas.clienteDocumento} ILIKE ${buscaLike}
+          ${numeroBusca !== null ? sql`OR ${vendasPecas.numero} = ${numeroBusca}` : sql``}
+          OR EXISTS (
+            SELECT 1 FROM vendas_pecas_itens i
+            WHERE i.venda_peca_id = ${sql.raw('"vendas_pecas"."id"')} AND i.descricao ILIKE ${buscaLike}
+          )
+        )`
+      : undefined,
+  ]
 
   return db
     .select({
@@ -254,6 +331,9 @@ export async function listarVendasPecasAction() {
       lojaNome: lojas.nome,
       vendedorNome: usuarios.nome,
       clienteNome: vendasPecas.clienteNome,
+      clienteDocumento: vendasPecas.clienteDocumento,
+      clienteTipoPessoa: vendasPecas.clienteTipoPessoa,
+      vendedorId: vendasPecas.vendedorId,
       formaPagamento: vendasPecas.formaPagamento,
       pagamentos: vendasPecas.pagamentos,
       valorTotal: vendasPecas.valorTotal,
@@ -278,9 +358,9 @@ export async function listarVendasPecasAction() {
     .from(vendasPecas)
     .innerJoin(lojas, eq(vendasPecas.lojaId, lojas.id))
     .innerJoin(usuarios, eq(vendasPecas.vendedorId, usuarios.id))
-    .where(inArray(vendasPecas.lojaId, lojaFiltro))
+    .where(and(...condicoes))
     .orderBy(desc(vendasPecas.dataVenda))
-    .limit(100)
+    .limit(500)
 }
 
 // Excluir venda de peças: lançamento errado no balcão não tem como ser editado, então

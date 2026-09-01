@@ -225,6 +225,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         <OSPagamentoPanel
           osId={id}
           valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
+          valorServicos={totalServicos}
           pagamentosIniciais={pagamentosOS}
           jaPago={os.status === 'concluida'}
           aprovacaoPendente={aprovacaoPendente}

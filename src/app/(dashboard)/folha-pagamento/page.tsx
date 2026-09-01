@@ -10,6 +10,7 @@ import { PremiacaoFaixasTable } from './components/premiacao-faixas-table'
 import { MesSelectorFolha } from './components/mes-selector-folha'
 import { LojaSelectorFolha } from './components/loja-selector-folha'
 import { AjustesBaseTable } from './components/ajustes-base-table'
+import { AdiantamentosTable } from './components/adiantamentos-table'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
@@ -104,6 +105,7 @@ export default async function FolhaPagamentoPage({
           <TabsTrigger value="mes">Folha do Mês</TabsTrigger>
           <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
           <TabsTrigger value="premiacao">Premiação (OTE)</TabsTrigger>
+          <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
           <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
         </TabsList>
 
@@ -122,7 +124,7 @@ export default async function FolhaPagamentoPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Salários</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
@@ -140,6 +142,10 @@ export default async function FolhaPagamentoPage({
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.ajudaCusto)}</p></CardContent>
             </Card>
             <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Adiantamentos</CardTitle></CardHeader>
+              <CardContent><p className="text-xl font-bold text-amber-700">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : fmt(0)}</p></CardContent>
+            </Card>
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Geral</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(folha.totais.geral)}</p></CardContent>
             </Card>
@@ -155,6 +161,7 @@ export default async function FolhaPagamentoPage({
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Comissão</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Adiantamento</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Total a Pagar</th>
                 </tr>
               </thead>
@@ -170,11 +177,12 @@ export default async function FolhaPagamentoPage({
                     <td className="px-4 py-2 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
                     <td className="px-4 py-2 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
                     <td className="px-4 py-2 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
-                    <td className="px-4 py-2 text-right font-semibold">{fmt(f.totalPagar)}</td>
+                    <td className="px-4 py-2 text-right text-amber-700">{f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}</td>
+                    <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-red-600' : ''}`}>{fmt(f.totalPagar)}</td>
                   </tr>
                 ))}
                 {folha.ativos.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
+                  <tr><td colSpan={8} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
                 )}
               </tbody>
             </table>
@@ -190,6 +198,20 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="premiacao" className="mt-4">
           <PremiacaoFaixasTable faixas={faixasParaUI} />
+        </TabsContent>
+
+        <TabsContent value="adiantamentos" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500 capitalize">
+              {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </p>
+            <MesSelectorFolha mesAtual={mesParam} />
+          </div>
+          <AdiantamentosTable
+            adiantamentos={dados.adiantamentos}
+            funcionarios={funcionariosParaAjuste}
+            mes={mesParam}
+          />
         </TabsContent>
 
         <TabsContent value="ajustes" className="mt-4 space-y-4">

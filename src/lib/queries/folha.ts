@@ -12,7 +12,7 @@
 import { db } from '@/lib/db'
 import {
   usuarios, lojas, funcionariosConfig, premiacaoFaixas,
-  vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase,
+  vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase, folhaAdiantamentos,
 } from '@/lib/db/schema'
 import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -32,6 +32,8 @@ export type DadosFolha = {
   pecasPorLoja: { lojaId: string; total: string }[]
   osPecasPorLoja: { lojaId: string; total: string }[]
   ajustes: { id: string; lojaId: string; lojaNome: string; tipo: string; usuarioId: string | null; usuarioNome: string | null; valor: string; observacao: string | null }[]
+  /** Adiantamento salarial do mês. Desconta do total a pagar — não entra em caixa nem despesa. */
+  adiantamentos: { id: string; lojaId: string; lojaNome: string; usuarioId: string; usuarioNome: string | null; valor: string; data: string | null; observacao: string | null }[]
   lojas: { id: string; nome: string }[]
   /** Todos os funcionários do GRUPO, ignorando o filtro de loja. Só a aba Ajustes usa. */
   funcionariosGrupo: { id: string; nome: string; lojaId: string | null }[]
@@ -49,13 +51,16 @@ export type FuncionarioFolha = {
   baseComissao: number
   comissao: number
   premiacao: number
+  /** Já adiantado no mês. Sai do totalPagar; não é clamped em zero de propósito —
+   *  adiantamento maior que a folha é erro de lançamento e tem que aparecer. */
+  adiantamento: number
   totalPagar: number
 }
 
 export type FolhaDoMes = {
   todos: FuncionarioFolha[]
   ativos: FuncionarioFolha[]
-  totais: { salarios: number; comissoes: number; premiacoes: number; ajudaCusto: number; geral: number }
+  totais: { salarios: number; comissoes: number; premiacoes: number; ajudaCusto: number; adiantamentos: number; geral: number }
 }
 
 // Valor líquido por venda: parte não paga em cartão fica como está; a parte paga em cartão e já
@@ -106,7 +111,7 @@ export async function buscarDadosFolha({
 
   const [
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
-    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, lojasDoGrupo, funcionariosGrupo,
+    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, adiantamentos, lojasDoGrupo, funcionariosGrupo,
   ] = await Promise.all([
     db
       .select({
@@ -257,6 +262,28 @@ export async function buscarDadosFolha({
         eq(folhaAjustesBase.mes, mes),
       )),
 
+    // Escopo de GRUPO pelo mesmo motivo dos ajustes: a aba de adiantamentos não
+    // encolhe com o filtro de loja. O desconto em si é por pessoa, e as pessoas já
+    // estão filtradas — adiantamento de outra loja nunca é lido no cálculo.
+    db
+      .select({
+        id: folhaAdiantamentos.id,
+        lojaId: folhaAdiantamentos.lojaId,
+        lojaNome: lojas.nome,
+        usuarioId: folhaAdiantamentos.usuarioId,
+        usuarioNome: usuarios.nome,
+        valor: folhaAdiantamentos.valor,
+        data: folhaAdiantamentos.data,
+        observacao: folhaAdiantamentos.observacao,
+      })
+      .from(folhaAdiantamentos)
+      .innerJoin(lojas, eq(folhaAdiantamentos.lojaId, lojas.id))
+      .leftJoin(usuarios, eq(folhaAdiantamentos.usuarioId, usuarios.id))
+      .where(and(
+        inArray(folhaAdiantamentos.lojaId, lojaIdsGrupo),
+        eq(folhaAdiantamentos.mes, mes),
+      )),
+
     // Idem: o seletor precisa de todas as lojas do grupo, senão filtrar uma
     // loja tira as outras da lista e prende o usuário nela.
     db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIdsGrupo)).orderBy(lojas.nome),
@@ -271,7 +298,7 @@ export async function buscarDadosFolha({
 
   return {
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
-    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, lojas: lojasDoGrupo, funcionariosGrupo,
+    motosPorLoja, pecasPorLoja, osPecasPorLoja, ajustes, adiantamentos, lojas: lojasDoGrupo, funcionariosGrupo,
   }
 }
 
@@ -315,6 +342,12 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     }
   }
 
+  // Vários adiantamentos no mesmo mês somam para a mesma pessoa.
+  const adiantadoPorId = new Map<string, number>()
+  for (const a of dados.adiantamentos) {
+    adiantadoPorId.set(a.usuarioId, (adiantadoPorId.get(a.usuarioId) ?? 0) + parseFloat(a.valor))
+  }
+
   const todos = dados.funcionarios.map(f => {
     const config = configPorUsuario.get(f.id)
     const salario = config ? parseFloat(config.salario) : 0
@@ -335,7 +368,8 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     // OTE sempre sobre as motos que a própria pessoa vendeu, nunca sobre a base de
     // comissão — senão quem tem base de loja tiraria prêmio sobre o faturamento inteiro.
     const premiacao = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, dados.faixas) : 0
-    const totalPagar = salario + comissao + premiacao + ajudaCusto
+    const adiantamento = adiantadoPorId.get(f.id) ?? 0
+    const totalPagar = salario + comissao + premiacao + ajudaCusto - adiantamento
 
     return {
       id: f.id,
@@ -349,6 +383,7 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       baseComissao,
       comissao,
       premiacao,
+      adiantamento,
       totalPagar,
     }
   })
@@ -358,6 +393,7 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
   const comissoes = ativos.reduce((s, f) => s + f.comissao, 0)
   const premiacoes = ativos.reduce((s, f) => s + f.premiacao, 0)
   const ajudaCusto = ativos.reduce((s, f) => s + f.ajudaCusto, 0)
+  const adiantamentos = ativos.reduce((s, f) => s + f.adiantamento, 0)
 
   return {
     todos,
@@ -367,7 +403,8 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       comissoes,
       premiacoes,
       ajudaCusto,
-      geral: salarios + comissoes + premiacoes + ajudaCusto,
+      adiantamentos,
+      geral: salarios + comissoes + premiacoes + ajudaCusto - adiantamentos,
     },
   }
 }

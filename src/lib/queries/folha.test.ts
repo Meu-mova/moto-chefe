@@ -5,8 +5,13 @@ import { agregarFolha, type DadosFolha } from './folha'
 const VAZIO: DadosFolha = {
   funcionarios: [], configs: [], faixas: [],
   vendasPorVendedor: [], pecasPorVendedor: [], osPorMecanico: [], osPecasPorAbertaPor: [],
-  motosPorLoja: [], pecasPorLoja: [], osPecasPorLoja: [], ajustes: [], lojas: [], funcionariosGrupo: [],
+  motosPorLoja: [], pecasPorLoja: [], osPecasPorLoja: [], ajustes: [], adiantamentos: [], lojas: [], funcionariosGrupo: [],
 }
+
+const adiantamento = (over: Partial<DadosFolha['adiantamentos'][0]> = {}) => ({
+  id: 'ad1', lojaId: 'L1', lojaNome: 'Pouso Alegre', usuarioId: 'u1', usuarioNome: 'Fulano',
+  valor: '800', data: null, observacao: null, ...over,
+})
 
 const func = (over: Partial<DadosFolha['funcionarios'][0]> = {}) => ({
   id: 'u1', nome: 'Fulano', papel: 'vendedor', papeisExtras: [], lojaId: 'L1', lojaNome: 'Pouso Alegre', ...over,
@@ -98,4 +103,65 @@ test('totais são a soma dos ativos', () => {
   assert.equal(r.totais.salarios, 3500)
   assert.equal(r.totais.ajudaCusto, 300)
   assert.equal(r.totais.geral, 3800)
+})
+
+// ── Adiantamento salarial ────────────────────────────────────────────────────
+
+test('adiantamento desconta do total a pagar', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ comissaoPercentual: '0' })],
+    adiantamentos: [adiantamento({ valor: '800' })],
+  })
+  assert.equal(r.ativos[0].adiantamento, 800)
+  assert.equal(r.ativos[0].totalPagar, 1200)   // salário 2000 - 800
+  assert.equal(r.totais.adiantamentos, 800)
+  assert.equal(r.totais.geral, 1200)
+})
+
+test('dois adiantamentos no mesmo mês somam para a mesma pessoa', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ comissaoPercentual: '0' })],
+    adiantamentos: [
+      adiantamento({ id: 'ad1', valor: '300' }),
+      adiantamento({ id: 'ad2', valor: '500' }),
+    ],
+  })
+  assert.equal(r.ativos[0].adiantamento, 800)
+  assert.equal(r.ativos[0].totalPagar, 1200)
+})
+
+test('adiantamento de outra pessoa não desconta de quem não pegou', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func(), func({ id: 'u2', nome: 'Colega' })],
+    configs: [config(), config({ usuarioId: 'u2' })],
+    adiantamentos: [adiantamento({ usuarioId: 'u2', valor: '900' })],
+  })
+  assert.equal(r.ativos[0].adiantamento, 0)
+  assert.equal(r.ativos[1].adiantamento, 900)
+})
+
+test('adiantamento maior que a folha deixa o total negativo, sem esconder', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ salario: '500', comissaoPercentual: '0' })],
+    adiantamentos: [adiantamento({ valor: '800' })],
+  })
+  assert.equal(r.ativos[0].totalPagar, -300)
+})
+
+test('adiantamento de funcionário inativo não entra no total geral', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ ativo: false })],
+    adiantamentos: [adiantamento({ valor: '800' })],
+  })
+  assert.equal(r.totais.adiantamentos, 0)
+  assert.equal(r.totais.geral, 0)
 })

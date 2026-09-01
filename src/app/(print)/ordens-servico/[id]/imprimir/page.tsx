@@ -5,6 +5,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
+import { formatarCpfCnpj } from '@/lib/documento'
 
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -35,6 +36,10 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
   const motoDesc     = os.chassi ? `${os.marca ?? ''} ${os.modelo ?? ''}` : `${os.marcaExterna ?? ''} ${os.modeloExterno ?? ''}`
   const clienteDesc  = os.clienteNome ?? os.clienteNomeExterno ?? 'Não informado'
   const clienteFone  = os.clienteTelefone ?? os.clienteFoneExterno ?? null
+  // Cliente do cadastro tem tipo e documento na ficha; quem foi digitado direto na
+  // OS traz os campos "externos". OS para empresa sai com CNPJ no papel.
+  const clienteDoc   = os.clienteDoc ?? os.clienteDocExterno ?? null
+  const clienteTipo  = os.clienteTipo ?? os.clienteTipoExterno ?? 'fisica'
   const abertura     = format(new Date(os.dataAbertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm     = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const pagamentosOS = pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal)
@@ -42,6 +47,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
     pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
     cartao_debito: 'Cartão de Débito', transferencia: 'Transferência',
     cortesia: 'Cortesia / Garantia', gratuita: 'Gratuita',
+    cupom_revisao: 'Cupom de revisão gratuita',
   }
 
   return (
@@ -134,7 +140,16 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         </div>
         <div className="card">
           <h2>Cliente</h2>
-          <div className="f"><span className="fl">Nome</span><span className="fv">{clienteDesc}</span></div>
+          <div className="f">
+            <span className="fl">{clienteTipo === 'juridica' ? 'Razão social' : 'Nome'}</span>
+            <span className="fv">{clienteDesc}</span>
+          </div>
+          {clienteDoc && (
+            <div className="f">
+              <span className="fl">{clienteTipo === 'juridica' ? 'CNPJ' : 'CPF'}</span>
+              <span className="fv">{formatarCpfCnpj(clienteDoc)}</span>
+            </div>
+          )}
           {clienteFone && (
             <div className="f"><span className="fl">Telefone</span><span className="fv">{clienteFone}</span></div>
           )}

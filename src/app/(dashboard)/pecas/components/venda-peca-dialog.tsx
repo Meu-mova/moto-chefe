@@ -62,6 +62,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
 
   const [lojaId, setLojaId] = useState(isAdmin ? '' : (lojaUsuarioId ?? ''))
   const [clienteNome, setClienteNome] = useState('')
+  // Venda para empresa: muda o rótulo do nome (razão social) e passa a exigir CNPJ.
+  const [tipoPessoa, setTipoPessoa] = useState('fisica')
+  const [documento, setDocumento] = useState('')
   const [itens, setItens] = useState<ItemLinha[]>([{ id: gerarId(), pecaId: '', quantidade: '1', valor: '' }])
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: gerarId(), tipo: 'pix', valor: '' }])
   // Peça cadastrada aqui dentro precisa aparecer na busca das outras linhas antes do
@@ -117,6 +120,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   function resetForm() {
     setLojaId(isAdmin ? '' : (lojaUsuarioId ?? ''))
     setClienteNome('')
+    setTipoPessoa('fisica')
+    setDocumento('')
     setItens([{ id: gerarId(), pecaId: '', quantidade: '1', valor: '' }])
     setPgtos([{ id: gerarId(), tipo: 'pix', valor: '' }])
     // `pecasNovas` não é limpo de propósito: a peça continua cadastrada no banco e
@@ -127,7 +132,11 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   // Bonificação é a única forma que vale com R$ 0,00 — é justamente o ponto dela.
   const pgtosValidos = pgtos.filter(p => p.tipo && (p.tipo === TIPO_BONIFICACAO || parseBRL(p.valor) > 0))
   const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
-  const podeSalvar = !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0
+  // Espelha validarDocumento do servidor só pra desabilitar o botão — a trava de
+  // verdade está em registrarVendaPecaAction.
+  const digitosDoc = documento.replace(/D/g, '')
+  const clientePJOk = tipoPessoa !== 'juridica' || (digitosDoc.length === 14 && clienteNome.trim().length > 0)
+  const podeSalvar = !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
 
   function handleSalvar() {
     if (!podeSalvar) {
@@ -139,6 +148,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
         const resultado = await registrarVendaPecaAction({
           lojaId,
           clienteNome: clienteNome.trim() || undefined,
+          clienteTipoPessoa: tipoPessoa,
+          clienteDocumento: digitosDoc || null,
           itens: itensValidos.map(i => ({
             pecaId: i.pecaId,
             quantidade: parseFloat(i.quantidade),
@@ -190,8 +201,37 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label>Cliente (opcional)</Label>
-                <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder="Nome do cliente" />
+                <Label>Tipo de cliente</Label>
+                {/* <select> nativo: o Select do base-ui mostra o value cru quando ele
+                    não é o rótulo exibido. */}
+                <select
+                  value={tipoPessoa}
+                  onChange={e => setTipoPessoa(e.target.value)}
+                  className="h-9 w-full border border-slate-200 rounded-md px-2 text-sm bg-white"
+                >
+                  <option value="fisica">Pessoa física</option>
+                  <option value="juridica">Empresa (CNPJ)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{tipoPessoa === 'juridica' ? 'Razão social *' : 'Cliente (opcional)'}</Label>
+                <Input
+                  value={clienteNome}
+                  onChange={e => setClienteNome(e.target.value)}
+                  placeholder={tipoPessoa === 'juridica' ? 'Razão social da empresa' : 'Nome do cliente'}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{tipoPessoa === 'juridica' ? 'CNPJ *' : 'CPF (opcional)'}</Label>
+                <Input
+                  value={documento}
+                  onChange={e => setDocumento(e.target.value)}
+                  placeholder={tipoPessoa === 'juridica' ? '00.000.000/0000-00' : '000.000.000-00'}
+                  className="font-mono"
+                />
+                {tipoPessoa === 'juridica' && !clientePJOk && (
+                  <p className="text-xs text-amber-700">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                )}
               </div>
             </div>
 

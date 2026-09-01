@@ -29,7 +29,7 @@ const TIPO_LABEL: Record<string, string> = {
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
   transferencia: 'Transferência Bancária', cortesia: 'Cortesia / Garantia', gratuita: 'Gratuita',
-  bonificacao: 'Bonificação',
+  bonificacao: 'Bonificação', cupom_revisao: 'Cupom de revisão',
 }
 const OPERADORA_LABEL: Record<string, string> = {
   infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',

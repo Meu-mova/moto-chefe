@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { X, Plus } from 'lucide-react'
 import { registrarPagamentoOSAction } from '../../actions'
+import { buscarCupomPorCodigoAction } from '@/app/(dashboard)/cupons/actions'
 import type { PgtoOS } from '@/lib/conciliacao-status'
+import { TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom } from '@/lib/cupom-revisao'
 import { toast } from 'sonner'
 
 const FORMAS = [
@@ -16,6 +18,7 @@ const FORMAS = [
   { value: 'cartao_debito',   label: 'Cartão de Débito' },
   { value: 'transferencia',   label: 'Transferência' },
   { value: 'cortesia',        label: 'Cortesia / Garantia' },
+  { value: TIPO_PAGAMENTO_CUPOM, label: 'Cupom de revisão gratuita' },
 ]
 const FORMAS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
 const OPERADORAS = [
@@ -27,11 +30,13 @@ const OPERADORAS = [
   { value: 'redecard',    label: 'Redecard' },
 ]
 
-type Linha = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
+type Linha = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string; cupom?: string }
 
 type Props = {
   osId: string
   valorTotal: number
+  /** Mão de obra da OS. É exatamente o que um cupom de revisão cobre. */
+  valorServicos: number
   pagamentosIniciais: PgtoOS[]
   jaPago: boolean
   aprovacaoPendente?: boolean
@@ -46,19 +51,62 @@ function linhasIniciais(pagamentos: PgtoOS[], valorTotal: number): Linha[] {
       operadora: p.operadora,
       parcelas: p.parcelas != null ? String(p.parcelas) : undefined,
       autorizacao: p.autorizacao,
+      cupom: p.cupom,
     }))
   }
   return [{ id: '1', tipo: '', valor: valorTotal > 0 ? valorTotal.toFixed(2) : '' }]
 }
 
-export function OSPagamentoPanel({ osId, valorTotal, pagamentosIniciais, jaPago, aprovacaoPendente }: Props) {
+export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIniciais, jaPago, aprovacaoPendente }: Props) {
   const [pending, start] = useTransition()
   const [linhas, setLinhas] = useState<Linha[]>(() => linhasIniciais(pagamentosIniciais, valorTotal))
+  // Conferência do código digitado, por linha. Só informativa: a trava está em
+  // registrarPagamentoOSAction.
+  const [cupomInfo, setCupomInfo] = useState<Record<string, { ok: boolean; texto: string }>>({})
 
   const addLinha = () => setLinhas(l => [...l, { id: Date.now().toString(), tipo: '', valor: '' }])
   const removeLinha = (id: string) => setLinhas(l => l.filter(x => x.id !== id))
   const updateLinha = (id: string, campo: keyof Linha, val: string) =>
-    setLinhas(l => l.map(x => x.id === id ? { ...x, [campo]: val } : x))
+    setLinhas(l => l.map(x => {
+      if (x.id !== id) return x
+      // Escolher cupom já preenche o valor: ele cobre exatamente a mão de obra, e
+      // o servidor recusa qualquer outro número.
+      if (campo === 'tipo' && val === TIPO_PAGAMENTO_CUPOM) {
+        return { ...x, tipo: val, valor: valorServicos.toFixed(2) }
+      }
+      return { ...x, [campo]: val }
+    }))
+
+  // Digitar de novo apaga o resultado da conferência anterior: manter o "✓" verde
+  // ao lado de um código já alterado é pior que não mostrar nada.
+  function limparCupomInfo(linhaId: string) {
+    setCupomInfo(c => {
+      if (!(linhaId in c)) return c
+      const { [linhaId]: _removido, ...resto } = c
+      return resto
+    })
+  }
+
+  async function conferirCupom(linhaId: string, codigo: string) {
+    const normalizado = normalizarCodigoCupom(codigo)
+    if (!normalizado) { setCupomInfo(c => ({ ...c, [linhaId]: { ok: false, texto: 'Informe o código' } })); return }
+    try {
+      const cupom = await buscarCupomPorCodigoAction(normalizado)
+      if (!cupom) {
+        setCupomInfo(c => ({ ...c, [linhaId]: { ok: false, texto: 'Cupom não encontrado neste grupo' } }))
+        return
+      }
+      const usadoEmOutra = cupom.status === 'usado' && cupom.osId !== osId
+      const dono = cupom.clienteNome ?? cupom.chassi ?? 'sem titular'
+      const texto =
+        cupom.status === 'cancelado' ? 'Cupom cancelado' :
+        usadoEmOutra                 ? 'Cupom já utilizado em outra OS' :
+        `${dono} · válido até ${cupom.validoAte.slice(8, 10)}/${cupom.validoAte.slice(5, 7)}/${cupom.validoAte.slice(0, 4)}`
+      setCupomInfo(c => ({ ...c, [linhaId]: { ok: cupom.status !== 'cancelado' && !usadoEmOutra, texto } }))
+    } catch {
+      setCupomInfo(c => ({ ...c, [linhaId]: { ok: false, texto: 'Não foi possível consultar o cupom' } }))
+    }
+  }
 
   const somatorio = linhas.reduce((a, l) => a + (parseFloat(l.valor) || 0), 0)
   const somatorioOk = Math.abs(somatorio - valorTotal) < 0.01
@@ -74,6 +122,7 @@ export function OSPagamentoPanel({ osId, valorTotal, pagamentosIniciais, jaPago,
           pagamentos: linhas.map(l => ({
             tipo: l.tipo,
             valor: parseFloat(l.valor),
+            ...(l.tipo === TIPO_PAGAMENTO_CUPOM ? { cupom: normalizarCodigoCupom(l.cupom ?? '') } : {}),
             ...(FORMAS_CARTAO.has(l.tipo) && l.operadora   ? { operadora: l.operadora }                     : {}),
             ...(FORMAS_CARTAO.has(l.tipo) && l.parcelas    ? { parcelas: parseInt(l.parcelas, 10) }         : {}),
             ...(FORMAS_CARTAO.has(l.tipo) && l.autorizacao?.trim() ? { autorizacao: l.autorizacao.trim().toUpperCase() } : {}),
@@ -165,6 +214,27 @@ export function OSPagamentoPanel({ osId, valorTotal, pagamentosIniciais, jaPago,
                 onChange={e => updateLinha(l.id, 'autorizacao', e.target.value)}
                 placeholder="Autorização (impresso no comprovante) — opcional"
               />
+            )}
+
+            {l.tipo === TIPO_PAGAMENTO_CUPOM && (
+              <div className="space-y-1">
+                <Input
+                  value={l.cupom ?? ''}
+                  onChange={e => { updateLinha(l.id, 'cupom', e.target.value.toUpperCase()); limparCupomInfo(l.id) }}
+                  onBlur={e => conferirCupom(l.id, e.target.value)}
+                  placeholder="Código do cupom (REV-XXXXXX)"
+                  className="font-mono"
+                />
+                {cupomInfo[l.id] && (
+                  <p className={`text-xs ${cupomInfo[l.id].ok ? 'text-green-700' : 'text-red-600'}`}>
+                    {cupomInfo[l.id].ok ? '✓ ' : '✗ '}{cupomInfo[l.id].texto}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  O cupom cobre a mão de obra ({valorServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).
+                  As peças continuam sendo cobradas.
+                </p>
+              </div>
             )}
           </div>
         ))}

@@ -45,6 +45,8 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     km:                  ordensServico.km,
     clienteNomeExterno:  ordensServico.clienteNomeExterno,
     clienteFoneExterno:  ordensServico.clienteFoneExterno,
+    clienteDocExterno:   ordensServico.clienteDocumentoExterno,
+    clienteTipoExterno:  ordensServico.clienteTipoPessoaExterno,
     dataAbertura:        ordensServico.dataAbertura,
     dataConclusao:       ordensServico.dataConclusao,
     oficinaEm:           ordensServico.oficinaEm,
@@ -70,6 +72,8 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     mecanicoNome:        mecanico.nome,
     clienteNome:         clientes.nome,
     clienteTelefone:     clientes.celular,
+    clienteDoc:          clientes.cpfCnpj,
+    clienteTipo:         clientes.tipoPessoa,
   }
 }
 

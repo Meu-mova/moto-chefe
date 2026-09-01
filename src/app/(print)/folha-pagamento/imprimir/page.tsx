@@ -68,6 +68,7 @@ export default async function FolhaImprimirPage({
             <th className="py-1 text-right">Comissão</th>
             <th className="py-1 text-right">Premiação</th>
             <th className="py-1 text-right">Ajuda de custo</th>
+            <th className="py-1 text-right">Adiantamento</th>
             <th className="py-1 text-right">Total a pagar</th>
           </tr>
         </thead>
@@ -85,12 +86,13 @@ export default async function FolhaImprimirPage({
                 <td className="py-1 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
                 <td className="py-1 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
                 <td className="py-1 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
+                <td className="py-1 text-right">{f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}</td>
                 <td className="py-1 text-right font-semibold">{fmt(f.totalPagar)}</td>
               </tr>
             )
           })}
           {folha.ativos.length === 0 && (
-            <tr><td colSpan={8} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
+            <tr><td colSpan={9} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
           )}
         </tbody>
         <tfoot>
@@ -100,6 +102,7 @@ export default async function FolhaImprimirPage({
             <td className="py-1 text-right">{fmt(folha.totais.comissoes)}</td>
             <td className="py-1 text-right">{fmt(folha.totais.premiacoes)}</td>
             <td className="py-1 text-right">{fmt(folha.totais.ajudaCusto)}</td>
+            <td className="py-1 text-right">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : '—'}</td>
             <td className="py-1 text-right">{fmt(folha.totais.geral)}</td>
           </tr>
         </tfoot>
