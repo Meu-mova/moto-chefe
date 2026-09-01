@@ -16,8 +16,9 @@ const adiantamento = (over: Partial<DadosFolha['adiantamentos'][0]> = {}) => ({
 const func = (over: Partial<DadosFolha['funcionarios'][0]> = {}) => ({
   id: 'u1', nome: 'Fulano', papel: 'vendedor', papeisExtras: [], lojaId: 'L1', lojaNome: 'Pouso Alegre', ...over,
 })
-const config = (over: Partial<DadosFolha['configs'][0]> = {}) => ({
-  usuarioId: 'u1', salario: '2000', comissaoPercentual: '1', ajudaCusto: null, ativo: true, baseComissao: 'padrao', ...over,
+const config = (over: Partial<DadosFolha['configs'][0]> = {}): DadosFolha['configs'][0] => ({
+  usuarioId: 'u1', salario: '2000', comissaoPercentual: '1', ajudaCusto: null,
+  adiantamentoFixo: null, ativo: true, baseComissao: 'padrao', ...over,
 })
 
 test('vendedor comissiona sobre as próprias motos', () => {
@@ -164,4 +165,42 @@ test('adiantamento de funcionário inativo não entra no total geral', () => {
   })
   assert.equal(r.totais.adiantamentos, 0)
   assert.equal(r.totais.geral, 0)
+})
+
+// ── Adiantamento fixo (vale que se repete todo mês) ──────────────────────────
+
+test('adiantamento fixo desconta sem precisar de lançamento no mês', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ comissaoPercentual: '0', adiantamentoFixo: '500' })],
+  })
+  assert.equal(r.ativos[0].adiantamentoFixo, 500)
+  assert.equal(r.ativos[0].adiantamentoEventual, 0)
+  assert.equal(r.ativos[0].totalPagar, 1500)   // salário 2000 - 500
+})
+
+test('fixo e eventual se somam no mesmo mês', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ comissaoPercentual: '0', adiantamentoFixo: '500' })],
+    adiantamentos: [adiantamento({ valor: '300' })],
+  })
+  assert.equal(r.ativos[0].adiantamentoFixo, 500)
+  assert.equal(r.ativos[0].adiantamentoEventual, 300)
+  assert.equal(r.ativos[0].adiantamento, 800)
+  assert.equal(r.ativos[0].totalPagar, 1200)
+  assert.equal(r.totais.adiantamentos, 800)
+})
+
+test('sem vale fixo cadastrado o desconto é só o do mês', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config({ comissaoPercentual: '0' })],
+    adiantamentos: [adiantamento({ valor: '300' })],
+  })
+  assert.equal(r.ativos[0].adiantamentoFixo, 0)
+  assert.equal(r.ativos[0].adiantamento, 300)
 })

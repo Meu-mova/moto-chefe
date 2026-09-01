@@ -86,7 +86,14 @@ export default async function FolhaImprimirPage({
                 <td className="py-1 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
                 <td className="py-1 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
                 <td className="py-1 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
-                <td className="py-1 text-right">{f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}</td>
+                <td className="py-1 text-right">
+                  {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
+                  {f.adiantamentoFixo > 0 && f.adiantamentoEventual > 0 && (
+                    <span className="block text-slate-500">
+                      (fixo {fmt(f.adiantamentoFixo)} + {fmt(f.adiantamentoEventual)})
+                    </span>
+                  )}
+                </td>
                 <td className="py-1 text-right font-semibold">{fmt(f.totalPagar)}</td>
               </tr>
             )

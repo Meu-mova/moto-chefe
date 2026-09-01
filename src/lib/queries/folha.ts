@@ -22,7 +22,7 @@ import { temPapel } from '@/lib/auth'
 
 export type DadosFolha = {
   funcionarios: { id: string; nome: string; papel: string; papeisExtras: string[] | null; lojaId: string | null; lojaNome: string }[]
-  configs: { usuarioId: string; salario: string; comissaoPercentual: string; ajudaCusto: string | null; ativo: boolean; baseComissao: string }[]
+  configs: { usuarioId: string; salario: string; comissaoPercentual: string; ajudaCusto: string | null; adiantamentoFixo: string | null; ativo: boolean; baseComissao: string }[]
   faixas: { id: string; valorMinimoVendas: string; premiacao: string }[]
   vendasPorVendedor: { vendedorId: string; total: string }[]
   pecasPorVendedor: { vendedorId: string; total: string }[]
@@ -51,7 +51,11 @@ export type FuncionarioFolha = {
   baseComissao: number
   comissao: number
   premiacao: number
-  /** Já adiantado no mês. Sai do totalPagar; não é clamped em zero de propósito —
+  /** Vale fixo do cadastro, descontado todo mês. */
+  adiantamentoFixo: number
+  /** Adiantamento avulso lançado neste mês (aba Adiantamentos). */
+  adiantamentoEventual: number
+  /** Fixo + eventual. Sai do totalPagar; não é clamped em zero de propósito —
    *  adiantamento maior que a folha é erro de lançamento e tem que aparecer. */
   adiantamento: number
   totalPagar: number
@@ -353,6 +357,7 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     const salario = config ? parseFloat(config.salario) : 0
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0
     const ajudaCusto = config?.ajudaCusto ? parseFloat(config.ajudaCusto) : 0
+    const adiantamentoFixo = config?.adiantamentoFixo ? parseFloat(config.adiantamentoFixo) : 0
     const ativo = config?.ativo ?? true
 
     const totais: TotaisBase = {
@@ -368,7 +373,10 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     // OTE sempre sobre as motos que a própria pessoa vendeu, nunca sobre a base de
     // comissão — senão quem tem base de loja tiraria prêmio sobre o faturamento inteiro.
     const premiacao = temPapel(f, 'vendedor') ? calcularPremiacao(totais.propriasMotos, dados.faixas) : 0
-    const adiantamento = adiantadoPorId.get(f.id) ?? 0
+    // Vale fixo e adiantamento avulso se somam: quem tem vale de R$ 500 e pegou
+    // mais R$ 300 num mês desconta R$ 800 naquele mês.
+    const adiantamentoEventual = adiantadoPorId.get(f.id) ?? 0
+    const adiantamento = adiantamentoFixo + adiantamentoEventual
     const totalPagar = salario + comissao + premiacao + ajudaCusto - adiantamento
 
     return {
@@ -383,6 +391,8 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       baseComissao,
       comissao,
       premiacao,
+      adiantamentoFixo,
+      adiantamentoEventual,
       adiantamento,
       totalPagar,
     }

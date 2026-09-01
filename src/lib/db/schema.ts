@@ -952,6 +952,10 @@ export const funcionariosConfig = pgTable('funcionarios_config', {
   salario:            numeric('salario', { precision: 10, scale: 2 }).notNull().default('0'),
   comissaoPercentual: numeric('comissao_percentual', { precision: 5, scale: 2 }).notNull().default('0'),
   ajudaCusto:         numeric('ajuda_custo', { precision: 10, scale: 2 }),
+  // Vale fixo combinado com a pessoa, descontado TODO mês (migração 0075). Não
+  // substitui folhaAdiantamentos, que é o adiantamento eventual de um mês só —
+  // os dois se somam no desconto. NULL = não tem vale fixo.
+  adiantamentoFixo:   numeric('adiantamento_fixo', { precision: 10, scale: 2 }),
   ativo:              boolean('ativo').notNull().default(true),
   // Sobre o que a comissão incide. 'padrao' deriva do papel (vendedor→motos dele,
   // mecanico→mão de obra dele, aux_adm→peças dele). Os outros valores existem porque

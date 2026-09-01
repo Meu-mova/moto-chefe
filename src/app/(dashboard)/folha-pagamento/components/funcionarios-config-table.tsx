@@ -15,6 +15,7 @@ export type FuncionarioRow = {
   salario: string
   comissaoPercentual: string
   ajudaCusto: string | null
+  adiantamentoFixo: string | null
   ativo: boolean
   baseComissao: string
 }
@@ -35,6 +36,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
   const [salario, setSalario] = useState(formatarNumeroBR(f.salario))
   const [comissao, setComissao] = useState(formatarNumeroBR(f.comissaoPercentual))
   const [ajudaCusto, setAjudaCusto] = useState(formatarNumeroBR(f.ajudaCusto))
+  const [adiantamentoFixo, setAdiantamentoFixo] = useState(formatarNumeroBR(f.adiantamentoFixo))
   const [ativo, setAtivo] = useState(f.ativo)
   const [baseComissao, setBaseComissao] = useState(f.baseComissao)
   const [pending, startTransition] = useTransition()
@@ -43,11 +45,13 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
     const salarioNum = parseNumeroBR(salario)
     const comissaoNum = parseNumeroBR(comissao)
     const ajudaNum = ajudaCusto.trim() ? parseNumeroBR(ajudaCusto) : null
+    const adiantamentoNum = adiantamentoFixo.trim() ? parseNumeroBR(adiantamentoFixo) : null
 
     // Recusa em vez de salvar 0 calado — é salário, o erro passaria despercebido.
     if (salarioNum === null) { toast.error('Salário inválido'); return }
     if (comissaoNum === null) { toast.error('Comissão inválida'); return }
     if (ajudaCusto.trim() && ajudaNum === null) { toast.error('Ajuda de custo inválida'); return }
+    if (adiantamentoFixo.trim() && adiantamentoNum === null) { toast.error('Adiantamento inválido'); return }
 
     startTransition(async () => {
       try {
@@ -55,6 +59,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
           salario: salarioNum,
           comissaoPercentual: comissaoNum,
           ajudaCusto: ajudaNum,
+          adiantamentoFixo: adiantamentoNum,
           ativo,
           baseComissao,
         })
@@ -62,6 +67,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         setSalario(formatarNumeroBR(salarioNum))
         setComissao(formatarNumeroBR(comissaoNum))
         setAjudaCusto(ajudaNum === null ? '' : formatarNumeroBR(ajudaNum))
+        setAdiantamentoFixo(adiantamentoNum === null ? '' : formatarNumeroBR(adiantamentoNum))
         toast.success(`Configuração de ${f.nome} salva`)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -107,6 +113,16 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
       <td className="px-4 py-2">
         <Input value={ajudaCusto} onChange={e => setAjudaCusto(e.target.value)} className="h-8 text-xs w-28" placeholder="Opcional" />
       </td>
+      <td className="px-4 py-2">
+        {/* Vale fixo: desconta TODO mês, sem precisar lançar nada. O adiantamento
+            avulso de um mês só continua na aba Adiantamentos, e os dois se somam. */}
+        <Input
+          value={adiantamentoFixo}
+          onChange={e => setAdiantamentoFixo(e.target.value)}
+          className="h-8 text-xs w-28"
+          placeholder="Opcional"
+        />
+      </td>
       <td className="px-4 py-2 text-center">
         <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="rounded border-slate-300" />
       </td>
@@ -124,7 +140,12 @@ export function FuncionariosConfigTable({ funcionarios }: { funcionarios: Funcio
     return <p className="text-sm text-slate-400 text-center py-8">Nenhum funcionário encontrado nas lojas do grupo.</p>
   }
   return (
-    <div className="bg-white border rounded-lg overflow-hidden">
+    <div className="space-y-2">
+      <p className="text-sm text-slate-500">
+        Adiantamento fixo é o vale combinado que desconta <strong>todo mês</strong>, sem precisar lançar nada.
+        Adiantamento de um mês só continua na aba <strong>Adiantamentos</strong> — os dois se somam no desconto.
+      </p>
+      <div className="bg-white border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 border-b">
           <tr>
@@ -133,6 +154,7 @@ export function FuncionariosConfigTable({ funcionarios }: { funcionarios: Funcio
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Comissão (%)</th>
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Base da comissão</th>
             <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo (R$)</th>
+            <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Adiantamento fixo (R$)</th>
             <th className="text-center px-4 py-2 text-xs font-medium text-slate-600">Ativo</th>
             <th className="px-4 py-2" />
           </tr>
@@ -141,6 +163,7 @@ export function FuncionariosConfigTable({ funcionarios }: { funcionarios: Funcio
           {funcionarios.map(f => <LinhaFuncionario key={f.usuarioId} f={f} />)}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

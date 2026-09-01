@@ -79,6 +79,7 @@ export default async function FolhaPagamentoPage({
       salario: config?.salario ?? '0',
       comissaoPercentual: config?.comissaoPercentual ?? '0',
       ajudaCusto: config?.ajudaCusto ?? null,
+      adiantamentoFixo: config?.adiantamentoFixo ?? null,
       ativo: config?.ativo ?? true,
       baseComissao: config?.baseComissao ?? 'padrao',
     }
@@ -177,7 +178,21 @@ export default async function FolhaPagamentoPage({
                     <td className="px-4 py-2 text-right">{f.comissao > 0 ? fmt(f.comissao) : '—'}</td>
                     <td className="px-4 py-2 text-right">{f.premiacao > 0 ? fmt(f.premiacao) : '—'}</td>
                     <td className="px-4 py-2 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
-                    <td className="px-4 py-2 text-right text-amber-700">{f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}</td>
+                    {/* Uma coluna só, com a quebra no title: fixo e eventual descontam
+                        igual, e separar em duas colunas alargaria a tabela por nada. */}
+                    <td
+                      className="px-4 py-2 text-right text-amber-700"
+                      title={f.adiantamento > 0
+                        ? `Fixo ${fmt(f.adiantamentoFixo)} + eventual ${fmt(f.adiantamentoEventual)}`
+                        : undefined}
+                    >
+                      {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
+                      {f.adiantamentoFixo > 0 && f.adiantamentoEventual > 0 && (
+                        <span className="block text-[11px] text-amber-500">
+                          fixo {fmt(f.adiantamentoFixo)} + {fmt(f.adiantamentoEventual)}
+                        </span>
+                      )}
+                    </td>
                     <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-red-600' : ''}`}>{fmt(f.totalPagar)}</td>
                   </tr>
                 ))}

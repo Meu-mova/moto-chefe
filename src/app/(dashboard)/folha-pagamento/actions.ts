@@ -20,12 +20,18 @@ export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
   salario: number
   comissaoPercentual: number
   ajudaCusto: number | null
+  /** Vale fixo descontado todo mês. NULL = não tem. Ver migração 0075. */
+  adiantamentoFixo?: number | null
   ativo: boolean
   baseComissao: string
 }) {
   const { usuario } = await checarAdmin()
   if (dados.salario < 0 || dados.comissaoPercentual < 0 || (dados.ajudaCusto ?? 0) < 0) {
     throw new Error('Valores não podem ser negativos')
+  }
+  // Adiantamento negativo viraria bônus escondido dentro do campo de desconto.
+  if ((dados.adiantamentoFixo ?? 0) < 0) {
+    throw new Error('Adiantamento fixo não pode ser negativo')
   }
   if (!isBaseComissao(dados.baseComissao)) {
     throw new Error('Base de comissão inválida')
@@ -42,6 +48,7 @@ export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
     salario: String(dados.salario),
     comissaoPercentual: String(dados.comissaoPercentual),
     ajudaCusto: dados.ajudaCusto != null ? String(dados.ajudaCusto) : null,
+    adiantamentoFixo: dados.adiantamentoFixo != null ? String(dados.adiantamentoFixo) : null,
     ativo: dados.ativo,
     baseComissao: dados.baseComissao,
   }).onConflictDoUpdate({
@@ -50,6 +57,7 @@ export async function salvarConfigFuncionarioAction(usuarioId: string, dados: {
       salario: String(dados.salario),
       comissaoPercentual: String(dados.comissaoPercentual),
       ajudaCusto: dados.ajudaCusto != null ? String(dados.ajudaCusto) : null,
+      adiantamentoFixo: dados.adiantamentoFixo != null ? String(dados.adiantamentoFixo) : null,
       ativo: dados.ativo,
       baseComissao: dados.baseComissao,
       atualizadoEm: new Date(),
