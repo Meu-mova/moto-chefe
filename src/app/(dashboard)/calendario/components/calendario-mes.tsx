@@ -7,19 +7,24 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Repeat, Eye, MapPin, User, CalendarRange } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Repeat, Eye, MapPin, User, CalendarRange, Wallet, Check } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { corMeta, diasDoSpan, VISIBILIDADE_META, RECORRENCIA_META } from '@/lib/calendario'
 import type { OcorrenciaCalendario } from '@/lib/queries/calendario'
 import { EventoDialog } from './evento-dialog'
 import { excluirEventoAction } from '../actions'
+import { marcarPagoAction, type ContaNoCalendario } from '../../contas-pagar/actions'
 
 type Categoria = { id: string; nome: string; cor: string }
 
 type Props = {
   mes: string
   ocorrencias: OcorrenciaCalendario[]
+  /** Contas a pagar que vencem no mês. Vazio para quem não tem o módulo. */
+  contas: ContaNoCalendario[]
+  /** 'YYYY-MM-DD' do servidor — "vencida" tem que sair do calendário de Brasília. */
+  hoje: string
   usuarioId: string
   isAdmin: boolean
   categorias: Categoria[]
@@ -39,7 +44,51 @@ function fmtData(yyyyMmDd: string) {
   return format(new Date(`${yyyyMmDd}T12:00:00Z`), "dd/MM/yyyy", { locale: ptBR })
 }
 
-export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
+/**
+ * Chip de conta a pagar dentro do dia.
+ *
+ * Clicar marca como paga ali mesmo — o módulo nasceu porque o compromisso some de
+ * vista quando a data passa, e obrigar a abrir outra tela para dar baixa manteria
+ * metade do problema.
+ */
+function ChipConta({ conta, hoje }: { conta: ContaNoCalendario; hoje: string }) {
+  const [pending, start] = useTransition()
+  const router = useRouter()
+  const vencida = !conta.pago && conta.vencimento.slice(0, 10) < hoje
+
+  const cls = conta.pago
+    ? 'border-green-200 bg-green-50 text-green-700 line-through'
+    : vencida
+      ? 'border-red-300 bg-red-50 text-red-700 font-medium'
+      : 'border-amber-200 bg-amber-50 text-amber-800'
+
+  function alternar(e: React.MouseEvent) {
+    e.stopPropagation()
+    start(async () => {
+      try {
+        await marcarPagoAction(conta.id, !conta.pago)
+        toast.success(conta.pago ? 'Marcada como em aberto' : 'Conta marcada como paga')
+        router.refresh()
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Erro ao marcar')
+      }
+    })
+  }
+
+  return (
+    <button
+      onClick={alternar}
+      disabled={pending}
+      title={`${conta.descricao} — ${Number(conta.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}${conta.pago ? ' (paga)' : vencida ? ' (vencida)' : ''}\nClique para ${conta.pago ? 'desmarcar' : 'marcar como paga'}`}
+      className={`w-full truncate rounded border px-1.5 py-0.5 text-left text-[11px] ${cls} disabled:opacity-50`}
+    >
+      {conta.pago ? <Check size={9} className="mr-1 -mt-0.5 inline" /> : <Wallet size={9} className="mr-1 -mt-0.5 inline" />}
+      {conta.descricao}
+    </button>
+  )
+}
+
+export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias, lojas, usuariosGrupo, lojaIdUsuario, contas, hoje }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [novoOpen, setNovoOpen] = useState(false)
@@ -64,6 +113,14 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
       if (!porDia.has(dia)) porDia.set(dia, [])
       porDia.get(dia)!.push(o)
     }
+  }
+
+  // Uma conta vence num dia só, então basta agrupar pela data de vencimento.
+  const contasPorDia = new Map<string, ContaNoCalendario[]>()
+  for (const c of contas) {
+    const dia = c.vencimento.slice(0, 10)
+    if (!contasPorDia.has(dia)) contasPorDia.set(dia, [])
+    contasPorDia.get(dia)!.push(c)
   }
 
   const podeEditar = (o: OcorrenciaCalendario) => isAdmin || o.criadoPor === usuarioId
@@ -128,6 +185,11 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
                   {dia.getDate()}
                 </div>
                 <div className="space-y-1">
+                  {/* Contas antes dos eventos: é o compromisso que não pode passar
+                      batido. Um clique marca como paga sem sair do calendário. */}
+                  {(contasPorDia.get(key) ?? []).map(c => (
+                    <ChipConta key={c.id} conta={c} hoje={hoje} />
+                  ))}
                   {doDia.slice(0, 3).map((o, i) => {
                     const meta = corMeta(o.cor)
                     const multi = o.inicio !== o.fim

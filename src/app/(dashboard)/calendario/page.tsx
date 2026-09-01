@@ -4,6 +4,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { listarEventosDoMes, listarUsuariosDoGrupo, listarCategoriasAtivas, hojeBRT } from '@/lib/queries/calendario'
 import { CalendarioMes } from './components/calendario-mes'
+import { listarContasDoCalendarioAction } from '../contas-pagar/actions'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
@@ -17,12 +18,17 @@ export default async function CalendarioPage({
   const params = await searchParams
   const mes = /^\d{4}-\d{2}$/.test(params.mes ?? '') ? params.mes! : hojeBRT().slice(0, 7)
 
-  const [grupo, ocorrencias, categorias, lojas, usuariosGrupo] = await Promise.all([
+  // Contas a pagar só para quem tem o módulo: o calendário é de TODOS os papéis,
+  // e valor de aluguel e imposto não é informação de balcão.
+  const veContas = usuarioPodeAcessar(usuario, '/contas-pagar')
+
+  const [grupo, ocorrencias, categorias, lojas, usuariosGrupo, contas] = await Promise.all([
     getGrupoAtivo(usuario),
     listarEventosDoMes(usuario, mes),
     listarCategoriasAtivas(usuario),
     listarLojasDoGrupoAtivo(usuario),
     listarUsuariosDoGrupo(usuario),
+    veContas ? listarContasDoCalendarioAction(mes) : Promise.resolve([]),
   ])
 
   return (
@@ -41,6 +47,8 @@ export default async function CalendarioPage({
         lojas={lojas}
         usuariosGrupo={usuariosGrupo}
         lojaIdUsuario={usuario.lojaId ?? null}
+        contas={contas}
+        hoje={hojeBRT()}
       />
     </div>
   )

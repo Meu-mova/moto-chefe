@@ -1246,3 +1246,61 @@ export const holerites = pgTable('holerites', {
   enviadoPor: uuid('enviado_por').references(() => usuarios.id),
   enviadoEm: timestamp('enviado_em', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('holerites_pessoa_mes_tipo').on(t.usuarioId, t.mes, t.tipo)])
+
+
+// ─── contas_pagar ────────────────────────────────────────────────────────────
+/**
+ * Compromisso de pagamento, migração 0078. NÃO é lançamento financeiro: não entra
+ * em despesas, caixa, DRE nem no /financeiro. Quem paga lança a despesa pelo
+ * caminho normal — aqui é só a agenda do que vence.
+ *
+ * O cadastro descreve o compromisso; as ocorrências (uma por mês de competência)
+ * é que carregam o check de pago. Ver src/lib/contas-pagar.ts para as regras.
+ */
+export const contasPagar = pgTable('contas_pagar', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  /** NULL = compromisso da empresa toda; preenchido = de uma loja específica. */
+  lojaId: uuid('loja_id').references(() => lojas.id),
+  descricao: text('descricao').notNull(),
+  categoria: text('categoria'),
+  /** 'unica' | 'recorrente' | 'automatica' — ver TIPOS_CONTA em @/lib/contas-pagar. */
+  tipo: text('tipo').notNull(),
+  /** Fixo; NULL nas automáticas, onde o valor é calculado sobre o mês anterior. */
+  valor: numeric('valor', { precision: 12, scale: 2 }),
+  /** Única usa a data cheia. */
+  dataVencimento: date('data_vencimento'),
+  /** Recorrente e automática usam só o dia do mês (31 cai no último dia do mês). */
+  diaVencimento: integer('dia_vencimento'),
+  /** Ver BASES_FORMULA em @/lib/contas-pagar. */
+  formulaBase: text('formula_base'),
+  formulaPercentual: numeric('formula_percentual', { precision: 6, scale: 3 }),
+  /** Vigência em 'YYYY-MM', comparada como texto. NULL dos dois lados = sem limite. */
+  inicio: text('inicio'),
+  fim: text('fim'),
+  ativo: boolean('ativo').notNull().default(true),
+  observacao: text('observacao'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor: uuid('criado_por').references(() => usuarios.id),
+})
+
+// ─── contas_pagar_ocorrencias ────────────────────────────────────────────────
+/**
+ * Uma linha por conta e mês de competência. O check de pago mora AQUI, e não no
+ * cadastro: marcar setembro não pode apagar o histórico de agosto.
+ *
+ * Índice único por (conta, competência) deixa a geração do mês idempotente —
+ * abrir a tela dez vezes não cria dez cobranças nem sobrescreve uma já paga.
+ */
+export const contasPagarOcorrencias = pgTable('contas_pagar_ocorrencias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contaId: uuid('conta_id').notNull().references(() => contasPagar.id, { onDelete: 'cascade' }),
+  competencia: text('competencia').notNull(),
+  vencimento: date('vencimento').notNull(),
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  pago: boolean('pago').notNull().default(false),
+  pagoEm: date('pago_em'),
+  pagoPor: uuid('pago_por').references(() => usuarios.id),
+  observacao: text('observacao'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('contas_pagar_ocorrencia_unica_drizzle').on(t.contaId, t.competencia)])

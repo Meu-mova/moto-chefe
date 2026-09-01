@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeftRight, BarChart3, Bike, Building2, CalendarDays, CalendarRange,
-  ClipboardList, CreditCard, Database, FileBarChart, FileSpreadsheet, FileText,
+  ClipboardList, CreditCard, Database, FileBarChart, FileSpreadsheet, FileText, Receipt,
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
@@ -91,6 +91,7 @@ export const ITENS: ItemNav[] = [
   { id: 'caixa',          href: '/caixa',          label: 'Caixa',             icon: Wallet,        categoria: 'financeiro',   papeis: GESTORES },
   { id: 'pix',            href: '/pix-mcp',        label: 'PIX',               icon: QrCode,        categoria: 'financeiro',   papeis: COMERCIAL },
   { id: 'conciliacao',    href: '/conciliacao',    label: 'Conciliação',       icon: CreditCard,    categoria: 'financeiro',   papeis: GESTORES },
+  { id: 'contas-pagar',   href: '/contas-pagar',   label: 'Contas a Pagar',    icon: Receipt,       categoria: 'financeiro',   papeis: ADMINS },
   { id: 'despesas',       href: '/despesas',       label: 'Despesas',          icon: TrendingDown,  categoria: 'financeiro',   papeis: ADMINS },
   { id: 'financeiro',     href: '/financeiro',     label: 'Financeiro',        icon: BarChart3,     categoria: 'financeiro',   papeis: ADMINS },
   { id: 'dre',            href: '/admin/dre',      label: 'DRE',               icon: FileSpreadsheet, categoria: 'financeiro', papeis: ADMINS },
