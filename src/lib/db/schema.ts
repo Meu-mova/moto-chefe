@@ -1218,3 +1218,31 @@ export const folhaRegrasComissao = pgTable('folha_regras_comissao', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   criadoPor: uuid('criado_por').references(() => usuarios.id),
 })
+
+
+// ─── holerites ───────────────────────────────────────────────────────────────
+/**
+ * Holerite em PDF que a contabilidade manda todo mês, migração 0077: um de
+ * adiantamento e um de pagamento do salário, por funcionário.
+ *
+ * Guarda o CAMINHO no bucket privado 'holerites', nunca uma URL — o link é
+ * assinado por 10 minutos na hora de abrir, depois de conferir quem pediu. Bucket
+ * separado de 'comprovantes' de propósito: holerite tem salário de gente dentro.
+ *
+ * Índice único por (usuario, mes, tipo): reenviar substitui, que é como a
+ * contabilidade corrige um arquivo errado.
+ */
+export const holerites = pgTable('holerites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  /** 'YYYY-MM' em text, como o resto do módulo de folha. */
+  mes: text('mes').notNull(),
+  /** 'adiantamento' | 'salario' */
+  tipo: text('tipo').notNull(),
+  arquivoPath: text('arquivo_path').notNull(),
+  /** Nome como veio da contabilidade, para o download sair reconhecível. */
+  arquivoNome: text('arquivo_nome').notNull(),
+  tamanho: integer('tamanho'),
+  enviadoPor: uuid('enviado_por').references(() => usuarios.id),
+  enviadoEm: timestamp('enviado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('holerites_pessoa_mes_tipo').on(t.usuarioId, t.mes, t.tipo)])

@@ -12,6 +12,8 @@ import { LojaSelectorFolha } from './components/loja-selector-folha'
 import { AjustesBaseTable } from './components/ajustes-base-table'
 import { AdiantamentosTable } from './components/adiantamentos-table'
 import { RegrasComissaoTable } from './components/regras-comissao-table'
+import { HoleritesTable } from './components/holerites-table'
+import { listarHoleritesAction } from './holerites-actions'
 import { labelDaBase } from '@/lib/folha'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
@@ -69,6 +71,10 @@ export default async function FolhaPagamentoPage({
     25000,
   )
   const folha = agregarFolha(dados)
+
+  // Depois de buscarDadosFolha, e não dentro dela: os holerites não entram em
+  // nenhuma conta e a versão imprimível não precisa deles.
+  const holeritesDoMes = await withTimeout(listarHoleritesAction(mesParam), 15000)
 
   const configPorUsuario = new Map(dados.configs.map(c => [c.usuarioId, c]))
   // As regras aparecem na aba Funcionários só como resumo; o cadastro é na aba
@@ -132,6 +138,7 @@ export default async function FolhaPagamentoPage({
           <TabsTrigger value="comissoes">Comissões</TabsTrigger>
           <TabsTrigger value="premiacao">Premiação (OTE)</TabsTrigger>
           <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
+          <TabsTrigger value="holerites">Holerites</TabsTrigger>
           <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
         </TabsList>
 
@@ -287,6 +294,25 @@ export default async function FolhaPagamentoPage({
           <AdiantamentosTable
             adiantamentos={dados.adiantamentos}
             funcionarios={funcionariosParaAjuste}
+            mes={mesParam}
+          />
+        </TabsContent>
+
+        <TabsContent value="holerites" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-500 capitalize">
+              {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </p>
+            <div className="flex items-center gap-2">
+              <LojaSelectorFolha lojas={dados.lojas} lojaAtual={lojaParam} />
+              <MesSelectorFolha mesAtual={mesParam} />
+            </div>
+          </div>
+          {/* Só os ativos: quem saiu não recebe holerite novo, e a lista de quem
+              falta enviar tem que ser a lista de quem realmente falta. */}
+          <HoleritesTable
+            funcionarios={folha.ativos.map(f => ({ id: f.id, nome: f.nome, papel: f.papel, lojaNome: f.lojaNome }))}
+            holerites={holeritesDoMes}
             mes={mesParam}
           />
         </TabsContent>
