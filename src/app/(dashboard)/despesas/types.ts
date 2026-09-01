@@ -5,6 +5,8 @@ export type DespesaRow = {
   lojaId: string | null
   lojaNome: string | null
   categoria: string
+  /** A quem se destinou (retirada, pró-labore). Null nas categorias que não pedem. */
+  beneficiario: string | null
   descricao: string | null
   valor: string
   data: string

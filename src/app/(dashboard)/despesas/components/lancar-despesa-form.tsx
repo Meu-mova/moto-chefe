@@ -11,6 +11,7 @@ import {
 
 type JaLancado = {
   categoria: string | null
+  beneficiario: string | null
   lojaId: string | null
   lojaNome: string | null
   lancadoPorNome: string | null
@@ -21,25 +22,34 @@ type Props = {
   id: string
   lojas: { id: string; nome: string }[]
   categorias: string[]
+  categoriasComBeneficiario: string[]
+  beneficiarios: string[]
   jaLancado: JaLancado | null
   podeCategorizar: boolean
 }
 
-export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCategorizar }: Props) {
+export function LancarDespesaForm({ id, lojas, categorias, categoriasComBeneficiario, beneficiarios, jaLancado, podeCategorizar }: Props) {
   const [pending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
   const [categoria, setCategoria] = useState(jaLancado?.categoria ?? '')
   const [lojaId, setLojaId] = useState(jaLancado?.lojaId ?? '')
   const [lojaEscolhida, setLojaEscolhida] = useState(!!jaLancado)
+  const [beneficiario, setBeneficiario] = useState(jaLancado?.beneficiario ?? '')
+
+  const exigeBeneficiario = categoriasComBeneficiario.includes(categoria)
 
   function lancar() {
     if (!categoria || !lojaEscolhida) {
       toast.error('Escolha categoria e loja')
       return
     }
+    if (exigeBeneficiario && !beneficiario) {
+      toast.error('Escolha a quem se destinou')
+      return
+    }
     startTransition(async () => {
       try {
-        await lancarDespesaOpenFinanceAction(id, categoria, lojaId || null)
+        await lancarDespesaOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
         toast.success('Despesa lançada!')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao lançar')
@@ -52,9 +62,13 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCatego
       toast.error('Escolha categoria e loja')
       return
     }
+    if (exigeBeneficiario && !beneficiario) {
+      toast.error('Escolha a quem se destinou')
+      return
+    }
     startTransition(async () => {
       try {
-        await editarCategorizacaoOpenFinanceAction(id, categoria, lojaId || null)
+        await editarCategorizacaoOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
         toast.success('Categorização atualizada')
         setEditando(false)
       } catch (e: unknown) {
@@ -83,7 +97,7 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCatego
       <div className="flex items-center gap-1">
         <div className="text-xs">
           <span className="font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
-            Lançada — {jaLancado.categoria ?? '—'} · {jaLancado.lojaNome ?? 'Geral'}
+            Lançada — {jaLancado.categoria ?? '—'}{jaLancado.beneficiario ? ` (${jaLancado.beneficiario})` : ''} · {jaLancado.lojaNome ?? 'Geral'}
           </span>
           {(jaLancado.lancadoPorNome || quando) && (
             <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
@@ -132,6 +146,18 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCatego
         <option value="">Categoria...</option>
         {categorias.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
+      {/* Só aparece nas categorias que pedem (retirada, pró-labore) — a linha já é
+          apertada e um select a mais atrapalharia sem informar nada. */}
+      {exigeBeneficiario && (
+        <select
+          value={beneficiario}
+          onChange={e => setBeneficiario(e.target.value)}
+          className="h-8 rounded-md border border-input bg-transparent px-2 text-xs outline-none"
+        >
+          <option value="">Para quem...</option>
+          {beneficiarios.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+      )}
       <select
         value={lojaId}
         onChange={e => { setLojaId(e.target.value); setLojaEscolhida(true) }}
@@ -144,7 +170,7 @@ export function LancarDespesaForm({ id, lojas, categorias, jaLancado, podeCatego
       <Button
         size="sm"
         className="h-8 text-xs"
-        disabled={pending || !categoria || !lojaEscolhida}
+        disabled={pending || !categoria || !lojaEscolhida || (exigeBeneficiario && !beneficiario)}
         onClick={jaLancado ? salvarEdicao : lancar}
       >
         {pending ? 'Salvando…' : jaLancado ? 'Salvar' : 'Lançar'}

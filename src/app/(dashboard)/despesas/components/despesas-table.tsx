@@ -11,7 +11,13 @@ import { excluirDespesaAction } from '../actions'
 import { EditarDespesaButton } from './despesa-dialog'
 import type { Loja, DespesaRow } from '../types'
 
-type Props = { despesas: DespesaRow[]; lojas: Loja[]; categorias: string[] }
+type Props = {
+  despesas: DespesaRow[]
+  lojas: Loja[]
+  categorias: string[]
+  categoriasComBeneficiario: string[]
+  beneficiarios: string[]
+}
 
 function fmt(v: string) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -21,7 +27,7 @@ function fmtData(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
 }
 
-export function DespesasTable({ despesas, lojas, categorias }: Props) {
+export function DespesasTable({ despesas, lojas, categorias, categoriasComBeneficiario, beneficiarios }: Props) {
   const router = useRouter()
   const [excluindo, setExcluindo] = useState<string | null>(null)
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -133,6 +139,12 @@ export function DespesasTable({ despesas, lojas, categorias }: Props) {
                     caixa
                   </span>
                 )}
+                {/* O nome vem embaixo da categoria, e não em coluna nova: só
+                    retirada e pró-labore têm, e uma coluna vazia em todo o resto
+                    custaria mais espaço do que informa. */}
+                {d.beneficiario && (
+                  <span className="block text-xs font-medium text-violet-700">{d.beneficiario}</span>
+                )}
               </TableCell>
               <TableCell className="text-sm text-slate-500 max-w-[180px] truncate">{d.descricao ?? '—'}</TableCell>
               <TableCell className="text-sm">
@@ -150,7 +162,10 @@ export function DespesasTable({ despesas, lojas, categorias }: Props) {
                   <span className="text-xs text-slate-400">no /caixa</span>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <EditarDespesaButton lojas={lojas} despesa={d} categorias={categorias} />
+                    <EditarDespesaButton
+                      lojas={lojas} despesa={d} categorias={categorias}
+                      categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+                    />
                     <Button
                       variant="ghost"
                       size="icon"

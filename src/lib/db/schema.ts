@@ -566,6 +566,10 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
   // no código, toda nova entraria calada em "Outras". NULL cai em "Outras" na
   // leitura, nunca some do total.
   grupoDre: text('grupo_dre'),
+  // Retirada e pró-labore saem no nome da empresa, mas o dinheiro é de um sócio.
+  // A exigência mora aqui, e não numa lista de categorias no código, para
+  // categoria nova ("Distribuição de lucros") passar a pedir sem deploy.
+  exigeBeneficiario: boolean('exige_beneficiario').notNull().default(false),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -589,6 +593,8 @@ export const despesas = pgTable('despesas', {
   lojaId:         uuid('loja_id').references(() => lojas.id),           // null = empresa geral
   usuarioId:      uuid('usuario_id').notNull().references(() => usuarios.id),
   categoria:      text('categoria').notNull(),
+  /** A quem se destinou. Obrigatório quando a categoria exige — ver migração 0081. */
+  beneficiario:   text('beneficiario'),
   descricao:      text('descricao'),
   valor:          numeric('valor', { precision: 12, scale: 2 }).notNull(),
   data:           date('data').notNull(),
@@ -1306,3 +1312,21 @@ export const contasPagarOcorrencias = pgTable('contas_pagar_ocorrencias', {
   observacao: text('observacao'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('contas_pagar_ocorrencia_unica_drizzle').on(t.contaId, t.competencia)])
+
+
+// ─── beneficiarios_despesa ───────────────────────────────────────────────────
+/**
+ * A quem se destina uma retirada ou pró-labore, migração 0081.
+ *
+ * Catálogo por grupo, e não constante no código: cada bandeira tem seus sócios, e
+ * entrada ou saída de sócio não pode depender de deploy. Editável em
+ * /admin/categorias-caixa.
+ */
+export const beneficiariosDespesa = pgTable('beneficiarios_despesa', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  nome: text('nome').notNull(),
+  ordem: integer('ordem').notNull().default(0),
+  ativo: boolean('ativo').notNull().default(true),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('beneficiarios_despesa_unico_drizzle').on(t.grupoId, t.nome)])

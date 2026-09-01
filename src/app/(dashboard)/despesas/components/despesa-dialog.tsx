@@ -23,13 +23,17 @@ const BANCOS = [
 type Props = {
   lojas: Loja[]
   categorias: string[]
+  /** Categorias que exigem "a quem se destinou" — vem de categorias_despesa. */
+  categoriasComBeneficiario: string[]
+  /** Sócios do grupo ativo, do catálogo editável em /admin/categorias-caixa. */
+  beneficiarios: string[]
   modo: 'criar' | 'editar'
   inicial?: DespesaRow
   open?: boolean
   onOpenChange?: (v: boolean) => void
 }
 
-export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenChange }: Props) {
+export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, beneficiarios, modo, inicial, open, onOpenChange }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -42,6 +46,9 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
   const [data, setData]                   = useState(inicial?.data ?? hoje)
   const [formaPagamento, setFormaPagamento] = useState(inicial?.formaPagamento ?? '')
   const [banco, setBanco]                 = useState(inicial?.banco ?? '')
+  const [beneficiario, setBeneficiario]   = useState(inicial?.beneficiario ?? '')
+
+  const exigeBeneficiario = categoriasComBeneficiario.includes(categoria)
 
   function resetar() {
     setLojaId('')
@@ -51,6 +58,7 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
     setData(hoje)
     setFormaPagamento('')
     setBanco('')
+    setBeneficiario('')
   }
 
   async function handleSalvar() {
@@ -58,11 +66,18 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
       toast.error('Preencha todos os campos obrigatórios')
       return
     }
+    // Espelha a trava do servidor: sem o nome, a retirada some no bolo e não dá
+    // para saber quanto saiu para cada sócio.
+    if (exigeBeneficiario && !beneficiario) {
+      toast.error(`A categoria "${categoria}" exige informar a quem se destinou`)
+      return
+    }
     setLoading(true)
     try {
       const dados = {
         lojaId:         lojaId || null,
         categoria,
+        beneficiario:   exigeBeneficiario ? beneficiario : null,
         descricao:      descricao.trim() || undefined,
         valor,
         data,
@@ -123,6 +138,23 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
               ))}
             </select>
           </div>
+
+          {/* A quem se destinou — só nas categorias marcadas (retirada, pró-labore). */}
+          {exigeBeneficiario && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">A quem se destinou *</Label>
+              <select
+                value={beneficiario}
+                onChange={e => setBeneficiario(e.target.value)}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none"
+              >
+                <option value="">Selecione...</option>
+                {beneficiarios.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Valor + Data */}
           <div className="grid grid-cols-2 gap-3">
@@ -190,19 +222,25 @@ export function DespesaDialog({ lojas, categorias, modo, inicial, open, onOpenCh
   )
 }
 
-export function NovaDespesaButton({ lojas, categorias }: { lojas: Loja[]; categorias: string[] }) {
+type OpcoesBeneficiario = { categoriasComBeneficiario: string[]; beneficiarios: string[] }
+
+export function NovaDespesaButton({ lojas, categorias, categoriasComBeneficiario, beneficiarios }: { lojas: Loja[]; categorias: string[] } & OpcoesBeneficiario) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
         <Plus size={15} /> Nova Despesa
       </Button>
-      <DespesaDialog lojas={lojas} categorias={categorias} modo="criar" open={open} onOpenChange={setOpen} />
+      <DespesaDialog
+        lojas={lojas} categorias={categorias}
+        categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+        modo="criar" open={open} onOpenChange={setOpen}
+      />
     </>
   )
 }
 
-export function EditarDespesaButton({ lojas, despesa, categorias }: { lojas: Loja[]; despesa: DespesaRow; categorias: string[] }) {
+export function EditarDespesaButton({ lojas, despesa, categorias, categoriasComBeneficiario, beneficiarios }: { lojas: Loja[]; despesa: DespesaRow; categorias: string[] } & OpcoesBeneficiario) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -216,7 +254,9 @@ export function EditarDespesaButton({ lojas, despesa, categorias }: { lojas: Loj
       </button>
       <DespesaDialog
         key={`${despesa.id}-${despesa.valor}-${despesa.data}`}
-        lojas={lojas} categorias={categorias} modo="editar" inicial={despesa} open={open} onOpenChange={setOpen}
+        lojas={lojas} categorias={categorias}
+        categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+        modo="editar" inicial={despesa} open={open} onOpenChange={setOpen}
       />
     </>
   )

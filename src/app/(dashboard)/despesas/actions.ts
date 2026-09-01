@@ -2,8 +2,8 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, despesasOpenFinance } from '@/lib/db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { despesas, despesasOpenFinance, categoriasDespesa, beneficiariosDespesa } from '@/lib/db/schema'
+import { eq, and, asc, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
@@ -11,6 +11,8 @@ const ADMINS = ['admin_geral', 'admin_socio'] as const
 type DespesaInput = {
   lojaId: string | null
   categoria: string
+  /** A quem se destinou. Obrigatório nas categorias marcadas com exigeBeneficiario. */
+  beneficiario?: string | null
   descricao?: string
   valor: string
   data: string
@@ -33,6 +35,43 @@ function assertPodeCategorizar(usuario: { papel: string; email: string }) {
   }
 }
 
+/**
+ * Devolve o beneficiário a gravar, ou null quando a categoria não pede.
+ *
+ * A exigência sai da CATEGORIA (categorias_despesa.exige_beneficiario), não de uma
+ * lista de nomes aqui: assim uma categoria nova passa a pedir sem deploy. O nome
+ * precisa estar no catálogo do grupo — texto livre viraria "Cesar", "cesar" e
+ * "César" na mesma coluna, e o relatório por sócio não fecharia.
+ */
+async function beneficiarioValido(
+  grupoId: string,
+  categoria: string,
+  beneficiario: string | null | undefined,
+): Promise<string | null> {
+  const [cat] = await db
+    .select({ exige: categoriasDespesa.exigeBeneficiario })
+    .from(categoriasDespesa)
+    .where(eq(categoriasDespesa.nome, categoria))
+    .limit(1)
+  if (!cat?.exige) return null
+
+  const nome = beneficiario?.trim()
+  if (!nome) throw new Error(`A categoria "${categoria}" exige informar a quem se destinou`)
+
+  const [encontrado] = await db
+    .select({ nome: beneficiariosDespesa.nome })
+    .from(beneficiariosDespesa)
+    .where(and(
+      eq(beneficiariosDespesa.grupoId, grupoId),
+      eq(beneficiariosDespesa.nome, nome),
+      eq(beneficiariosDespesa.ativo, true),
+    ))
+    .limit(1)
+  if (!encontrado) throw new Error('Beneficiário não encontrado no grupo ativo')
+
+  return encontrado.nome
+}
+
 function parseValor(v: string) {
   const n = parseFloat(v)
   if (isNaN(n) || n <= 0) throw new Error('Valor inválido')
@@ -52,11 +91,14 @@ export async function criarDespesaAction(dados: DespesaInput) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
+  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+
   await db.insert(despesas).values({
     grupoId:        grupo.id,
     lojaId,
     usuarioId:      usuario.id,
     categoria:      dados.categoria,
+    beneficiario,
     descricao:      dados.descricao?.trim() || null,
     valor:          dados.valor,
     data:           dados.data,
@@ -75,9 +117,12 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
+  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+
   const res = await db.update(despesas).set({
     lojaId,
     categoria:      dados.categoria,
+    beneficiario,
     descricao:      dados.descricao?.trim() || null,
     valor:          dados.valor,
     data:           dados.data,
@@ -107,13 +152,19 @@ export async function excluirDespesaAction(id: string) {
   revalidatePath('/financeiro')
 }
 
-export async function lancarDespesaOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
+export async function lancarDespesaOpenFinanceAction(
+  id: string,
+  categoria: string,
+  lojaId: string | null,
+  beneficiario?: string | null,
+) {
   const usuario = await getUsuarioLogado()
   assertPodeCategorizar(usuario)
   if (!categoria.trim()) throw new Error('Categoria é obrigatória')
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
+  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
@@ -127,6 +178,7 @@ export async function lancarDespesaOpenFinanceAction(id: string, categoria: stri
       lojaId:         lojaIdValida,
       usuarioId:      usuario.id,
       categoria,
+      beneficiario:   beneficiarioValidado,
       descricao:      linha.descricao,
       valor:          linha.valor,
       data:           linha.data.toISOString().split('T')[0],
@@ -154,13 +206,19 @@ export async function lancarDespesaOpenFinanceAction(id: string, categoria: stri
   revalidatePath('/financeiro')
 }
 
-export async function editarCategorizacaoOpenFinanceAction(id: string, categoria: string, lojaId: string | null) {
+export async function editarCategorizacaoOpenFinanceAction(
+  id: string,
+  categoria: string,
+  lojaId: string | null,
+  beneficiario?: string | null,
+) {
   const usuario = await getUsuarioLogado()
   assertPodeCategorizar(usuario)
   if (!categoria.trim()) throw new Error('Categoria é obrigatória')
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
+  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
@@ -172,6 +230,7 @@ export async function editarCategorizacaoOpenFinanceAction(id: string, categoria
     await tx.update(despesas).set({
       lojaId: lojaIdValida,
       categoria,
+      beneficiario: beneficiarioValidado,
     }).where(eq(despesas.id, linha.despesaId!))
 
     await tx.update(despesasOpenFinance).set({
@@ -210,4 +269,54 @@ export async function cancelarCategorizacaoOpenFinanceAction(id: string) {
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
+}
+
+// ─── Beneficiários (a quem se destinou) ───────────────────────────────────────
+// Catálogo por grupo, editável em /admin/categorias-caixa.
+
+export async function listarBeneficiariosAction() {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  const grupo = await getGrupoAtivo(usuario)
+  return db
+    .select({ id: beneficiariosDespesa.id, nome: beneficiariosDespesa.nome, ativo: beneficiariosDespesa.ativo })
+    .from(beneficiariosDespesa)
+    .where(eq(beneficiariosDespesa.grupoId, grupo.id))
+    .orderBy(asc(beneficiariosDespesa.ordem), asc(beneficiariosDespesa.nome))
+}
+
+export async function criarBeneficiarioAction(nome: string) {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  const limpo = nome.trim()
+  if (!limpo) throw new Error('Informe o nome')
+  const grupo = await getGrupoAtivo(usuario)
+
+  await db.insert(beneficiariosDespesa)
+    .values({ grupoId: grupo.id, nome: limpo })
+    // Índice único por (grupo, nome): recadastrar um nome existente não duplica.
+    .onConflictDoNothing({ target: [beneficiariosDespesa.grupoId, beneficiariosDespesa.nome] })
+
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
+}
+
+/**
+ * Liga e desliga em vez de apagar: as despesas guardam o NOME, e sumir com o
+ * beneficiário do catálogo deixaria lançamentos antigos apontando para alguém que
+ * a tela não sabe mais listar.
+ */
+export async function alternarBeneficiarioAtivoAction(id: string, ativo: boolean) {
+  const usuario = await getUsuarioLogado()
+  assertAdmin(usuario.papel)
+  const grupo = await getGrupoAtivo(usuario)
+
+  const res = await db.update(beneficiariosDespesa)
+    .set({ ativo })
+    .where(and(eq(beneficiariosDespesa.id, id), eq(beneficiariosDespesa.grupoId, grupo.id)))
+    .returning({ id: beneficiariosDespesa.id })
+  if (!res.length) throw new Error('Beneficiário não encontrado no grupo ativo')
+
+  revalidatePath('/admin/categorias-caixa')
+  revalidatePath('/despesas')
 }

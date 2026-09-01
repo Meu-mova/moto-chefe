@@ -3,7 +3,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa, beneficiariosDespesa } from '@/lib/db/schema'
 import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,13 +54,17 @@ export default async function DespesasPage({
     usuario.id,
   )
 
-  const [rowsManuais, lojasOpts, categoriasAtivas, categoriasNaoOperacionais, saidasCaixa, categoriasCaixaNaoOperacionais] = await Promise.all([
+  const [
+    rowsManuais, lojasOpts, categoriasAtivas, categoriasComBeneficiario, beneficiarios,
+    categoriasNaoOperacionais, saidasCaixa, categoriasCaixaNaoOperacionais,
+  ] = await Promise.all([
     db
       .select({
         id:             despesas.id,
         lojaId:         despesas.lojaId,
         lojaNome:       lojas.nome,
         categoria:      despesas.categoria,
+        beneficiario:   despesas.beneficiario,
         descricao:      despesas.descricao,
         valor:          despesas.valor,
         data:           despesas.data,
@@ -88,6 +92,23 @@ export default async function DespesasPage({
       .from(categoriasDespesa)
       .where(eq(categoriasDespesa.ativo, true))
       .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
+      .then(rows => rows.map(r => r.nome)),
+
+    // Categorias que pedem "a quem se destinou" (retirada, pró-labore). A marca
+    // fica na categoria — ver migração 0081.
+    db
+      .select({ nome: categoriasDespesa.nome })
+      .from(categoriasDespesa)
+      .where(eq(categoriasDespesa.exigeBeneficiario, true))
+      .then(rows => rows.map(r => r.nome)),
+
+    // Sócios do grupo ativo. Inativo sai da lista de escolha, mas continua
+    // aparecendo nos lançamentos antigos, que guardam o nome.
+    db
+      .select({ nome: beneficiariosDespesa.nome })
+      .from(beneficiariosDespesa)
+      .where(and(eq(beneficiariosDespesa.grupoId, grupo.id), eq(beneficiariosDespesa.ativo, true)))
+      .orderBy(asc(beneficiariosDespesa.ordem), asc(beneficiariosDespesa.nome))
       .then(rows => rows.map(r => r.nome)),
 
     // Saída real, mas não é custo de operar a loja: transferência entre lojas do
@@ -141,6 +162,7 @@ export default async function DespesasPage({
       lojaId: r.lojaId,
       lojaNome: r.lojaNome,
       categoria: r.categoria,
+      beneficiario: r.beneficiario,
       descricao: r.descricao,
       valor: r.valor,
       data: r.data,
@@ -154,6 +176,9 @@ export default async function DespesasPage({
       lojaId: c.lojaId,
       lojaNome: c.lojaNome,
       categoria: c.categoria,
+      // Saída de caixa não tem beneficiário: retirada de sócio não sai da gaveta
+      // da loja, e o /caixa não pergunta.
+      beneficiario: null,
       descricao: c.descricao,
       // O caixa guarda o valor positivo; a despesa manual vem negativa do extrato.
       // Aqui normalizo pro sinal que a tabela já espera.
@@ -234,7 +259,10 @@ export default async function DespesasPage({
         </div>
         <div className="flex items-center gap-3">
           <Suspense fallback={null}><MesSelector mesAtual={mesParam} /></Suspense>
-          <NovaDespesaButton lojas={lojasOpts} categorias={categoriasAtivas} />
+          <NovaDespesaButton
+            lojas={lojasOpts} categorias={categoriasAtivas}
+            categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+          />
         </div>
       </div>
 
@@ -295,7 +323,10 @@ export default async function DespesasPage({
           <Card>
             <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
             <CardContent>
-              <DespesasTable despesas={rows} lojas={lojasOpts} categorias={categoriasAtivas} />
+              <DespesasTable
+                despesas={rows} lojas={lojasOpts} categorias={categoriasAtivas}
+                categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -357,6 +388,8 @@ export default async function DespesasPage({
           </div>
 
           <SaidasTable
+            categoriasComBeneficiario={categoriasComBeneficiario}
+            beneficiarios={beneficiarios}
             saidas={saidasFiltradas.map(s => ({
               id: s.id,
               data: s.data.toISOString(),
@@ -366,6 +399,7 @@ export default async function DespesasPage({
               valor: s.valor,
               despesaId: s.despesaId,
               categoria: s.categoria,
+              beneficiario: s.beneficiario,
               lojaId: s.lojaId,
               lojaNome: s.lojaNome,
               lancadoPorNome: s.lancadoPorNome,

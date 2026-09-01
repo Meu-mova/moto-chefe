@@ -71,6 +71,9 @@ async function autoCategorizarPedagioSicoob(grupoId: string, usuarioSistemaId: s
 export type SaidaComDetalhes = typeof despesasOpenFinance.$inferSelect & {
   lojaNome: string | null
   lancadoPorNome: string | null
+  /** A quem se destinou, lido da despesa que esta saída gerou. Null enquanto ela
+   *  não foi categorizada, ou quando a categoria não pede beneficiário. */
+  beneficiario: string | null
 }
 
 export async function sincronizarEBuscarSaidas(
@@ -131,22 +134,28 @@ export async function sincronizarEBuscarSaidas(
 
   const lojaIds = linhasRaw.map(l => l.lojaId).filter((id): id is string => !!id)
   const lancadoPorIds = linhasRaw.map(l => l.lancadoPorId).filter((id): id is string => !!id)
+  const despesaIds = linhasRaw.map(l => l.despesaId).filter((id): id is string => !!id)
 
-  const [lojasDb, usuariosDb] = await Promise.all([
+  const [lojasDb, usuariosDb, despesasDb] = await Promise.all([
     lojaIds.length > 0
       ? db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIds))
       : Promise.resolve([] as { id: string; nome: string }[]),
     lancadoPorIds.length > 0
       ? db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(inArray(usuarios.id, lancadoPorIds))
       : Promise.resolve([] as { id: string; nome: string }[]),
+    despesaIds.length > 0
+      ? db.select({ id: despesas.id, beneficiario: despesas.beneficiario }).from(despesas).where(inArray(despesas.id, despesaIds))
+      : Promise.resolve([] as { id: string; beneficiario: string | null }[]),
   ])
   const lojaNomeById = new Map(lojasDb.map(l => [l.id, l.nome]))
   const usuarioNomeById = new Map(usuariosDb.map(u => [u.id, u.nome]))
+  const beneficiarioPorDespesa = new Map(despesasDb.map(d => [d.id, d.beneficiario]))
 
   const linhas: SaidaComDetalhes[] = linhasRaw.map(l => ({
     ...l,
     lojaNome: l.lojaId ? lojaNomeById.get(l.lojaId) ?? null : null,
     lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
+    beneficiario: l.despesaId ? beneficiarioPorDespesa.get(l.despesaId) ?? null : null,
   }))
 
   return { linhas, erroSync, syncStatusAtual: syncStatusAtual ?? null }

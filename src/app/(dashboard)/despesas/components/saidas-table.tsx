@@ -12,6 +12,7 @@ export type SaidaRow = {
   valor: string
   despesaId: string | null
   categoria: string | null
+  beneficiario: string | null
   lojaId: string | null
   lojaNome: string | null
   lancadoPorNome: string | null
@@ -26,7 +27,14 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 // não diz nada numa coluna estreita.
 const nomeCurtoBanco = (banco: string) => banco.replace(/\s+Empresas$/i, '').replace(/\s+Pagamentos$/i, '')
 
-export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { saidas: SaidaRow[]; lojas: Loja[]; categorias: string[]; podeCategorizar: boolean }) {
+export function SaidasTable({ saidas, lojas, categorias, categoriasComBeneficiario, beneficiarios, podeCategorizar }: {
+  saidas: SaidaRow[]
+  lojas: Loja[]
+  categorias: string[]
+  categoriasComBeneficiario: string[]
+  beneficiarios: string[]
+  podeCategorizar: boolean
+}) {
   const [status, setStatus] = useState<StatusFiltro>('todas')
 
   const filtradas = useMemo(() => saidas.filter(s => {
@@ -89,9 +97,12 @@ export function SaidasTable({ saidas, lojas, categorias, podeCategorizar }: { sa
                     id={s.id}
                     lojas={lojas}
                     categorias={categorias}
+                    categoriasComBeneficiario={categoriasComBeneficiario}
+                    beneficiarios={beneficiarios}
                     podeCategorizar={podeCategorizar}
                     jaLancado={s.despesaId ? {
                       categoria: s.categoria,
+                      beneficiario: s.beneficiario,
                       lojaId: s.lojaId,
                       lojaNome: s.lojaNome,
                       lancadoPorNome: s.lancadoPorNome,
