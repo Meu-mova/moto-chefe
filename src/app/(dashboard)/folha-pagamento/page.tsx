@@ -262,7 +262,10 @@ export default async function FolhaPagamentoPage({
             </p>
             <MesSelectorFolha mesAtual={mesParam} />
           </div>
-          <RegrasComissaoTable regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
+          {/* key no mês: o formulário nasce com "Vale a partir de" = mês selecionado,
+              e sem remontar ele continuaria mostrando o mês anterior depois de trocar
+              o seletor — cadastrando a regra na vigência errada. */}
+          <RegrasComissaoTable key={mesParam} regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
         </TabsContent>
 
         <TabsContent value="premiacao" className="mt-4 space-y-3">
