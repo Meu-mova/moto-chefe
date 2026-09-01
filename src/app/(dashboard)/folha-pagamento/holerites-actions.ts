@@ -2,7 +2,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { holerites, usuarios } from '@/lib/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -212,6 +212,60 @@ export async function getHoleriteUrlAction(id: string): Promise<string> {
   if (!row?.lojaId || !lojaIdsGrupo.includes(row.lojaId)) {
     throw new Error('Holerite não encontrado no grupo ativo')
   }
+
+  const { data, error } = await storageAdmin().storage
+    .from(BUCKET)
+    .createSignedUrl(row.arquivoPath, 600)
+  if (error || !data?.signedUrl) throw new Error('Erro ao gerar o link do holerite')
+  return data.signedUrl
+}
+
+// ─── Lado do funcionário ──────────────────────────────────────────────────────
+// /meus-documentos. Sem gate de papel: qualquer pessoa logada vê os holerites
+// DELA. O que separa uma pessoa da outra é o filtro por usuarioId nas duas
+// funções abaixo — nunca um papel, porque não existe papel "dono deste arquivo".
+
+export type MeuHoleriteRow = {
+  id: string
+  mes: string
+  tipo: string
+  arquivoNome: string
+  tamanho: number | null
+  enviadoEm: Date
+}
+
+export async function listarMeusHoleritesAction(): Promise<MeuHoleriteRow[]> {
+  const usuario = await getUsuarioLogado()
+  return db
+    .select({
+      id: holerites.id,
+      mes: holerites.mes,
+      tipo: holerites.tipo,
+      arquivoNome: holerites.arquivoNome,
+      tamanho: holerites.tamanho,
+      enviadoEm: holerites.enviadoEm,
+    })
+    .from(holerites)
+    .where(eq(holerites.usuarioId, usuario.id))
+    .orderBy(desc(holerites.mes))
+}
+
+/**
+ * Link temporário do holerite da própria pessoa.
+ *
+ * Separada de getHoleriteUrlAction de propósito: aquela é do escritório e libera
+ * qualquer holerite do grupo. Juntar as duas num if de papel deixaria a checagem
+ * "é meu" a uma linha de distância de ser esquecida.
+ */
+export async function getMeuHoleriteUrlAction(id: string): Promise<string> {
+  const usuario = await getUsuarioLogado()
+
+  const [row] = await db
+    .select({ arquivoPath: holerites.arquivoPath })
+    .from(holerites)
+    .where(and(eq(holerites.id, id), eq(holerites.usuarioId, usuario.id)))
+    .limit(1)
+  if (!row) throw new Error('Holerite não encontrado')
 
   const { data, error } = await storageAdmin().storage
     .from(BUCKET)

@@ -4,7 +4,7 @@ import {
   ClipboardList, CreditCard, Database, FileBarChart, FileSpreadsheet, FileText,
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
-  ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet,
+  ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
   Wrench, ListChecks, Calculator,
 } from 'lucide-react'
 
@@ -56,6 +56,9 @@ const TODOS:     Papel[] = [...COMERCIAL, 'mecanico']
 
 export const ITENS: ItemNav[] = [
   { id: 'dashboard',      href: '/dashboard',      label: 'Dashboard',         icon: Home,          categoria: null,           papeis: TODOS,     destaque: true },
+  // Página pessoal, não operacional: fica solta no menu como o Dashboard, sem
+  // categoria. Último dos destaques para não empurrar Vendas e OS para baixo.
+  { id: 'meus-documentos', href: '/meus-documentos', label: 'Meus Documentos',  icon: FolderOpen,    categoria: null,           papeis: TODOS,     destaque: true },
 
   // ── Comercial
   { id: 'vendas',         href: '/vendas',         label: 'Vendas',            icon: ShoppingCart,  categoria: 'comercial',    papeis: COMERCIAL, destaque: true },
