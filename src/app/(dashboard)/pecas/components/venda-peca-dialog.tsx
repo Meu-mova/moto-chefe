@@ -20,10 +20,15 @@ type ItemLinha = { id: string; pecaId: string; quantidade: string; valor: string
 type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
 
 const TIPOS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
+// Peça entregue sem cobrança (brinde da moto, cortesia, garantia): a venda existe e
+// baixa estoque, mas fecha em R$ 0,00. O servidor zera o valor de qualquer jeito —
+// ver zerarBonificacoes em ../actions.ts.
+const TIPO_BONIFICACAO = 'bonificacao'
 const TIPO_LABEL: Record<string, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro',
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
+  bonificacao: 'Bonificação (sem cobrança)',
 }
 const OPERADORA_LABEL: Record<string, string> = {
   infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',
@@ -99,7 +104,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     setPgtos(prev => prev.map(p => p.id !== id ? p : {
       ...p,
       [campo]: valor,
+      // Trocar para bonificação zera o valor digitado: senão o campo fica desabilitado
+      // mostrando um número que não vai ser gravado.
       ...(campo === 'tipo' ? { operadora: undefined, parcelas: undefined, autorizacao: undefined } : {}),
+      ...(campo === 'tipo' && valor === TIPO_BONIFICACAO ? { valor: '' } : {}),
     }))
   }
   function removePgto(id: string) {
@@ -116,7 +124,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   }
 
   const itensValidos = itens.filter(i => i.pecaId && parseFloat(i.quantidade) > 0)
-  const pgtosValidos = pgtos.filter(p => p.tipo && parseBRL(p.valor) > 0)
+  // Bonificação é a única forma que vale com R$ 0,00 — é justamente o ponto dela.
+  const pgtosValidos = pgtos.filter(p => p.tipo && (p.tipo === TIPO_BONIFICACAO || parseBRL(p.valor) > 0))
+  const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
   const podeSalvar = !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0
 
   function handleSalvar() {
@@ -136,7 +146,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           })),
           pagamentos: pgtosValidos.map(p => ({
             tipo: p.tipo,
-            valor: parseBRL(p.valor),
+            valor: p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor),
             ...(p.operadora ? { operadora: p.operadora } : {}),
             ...(p.parcelas ? { parcelas: parseInt(p.parcelas, 10) } : {}),
             ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
@@ -285,9 +295,20 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Valor (R$)</Label>
-                      <Input value={p.valor} onChange={e => updatePgto(p.id, 'valor', e.target.value)} className="h-8 text-xs" placeholder="0,00" />
+                      <Input
+                        value={p.tipo === TIPO_BONIFICACAO ? '0,00' : p.valor}
+                        onChange={e => updatePgto(p.id, 'valor', e.target.value)}
+                        disabled={p.tipo === TIPO_BONIFICACAO}
+                        className="h-8 text-xs disabled:bg-slate-100 disabled:text-slate-400"
+                        placeholder="0,00"
+                      />
                     </div>
                   </div>
+                  {p.tipo === TIPO_BONIFICACAO && (
+                    <p className="text-xs text-amber-700">
+                      Entrega sem cobrança — a venda é registrada com valor R$ 0,00 e não entra na receita.
+                    </p>
+                  )}
                   {p.tipo === 'cartao_credito' && (
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
@@ -338,6 +359,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   )}
                 </div>
               ))}
+              <p className="text-right text-sm text-slate-600">
+                Valor a registrar na venda: <span className="font-semibold text-slate-800">{fmtBRL(totalPgtos)}</span>
+              </p>
             </div>
           </div>
 

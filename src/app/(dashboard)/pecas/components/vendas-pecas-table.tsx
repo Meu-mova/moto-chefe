@@ -2,6 +2,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { ConcBadge } from '@/components/conciliacao-badge'
 import { ConciliacaoPecaDialog } from './conciliacao-peca-dialog'
+import { ExcluirVendaPecaButton } from './excluir-venda-peca-button'
+import { podeGerirPecas } from '../papeis'
 
 type VendaPeca = {
   id: string
@@ -22,7 +24,7 @@ const TIPO_LABEL: Record<string, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro',
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
-  multiplo: 'Múltiplo',
+  bonificacao: 'Bonificação', multiplo: 'Múltiplo',
 }
 
 function fmtBRL(v: string) {
@@ -34,6 +36,9 @@ function fmtData(d: Date) {
 }
 
 export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel: string }) {
+  // Apagar venda é o mesmo nível de quem define preço no catálogo — vendedor não mexe.
+  const podeExcluir = podeGerirPecas(papel)
+
   return (
     <div className="bg-white rounded-lg border">
       <Table>
@@ -48,6 +53,7 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
             <TableHead>Conciliação</TableHead>
             <TableHead className="text-right">Valor</TableHead>
             <TableHead className="text-right">Data</TableHead>
+            {podeExcluir && <TableHead className="w-10" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -75,12 +81,17 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
                 </TableCell>
                 <TableCell className="text-right font-medium text-green-700">{fmtBRL(v.valorTotal)}</TableCell>
                 <TableCell className="text-right text-slate-500">{fmtData(v.dataVenda)}</TableCell>
+                {podeExcluir && (
+                  <TableCell className="text-right">
+                    <ExcluirVendaPecaButton vendaId={v.id} numero={v.numero} />
+                  </TableCell>
+                )}
               </TableRow>
             )
           })}
           {vendas.length === 0 && (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-slate-400 py-8">
+              <TableCell colSpan={podeExcluir ? 10 : 9} className="text-center text-slate-400 py-8">
                 Nenhuma venda de peça registrada ainda.
               </TableCell>
             </TableRow>

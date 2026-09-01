@@ -1,7 +1,7 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda } from '@/lib/db/schema'
+import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, asc, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
@@ -117,6 +117,17 @@ function temPagamentoSensivelPeca(pagamentos: PagamentoVendaPecaInput[]): boolea
   return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_PECA.has(p.tipo))
 }
 
+// 'bonificacao' = peça entregue sem cobrança (brinde junto com a moto, cortesia, troca
+// em garantia). A venda existe — baixa estoque e guarda para quem foi —, mas não é
+// receita: o valor vai zerado a ferro e fogo porque DRE, folha e financeiro somam
+// vendas_pecas.valor_total. É também o único jeito de a venda fechar em R$ 0,00.
+// Nada a conciliar: precisaConciliar() só olha cartão e PIX (src/lib/conciliacao-status.ts).
+const TIPO_PAGAMENTO_BONIFICACAO = 'bonificacao'
+
+function zerarBonificacoes(pagamentos: PagamentoVendaPecaInput[]): PagamentoVendaPecaInput[] {
+  return pagamentos.map(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO ? { ...p, valor: 0 } : p)
+}
+
 // Cria a venda de fato — sem checagem de permissão/sensibilidade, usada tanto pelo
 // fechamento direto quanto pela aprovação de pagamento sensível. Recebe a transação de
 // fora pra poder ficar atômico com o UPDATE de aprovação (ver aprovarVendaAction).
@@ -192,16 +203,20 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
 
-  const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
-  if (valorTotal <= 0) throw new Error('Valor total inválido')
+  const pagamentos = zerarBonificacoes(input.pagamentos)
+  const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
+  if (valorTotal < 0) throw new Error('Valor total inválido')
+  if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
+    throw new Error('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
+  }
 
   // Preço fora do catálogo é decisão de gestor. Descartar aqui (e não lá embaixo)
   // faz a venda que vai pra aprovação já ficar gravada com o preço certo — senão o
   // ajuste sumiria só quando alguém aprovasse, dias depois.
   const podeDefinirPreco = podeGerirPecas(usuario.papel)
   const saneado: DadosVendaPeca = podeDefinirPreco
-    ? input
-    : { ...input, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
+    ? { ...input, pagamentos }
+    : { ...input, pagamentos, itens: input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade })) }
 
   if (temPagamentoSensivelPeca(saneado.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, saneado.lojaId))) {
     await db.insert(aprovacoesVenda).values({
@@ -266,4 +281,57 @@ export async function listarVendasPecasAction() {
     .where(inArray(vendasPecas.lojaId, lojaFiltro))
     .orderBy(desc(vendasPecas.dataVenda))
     .limit(100)
+}
+
+// Excluir venda de peças: lançamento errado no balcão não tem como ser editado, então
+// o caminho é apagar e refazer. Devolve o estoque dos itens e SOLTA as transações que
+// estavam casadas com essa venda — o dinheiro continua lá na conciliação, livre pra ser
+// vinculado ao lançamento certo. Gestor da loja (inclui aux_adm) resolve sozinho.
+export async function excluirVendaPecaAction(vendaId: string) {
+  const usuario = await verificarAcesso()
+
+  const [venda] = await db
+    .select({ id: vendasPecas.id, numero: vendasPecas.numero, lojaId: vendasPecas.lojaId })
+    .from(vendasPecas)
+    .where(eq(vendasPecas.id, vendaId))
+    .limit(1)
+  if (!venda) throw new Error('Venda não encontrada')
+
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
+
+  await db.transaction(async tx => {
+    const itens = await tx
+      .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
+      .from(vendasPecasItens)
+      .where(eq(vendasPecasItens.vendaPecaId, vendaId))
+
+    // Devolve na mesma forma que a venda baixou (incremento relativo) — duas linhas da
+    // mesma peça no carrinho têm que somar as duas de volta.
+    for (const item of itens) {
+      await tx.update(pecasCatalogo)
+        .set({
+          quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} + ${Number(item.quantidade)}`,
+          atualizadoEm: new Date(),
+        })
+        .where(eq(pecasCatalogo.id, item.pecaId))
+    }
+
+    // Soltar antes do DELETE: as duas colunas são FK pra vendas_pecas e segurariam a
+    // exclusão. Volta ao estado de transação não conciliada, como desvincular na mão.
+    await tx.update(conciliacoesCartao)
+      .set({ pecaVendaId: null, conciliado: false, conciliadoEm: null })
+      .where(eq(conciliacoesCartao.pecaVendaId, vendaId))
+    await tx.update(pixRecebimentosMcp)
+      .set({ tipoCorrespondencia: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null })
+      .where(eq(pixRecebimentosMcp.pecaVendaId, vendaId))
+
+    await tx.delete(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, vendaId))
+    await tx.delete(vendasPecas).where(eq(vendasPecas.id, vendaId))
+  })
+
+  revalidatePath('/pecas')
+  revalidatePath('/conciliacao')
+  revalidatePath('/pix-mcp')
+  return { numero: venda.numero }
 }
