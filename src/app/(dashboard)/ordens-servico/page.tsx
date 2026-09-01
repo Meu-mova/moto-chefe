@@ -10,6 +10,7 @@ import { OSCard } from './components/os-card'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
+import { TIPO_PAGAMENTO_CUPOM } from '@/lib/cupom-revisao'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -81,6 +82,31 @@ export default async function OrdensServicoPage({
     { pendente: 0, parcial: 0, conciliada: 0 },
   )
 
+  // Gratuidades: OS fechada sem dinheiro entrar. São contadas como "conciliadas"
+  // pelo calcStatus (não há o que casar no extrato), então sem este recorte o número
+  // de conciliadas esconde quanto de serviço saiu de graça.
+  //
+  // 'gratuita' é a OS de valor zero — pagamentosEfetivosOS sintetiza esse tipo a
+  // partir de formaPagamento, então OS ainda não fechada (sem forma nenhuma) fica
+  // de fora, que é o certo: ela não foi dada, só não foi cobrada ainda.
+  const gratuidades = ativas.reduce(
+    (acc, o) => {
+      const pagamentos = pagamentosEfetivosOS(o.formaPagamento, o.pagamentos, o.valorTotal)
+      let ehGratuita = false
+      for (const p of pagamentos) {
+        const valor = Number(p.valor) || 0
+        if (p.tipo === TIPO_PAGAMENTO_CUPOM) { acc.cupomQtd++;    acc.valor += valor; ehGratuita = true }
+        else if (p.tipo === 'cortesia')      { acc.cortesiaQtd++; acc.valor += valor; ehGratuita = true }
+        else if (p.tipo === 'gratuita')      { acc.gratuitaQtd++;                     ehGratuita = true }
+      }
+      // Uma OS meio cupom, meio dinheiro conta uma vez só na quantidade — o valor
+      // acumulado é que diz quanto dela foi de graça.
+      if (ehGratuita) acc.osQtd++
+      return acc
+    },
+    { osQtd: 0, cupomQtd: 0, cortesiaQtd: 0, gratuitaQtd: 0, valor: 0 },
+  )
+
   const totalServicos = ativas.reduce((s, o) => s + (parseFloat(o.valorServicos) || 0), 0)
   const totalPecas    = ativas.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -136,8 +162,8 @@ export default async function OrdensServicoPage({
       </div>
 
       {/* Conciliação */}
-      {(concStats.pendente + concStats.parcial + concStats.conciliada) > 0 && (
-        <div className="grid grid-cols-3 gap-3 max-w-xl">
+      {(concStats.pendente + concStats.parcial + concStats.conciliada + gratuidades.osQtd) > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl">
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
             <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Conc. Pendentes</p>
             <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
@@ -149,6 +175,16 @@ export default async function OrdensServicoPage({
           <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
             <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
             <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
+          </div>
+          <div className="bg-violet-50 border border-violet-200 rounded-lg px-4 py-3">
+            <p className="text-xs font-medium text-violet-600 uppercase tracking-wide">Gratuidades</p>
+            <p className="text-2xl font-bold text-violet-700 mt-0.5">{gratuidades.osQtd}</p>
+            {/* O valor é o que deixou de ser cobrado, não o total da OS: numa OS meio
+                cupom, meio dinheiro só a parte gratuita entra aqui. */}
+            <p className="text-xs text-violet-600 mt-0.5">{fmt(gratuidades.valor)} não cobrados</p>
+            <p className="text-[11px] text-violet-500 mt-1 leading-tight">
+              {gratuidades.cupomQtd} cupom · {gratuidades.cortesiaQtd} cortesia/garantia · {gratuidades.gratuitaQtd} gratuita
+            </p>
           </div>
         </div>
       )}
