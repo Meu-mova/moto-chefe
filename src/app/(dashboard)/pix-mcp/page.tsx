@@ -157,12 +157,22 @@ export default async function PixMcpPage({
   const pecaNumeroById = new Map(pecasVendaDb.map(p => [p.id, p.numero]))
   const usuarioNomeById = new Map(usuariosDb.map(u => [u.id, u.nome]))
 
-  const total = linhas.reduce((s, l) => s + Number(l.valor), 0)
-  const totalVinculado = linhas.filter(l => l.tipoCorrespondencia).reduce((s, l) => s + Number(l.valor), 0)
-  const linhasInternas = linhas.filter(l => !l.tipoCorrespondencia && ehTransferenciaInterna(l.pagadorNome))
+  // Transferência interna é dinheiro andando entre contas do próprio grupo
+  // (maquininha, conta a conta). Não é recebimento de cliente e não é assunto de
+  // balcão: só sócio vê. Para o resto da equipe a linha some da tabela E dos
+  // totais — deixar no total com a linha escondida faria a soma não fechar com o
+  // que está na tela.
+  const ehInterna = (l: typeof linhas[number]) =>
+    !l.tipoCorrespondencia && ehTransferenciaInterna(l.pagadorNome)
+  const ehSocio = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const linhasVisiveis = ehSocio ? linhas : linhas.filter(l => !ehInterna(l))
+
+  const total = linhasVisiveis.reduce((s, l) => s + Number(l.valor), 0)
+  const totalVinculado = linhasVisiveis.filter(l => l.tipoCorrespondencia).reduce((s, l) => s + Number(l.valor), 0)
+  const linhasInternas = linhasVisiveis.filter(ehInterna)
   const totalInterno = linhasInternas.reduce((s, l) => s + Number(l.valor), 0)
   const totalSemCorrespondencia = total - totalVinculado - totalInterno
-  const qtdSemCorrespondencia = linhas.filter(l => !l.tipoCorrespondencia && !ehTransferenciaInterna(l.pagadorNome)).length
+  const qtdSemCorrespondencia = linhasVisiveis.filter(l => !l.tipoCorrespondencia && !ehInterna(l)).length
 
   const hrefAtualizar = `/pix-mcp?from=${toInputDate(fromDate)}&to=${toInputDate(toDate)}&sync=1`
 
@@ -192,19 +202,19 @@ export default async function PixMcpPage({
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${ehSocio ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Total Recebido</p>
             <p className="text-xl font-bold text-slate-900 mt-1">{formatValor(String(total))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{linhas.length} transações</p>
+            <p className="text-xs text-slate-400 mt-0.5">{linhasVisiveis.length} transações</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-slate-500 uppercase tracking-wide">Vinculados</p>
             <p className="text-xl font-bold text-green-700 mt-1">{formatValor(String(totalVinculado))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{linhas.filter(l => l.tipoCorrespondencia).length} transações</p>
+            <p className="text-xs text-slate-400 mt-0.5">{linhasVisiveis.filter(l => l.tipoCorrespondencia).length} transações</p>
           </CardContent>
         </Card>
         <Card>
@@ -214,13 +224,15 @@ export default async function PixMcpPage({
             <p className="text-xs text-slate-400 mt-0.5">{qtdSemCorrespondencia} transações</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Transferências Internas</p>
-            <p className="text-xl font-bold text-slate-400 mt-1">{formatValor(String(totalInterno))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{linhasInternas.length} transações · maquininha/conta própria</p>
-          </CardContent>
-        </Card>
+        {ehSocio && (
+          <Card>
+            <CardContent className="pt-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wide">Transferências Internas</p>
+              <p className="text-xl font-bold text-slate-400 mt-1">{formatValor(String(totalInterno))}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{linhasInternas.length} transações · maquininha/conta própria</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -236,8 +248,8 @@ export default async function PixMcpPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {linhas.map(l => {
-                const interna = !l.tipoCorrespondencia && ehTransferenciaInterna(l.pagadorNome)
+              {linhasVisiveis.map(l => {
+                const interna = ehInterna(l)
                 return (
                   <TableRow key={l.id}>
                     <TableCell className="pl-4 text-sm text-slate-500 whitespace-nowrap">
@@ -285,7 +297,7 @@ export default async function PixMcpPage({
                   </TableRow>
                 )
               })}
-              {linhas.length === 0 && (
+              {linhasVisiveis.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-slate-400 py-12">
                     <TrendingUp size={32} className="mx-auto mb-2 opacity-20" />
