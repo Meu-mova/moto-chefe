@@ -24,7 +24,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'agenda', 'atendimento', 'bancos', 'bling', 'caixa', 'calendario',
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
     'comunicados', 'compras', 'conciliacao', 'dados-funcionarios', 'dashboard',
-    'demandas', 'despesas', 'dre', 'financeiro', 'folha', 'garantias', 'kommo',
+    'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'kommo',
     'lojas', 'marketing', 'metas', 'modelos', 'montagens', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
