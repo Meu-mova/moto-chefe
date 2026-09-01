@@ -99,6 +99,7 @@ export const ITENS: ItemNav[] = [
 
   // ── Gestão
   { id: 'fechamento',     href: '/relatorios/fechamento', label: 'Fechamento',  icon: FileBarChart,  categoria: 'gestao',       papeis: ADMINS },
+  { id: 'individual',     href: '/relatorios/individual', label: 'Desempenho Individual', icon: IdCard, categoria: 'gestao',    papeis: ADMINS },
   { id: 'metas',          href: '/admin/metas',    label: 'Metas',             icon: Target,        categoria: 'gestao',       papeis: GESTORES },
   { id: 'calendario',     href: '/calendario',     label: 'Calendário',        icon: CalendarRange, categoria: 'gestao',       papeis: TODOS },
   { id: 'comunicados',    href: '/admin/comunicados', label: 'Comunicados',    icon: Megaphone,     categoria: 'gestao',       papeis: ADMINS },
