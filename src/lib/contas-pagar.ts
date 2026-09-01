@@ -11,7 +11,7 @@
 export const TIPOS_CONTA = [
   { valor: 'unica',      label: 'Única' },
   { valor: 'recorrente', label: 'Recorrente (todo mês)' },
-  { valor: 'automatica', label: 'Automática (% sobre o mês anterior)' },
+  { valor: 'automatica', label: 'Automática (% sobre um movimento apurado)' },
 ] as const
 
 export type TipoConta = (typeof TIPOS_CONTA)[number]['valor']
@@ -21,19 +21,44 @@ export function isTipoConta(v: string): v is TipoConta {
 }
 
 /**
- * Bases da conta automática. Todas olham o mês ANTERIOR ao da competência — é
- * assim que imposto funciona: o que se paga em setembro é calculado sobre o que
- * foi vendido em agosto.
+ * Bases da conta automática.
  *
- * "Com nota fiscal" existe separada porque a base do imposto é o que foi
- * faturado, e nem toda venda lançada tem NF emitida no mesmo mês.
+ * O mês apurado é escolhido por conta, em `formulaMesRef` — imposto e folha olham
+ * o mês ANTERIOR (o que se paga em outubro sai do que aconteceu em setembro),
+ * enquanto o adiantamento olha o mês CORRENTE: o vale do dia 20 de setembro é o
+ * adiantamento lançado em setembro, e é ele que a folha de setembro desconta.
+ *
+ * "Com nota fiscal" existe separada porque a base do imposto é o que foi faturado,
+ * e nem toda venda lançada tem NF emitida no mesmo mês.
  */
 export const BASES_FORMULA = [
-  { valor: 'venda_motos',        label: 'Venda de motos do mês anterior' },
-  { valor: 'venda_motos_com_nf', label: 'Venda de motos com NF emitida (mês anterior)' },
-  { valor: 'venda_pecas',        label: 'Venda de peças do mês anterior' },
-  { valor: 'faturamento_total',  label: 'Faturamento total do mês anterior (motos + peças + OS)' },
+  { valor: 'venda_motos',        label: 'Venda de motos' },
+  { valor: 'venda_motos_com_nf', label: 'Venda de motos com NF emitida' },
+  { valor: 'venda_pecas',        label: 'Venda de peças' },
+  { valor: 'faturamento_total',  label: 'Faturamento total (motos + peças + OS)' },
+  { valor: 'folha_pagamento',    label: 'Folha de pagamento (total a pagar)' },
+  { valor: 'adiantamentos',      label: 'Adiantamentos da folha (fixos + avulsos)' },
 ] as const
+
+export const MESES_REFERENCIA = [
+  { valor: 'anterior', label: 'Mês anterior' },
+  { valor: 'corrente', label: 'Mês da competência' },
+] as const
+
+export type MesReferencia = (typeof MESES_REFERENCIA)[number]['valor']
+
+export function isMesReferencia(v: string): v is MesReferencia {
+  return v === 'anterior' || v === 'corrente'
+}
+
+export function labelMesReferencia(v: string): string {
+  return MESES_REFERENCIA.find(m => m.valor === v)?.label ?? v
+}
+
+/** Mês que a conta apura para a competência informada. */
+export function mesApurado(competencia: string, mesRef: string): string {
+  return mesRef === 'corrente' ? competencia : mesAnterior(competencia)
+}
 
 export type BaseFormula = (typeof BASES_FORMULA)[number]['valor']
 

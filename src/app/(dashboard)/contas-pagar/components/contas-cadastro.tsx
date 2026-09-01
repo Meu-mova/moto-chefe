@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Trash2, Power } from 'lucide-react'
-import { TIPOS_CONTA, BASES_FORMULA, labelBaseFormula } from '@/lib/contas-pagar'
+import { TIPOS_CONTA, BASES_FORMULA, MESES_REFERENCIA, labelBaseFormula, labelMesReferencia } from '@/lib/contas-pagar'
 import { parseNumeroBR } from '@/lib/numero-br'
 import {
   criarContaAction, alternarContaAtivaAction, excluirContaAction, type ContaRow,
@@ -41,6 +41,7 @@ export function ContasCadastro({ contas, lojas, mes }: {
   const [diaVencimento, setDiaVencimento] = useState('10')
   const [formulaBase, setFormulaBase] = useState('venda_motos_com_nf')
   const [formulaPercentual, setFormulaPercentual] = useState('')
+  const [formulaMesRef, setFormulaMesRef] = useState('anterior')
   const [inicio, setInicio] = useState(mes)
   const [fim, setFim] = useState('')
   const [observacao, setObservacao] = useState('')
@@ -67,6 +68,7 @@ export function ContasCadastro({ contas, lojas, mes }: {
           diaVencimento: ehUnica ? null : Number(diaVencimento),
           formulaBase: ehAutomatica ? formulaBase : null,
           formulaPercentual: percentualNum,
+          formulaMesRef,
           // Única não tem vigência: a data dela já diz quando acontece.
           inicio: ehUnica ? null : (inicio || null),
           fim: ehUnica ? null : (fim || null),
@@ -112,10 +114,10 @@ export function ContasCadastro({ contas, lojas, mes }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-500">
-        A conta cadastrada aqui gera um compromisso por mês. <strong>Automática</strong> calcula o valor sobre o
-        movimento do <strong>mês anterior</strong> — é o caso do imposto de 6% sobre a venda de motos. Enquanto não
-        estiver paga, ela é recalculada a cada abertura da tela, porque o mês anterior continua fechando; depois de
-        paga, o valor congela.
+        A conta cadastrada aqui gera um compromisso por mês. <strong>Automática</strong> calcula o valor sobre um
+        movimento apurado — imposto e folha olham o <strong>mês anterior</strong>, adiantamento olha o{' '}
+        <strong>mês da competência</strong>. Enquanto não estiver paga, ela é recalculada a cada abertura da tela,
+        porque o mês apurado continua fechando; depois de paga, o valor congela.
       </p>
 
       <div className="overflow-hidden rounded-lg border bg-white">
@@ -160,6 +162,7 @@ export function ContasCadastro({ contas, lojas, mes }: {
                         {Number(c.formulaPercentual).toLocaleString('pt-BR')}%
                         <span className="block text-[11px] font-normal text-slate-400">
                           {labelBaseFormula(c.formulaBase ?? '')}
+                          {' · '}{labelMesReferencia(c.formulaMesRef).toLowerCase()}
                         </span>
                       </span>
                     : fmt(c.valor)}
@@ -228,6 +231,14 @@ export function ContasCadastro({ contas, lojas, mes }: {
               <label className="text-xs text-slate-500">Base do cálculo</label>
               <select value={formulaBase} onChange={e => setFormulaBase(e.target.value)} className={`${selectCls} w-64`}>
                 {BASES_FORMULA.map(b => <option key={b.valor} value={b.valor}>{b.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-500">Apura o</label>
+              {/* Imposto e folha olham o mês anterior; adiantamento olha o mês da
+                  competência — o vale do dia 20 é o adiantamento daquele mês. */}
+              <select value={formulaMesRef} onChange={e => setFormulaMesRef(e.target.value)} className={`${selectCls} w-44`}>
+                {MESES_REFERENCIA.map(m => <option key={m.valor} value={m.valor}>{m.label}</option>)}
               </select>
             </div>
             <div className="space-y-1">

@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Check, AlertTriangle, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { situacaoOcorrencia, labelBaseFormula, type SituacaoConta } from '@/lib/contas-pagar'
+import { situacaoOcorrencia, labelBaseFormula, labelMesReferencia, type SituacaoConta } from '@/lib/contas-pagar'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { marcarPagoAction, editarValorOcorrenciaAction, type OcorrenciaConta } from '../actions'
 
@@ -91,7 +91,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
           {o.categoria ? ` · ${o.categoria}` : ''}
           {o.lojaNome ? ` · ${o.lojaNome}` : ' · empresa'}
           {o.tipo === 'automatica' && o.formulaPercentual
-            ? ` · ${Number(o.formulaPercentual).toLocaleString('pt-BR')}% sobre ${labelBaseFormula(o.formulaBase ?? '').toLowerCase()}`
+            ? ` · ${Number(o.formulaPercentual).toLocaleString('pt-BR')}% sobre ${labelBaseFormula(o.formulaBase ?? '').toLowerCase()} (${labelMesReferencia(o.formulaMesRef).toLowerCase()})`
             : ''}
           {o.pago && o.pagoEm ? ` · pago em ${fmtData(o.pagoEm)}${o.pagoPorNome ? ` por ${o.pagoPorNome}` : ''}` : ''}
         </p>

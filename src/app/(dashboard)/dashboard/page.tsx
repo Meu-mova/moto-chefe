@@ -39,6 +39,8 @@ import {
 import { SectionErrorBoundary } from './section-error-boundary'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
+import { listarContasDoMesAction } from '../contas-pagar/actions'
+import { ContasPagarCard } from './components/contas-pagar-card'
 
 // O botão "Atualizar" do card da fábrica roda por Server Action nesta rota, e
 // ele faz login + scraping no portal, uma conta por loja. Não cabe no default.
@@ -366,6 +368,16 @@ async function AtendimentoSection({
   )
 }
 
+// Contas a pagar do mês. Materializa as ocorrências antes de ler (mesma função da
+// tela do módulo), então uma conta recorrente aparece aqui sem ninguém precisar
+// abrir /contas-pagar naquele mês. Fica no próprio Suspense porque a base
+// automática da folha roda o cálculo inteiro dela.
+async function ContasPagarSection() {
+  const hoje = hojeBrt()
+  const { doMes, atrasadas } = await listarContasDoMesAction(hoje.slice(0, 7))
+  return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} hoje={hoje} />
+}
+
 // Próximos eventos do calendário de gestão, respeitando a visibilidade de cada um.
 async function ProximosEventosSection({ usuario }: { usuario: Awaited<ReturnType<typeof getUsuarioLogado>> }) {
   const eventos = await proximosEventos(usuario, 14)
@@ -468,6 +480,15 @@ export default async function DashboardPage({
           ateDefault={ateDefault}
         />
       </div>
+
+      {/* Antes dos eventos: é a primeira coisa que o Cesar quer ver ao abrir. */}
+      {isAdmin && (
+        <SectionErrorBoundary label="as contas a pagar">
+          <Suspense fallback={null}>
+            <ContasPagarSection />
+          </Suspense>
+        </SectionErrorBoundary>
+      )}
 
       <SectionErrorBoundary label="os próximos eventos">
         <Suspense fallback={null}>

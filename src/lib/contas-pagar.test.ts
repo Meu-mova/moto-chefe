@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   mesAnterior, ultimoDiaDoMes, vencimentoNoMes, contaVigenteNoMes,
   situacaoOcorrencia, valorAutomatico, isTipoConta, isBaseFormula,
+  isMesReferencia, mesApurado,
 } from './contas-pagar'
 
 // ── competência ──────────────────────────────────────────────────────────────
@@ -107,4 +108,27 @@ test('valida tipo e base contra as listas fechadas', () => {
   assert.equal(isTipoConta('parcelada'), false)
   assert.equal(isBaseFormula('venda_motos_com_nf'), true)
   assert.equal(isBaseFormula('lucro'), false)
+})
+
+// ── mês apurado pela fórmula ─────────────────────────────────────────────────
+
+test('imposto e folha apuram o mês anterior', () => {
+  assert.equal(mesApurado('2026-10', 'anterior'), '2026-09')
+  assert.equal(mesApurado('2026-01', 'anterior'), '2025-12')
+})
+
+test('adiantamento apura o próprio mês da competência', () => {
+  // O vale do dia 20/09 é o adiantamento lançado em setembro — é ele que a folha
+  // de setembro, paga em 05/10, desconta.
+  assert.equal(mesApurado('2026-09', 'corrente'), '2026-09')
+})
+
+test('mês de referência desconhecido cai em anterior, que é o padrão da coluna', () => {
+  assert.equal(mesApurado('2026-09', 'qualquer'), '2026-08')
+})
+
+test('valida o mês de referência contra a lista fechada', () => {
+  assert.equal(isMesReferencia('anterior'), true)
+  assert.equal(isMesReferencia('corrente'), true)
+  assert.equal(isMesReferencia('proximo'), false)
 })

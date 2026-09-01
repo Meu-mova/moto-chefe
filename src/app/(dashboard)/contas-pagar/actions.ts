@@ -10,9 +10,10 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { hojeBrt, inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import {
-  isTipoConta, isBaseFormula, contaVigenteNoMes, vencimentoNoMes,
-  mesAnterior, ultimoDiaDoMes, valorAutomatico,
+  isTipoConta, isBaseFormula, isMesReferencia, contaVigenteNoMes, vencimentoNoMes,
+  mesApurado, ultimoDiaDoMes, valorAutomatico,
 } from '@/lib/contas-pagar'
+import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -32,7 +33,7 @@ async function checarAdmin() {
  * Venda cancelada não entra porque cancelar APAGA a linha da venda — ver
  * cancelarVendaCompletaAction.
  */
-async function apurarBase(base: string, mes: string, lojaIds: string[]): Promise<number> {
+async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId: string): Promise<number> {
   if (lojaIds.length === 0) return 0
   const inicio = inicioDoDiaBrt(`${mes}-01`)
   const fim = fimDoDiaBrt(`${mes}-${String(ultimoDiaDoMes(mes)).padStart(2, '0')}`)
@@ -83,6 +84,21 @@ async function apurarBase(base: string, mes: string, lojaIds: string[]): Promise
       const [motos, pecas, os] = await Promise.all([somaMotos(false), somaPecas(), somaOS()])
       return motos + pecas + os
     }
+    // A folha é a única base que não é uma soma: sai do mesmo cálculo da tela de
+    // folha (salário + comissão + premiação + ajuda de custo - adiantamentos), para
+    // o compromisso não divergir do que a folha manda pagar. Custa ~13 consultas,
+    // e é por isso que apurarBase é memoizada por chamada.
+    case 'folha_pagamento': {
+      const dados = await buscarDadosFolha({ mes, lojaIds, lojaIdsGrupo: lojaIds, grupoId })
+      return agregarFolha(dados).totais.geral
+    }
+    // Mesma fonte da folha, e não uma soma direta de folha_adiantamentos: assim o
+    // vale do dia 20 bate com o desconto que aparece na folha do dia 5. Só conta
+    // funcionário ativo, e soma vale fixo com adiantamento avulso.
+    case 'adiantamentos': {
+      const dados = await buscarDadosFolha({ mes, lojaIds, lojaIdsGrupo: lojaIds, grupoId })
+      return agregarFolha(dados).totais.adiantamentos
+    }
     default: return 0
   }
 }
@@ -111,11 +127,15 @@ async function garantirOcorrenciasDoMes(grupoId: string, lojaIdsGrupo: string[],
   const vigentes = contas.filter(c => contaVigenteNoMes(c, mes))
   if (vigentes.length === 0) return
 
+  // Duas contas sobre a mesma base apuram uma vez só. Importa de verdade na base
+  // 'folha_pagamento', que roda o cálculo inteiro da folha.
+  const cache = new Map<string, Promise<number>>()
+
   for (const conta of vigentes) {
     const vencimento = vencimentoDaConta(conta, mes)
     if (!vencimento) continue
 
-    const valor = await valorDaConta(conta, mes, lojaIdsGrupo)
+    const valor = await valorDaConta(conta, mes, lojaIdsGrupo, grupoId, cache)
 
     await db.insert(contasPagarOcorrencias).values({
       contaId: conta.id,
@@ -149,11 +169,26 @@ function vencimentoDaConta(conta: ContaCadastro, mes: string): string | null {
   return vencimentoNoMes(mes, conta.diaVencimento)
 }
 
-async function valorDaConta(conta: ContaCadastro, mes: string, lojaIdsGrupo: string[]): Promise<number> {
+async function valorDaConta(
+  conta: ContaCadastro,
+  mes: string,
+  lojaIdsGrupo: string[],
+  grupoId: string,
+  cache: Map<string, Promise<number>>,
+): Promise<number> {
   if (conta.tipo !== 'automatica') return parseFloat(conta.valor ?? '0')
+
   const lojaIds = conta.lojaId ? [conta.lojaId] : lojaIdsGrupo
-  const base = await apurarBase(conta.formulaBase ?? '', mesAnterior(mes), lojaIds)
-  return valorAutomatico(base, parseFloat(conta.formulaPercentual ?? '0'))
+  const mesBase = mesApurado(mes, conta.formulaMesRef)
+  const chave = `${conta.formulaBase}|${mesBase}|${lojaIds.join(',')}`
+
+  let apuracao = cache.get(chave)
+  if (!apuracao) {
+    apuracao = apurarBase(conta.formulaBase ?? '', mesBase, lojaIds, grupoId)
+    cache.set(chave, apuracao)
+  }
+
+  return valorAutomatico(await apuracao, parseFloat(conta.formulaPercentual ?? '0'))
 }
 
 // ─── Leitura ──────────────────────────────────────────────────────────────────
@@ -174,6 +209,7 @@ export type OcorrenciaConta = {
   observacao: string | null
   formulaBase: string | null
   formulaPercentual: string | null
+  formulaMesRef: string
 }
 
 const CAMPOS_OCORRENCIA = {
@@ -192,6 +228,7 @@ const CAMPOS_OCORRENCIA = {
   observacao: contasPagarOcorrencias.observacao,
   formulaBase: contasPagar.formulaBase,
   formulaPercentual: contasPagar.formulaPercentual,
+  formulaMesRef: contasPagar.formulaMesRef,
 }
 
 /**
@@ -243,6 +280,7 @@ export type ContaRow = {
   diaVencimento: number | null
   formulaBase: string | null
   formulaPercentual: string | null
+  formulaMesRef: string
   inicio: string | null
   fim: string | null
   ativo: boolean
@@ -264,6 +302,7 @@ export async function listarContasAction(): Promise<ContaRow[]> {
       diaVencimento: contasPagar.diaVencimento,
       formulaBase: contasPagar.formulaBase,
       formulaPercentual: contasPagar.formulaPercentual,
+      formulaMesRef: contasPagar.formulaMesRef,
       inicio: contasPagar.inicio,
       fim: contasPagar.fim,
       ativo: contasPagar.ativo,
@@ -289,6 +328,7 @@ export type NovaContaInput = {
   diaVencimento: number | null
   formulaBase: string | null
   formulaPercentual: number | null
+  formulaMesRef: string
   inicio: string | null
   fim: string | null
   observacao: string
@@ -322,6 +362,7 @@ export async function criarContaAction(input: NovaContaInput) {
   if (input.tipo === 'automatica') {
     if (!input.formulaBase || !isBaseFormula(input.formulaBase)) throw new Error('Escolha a base do cálculo')
     if (!(Number(input.formulaPercentual) > 0)) throw new Error('Informe o percentual do cálculo')
+    if (!isMesReferencia(input.formulaMesRef)) throw new Error('Mês de referência inválido')
   }
 
   for (const mes of [input.inicio, input.fim]) {
@@ -344,6 +385,7 @@ export async function criarContaAction(input: NovaContaInput) {
     diaVencimento: input.tipo === 'unica' ? null : input.diaVencimento,
     formulaBase: input.tipo === 'automatica' ? input.formulaBase : null,
     formulaPercentual: input.tipo === 'automatica' ? String(input.formulaPercentual) : null,
+    formulaMesRef: input.tipo === 'automatica' ? input.formulaMesRef : 'anterior',
     inicio: input.inicio || null,
     fim: input.fim || null,
     observacao: input.observacao.trim() || null,

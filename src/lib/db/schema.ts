@@ -1275,6 +1275,8 @@ export const contasPagar = pgTable('contas_pagar', {
   /** Ver BASES_FORMULA em @/lib/contas-pagar. */
   formulaBase: text('formula_base'),
   formulaPercentual: numeric('formula_percentual', { precision: 6, scale: 3 }),
+  /** 'anterior' (padrão) | 'corrente' — que mês a fórmula apura. Migração 0079. */
+  formulaMesRef: text('formula_mes_ref').notNull().default('anterior'),
   /** Vigência em 'YYYY-MM', comparada como texto. NULL dos dois lados = sem limite. */
   inicio: text('inicio'),
   fim: text('fim'),
