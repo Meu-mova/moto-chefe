@@ -5,6 +5,8 @@ import {
   ehRetiradaNaLoja,
   parsearStatusCompra,
   ehStatusFinalizado,
+  loginAceito,
+  explicarFalhaDeLogin,
 } from './fabrica-scraper'
 
 // Markup fiel ao portal real (/clientes/pedido/N): rótulo "Tipo de Entrega" num
@@ -128,4 +130,59 @@ test('ehStatusFinalizado: pedido em aberto continua na lista', () => {
   for (const s of ['Aguardando pagamento', 'Separado', 'Em Transito', 'Em separacao', null]) {
     assert.equal(ehStatusFinalizado(s), false, String(s))
   }
+})
+
+// ─── Falha de login (bloqueio anti-robô de 01/09/2026) ───────────────────────
+//
+// A fábrica passou a exigir prova de trabalho resolvida em JavaScript para
+// aceitar o POST de login. Quem não resolve leva 303 de VOLTA para /login — e o
+// código tratava qualquer 303 como sucesso, quebrando só no passo seguinte com
+// "possível credencial inválida". A mensagem mandava caçar senha errada.
+
+const paginaComAlerta = (msg: string) =>
+  `<html><body><div class="alert alert-danger" role="alert">${msg}</div></body></html>`
+
+const ANTIBOT = 'Não foi possível confirmar que o acesso vem de um navegador. Atualize a página e tente novamente.'
+
+test('redirect de volta para /login não é login aceito', () => {
+  assert.equal(loginAceito(303, 'https://motochefebrasil.store/login'), false)
+  assert.equal(loginAceito(302, '/login'), false)
+})
+
+test('redirect para a área do lojista é login aceito', () => {
+  assert.equal(loginAceito(302, 'https://motochefebrasil.store/clientes'), true)
+  assert.equal(loginAceito(303, '/clientes'), true)
+})
+
+test('200 sem redirect nenhum não é login aceito', () => {
+  assert.equal(loginAceito(200, ''), false)
+})
+
+test('o bloqueio anti-robô é nomeado, e não confundido com senha errada', () => {
+  const msg = explicarFalhaDeLogin(303, '/login', paginaComAlerta(ANTIBOT))
+  assert.match(msg, /acesso automatizado/i)
+  // Dizer "não é senha cadastrada" é justamente o ponto: o que não pode é a
+  // mensagem ACUSAR a credencial e mandar o adm caçar senha errada.
+  assert.doesNotMatch(msg, /credencial inválida|senha (incorreta|errada|inválida)/i)
+  assert.match(msg, /não é senha/i)
+})
+
+test('credencial recusada de verdade continua dizendo que é credencial', () => {
+  const msg = explicarFalhaDeLogin(303, '/login', paginaComAlerta('E-mail ou senha inválidos.'))
+  assert.match(msg, /E-mail ou senha inválidos/)
+})
+
+test('sem alerta na página, informa o que deu para observar', () => {
+  const msg = explicarFalhaDeLogin(303, '/login', '<html><body>nada aqui</body></html>')
+  assert.match(msg, /303/)
+  assert.match(msg, /\/login/)
+})
+
+test('a mensagem do portal chega limpa de marcação e espaço', () => {
+  const html = [
+    '<div class="alert alert-danger">',
+    '  <strong>Erro:</strong>   conta   bloqueada',
+    '</div>',
+  ].join('\n')
+  assert.match(explicarFalhaDeLogin(303, '/login', html), /Erro: conta bloqueada/)
 })

@@ -53,6 +53,46 @@ export type FabricaSession = { cookie: string }
 export type CredencialFabrica = { email: string; senha: string }
 
 /**
+ * O POST de login foi aceito?
+ *
+ * Não basta ser redirect: desde o bloqueio anti-robô de 01/09/2026 a recusa
+ * também responde 303 — só que de volta para /login. Tratar todo 303 como
+ * sucesso fazia a falha estourar lá na frente, na checagem de sessão, com a
+ * mensagem errada de credencial inválida.
+ */
+export function loginAceito(status: number, location: string): boolean {
+  if (status !== 301 && status !== 302 && status !== 303) return false
+  return !/\/login\b/.test(location)
+}
+
+/** Texto do primeiro alerta da página, sem marcação nem espaço sobrando. */
+function alertaDaPagina(html: string): string | null {
+  const m = html.match(/<div[^>]*class="[^"]*\balert\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+  if (!m) return null
+  const texto = m[1].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return texto || null
+}
+
+/**
+ * Por que o login foi recusado, em português de gente.
+ *
+ * Repassa o que o portal disse, porque quem está do outro lado sabe o motivo
+ * melhor do que nós. A única mensagem reescrita é a do anti-robô: "não foi
+ * possível confirmar que o acesso vem de um navegador" não diz a quem lê a tela
+ * que o problema não tem nada a ver com a senha cadastrada.
+ */
+export function explicarFalhaDeLogin(status: number, location: string, html: string): string {
+  const alerta = alertaDaPagina(html)
+
+  if (alerta && /navegador/i.test(alerta)) {
+    return 'A fábrica recusou o acesso automatizado: desde 01/09/2026 o portal exige uma verificação anti-robô que só o navegador resolve. Não é senha cadastrada — abra o portal no navegador ou peça acesso de integração ao suporte da MotoChefe.'
+  }
+  if (alerta) return `A fábrica recusou o login: ${alerta}`
+
+  return `A fábrica recusou o login sem explicar o motivo (HTTP ${status}, voltou para "${location}").`
+}
+
+/**
  * Faz login no portal da fábrica com a conta de uma loja.
  *
  * A credencial é obrigatória: cada loja tem seu próprio cadastro no portal e o
@@ -108,13 +148,23 @@ export async function loginFabrica(cred: CredencialFabrica): Promise<FabricaSess
   const authCookie = mergeCookies(cookie, postCookies)
 
   const location = postResp.headers.get('location') ?? ''
-  const loginOk =
-    postResp.status === 302 ||
-    postResp.status === 303 ||
-    location.includes('/clientes')
 
-  if (!loginOk) {
-    throw new Error(`Login falhou — status ${postResp.status}, location: "${location}"`)
+  if (!loginAceito(postResp.status, location)) {
+    // O portal recusa mandando de volta para /login e guarda o motivo numa
+    // mensagem de sessão, que só aparece ao carregar a página de novo com os
+    // mesmos cookies. Buscar essa página é o que permite dizer o que houve em
+    // vez de chutar "credencial inválida".
+    let htmlDaVolta = ''
+    try {
+      const volta = await fetch(`${BASE}/login`, {
+        headers: { Cookie: authCookie, 'User-Agent': UA },
+        redirect: 'manual',
+      })
+      htmlDaVolta = await volta.text()
+    } catch {
+      htmlDaVolta = ''
+    }
+    throw new Error(explicarFalhaDeLogin(postResp.status, location, htmlDaVolta))
   }
 
   // 3. Segue redirect para /clientes para finalizar a sessão
@@ -131,7 +181,10 @@ export async function loginFabrica(cred: CredencialFabrica): Promise<FabricaSess
     redirect: 'manual',
   })
   if (checkResp.status === 302) {
-    throw new Error('Login falhou — sessão não autenticada após POST (possível credencial inválida)')
+    // Chegar aqui é raro: o POST foi aceito e mesmo assim a sessão não vale. Não
+    // acusa a credencial — se ela estivesse errada, a recusa teria vindo no POST,
+    // com o motivo escrito pelo próprio portal (ver explicarFalhaDeLogin).
+    throw new Error('A fábrica aceitou o login mas a sessão não se manteve — tente de novo em alguns minutos.')
   }
 
   return { cookie: finalCookie }
