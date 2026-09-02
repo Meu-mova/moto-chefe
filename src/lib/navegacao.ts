@@ -5,7 +5,7 @@ import {
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
-  Wrench, ListChecks, Calculator,
+  Wrench, ListChecks, Calculator, Trophy,
 } from 'lucide-react'
 
 export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico'
@@ -98,6 +98,7 @@ export const ITENS: ItemNav[] = [
   { id: 'folha',          href: '/folha-pagamento', label: 'Folha de Pagamento', icon: HandCoins,   categoria: 'financeiro',   papeis: ADMINS },
 
   // ── Gestão
+  { id: 'coletiva',       href: '/relatorios/coletiva',   label: 'Reunião de Vendas', icon: Trophy,    categoria: 'gestao',       papeis: ADMINS },
   { id: 'fechamento',     href: '/relatorios/fechamento', label: 'Fechamento',  icon: FileBarChart,  categoria: 'gestao',       papeis: ADMINS },
   { id: 'individual',     href: '/relatorios/individual', label: 'Desempenho Individual', icon: IdCard, categoria: 'gestao',    papeis: ADMINS },
   { id: 'metas',          href: '/admin/metas',    label: 'Metas',             icon: Target,        categoria: 'gestao',       papeis: GESTORES },
