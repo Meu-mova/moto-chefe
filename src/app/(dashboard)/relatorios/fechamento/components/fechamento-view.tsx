@@ -75,7 +75,8 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
   const c = dados.consolidado
   const faturamentoTotal = c.faturamento + dados.servicos.total + dados.pecasBalcao.total
   const vsAnterior = variacaoPct(c.faturamento, dados.anterior.faturamento)
-  const metaP = pctMeta(c.faturamento, dados.metaTotal)
+  // Meta compara contra o BRUTO (igual ao /admin/metas); o resto exibe líquido.
+  const metaP = pctMeta(c.faturamentoBruto, dados.metaTotal)
   const dl = (k: string) => dados.dre.find(l => l.chave === k)?.valor ?? 0
   const resultado = dl('resultado')
 
@@ -114,7 +115,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
         <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos (líquido), serviços e peças" />
         <Kpi label="Motos vendidas" value={String(c.qtd)} sub={<span className={vsAnterior != null && vsAnterior >= 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{sPct(vsAnterior)} vs mês anterior</span>} />
         <Kpi label="Ticket médio" value={brl(c.ticket)} sub="por moto" />
-        <Kpi label="Meta consolidada" value={metaP == null ? '—' : pct(metaP)} sub={dados.metaTotal ? `${brlk(c.faturamento)} de ${brlk(dados.metaTotal)}` : 'sem meta cadastrada'} />
+        <Kpi label="Meta consolidada" value={metaP == null ? '—' : pct(metaP)} sub={dados.metaTotal ? `${brlk(c.faturamentoBruto)} bruto de ${brlk(dados.metaTotal)}` : 'sem meta cadastrada'} />
         <Kpi label="Resultado (DRE)" value={brl(resultado)} sub={<span className={resultado >= 0 ? 'text-emerald-700' : 'text-red-600'}>resultado operacional</span>} />
         <Kpi label="Clientes atendidos" value={String(c.clientes)} sub="no mês" />
       </div>
@@ -168,7 +169,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
           <SecTitle>Metas por loja</SecTitle>
           <div className="space-y-3">
             {dados.porLoja.map(l => {
-              const p = pctMeta(l.faturamento, l.meta)
+              const p = pctMeta(l.faturamentoBruto, l.meta)
               const cls = classeMeta(p)
               const fill = cls === 'batida' ? 'bg-emerald-500' : cls === 'perto' ? 'bg-amber-500' : cls === 'abaixo' ? 'bg-red-500' : 'bg-slate-400'
               const w = p == null ? 0 : Math.min(100, (p / 135) * 100)
@@ -180,7 +181,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
                     {l.meta > 0 && <div className="absolute top-[-3px] bottom-[-3px] w-0.5 bg-slate-800/60" style={{ left: `${(1 / 1.35) * 100}%` }} />}
                   </div>
                   <div className="text-sm tabular-nums whitespace-nowrap text-right">
-                    <b>{brlk(l.faturamento)}</b> <span className="text-slate-400">/ {l.meta ? brlk(l.meta) : '—'}</span>
+                    <b>{brlk(l.faturamentoBruto)}</b> <span className="text-slate-400">/ {l.meta ? brlk(l.meta) : '—'}</span>
                     <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${corMeta[cls]}`}>{p == null ? 'sem meta' : pct(p)}</span>
                   </div>
                 </div>
@@ -208,7 +209,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
             <tbody>
               {dados.porLoja.map(l => {
                 const v = variacaoPct(l.faturamento, l.faturamentoAnterior)
-                const p = pctMeta(l.faturamento, l.meta)
+                const p = pctMeta(l.faturamentoBruto, l.meta)
                 const cls = classeMeta(p)
                 return (
                   <tr key={l.lojaId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
@@ -290,7 +291,7 @@ function LojaDetalhe({ loja, corFillCartao, corFillOrigem }: {
   loja: LojaFechamento; corFillCartao: (n: string) => string; corFillOrigem: (n: string) => string
 }) {
   const v = variacaoPct(loja.faturamento, loja.faturamentoAnterior)
-  const p = pctMeta(loja.faturamento, loja.meta)
+  const p = pctMeta(loja.faturamentoBruto, loja.meta)
   const cls = classeMeta(p)
   return (
     <div>

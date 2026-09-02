@@ -18,7 +18,7 @@ import {
 export type DadosColetiva = {
   ano: number
   mes: number
-  consolidado: { qtd: number; faturamento: number; ticket: number; clientes: number }
+  consolidado: { qtd: number; faturamento: number; faturamentoBruto: number; ticket: number; clientes: number }
   anterior: { qtd: number; faturamento: number }
   metaTotal: number
   vendedores: PodioVendedor[]
@@ -52,6 +52,7 @@ export async function dadosColetiva(opts: {
       select
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as qtd,
         coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
+        coalesce(sum(v.valor::numeric) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat_bruto,
         count(distinct nullif(v.cliente_cpf,'')) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as clientes,
         count(*) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim})::int as qtd_ant,
         coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as fat_ant
@@ -75,7 +76,9 @@ export async function dadosColetiva(opts: {
       group by mo.modelo`),
     // Faturamento por loja (pra parear com a meta)
     execRows(sql`
-      select l.id as loja_id, l.nome as loja, coalesce(sum(${valorLiquidoSql()}),0)::text as fat
+      select l.id as loja_id, l.nome as loja,
+             coalesce(sum(${valorLiquidoSql()}),0)::text as fat,
+             coalesce(sum(v.valor::numeric),0)::text as fat_bruto
       from lojas l left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}
       where l.grupo_id = ${g} and l.ativa = true
       group by l.id, l.nome`),
@@ -97,7 +100,7 @@ export async function dadosColetiva(opts: {
 
   const c = (consRow as any[])[0] ?? {}
   const consolidado = {
-    qtd: n(c.qtd), faturamento: n(c.fat),
+    qtd: n(c.qtd), faturamento: n(c.fat), faturamentoBruto: n(c.fat_bruto),
     ticket: n(c.qtd) ? n(c.fat) / n(c.qtd) : 0, clientes: n(c.clientes),
   }
   const anterior = { qtd: n(c.qtd_ant), faturamento: n(c.fat_ant) }
@@ -125,7 +128,7 @@ export async function dadosColetiva(opts: {
     .sort((a, b) => b.total - a.total)
 
   const lojas: LojaMeta[] = (lojaRows as any[])
-    .map(r => ({ loja: r.loja as string, faturamento: n(r.fat), meta: metas.get(r.loja_id) ?? 0 }))
+    .map(r => ({ loja: r.loja as string, faturamento: n(r.fat), faturamentoBruto: n(r.fat_bruto), meta: metas.get(r.loja_id) ?? 0 }))
     .filter(l => l.faturamento > 0 || l.meta > 0)
     .sort((a, b) => b.faturamento - a.faturamento)
 

@@ -23,6 +23,8 @@ export type LojaFechamento = {
   loja: string
   qtd: number
   faturamento: number
+  /** Bruto (valor cheio) — base da comparação com a meta, igual ao /admin/metas. */
+  faturamentoBruto: number
   faturamentoAnterior: number
   ticket: number
   clientes: number
@@ -36,7 +38,7 @@ export type LojaFechamento = {
 export type DadosFechamento = {
   ano: number
   mes: number
-  consolidado: { qtd: number; faturamento: number; ticket: number; clientes: number }
+  consolidado: { qtd: number; faturamento: number; faturamentoBruto: number; ticket: number; clientes: number }
   anterior: { qtd: number; faturamento: number }
   metaTotal: number
   porLoja: LojaFechamento[]
@@ -80,6 +82,7 @@ export async function dadosFechamento(opts: {
       select l.id as loja_id, l.nome as loja,
              count(v.id)::int as qtd,
              coalesce(sum(${valorLiquidoSql()}),0)::text as faturamento,
+             coalesce(sum(v.valor::numeric),0)::text as faturamento_bruto,
              count(distinct nullif(v.cliente_cpf,''))::int as clientes
       from lojas l
       left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}
@@ -168,6 +171,7 @@ export async function dadosFechamento(opts: {
       const qtd = n(l.qtd)
       return {
         lojaId: l.loja_id, loja: l.loja, qtd, faturamento: fat,
+        faturamentoBruto: n(l.faturamento_bruto),
         faturamentoAnterior: ant?.faturamento ?? 0,
         ticket: qtd ? fat / qtd : 0,
         clientes: n(l.clientes),
@@ -194,8 +198,8 @@ export async function dadosFechamento(opts: {
   }
 
   const consolidado = porLoja.reduce(
-    (a, l) => ({ qtd: a.qtd + l.qtd, faturamento: a.faturamento + l.faturamento, clientes: a.clientes + l.clientes }),
-    { qtd: 0, faturamento: 0, clientes: 0 },
+    (a, l) => ({ qtd: a.qtd + l.qtd, faturamento: a.faturamento + l.faturamento, faturamentoBruto: a.faturamentoBruto + l.faturamentoBruto, clientes: a.clientes + l.clientes }),
+    { qtd: 0, faturamento: 0, faturamentoBruto: 0, clientes: 0 },
   )
   const anterior = [...antPorLoja.values()].reduce(
     (a, v) => ({ qtd: a.qtd + v.qtd, faturamento: a.faturamento + v.faturamento }), { qtd: 0, faturamento: 0 },
@@ -211,6 +215,7 @@ export async function dadosFechamento(opts: {
     ano, mes,
     consolidado: {
       qtd: consolidado.qtd, faturamento: consolidado.faturamento,
+      faturamentoBruto: consolidado.faturamentoBruto,
       ticket: consolidado.qtd ? consolidado.faturamento / consolidado.qtd : 0,
       clientes: consolidado.clientes,
     },

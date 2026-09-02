@@ -27,7 +27,8 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
   const c = dados.consolidado
   const vsMotos = crescimento(c.qtd, dados.anterior.qtd)
   const vsFat = crescimento(c.faturamento, dados.anterior.faturamento)
-  const metaP = pctMeta(c.faturamento, dados.metaTotal)
+  // Meta compara contra o BRUTO (igual ao /admin/metas); o resto exibe líquido.
+  const metaP = pctMeta(c.faturamentoBruto, dados.metaTotal)
   const cresceu = c.qtd > dados.anterior.qtd
   const recorde = cresceu && dados.anterior.qtd > 0
 
@@ -37,8 +38,8 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
   const cresc = maioresCrescimentos(dados.vendedores)
   const estreias = estreantes(dados.vendedores)
   const lojasComMeta = dados.lojas.filter(l => l.meta > 0)
-  const bateram = lojasComMeta.filter(l => pctMeta(l.faturamento, l.meta)! >= 100)
-  const foco = lojasComMeta.filter(l => pctMeta(l.faturamento, l.meta)! < 100)
+  const bateram = lojasComMeta.filter(l => pctMeta(l.faturamentoBruto, l.meta)! >= 100)
+  const foco = lojasComMeta.filter(l => pctMeta(l.faturamentoBruto, l.meta)! < 100)
   const maxMod = Math.max(...dados.modelos.map(m => m.total), 1)
 
   return (
@@ -162,7 +163,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
           </p>
           <div className="grid md:grid-cols-2 gap-x-10 gap-y-2">
             {[...bateram, ...foco].map(l => {
-              const p = pctMeta(l.faturamento, l.meta)
+              const p = pctMeta(l.faturamentoBruto, l.meta)
               const cls = classeMeta(p)
               const cor = cls === 'batida' ? 'bg-emerald-100 text-emerald-700' : cls === 'perto' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
               return (

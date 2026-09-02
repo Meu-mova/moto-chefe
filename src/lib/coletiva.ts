@@ -13,7 +13,8 @@ export type PodioVendedor = {
 }
 
 export type ItemColetiva = { nome: string; qtd: number; total: number }
-export type LojaMeta = { loja: string; faturamento: number; meta: number }
+/** faturamento = líquido (exibido); faturamentoBruto = base da meta (igual /admin/metas). */
+export type LojaMeta = { loja: string; faturamento: number; faturamentoBruto: number; meta: number }
 export type Oportunidade = { icone: string; titulo: string; texto: string }
 
 /** Crescimento de faturamento sobre o mês anterior; null sem base (mês anterior zero). */
