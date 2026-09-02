@@ -13,6 +13,7 @@ import { AjustesBaseTable } from './components/ajustes-base-table'
 import { AdiantamentosTable } from './components/adiantamentos-table'
 import { RegrasComissaoTable } from './components/regras-comissao-table'
 import { HoleritesTable } from './components/holerites-table'
+import { ValorRealInput } from './components/valor-real-input'
 import { listarHoleritesAction } from './holerites-actions'
 import { labelDaBase } from '@/lib/folha'
 import { PrintButton } from '../relatorio-fabrica/print-button'
@@ -157,7 +158,7 @@ export default async function FolhaPagamentoPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Salários</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
@@ -182,6 +183,19 @@ export default async function FolhaPagamentoPage({
               <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Geral</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(folha.totais.geral)}</p></CardContent>
             </Card>
+            {/* Soma o valor real de quem já teve o valor informado e o calculado de
+                quem não teve — é este número que o compromisso de folha usa em
+                Contas a Pagar, e por isso ele nunca fica menor do que a realidade
+                só porque a coluna ainda está pela metade. */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Pago (real)</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-xl font-bold text-sky-700">{fmt(folha.totais.efetivo)}</p>
+                <p className="text-[11px] text-slate-400">
+                  {folha.totais.reaisInformados} de {folha.ativos.length} informados
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="bg-white border rounded-lg overflow-hidden">
@@ -195,6 +209,7 @@ export default async function FolhaPagamentoPage({
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Adiantamento</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Total a Pagar</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Valor Real Pago</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -245,10 +260,20 @@ export default async function FolhaPagamentoPage({
                       )}
                     </td>
                     <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-red-600' : ''}`}>{fmt(f.totalPagar)}</td>
+                    {/* O que a contabilidade pagou de verdade. Em branco, a folha
+                        segue valendo o calculado — ver valorEfetivo em queries/folha. */}
+                    <td className="px-4 py-2">
+                      <ValorRealInput
+                        usuarioId={f.id}
+                        mes={mesParam}
+                        valorReal={f.valorReal}
+                        totalPagar={f.totalPagar}
+                      />
+                    </td>
                   </tr>
                 ))}
                 {folha.ativos.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
+                  <tr><td colSpan={8} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
                 )}
               </tbody>
             </table>

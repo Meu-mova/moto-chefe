@@ -88,9 +88,14 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
     // folha (salário + comissão + premiação + ajuda de custo - adiantamentos), para
     // o compromisso não divergir do que a folha manda pagar. Custa ~13 consultas,
     // e é por isso que apurarBase é memoizada por chamada.
+    //
+    // `efetivo` e não `geral`: quando o valor real pago já foi informado na última
+    // coluna da folha (migração 0086), é ele que vale; quem ainda está em branco
+    // continua entrando pelo calculado. Assim o compromisso nunca encolhe só
+    // porque a coluna está pela metade.
     case 'folha_pagamento': {
       const dados = await buscarDadosFolha({ mes, lojaIds, lojaIdsGrupo: lojaIds, grupoId })
-      return agregarFolha(dados).totais.geral
+      return agregarFolha(dados).totais.efetivo
     }
     // Mesma fonte da folha, e não uma soma direta de folha_adiantamentos: assim o
     // vale do dia 20 bate com o desconto que aparece na folha do dia 5. Só conta

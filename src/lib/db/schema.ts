@@ -1196,6 +1196,26 @@ export const folhaAdiantamentos = pgTable('folha_adiantamentos', {
 })
 
 
+// ─── folha_valores_reais ─────────────────────────────────────────────────────
+/**
+ * O que a contabilidade efetivamente pagou a cada funcionário no mês, digitado
+ * na última coluna da folha.
+ *
+ * Tabela própria e não coluna em funcionariosConfig: config é cadastro, sem
+ * competência, e este valor muda todo mês. Enquanto ninguém informa, a folha e o
+ * compromisso em Contas a Pagar seguem valendo o calculado — ver `valorEfetivo`
+ * em @/lib/queries/folha.
+ */
+export const folhaValoresReais = pgTable('folha_valores_reais', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  mes: text('mes').notNull(), // 'YYYY-MM' — text, como o resto do módulo de folha
+  valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+
 // ─── folha_regras_comissao ───────────────────────────────────────────────────
 /**
  * Regras de comissão e premiação por funcionário, migração 0076.

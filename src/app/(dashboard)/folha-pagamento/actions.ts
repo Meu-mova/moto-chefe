@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { funcionariosConfig, premiacaoFaixas, usuarios, folhaAjustesBase, folhaAdiantamentos, folhaRegrasComissao } from '@/lib/db/schema'
+import { funcionariosConfig, premiacaoFaixas, usuarios, folhaAjustesBase, folhaAdiantamentos, folhaRegrasComissao, folhaValoresReais } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -303,4 +303,61 @@ async function regraDoGrupo(usuario: { id: string; papel: string; lojaId: string
     throw new Error('Regra não encontrada no grupo ativo')
   }
   return regra
+}
+
+// ─── Valor real pago (migração 0086) ─────────────────────────────────────────
+
+/**
+ * Grava (ou apaga) o que foi efetivamente pago à pessoa no mês.
+ *
+ * `valor === null` limpa a linha em vez de gravar zero: campo em branco significa
+ * "ainda não sei", e volta a valer o calculado; zero significa "não recebeu
+ * nada". Sem essa distinção não haveria como desfazer um valor digitado errado.
+ *
+ * Revalida /calendario junto porque o compromisso de folha em Contas a Pagar
+ * apura sobre `totais.efetivo` — mudar o valor aqui muda o que o calendário mostra.
+ */
+export async function salvarValorRealAction(dados: {
+  usuarioId: string
+  mes: string
+  valor: number | null
+}) {
+  const { usuario } = await checarAdmin()
+
+  if (!/^\d{4}-\d{2}$/.test(dados.mes)) throw new Error('Mês inválido')
+  if (dados.valor !== null && !Number.isFinite(dados.valor)) throw new Error('Valor inválido')
+  // Negativo aqui seria a empresa recebendo do funcionário — se acontecer, é erro
+  // de digitação, e deixar passar contaminaria o total do calendário.
+  if (dados.valor !== null && dados.valor < 0) throw new Error('Valor não pode ser negativo')
+
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const [alvo] = await db
+    .select({ lojaId: usuarios.lojaId })
+    .from(usuarios)
+    .where(eq(usuarios.id, dados.usuarioId))
+    .limit(1)
+  if (!alvo?.lojaId || !lojaIdsGrupo.includes(alvo.lojaId)) {
+    throw new Error('Funcionário não pertence ao grupo ativo')
+  }
+
+  if (dados.valor === null) {
+    await db.delete(folhaValoresReais).where(and(
+      eq(folhaValoresReais.usuarioId, dados.usuarioId),
+      eq(folhaValoresReais.mes, dados.mes),
+    ))
+  } else {
+    await db.insert(folhaValoresReais).values({
+      usuarioId: dados.usuarioId,
+      mes: dados.mes,
+      valor: String(dados.valor),
+      atualizadoPor: usuario.id,
+    }).onConflictDoUpdate({
+      target: [folhaValoresReais.usuarioId, folhaValoresReais.mes],
+      set: { valor: String(dados.valor), atualizadoPor: usuario.id, atualizadoEm: new Date() },
+    })
+  }
+
+  revalidatePath('/folha-pagamento')
+  revalidatePath('/contas-pagar')
+  revalidatePath('/calendario')
 }

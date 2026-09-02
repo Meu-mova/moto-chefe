@@ -70,6 +70,7 @@ export default async function FolhaImprimirPage({
             <th className="py-1 text-right">Ajuda de custo</th>
             <th className="py-1 text-right">Adiantamento</th>
             <th className="py-1 text-right">Total a pagar</th>
+            <th className="py-1 text-right">Valor real pago</th>
           </tr>
         </thead>
         <tbody>
@@ -111,11 +112,17 @@ export default async function FolhaImprimirPage({
                   )}
                 </td>
                 <td className="py-1 text-right font-semibold">{fmt(f.totalPagar)}</td>
+                {/* Em branco quando ninguém informou: no papel da contabilidade,
+                    um traço é mais honesto do que repetir o calculado como se
+                    fosse o que saiu do banco. */}
+                <td className="py-1 text-right font-semibold">
+                  {f.valorReal !== null ? fmt(f.valorReal) : '—'}
+                </td>
               </tr>
             )
           })}
           {folha.ativos.length === 0 && (
-            <tr><td colSpan={8} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
+            <tr><td colSpan={9} className="py-6 text-center text-slate-500">Nenhum funcionário ativo neste recorte.</td></tr>
           )}
         </tbody>
         <tfoot>
@@ -127,6 +134,7 @@ export default async function FolhaImprimirPage({
             <td className="py-1 text-right">{fmt(folha.totais.ajudaCusto)}</td>
             <td className="py-1 text-right">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : '—'}</td>
             <td className="py-1 text-right">{fmt(folha.totais.geral)}</td>
+            <td className="py-1 text-right">{fmt(folha.totais.efetivo)}</td>
           </tr>
         </tfoot>
       </table>
@@ -136,7 +144,9 @@ export default async function FolhaImprimirPage({
           Quem recebe o papel precisa saber que é uma fotografia. */}
       <p className="mt-4 text-slate-500">
         Emitido em {emitidoEm}. O valor de comissão usa o líquido das vendas em cartão já
-        conciliadas — conciliações posteriores alteram a base deste mês.
+        conciliadas — conciliações posteriores alteram a base deste mês. O total da coluna
+        &quot;valor real pago&quot; ({folha.totais.reaisInformados} de {folha.ativos.length} informados)
+        completa com o total a pagar de quem ainda não teve o valor lançado.
       </p>
 
       {/* Sem botão: esta é uma Server Component e onClick não existe aqui —

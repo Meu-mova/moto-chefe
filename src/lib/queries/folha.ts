@@ -13,7 +13,7 @@ import { db } from '@/lib/db'
 import {
   usuarios, lojas, funcionariosConfig, premiacaoFaixas,
   vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase, folhaAdiantamentos,
-  folhaRegrasComissao,
+  folhaRegrasComissao, folhaValoresReais,
 } from '@/lib/db/schema'
 import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -41,6 +41,8 @@ export type DadosFolha = {
   ajustes: { id: string; lojaId: string; lojaNome: string; tipo: string; usuarioId: string | null; usuarioNome: string | null; valor: string; observacao: string | null }[]
   /** Adiantamento salarial do mês. Desconta do total a pagar — não entra em caixa nem despesa. */
   adiantamentos: { id: string; lojaId: string; lojaNome: string; usuarioId: string; usuarioNome: string | null; valor: string; data: string | null; observacao: string | null }[]
+  /** Valor efetivamente pago no mês, digitado na folha. Ausente = ninguém informou. */
+  valoresReais: { usuarioId: string; valor: string }[]
   lojas: { id: string; nome: string }[]
   /** Todos os funcionários do GRUPO, ignorando o filtro de loja. Só a aba Ajustes usa. */
   funcionariosGrupo: { id: string; nome: string; lojaId: string | null }[]
@@ -68,12 +70,26 @@ export type FuncionarioFolha = {
    *  adiantamento maior que a folha é erro de lançamento e tem que aparecer. */
   adiantamento: number
   totalPagar: number
+  /** O que foi realmente pago, digitado na última coluna. null = ainda em branco. */
+  valorReal: number | null
+  /** valorReal quando informado, senão totalPagar. É o que o compromisso de
+   *  Contas a Pagar usa, para o calendário não zerar antes de alguém digitar. */
+  valorEfetivo: number
 }
 
 export type FolhaDoMes = {
   todos: FuncionarioFolha[]
   ativos: FuncionarioFolha[]
-  totais: { salarios: number; comissoes: number; premiacoes: number; ajudaCusto: number; adiantamentos: number; geral: number }
+  totais: {
+    salarios: number; comissoes: number; premiacoes: number; ajudaCusto: number
+    adiantamentos: number
+    /** Soma do cálculo da folha. */
+    geral: number
+    /** Soma dos valorEfetivo — o que sai do caixa de verdade. */
+    efetivo: number
+    /** Quantos ativos já tiveram o valor real informado (para a legenda do card). */
+    reaisInformados: number
+  }
 }
 
 // Valor líquido por venda: parte não paga em cartão fica como está; a parte paga em cartão e já
@@ -125,7 +141,7 @@ export async function buscarDadosFolha({
   const [
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
     motosPorLoja, pecasPorLoja, osPecasPorLoja, servicosPorLoja, regras, ajustes, adiantamentos,
-    lojasDoGrupo, funcionariosGrupo,
+    valoresReais, lojasDoGrupo, funcionariosGrupo,
   ] = await Promise.all([
     db
       .select({
@@ -333,6 +349,17 @@ export async function buscarDadosFolha({
         eq(folhaAdiantamentos.mes, mes),
       )),
 
+    // Escopo de GRUPO como os ajustes e os adiantamentos: só é lido pela chave do
+    // funcionário, e os funcionários já vêm filtrados pelo recorte do cálculo.
+    db
+      .select({ usuarioId: folhaValoresReais.usuarioId, valor: folhaValoresReais.valor })
+      .from(folhaValoresReais)
+      .innerJoin(usuarios, eq(folhaValoresReais.usuarioId, usuarios.id))
+      .where(and(
+        inArray(usuarios.lojaId, lojaIdsGrupo),
+        eq(folhaValoresReais.mes, mes),
+      )),
+
     // Idem: o seletor precisa de todas as lojas do grupo, senão filtrar uma
     // loja tira as outras da lista e prende o usuário nela.
     db.select({ id: lojas.id, nome: lojas.nome }).from(lojas).where(inArray(lojas.id, lojaIdsGrupo)).orderBy(lojas.nome),
@@ -349,6 +376,7 @@ export async function buscarDadosFolha({
     mes,
     funcionarios, configs, faixas, vendasPorVendedor, pecasPorVendedor, osPorMecanico, osPecasPorAbertaPor,
     motosPorLoja, pecasPorLoja, osPecasPorLoja, servicosPorLoja, regras, ajustes, adiantamentos,
+    valoresReais,
     lojas: lojasDoGrupo, funcionariosGrupo,
   }
 }
@@ -404,6 +432,9 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     else regrasPorUsuario.set(r.usuarioId, [r])
   }
 
+  // Um valor real por pessoa (índice único em folha_valores_reais).
+  const valorRealPorId = new Map(dados.valoresReais.map(v => [v.usuarioId, parseFloat(v.valor)]))
+
   // Vários adiantamentos no mesmo mês somam para a mesma pessoa.
   const adiantadoPorId = new Map<string, number>()
   for (const a of dados.adiantamentos) {
@@ -442,6 +473,11 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
     const adiantamento = adiantamentoFixo + adiantamentoEventual
     const totalPagar = salario + comissao + premiacao + ajudaCusto - adiantamento
 
+    // ?? e não ||: zero é um valor informado (funcionário que não recebeu nada
+    // naquele mês), e com || ele voltaria a valer o calculado.
+    const valorReal = valorRealPorId.has(f.id) ? (valorRealPorId.get(f.id) as number) : null
+    const valorEfetivo = valorReal ?? totalPagar
+
     return {
       id: f.id,
       nome: f.nome,
@@ -458,6 +494,8 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       adiantamentoEventual,
       adiantamento,
       totalPagar,
+      valorReal,
+      valorEfetivo,
     }
   })
 
@@ -467,6 +505,11 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
   const premiacoes = ativos.reduce((s, f) => s + f.premiacao, 0)
   const ajudaCusto = ativos.reduce((s, f) => s + f.ajudaCusto, 0)
   const adiantamentos = ativos.reduce((s, f) => s + f.adiantamento, 0)
+  // Soma dos efetivos, e não `geral` corrigido pelos informados: cada pessoa cai
+  // no real ou no calculado por conta própria, então a folha meio preenchida
+  // continua fechando.
+  const efetivo = ativos.reduce((s, f) => s + f.valorEfetivo, 0)
+  const reaisInformados = ativos.filter(f => f.valorReal !== null).length
 
   return {
     todos,
@@ -478,6 +521,8 @@ export function agregarFolha(dados: DadosFolha): FolhaDoMes {
       ajudaCusto,
       adiantamentos,
       geral: salarios + comissoes + premiacoes + ajudaCusto - adiantamentos,
+      efetivo,
+      reaisInformados,
     },
   }
 }

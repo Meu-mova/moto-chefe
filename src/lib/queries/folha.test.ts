@@ -7,7 +7,7 @@ const VAZIO: DadosFolha = {
   funcionarios: [], configs: [], faixas: [], regras: [],
   vendasPorVendedor: [], pecasPorVendedor: [], osPorMecanico: [], osPecasPorAbertaPor: [],
   motosPorLoja: [], pecasPorLoja: [], osPecasPorLoja: [], servicosPorLoja: [],
-  ajustes: [], adiantamentos: [], lojas: [], funcionariosGrupo: [],
+  ajustes: [], adiantamentos: [], valoresReais: [], lojas: [], funcionariosGrupo: [],
 }
 
 const adiantamento = (over: Partial<DadosFolha['adiantamentos'][0]> = {}) => ({
@@ -297,4 +297,71 @@ test('sem vale fixo cadastrado o desconto é só o do mês', () => {
   })
   assert.equal(r.ativos[0].adiantamentoFixo, 0)
   assert.equal(r.ativos[0].adiantamento, 300)
+})
+
+// ─── Valor real pago (migração 0086) ──────────────────────────────────────────
+// O que a contabilidade efetivamente pagou, digitado na última coluna da folha.
+// Enquanto ninguém informa, o efetivo é o calculado — é isso que segura o
+// compromisso de Contas a Pagar não zerar no dia 1º do mês.
+
+const valorReal = (over: Partial<DadosFolha['valoresReais'][0]> = {}): DadosFolha['valoresReais'][0] => ({
+  usuarioId: 'u1', valor: '1418.90', ...over,
+})
+
+test('sem valor real informado, o efetivo é o total a pagar', () => {
+  const r = agregarFolha({ ...VAZIO, funcionarios: [func()], configs: [config()] })
+  assert.equal(r.ativos[0].valorReal, null)
+  assert.equal(r.ativos[0].valorEfetivo, 2000)
+  assert.equal(r.totais.efetivo, 2000)
+  assert.equal(r.totais.reaisInformados, 0)
+})
+
+test('valor real informado substitui o total a pagar no efetivo', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config()],
+    valoresReais: [valorReal({ valor: '1750.55' })],
+  })
+  assert.equal(r.ativos[0].totalPagar, 2000)   // o cálculo não muda
+  assert.equal(r.ativos[0].valorReal, 1750.55)
+  assert.equal(r.ativos[0].valorEfetivo, 1750.55)
+  assert.equal(r.totais.efetivo, 1750.55)
+  assert.equal(r.totais.reaisInformados, 1)
+})
+
+test('total efetivo mistura quem tem valor real e quem não tem', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func(), func({ id: 'u2', nome: 'Beltrano' })],
+    configs: [config(), config({ usuarioId: 'u2', salario: '3000' })],
+    valoresReais: [valorReal({ usuarioId: 'u2', valor: '2800' })],
+  })
+  assert.equal(r.totais.geral, 5000)     // 2000 + 3000 calculados
+  assert.equal(r.totais.efetivo, 4800)   // 2000 calculado + 2800 real
+  assert.equal(r.totais.reaisInformados, 1)
+})
+
+test('valor real zero é um valor informado, não um campo em branco', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func()],
+    configs: [config()],
+    valoresReais: [valorReal({ valor: '0' })],
+  })
+  assert.equal(r.ativos[0].valorReal, 0)
+  assert.equal(r.ativos[0].valorEfetivo, 0)
+  assert.equal(r.totais.efetivo, 0)
+  assert.equal(r.totais.reaisInformados, 1)
+})
+
+test('valor real de quem está inativo não entra no total efetivo', () => {
+  const r = agregarFolha({
+    ...VAZIO,
+    funcionarios: [func(), func({ id: 'u2', nome: 'Beltrano' })],
+    configs: [config(), config({ usuarioId: 'u2', salario: '3000', ativo: false })],
+    valoresReais: [valorReal({ usuarioId: 'u2', valor: '2800' })],
+  })
+  assert.equal(r.totais.efetivo, 2000)
+  assert.equal(r.totais.reaisInformados, 0)
 })
