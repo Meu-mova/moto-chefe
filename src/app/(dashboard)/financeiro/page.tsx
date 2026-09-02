@@ -3,7 +3,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db, execRows } from '@/lib/db'
-import { vendas, lojas, usuarios, motos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
 import { eq, ne, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,7 @@ import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
 import { ResumoParcelamento } from './components/resumo-parcelamento'
+import { ResumoProdutos } from './components/resumo-produtos'
 import { ResumoDespesas } from './components/resumo-despesas'
 import { ResumoDespesasPorLoja } from './components/resumo-despesas-loja'
 import { ResumoDespesasGeral } from './components/resumo-despesas-geral'
@@ -76,7 +77,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, parcelamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
+  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, parcelamentoRaw, resumoPorModelo, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
     db
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
@@ -167,6 +168,29 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       GROUP BY p.tipo, p.parcelas
       ORDER BY p.tipo, p.parcelas
     `),
+
+    // Lucro por modelo: mesma receita líquida usada no resto da tela menos o custo
+    // da moto. Sem rateio de despesa da operação — o card diz isso na cara, porque
+    // "lucro por produto" com despesa rateada seria outra conta, e por critério
+    // discutível (rateia por faturamento? por unidade?).
+    db
+      .select({
+        marca: modelos.marca,
+        modelo: modelos.modelo,
+        qtd: count(),
+        totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
+        totalCusto: sql<string>`COALESCE(SUM(${motos.precoCompra}::numeric), 0)`,
+        semCusto: sql<string>`COUNT(*) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
+      })
+      .from(vendas)
+      .innerJoin(motos, eq(vendas.motoId, motos.id))
+      .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+      .where(and(
+        gte(vendas.dataVenda, inicioTs),
+        lte(vendas.dataVenda, fimTs),
+        lojaFiltroVendas,
+      ))
+      .groupBy(modelos.marca, modelos.modelo),
 
     // Saídas do Importar do Banco no período (loja filtrada + as sem loja atribuída,
     // que são as despesas gerais da empresa). Essa é a base do card de despesas desde
@@ -416,6 +440,15 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     qtdVendas: Number(r.qtd_vendas),
   }))
 
+  const produtos = resumoPorModelo.map(r => ({
+    marca: r.marca,
+    modelo: r.modelo,
+    qtd: Number(r.qtd),
+    totalLiquido: r.totalLiquido,
+    totalCusto: r.totalCusto,
+    semCusto: Number(r.semCusto),
+  }))
+
   const parcelamento = (parcelamentoRaw as any[]).map(r => ({
     tipo: r.tipo as string,
     // Venda antiga não gravava parcelas: vira "não informado" na tabela, em vez de
@@ -573,6 +606,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           {/* Logo depois de Formas de Pagamento: é o detalhe da linha "Cartão
               Crédito" de lá, e ler os dois juntos é o que responde a pergunta. */}
           <ResumoParcelamento linhas={parcelamento} />
+
+          {/* Depois do parcelamento e antes dos vendedores: os três respondem
+              "onde está o dinheiro" — por prazo, por produto e por pessoa. */}
+          <ResumoProdutos linhas={produtos} />
 
           <ResumoVendedores resumo={resumoPorVendedor} />
         </>
