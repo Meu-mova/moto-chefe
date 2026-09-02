@@ -11,6 +11,7 @@ import { FinanceiroFiltros } from './components/financeiro-filtros'
 import { ResumoLojas } from './components/resumo-lojas'
 import { ResumoVendedores } from './components/resumo-vendedores'
 import { ResumoPagamentos } from './components/resumo-pagamentos'
+import { ResumoParcelamento } from './components/resumo-parcelamento'
 import { ResumoDespesas } from './components/resumo-despesas'
 import { ResumoDespesasPorLoja } from './components/resumo-despesas-loja'
 import { ResumoDespesasGeral } from './components/resumo-despesas-geral'
@@ -75,7 +76,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
+  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, parcelamentoRaw, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
     db
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
@@ -146,6 +147,25 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         ${lojaCondPagamento}
       GROUP BY p.tipo
       ORDER BY SUM(p.valor::numeric) DESC
+    `),
+
+    // Quantas vendas em cada prazo de cartão. Mesma fonte da consulta acima, com o
+    // recorte por `parcelas` — financiamento fica de fora de propósito: ele também
+    // tem "parcelas", mas são meses de banco, não prazo de cartão.
+    execRows(sql`
+      SELECT
+        p.tipo,
+        p.parcelas,
+        COALESCE(SUM(p.valor::numeric), 0)::text AS total,
+        COUNT(DISTINCT v.id)::int AS qtd_vendas
+      FROM ${vendas} v,
+      LATERAL jsonb_to_recordset(COALESCE(v.pagamentos, '[]'::jsonb)) AS p(tipo text, valor numeric, parcelas int)
+      WHERE v.data_venda >= ${inicioTs.toISOString()}
+        AND v.data_venda < ${fimTs.toISOString()}
+        AND p.tipo IN ('cartao_credito', 'link_pagamento')
+        ${lojaCondPagamento}
+      GROUP BY p.tipo, p.parcelas
+      ORDER BY p.tipo, p.parcelas
     `),
 
     // Saídas do Importar do Banco no período (loja filtrada + as sem loja atribuída,
@@ -396,6 +416,15 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     qtdVendas: Number(r.qtd_vendas),
   }))
 
+  const parcelamento = (parcelamentoRaw as any[]).map(r => ({
+    tipo: r.tipo as string,
+    // Venda antiga não gravava parcelas: vira "não informado" na tabela, em vez de
+    // ser somada no 1x e inventar uma escolha que o cliente não fez.
+    parcelas: r.parcelas === null ? null : Number(r.parcelas),
+    total: r.total as string,
+    qtdVendas: Number(r.qtd_vendas),
+  }))
+
   function fmt(v: number) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   }
@@ -540,6 +569,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             <ResumoLojas resultado={resultadoLojas} />
             <ResumoPagamentos resumo={resumoPorPagamento} />
           </div>
+
+          {/* Logo depois de Formas de Pagamento: é o detalhe da linha "Cartão
+              Crédito" de lá, e ler os dois juntos é o que responde a pergunta. */}
+          <ResumoParcelamento linhas={parcelamento} />
 
           <ResumoVendedores resumo={resumoPorVendedor} />
         </>
