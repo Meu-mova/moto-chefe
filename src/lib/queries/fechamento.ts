@@ -89,7 +89,7 @@ export async function dadosFechamento(opts: {
     execRows(sql`
       select v.loja_id, u.nome as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
       from vendas v join usuarios u on u.id=v.vendedor_id join lojas l on l.id=v.loja_id
-      where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
+      where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.loja_id, u.nome`),
     execRows(sql`
       select v.loja_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total

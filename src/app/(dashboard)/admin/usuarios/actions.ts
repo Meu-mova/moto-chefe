@@ -154,6 +154,12 @@ export async function editarUsuarioAction(id: string, dados: {
   revalidatePath('/admin/usuarios')
 }
 
+export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
+  await assertAdmin()
+  await db.update(usuarios).set({ ativo }).where(eq(usuarios.id, id))
+  revalidatePath('/admin/usuarios')
+}
+
 export async function excluirUsuarioAction(id: string) {
   await assertAdmin()
   const supabase = getAdminClient()

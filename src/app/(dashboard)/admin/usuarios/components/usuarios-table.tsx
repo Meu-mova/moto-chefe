@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Trash2, UserPlus, Eye, EyeOff } from 'lucide-react'
+import { Pencil, Trash2, UserPlus, Eye, EyeOff, Power, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction } from '../actions'
+import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 
 type Loja = { id: string; nome: string }
@@ -26,6 +26,7 @@ type Usuario = {
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
   grupoDaLojaId: string | null
+  ativo: boolean
   modulosExtras: string[]
   modulosBloqueados: string[]
 }
@@ -301,6 +302,17 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
     })
   }
 
+  function handleToggleAtivo(u: Usuario) {
+    startTransition(async () => {
+      try {
+        await alternarAtivoUsuarioAction(u.id, !u.ativo)
+        toast.success(u.ativo ? 'Usuário desativado — sai dos relatórios de vendedor' : 'Usuário reativado')
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao alterar')
+      }
+    })
+  }
+
   function handleExcluir() {
     if (!excluindo) return
     startTransition(async () => {
@@ -337,8 +349,11 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           </TableHeader>
           <TableBody>
             {usuarios.map(u => (
-              <TableRow key={u.id}>
-                <TableCell className="font-medium">{u.nome}</TableCell>
+              <TableRow key={u.id} className={u.ativo ? '' : 'opacity-55'}>
+                <TableCell className="font-medium">
+                  {u.nome}
+                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-medium align-middle">Inativo</span>}
+                </TableCell>
                 <TableCell className="text-slate-500 text-sm">{u.email}</TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-slate-100 text-slate-700'}`}>
@@ -366,6 +381,15 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
+                    <Button
+                      variant="ghost" size="icon"
+                      className={`h-8 w-8 ${u.ativo ? 'text-slate-400 hover:text-slate-700' : 'text-emerald-600 hover:text-emerald-800'} hover:bg-slate-100`}
+                      onClick={() => handleToggleAtivo(u)}
+                      title={u.ativo ? 'Desativar (sai dos relatórios)' : 'Reativar'}
+                      disabled={pending}
+                    >
+                      {u.ativo ? <PowerOff size={15} /> : <Power size={15} />}
+                    </Button>
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"

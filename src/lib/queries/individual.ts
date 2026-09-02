@@ -64,7 +64,7 @@ export async function dadosIndividual(opts: {
         count(distinct nullif(v.cliente_cpf,'')) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as clientes,
         coalesce(sum(v.valor::numeric) filter (where v.data_venda >= ${jIni} and v.data_venda < ${jFim}),0)::text as fat_ant
       from vendas v join usuarios u on u.id=v.vendedor_id join lojas l on l.id=v.loja_id join grupos gr on gr.id=l.grupo_id
-      where l.grupo_id = ${g} and v.data_venda >= ${jIni} and v.data_venda < ${fim}
+      where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${jIni} and v.data_venda < ${fim}
       group by v.vendedor_id, u.nome, l.nome, gr.nome
       having count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}) > 0`),
     execRows(sql`

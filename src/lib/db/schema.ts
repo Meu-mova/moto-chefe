@@ -130,6 +130,9 @@ export const usuarios = pgTable('usuarios', {
   gruposAprovacao: uuid('grupos_aprovacao').array().notNull().default([]),
   // Libera aprovar financiamento/transferência, nos mesmos grupos acima.
   aprovaPagamentoSensivel: boolean('aprova_pagamento_sensivel').notNull().default(false),
+  // Inativo continua no sistema (histórico intacto), mas some dos relatórios de
+  // vendedor e do 1-a-1. Ver /admin/usuarios e queries/individual.
+  ativo: boolean('ativo').notNull().default(true),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────
