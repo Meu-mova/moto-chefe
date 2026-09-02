@@ -19,7 +19,6 @@ import { periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
 import { PainelAtendimento } from './components/painel-atendimento'
-import { LeadsCriticos } from './components/leads-criticos'
 import { MetaMesCards } from './components/meta-mes-cards'
 import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
@@ -333,21 +332,22 @@ async function MetaSection({ usuario }: { usuario: { id: string; papel: string; 
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-// Atendimento (Kommo): leads críticos + cards de desempenho. Só lê o cache, não
-// sincroniza. Vendedor vê os próprios números e a posição dele no ranking do
-// grupo; admin/aux_adm veem o consolidado das lojas filtradas. Os cards seguem o
-// período do filtro; a lista de leads críticos é foto do agora — e não vai para
-// o sócio (mostrarCriticos).
+// Atendimento (Kommo): cards de desempenho. Só lê o cache, não sincroniza.
+// Vendedor vê os próprios números e a posição dele no ranking do grupo;
+// admin/aux_adm veem o consolidado das lojas filtradas.
+//
+// A lista vermelha de leads críticos saiu do dashboard em 01/09/2026 (pedido do
+// Cesar): com mais de mil leads na fila ela virou um banner permanente, que ocupava
+// o topo da tela sem ninguém agir sobre ele. A contagem continua no card "Leads
+// críticos" do painel, e o detalhe lead a lead vive em /atendimento.
 async function AtendimentoSection({
-  usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro, mostrarCriticos = true,
+  usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro,
 }: {
   usuario: { id: string; papel: string; lojaId: string | null }
   dataInicio: string
   dataFim: string
   usuarioId?: string
   lojaIdsFiltro?: string[]
-  /** A lista vermelha de leads críticos. Os cards de desempenho vêm sempre. */
-  mostrarCriticos?: boolean
 }) {
   const status = await getKommoStatus()
   if (!status.conectado) return null
@@ -358,14 +358,7 @@ async function AtendimentoSection({
   const painel = await painelAtendimento({ lojaIds, inicio, fim, deStr: dataInicio, ateStr: dataFim, usuarioId })
   if (!painel) return null
 
-  return (
-    <div className="space-y-4">
-      {mostrarCriticos && (
-        <LeadsCriticos dados={painel.criticos} subdominio={status.subdominio} mostrarColaborador={!usuarioId} />
-      )}
-      <PainelAtendimento cards={painel.cards} mes={MESES[inicio.getMonth()]} />
-    </div>
-  )
+  return <PainelAtendimento cards={painel.cards} mes={MESES[inicio.getMonth()]} />
 }
 
 // Contas a pagar do mês. Materializa as ocorrências antes de ler (mesma função da
@@ -418,9 +411,6 @@ export default async function DashboardPage({
   const isAdmin = ADMINS.includes(usuario.papel)
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
-  // Sócio não recebe a lista de leads críticos: cobrar atendimento lead a lead é
-  // trabalho de quem opera. O papel admin_geral (Cesar) continua vendo.
-  const isSocio = usuario.papel === 'admin_socio'
 
   const deDefault = inicioMesAtualISO()
   const ateDefault = hojeISO()
@@ -526,7 +516,6 @@ export default async function DashboardPage({
               // (o filtro dele é só a própria loja); admin/aux_adm respeitam o
               // filtro de loja da página.
               lojaIdsFiltro={!isAdmin && isVendedor ? undefined : lojaIds}
-              mostrarCriticos={!isSocio}
             />
           </Suspense>
         </SectionErrorBoundary>
