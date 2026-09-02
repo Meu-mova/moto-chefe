@@ -20,6 +20,9 @@ const corMeta: Record<string, string> = {
 }
 const flagOrigem = (n: string) => /^\(sem|^Não inf/i.test(n)
 const flagCartao = (n: string) => /credito|debito|link/i.test(n)
+// Base do % das formas de pagamento: a própria soma (bruto do que o cliente pagou),
+// não o faturamento — que agora é líquido e faria os métodos passarem de 100%.
+const somaItens = (items: Item[]) => items.reduce((s, i) => s + i.total, 0)
 
 function Bars({ items, pctBase, mapNome, corFill }: {
   items: Item[]; pctBase?: number; mapNome?: (n: string) => string; corFill?: (n: string) => string
@@ -108,7 +111,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
       <>
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-slate-200 border border-slate-200 rounded-xl overflow-hidden">
-        <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos, serviços e peças" />
+        <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos (líquido), serviços e peças" />
         <Kpi label="Motos vendidas" value={String(c.qtd)} sub={<span className={vsAnterior != null && vsAnterior >= 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>{sPct(vsAnterior)} vs mês anterior</span>} />
         <Kpi label="Ticket médio" value={brl(c.ticket)} sub="por moto" />
         <Kpi label="Meta consolidada" value={metaP == null ? '—' : pct(metaP)} sub={dados.metaTotal ? `${brlk(c.faturamento)} de ${brlk(dados.metaTotal)}` : 'sem meta cadastrada'} />
@@ -232,7 +235,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
       {/* Origem + Pagamento (grupo) */}
       <section className="grid md:grid-cols-2 gap-7">
         <div><SecTitle>Origem das vendas</SecTitle><Bars items={dados.origem} corFill={corFillOrigem} /></div>
-        <div><SecTitle>Formas de pagamento</SecTitle><Bars items={dados.pagamento} pctBase={c.faturamento} mapNome={n => PGL[n] ?? n} corFill={corFillCartao} /></div>
+        <div><SecTitle>Formas de pagamento</SecTitle><Bars items={dados.pagamento} pctBase={somaItens(dados.pagamento)} mapNome={n => PGL[n] ?? n} corFill={corFillCartao} /></div>
       </section>
 
       {/* Serviços / estoque */}
@@ -310,7 +313,7 @@ function LojaDetalhe({ loja, corFillCartao, corFillOrigem }: {
       </div>
       <div className="grid md:grid-cols-2 gap-7">
         <div><p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Origem das vendas</p><Bars items={loja.origem} corFill={corFillOrigem} /></div>
-        <div><p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Formas de pagamento</p><Bars items={loja.pagamento} pctBase={loja.faturamento} mapNome={n => PGL[n] ?? n} corFill={corFillCartao} /></div>
+        <div><p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Formas de pagamento</p><Bars items={loja.pagamento} pctBase={somaItens(loja.pagamento)} mapNome={n => PGL[n] ?? n} corFill={corFillCartao} /></div>
       </div>
     </div>
   )

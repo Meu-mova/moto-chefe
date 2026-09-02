@@ -22,6 +22,7 @@ import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/des
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
+import { somaCustoMotoExpr, qtdSemCustoExpr } from '@/lib/queries/custo-moto'
 
 /** Valor do filtro de loja que significa "só o balde da empresa". */
 const ESCOPO_GERAL = 'geral'
@@ -82,8 +83,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
         totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), '0')`,
-        totalCusto: sql<string>`COALESCE(SUM(${motos.precoCompra}), '0')`,
-        qtdSemCusto: sql<string>`COUNT(*) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
+        totalCusto: sql<string>`${somaCustoMotoExpr()}`,
+        qtdSemCusto: sql<string>`${qtdSemCustoExpr()}`,
         qtdVendas: count(),
       })
       .from(vendas)
@@ -102,8 +103,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         lojaNome: lojas.nome,
         totalVendas:   sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
         totalLiquido:  sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), '0')`,
-        totalCusto:    sql<string>`COALESCE(SUM(${motos.precoCompra}), '0')`,
-        qtdSemCusto:   sql<string>`COUNT(${vendas.id}) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
+        totalCusto:    sql<string>`${somaCustoMotoExpr()}`,
+        qtdSemCusto:   sql<string>`${qtdSemCustoExpr()}`,
         qtdVendas:     sql<string>`COUNT(${vendas.id})`,
       })
       .from(lojas)
@@ -179,8 +180,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         modelo: modelos.modelo,
         qtd: count(),
         totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
-        totalCusto: sql<string>`COALESCE(SUM(${motos.precoCompra}::numeric), 0)`,
-        semCusto: sql<string>`COUNT(*) FILTER (WHERE ${motos.precoCompra} IS NULL)`,
+        totalCusto: sql<string>`${somaCustoMotoExpr()}`,
+        semCusto: sql<string>`${qtdSemCustoExpr()}`,
       })
       .from(vendas)
       .innerJoin(motos, eq(vendas.motoId, motos.id))

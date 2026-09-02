@@ -1,5 +1,6 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
+import { valorLiquidoSql } from './valor-liquido'
 import { metricasAtendimento } from './atendimento'
 import { descontosPorVendedor } from './descontos'
 import { percentualDesconto } from '@/lib/desconto'
@@ -8,6 +9,10 @@ import { posicoes, type AtendVendedor } from '@/lib/individual'
 // Desempenho individual dos vendedores de um grupo, num mês. Vendas (MOVA) por
 // vendedor + atendimento (Kommo, via metricasAtendimento), casados por usuarioId.
 // Bordas de mês em UTC, iguais ao fechamento/DRE. Filtra por grupo_id (escalar).
+//
+// Faturamento em LÍQUIDO (valorLiquidoSql, base do DRE): valor menos a taxa de
+// cartão da parte já conciliada. Mês recém-fechado, com conciliação pendente,
+// aparece otimista e encolhe conforme as transações casam.
 
 export type Modelo = { nome: string; qtd: number; total: number }
 export type VendedorIndividual = {
@@ -60,15 +65,15 @@ export async function dadosIndividual(opts: {
     execRows(sql`
       select v.vendedor_id, u.nome, l.nome as loja, gr.nome as grupo,
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as motos,
-        coalesce(sum(v.valor::numeric) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
+        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
         count(distinct nullif(v.cliente_cpf,'')) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as clientes,
-        coalesce(sum(v.valor::numeric) filter (where v.data_venda >= ${jIni} and v.data_venda < ${jFim}),0)::text as fat_ant
+        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${jIni} and v.data_venda < ${jFim}),0)::text as fat_ant
       from vendas v join usuarios u on u.id=v.vendedor_id join lojas l on l.id=v.loja_id join grupos gr on gr.id=l.grupo_id
       where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${jIni} and v.data_venda < ${fim}
       group by v.vendedor_id, u.nome, l.nome, gr.nome
       having count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}) > 0`),
     execRows(sql`
-      select v.vendedor_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
+      select v.vendedor_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.vendedor_id, mo.modelo`),

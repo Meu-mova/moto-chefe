@@ -6,6 +6,7 @@ import {
 } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
 import { valorLiquidoExpr } from './valor-liquido'
+import { somaCustoMotoExpr } from './custo-moto'
 import { somarDespesas, type MotivoForaDoCalculo, type TotalDespesas } from '@/lib/despesas-operacionais'
 import { grupoOuOutras, somarEntradas, type EntradaDre, type GrupoDre, ENTRADA_VAZIA } from '@/lib/dre'
 
@@ -108,7 +109,9 @@ export async function dreDoMes(opts: {
         lojaId: vendas.lojaId,
         bruto:   sql<string>`COALESCE(SUM(${vendas.valor}::numeric), 0)`,
         liquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
-        custo:   sql<string>`COALESCE(SUM(${motos.precoCompra}::numeric), 0)`,
+        // Mesmo custo do /financeiro, com a queda para a precificação: o
+        // resultado operacional do DRE tem que bater com o Lucro Líquido de lá.
+        custo:   sql<string>`${somaCustoMotoExpr()}`,
       })
       .from(vendas)
       .innerJoin(motos, eq(vendas.motoId, motos.id))
@@ -250,7 +253,7 @@ export async function dreEvolucao(opts: {
         mes:     sql<string>`to_char(${vendas.dataVenda} AT TIME ZONE 'UTC', 'YYYY-FMMM')`,
         bruto:   sql<string>`COALESCE(SUM(${vendas.valor}::numeric), 0)`,
         liquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
-        custo:   sql<string>`COALESCE(SUM(${motos.precoCompra}::numeric), 0)`,
+        custo:   sql<string>`${somaCustoMotoExpr()}`,
       })
       .from(vendas)
       .innerJoin(motos, eq(vendas.motoId, motos.id))

@@ -28,3 +28,22 @@ export function valorLiquidoExpr() {
                   AND ${conciliacoesCartao.conciliado} = true), 0)
   )`
 }
+
+/**
+ * A MESMA regra da valorLiquidoExpr(), para as queries em SQL cru (execRows(sql``))
+ * onde a tabela vendas entra sob um alias — os relatórios de fechamento, coletiva
+ * e individual. `v` é o alias de vendas na query externa (ex.: `from vendas v`).
+ *
+ * As duas formas moram juntas de propósito: são a mesma regra de dinheiro e
+ * precisam mudar em conjunto se a conciliação mudar.
+ */
+export function valorLiquidoSql(v = 'v') {
+  const a = sql.raw(v)
+  return sql`(
+    ${a}.valor::numeric
+    - COALESCE((SELECT SUM(cc.valor_bruto::numeric) FROM conciliacoes_cartao cc
+                WHERE cc.venda_id = ${a}.id AND cc.conciliado = true), 0)
+    + COALESCE((SELECT SUM(cc.valor_liquido::numeric) FROM conciliacoes_cartao cc
+                WHERE cc.venda_id = ${a}.id AND cc.conciliado = true), 0)
+  )`
+}

@@ -1,6 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
+import { valorLiquidoSql } from './valor-liquido'
 import { dreDoMes } from './dre'
 import { montarDre, somarEntradas, ENTRADA_VAZIA, type LinhaDre } from '@/lib/dre'
 
@@ -11,6 +12,10 @@ import { montarDre, somarEntradas, ENTRADA_VAZIA, type LinhaDre } from '@/lib/dr
 // As agregações filtram por `l.grupo_id` (escalar) em vez de um array de lojaIds
 // — evita o bug de array dentro de sql`` (ver [[feedback_drizzle_array_sql]]) e é
 // equivalente, já que lojaIds = as lojas do grupo.
+//
+// Faturamento de MOTOS em LÍQUIDO (valorLiquidoSql, base do DRE): valor menos a
+// taxa de cartão da parte já conciliada. OS/peças e a composição por forma de
+// pagamento seguem no bruto. O DRE resumido tem receita bruta e líquida separadas.
 
 export type Item = { nome: string; qtd: number; total: number }
 export type LojaFechamento = {
@@ -74,7 +79,7 @@ export async function dadosFechamento(opts: {
     execRows(sql`
       select l.id as loja_id, l.nome as loja,
              count(v.id)::int as qtd,
-             coalesce(sum(v.valor::numeric),0)::text as faturamento,
+             coalesce(sum(${valorLiquidoSql()}),0)::text as faturamento,
              count(distinct nullif(v.cliente_cpf,''))::int as clientes
       from lojas l
       left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}
@@ -82,22 +87,22 @@ export async function dadosFechamento(opts: {
       group by l.id, l.nome`),
     // Vendas do mês anterior por loja (só p/ comparativo)
     execRows(sql`
-      select v.loja_id, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as faturamento
+      select v.loja_id, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as faturamento
       from vendas v join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}
       group by v.loja_id`),
     execRows(sql`
-      select v.loja_id, u.nome as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
+      select v.loja_id, u.nome as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join usuarios u on u.id=v.vendedor_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.loja_id, u.nome`),
     execRows(sql`
-      select v.loja_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
+      select v.loja_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.loja_id, mo.modelo`),
     execRows(sql`
-      select v.loja_id, coalesce(o.nome,'(sem origem)') as nome, count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
+      select v.loja_id, coalesce(o.nome,'(sem origem)') as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v left join origens_venda o on o.id=v.origem_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.loja_id, o.nome`),
@@ -109,7 +114,7 @@ export async function dadosFechamento(opts: {
     // Ritmo diário (dia do calendário de Brasília) — nível grupo
     execRows(sql`
       select to_char(v.data_venda at time zone 'America/Sao_Paulo','DD')::int as dia,
-             count(*)::int as qtd, coalesce(sum(v.valor::numeric),0)::text as total
+             count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by dia order by dia`),
