@@ -52,8 +52,18 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
     dados.set('file', file)
     start(async () => {
       try {
-        await uploadHoleriteAction(dados)
-        toast.success(holerite ? 'Holerite substituído' : 'Holerite enviado')
+        const r = await uploadHoleriteAction(dados)
+        const base = holerite ? 'Holerite substituído' : 'Holerite enviado'
+        if (r?.valorPreenchido != null) {
+          const valor = r.valorPreenchido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+          toast.success(`${base} · Valor Real Pago preenchido: ${valor}`)
+        } else if (r?.leituraFalhou) {
+          // Sem toast de erro: o holerite foi guardado, que é o que importa. O
+          // aviso existe para ninguém achar que a coluna preencheu sozinha.
+          toast.success(`${base} · não deu para ler o valor no PDF, preencha na mão`)
+        } else {
+          toast.success(base)
+        }
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao enviar o holerite')
       } finally {

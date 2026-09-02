@@ -1,11 +1,12 @@
 'use server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { holerites, usuarios } from '@/lib/db/schema'
+import { holerites, usuarios, folhaValoresReais } from '@/lib/db/schema'
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { extrairHolerite, nomeConfere } from '@/lib/holerite-pdf'
 
 // Holerites que a contabilidade manda todo mês, em PDF (migração 0077).
 //
@@ -39,13 +40,14 @@ async function funcionarioDoGrupo(
 ) {
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const [alvo] = await db
-    .select({ lojaId: usuarios.lojaId })
+    .select({ lojaId: usuarios.lojaId, nome: usuarios.nome })
     .from(usuarios)
     .where(eq(usuarios.id, usuarioId))
     .limit(1)
   if (!alvo?.lojaId || !lojaIdsGrupo.includes(alvo.lojaId)) {
     throw new Error('Funcionário não pertence ao grupo ativo')
   }
+  return alvo
 }
 
 export type HoleriteRow = {
@@ -121,7 +123,29 @@ export async function uploadHoleriteAction(formData: FormData) {
   if (file.type !== 'application/pdf') throw new Error('Envie o holerite em PDF')
   if (file.size > TAMANHO_MAXIMO) throw new Error('Arquivo muito grande. Máximo: 10MB.')
 
-  await funcionarioDoGrupo(usuario, usuarioId)
+  const alvo = await funcionarioDoGrupo(usuario, usuarioId)
+
+  // Lê o PDF antes de guardar: se o papel for de outra pessoa ou de outro mês, o
+  // arquivo nem chega ao bucket.
+  //
+  // Falha de leitura NÃO barra o upload. Um layout novo da contabilidade (ou um
+  // holerite digitalizado) trancaria o envio inteiro, e guardar o documento é o
+  // que não pode quebrar — preencher a coluna é conveniência.
+  let lido: Awaited<ReturnType<typeof extrairHolerite>> | null = null
+  try {
+    lido = await extrairHolerite(new Uint8Array(await file.arrayBuffer()))
+  } catch {
+    lido = null
+  }
+
+  if (lido?.nome && !nomeConfere(alvo.nome, lido.nome)) {
+    throw new Error(`Este holerite é de ${lido.nome}, não de ${alvo.nome}`)
+  }
+  // O arquivo da contabilidade se chama pelo mês do PAGAMENTO ("2026-09" para a
+  // folha de agosto), então a competência tem que sair de dentro do papel.
+  if (lido?.competencia && lido.competencia !== mes) {
+    throw new Error(`Este holerite é da competência ${lido.competencia}, e não de ${mes}`)
+  }
 
   const storage = storageAdmin()
   const filePath = `${mes}/${usuarioId}-${tipo}-${crypto.randomUUID()}.pdf`
@@ -169,7 +193,50 @@ export async function uploadHoleriteAction(formData: FormData) {
     await storage.storage.from(BUCKET).remove([anterior.arquivoPath])
   }
 
+  const preenchido = await preencherValorReal(usuario.id, usuarioId, mes, tipo, lido?.liquido ?? null)
+
   revalidatePath('/folha-pagamento')
+  if (preenchido !== null) {
+    revalidatePath('/contas-pagar')
+    revalidatePath('/calendario')
+  }
+  return { valorPreenchido: preenchido, leituraFalhou: lido?.liquido == null }
+}
+
+/**
+ * Preenche o Valor Real Pago com o líquido do holerite de salário.
+ *
+ * Só grava quando o campo está VAZIO: um valor digitado na mão é uma correção
+ * deliberada, e reenviar o holerite não pode desfazê-la em silêncio. Devolve o
+ * valor gravado, ou null quando não gravou nada — é o que o toast informa.
+ *
+ * Não vale para 'adiantamento': ali o líquido é o vale, que desconta da folha
+ * pela aba Adiantamentos, e gravá-lo aqui trocaria uma coisa pela outra.
+ */
+async function preencherValorReal(
+  enviadoPor: string,
+  usuarioId: string,
+  mes: string,
+  tipo: string,
+  liquido: number | null,
+): Promise<number | null> {
+  if (tipo !== 'salario' || liquido === null) return null
+
+  const [existente] = await db
+    .select({ id: folhaValoresReais.id })
+    .from(folhaValoresReais)
+    .where(and(eq(folhaValoresReais.usuarioId, usuarioId), eq(folhaValoresReais.mes, mes)))
+    .limit(1)
+  if (existente) return null
+
+  await db.insert(folhaValoresReais).values({
+    usuarioId,
+    mes,
+    valor: String(liquido),
+    atualizadoPor: enviadoPor,
+  }).onConflictDoNothing({ target: [folhaValoresReais.usuarioId, folhaValoresReais.mes] })
+
+  return liquido
 }
 
 export async function removerHoleriteAction(id: string) {
