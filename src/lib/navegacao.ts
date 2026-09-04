@@ -8,7 +8,7 @@ import {
   Wrench, ListChecks, Calculator, Trophy,
 } from 'lucide-react'
 
-export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico'
+export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista'
 export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao'
 
 export type ItemNav = {
@@ -53,12 +53,16 @@ const ADMINS:    Papel[] = [...SUPER, 'admin_socio']
 const GESTORES:  Papel[] = [...ADMINS, 'aux_adm']
 const COMERCIAL: Papel[] = [...GESTORES, 'vendedor']
 const TODOS:     Papel[] = [...COMERCIAL, 'mecanico']
+// Motorista fica FORA de TODOS de propósito: TODOS abre a oficina inteira (OS,
+// agenda, garantia, cupom, peças), que não é trabalho dele. Ele entra no sistema
+// só para pegar o holerite, então só os itens marcados com BASICO aparecem.
+const BASICO:    Papel[] = [...TODOS, 'motorista']
 
 export const ITENS: ItemNav[] = [
-  { id: 'dashboard',      href: '/dashboard',      label: 'Dashboard',         icon: Home,          categoria: null,           papeis: TODOS,     destaque: true },
+  { id: 'dashboard',      href: '/dashboard',      label: 'Dashboard',         icon: Home,          categoria: null,           papeis: BASICO,    destaque: true },
   // Página pessoal, não operacional: fica solta no menu como o Dashboard, sem
   // categoria. Último dos destaques para não empurrar Vendas e OS para baixo.
-  { id: 'meus-documentos', href: '/meus-documentos', label: 'Meus Documentos',  icon: FolderOpen,    categoria: null,           papeis: TODOS,     destaque: true },
+  { id: 'meus-documentos', href: '/meus-documentos', label: 'Meus Documentos',  icon: FolderOpen,    categoria: null,           papeis: BASICO,    destaque: true },
 
   // ── Comercial
   { id: 'vendas',         href: '/vendas',         label: 'Vendas',            icon: ShoppingCart,  categoria: 'comercial',    papeis: COMERCIAL, destaque: true },
@@ -102,7 +106,7 @@ export const ITENS: ItemNav[] = [
   { id: 'fechamento',     href: '/relatorios/fechamento', label: 'Fechamento',  icon: FileBarChart,  categoria: 'gestao',       papeis: ADMINS },
   { id: 'individual',     href: '/relatorios/individual', label: 'Desempenho Individual', icon: IdCard, categoria: 'gestao',    papeis: ADMINS },
   { id: 'metas',          href: '/admin/metas',    label: 'Metas',             icon: Target,        categoria: 'gestao',       papeis: GESTORES },
-  { id: 'calendario',     href: '/calendario',     label: 'Calendário',        icon: CalendarRange, categoria: 'gestao',       papeis: TODOS },
+  { id: 'calendario',     href: '/calendario',     label: 'Calendário',        icon: CalendarRange, categoria: 'gestao',       papeis: BASICO },
   { id: 'comunicados',    href: '/admin/comunicados', label: 'Comunicados',    icon: Megaphone,     categoria: 'gestao',       papeis: ADMINS },
   { id: 'veiculos-historico', href: '/admin/veiculos-historico', label: 'Histórico de Veículos', icon: FileText, categoria: 'gestao', papeis: ADMINS },
   { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER },

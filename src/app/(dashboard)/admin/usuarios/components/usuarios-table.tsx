@@ -53,6 +53,7 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'aux_adm',      label: 'Aux. Administrativo' },
   { value: 'vendedor',     label: 'Vendedor' },
   { value: 'mecanico',     label: 'Mecânico' },
+  { value: 'motorista',    label: 'Motorista' },
 ]
 
 const PAPEL_CORES: Record<string, string> = {
@@ -61,6 +62,7 @@ const PAPEL_CORES: Record<string, string> = {
   aux_adm:     'bg-amber-100 text-amber-800 border-amber-200',
   vendedor:    'bg-green-100 text-green-800 border-green-200',
   mecanico:    'bg-slate-100 text-slate-700 border-slate-200',
+  motorista:   'bg-teal-100 text-teal-800 border-teal-200',
 }
 
 function SenhaInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {

@@ -22,6 +22,7 @@ const PAPEL_LABEL: Record<string, string> = {
   aux_adm:     'Auxiliar Adm.',
   vendedor:    'Vendedor',
   mecanico:    'Mecânico',
+  motorista:   'Motorista',
 }
 
 function fmtTamanho(bytes: number | null) {

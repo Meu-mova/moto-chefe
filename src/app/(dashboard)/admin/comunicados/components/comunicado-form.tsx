@@ -12,6 +12,7 @@ const PAPEIS = [
   { value: 'aux_adm',      label: 'Aux. Administrativo' },
   { value: 'vendedor',     label: 'Vendedor' },
   { value: 'mecanico',     label: 'Mecânico' },
+  { value: 'motorista',    label: 'Motorista' },
 ]
 
 export function ComunicadoForm() {

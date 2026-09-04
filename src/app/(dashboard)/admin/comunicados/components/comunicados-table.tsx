@@ -11,6 +11,7 @@ const PAPEIS_LABEL: Record<string, string> = {
   aux_adm: 'Aux. Adm.',
   vendedor: 'Vendedor',
   mecanico: 'Mecânico',
+  motorista: 'Motorista',
 }
 
 type Comunicado = {

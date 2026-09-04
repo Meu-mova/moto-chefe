@@ -13,6 +13,7 @@ const SOCIO: UsuarioNav       = { papel: 'admin_socio' }
 const AUX: UsuarioNav         = { papel: 'aux_adm' }
 const VENDEDOR: UsuarioNav    = { papel: 'vendedor' }
 const MECANICO: UsuarioNav    = { papel: 'mecanico' }
+const MOTORISTA: UsuarioNav   = { papel: 'motorista' }
 
 test('admin_geral vê tudo que não depende de regra própria', () => {
   const esperado = ITENS.filter(i => !i.regraPropria).map(i => i.id).sort()
@@ -59,6 +60,16 @@ test('mecânico fica com o menu enxuto da oficina, mais o calendário da empresa
     'agenda', 'calendario', 'cupons', 'dashboard', 'garantias', 'meus-documentos',
     'ordens-servico', 'pecas',
   ].sort())
+})
+
+test('motorista só pega o holerite e o calendário — a oficina fica de fora', () => {
+  // O papel nasceu para a folha de pagamento: ele não abre OS, não mexe em peça
+  // e não vê garantia. Se um dia precisar, o caminho é liberar por pessoa em
+  // /admin/usuarios (modulos_extras), não engordar o papel.
+  assert.deepEqual(ids(MOTORISTA), ['calendario', 'dashboard', 'meus-documentos'].sort())
+  assert.ok(!podeAcessar(MOTORISTA, '/ordens-servico', SEM_REGRA_PROPRIA))
+  assert.ok(!podeAcessar(MOTORISTA, '/folha-pagamento', SEM_REGRA_PROPRIA))
+  assert.ok(podeAcessar(MOTORISTA, '/meus-documentos', SEM_REGRA_PROPRIA))
 })
 
 test('papeisExtras conta — papel principal sozinho não dá o item, o extra dá', () => {

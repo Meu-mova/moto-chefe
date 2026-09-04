@@ -10,6 +10,7 @@ const papelLabel: Record<string, string> = {
   aux_adm:      'Aux. Administrativo',
   vendedor:     'Vendedor',
   mecanico:     'Mecânico',
+  motorista:    'Motorista',
 }
 
 export async function Header() {
