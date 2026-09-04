@@ -1,3 +1,5 @@
+import { agruparEmFaturas, type Fatura, type FaturaBruta, type LancamentoBruto } from './cartao-fatura'
+
 type ContaBancaria = {
   id: string
   banco: string
@@ -491,6 +493,162 @@ export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<Resultad
     }))
 
     return { ok: true, contas }
+  } catch (e) {
+    return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
+  }
+}
+
+
+// ─── Cartão de crédito ───────────────────────────────────────────────────────
+
+export type CartaoDoGrupo = {
+  accountId: string
+  banco: string
+  nome: string
+  /** Final do cartão titular da conta. */
+  final: string
+  limite: number | null
+  usado: number | null
+  faturas: Fatura[]
+}
+
+type ResultadoCartoes =
+  | { ok: true; cartoes: CartaoDoGrupo[] }
+  | { ok: false; erro: string }
+
+/** Extrai o payload de um tools/call, ou null quando a chamada não deu certo. */
+function payloadDe(resposta: RespostaMcp): Record<string, unknown> | null {
+  if (resposta.json.error) return null
+  const result = resposta.json.result as { content?: { text?: string }[] } | undefined
+  const texto = result?.content?.[0]?.text
+  if (!texto) return null
+  try {
+    return JSON.parse(texto) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Todos os lançamentos de um cartão.
+ *
+ * Pagina até o fim porque `from`/`to` da ferramenta não filtram nada (mesma
+ * pegadinha do PIX): o corte por período é sempre no código. O teto de páginas
+ * existe só para uma conta com histórico absurdo não travar a tela — em
+ * 04/09/2026 o cartão do Sicoob tinha 616 lançamentos, duas páginas.
+ */
+async function buscarLancamentosCartao(sessionId: string, accountId: string): Promise<LancamentoBruto[]> {
+  const MAX_PAGINAS = 6
+  const todos: LancamentoBruto[] = []
+
+  for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+    const resposta = await chamarMcp(sessionId, {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: {
+        name: 'openfinance_list_transactions',
+        arguments: { account_id: accountId, detail: 'rich', page_size: 500, page: pagina },
+      },
+    })
+    const payload = payloadDe(resposta) as { results?: LancamentoBruto[]; totalPages?: number } | null
+    const linhas = payload?.results ?? []
+    todos.push(...linhas)
+    if (linhas.length === 0 || pagina >= (payload?.totalPages ?? 1)) break
+  }
+
+  return todos
+}
+
+/**
+ * Faturas dos cartões de crédito do grupo, com os lançamentos separados por
+ * cartão.
+ *
+ * O vínculo com o CNPJ é indireto de propósito: a conta CREDIT não traz
+ * `taxNumber` (só a BANK traz), então o de-para sai do `item_id`, que é a
+ * conexão — o mesmo item que responde pela conta corrente responde pelo cartão.
+ * Sem esse filtro a tela do Sul de Minas mostraria o cartão da BH, que foi
+ * exatamente o que aconteceu com os saldos em 20/08/2026.
+ */
+export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoCartoes> {
+  try {
+    const init = await chamarMcp(null, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'moto-chefe', version: '1.0' },
+      },
+    })
+    if (init.json.error) return { ok: false, erro: init.json.error.message ?? 'Erro ao iniciar sessão com mcp.ai' }
+    if (!init.sessionId) return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
+    const sessionId = init.sessionId
+
+    const contas = payloadDe(await chamarMcp(sessionId, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'openfinance_list_accounts', arguments: { type: 'BANK' } },
+    })) as { results?: { item_id: string; taxNumber: string }[] } | null
+    if (!contas) return { ok: false, erro: 'Não foi possível identificar as conexões do grupo' }
+
+    const cnpjPorItem = new Map<string, string>()
+    for (const c of contas.results ?? []) {
+      if (c.item_id && c.taxNumber) cnpjPorItem.set(c.item_id, c.taxNumber)
+    }
+
+    const cartoesBrutos = payloadDe(await chamarMcp(sessionId, {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'openfinance_list_accounts', arguments: { type: 'CREDIT' } },
+    })) as { results?: Array<{
+      account_id: string
+      bank: string
+      name: string
+      number: string
+      item_id: string
+      creditData?: { creditLimit?: string | null; usedAmount?: string | null }
+    }> } | null
+    if (!cartoesBrutos) return { ok: false, erro: 'Erro ao buscar os cartões no mcp.ai' }
+
+    const doGrupo = (cartoesBrutos.results ?? []).filter(c => mesmoCnpj(cnpjPorItem.get(c.item_id), cnpjGrupo))
+
+    // Um cartão de cada vez, e NÃO em Promise.all.
+    //
+    // Duas chamadas simultâneas da mesma ferramenta na mesma sessão MCP têm as
+    // respostas cruzadas: com Sicoob e Sicredi em paralelo, o Sicoob recebeu a
+    // lista de faturas VAZIA do Sicredi e a tela mostrou todas as faturas dele
+    // como "em aberto", sem total. São dois ou três cartões por grupo — não vale
+    // o risco de paralelizar.
+    const cartoes: CartaoDoGrupo[] = []
+    for (const c of doGrupo) {
+      const faturasPayload = payloadDe(await chamarMcp(sessionId, {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'openfinance_list_credit_card_bills',
+          arguments: { account_id: c.account_id, include_open_bill: true, page_size: 12 },
+        },
+      })) as { results?: FaturaBruta[] } | null
+      const lancamentos = await buscarLancamentosCartao(sessionId, c.account_id)
+
+      const numero = (v: string | null | undefined) => (v == null || v === '' ? null : Number(v))
+      cartoes.push({
+        accountId: c.account_id,
+        banco: c.bank,
+        nome: c.name,
+        final: c.number,
+        limite: numero(c.creditData?.creditLimit),
+        usado: numero(c.creditData?.usedAmount),
+        faturas: agruparEmFaturas(lancamentos, faturasPayload?.results ?? []),
+      })
+    }
+
+    return { ok: true, cartoes }
   } catch (e) {
     return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
   }
