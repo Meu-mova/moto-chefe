@@ -15,7 +15,7 @@ import { Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserC
 import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from './pagamentos-fields'
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
-import { normalizarPagamentosReserva, type PagamentoReserva } from '@/lib/reserva-pagamentos'
+import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 
 function validarCpf(cpf: string): boolean {
   const d = cpf.replace(/\D/g, '')
@@ -51,11 +51,11 @@ type DadosReservaAtiva = {
   valorEntrada: string
   valorTotal: string
   // Colunas legadas — valem para reserva anterior à migração 0088, quando a
-  // entrada tinha uma forma só. Use normalizarPagamentosReserva, não elas.
+  // entrada tinha uma forma só. Use normalizarPagamentos, não elas.
   meioPagamento: string
   cartaoOperadora?: string | null
   cartaoParcelas?: string | null
-  pagamentos?: PagamentoReserva[] | null
+  pagamentos?: PagamentoEntrada[] | null
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -206,10 +206,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       // Uma linha por forma de pagamento da entrada (reserva antiga vira uma só),
       // senão o dinheiro já recebido entraria na venda com a forma errada.
       setPgtos([
-        ...normalizarPagamentosReserva({
+        ...normalizarPagamentos({
           pagamentos: reservaAtiva.pagamentos ?? null,
           meioPagamento: reservaAtiva.meioPagamento,
-          valorReserva: reservaAtiva.valorEntrada,
+          valorTotal: reservaAtiva.valorEntrada,
           cartaoOperadora: reservaAtiva.cartaoOperadora,
           cartaoParcelas: reservaAtiva.cartaoParcelas,
         }).map((p, i) => ({

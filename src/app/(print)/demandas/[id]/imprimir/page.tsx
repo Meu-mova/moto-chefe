@@ -4,6 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
+import { normalizarPagamentos } from '@/lib/pagamentos-entrada'
 
 const fmtR = (v: string | null) =>
   v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
@@ -21,6 +22,9 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   if (!isAdmin && demanda.lojaId !== usuario.lojaId) notFound()
+
+  // Demanda anterior à migração 0089 tem `pagamentos` nulo e vira uma linha só.
+  const pagamentos = normalizarPagamentos({ ...demanda, valorTotal: demanda.valorSinal })
 
   const recebidoEm = format(new Date(demanda.sinalRecebidoEm ?? demanda.criadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
@@ -106,12 +110,23 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
             <td><span className="grand">Valor do sinal recebido</span></td>
             <td className="tr"><span className="grand">{fmtR(demanda.valorSinal)}</span></td>
           </tr>
-          <tr>
-            <td style={{ fontSize: 11, color: '#64748b' }}>Meio de pagamento</td>
-            <td className="tr" style={{ fontSize: 11 }}>
-              {demanda.meioPagamento ? (meioLabel[demanda.meioPagamento] ?? demanda.meioPagamento) : '—'}
-            </td>
-          </tr>
+          {pagamentos.length === 0 ? (
+            <tr>
+              <td style={{ fontSize: 11, color: '#64748b' }}>Meio de pagamento</td>
+              <td className="tr" style={{ fontSize: 11 }}>—</td>
+            </tr>
+          ) : pagamentos.map((p, i) => (
+            <tr key={i}>
+              <td style={{ fontSize: 11, color: '#64748b' }}>
+                {i === 0 ? (pagamentos.length > 1 ? 'Meios de pagamento' : 'Meio de pagamento') : ''}
+              </td>
+              <td className="tr" style={{ fontSize: 11 }}>
+                {meioLabel[p.tipo] ?? p.tipo}
+                {p.parcelas && p.parcelas > 1 ? ` — ${p.parcelas}x` : ''}
+                {pagamentos.length > 1 ? ` — ${fmtR(String(p.valor))}` : ''}
+              </td>
+            </tr>
+          ))}
           <tr>
             <td style={{ fontSize: 11, color: '#64748b' }}>Atendente</td>
             <td className="tr" style={{ fontSize: 11 }}>{demanda.solicitanteNome}</td>

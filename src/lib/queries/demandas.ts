@@ -14,6 +14,7 @@ export async function buscarDemandaParaRecibo(id: string) {
       cor: demandas.cor,
       valorSinal: demandas.valorSinal,
       meioPagamento: demandas.meioPagamento,
+      pagamentos: demandas.pagamentos,
       sinalRecebido: demandas.sinalRecebido,
       sinalRecebidoEm: demandas.sinalRecebidoEm,
       criadoEm: demandas.criadoEm,

@@ -4,7 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
-import { normalizarPagamentosReserva } from '@/lib/reserva-pagamentos'
+import { normalizarPagamentos } from '@/lib/pagamentos-entrada'
 
 const fmtR = (v: string | null) =>
   v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
@@ -24,7 +24,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
   if (!isAdmin && reserva.lojaId !== usuario.lojaId) notFound()
 
   // Reserva anterior à migração 0088 tem `pagamentos` nulo e vira uma linha só.
-  const pagamentos = normalizarPagamentosReserva(reserva)
+  const pagamentos = normalizarPagamentos({ ...reserva, valorTotal: reserva.valorReserva })
 
   const criadoEm = format(new Date(reserva.criadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })

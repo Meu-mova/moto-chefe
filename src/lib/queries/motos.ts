@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas, aprovacoesVenda, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
-import type { PagamentoReserva } from '@/lib/reserva-pagamentos'
+import type { PagamentoEntrada } from '@/lib/pagamentos-entrada'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
@@ -152,8 +152,8 @@ export async function listarMotos(filtros?: {
         ORDER BY r.criado_em DESC LIMIT 1
       )`,
       // Formas de pagamento da entrada (migração 0088). Nulo em reserva antiga —
-      // normalizarPagamentosReserva resolve com as colunas acima.
-      reservaPagamentos: sql<PagamentoReserva[] | null>`(
+      // normalizarPagamentos resolve com as colunas acima.
+      reservaPagamentos: sql<PagamentoEntrada[] | null>`(
         SELECT r.pagamentos FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1
@@ -327,8 +327,8 @@ export async function buscarMoto(id: string) {
         ORDER BY r.criado_em DESC LIMIT 1
       )`,
       // Formas de pagamento da entrada (migração 0088). Nulo em reserva antiga —
-      // normalizarPagamentosReserva resolve com as colunas acima.
-      reservaPagamentos: sql<PagamentoReserva[] | null>`(
+      // normalizarPagamentos resolve com as colunas acima.
+      reservaPagamentos: sql<PagamentoEntrada[] | null>`(
         SELECT r.pagamentos FROM reservas r
         WHERE r.moto_id = ${motos.id} AND r.status = 'ativa'
         ORDER BY r.criado_em DESC LIMIT 1

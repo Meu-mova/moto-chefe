@@ -5,23 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { CheckCircle2 } from 'lucide-react'
 import { criarDemandaAction } from '../actions'
 import { ClienteCampos, CLIENTE_VAZIO, clienteCompleto, type ClienteForm } from './cliente-campos'
+import { PagamentosFields, pgtoIncompleto, type Pgto } from '../../estoque/components/pagamentos-fields'
 
 type Loja = { id: string; nome: string }
 type Modelo = { id: string; marca: string; modelo: string }
 type Props = { lojas: Loja[]; lojaIdFixa: string | null; modelos: Modelo[]; cores: string[] }
-
-const FORMAS = [
-  { value: 'pix', label: 'PIX' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartao_credito', label: 'Cartão de Crédito' },
-  { value: 'cartao_debito', label: 'Cartão de Débito' },
-  { value: 'financiamento', label: 'Financiamento' },
-  { value: 'link_pagamento', label: 'Link de Pagamento' },
-  { value: 'transferencia', label: 'Transferência Bancária' },
-]
 
 export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const [modeloId, setModeloId] = useState('')
@@ -29,7 +21,8 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const [lojaId, setLojaId] = useState(lojaIdFixa ?? '')
   const [sinalRecebido, setSinalRecebido] = useState(false)
   const [valorSinal, setValorSinal] = useState('')
-  const [meioPagamento, setMeioPagamento] = useState('')
+  // O sinal pode ser dividido em mais de uma forma — mesmas linhas da venda.
+  const [pgtosSinal, setPgtosSinal] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [cliente, setCliente] = useState<ClienteForm>(CLIENTE_VAZIO)
   const [loading, setLoading] = useState(false)
   const [reciboId, setReciboId] = useState<string | null>(null)
@@ -37,11 +30,16 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const modeloSel = modelos.find(m => m.id === modeloId)
   const modeloLabel = modeloSel ? `${modeloSel.marca} ${modeloSel.modelo}` : ''
 
-  const sinalValido = !sinalRecebido || (clienteCompleto(cliente) && !!meioPagamento)
+  const valorSinalNum = parseFloat(valorSinal) || 0
+  const somaSinal = pgtosSinal.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
+  const somaSinalOk = valorSinalNum > 0 && Math.abs(somaSinal - valorSinalNum) < 0.01
+  const pgtosSinalOk = pgtosSinal.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null))
+  const sinalValido = !sinalRecebido || (clienteCompleto(cliente) && somaSinalOk && pgtosSinalOk)
   const formValido = !!modeloId && !!cor.trim() && !!lojaId && sinalValido
 
   function reset() {
-    setModeloId(''); setCor(''); setSinalRecebido(false); setValorSinal(''); setMeioPagamento('')
+    setModeloId(''); setCor(''); setSinalRecebido(false); setValorSinal('')
+    setPgtosSinal([{ id: '1', tipo: '', valor: '' }])
     setCliente(CLIENTE_VAZIO)
     if (!lojaIdFixa) setLojaId('')
   }
@@ -51,14 +49,23 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
     if (!formValido) return
     setLoading(true)
     try {
-      const parsedValor = valorSinal.trim() ? parseFloat(valorSinal.trim().replace(/\./g, '').replace(',', '.')) : NaN
-      const v = !isNaN(parsedValor) ? parsedValor : null
       const res = await criarDemandaAction({
         modelo: modeloLabel,
         modeloId,
         cor,
         lojaId,
-        sinal: sinalRecebido ? { ...cliente, valorSinal: v, meioPagamento } : null,
+        sinal: sinalRecebido
+          ? {
+              ...cliente,
+              valorSinal: valorSinalNum,
+              pagamentos: pgtosSinal.map(p => ({
+                tipo: p.tipo,
+                valor: parseFloat(p.valor),
+                ...(p.operadora ? { operadora: p.operadora } : {}),
+                ...(p.parcelas ? { parcelas: parseInt(p.parcelas) } : {}),
+              })),
+            }
+          : null,
       })
       if (sinalRecebido) {
         setReciboId(res.id)
@@ -158,23 +165,35 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
       {sinalRecebido && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4 space-y-4">
           <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest">Sinal — cadastro do cliente (gera recibo)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Valor do sinal</Label>
-              <Input type="text" inputMode="decimal" placeholder="0,00" value={valorSinal} onChange={e => setValorSinal(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Meio de pagamento <span className="text-red-500">*</span></Label>
-              <select
-                value={meioPagamento}
-                onChange={e => setMeioPagamento(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="" disabled>Selecionar</option>
-                {FORMAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-            </div>
+          <div className="space-y-1 sm:max-w-[240px]">
+            <Label>Valor do sinal <span className="text-red-500">*</span></Label>
+            <CurrencyInput value={valorSinal} onChange={setValorSinal} placeholder="0,00" />
           </div>
+
+          <div className="space-y-2">
+            <Label>Formas de pagamento do sinal <span className="text-red-500">*</span></Label>
+            <PagamentosFields
+              pgtos={pgtosSinal}
+              onAdd={() => setPgtosSinal(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])}
+              onRemove={id => setPgtosSinal(p => p.filter(x => x.id !== id))}
+              onUpdate={(id, campo, val) => setPgtosSinal(p => p.map(x => x.id === id
+                ? { ...x, [campo]: val, ...(campo === 'tipo' ? { operadora: undefined, parcelas: undefined } : {}) }
+                : x
+              ))}
+              taxasVenda={null}
+            />
+          </div>
+
+          {valorSinalNum > 0 && (
+            <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
+              somaSinalOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+            }`}>
+              {somaSinalOk
+                ? `✓ Somatório confere: R$ ${somaSinal.toFixed(2).replace('.', ',')}`
+                : `Somatório R$ ${somaSinal.toFixed(2).replace('.', ',')} ≠ Sinal R$ ${valorSinalNum.toFixed(2).replace('.', ',')}`
+              }
+            </div>
+          )}
           <ClienteCampos value={cliente} onChange={setCliente} />
         </div>
       )}

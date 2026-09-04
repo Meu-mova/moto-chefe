@@ -1,17 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  normalizarPagamentosReserva,
+  normalizarPagamentos,
   somaPagamentos,
   pagamentosFecham,
   descreverPagamentos,
-} from './reserva-pagamentos'
+} from './pagamentos-entrada'
 
-test('reserva antiga (pagamentos nulo) vira uma linha só, com o meio de pagamento legado', () => {
-  const pgs = normalizarPagamentosReserva({
+test('registro antigo (pagamentos nulo) vira uma linha só, com o meio de pagamento legado', () => {
+  const pgs = normalizarPagamentos({
     pagamentos: null,
     meioPagamento: 'pix',
-    valorReserva: '1500.00',
+    valorTotal: '1500.00',
     cartaoOperadora: null,
     cartaoParcelas: null,
   })
@@ -19,10 +19,10 @@ test('reserva antiga (pagamentos nulo) vira uma linha só, com o meio de pagamen
 })
 
 test('reserva antiga no cartão preserva operadora e parcelas', () => {
-  const pgs = normalizarPagamentosReserva({
+  const pgs = normalizarPagamentos({
     pagamentos: null,
     meioPagamento: 'cartao_credito',
-    valorReserva: '900.50',
+    valorTotal: '900.50',
     cartaoOperadora: 'stone',
     cartaoParcelas: '3',
   })
@@ -30,13 +30,13 @@ test('reserva antiga no cartão preserva operadora e parcelas', () => {
 })
 
 test('reserva nova usa o jsonb e ignora as colunas legadas', () => {
-  const pgs = normalizarPagamentosReserva({
+  const pgs = normalizarPagamentos({
     pagamentos: [
       { tipo: 'pix', valor: 500 },
       { tipo: 'cartao_credito', valor: 500, operadora: 'stone', parcelas: 2 },
     ],
     meioPagamento: 'pix',
-    valorReserva: '1000.00',
+    valorTotal: '1000.00',
     cartaoOperadora: null,
     cartaoParcelas: null,
   })
@@ -45,10 +45,10 @@ test('reserva nova usa o jsonb e ignora as colunas legadas', () => {
 })
 
 test('jsonb vazio cai no legado — não deixa a reserva sem pagamento', () => {
-  const pgs = normalizarPagamentosReserva({
+  const pgs = normalizarPagamentos({
     pagamentos: [],
     meioPagamento: 'dinheiro',
-    valorReserva: '300',
+    valorTotal: '300',
     cartaoOperadora: null,
     cartaoParcelas: null,
   })
@@ -79,4 +79,15 @@ test('descreve as formas para o histórico e o comprovante', () => {
 
 test('descreve tipo desconhecido sem quebrar', () => {
   assert.equal(descreverPagamentos([{ tipo: 'boleto', valor: 100 }]), 'boleto R$ 100,00')
+})
+
+test('sem meio de pagamento e sem jsonb não inventa linha (demanda sem sinal)', () => {
+  const pgs = normalizarPagamentos({
+    pagamentos: null,
+    meioPagamento: null,
+    valorTotal: null,
+    cartaoOperadora: null,
+    cartaoParcelas: null,
+  })
+  assert.deepEqual(pgs, [])
 })

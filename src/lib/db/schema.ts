@@ -203,7 +203,7 @@ export const reservas = pgTable('reservas', {
   valorTotalVenda: numeric('valor_total_venda', { precision: 12, scale: 2 }),
   meioPagamento: text('meio_pagamento').notNull(),
   // Detalhamento da entrada quando ela é dividida (migração 0088). Nulo em
-  // reserva antiga — normalize com normalizarPagamentosReserva, nunca leia cru.
+  // reserva antiga — normalize com normalizarPagamentos, nunca leia cru.
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   dataPrevistaFinalizacao: date('data_prevista_finalizacao').notNull(),
   status: reservaStatusEnum('status').notNull().default('ativa'),
@@ -764,6 +764,9 @@ export const demandas = pgTable('demandas', {
   sinalRecebido: boolean('sinal_recebido').notNull().default(false),
   valorSinal:    numeric('valor_sinal', { precision: 10, scale: 2 }),
   meioPagamento: text('meio_pagamento'),
+  // Detalhamento do sinal quando ele é dividido (migração 0089). Nulo em demanda
+  // antiga — normalize com normalizarPagamentos, nunca leia cru.
+  pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   numero: integer('numero'),                       // nº do recibo — atribuído via nextval quando há sinal
   sinalRecebidoEm: timestamp('sinal_recebido_em', { withTimezone: true }),
   status: demandaStatusEnum('status').notNull().default('aberta'),

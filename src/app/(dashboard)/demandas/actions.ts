@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { pagamentosFecham, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const PODE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -23,8 +24,10 @@ export type ClienteSnapshot = {
 }
 
 export type DadosSinal = ClienteSnapshot & {
-  valorSinal: number | null
-  meioPagamento: string
+  /** Valor do sinal — obrigatório desde a 0089, é contra ele que a soma fecha. */
+  valorSinal: number
+  /** O sinal pode ser dividido em mais de uma forma de pagamento. */
+  pagamentos: PagamentoEntrada[]
 }
 
 export type NovaDemanda = {
@@ -40,6 +43,25 @@ function validarSnapshot(s: ClienteSnapshot) {
   const cpf = (s.clienteCpf ?? '').replace(/\D/g, '')
   if (cpf.length !== 11) throw new Error('CPF do cliente é obrigatório (11 dígitos)')
   if (!s.clienteCelular?.trim()) throw new Error('Celular do cliente é obrigatório')
+}
+
+/**
+ * Confere o sinal e devolve a forma principal — a que vai para `meio_pagamento`,
+ * lido pelo recibo impresso. O detalhe completo vai no jsonb `pagamentos`.
+ */
+function validarSinal(sinal: DadosSinal): PagamentoEntrada {
+  if (!(sinal.valorSinal > 0)) throw new Error('Valor do sinal é obrigatório')
+  const pgs = sinal.pagamentos ?? []
+  if (pgs.length === 0) throw new Error('Meio de pagamento do sinal é obrigatório')
+  if (pgs.some(p => !p.tipo || !(p.valor > 0))) {
+    throw new Error('Toda forma de pagamento precisa de tipo e valor')
+  }
+  if (!pagamentosFecham(pgs, sinal.valorSinal)) {
+    throw new Error(
+      `A soma das formas de pagamento (${somaPagamentos(pgs).toFixed(2)}) não bate com o sinal (${sinal.valorSinal.toFixed(2)})`,
+    )
+  }
+  return pgs[0]
 }
 
 function snapshotCols(s: ClienteSnapshot) {
@@ -76,12 +98,13 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
 
   if (dados.sinal) {
     validarSnapshot(dados.sinal)
-    if (!dados.sinal.meioPagamento) throw new Error('Meio de pagamento do sinal é obrigatório')
+    const principal = validarSinal(dados.sinal)
     const [row] = await db.insert(demandas).values({
       ...base,
       sinalRecebido: true,
-      valorSinal: dados.sinal.valorSinal != null ? String(dados.sinal.valorSinal) : null,
-      meioPagamento: dados.sinal.meioPagamento,
+      valorSinal: String(dados.sinal.valorSinal),
+      meioPagamento: principal.tipo,
+      pagamentos: dados.sinal.pagamentos,
       numero: sql`nextval('numero_venda_seq')`,
       sinalRecebidoEm: new Date(),
       ...snapshotCols(dados.sinal),
@@ -119,12 +142,13 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
   }
 
   validarSnapshot(sinal)
-  if (!sinal.meioPagamento) throw new Error('Meio de pagamento do sinal é obrigatório')
+  const principal = validarSinal(sinal)
 
   await db.update(demandas).set({
     sinalRecebido: true,
-    valorSinal: sinal.valorSinal != null ? String(sinal.valorSinal) : null,
-    meioPagamento: sinal.meioPagamento,
+    valorSinal: String(sinal.valorSinal),
+    meioPagamento: principal.tipo,
+    pagamentos: sinal.pagamentos,
     // atribui número do recibo só na primeira vez
     numero: demanda.numero ?? sql`nextval('numero_venda_seq')`,
     sinalRecebidoEm: new Date(),

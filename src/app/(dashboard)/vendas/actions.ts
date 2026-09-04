@@ -7,7 +7,7 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoReserva } from '@/lib/reserva-pagamentos'
+import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -1026,7 +1026,7 @@ type DadosReserva = {
   valorTotalVenda: string
   // A entrada pode ser dividida em mais de uma forma; a soma tem que fechar com
   // valorReserva (reconferido aqui — o cliente não é fonte de verdade).
-  pagamentos: PagamentoReserva[]
+  pagamentos: PagamentoEntrada[]
   dataPrevistaFinalizacao: string
   dataReserva?: string
 }
