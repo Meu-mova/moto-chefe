@@ -55,7 +55,14 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
       try {
         const r = await uploadHoleriteAction(dados)
         const base = holerite ? 'Holerite substituído' : 'Holerite enviado'
-        if (r?.valorPreenchido != null) {
+        // Aviso e não erro: o arquivo FOI guardado. Fica mais tempo na tela que o
+        // toast comum porque é o único lugar onde a divergência aparece.
+        if (r?.avisos?.length) {
+          toast.warning(
+            `${base}, mas ${r.avisos.join(' e ')}. O Valor Real Pago não foi preenchido — confira o PDF.`,
+            { duration: 12000 },
+          )
+        } else if (r?.valorPreenchido != null) {
           const valor = r.valorPreenchido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
           toast.success(`${base} · Valor Real Pago preenchido: ${valor}`)
         } else if (r?.leituraFalhou) {

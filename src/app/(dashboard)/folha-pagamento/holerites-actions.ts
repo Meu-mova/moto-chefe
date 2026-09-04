@@ -125,8 +125,8 @@ export async function uploadHoleriteAction(formData: FormData) {
 
   const alvo = await funcionarioDoGrupo(usuario, usuarioId)
 
-  // Lê o PDF antes de guardar: se o papel for de outra pessoa ou de outro mês, o
-  // arquivo nem chega ao bucket.
+  // Lê o PDF para conferir de quem e de que mês ele é, e para pegar o líquido.
+  // Nada aqui barra o envio — ver os avisos logo abaixo.
   //
   // Falha de leitura NÃO barra o upload. Um layout novo da contabilidade (ou um
   // holerite digitalizado) trancaria o envio inteiro, e guardar o documento é o
@@ -138,13 +138,21 @@ export async function uploadHoleriteAction(formData: FormData) {
     lido = null
   }
 
+  // Divergência entre o papel e o slot AVISA, mas não barra (04/09/2026).
+  //
+  // Barrava até então, e o que apareceu na prática não foi holerite trocado: foi
+  // uma letra de diferença entre o cadastro e a contabilidade (Alexsander/
+  // Alexander, Alkmin/Alkmim). O envio inteiro travava por causa de grafia,
+  // sendo que quem está olhando a tela sabe de quem é o papel. Guardar o
+  // documento é o que não pode falhar; conferir é decisão de quem envia.
+  const avisos: string[] = []
   if (lido?.nome && !nomeConfere(alvo.nome, lido.nome)) {
-    throw new Error(`Este holerite é de ${lido.nome}, não de ${alvo.nome}`)
+    avisos.push(`o PDF está no nome de ${lido.nome}, e o cadastro é ${alvo.nome}`)
   }
   // O arquivo da contabilidade se chama pelo mês do PAGAMENTO ("2026-09" para a
   // folha de agosto), então a competência tem que sair de dentro do papel.
   if (lido?.competencia && lido.competencia !== mes) {
-    throw new Error(`Este holerite é da competência ${lido.competencia}, e não de ${mes}`)
+    avisos.push(`o PDF é da competência ${lido.competencia}, e não de ${mes}`)
   }
 
   const storage = storageAdmin()
@@ -193,14 +201,20 @@ export async function uploadHoleriteAction(formData: FormData) {
     await storage.storage.from(BUCKET).remove([anterior.arquivoPath])
   }
 
-  const preenchido = await preencherValorReal(usuario.id, usuarioId, mes, tipo, lido?.liquido ?? null)
+  // Com aviso na leitura o valor NÃO entra sozinho: se o papel é de outra pessoa
+  // ou de outro mês, o líquido dele não é o desta linha, e a coluna passaria a
+  // mentir sem ninguém perceber. O arquivo fica guardado do mesmo jeito e o
+  // valor pode ser digitado na mão.
+  const preenchido = avisos.length === 0
+    ? await preencherValorReal(usuario.id, usuarioId, mes, tipo, lido?.liquido ?? null)
+    : null
 
   revalidatePath('/folha-pagamento')
   if (preenchido !== null) {
     revalidatePath('/contas-pagar')
     revalidatePath('/calendario')
   }
-  return { valorPreenchido: preenchido, leituraFalhou: lido?.liquido == null }
+  return { valorPreenchido: preenchido, leituraFalhou: lido?.liquido == null, avisos }
 }
 
 /**
