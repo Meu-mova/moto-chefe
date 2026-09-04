@@ -11,7 +11,7 @@ import { ClienteCampos, CLIENTE_VAZIO, clienteCompleto, type ClienteForm } from 
 
 type Loja = { id: string; nome: string }
 type Modelo = { id: string; marca: string; modelo: string }
-type Props = { lojas: Loja[]; lojaIdFixa: string | null; modelos: Modelo[] }
+type Props = { lojas: Loja[]; lojaIdFixa: string | null; modelos: Modelo[]; cores: string[] }
 
 const FORMAS = [
   { value: 'pix', label: 'PIX' },
@@ -23,7 +23,7 @@ const FORMAS = [
   { value: 'transferencia', label: 'Transferência Bancária' },
 ]
 
-export function NovaDemandaForm({ lojas, lojaIdFixa, modelos }: Props) {
+export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const [modeloId, setModeloId] = useState('')
   const [cor, setCor] = useState('')
   const [lojaId, setLojaId] = useState(lojaIdFixa ?? '')
@@ -116,7 +116,17 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label>Cor</Label>
-          <Input placeholder="Ex: Preto" value={cor} onChange={e => setCor(e.target.value)} required />
+          <select
+            value={cor}
+            onChange={e => setCor(e.target.value)}
+            required
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="" disabled>Selecionar cor</option>
+            {cores.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1.5">
           <Label>Loja</Label>
