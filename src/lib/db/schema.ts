@@ -202,6 +202,9 @@ export const reservas = pgTable('reservas', {
   valorReserva: numeric('valor_reserva', { precision: 12, scale: 2 }).notNull(),
   valorTotalVenda: numeric('valor_total_venda', { precision: 12, scale: 2 }),
   meioPagamento: text('meio_pagamento').notNull(),
+  // Detalhamento da entrada quando ela é dividida (migração 0088). Nulo em
+  // reserva antiga — normalize com normalizarPagamentosReserva, nunca leia cru.
+  pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   dataPrevistaFinalizacao: date('data_prevista_finalizacao').notNull(),
   status: reservaStatusEnum('status').notNull().default('ativa'),
   clienteNome: text('cliente_nome'),

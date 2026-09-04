@@ -7,6 +7,7 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
+import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoReserva } from '@/lib/reserva-pagamentos'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -1023,9 +1024,9 @@ type DadosReserva = {
   clienteEstado: string
   valorReserva: string
   valorTotalVenda: string
-  meioPagamento: string
-  cartaoOperadora?: string
-  cartaoParcelas?: number
+  // A entrada pode ser dividida em mais de uma forma; a soma tem que fechar com
+  // valorReserva (reconferido aqui — o cliente não é fonte de verdade).
+  pagamentos: PagamentoReserva[]
   dataPrevistaFinalizacao: string
   dataReserva?: string
 }
@@ -1065,6 +1066,19 @@ export async function registrarReservaAction(data: DadosReserva) {
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
 
+  const pagamentos = data.pagamentos ?? []
+  if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
+    throw new Error('Toda forma de pagamento precisa de tipo e valor')
+  }
+  if (!pagamentosFecham(pagamentos, valorNum)) {
+    throw new Error(
+      `A soma das formas de pagamento (${somaPagamentos(pagamentos).toFixed(2)}) não bate com a entrada (${valorNum.toFixed(2)})`,
+    )
+  }
+  // meio_pagamento e as colunas de cartão guardam a PRIMEIRA linha — é o que o
+  // comprovante, o histórico e queries/motos.ts leem. O detalhe vai no jsonb.
+  const principal = pagamentos[0]
+
   const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
   if (prec) {
     const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -1092,9 +1106,10 @@ export async function registrarReservaAction(data: DadosReserva) {
       vendedorId: vendedorIdReserva,
       valorReserva: data.valorReserva,
       valorTotalVenda: data.valorTotalVenda,
-      meioPagamento: data.meioPagamento,
-      cartaoOperadora: data.cartaoOperadora ?? null,
-      cartaoParcelas: data.cartaoParcelas ? String(data.cartaoParcelas) : null,
+      meioPagamento: principal.tipo,
+      pagamentos,
+      cartaoOperadora: principal.operadora ?? null,
+      cartaoParcelas: principal.parcelas ? String(principal.parcelas) : null,
       dataPrevistaFinalizacao: data.dataPrevistaFinalizacao,
       status: 'ativa',
       clienteNome: data.clienteNome,
@@ -1128,17 +1143,12 @@ export async function registrarReservaAction(data: DadosReserva) {
         ))
     }
 
-    const meioLabel: Record<string, string> = {
-      pix: 'PIX', dinheiro: 'Dinheiro', cartao_credito: 'Cartão de Crédito',
-      cartao_debito: 'Cartão de Débito', financiamento: 'Financiamento',
-      link_pagamento: 'Link de Pagamento', transferencia: 'Transferência',
-    }
     await tx.insert(historicoEstoque).values({
       motoId: data.motoId,
       lojaOrigemId: moto.lojaId,
       usuarioId: usuario.id,
       tipo: 'mudanca_status',
-      observacao: `Reserva — Cliente: ${data.clienteNome} — Entrada: R$ ${valorNum.toFixed(2)} — Total: R$ ${valorTotalNum.toFixed(2)} — ${meioLabel[data.meioPagamento] ?? data.meioPagamento} — Previsão: ${data.dataPrevistaFinalizacao}`,
+      observacao: `Reserva — Cliente: ${data.clienteNome} — Entrada: R$ ${valorNum.toFixed(2)} — Total: R$ ${valorTotalNum.toFixed(2)} — ${descreverPagamentos(pagamentos)} — Previsão: ${data.dataPrevistaFinalizacao}`,
     })
   })
 

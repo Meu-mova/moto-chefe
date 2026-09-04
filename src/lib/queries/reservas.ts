@@ -23,6 +23,7 @@ export async function buscarReserva(id: string) {
       valorReserva: reservas.valorReserva,
       valorTotalVenda: reservas.valorTotalVenda,
       meioPagamento: reservas.meioPagamento,
+      pagamentos: reservas.pagamentos,
       cartaoOperadora: reservas.cartaoOperadora,
       cartaoParcelas: reservas.cartaoParcelas,
       dataPrevistaFinalizacao: reservas.dataPrevistaFinalizacao,

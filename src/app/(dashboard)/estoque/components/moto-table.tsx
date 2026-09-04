@@ -202,6 +202,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                       meioPagamento: moto.reservaMeioPagamento ?? 'pix',
                                       cartaoOperadora: moto.reservaCartaoOperadora,
                                       cartaoParcelas: moto.reservaCartaoParcelas,
+                                      pagamentos: moto.reservaPagamentos,
                                     }}
                                   />
                                 )}

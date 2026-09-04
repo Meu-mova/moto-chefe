@@ -11,28 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
-import { X, Plus, Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
+import { Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
+import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from './pagamentos-fields'
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
-
-const FORMAS = [
-  { value: 'pix', label: 'PIX' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartao_credito', label: 'Cartão de Crédito' },
-  { value: 'cartao_debito', label: 'Cartão de Débito' },
-  { value: 'financiamento', label: 'Financiamento' },
-  { value: 'link_pagamento', label: 'Link de Pagamento' },
-  { value: 'transferencia', label: 'Transferência Bancária' },
-]
-
-const OPERADORAS = [
-  { value: 'infinitypay', label: 'InfinityPay' },
-  { value: 'stone', label: 'Stone' },
-  { value: 'pagueveloz', label: 'PagueVeloz' },
-]
-
-// Tipos com taxa aplicada sobre parcelas
-const TIPOS_COM_PARCELAS = new Set(['cartao_credito', 'link_pagamento', 'financiamento'])
+import { normalizarPagamentosReserva, type PagamentoReserva } from '@/lib/reserva-pagamentos'
 
 function validarCpf(cpf: string): boolean {
   const d = cpf.replace(/\D/g, '')
@@ -49,16 +32,30 @@ function validarCpf(cpf: string): boolean {
   return dig2 === +d[10]
 }
 
-type Pgto = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string }
+/** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
+function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
+  return {
+    add: () => setter(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }]),
+    remove: (id: string) => setter(p => p.filter(x => x.id !== id)),
+    update: (id: string, campo: keyof Pgto, val: string) =>
+      setter(p => p.map(x => x.id === id
+        ? { ...x, [campo]: val, ...(campo === 'tipo' ? { operadora: undefined, parcelas: undefined, autorizacao: undefined } : {}) }
+        : x
+      )),
+  }
+}
 
 type Usuario = { id: string; nome: string }
 
 type DadosReservaAtiva = {
   valorEntrada: string
   valorTotal: string
+  // Colunas legadas — valem para reserva anterior à migração 0088, quando a
+  // entrada tinha uma forma só. Use normalizarPagamentosReserva, não elas.
   meioPagamento: string
   cartaoOperadora?: string | null
   cartaoParcelas?: string | null
+  pagamentos?: PagamentoReserva[] | null
   clienteNome: string
   clienteCpf: string
   clienteCelular: string
@@ -116,26 +113,6 @@ type Props = {
 // @/lib/conciliacao-status.
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 
-function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): number[] {
-  if (!taxas) return []
-  if (tipo === 'cartao_credito') {
-    return Array.from({ length: 21 }, (_, i) => i + 1)
-  }
-  if (tipo === 'link_pagamento') {
-    return Object.entries(taxas.taxasLink)
-      .filter(([, t]) => t > 0)
-      .map(([k]) => parseInt(k))
-      .sort((a, b) => a - b)
-  }
-  if (tipo === 'financiamento') {
-    return Object.entries(taxas.taxasFinanciamento)
-      .filter(([, t]) => t > 0)
-      .map(([k]) => parseInt(k))
-      .sort((a, b) => a - b)
-  }
-  return []
-}
-
 export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens }: Props) {
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
@@ -184,9 +161,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   // ── Reserva ──
   const [valorReserva, setValorReserva] = useState('')
   const [valorTotalVenda, setValorTotalVenda] = useState('')
-  const [meioPgto, setMeioPgto] = useState('')
-  const [meioPgtoOperadora, setMeioPgtoOperadora] = useState('')
-  const [meioPgtoParcelas, setMeioPgtoParcelas] = useState('')
+  // A entrada pode ser dividida em várias formas — mesmas linhas da venda.
+  const [pgtosReserva, setPgtosReserva] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [dataPrevista, setDataPrevista] = useState('')
 
   function selecionarDemanda(id: string) {
@@ -227,14 +203,22 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       setClienteEstado(reservaAtiva.clienteEstado)
       setValorVenda(reservaAtiva.valorTotal)
       const restante = (parseFloat(reservaAtiva.valorTotal) - parseFloat(reservaAtiva.valorEntrada)).toFixed(2)
+      // Uma linha por forma de pagamento da entrada (reserva antiga vira uma só),
+      // senão o dinheiro já recebido entraria na venda com a forma errada.
       setPgtos([
-        {
-          id: 'entrada',
-          tipo: reservaAtiva.meioPagamento,
-          valor: reservaAtiva.valorEntrada,
-          operadora: reservaAtiva.cartaoOperadora ?? undefined,
-          parcelas: reservaAtiva.cartaoParcelas ?? undefined,
-        },
+        ...normalizarPagamentosReserva({
+          pagamentos: reservaAtiva.pagamentos ?? null,
+          meioPagamento: reservaAtiva.meioPagamento,
+          valorReserva: reservaAtiva.valorEntrada,
+          cartaoOperadora: reservaAtiva.cartaoOperadora,
+          cartaoParcelas: reservaAtiva.cartaoParcelas,
+        }).map((p, i) => ({
+          id: `entrada-${i}`,
+          tipo: p.tipo,
+          valor: p.valor.toFixed(2),
+          operadora: p.operadora,
+          parcelas: p.parcelas ? String(p.parcelas) : undefined,
+        })),
         { id: 'restante', tipo: '', valor: restante },
       ])
       setVendedorSelecionado(reservaAtiva.vendedorId)
@@ -249,7 +233,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       setPgtos([{ id: '1', tipo: '', valor: '' }])
     }
     setDataVenda(hojeBrt())
-    setValorReserva(''); setValorTotalVenda(''); setMeioPgto(''); setMeioPgtoOperadora(''); setMeioPgtoParcelas(''); setDataPrevista('')
+    setValorReserva(''); setValorTotalVenda(''); setDataPrevista('')
+    setPgtosReserva([{ id: '1', tipo: '', valor: '' }])
     setMotivo('')
   }
 
@@ -360,15 +345,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
     }
   }
 
-  const addPgto = () =>
-    setPgtos(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])
-  const removePgto = (id: string) =>
-    setPgtos(p => p.filter(x => x.id !== id))
-  const updatePgto = (id: string, field: keyof Pgto, val: string) =>
-    setPgtos(p => p.map(x => x.id === id
-      ? { ...x, [field]: val, ...(field === 'tipo' ? { operadora: undefined, parcelas: undefined, autorizacao: undefined } : {}) }
-      : x
-    ))
+  const pgtoVenda = pgtoHandlers(setPgtos)
+  const pgtoReserva = pgtoHandlers(setPgtosReserva)
 
   // ── Validações de venda ──
   const cpfDigits = clienteCpf.replace(/\D/g, '')
@@ -377,12 +355,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somatorioOk = valorNum > 0 && Math.abs(somatorio - valorNum) < 0.01
-  const cartaoIncompleto = pgtos.some(p =>
-    (p.tipo === 'cartao_credito' && (!p.operadora || !p.parcelas)) ||
-    (TIPOS_COM_PARCELAS.has(p.tipo) && p.tipo !== 'cartao_credito' && taxasVenda && parcelasDisponiveis(p.tipo, taxasVenda).length > 0 && !p.parcelas)
-  )
+  const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda))
   const clientePreenchido = !!(clienteNome && cpfValido && clienteCelular && clienteEmail)
-  const reservaCartaoIncompleto = meioPgto === 'cartao_credito' && (!meioPgtoOperadora || !meioPgtoParcelas)
 
   // ── Validação de preço mínimo (venda) ──
   const pgtoCalc = pgtos
@@ -408,6 +382,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   // ── Validação de preço mínimo (reserva) ──
   const valorReservaNum = parseFloat(valorReserva) || 0
   const valorTotalNum = parseFloat(valorTotalVenda) || 0
+  const somaReserva = pgtosReserva.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
+  const somaReservaOk = valorReservaNum > 0 && Math.abs(somaReserva - valorReservaNum) < 0.01
+  const pgtosReservaOk = pgtosReserva.every(p => p.tipo && p.valor && !pgtoIncompleto(p, taxasVenda))
   const reservaValidacao = precoMinimoPix
     ? validarReserva(valorReservaNum, valorTotalNum, precoMinimoPix)
     : null
@@ -417,7 +394,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       // Origem só vale para venda: reserva não pergunta (fica para o fechamento).
       ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && valorOk
           && origemPreenchida(origens, origemId, origemDetalhe))
-      : !!(valorReserva && valorTotalVenda && meioPgto && dataPrevista && !reservaCartaoIncompleto
+      : !!(valorReserva && valorTotalVenda && dataPrevista && somaReservaOk && pgtosReservaOk
           && (reservaValidacao ? reservaValidacao.entradaOk : true))
   )
 
@@ -467,13 +444,15 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         }
       } else {
         const resultado = await registrarReservaAction({
-          motoId, ...clienteBase, valorReserva, valorTotalVenda, meioPagamento: meioPgto,
+          motoId, ...clienteBase, valorReserva, valorTotalVenda,
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
-          ...(meioPgto === 'cartao_credito' ? {
-            cartaoOperadora: meioPgtoOperadora,
-            cartaoParcelas: parseInt(meioPgtoParcelas),
-          } : {}),
+          pagamentos: pgtosReserva.map(p => ({
+            tipo: p.tipo,
+            valor: parseFloat(p.valor),
+            ...(p.operadora ? { operadora: p.operadora } : {}),
+            ...(p.parcelas ? { parcelas: parseInt(p.parcelas) } : {}),
+          })),
           dataPrevistaFinalizacao: dataPrevista,
           dataReserva: dataVenda || undefined,
         })
@@ -766,89 +745,19 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   <div className="space-y-2">
                     <Label>Formas de Pagamento <span className="text-red-500">*</span></Label>
-                    {pgtos.map((p, idx) => {
-                      const opcParcelas = taxasVenda ? parcelasDisponiveis(p.tipo, taxasVenda) : []
-                      const precisaParcelas = TIPOS_COM_PARCELAS.has(p.tipo) && opcParcelas.length > 0
-                      return (
-                        <div key={p.id} className="space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-                          {reservaAtiva && idx === 0 && <p className="text-xs text-slate-500 font-semibold mb-2">Entrada recebida</p>}
-                          {reservaAtiva && idx === 1 && <p className="text-xs text-slate-500 font-semibold mb-2">Restante a receber</p>}
-                          <div className="flex gap-2 items-center">
-                            <Select value={p.tipo} onValueChange={v => updatePgto(p.id, 'tipo', v ?? '')}>
-                              <SelectTrigger className="flex-1">
-                                <SelectValue placeholder="Forma de pagamento" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {FORMAS.map(f => (
-                                  <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <CurrencyInput
-                              className="w-32"
-                              placeholder="0,00"
-                              value={p.valor}
-                              onChange={v => updatePgto(p.id, 'valor', v)}
-                            />
-                            {pgtos.length > 1 && (
-                              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removePgto(p.id)}>
-                                <X size={14} />
-                              </Button>
-                            )}
-                          </div>
-
-                          {p.tipo === 'cartao_credito' && (
-                            <div className="flex gap-2">
-                              <Select value={p.operadora ?? ''} onValueChange={v => updatePgto(p.id, 'operadora', v ?? '')}>
-                                <SelectTrigger className="flex-1">
-                                  <SelectValue placeholder="Operadora" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {OPERADORAS.map(o => (
-                                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Select value={p.parcelas ?? ''} onValueChange={v => updatePgto(p.id, 'parcelas', v ?? '')}>
-                                <SelectTrigger className="w-28">
-                                  <SelectValue placeholder="Parcelas" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: 21 }, (_, i) => (
-                                    <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}x</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-
-                          {(p.tipo === 'cartao_credito' || p.tipo === 'cartao_debito') && (
-                            <Input
-                              placeholder="Autorização (comprovante) — opcional"
-                              value={p.autorizacao ?? ''}
-                              onChange={e => updatePgto(p.id, 'autorizacao', e.target.value.toUpperCase())}
-                              className="font-mono text-sm"
-                            />
-                          )}
-
-                          {precisaParcelas && p.tipo !== 'cartao_credito' && (
-                            <Select value={p.parcelas ?? ''} onValueChange={v => updatePgto(p.id, 'parcelas', v ?? '')}>
-                              <SelectTrigger className="w-40">
-                                <SelectValue placeholder={p.tipo === 'financiamento' ? 'Prazo (meses)' : 'Parcelas'} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {opcParcelas.map(n => (
-                                  <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-                      )
-                    })}
-                    <Button type="button" variant="outline" size="sm" className="gap-1 w-full" onClick={addPgto}>
-                      <Plus size={14} /> Adicionar forma de pagamento
-                    </Button>
+                    <PagamentosFields
+                      pgtos={pgtos}
+                      onAdd={pgtoVenda.add}
+                      onRemove={pgtoVenda.remove}
+                      onUpdate={pgtoVenda.update}
+                      taxasVenda={taxasVenda}
+                      comAutorizacao
+                      rotulo={reservaAtiva
+                        ? idx => idx === 0
+                          ? 'Entrada recebida'
+                          : (pgtos[idx]?.id === 'restante' ? 'Restante a receber' : null)
+                        : undefined}
+                    />
                   </div>
 
                   {valorNum > 0 && (
@@ -948,37 +857,27 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label>Meio de Pagamento <span className="text-red-500">*</span></Label>
-                    <Select value={meioPgto} onValueChange={v => { setMeioPgto(v ?? ''); setMeioPgtoOperadora(''); setMeioPgtoParcelas('') }}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                      <SelectContent>
-                        {FORMAS.map(f => (
-                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {meioPgto === 'cartao_credito' && (
-                      <div className="flex gap-2 mt-2">
-                        <Select value={meioPgtoOperadora} onValueChange={v => setMeioPgtoOperadora(v ?? '')}>
-                          <SelectTrigger className="flex-1"><SelectValue placeholder="Operadora" /></SelectTrigger>
-                          <SelectContent>
-                            {OPERADORAS.map(o => (
-                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={meioPgtoParcelas} onValueChange={v => setMeioPgtoParcelas(v ?? '')}>
-                          <SelectTrigger className="w-28"><SelectValue placeholder="Parcelas" /></SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 21 }, (_, i) => (
-                              <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}x</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                  <div className="space-y-2">
+                    <Label>Formas de Pagamento da Entrada <span className="text-red-500">*</span></Label>
+                    <PagamentosFields
+                      pgtos={pgtosReserva}
+                      onAdd={pgtoReserva.add}
+                      onRemove={pgtoReserva.remove}
+                      onUpdate={pgtoReserva.update}
+                      taxasVenda={taxasVenda}
+                    />
                   </div>
+
+                  {valorReservaNum > 0 && (
+                    <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
+                      somaReservaOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                      {somaReservaOk
+                        ? `✓ Somatório confere: R$ ${somaReserva.toFixed(2).replace('.', ',')}`
+                        : `Somatório R$ ${somaReserva.toFixed(2).replace('.', ',')} ≠ Entrada R$ ${valorReservaNum.toFixed(2).replace('.', ',')}`
+                      }
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label>Data Prevista de Finalização <span className="text-red-500">*</span></Label>

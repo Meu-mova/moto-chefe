@@ -4,6 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
+import { normalizarPagamentosReserva } from '@/lib/reserva-pagamentos'
 
 const fmtR = (v: string | null) =>
   v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
@@ -21,6 +22,9 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   if (!isAdmin && reserva.lojaId !== usuario.lojaId) notFound()
+
+  // Reserva anterior à migração 0088 tem `pagamentos` nulo e vira uma linha só.
+  const pagamentos = normalizarPagamentosReserva(reserva)
 
   const criadoEm = format(new Date(reserva.criadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
@@ -133,13 +137,18 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
             <td><span className="grand">Valor total negociado</span></td>
             <td className="tr"><span className="grand">{fmtR(reserva.valorTotalVenda)}</span></td>
           </tr>
-          <tr>
-            <td style={{ fontSize: 11, color: '#64748b' }}>Forma de pagamento da entrada</td>
-            <td className="tr" style={{ fontSize: 11 }}>
-              {meioLabel[reserva.meioPagamento] ?? reserva.meioPagamento}
-              {reserva.cartaoParcelas ? ` — ${reserva.cartaoParcelas}x` : ''}
-            </td>
-          </tr>
+          {pagamentos.map((p, i) => (
+            <tr key={i}>
+              <td style={{ fontSize: 11, color: '#64748b' }}>
+                {i === 0 ? (pagamentos.length > 1 ? 'Formas de pagamento da entrada' : 'Forma de pagamento da entrada') : ''}
+              </td>
+              <td className="tr" style={{ fontSize: 11 }}>
+                {meioLabel[p.tipo] ?? p.tipo}
+                {p.parcelas && p.parcelas > 1 ? ` — ${p.parcelas}x` : ''}
+                {pagamentos.length > 1 ? ` — ${fmtR(String(p.valor))}` : ''}
+              </td>
+            </tr>
+          ))}
           <tr>
             <td style={{ fontSize: 11, color: '#64748b' }}>Vendedor</td>
             <td className="tr" style={{ fontSize: 11 }}>{reserva.vendedorNome}</td>

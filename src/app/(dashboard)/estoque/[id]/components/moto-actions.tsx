@@ -11,6 +11,7 @@ import { ArrowLeftRight, Printer } from 'lucide-react'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 import type { DemandaCompativel } from '@/lib/queries/demandas'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
+import type { PagamentoReserva } from '@/lib/reserva-pagamentos'
 
 type Usuario = { id: string; nome: string }
 type Mecanico = { id: string; nome: string }
@@ -45,6 +46,7 @@ type Moto = {
   reservaMeioPagamento: string | null
   reservaCartaoOperadora: string | null
   reservaCartaoParcelas: string | null
+  reservaPagamentos: PagamentoReserva[] | null
 }
 
 type TaxasVenda = {
@@ -169,6 +171,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
               meioPagamento: moto.reservaMeioPagamento ?? 'pix',
               cartaoOperadora: moto.reservaCartaoOperadora,
               cartaoParcelas: moto.reservaCartaoParcelas,
+              pagamentos: moto.reservaPagamentos,
             }}
           />
         )
