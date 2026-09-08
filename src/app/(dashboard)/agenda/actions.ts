@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { agendamentos, ordensServico, lojas } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
@@ -72,7 +73,25 @@ export async function cancelarAgendamentoAction(agendamentoId: string) {
   revalidatePath('/agenda')
 }
 
-export async function agendamentoVirarOSAction(agendamentoId: string) {
+export type VirarOSInput = {
+  chassiOs?: string | null
+  motoId?: string | null
+  clienteId?: string | null
+  mecanicoId?: string | null
+  descricao?: string | null
+  dataPrevisao?: string | null
+  marcaExterna?: string | null
+  modeloExterno?: string | null
+  km?: number | null
+  clienteNomeExterno?: string | null
+  clienteFoneExterno?: string | null
+  /** 'fisica' (padrão) ou 'juridica' — OS aberta para empresa. */
+  clienteTipoPessoaExterno?: string | null
+  /** CPF/CNPJ do cliente que não está no cadastro. Obrigatório quando é empresa. */
+  clienteDocumentoExterno?: string | null
+}
+
+export async function agendamentoVirarOSAction(agendamentoId: string, input: VirarOSInput = {}) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
     throw new Error('Sem permissão')
@@ -81,15 +100,40 @@ export async function agendamentoVirarOSAction(agendamentoId: string) {
 
   if (ag.osId) throw new Error('Este agendamento já tem uma OS vinculada')
 
+  // O agendamento nasce com dados básicos do cliente; ao virar OS o adm completa
+  // veículo e cliente na tela. O que ele não mexeu cai de volta no agendamento.
+  const clienteId = input.clienteId ?? ag.clienteId ?? null
+
+  // Mesma trava do abrirOSAction: OS de empresa sem CNPJ e razão social não
+  // identifica o tomador na impressão. Só vale pra cliente fora do cadastro.
+  const tipoPessoa = input.clienteTipoPessoaExterno && isTipoPessoa(input.clienteTipoPessoaExterno)
+    ? input.clienteTipoPessoaExterno
+    : 'fisica'
+  const doc = validarDocumento(tipoPessoa, input.clienteDocumentoExterno)
+  if (!doc.ok) throw new Error(doc.erro)
+  const nomeExterno = input.clienteNomeExterno?.trim() || ag.clienteNome
+  if (!clienteId && tipoPessoa === 'juridica' && !nomeExterno) {
+    throw new Error('Informe a razão social da empresa')
+  }
+
   const [os] = await db.insert(ordensServico).values({
     lojaId:       ag.lojaId,
     abertaPor:    usuario.id,
-    mecanicoId:   ag.mecanicoId || null,
+    mecanicoId:   input.mecanicoId !== undefined ? (input.mecanicoId || null) : (ag.mecanicoId || null),
     origem:       'agendamento',
-    descricao:    ag.descricaoCliente || ag.tipoServico,
+    descricao:    input.descricao?.trim() || ag.descricaoCliente || ag.tipoServico,
     agendamentoId,
-    clienteNomeExterno: ag.clienteNome,
-    clienteFoneExterno: ag.clienteFone,
+    chassiOs:     input.chassiOs?.trim().toUpperCase() || null,
+    motoId:       input.motoId || null,
+    clienteId,
+    dataPrevisao: input.dataPrevisao ? new Date(input.dataPrevisao) : null,
+    marcaExterna:  input.marcaExterna  || null,
+    modeloExterno: input.modeloExterno || null,
+    km:            input.km || null,
+    clienteNomeExterno: clienteId ? null : nomeExterno,
+    clienteFoneExterno: clienteId ? null : (input.clienteFoneExterno?.trim() || ag.clienteFone),
+    clienteTipoPessoaExterno: clienteId ? null : tipoPessoa,
+    clienteDocumentoExterno:  clienteId ? null : doc.documento,
   }).returning({ id: ordensServico.id, numero: ordensServico.numero })
 
   await db.update(agendamentos)
@@ -160,6 +204,7 @@ async function verificarTenantAgendamento(agendamentoId: string, usuario: { pape
       lojaId:           agendamentos.lojaId,
       osId:             agendamentos.osId,
       mecanicoId:       agendamentos.mecanicoId,
+      clienteId:        agendamentos.clienteId,
       clienteNome:      agendamentos.clienteNome,
       clienteFone:      agendamentos.clienteFone,
       tipoServico:      agendamentos.tipoServico,

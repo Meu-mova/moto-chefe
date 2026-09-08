@@ -3,7 +3,8 @@ import { useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Clock, User, Wrench, Check, X, FileText, ExternalLink } from 'lucide-react'
-import { confirmarAgendamentoAction, cancelarAgendamentoAction, agendamentoVirarOSAction } from '../actions'
+import { confirmarAgendamentoAction, cancelarAgendamentoAction } from '../actions'
+import { VirarOSDialog } from './virar-os-dialog'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import type { AgendamentoComDetalhes } from '@/lib/queries/agendamentos'
@@ -27,9 +28,10 @@ const statusLabel: Record<string, string> = {
 type Props = {
   ag: AgendamentoComDetalhes
   podeGerenciar: boolean
+  mecanicos: { id: string; nome: string }[]
 }
 
-export function AgendamentoCard({ ag, podeGerenciar }: Props) {
+export function AgendamentoCard({ ag, podeGerenciar, mecanicos }: Props) {
   const [pending, start] = useTransition()
   const hora = format(new Date(ag.dataHoraInicio), 'HH:mm')
   const mins = ag.duracaoMinutos
@@ -46,15 +48,6 @@ export function AgendamentoCard({ ag, podeGerenciar }: Props) {
     start(async () => {
       try { await cancelarAgendamentoAction(ag.id); toast.success('Cancelado') }
       catch (e: any) { toast.error(e.message) }
-    })
-  }
-
-  async function virarOS() {
-    start(async () => {
-      try {
-        const os = await agendamentoVirarOSAction(ag.id)
-        toast.success(`OS #${os.numero} criada`)
-      } catch (e: any) { toast.error(e.message) }
     })
   }
 
@@ -109,10 +102,15 @@ export function AgendamentoCard({ ag, podeGerenciar }: Props) {
               </button>
             )}
             {!ag.osId && (
-              <button onClick={virarOS} disabled={pending}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50">
-                <FileText size={11} /> Virar OS
-              </button>
+              <VirarOSDialog
+                agendamentoId={ag.id}
+                clienteNome={ag.clienteNome}
+                clienteFone={ag.clienteFone}
+                mecanicoId={ag.mecanicoId}
+                descricao={ag.descricaoCliente || ag.tipoServico}
+                mecanicos={mecanicos}
+                disabled={pending}
+              />
             )}
             <button onClick={cancelar} disabled={pending}
               className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-white border border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50">

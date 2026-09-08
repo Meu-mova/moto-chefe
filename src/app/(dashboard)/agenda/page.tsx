@@ -107,17 +107,18 @@ export default async function AgendaPage({
 
       {/* Conteúdo */}
       {modo === 'dia' ? (
-        <AgendaDia agendamentos={lista} podeGerenciar={podeGerenciar} />
+        <AgendaDia agendamentos={lista} podeGerenciar={podeGerenciar} mecanicos={mecanicos} />
       ) : (
-        <AgendaSemana dias={dias} agendamentos={lista} podeGerenciar={podeGerenciar} />
+        <AgendaSemana dias={dias} agendamentos={lista} podeGerenciar={podeGerenciar} mecanicos={mecanicos} />
       )}
     </div>
   )
 }
 
-function AgendaDia({ agendamentos, podeGerenciar }: {
+function AgendaDia({ agendamentos, podeGerenciar, mecanicos }: {
   agendamentos: Awaited<ReturnType<typeof listarAgendamentos>>
   podeGerenciar: boolean
+  mecanicos: { id: string; nome: string }[]
 }) {
   if (agendamentos.length === 0) {
     return (
@@ -130,16 +131,17 @@ function AgendaDia({ agendamentos, podeGerenciar }: {
   return (
     <div className="space-y-2">
       {agendamentos.map(ag => (
-        <AgendamentoCard key={ag.id} ag={ag} podeGerenciar={podeGerenciar} />
+        <AgendamentoCard key={ag.id} ag={ag} podeGerenciar={podeGerenciar} mecanicos={mecanicos} />
       ))}
     </div>
   )
 }
 
-function AgendaSemana({ dias, agendamentos, podeGerenciar }: {
+function AgendaSemana({ dias, agendamentos, podeGerenciar, mecanicos }: {
   dias: Date[]
   agendamentos: Awaited<ReturnType<typeof listarAgendamentos>>
   podeGerenciar: boolean
+  mecanicos: { id: string; nome: string }[]
 }) {
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -159,7 +161,7 @@ function AgendaSemana({ dias, agendamentos, podeGerenciar }: {
             {dodia.length === 0
               ? <p className="text-xs text-slate-400 pl-2 py-2">Sem agendamentos</p>
               : <div className="space-y-2 pl-2 border-l-2 border-slate-100">
-                  {dodia.map(ag => <AgendamentoCard key={ag.id} ag={ag} podeGerenciar={podeGerenciar} />)}
+                  {dodia.map(ag => <AgendamentoCard key={ag.id} ag={ag} podeGerenciar={podeGerenciar} mecanicos={mecanicos} />)}
                 </div>
             }
           </div>
