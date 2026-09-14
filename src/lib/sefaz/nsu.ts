@@ -15,6 +15,18 @@ export const CSTAT_DOCUMENTO_LOCALIZADO = 138
 export const CSTAT_NENHUM_DOCUMENTO = 137
 export const CSTAT_CONSUMO_INDEVIDO = 656
 
+// Teto de iterações do laço de drenagem (sincronizar.ts): mesmo num backlog
+// de 90 dias, isso tem que ter fim — sem teto, um lote sempre-tem-mais
+// poderia rodar pra sempre e nunca devolver a função (e a Vercel mataria no
+// meio, sem gravar nada de jeito nenhum).
+export const TETO_ITERACOES_DRENAGEM = 40
+
+// Orçamento de tempo do laço de drenagem, em ms: pára de drenar bem antes do
+// `maxDuration` de 60s da rota do cron (route.ts), pra sobrar folga pro que
+// vem depois de cada iteração (grava no banco) e pro aviso de WhatsApp no
+// fim, quando a fila realmente zerar.
+export const ORCAMENTO_DRENAGEM_MS = 45_000
+
 export type RetornoSefaz = { cStat: number; ultNSU: string; maxNSU: string }
 export type EstadoSync = { ultNSU: string; maxNSU: string; proximaConsultaEm: Date | null }
 export type EstadoAtual = { ultNSU: string; maxNSU: string }
@@ -94,4 +106,51 @@ export function proximoEstado(retorno: RetornoSefaz, agora: Date, estadoAtual: E
     // decisão pura de que emendar é permitido.
     proximaConsultaEm: aindaTemFila ? null : new Date(agora.getTime() + ESPERA_APOS_VAZIO_MS),
   }
+}
+
+export type MotivoParadaDrenagem = 'fila_zerou' | 'sem_progresso' | 'teto' | 'tempo' | null
+
+/**
+ * Decide se o laço de drenagem (`sincronizarGrupo`, sincronizar.ts) faz mais
+ * uma iteração, ou para — e por quê. É a decisão CRITICAL que faltava: antes,
+ * o laço só saía quando `proximaConsultaEm` (calculado acima, em cima do
+ * `ultNSU`/`maxNSU` BRUTOS que a SEFAZ devolveu) virava não-nulo, por teto de
+ * iterações ou por orçamento de tempo. Mas o `ultNSU` que `proximoEstado`
+ * DEVOLVE é o normalizado (nunca retrocede — ver `nsuNormalizado`). Se a
+ * SEFAZ devolver cStat 138 com `ultNSU` bruto menor ou igual ao guardado
+ * (troca de certificado/CNPJ do grupo, cuja sequência de NSU é por CNPJ e
+ * recomeça do zero; ou um NSU sujo gravado antes da correção anterior),
+ * `aindaTemFila` fica `true` pro bruto, mas o normalizado devolvido é sempre
+ * o mesmo valor — e o laço repetia a MESMA consulta até 40 vezes em 45
+ * segundos. Isso é consumo indevido de verdade: foi o cStat 656 que
+ * suspendeu o CNPJ.
+ *
+ * A guarda de progresso (`nsuAvancou`) é ortogonal ao cálculo de
+ * `aindaTemFila` acima — não muda aquele cálculo, só corta o laço quando ele
+ * mentir. Sem isso, um backlog legítimo de 90 dias (onde o NSU SEMPRE avança
+ * a cada lote) continua drenando normalmente.
+ */
+export function deveContinuarDrenando(opts: {
+  filaZerou: boolean
+  nsuAvancou: boolean
+  iteracao: number
+  decorridoMs: number
+}): { continuar: boolean; motivo: MotivoParadaDrenagem } {
+  // Fila zerou é sempre a saída "boa" — checa antes da guarda de progresso
+  // porque um cStat 137 (nenhum documento) pode legitimamente não mover o
+  // NSU nenhum pouquinho: isso não é falta de progresso, é a fila em dia.
+  if (opts.filaZerou) return { continuar: false, motivo: 'fila_zerou' }
+
+  // Guarda de progresso: a fila "parece" ter documento (a SEFAZ não disse
+  // cStat 137, nem ultNSU alcançou maxNSU), mas o NSU normalizado não moveu
+  // em relação ao início desta iteração. Insistir só repete a mesma consulta
+  // pra sempre. Pára ANTES do teto/orçamento — falta de progresso é sinal de
+  // bug (CNPJ/certificado trocado, ou NSU sujo), não de backlog grande.
+  if (!opts.nsuAvancou) return { continuar: false, motivo: 'sem_progresso' }
+
+  if (opts.iteracao + 1 >= TETO_ITERACOES_DRENAGEM) return { continuar: false, motivo: 'teto' }
+
+  if (opts.decorridoMs >= ORCAMENTO_DRENAGEM_MS) return { continuar: false, motivo: 'tempo' }
+
+  return { continuar: true, motivo: null }
 }

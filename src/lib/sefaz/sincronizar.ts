@@ -4,23 +4,21 @@ import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
-import { proximoEstado } from './nsu'
+import { proximoEstado, deveContinuarDrenando, TETO_ITERACOES_DRENAGEM } from './nsu'
 import { avisarNotasNovas } from '@/lib/whatsapp/nfe-recebida'
 
 /** 110111 = Cancelamento de NF-e. Vem mesmo sem manifestação. */
 const EVENTO_CANCELAMENTO = '110111'
 
-// Teto de iterações do laço de drenagem: mesmo num backlog de 90 dias, isso
-// tem que ter fim — sem teto, um lote sempre-tem-mais poderia rodar pra
-// sempre e nunca devolver a função (e a Vercel mataria no meio, sem gravar
-// nada de jeito nenhum).
-const TETO_ITERACOES = 40
-
-// Orçamento de tempo do laço, em ms: pára de drenar bem antes do
-// `maxDuration` de 60s da rota do cron (route.ts), pra sobrar folga pro que
-// vem depois de cada iteração (grava no banco) e pro aviso de WhatsApp no
-// fim, quando a fila realmente zerar.
-const ORCAMENTO_MS = 45_000
+// Lease renovado a cada iteração ENQUANTO a fila não zerou de verdade (ver
+// `deveContinuarDrenando`, nsu.ts). Curto o bastante pra não travar o
+// próximo `sincronizarGrupo` por muito tempo se este processo morrer no meio
+// do dreno (teto de iterações, orçamento de tempo, ou a Vercel matando a
+// função); longo o bastante pra cobrir o intervalo normal entre duas
+// iterações do laço. Só quando a fila realmente esvazia (cStat 137, ou
+// ultNSU alcança maxNSU) é que se grava a trava de verdade de 1 hora — a que
+// a SEFAZ exige (ver `ESPERA_APOS_VAZIO_MS`, nsu.ts).
+const LEASE_DRENAGEM_MS = 2 * 60 * 1000
 
 export type ResultadoSync = {
   status: 'ok' | 'esperando' | 'sem_certificado' | 'erro'
@@ -82,6 +80,7 @@ export async function sincronizarGrupo(
   let ultNsuAtual = claim.ultNsu
   let maxNsuAtual = claim.maxNsu
   let totalDocumentos = 0
+  let totalDescartados = 0
   let ultimoCstat: number | undefined
   let filaZerou = false
 
@@ -95,15 +94,13 @@ export async function sincronizarGrupo(
     if (!cert) return { status: 'sem_certificado', documentos: 0 }
 
     // C1(b): drena a fila numa execução só, em vez de processar um lote e
-    // sair. É o padrão sancionado pela SEFAZ (puxar até esvaziar) — e não
-    // fura a trava de 1 hora: enquanto `proximoEstado` devolver
-    // `proximaConsultaEm: null` (ainda tem fila) o laço consulta de novo na
-    // mesma execução; só sai sem armar trava nenhuma. A trava só passa a
-    // valer quando a fila realmente zera (cStat 137, ou ultNSU alcança
-    // maxNSU) — e nesse ponto o claim já tinha reivindicado a janela de
-    // qualquer forma, então não há brecha.
-    for (let i = 0; i < TETO_ITERACOES; i++) {
-      if (Date.now() - inicioMs > ORCAMENTO_MS) break // orçamento de tempo: sai sem armar trava
+    // sair. É o padrão sancionado pela SEFAZ (puxar até esvaziar). A decisão
+    // de quando parar é toda de `deveContinuarDrenando` (nsu.ts, testada) —
+    // aqui só se monta o que ela precisa a cada iteração e se reage à
+    // resposta. Ver o comentário da função lá pra entender o CRITICAL que
+    // ela fecha (rajada de consultas idênticas quando o NSU pára de avançar).
+    for (let i = 0; i < TETO_ITERACOES_DRENAGEM; i++) {
+      const nsuAntesIteracao = ultNsuAtual
 
       const retorno = await consultarDistribuicao({
         pfx: cert.pfx,
@@ -113,15 +110,66 @@ export async function sincronizarGrupo(
       })
 
       const proximo = proximoEstado(retorno, agora, { ultNSU: ultNsuAtual, maxNSU: maxNsuAtual })
+      // `proximo.proximaConsultaEm` não-nulo é o sinal (calculado em nsu.ts)
+      // de que a fila zerou de verdade (cStat 137, ou ultNSU bruto alcançou
+      // maxNSU bruto). `nsuAvancou` é a guarda de progresso do CRITICAL: o
+      // NSU normalizado que ESTA iteração devolveu é diferente do que ela
+      // recebeu? Se não for, e a fila "parece" ter mais, insistir só repete
+      // a mesma consulta.
+      const filaZerouNestaIteracao = proximo.proximaConsultaEm !== null
+      const nsuAvancou = proximo.ultNSU !== nsuAntesIteracao
 
       // I2: um lote com documento descartado (XML ilegível, ou schema que o
       // parser não reconhece) perde nota pra sempre — o NSU avança e a SEFAZ
       // não reoferece. Grava em `ultimo_erro` pra não ficar em silêncio.
-      const erroDescarte = retorno.descartados === 0
+      //
+      // Acumulado ao longo da EXECUÇÃO (não só deste lote): antes, cada
+      // iteração sobrescrevia `ultimo_erro` com o descarte só dela — um
+      // descarte numa iteração do meio do dreno era apagado pela iteração
+      // seguinte, e como a iteração que encerra o dreno normalmente não tem
+      // descarte, a mensagem quase sempre acabava `null`, escondendo o
+      // problema de novo. Uma vez que `totalDescartados` sobe, a mensagem
+      // não volta a `null` nesta execução.
+      totalDescartados += retorno.descartados
+      const erroDescarte = totalDescartados === 0
         ? null
-        : retorno.descartados === 1
-          ? '1 documento do lote não pôde ser lido (NSU perdido, sem como reobter)'
-          : `${retorno.descartados} documentos do lote não puderam ser lidos (NSU perdido, sem como reobter)`
+        : totalDescartados === 1
+          ? '1 documento não pôde ser lido nesta execução (NSU perdido, sem como reobter)'
+          : `${totalDescartados} documentos não puderam ser lidos nesta execução (NSU perdido, sem como reobter)`
+
+      const decisao = deveContinuarDrenando({
+        filaZerou: filaZerouNestaIteracao,
+        nsuAvancou,
+        iteracao: i,
+        decorridoMs: Date.now() - inicioMs,
+      })
+
+      // CRITICAL: quando pára por falta de progresso, grava o motivo em
+      // `ultimo_erro` — citando o NSU travado — pra aparecer na tela em vez
+      // de virar rajada silenciosa (era exatamente essa rajada que gerou o
+      // cStat 656 de hoje).
+      const ultimoErroGravar = decisao.motivo === 'sem_progresso'
+        ? [
+            `NSU não avançou (permanece em ${proximo.ultNSU}) — sincronização interrompida para não repetir ` +
+            'a mesma consulta à SEFAZ. Provável troca de certificado/CNPJ do grupo (a sequência de NSU é por ' +
+            'CNPJ e recomeça do zero) ou NSU salvo incorreto antes da correção anterior.',
+            erroDescarte,
+          ].filter(Boolean).join(' ')
+        : erroDescarte
+
+      // Lease curto (2 min) enquanto a fila não zerou de verdade nesta
+      // iteração — inclusive quando o laço vai parar por sem_progresso/
+      // teto/tempo. Antes, essas iterações gravavam `proxima_consulta_em:
+      // null`, e como o claim atômico só grava a trava de 1h UMA vez, no
+      // início (`reivindicarJanela`), esse `null` liberava a janela pra
+      // qualquer processo concorrente reivindicar e consultar a MESMA faixa
+      // de NSU que a iteração seguinte deste laço ia consultar — a mesma
+      // corrida que o claim foi criado pra fechar, só que reaberta durante
+      // os até 45s do dreno. Só grava a trava de verdade (1h, dentro de
+      // `proximo.proximaConsultaEm`) quando a fila realmente esvazia.
+      const proximaConsultaEmGravar = filaZerouNestaIteracao
+        ? proximo.proximaConsultaEm
+        : new Date(agora.getTime() + LEASE_DRENAGEM_MS)
 
       // Lote e NSU na MESMA transação. Gravar as notas e perder o NSU faz
       // reprocessar (inofensivo, a chave é única); gravar o NSU e perder as
@@ -200,9 +248,9 @@ export async function sincronizarGrupo(
             grupoId,
             ultNsu: proximo.ultNSU,
             maxNsu: proximo.maxNSU,
-            proximaConsultaEm: proximo.proximaConsultaEm,
+            proximaConsultaEm: proximaConsultaEmGravar,
             ultimoCstat: retorno.cStat,
-            ultimoErro: erroDescarte,
+            ultimoErro: ultimoErroGravar,
             atualizadoEm: agora,
           })
           .onConflictDoUpdate({
@@ -210,9 +258,9 @@ export async function sincronizarGrupo(
             set: {
               ultNsu: proximo.ultNSU,
               maxNsu: proximo.maxNSU,
-              proximaConsultaEm: proximo.proximaConsultaEm,
+              proximaConsultaEm: proximaConsultaEmGravar,
               ultimoCstat: retorno.cStat,
-              ultimoErro: erroDescarte,
+              ultimoErro: ultimoErroGravar,
               atualizadoEm: agora,
             },
           })
@@ -223,29 +271,33 @@ export async function sincronizarGrupo(
       totalDocumentos += retorno.documentos.length
       ultimoCstat = retorno.cStat
 
-      if (proximo.proximaConsultaEm !== null) {
-        // Fila zerou (cStat 137, ou ultNSU alcançou maxNSU): a trava de 1
-        // hora acabou de ser gravada acima, dentro da transação. Sai do laço
-        // — não tem mais o que drenar.
-        filaZerou = true
+      if (!decisao.continuar) {
+        // Só marca `filaZerou` (dispara o aviso de WhatsApp mais abaixo)
+        // quando o motivo de verdade foi a fila esvaziar — parar por
+        // sem_progresso/teto/tempo não é "terminou", é "ficou pra próxima
+        // execução" (o lease curto gravado acima garante que ela pode
+        // reivindicar a janela de novo em poucos minutos, não em 1 hora).
+        filaZerou = decisao.motivo === 'fila_zerou'
         break
       }
-      // Senão, `proximaConsultaEm` já saiu `null` da transação acima — ainda
-      // tem fila, e nenhuma trava foi armada. Segue emendando.
+      // Senão, segue emendando: a fila ainda tem documento, o NSU avançou, e
+      // teto/orçamento não foram atingidos.
     }
-    // Se o laço saiu por teto de iterações ou por orçamento de tempo (sem
-    // `filaZerou`), a última gravação já deixou `proxima_consulta_em: null`
-    // — de propósito. Não é preciso "desarmar" nada aqui: a próxima execução
-    // do cron já vai poder reivindicar a janela de novo e continuar de onde
-    // parou, sem esperar 1 hora.
   } catch (e) {
     const erro = e instanceof Error ? e.message : 'Falha ao falar com a SEFAZ'
     // Falha de rede (ou de certificado, C3a) NÃO avança o NSU além de onde já
     // tinha chegado — o que já foi drenado em iterações anteriores deste
-    // laço já está commitado e fica. NÃO mexe em `proxima_consulta_em`: a
-    // janela reivindicada no início continua valendo (evita martelar a SEFAZ
-    // de novo em seguida com o mesmo erro); só registra o motivo, pra tela
-    // poder dizer que a sincronização está parada, em vez de ficar muda.
+    // laço já está commitado e fica. NÃO mexe em `proxima_consulta_em` aqui:
+    // fica valendo o que a última gravação bem-sucedida deixou. Se a falha é
+    // na 1ª iteração (nada commitado ainda), isso é a trava de 1h que
+    // `reivindicarJanela` gravou no início — comportamento normal, evita
+    // martelar a SEFAZ de novo em seguida com o mesmo erro. Se a falha é
+    // depois de ao menos uma iteração ter commitado, o que fica valendo é o
+    // lease curto de 2 minutos (`LEASE_DRENAGEM_MS`) que aquela iteração
+    // gravou — não trava por 1h à toa, mas também não libera a janela na
+    // hora, então um retry imediato não martela a SEFAZ com o mesmo erro de
+    // rede. De todo modo, só registra o motivo aqui, pra tela poder dizer
+    // que a sincronização está parada, em vez de ficar muda.
     await db.insert(nfeDfeSync)
       .values({ grupoId, ultimoErro: erro, atualizadoEm: agora })
       .onConflictDoUpdate({ target: nfeDfeSync.grupoId, set: { ultimoErro: erro, atualizadoEm: agora } })

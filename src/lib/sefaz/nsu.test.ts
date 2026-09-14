@@ -1,6 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { podeConsultar, proximoEstado, ESPERA_APOS_VAZIO_MS } from './nsu'
+import {
+  podeConsultar,
+  proximoEstado,
+  deveContinuarDrenando,
+  ESPERA_APOS_VAZIO_MS,
+  TETO_ITERACOES_DRENAGEM,
+  ORCAMENTO_DRENAGEM_MS,
+} from './nsu'
 
 const AGORA = new Date('2026-09-14T12:00:00.000Z')
 
@@ -99,4 +106,46 @@ test('antes da hora marcada, não pode', () => {
 
 test('na hora marcada, pode', () => {
   assert.equal(podeConsultar({ proximaConsultaEm: AGORA }, AGORA), true)
+})
+
+// --- deveContinuarDrenando ---------------------------------------------
+//
+// CRITICAL: guarda de progresso do laço de drenagem. Sem isso, o cStat 656
+// de hoje (CNPJ suspenso) se repete: `aindaTemFila` calculado no bruto
+// (dentro de `proximoEstado`) pode ficar `true` pra sempre enquanto o NSU
+// normalizado devolvido não muda — daí o laço martela a mesma consulta.
+
+test('fila zerou: pára, mesmo se o NSU não avançou (cStat 137 legítimo não move o NSU)', () => {
+  const decisao = deveContinuarDrenando({ filaZerou: true, nsuAvancou: false, iteracao: 0, decorridoMs: 100 })
+  assert.deepEqual(decisao, { continuar: false, motivo: 'fila_zerou' })
+})
+
+test('sem progresso: pára mesmo com fila "parecendo" cheia, iteração e tempo dentro do limite', () => {
+  const decisao = deveContinuarDrenando({ filaZerou: false, nsuAvancou: false, iteracao: 3, decorridoMs: 5_000 })
+  assert.deepEqual(decisao, { continuar: false, motivo: 'sem_progresso' })
+})
+
+test('teto de iterações: pára na última iteração permitida, mesmo com progresso e tempo sobrando', () => {
+  const decisao = deveContinuarDrenando({
+    filaZerou: false,
+    nsuAvancou: true,
+    iteracao: TETO_ITERACOES_DRENAGEM - 1,
+    decorridoMs: 100,
+  })
+  assert.deepEqual(decisao, { continuar: false, motivo: 'teto' })
+})
+
+test('orçamento de tempo: pára quando o tempo decorrido bate o orçamento, mesmo com progresso e iteração baixa', () => {
+  const decisao = deveContinuarDrenando({
+    filaZerou: false,
+    nsuAvancou: true,
+    iteracao: 1,
+    decorridoMs: ORCAMENTO_DRENAGEM_MS,
+  })
+  assert.deepEqual(decisao, { continuar: false, motivo: 'tempo' })
+})
+
+test('continua: fila não zerou, NSU avançou, iteração e tempo dentro do limite', () => {
+  const decisao = deveContinuarDrenando({ filaZerou: false, nsuAvancou: true, iteracao: 0, decorridoMs: 0 })
+  assert.deepEqual(decisao, { continuar: true, motivo: null })
 })

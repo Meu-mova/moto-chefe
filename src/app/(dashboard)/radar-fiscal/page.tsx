@@ -19,7 +19,13 @@ import { AlertTriangle, Radar } from 'lucide-react'
 // gravado com sucesso (o INSERT não falhou), `ultimo_erro` nulo, e a tela
 // não dizia nada de errado.
 const CSTAT_BONS = new Set([CSTAT_DOCUMENTO_LOCALIZADO, CSTAT_NENHUM_DOCUMENTO])
-const HORAS_PARA_CONSIDERAR_PARADA = 24
+// O cron roda 1x/dia (0 11 * * *, 8h de Brasília — plano Hobby só tem 1 cron
+// por dia) e `atualizado_em` é carimbado no INÍCIO da execução. Com isso o
+// intervalo normal entre dois carimbos já é ~24h cravado — um limiar de 24h
+// pintava o banner quase todo dia mesmo sem nada errado, só pelo cron ter
+// rodado um pouco mais tarde que ontem. 30h dá folga pra variação normal do
+// horário do cron sem deixar de avisar quando realmente parou.
+const HORAS_PARA_CONSIDERAR_PARADA = 30
 
 const brl = (v: string | null) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -56,8 +62,8 @@ export default async function RadarFiscalPage() {
       <div>
         <h1 className="text-2xl font-bold">Notas Recebidas — {grupo.nome}</h1>
         <p className="text-slate-500 text-sm">
-          Toda NF-e emitida contra o CNPJ do grupo, direto da SEFAZ. A consulta roda de hora em
-          hora e alcança os últimos 90 dias — nota mais antiga que isso a SEFAZ não distribui mais.
+          Toda NF-e emitida contra o CNPJ do grupo, direto da SEFAZ. A consulta roda uma vez por
+          dia e alcança os últimos 90 dias — nota mais antiga que isso a SEFAZ não distribui mais.
         </p>
       </div>
 

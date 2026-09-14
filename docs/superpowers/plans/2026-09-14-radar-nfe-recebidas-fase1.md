@@ -919,8 +919,13 @@ function lerDocumento(nsu: string, xml: string): DocumentoDfe | null {
     }
   }
 
-  // Nota completa: só chega depois de manifestação (fase 2), mas o parser já
-  // sabe ler — assim a fase 2 não mexe neste arquivo.
+  // Nota completa (procNFe/infNFe). A expectativa inicial era que isto só
+  // chegasse depois de manifestação (fase 2) — mas a consulta real de
+  // 14/09/2026 provou o contrário: os NSU 1086 e 1087 vieram como nota
+  // completa direto, sem manifestação nenhuma ter sido feita. Na prática a
+  // SEFAZ pode entregar o processo completo mesmo sem ciência do destinatário.
+  // O parser já lê os dois casos desde a fase 1, então isso não muda código —
+  // só a certeza de quando ele é exercitado.
   const nfe = achar(raiz, 'infNFe')
   if (nfe) {
     const emit = (nfe.emit ?? {}) as Record<string, unknown>
