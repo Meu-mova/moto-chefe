@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { getGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
+import { getGrupoAtivo, listarGruposVisiveis } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { marketingInvestimento } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
@@ -18,10 +18,16 @@ export default async function CanaisPage() {
   if (!usuarioPodeAcessar(usuario, '/admin/canais')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
+  // listarGruposVisiveis (não listarGruposAtivos): o dropdown de "funil→grupo"
+  // só pode oferecer grupos que este usuário enxerga — senão um aux_adm
+  // reatribuía o funil de outro lojista pro grupo dele e passava a ver os
+  // leads do concorrente (kommo_pipeline_grupo é a prova de tenant de
+  // /marketing inteiro). A action definirGrupoFunilAction valida de novo no
+  // servidor — o filtro aqui é só para não nem oferecer a opção errada.
   const [canais, funis, grupos, investimentos] = await Promise.all([
     canaisParaAdmin(),
     funisParaAdmin(),
-    listarGruposAtivos(),
+    listarGruposVisiveis(usuario),
     db.select().from(marketingInvestimento)
       .where(eq(marketingInvestimento.grupoId, grupo.id))
       .orderBy(desc(marketingInvestimento.mes), marketingInvestimento.plataforma),
