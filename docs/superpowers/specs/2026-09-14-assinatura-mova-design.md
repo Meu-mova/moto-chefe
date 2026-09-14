@@ -48,6 +48,25 @@ o caminho é **cobrança avulsa gerada todo mês**:
 cobrança, acompanha o vencimento e corta o acesso. É trabalho que o `preapproval`
 faria sozinho.
 
+### O exemplo que o Mercado Pago forneceu, e o que nele não serve
+
+Em 14/09/2026 o suporte deles mandou um exemplo de **Payment Brick com cartão**
+(checkout transparente, com `token` gerado no frontend). Foi avaliado e **o
+caminho escolhido continua sendo o link de pagamento** (opção A): é o caminho mais
+curto até cobrar, e nenhum dado de cartão passa pelo MOVA. O Brick fica para
+quando a assinatura virar rotina.
+
+Três defeitos daquele exemplo, registrados para não serem copiados:
+
+1. **`idempotencyKey: randomUUID()` dentro do handler não protege de nada.** Uma
+   chave nova a cada requisição significa que clique duplo ou reenvio do navegador
+   criam **dois pagamentos**. A chave tem que derivar do que está sendo pago — o
+   id da cobrança do mês — para a segunda tentativa devolver o mesmo pagamento.
+2. **O exemplo é Express.** Aqui é rota do Next: `export async function POST(req)`,
+   corpo por `await req.json()`, sem `express.json()` e sem `dotenv`.
+3. **`console.error(error)` cru vaza dado.** O erro do SDK deles carrega o corpo da
+   requisição. Logar o motivo, nunca o objeto inteiro.
+
 ---
 
 ## 3. Modelo de dados
