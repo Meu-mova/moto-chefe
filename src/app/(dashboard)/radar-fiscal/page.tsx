@@ -43,11 +43,26 @@ export default async function RadarFiscalPage({
   const params = await searchParams
   // AAAA-MM-DD ou nada — formato solto (não validado a fundo) só vira filtro
   // quando os dois lados do período vêm preenchidos; qualquer coisa fora
-  // desse formato cai no ::timestamptz do banco e mostraria erro, então
-  // valida aqui antes.
-  const dataValida = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
-  const de = dataValida(params.de) ? params.de! : ''
-  const ate = dataValida(params.ate) ? params.ate! : ''
+  // desse formato (ou dentro do formato mas inexistente no calendário, tipo
+  // "9999-99-99" ou "2026-02-30") cai no ::timestamptz do banco e quebraria
+  // a página inteira — Server Component sem try/catch. Regra da casa é
+  // avisar, não travar: data ruim ignora o filtro (some do período aplicado,
+  // não derruba a tela) em vez de propagar o erro do Postgres. Uma URL colada
+  // à mão é o jeito real disso acontecer; o <input type="date"> não produz.
+  function dataValida(v?: string): v is string {
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
+    const [ano, mes, dia] = v.split('-').map(Number)
+    if (mes < 1 || mes > 12) return false
+    // Dia 0 do mês seguinte = último dia do mês corrente (em UTC, sem fuso
+    // interferindo) — cobre fevereiro e ano bissexto sem tabela de dias fixa.
+    const diasNoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+    return dia >= 1 && dia <= diasNoMes
+  }
+  const deBruta = params.de
+  const ateBruta = params.ate
+  const de = dataValida(deBruta) ? deBruta : ''
+  const ate = dataValida(ateBruta) ? ateBruta : ''
+  const periodoInvalido = (deBruta !== undefined && !dataValida(deBruta)) || (ateBruta !== undefined && !dataValida(ateBruta))
   const emitente = params.emitente ?? ''
   const busca = params.busca ?? ''
   const soNaoLancadas = params.pendentes === '1'
@@ -92,6 +107,13 @@ export default async function RadarFiscalPage({
       </div>
 
       <RadarFiltros deInicial={de} ateInicial={ate} emitenteInicial={emitente} buscaInicial={busca} />
+
+      {periodoInvalido && (
+        <p className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span>Período informado na URL é inválido — ignorado. Mostrando o período padrão.</span>
+        </p>
+      )}
 
       {sync?.ultimoErro && (
         <p className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
