@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
+import { normalizarCor } from '@/lib/cores-moto'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -88,7 +89,7 @@ export async function registrarEntrada(formData: {
         modeloId: formData.modeloId,
         lojaId: loja.id,
         status: 'caixa',
-        cor: moto.cor.trim().toUpperCase(),
+        cor: normalizarCor(moto.cor),
         notaFiscalEntrada: formData.notaFiscal.trim(),
         motor: moto.motor?.trim() || null,
         precoCompra,
@@ -206,7 +207,7 @@ export async function registrarEntradaLote(formData: {
         modeloId: modeloInfo.id,
         lojaId: loja.id,
         status: 'caixa',
-        cor: moto.cor.trim().toUpperCase(),
+        cor: normalizarCor(moto.cor),
         notaFiscalEntrada: nf,
         motor: moto.motor?.trim() || null,
         precoCompra: modeloInfo.precoCompraPadrao,

@@ -47,7 +47,21 @@ export async function listarDadosCompras(lojaId: string | undefined, grupoLojaId
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .where(and(
-        // Exclui motos vendidas (status=vendida ou disponibilidade=vendida)
+        // Moto cadastrada só para garantia de veículo externo nunca é estoque —
+        // mesma regra do showroom (queries/motos.ts). Sem isto ela entrava na
+        // contagem aqui e não lá, e os dois módulos divergiam por uma unidade.
+        eq(motos.somenteGarantia, false),
+        // Fora: vendida por qualquer um dos dois lados.
+        //
+        // Olhar os DOIS campos é de propósito, e é a diferença conhecida para o
+        // showroom: ao fechar a venda a moto fica com status 'vendida' e
+        // disponibilidade nula, e só vira disponibilidade='vendida' quando a NF
+        // de saída é registrada (vendas/actions.ts). O showroom continua
+        // mostrando essas — a NF ainda está pendente e alguém precisa ver a moto
+        // lá. Para decidir COMPRA ela não é estoque: já tem dono.
+        //
+        // Moto em caixa (status 'caixa', ainda não montada) CONTA como estoque:
+        // está comprada e no galpão, e pedir de novo seria comprar duas vezes.
         sql`(${motos.status}::text != 'vendida' AND ${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`,
         lojaCond,
       ))

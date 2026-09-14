@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Pencil } from 'lucide-react'
 import { editarMotoAction } from '../actions'
+import { CORES_MOTO } from '@/lib/cores-moto'
 
 type Loja = { id: string; nome: string }
 type Modelo = { id: string; modelo: string }
@@ -119,7 +120,19 @@ export function EditarMotoButton({ moto, lojas, modelos }: Props) {
               </div>
               <div className="space-y-2">
                 <Label>Cor <span className="text-red-500">*</span></Label>
-                <Input value={cor} onChange={e => setCor(e.target.value)} />
+                {/* Lista fechada: cor digitada à mão é o que cria "PRETA" ao
+                    lado de "PRETO" e quebra a contagem por cor do /compras.
+                    <select> nativo porque value e rótulo são o mesmo texto. */}
+                <select
+                  value={cor}
+                  onChange={e => setCor(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none"
+                >
+                  {!CORES_MOTO.includes(cor as (typeof CORES_MOTO)[number]) && (
+                    <option value={cor}>{cor} (fora da lista)</option>
+                  )}
+                  {CORES_MOTO.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
             </div>
 

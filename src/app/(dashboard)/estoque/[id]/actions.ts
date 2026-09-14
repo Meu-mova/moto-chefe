@@ -18,6 +18,7 @@ import {
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
+import { normalizarCor } from '@/lib/cores-moto'
 
 /**
  * A venda não cancelada desta moto, se houver. Cancelar venda apaga a linha
@@ -149,7 +150,13 @@ export async function editarMotoAction(
 
   const updates: Record<string, unknown> = {}
   if (dados.chassi !== undefined && dados.chassi !== moto.chassi) updates.chassi = dados.chassi
-  if (dados.cor !== undefined && dados.cor !== moto.cor) updates.cor = dados.cor
+  // Normaliza aqui também, não só na entrada por XML: esta action é a
+  // ferramenta de correção do admin, e foi por uma edição manual que a grafia
+  // avulsa entrou na base da primeira vez.
+  if (dados.cor !== undefined) {
+    const cor = normalizarCor(dados.cor)
+    if (cor !== moto.cor) updates.cor = cor
+  }
   if (dados.motor !== undefined && dados.motor !== moto.motor) updates.motor = dados.motor || null
   if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) updates.modeloId = dados.modeloId
   if (dados.lojaId !== undefined && dados.lojaId !== moto.lojaId) updates.lojaId = dados.lojaId
