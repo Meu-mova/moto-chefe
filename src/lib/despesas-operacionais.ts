@@ -31,6 +31,21 @@ export type MotivoForaDoCalculo =
   // Deixar a linha do extrato contar também soma o mesmo dinheiro duas vezes.
   | 'ja_lancada_manual'
 
+/**
+ * Como cada motivo é escrito para gente. Fica aqui, junto do tipo, porque o card
+ * do /financeiro e a exportação contábil precisam dizer a MESMA coisa sobre a
+ * mesma linha — o contador confere um contra o outro.
+ */
+export const ROTULO_MOTIVO_FORA: Record<MotivoForaDoCalculo, string> = {
+  compra_moto:           'Compra de moto',
+  retirada_socio:        'Retirada de sócio',
+  transferencia_interna: 'Transferência entre empresas do grupo',
+  categoria_marcada:     'Categoria fora do cálculo',
+  caixa_nao_despesa:     'Depósito do caixa no banco',
+  estorno_cliente:       'Estorno ao cliente',
+  ja_lancada_manual:     'Já lançada manualmente',
+}
+
 export type SaidaBanco = {
   valor: string | number
   categoria: string | null

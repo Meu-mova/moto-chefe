@@ -326,10 +326,25 @@ export async function dreEvolucao(opts: {
 // ─── Despesas ────────────────────────────────────────────────────────────────
 
 /** As três fontes de despesa do período, já passadas pelo somarDespesas. */
-async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inicio: Date, fim: Date) {
+/**
+ * As três fontes de despesa do período, cruas — extrato, lançamento manual e
+ * gaveta —, com a configuração de exclusão junto.
+ *
+ * É o único lugar que lê essas três tabelas para efeito de despesa. O DRE soma,
+ * a exportação contábil lista linha a linha, e as duas veem exatamente as
+ * mesmas linhas: um relatório que o contador confere e que não bate com o DRE
+ * da tela não serve para nada.
+ *
+ * As colunas descritivas (data, banco, descrição) não são usadas pelo
+ * `somarDespesas` — vão junto porque a exportação precisa delas e uma segunda
+ * consulta só para elas abriria a porta para as duas divergirem.
+ */
+export async function fontesDespesaDoPeriodo(grupoId: string, lojaIds: string[], inicio: Date, fim: Date) {
   const config = await configDespesas(grupoId)
   const [banco, manuais, caixa] = await Promise.all([
     db.select({
+        data: despesasOpenFinance.data,
+        banco: despesasOpenFinance.banco,
         valor: despesasOpenFinance.valor,
         categoria: despesasOpenFinance.categoria,
         favorecidoNome: despesasOpenFinance.favorecidoNome,
@@ -345,7 +360,16 @@ async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inici
 
     // Sem o NOT EXISTS, toda despesa lançada pelo botão do Importar do Banco
     // entraria duas vezes.
-    db.select({ valor: despesas.valor, categoria: despesas.categoria, lojaId: despesas.lojaId })
+    db.select({
+        data: despesas.data,
+        valor: despesas.valor,
+        categoria: despesas.categoria,
+        descricao: despesas.descricao,
+        beneficiario: despesas.beneficiario,
+        banco: despesas.banco,
+        formaPagamento: despesas.formaPagamento,
+        lojaId: despesas.lojaId,
+      })
       .from(despesas)
       .where(and(
         eq(despesas.grupoId, grupoId),
@@ -354,7 +378,13 @@ async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inici
         sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
       )),
 
-    db.select({ valor: lancamentosCaixa.valor, categoria: lancamentosCaixa.categoria, lojaId: lancamentosCaixa.lojaId })
+    db.select({
+        data: lancamentosCaixa.data,
+        valor: lancamentosCaixa.valor,
+        categoria: lancamentosCaixa.categoria,
+        descricao: lancamentosCaixa.descricao,
+        lojaId: lancamentosCaixa.lojaId,
+      })
       .from(lancamentosCaixa)
       .where(and(
         eq(lancamentosCaixa.tipo, 'saida'),
@@ -368,6 +398,11 @@ async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inici
       )),
   ])
 
+  return { config, banco, manuais, caixa }
+}
+
+async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inicio: Date, fim: Date) {
+  const { config, banco, manuais, caixa } = await fontesDespesaDoPeriodo(grupoId, lojaIds, inicio, fim)
   return somarDespesas(banco, manuais, config, caixa)
 }
 
@@ -377,50 +412,11 @@ async function resumoDespesasDoPeriodo(grupoId: string, lojaIds: string[], inici
  * derrubaria o pooler.
  */
 async function despesasPorMes(grupoId: string, lojaIds: string[], inicio: Date, fim: Date) {
-  const config = await configDespesas(grupoId)
+  const { config, banco, manuais, caixa } = await fontesDespesaDoPeriodo(grupoId, lojaIds, inicio, fim)
   const chave = (d: Date | string) => {
     const dt = typeof d === 'string' ? new Date(`${d}T12:00:00Z`) : d
     return `${dt.getUTCFullYear()}-${dt.getUTCMonth() + 1}`
   }
-
-  const [banco, manuais, caixa] = await Promise.all([
-    db.select({
-        data: despesasOpenFinance.data,
-        valor: despesasOpenFinance.valor,
-        categoria: despesasOpenFinance.categoria,
-        favorecidoNome: despesasOpenFinance.favorecidoNome,
-        descricao: despesasOpenFinance.descricao,
-        lojaId: despesasOpenFinance.lojaId,
-      })
-      .from(despesasOpenFinance)
-      .where(and(
-        eq(despesasOpenFinance.grupoId, grupoId),
-        gte(despesasOpenFinance.data, inicio),
-        lt(despesasOpenFinance.data, fim),
-      )),
-
-    db.select({ data: despesas.data, valor: despesas.valor, categoria: despesas.categoria, lojaId: despesas.lojaId })
-      .from(despesas)
-      .where(and(
-        eq(despesas.grupoId, grupoId),
-        gte(despesas.data, inicio.toISOString().slice(0, 10)),
-        lt(despesas.data, fim.toISOString().slice(0, 10)),
-        sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
-      )),
-
-    db.select({ data: lancamentosCaixa.data, valor: lancamentosCaixa.valor, categoria: lancamentosCaixa.categoria, lojaId: lancamentosCaixa.lojaId })
-      .from(lancamentosCaixa)
-      .where(and(
-        eq(lancamentosCaixa.tipo, 'saida'),
-        ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
-        // lancamentos_caixa nao tem grupo_id: o recorte por bandeira vem das
-        // lojas, como o /financeiro tambem faz. Sem isto, a gaveta de BH entraria
-        // na despesa do Sul de Minas.
-        inArray(lancamentosCaixa.lojaId, lojaIds),
-        gte(lancamentosCaixa.data, inicio.toISOString().slice(0, 10)),
-        lt(lancamentosCaixa.data, fim.toISOString().slice(0, 10)),
-      )),
-  ])
 
   const meses = new Set<string>([
     ...banco.map(b => chave(b.data)),

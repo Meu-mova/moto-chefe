@@ -5,11 +5,26 @@ import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { colunasDoMes, colunasEvolucao } from '@/lib/queries/dre'
 import { DreTabela } from '@/components/dre/dre-tabela'
 import { DreFiltros } from './components/dre-filtros'
+import { ExportContabil } from './components/export-contabil'
 import { mesBrt } from '@/lib/data-venda'
 import { AlertTriangle } from 'lucide-react'
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+/**
+ * Os dois últimos meses FECHADOS, que é o que a contabilidade pede. O mês
+ * corrente fica de fora de propósito: ele ainda muda todo dia, e mandar um
+ * número que vai mudar é pior do que mandar um mês a menos.
+ */
+function doisMesesFechados(hoje: string) {
+  const [ano, mes] = hoje.split('-').map(Number)
+  const desloca = (n: number) => {
+    const i = ano * 12 + (mes - 1) - n
+    return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
+  }
+  return { de: desloca(2), ate: desloca(1) }
+}
 
 function mesDoParametro(valor?: string) {
   const padrao = mesBrt()
@@ -62,6 +77,8 @@ export default async function DrePage({
           <DreTabela colunas={evolucao} mostrarPercentual={false} />
         )}
       </div>
+
+      <ExportContabil {...doisMesesFechados(mesBrt())} />
 
       <div className="space-y-2 text-xs text-slate-500">
         <p className="flex gap-2">

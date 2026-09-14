@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { TotalDespesas } from '@/lib/despesas-operacionais'
+import { ROTULO_MOTIVO_FORA, type TotalDespesas } from '@/lib/despesas-operacionais'
 
 type Props = {
   resumo: TotalDespesas
@@ -9,15 +9,7 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const ROTULO_FORA: Record<keyof TotalDespesas['foraDoCalculo'], string> = {
-  compra_moto:           'Compra de moto',
-  retirada_socio:        'Retirada de sócio',
-  transferencia_interna: 'Transferência entre empresas do grupo',
-  categoria_marcada:     'Categoria fora do cálculo',
-  caixa_nao_despesa:     'Depósito do caixa no banco',
-  estorno_cliente:       'Estorno ao cliente',
-  ja_lancada_manual:     'Já lançada manualmente',
-}
+const ROTULO_FORA = ROTULO_MOTIVO_FORA
 
 export function ResumoDespesas({ resumo }: Props) {
   const fora = (Object.keys(ROTULO_FORA) as (keyof typeof ROTULO_FORA)[])
