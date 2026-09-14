@@ -4,9 +4,11 @@ import {
   podeConsultar,
   proximoEstado,
   deveContinuarDrenando,
+  proximaConsultaEmDrenagem,
   ESPERA_APOS_VAZIO_MS,
   TETO_ITERACOES_DRENAGEM,
   ORCAMENTO_DRENAGEM_MS,
+  LEASE_DRENAGEM_MS,
 } from './nsu'
 
 const AGORA = new Date('2026-09-14T12:00:00.000Z')
@@ -148,4 +150,45 @@ test('orçamento de tempo: pára quando o tempo decorrido bate o orçamento, mes
 test('continua: fila não zerou, NSU avançou, iteração e tempo dentro do limite', () => {
   const decisao = deveContinuarDrenando({ filaZerou: false, nsuAvancou: true, iteracao: 0, decorridoMs: 0 })
   assert.deepEqual(decisao, { continuar: true, motivo: null })
+})
+
+// --- proximaConsultaEmDrenagem ------------------------------------------
+//
+// A trava que cada iteração do laço grava em `proxima_consulta_em` não pode
+// ser a mesma pros dois jeitos de "não terminou": teto/tempo (NSU andando,
+// só faltou fôlego) e sem_progresso (NSU travado — reconsultar é o que gera
+// cStat 656). Um lease curto de 2 min é seguro só pro primeiro caso.
+
+test('fila zerou: usa a trava de 1h já calculada por proximoEstado, ignorando o motivo', () => {
+  const travaFilaZerou = new Date('2026-09-14T13:00:00.000Z')
+  const resultado = proximaConsultaEmDrenagem({
+    proximaConsultaEmSeFilaZerou: travaFilaZerou,
+    motivoParada: 'sem_progresso', // não deveria acontecer junto com fila zerada, mas nem isso muda o resultado
+    agora: AGORA,
+  })
+  assert.equal(resultado, travaFilaZerou)
+})
+
+test('sem_progresso: grava a trava longa de 1h, não o lease curto — é a condição que gera cStat 656', () => {
+  const resultado = proximaConsultaEmDrenagem({
+    proximaConsultaEmSeFilaZerou: null,
+    motivoParada: 'sem_progresso',
+    agora: AGORA,
+  })
+  assert.equal(resultado?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
+test('teto: grava o lease curto — NSU está andando, só faltou iteração', () => {
+  const resultado = proximaConsultaEmDrenagem({ proximaConsultaEmSeFilaZerou: null, motivoParada: 'teto', agora: AGORA })
+  assert.equal(resultado?.getTime(), AGORA.getTime() + LEASE_DRENAGEM_MS)
+})
+
+test('tempo: grava o lease curto — NSU está andando, só faltou orçamento de tempo', () => {
+  const resultado = proximaConsultaEmDrenagem({ proximaConsultaEmSeFilaZerou: null, motivoParada: 'tempo', agora: AGORA })
+  assert.equal(resultado?.getTime(), AGORA.getTime() + LEASE_DRENAGEM_MS)
+})
+
+test('vai continuar (motivo null): grava o lease curto, como teto/tempo', () => {
+  const resultado = proximaConsultaEmDrenagem({ proximaConsultaEmSeFilaZerou: null, motivoParada: null, agora: AGORA })
+  assert.equal(resultado?.getTime(), AGORA.getTime() + LEASE_DRENAGEM_MS)
 })

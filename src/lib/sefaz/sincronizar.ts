@@ -4,21 +4,11 @@ import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
-import { proximoEstado, deveContinuarDrenando, TETO_ITERACOES_DRENAGEM } from './nsu'
+import { proximoEstado, deveContinuarDrenando, proximaConsultaEmDrenagem, TETO_ITERACOES_DRENAGEM } from './nsu'
 import { avisarNotasNovas } from '@/lib/whatsapp/nfe-recebida'
 
 /** 110111 = Cancelamento de NF-e. Vem mesmo sem manifestação. */
 const EVENTO_CANCELAMENTO = '110111'
-
-// Lease renovado a cada iteração ENQUANTO a fila não zerou de verdade (ver
-// `deveContinuarDrenando`, nsu.ts). Curto o bastante pra não travar o
-// próximo `sincronizarGrupo` por muito tempo se este processo morrer no meio
-// do dreno (teto de iterações, orçamento de tempo, ou a Vercel matando a
-// função); longo o bastante pra cobrir o intervalo normal entre duas
-// iterações do laço. Só quando a fila realmente esvazia (cStat 137, ou
-// ultNSU alcança maxNSU) é que se grava a trava de verdade de 1 hora — a que
-// a SEFAZ exige (ver `ESPERA_APOS_VAZIO_MS`, nsu.ts).
-const LEASE_DRENAGEM_MS = 2 * 60 * 1000
 
 export type ResultadoSync = {
   status: 'ok' | 'esperando' | 'sem_certificado' | 'erro'
@@ -157,19 +147,28 @@ export async function sincronizarGrupo(
           ].filter(Boolean).join(' ')
         : erroDescarte
 
-      // Lease curto (2 min) enquanto a fila não zerou de verdade nesta
-      // iteração — inclusive quando o laço vai parar por sem_progresso/
-      // teto/tempo. Antes, essas iterações gravavam `proxima_consulta_em:
-      // null`, e como o claim atômico só grava a trava de 1h UMA vez, no
-      // início (`reivindicarJanela`), esse `null` liberava a janela pra
-      // qualquer processo concorrente reivindicar e consultar a MESMA faixa
-      // de NSU que a iteração seguinte deste laço ia consultar — a mesma
-      // corrida que o claim foi criado pra fechar, só que reaberta durante
-      // os até 45s do dreno. Só grava a trava de verdade (1h, dentro de
+      // Lease renovado a cada iteração enquanto a fila não zerou de verdade
+      // — inclusive quando o laço vai parar por sem_progresso/teto/tempo.
+      // Antes, essas iterações gravavam `proxima_consulta_em: null`, e como
+      // o claim atômico só grava a trava de 1h UMA vez, no início
+      // (`reivindicarJanela`), esse `null` liberava a janela pra qualquer
+      // processo concorrente reivindicar e consultar a MESMA faixa de NSU
+      // que a iteração seguinte deste laço ia consultar — a mesma corrida
+      // que o claim foi criado pra fechar, só que reaberta durante os até
+      // 45s do dreno.
+      //
+      // O tamanho do lease depende do MOTIVO (`proximaConsultaEmDrenagem`,
+      // nsu.ts, pura e testada): teto/tempo usam o lease curto de 2 min (o
+      // NSU está avançando, só faltou fôlego); `sem_progresso` usa a trava
+      // longa de 1h, porque NSU travado é exatamente a condição que gera
+      // cStat 656 se reconsultada cedo demais — foi assim que o CNPJ desta
+      // empresa foi suspenso. Só grava a trava de verdade (1h, dentro de
       // `proximo.proximaConsultaEm`) quando a fila realmente esvazia.
-      const proximaConsultaEmGravar = filaZerouNestaIteracao
-        ? proximo.proximaConsultaEm
-        : new Date(agora.getTime() + LEASE_DRENAGEM_MS)
+      const proximaConsultaEmGravar = proximaConsultaEmDrenagem({
+        proximaConsultaEmSeFilaZerou: proximo.proximaConsultaEm,
+        motivoParada: decisao.motivo,
+        agora,
+      })
 
       // Lote e NSU na MESMA transação. Gravar as notas e perder o NSU faz
       // reprocessar (inofensivo, a chave é única); gravar o NSU e perder as

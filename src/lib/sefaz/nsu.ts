@@ -27,6 +27,14 @@ export const TETO_ITERACOES_DRENAGEM = 40
 // fim, quando a fila realmente zerar.
 export const ORCAMENTO_DRENAGEM_MS = 45_000
 
+// Lease renovado a cada iteração do dreno ENQUANTO a fila não zerou de
+// verdade E o NSU está avançando (parada por teto ou por tempo — só faltou
+// fôlego, não é NSU travado). Curto o bastante pra não travar o próximo
+// `sincronizarGrupo` por muito tempo se este processo morrer no meio do
+// dreno; longo o bastante pra cobrir o intervalo normal entre duas
+// iterações do laço.
+export const LEASE_DRENAGEM_MS = 2 * 60 * 1000
+
 export type RetornoSefaz = { cStat: number; ultNSU: string; maxNSU: string }
 export type EstadoSync = { ultNSU: string; maxNSU: string; proximaConsultaEm: Date | null }
 export type EstadoAtual = { ultNSU: string; maxNSU: string }
@@ -153,4 +161,41 @@ export function deveContinuarDrenando(opts: {
   if (opts.decorridoMs >= ORCAMENTO_DRENAGEM_MS) return { continuar: false, motivo: 'tempo' }
 
   return { continuar: true, motivo: null }
+}
+
+/**
+ * Trava a gravar em `proxima_consulta_em` a cada iteração do laço de
+ * drenagem, dado o motivo (`deveContinuarDrenando`, acima) pelo qual esta
+ * iteração continua ou pára.
+ *
+ * Quando a fila zera de verdade, é sempre a trava de 1h que `proximoEstado`
+ * já calculou (`proximaConsultaEmSeFilaZerou`) — comportamento inalterado.
+ *
+ * Quando a fila NÃO zera, dois casos são bem diferentes apesar de os dois
+ * "pararem sem terminar":
+ *
+ * - `teto`/`tempo` (ou ainda vai continuar, motivo `null`): o NSU está
+ *   avançando normalmente, só faltou iteração ou orçamento de tempo nesta
+ *   execução. Lease curto (`LEASE_DRENAGEM_MS`), pra retomar rápido.
+ * - `sem_progresso`: o NSU NÃO avançou. É exatamente a condição em que
+ *   reconsultar a mesma faixa arrisca cStat 656 (consumo indevido) — foi
+ *   assim que o CNPJ desta empresa foi suspenso. Um lease curto aqui
+ *   convida qualquer disparo manual repetido (ou o próprio cron, se rodar de
+ *   novo em poucos minutos) a bater na mesma faixa travada e reproduzir o
+ *   incidente. Por isso `sem_progresso` usa a MESMA espera de 1h que a SEFAZ
+ *   exige depois de um retorno vazio (`ESPERA_APOS_VAZIO_MS`) — não o lease
+ *   curto pensado pra teto/tempo, onde insistir é seguro.
+ */
+export function proximaConsultaEmDrenagem(opts: {
+  proximaConsultaEmSeFilaZerou: Date | null
+  motivoParada: MotivoParadaDrenagem
+  agora: Date
+}): Date | null {
+  if (opts.proximaConsultaEmSeFilaZerou !== null) return opts.proximaConsultaEmSeFilaZerou
+
+  if (opts.motivoParada === 'sem_progresso') {
+    return new Date(opts.agora.getTime() + ESPERA_APOS_VAZIO_MS)
+  }
+
+  return new Date(opts.agora.getTime() + LEASE_DRENAGEM_MS)
 }
