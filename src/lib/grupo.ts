@@ -10,6 +10,7 @@ import {
   socioAprovaNoGrupo,
   type UsuarioAprovador,
 } from '@/lib/aprovacao-permissao'
+import { gruposVisiveis, podeVerGrupo, type UsuarioAcessoGrupo } from '@/lib/acesso-grupo'
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -19,16 +20,61 @@ const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 // Usado como padrão de fallback para não cair num grupo novo sem dados por ordem alfabética.
 const GRUPO_PADRAO_ID = '00000000-0000-4000-8000-000000000001'
 
-export async function getGrupoAtivo(usuario: { papel: string; lojaId: string | null }): Promise<Grupo> {
+// Grupo "de casa" do usuário (o da loja fixa), buscado sem lançar erro: um
+// lojaId órfão (dado inconsistente) não pode derrubar página nem action —
+// mesmo espírito de fail-open do resto deste arquivo. Usado por getGrupoAtivo,
+// listarGruposVisiveis e pela action de troca de grupo (todos precisam da
+// mesma base para decidir posse).
+export async function grupoIdDaPropriaLoja(lojaId: string | null): Promise<string | null> {
+  const [lojaDoUsuario] = lojaId
+    ? await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
+    : []
+  return lojaDoUsuario?.grupoId ?? null
+}
+
+// Checagem de posse pronta para usar com o usuário logado inteiro (banco
+// incluso) — é o que a action de troca de grupo (porta principal do seletor)
+// e qualquer outro ponto fora deste arquivo devem chamar, em vez de duplicar
+// a resolução de grupoDaPropriaLoja.
+export async function podeUsuarioVerGrupo(
+  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+  grupoId: string,
+): Promise<boolean> {
+  const grupoDaPropriaLoja = await grupoIdDaPropriaLoja(usuario.lojaId)
+  return podeVerGrupo(usuario, grupoDaPropriaLoja, grupoId)
+}
+
+export async function getGrupoAtivo(
+  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+): Promise<Grupo> {
   if (ADMIN_PAPEIS.includes(usuario.papel)) {
+    const grupoDaPropriaLoja = await grupoIdDaPropriaLoja(usuario.lojaId)
+
     const cookieStore = await cookies()
     const grupoIdCookie = cookieStore.get('grupoAtivo')?.value
 
-    if (grupoIdCookie) {
+    // Além de existir e estar ativo, o grupo do cookie agora precisa ser
+    // PERMITIDO (posse via grupos_acesso, ou ser o da própria loja, ou
+    // admin_geral). Sem essa checagem, qualquer admin_socio trocava de tenant
+    // só escrevendo outro id no seletor — era a falha que este módulo fecha.
+    if (grupoIdCookie && podeVerGrupo(usuario, grupoDaPropriaLoja, grupoIdCookie)) {
       const [grupo] = await db
         .select()
         .from(grupos)
         .where(and(eq(grupos.id, grupoIdCookie), eq(grupos.ativo, true)))
+        .limit(1)
+      if (grupo) return grupo
+    }
+
+    // Cookie ausente, de um grupo inexistente/inativo, ou de um grupo sem
+    // posse: nunca lança erro por isso — um cookie velho não pode travar o
+    // acesso de ninguém. Cai no grupo padrão do usuário: o da própria loja
+    // primeiro, senão o primeiro grupo permitido (ordem alfabética).
+    if (grupoDaPropriaLoja) {
+      const [grupo] = await db
+        .select()
+        .from(grupos)
+        .where(and(eq(grupos.id, grupoDaPropriaLoja), eq(grupos.ativo, true)))
         .limit(1)
       if (grupo) return grupo
     }
@@ -39,7 +85,14 @@ export async function getGrupoAtivo(usuario: { papel: string; lojaId: string | n
       .where(eq(grupos.ativo, true))
       .orderBy(grupos.nome)
     if (!candidatos.length) throw new Error('Nenhum grupo ativo cadastrado')
-    return candidatos.find(g => g.id === GRUPO_PADRAO_ID) ?? candidatos[0]
+
+    const permitidos = candidatos.filter(g => podeVerGrupo(usuario, grupoDaPropriaLoja, g.id))
+    // Sem loja e sem grupos_acesso não deveria acontecer para quem tem papel
+    // de admin (admin_geral vê tudo; admin_socio sempre tem loja fixa), mas
+    // se acontecer não é motivo para quebrar a página — cai no padrão
+    // histórico de antes desta trava existir.
+    const base = permitidos.length ? permitidos : candidatos
+    return base.find(g => g.id === GRUPO_PADRAO_ID) ?? base[0]
   }
 
   if (!usuario.lojaId) throw new Error('Usuário sem loja associada')
@@ -64,6 +117,24 @@ export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {
 
 export async function listarGruposAtivos(): Promise<Grupo[]> {
   return db.select().from(grupos).where(eq(grupos.ativo, true)).orderBy(grupos.nome)
+}
+
+// Para o seletor de empresa (GroupSwitcher): só os grupos que o usuário tem
+// posse — nunca a lista inteira. É a mesma regra de podeVerGrupo em
+// getGrupoAtivo, só que devolvendo a lista completa para montar o dropdown em
+// vez de checar um id específico. Páginas que precisam do universo inteiro de
+// grupos (ex.: /admin/usuarios editando a lista de outra pessoa) continuam
+// usando listarGruposAtivos() direto — de propósito, não é o mesmo caso de uso.
+export async function listarGruposVisiveis(
+  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+): Promise<Grupo[]> {
+  const [todos, grupoDaPropriaLoja] = await Promise.all([
+    listarGruposAtivos(),
+    grupoIdDaPropriaLoja(usuario.lojaId),
+  ])
+
+  const idsVisiveis = new Set(gruposVisiveis(usuario, grupoDaPropriaLoja, todos.map(g => g.id)))
+  return todos.filter(g => idsVisiveis.has(g.id))
 }
 
 export async function listarLojasDoGrupoAtivo(

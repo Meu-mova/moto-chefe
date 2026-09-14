@@ -130,6 +130,14 @@ export const usuarios = pgTable('usuarios', {
   gruposAprovacao: uuid('grupos_aprovacao').array().notNull().default([]),
   // Libera aprovar financiamento/transferência, nos mesmos grupos acima.
   aprovaPagamentoSensivel: boolean('aprova_pagamento_sensivel').notNull().default(false),
+  // Grupos EXTRAS que este usuário pode ESCOLHER no seletor de empresa (além do
+  // grupo da própria loja). Coluna separada de grupos_aprovacao de propósito:
+  // aprovar pagamento num grupo e enxergar/trocar para aquele grupo são coisas
+  // diferentes — um sócio pode ter sido liberado para aprovar uma venda pontual
+  // em outro grupo sem que isso signifique que ele deva navegar pelos dados
+  // daquele tenant inteiro. Ver src/lib/acesso-grupo.ts (regra pura, testável
+  // sem banco) e getGrupoAtivo() em src/lib/grupo.ts, que é quem impõe isso.
+  gruposAcesso: uuid('grupos_acesso').array().notNull().default([]),
   // Inativo continua no sistema (histórico intacto), mas some dos relatórios de
   // vendedor e do 1-a-1. Ver /admin/usuarios e queries/individual.
   ativo: boolean('ativo').notNull().default(true),
