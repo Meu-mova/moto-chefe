@@ -122,8 +122,10 @@ cron horário  ──►  src/lib/sefaz/distribuicao.ts
 
 - `nfe_recebidas`: `grupo_id`, `chave` (única por grupo), `nsu`, `emitente_cnpj`,
   `emitente_nome`, `valor`, `data_emissao`, `situacao` (`resumo` | `completa` |
-  `cancelada`), `manifestado_em`, `xml` (text, só quando completa),
-  `moto_entrada_registrada` (bool derivado do cruzamento), `criado_em`.
+  `cancelada`), `manifestado_em`, `xml` (text, só quando completa), `criado_em`.
+  **"Já lançada no MOVA" não é coluna**: é lida por junção com
+  `motos.nota_fiscal_entrada` na hora de montar a tela. Guardar como campo cria
+  uma segunda verdade, que envelhece sozinha quando a moto é registrada depois.
 - `nfe_dfe_sync`: `grupo_id`, `ult_nsu`, `max_nsu`, `proxima_consulta_em`,
   `ultimo_cstat`, `ultimo_erro`.
 
