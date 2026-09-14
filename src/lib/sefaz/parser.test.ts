@@ -27,6 +27,48 @@ const EVENTO_CANCELAMENTO = `<resEvento versao="1.01" xmlns="http://www.portalfi
   <dhRecbto>2026-09-13T09:01:00-03:00</dhRecbto>
 </resEvento>`
 
+// Evento em forma completa (procEventoNFe > evento > infEvento) — não o
+// resumo (resEvento) acima. É assim que boa parte dos cancelamentos chega de
+// verdade: numa sincronização real em 14/09/2026, 12 dos 156 documentos do
+// lote caíram aqui e se perderam pra sempre (o NSU não é reoferecido), porque
+// lerDocumento não reconhecia essa forma. Mínimo necessário dentro de
+// infEvento: chNFe, tpEvento, CNPJ (autor) e dhEvento.
+const PROC_EVENTO_CANCELAMENTO = `<procEventoNFe versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <evento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+    <infEvento Id="ID110111312609537805540001155500100001234510001234560101">
+      <cOrgao>31</cOrgao>
+      <tpAmb>1</tpAmb>
+      <CNPJ>53780554000115</CNPJ>
+      <chNFe>31260953780554000115550010000123451000123456</chNFe>
+      <dhEvento>2026-09-13T09:00:00-03:00</dhEvento>
+      <tpEvento>110111</tpEvento>
+      <nSeqEvento>1</nSeqEvento>
+      <verEvento>1.00</verEvento>
+      <detEvento versao="1.00">
+        <descEvento>Cancelamento</descEvento>
+        <nProt>131260000123456</nProt>
+        <xJust>Erro de emissão</xJust>
+      </detEvento>
+    </infEvento>
+  </evento>
+  <retEvento versao="1.00">
+    <infEvento Id="">
+      <tpAmb>1</tpAmb>
+      <verAplic>1.0</verAplic>
+      <cOrgao>31</cOrgao>
+      <cStat>135</cStat>
+      <xMotivo>Evento registrado e vinculado a NF-e</xMotivo>
+      <chNFe>31260953780554000115550010000123451000123456</chNFe>
+      <tpEvento>110111</tpEvento>
+      <xEvento>Cancelamento</xEvento>
+      <nSeqEvento>1</nSeqEvento>
+      <cOrgaoAutor>31</cOrgaoAutor>
+      <dhRegEvento>2026-09-13T09:00:05-03:00</dhRegEvento>
+      <nProt>131260000123456</nProt>
+    </infEvento>
+  </retEvento>
+</procEventoNFe>`
+
 // Nota completa (procNFe/infNFe). A expectativa inicial era que isto só
 // chegasse depois de manifestação (fase 2) — a consulta real de 14/09/2026
 // provou o contrário: NSU 1086/1087 vieram completos sem manifestação
@@ -112,6 +154,48 @@ test('evento de cancelamento é reconhecido e traz a chave da nota', () => {
   assert.equal(d.chave, '31260953780554000115550010000123451000123456')
 })
 
+// Regressão direta dos 12 documentos perdidos em 14/09/2026: procEventoNFe
+// (evento em forma completa) precisa virar documento igual ao resEvento —
+// tipo 'evento' — e não pode entrar na contagem de descartados.
+test('evento de cancelamento em forma completa (procEventoNFe) é reconhecido e não conta como descartado', () => {
+  const r = lerRetorno(envelope([{ nsu: '000000000000004', schema: 'procEventoNFe_v1.00.xsd', conteudo: PROC_EVENTO_CANCELAMENTO }]), semGzip)
+  assert.equal(r.documentos.length, 1)
+  const d = r.documentos[0]
+  assert.equal(d.tipo, 'evento')
+  assert.equal(d.tipoEvento, '110111')
+  assert.equal(d.chave, '31260953780554000115550010000123451000123456')
+  assert.equal(d.emitenteCnpj, '53780554000115')
+  assert.equal(d.dataEmissao.toISOString(), '2026-09-13T12:00:00.000Z')
+  assert.equal(r.descartados, 0)
+})
+
+// Um procEventoNFe de verdade tem DOIS infEvento (o do envio, dentro de
+// `evento`, e o do protocolo de retorno, dentro de `retEvento` — sem CNPJ e
+// com dhRegEvento no lugar de dhEvento). O fixture acima já tem os dois; este
+// teste deixa explícito que o achar() pega o certo (CNPJ e dataEmissao vindos
+// do dhEvento do autor), não o de retEvento — senão emitenteCnpj viria vazio
+// e dataEmissao seria "Invalid Date".
+test('procEventoNFe com infEvento de envio e de retorno não confunde os dois', () => {
+  const r = lerRetorno(envelope([{ nsu: '000000000000004', schema: 'procEventoNFe_v1.00.xsd', conteudo: PROC_EVENTO_CANCELAMENTO }]), semGzip)
+  const d = r.documentos[0]
+  assert.notEqual(d.emitenteCnpj, '')
+  assert.equal(Number.isNaN(d.dataEmissao.getTime()), false)
+})
+
+// procNFe (nota completa, infNFe) e procEventoNFe (evento completo,
+// infEvento) no mesmo lote: tag names diferentes, achar() não confunde um
+// com o outro em documentos distintos do mesmo lote.
+test('procNFe e procEventoNFe no mesmo lote não se confundem', () => {
+  const r = lerRetorno(envelope([
+    { nsu: '000000000000003', schema: 'procNFe_v4.00.xsd', conteudo: PROC_NFE },
+    { nsu: '000000000000004', schema: 'procEventoNFe_v1.00.xsd', conteudo: PROC_EVENTO_CANCELAMENTO },
+  ]), semGzip)
+  assert.equal(r.documentos.length, 2)
+  assert.equal(r.documentos[0].tipo, 'completa')
+  assert.equal(r.documentos[1].tipo, 'evento')
+  assert.equal(r.descartados, 0)
+})
+
 // ultNSU/maxNSU também diferentes aqui, e agora afirmados de fato: sem estes
 // dois asserts, um lote vazio não exercitava a extração desses campos — o
 // nsu.ts (Task anterior) falha fechado, e um valor errado aqui trava a
@@ -153,14 +237,16 @@ test('documento ilegível é pulado, o resto do lote entra, e conta em descartad
   assert.equal(r.descartados, 1)
 })
 
-// Schema que o parser não reconhece (nem resNFe, nem resEvento, nem infNFe) —
-// por exemplo um procEventoNFe, evento com o processo completo anexado, que
-// levaria um cancelamento junto. `lerDocumento` devolve `null` sem lançar, e
-// isso também tem que contar como descarte: sem isso o NSU avança e ninguém
-// fica sabendo que um documento foi perdido.
+// Forma realmente desconhecida — raiz que não é nenhuma das quatro tratadas
+// (resNFe, resEvento, infNFe/procNFe, infEvento/procEventoNFe). A contagem
+// de `descartados` precisa continuar existindo pro que ainda não se conhece:
+// foi exatamente assim (`lerDocumento` devolvendo `null` em silêncio) que a
+// falta do procEventoNFe passou despercebida até custar 12 documentos numa
+// execução real em 14/09/2026 — antes desse fix, era esse schema que caía
+// aqui.
 test('schema desconhecido conta como descartado, sem derrubar o lote', () => {
   const r = lerRetorno(envelope([
-    { nsu: '000000000000001', schema: 'procEventoNFe_v1.00.xsd', conteudo: '<procEventoNFe><algoQueNaoLemos/></procEventoNFe>' },
+    { nsu: '000000000000001', schema: 'formaFutura_v1.00.xsd', conteudo: '<formaFutura><algoQueNaoLemos/></formaFutura>' },
     { nsu: '000000000000002', schema: 'resNFe_v1.01.xsd', conteudo: RESUMO },
   ]), semGzip)
   assert.equal(r.documentos.length, 1)
