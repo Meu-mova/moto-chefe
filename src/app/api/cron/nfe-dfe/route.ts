@@ -26,7 +26,19 @@ export async function GET(req: NextRequest) {
     // Um grupo por vez, em série: são conexões TLS com certificados
     // diferentes, e a SEFAZ conta consumo por CNPJ. Paralelizar não ganha nada
     // e atrapalha o diagnóstico quando um deles falha.
-    resultados.push({ grupo: grupo.nome, ...(await sincronizarGrupo(grupo)) })
+    try {
+      resultados.push({ grupo: grupo.nome, ...(await sincronizarGrupo(grupo)) })
+    } catch (e) {
+      // sincronizarGrupo já trata falha de rede internamente (vira status
+      // 'erro' sem lançar); isto aqui cobre o que escapa desse try interno —
+      // por exemplo um erro no SELECT inicial em nfeDfeSync. Sem este
+      // try/catch, um grupo com problema aborta o `for` inteiro: os grupos
+      // seguintes nem são tentados e o JSON já calculado se perde num 500. O
+      // isolamento entre CNPJs é premissa do projeto — um grupo quebrado não
+      // pode impedir os outros de sincronizar.
+      const erro = e instanceof Error ? e.message : 'Falha inesperada ao sincronizar o grupo'
+      resultados.push({ grupo: grupo.nome, status: 'erro' as const, documentos: 0, erro })
+    }
   }
 
   return NextResponse.json({ ok: true, resultados })

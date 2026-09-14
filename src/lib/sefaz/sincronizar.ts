@@ -51,6 +51,16 @@ export async function sincronizarGrupo(
 
   const proximo = proximoEstado(retorno, agora)
 
+  // `proximoEstado` devolve '' quando a SEFAZ não respondeu o campo (rejeição,
+  // cStat de erro etc.) — isso significa "não sei", não "começar do zero".
+  // `|| '0'` já causou um incidente real: um cStat 656 com maxNSU vazio virou
+  // `max_nsu = 0` no banco, o que reabriria a leitura desde o início da fila
+  // (até 90 dias) na próxima consulta. O fallback correto é o ÚLTIMO ESTADO
+  // CONHECIDO (o que já estava salvo), e só na ausência de qualquer estado
+  // anterior é que cai em '0' — primeira consulta do grupo, nunca houve nada.
+  const ultNsuFinal = proximo.ultNSU || estado?.ultNsu || '0'
+  const maxNsuFinal = proximo.maxNSU || estado?.maxNsu || '0'
+
   // Lote e NSU na MESMA transação. Gravar as notas e perder o NSU faz reprocessar
   // (inofensivo, a chave é única); gravar o NSU e perder as notas perde nota para
   // sempre, porque a SEFAZ não oferece o mesmo NSU de novo.
@@ -58,9 +68,33 @@ export async function sincronizarGrupo(
     for (const doc of retorno.documentos) {
       if (doc.tipo === 'evento') {
         if (doc.tipoEvento === EVENTO_CANCELAMENTO) {
-          await tx.update(nfeRecebidas)
-            .set({ situacao: 'cancelada' })
-            .where(sql`${nfeRecebidas.grupoId} = ${grupoId} AND ${nfeRecebidas.chave} = ${doc.chave}`)
+          // O cancelamento pode chegar ANTES da nota (o parser descarta docZip
+          // ilegível e aquele NSU não é reoferecido, então a nota pode nunca
+          // ter passado por aqui). Um UPDATE simples não acha linha nenhuma e
+          // o cancelamento se perde: quando a nota enfim chegar, entra como
+          // ativa, sem memória de que foi cancelada. Por isso é upsert: se a
+          // linha não existe, cria já como 'cancelada' com o que o evento tem;
+          // se existe, só marca 'cancelada' e NSU — não mexe nos campos
+          // descritivos (emitente, valor, xml) que já estejam lá.
+          await tx.insert(nfeRecebidas)
+            .values({
+              grupoId,
+              chave: doc.chave,
+              nsu: doc.nsu,
+              emitenteCnpj: doc.emitenteCnpj,
+              emitenteNome: '',
+              valor: null,
+              dataEmissao: doc.dataEmissao,
+              situacao: 'cancelada',
+              xml: null,
+            })
+            .onConflictDoUpdate({
+              target: [nfeRecebidas.grupoId, nfeRecebidas.chave],
+              set: {
+                nsu: doc.nsu,
+                situacao: 'cancelada',
+              },
+            })
         }
         continue
       }
@@ -79,11 +113,17 @@ export async function sincronizarGrupo(
         })
         // A nota completa chega DEPOIS do resumo, com NSU novo: a linha do
         // resumo precisa poder virar completa. Situação 'cancelada' não é
-        // reescrita — cancelamento é definitivo.
+        // reescrita — cancelamento é definitivo. Os campos descritivos
+        // (emitente, valor, data) são sempre atualizados aqui: se o
+        // cancelamento chegou primeiro e criou a linha com emitente vazio, é
+        // quando a nota de verdade chega que esses campos são preenchidos.
         .onConflictDoUpdate({
           target: [nfeRecebidas.grupoId, nfeRecebidas.chave],
           set: {
             nsu: doc.nsu,
+            emitenteNome: doc.emitenteNome,
+            valor: doc.valor || null,
+            dataEmissao: doc.dataEmissao,
             situacao: sql`CASE WHEN ${nfeRecebidas.situacao} = 'cancelada' THEN 'cancelada' ELSE excluded.situacao END`,
             xml: sql`COALESCE(excluded.xml, ${nfeRecebidas.xml})`,
           },
@@ -93,8 +133,8 @@ export async function sincronizarGrupo(
     await tx.insert(nfeDfeSync)
       .values({
         grupoId,
-        ultNsu: proximo.ultNSU || '0',
-        maxNsu: proximo.maxNSU || '0',
+        ultNsu: ultNsuFinal,
+        maxNsu: maxNsuFinal,
         proximaConsultaEm: proximo.proximaConsultaEm,
         ultimoCstat: retorno.cStat,
         ultimoErro: null,
@@ -103,8 +143,8 @@ export async function sincronizarGrupo(
       .onConflictDoUpdate({
         target: nfeDfeSync.grupoId,
         set: {
-          ultNsu: proximo.ultNSU || '0',
-          maxNsu: proximo.maxNSU || '0',
+          ultNsu: ultNsuFinal,
+          maxNsu: maxNsuFinal,
           proximaConsultaEm: proximo.proximaConsultaEm,
           ultimoCstat: retorno.cStat,
           ultimoErro: null,
