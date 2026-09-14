@@ -34,6 +34,10 @@ export default async function LoginPage({
                 Não foi possível falar com o serviço de login agora. Espere um
                 pouco e tente de novo — sua senha está certa.
               </p>
+            ) : error === 'inativo' ? (
+              <p className="text-sm text-red-600">
+                Esta conta foi desativada. Fale com o administrador.
+              </p>
             ) : error ? (
               <p className="text-sm text-red-600">Email ou senha inválidos.</p>
             ) : null}

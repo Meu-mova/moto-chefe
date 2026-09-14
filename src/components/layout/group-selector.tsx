@@ -1,4 +1,4 @@
-import { getGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
+import { getGrupoAtivo, listarGruposVisiveis } from '@/lib/grupo'
 import { GroupSwitcher } from './group-switcher'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
@@ -17,17 +17,18 @@ export async function GroupSelector({ usuario }: Props) {
 
   // A barra de grupo roda no layout de toda página. Se o banco engasgar, o app
   // abre SEM a barra (fail-open) em vez de pendurar a tela inteira até 300s.
-  let gruposList: Awaited<ReturnType<typeof listarGruposAtivos>>
+  let gruposList: Awaited<ReturnType<typeof listarGruposVisiveis>>
   let grupoAtivo: Awaited<ReturnType<typeof getGrupoAtivo>>
   try {
     [gruposList, grupoAtivo] = await withTimeout(
-      Promise.all([listarGruposAtivos(), getGrupoAtivo(usuario)]),
+      Promise.all([listarGruposVisiveis(usuario), getGrupoAtivo(usuario)]),
       6000,
     )
   } catch {
     return null
   }
 
+  // Usuário com um grupo só (a maioria) nem precisa ver o seletor.
   if (gruposList.length <= 1) return null
 
   return (

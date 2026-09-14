@@ -14,19 +14,25 @@ export default async function LojasPage() {
   const usuario = await getUsuarioLogado()
   const isSuperAdmin = usuario.papel === 'admin_geral'
 
-  const [todas, gruposOpts, grupoAtivo] = await Promise.all([
-    db
-      .select({
-        id: lojas.id, nome: lojas.nome, cidade: lojas.cidade, endereco: lojas.endereco,
-        ativa: lojas.ativa, grupoNome: grupos.nome, cep: lojas.cep,
-        fabricaEmail: lojas.fabricaEmail, fabricaSenha: lojas.fabricaSenha,
-      })
-      .from(lojas)
-      .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
-      .orderBy(lojas.nome),
+  // grupoAtivo precisa vir ANTES da consulta de lojas: para quem não é
+  // admin_geral, a lista tem que ficar restrita ao grupo ativo do usuário —
+  // sem isto, qualquer admin_socio via nome/cidade/endereço das lojas de
+  // TODOS os tenants, não só do próprio. admin_geral continua vendo todas.
+  const [gruposOpts, grupoAtivo] = await Promise.all([
     isSuperAdmin ? listarGruposAtivos() : Promise.resolve([]),
     getGrupoAtivo(usuario),
   ])
+
+  const todas = await db
+    .select({
+      id: lojas.id, nome: lojas.nome, cidade: lojas.cidade, endereco: lojas.endereco,
+      ativa: lojas.ativa, grupoNome: grupos.nome, cep: lojas.cep,
+      fabricaEmail: lojas.fabricaEmail, fabricaSenha: lojas.fabricaSenha,
+    })
+    .from(lojas)
+    .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
+    .where(isSuperAdmin ? undefined : eq(lojas.grupoId, grupoAtivo.id))
+    .orderBy(lojas.nome)
 
   return (
     <AdminGuard href="/admin/lojas">

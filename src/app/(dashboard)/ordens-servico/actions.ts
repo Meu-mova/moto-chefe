@@ -353,7 +353,7 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
  * cupom num desconto livre sem rastro de quem autorizou.
  */
 async function validarCupomDoPagamento(
-  usuario: { id: string; papel: string; lojaId: string | null },
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null },
   osId: string,
   pagamentos: PgtoOS[],
 ) {

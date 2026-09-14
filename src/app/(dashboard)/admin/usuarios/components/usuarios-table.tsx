@@ -25,6 +25,7 @@ type Usuario = {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  gruposAcesso: string[]
   grupoDaLojaId: string | null
   ativo: boolean
   modulosExtras: string[]
@@ -40,6 +41,7 @@ type DadosForm = {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
 }
@@ -110,13 +112,21 @@ function FormUsuario({
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
   const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
   const [aprovaSensivel, setAprovaSensivel] = useState(inicial?.aprovaPagamentoSensivel ?? false)
+  const [gruposAcesso, setGruposAcesso] = useState<string[]>(inicial?.gruposAcesso ?? [])
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
 
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
+  // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
+  // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
+  const mostrarAcessoGrupos = papel === 'admin_socio'
 
   function toggleGrupo(id: string) {
     setGruposAprov(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
+  }
+
+  function toggleGrupoAcesso(id: string) {
+    setGruposAcesso(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
   }
 
   function handleSubmit() {
@@ -133,6 +143,7 @@ function FormUsuario({
       conecta: conecta.trim() || null,
       gruposAprovacao: mostrarAprovacao ? gruposAprov : [],
       aprovaPagamentoSensivel: mostrarAprovacao && aprovaSensivel,
+      gruposAcesso: mostrarAcessoGrupos ? gruposAcesso : [],
       modulosExtras,
       modulosBloqueados,
     })
@@ -251,6 +262,37 @@ function FormUsuario({
             </label>
           </div>
         )}
+
+        {mostrarAcessoGrupos && (
+          <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
+            <div>
+              <Label>Empresas que este usuário enxerga</Label>
+              <p className="text-xs text-slate-500">
+                Diferente da aprovação de venda acima: isto controla quais empresas aparecem no seletor de empresa
+                (trocar de grupo) e os dados que ele pode ver. O grupo da loja dele já vem incluso e não precisa ser marcado aqui.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {grupos.map(g => (
+                <label key={g.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300"
+                    checked={gruposAcesso.includes(g.id)}
+                    onChange={() => toggleGrupoAcesso(g.id)}
+                  />
+                  <span>
+                    {g.nome}
+                    {g.id === inicial?.grupoDaLojaId && (
+                      <span className="text-slate-400"> — grupo da loja (já enxerga)</span>
+                    )}
+                  </span>
+                </label>
+              ))}
+              {grupos.length === 0 && <p className="text-sm text-slate-400">Nenhum grupo ativo.</p>}
+            </div>
+          </div>
+        )}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -293,6 +335,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           conecta:   dados.conecta,
           gruposAprovacao:         dados.gruposAprovacao,
           aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
+          gruposAcesso:            dados.gruposAcesso,
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
         })
@@ -346,6 +389,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
               <TableHead>Função</TableHead>
               <TableHead>Loja</TableHead>
               <TableHead>Aprova</TableHead>
+              <TableHead>Acesso</TableHead>
               <TableHead className="text-right w-24">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -376,6 +420,21 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                           transferência
                         </span>
                       )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {u.papel === 'admin_geral' ? (
+                    <span className="inline-flex px-1.5 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-700 text-[11px]">todas</span>
+                  ) : u.gruposAcesso.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {u.gruposAcesso.map(gid => (
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-slate-200 bg-slate-100 text-slate-600 text-[11px]">
+                          {nomeGrupo(gid)}
+                        </span>
+                      ))}
                     </div>
                   ) : (
                     <span className="text-slate-300">—</span>
@@ -412,7 +471,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
             ))}
             {usuarios.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={7} className="text-center text-slate-400 py-8">
                   Nenhum usuário cadastrado.
                 </TableCell>
               </TableRow>

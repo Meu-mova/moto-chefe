@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { kommoSources, kommoPipelineGrupo, marketingInvestimento } from '@/lib/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 // aux_adm entra junto: é quem opera a loja e vai lançar a verba na prática.
@@ -31,7 +31,15 @@ export async function salvarNomeCanalAction(sourceId: number, nome: string) {
 }
 
 export async function definirGrupoFunilAction(pipelineId: string, grupoId: string | null) {
-  await exigirGestor()
+  const usuario = await exigirGestor()
+  // kommo_pipeline_grupo é a prova de tenant do /marketing inteiro (ver
+  // src/lib/queries/marketing.ts) — sem esta checagem, um aux_adm reatribuía o
+  // funil de outro lojista pro próprio grupo e passava a ver os leads do
+  // concorrente, só mandando outro grupoId pra esta action. `null` (remover o
+  // vínculo) continua liberado: não expõe dado de nenhum grupo.
+  if (grupoId && !(await podeUsuarioVerGrupo(usuario, grupoId))) {
+    throw new Error('Você não tem acesso a este grupo')
+  }
   await db.insert(kommoPipelineGrupo)
     .values({ pipelineId, grupoId, atualizadoEm: new Date() })
     .onConflictDoUpdate({
