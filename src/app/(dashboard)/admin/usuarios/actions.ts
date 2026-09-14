@@ -62,6 +62,27 @@ async function validarAprovacao(papel: string, gruposAprovacao: string[], aprova
   return { gruposAprovacao: ids, aprovaPagamentoSensivel }
 }
 
+// grupos_acesso é sobre ENXERGAR/trocar de grupo (@/lib/acesso-grupo), coisa
+// diferente de aprovar pagamento — por isso valida separado de
+// validarAprovacao, mesmo repetindo a checagem de grupo existente. admin_geral
+// não precisa de lista (o papel já vê tudo) e, para os demais papéis que não
+// trocam de grupo (vendedor, mecânico, aux_adm, motorista), a lista não faz
+// nada — zera para não guardar lixo no cadastro.
+async function validarAcesso(papel: string, gruposAcesso: string[]) {
+  if (papel !== 'admin_socio') return { gruposAcesso: [] as string[] }
+
+  const ids = [...new Set(gruposAcesso)]
+  if (ids.length === 0) return { gruposAcesso: [] }
+
+  const validos = await db
+    .select({ id: grupos.id })
+    .from(grupos)
+    .where(inArray(grupos.id, ids))
+  if (validos.length !== ids.length) throw new Error('Grupo de acesso inválido')
+
+  return { gruposAcesso: ids }
+}
+
 export async function criarUsuarioAction(dados: {
   nome: string
   email: string
@@ -71,6 +92,7 @@ export async function criarUsuarioAction(dados: {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
@@ -78,6 +100,7 @@ export async function criarUsuarioAction(dados: {
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
   const conecta = validarConecta(dados.conecta)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+  const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -96,6 +119,7 @@ export async function criarUsuarioAction(dados: {
     conecta,
     gruposAprovacao:         aprovacao.gruposAprovacao,
     aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+    gruposAcesso:            acesso.gruposAcesso,
     modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
     modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
   })
@@ -112,11 +136,13 @@ export async function editarUsuarioAction(id: string, dados: {
   conecta: string | null
   gruposAprovacao: string[]
   aprovaPagamentoSensivel: boolean
+  gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
   await assertAdmin()
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+  const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
 
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({
@@ -127,6 +153,7 @@ export async function editarUsuarioAction(id: string, dados: {
       conecta: validarConecta(dados.conecta),
       gruposAprovacao:         aprovacao.gruposAprovacao,
       aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+      gruposAcesso:            acesso.gruposAcesso,
       modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
       modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
     }).where(eq(usuarios.id, id))

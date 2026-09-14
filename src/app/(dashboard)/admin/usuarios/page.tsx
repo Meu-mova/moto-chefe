@@ -22,6 +22,7 @@ export default async function UsuariosPage() {
         conecta:  usuarios.conecta,
         gruposAprovacao:         usuarios.gruposAprovacao,
         aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
+        gruposAcesso:            usuarios.gruposAcesso,
         ativo:                   usuarios.ativo,
         modulosExtras:           usuarios.modulosExtras,
         modulosBloqueados:       usuarios.modulosBloqueados,
