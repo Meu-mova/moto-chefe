@@ -1365,3 +1365,18 @@ export const beneficiariosDespesa = pgTable('beneficiarios_despesa', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('beneficiarios_despesa_unico_drizzle').on(t.grupoId, t.nome)])
+
+
+// ─── certificados_digitais ───────────────────────────────────────────────────
+// Um certificado A1 por grupo. `arquivo` e `senha` são o pacote cifrado de
+// src/lib/cripto.ts — nunca o conteúdo cru.
+export const certificadosDigitais = pgTable('certificados_digitais', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().unique().references(() => grupos.id, { onDelete: 'cascade' }),
+  arquivo:   text('arquivo').notNull(),
+  senha:     text('senha').notNull(),
+  cnpj:      text('cnpj').notNull(),
+  titular:   text('titular').notNull(),
+  validoAte: timestamp('valido_ate', { withTimezone: true }).notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
