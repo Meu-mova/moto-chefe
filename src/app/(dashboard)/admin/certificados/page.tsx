@@ -20,7 +20,6 @@ export default async function CertificadosPage() {
     titular: certificadosDigitais.titular,
     cnpj: certificadosDigitais.cnpj,
     validoAte: certificadosDigitais.validoAte,
-    criadoEm: certificadosDigitais.criadoEm,
   }).from(certificadosDigitais).where(eq(certificadosDigitais.grupoId, grupo.id)).limit(1)
 
   const diasRestantes = atual

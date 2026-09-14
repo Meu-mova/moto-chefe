@@ -6,10 +6,20 @@ import { db } from '@/lib/db'
 import { nfeDfeSync } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { listarNotasRecebidas } from '@/lib/queries/nfe-recebidas'
+import { CSTAT_DOCUMENTO_LOCALIZADO, CSTAT_NENHUM_DOCUMENTO } from '@/lib/sefaz/nsu'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Radar } from 'lucide-react'
+
+// cStat "bom" é só um destes dois: 138 (documento localizado) ou 137 (nenhum
+// documento — fila em dia). Qualquer outro (656 — consumo indevido, rejeição,
+// etc.) significa que a sincronização não está fluindo normal, mesmo que
+// `ultimo_erro` esteja nulo — foi exatamente o caso real de hoje: cStat 656
+// gravado com sucesso (o INSERT não falhou), `ultimo_erro` nulo, e a tela
+// não dizia nada de errado.
+const CSTAT_BONS = new Set([CSTAT_DOCUMENTO_LOCALIZADO, CSTAT_NENHUM_DOCUMENTO])
+const HORAS_PARA_CONSIDERAR_PARADA = 24
 
 const brl = (v: string | null) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -26,6 +36,21 @@ export default async function RadarFiscalPage() {
 
   const pendentes = notas.filter(n => !n.jaLancada && n.situacao !== 'cancelada')
 
+  // C3(b): sinaliza "sincronização parada" quando o último cStat não é dos
+  // bons OU quando faz mais de 24h que não roda — as duas coisas
+  // independentes de `ultimo_erro`, que só é preenchido em falha de rede/
+  // certificado, não em cStat de rejeição (a chamada "deu certo", só que a
+  // SEFAZ recusou/bloqueou). Sem `sync` (grupo nunca sincronizou), o card
+  // "Última sincronização" abaixo já diz "ainda não rodou" — não duplica aqui.
+  const horasDesdeAtualizacao = sync
+    ? (Date.now() - sync.atualizadoEm.getTime()) / (60 * 60 * 1000)
+    : null
+  const sincronizacaoParada = sync != null && (
+    sync.ultimoCstat == null ||
+    !CSTAT_BONS.has(sync.ultimoCstat) ||
+    (horasDesdeAtualizacao !== null && horasDesdeAtualizacao > HORAS_PARA_CONSIDERAR_PARADA)
+  )
+
   return (
     <div className="space-y-6">
       <div>
@@ -40,6 +65,18 @@ export default async function RadarFiscalPage() {
         <p className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <span>Última sincronização falhou: {sync.ultimoErro}</span>
+        </p>
+      )}
+
+      {sincronizacaoParada && sync && (
+        <p className="flex gap-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span>
+            Sincronização parada — a SEFAZ respondeu cStat {sync.ultimoCstat ?? '—'} em{' '}
+            {sync.atualizadoEm.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}, e não é um retorno
+            normal (137/138) ou já faz mais de {HORAS_PARA_CONSIDERAR_PARADA}h sem rodar. A tela pode estar
+            desatualizada até isso ser resolvido.
+          </span>
         </p>
       )}
 
@@ -61,6 +98,12 @@ export default async function RadarFiscalPage() {
           </p>
         </CardContent></Card>
       </div>
+
+      <p className="text-xs text-slate-400">
+        &quot;Já lançada&quot; casa pelo número da nota (não pelo CNPJ do emitente) com o que está registrado no
+        estoque — duas notas de emitentes diferentes com o mesmo número podem marcar &quot;já lançada&quot; por
+        engano, escondendo uma nota pendente de verdade.
+      </p>
 
       <Card>
         <CardContent className="p-0">
