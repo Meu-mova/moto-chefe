@@ -86,6 +86,7 @@ export const ITENS: ItemNav[] = [
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
   { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: [],        regraPropria: true },
+  { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
   { id: 'precificacao',   href: '/precificacao',   label: 'Precificação',      icon: Tag,           categoria: 'estoque',      papeis: ADMINS },
   { id: 'compras',        href: '/compras',        label: 'Compras',           icon: ShoppingBag,   categoria: 'estoque',      papeis: ADMINS },
