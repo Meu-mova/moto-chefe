@@ -5,6 +5,7 @@ import { eq, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
 import { podeConsultar, proximoEstado } from './nsu'
+import { avisarNotasNovas } from '@/lib/whatsapp/nfe-recebida'
 
 /** 110111 = Cancelamento de NF-e. Vem mesmo sem manifestação. */
 const EVENTO_CANCELAMENTO = '110111'
@@ -60,6 +61,17 @@ export async function sincronizarGrupo(
   // anterior é que cai em '0' — primeira consulta do grupo, nunca houve nada.
   const ultNsuFinal = proximo.ultNSU || estado?.ultNsu || '0'
   const maxNsuFinal = proximo.maxNSU || estado?.maxNsu || '0'
+
+  // Descobre o que é nota nova de verdade ANTES da transação: `returning` do
+  // upsert lá embaixo devolve linha tanto em INSERT quanto em UPDATE, então não
+  // serve para diferenciar nota nova de nota que só teve o NSU atualizado (ex.:
+  // resumo que virou completa). Comparar contra o que já está no banco, aqui, é
+  // a única forma confiável.
+  const jaConhecidas = new Set(
+    (await db.select({ chave: nfeRecebidas.chave }).from(nfeRecebidas)
+       .where(eq(nfeRecebidas.grupoId, grupoId))).map(l => l.chave),
+  )
+  const novas = retorno.documentos.filter(d => d.tipo !== 'evento' && !jaConhecidas.has(d.chave))
 
   // Lote e NSU na MESMA transação. Gravar as notas e perder o NSU faz reprocessar
   // (inofensivo, a chave é única); gravar o NSU e perder as notas perde nota para
@@ -152,6 +164,17 @@ export async function sincronizarGrupo(
         },
       })
   })
+
+  // Fora da transação de propósito: WhatsApp fora do ar não pode desfazer a
+  // gravação das notas nem o avanço do NSU. O aviso é consequência, não parte
+  // do registro.
+  if (novas.length > 0) {
+    await avisarNotasNovas(grupo.nome, novas.map(d => ({
+      emitenteNome: d.emitenteNome,
+      valor: d.valor,
+      chave: d.chave,
+    }))).catch(() => {})
+  }
 
   return { status: 'ok', documentos: retorno.documentos.length, cStat: retorno.cStat }
 }
