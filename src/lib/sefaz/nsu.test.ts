@@ -51,6 +51,13 @@ test('cStat 138 com maxNSU vazio segura 1 hora', () => {
   assert.equal(estado.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
 })
 
+// Number(' ') é 0 em JavaScript — só espaço em branco é ausência disfarçada,
+// mesmo buraco do vazio/lixo, só com outro caractere.
+test('cStat 138 com ultNSU só espaço em branco segura 1 hora', () => {
+  const estado = proximoEstado({ cStat: 138, ultNSU: ' ', maxNSU: '000000000000120' }, AGORA)
+  assert.equal(estado.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
 // Caso bom continua emendando sem esperar — a defesa acima não pode travar
 // o caminho normal de esvaziar a fila.
 test('com ultNSU e maxNSU válidos e ultNSU < maxNSU, continua emendando sem esperar', () => {

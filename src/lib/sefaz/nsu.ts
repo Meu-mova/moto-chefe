@@ -32,8 +32,11 @@ export function podeConsultar(estado: { proximaConsultaEm: Date | null }, agora:
  * distinguir "não sei" de "zero" e nunca tratar um como o outro.
  */
 function nsuValido(nsu: string): number | null {
-  if (!nsu) return null
-  const valor = Number(nsu)
+  const semEspacos = nsu.trim()
+  if (!semEspacos) return null
+  // Number(' ') é 0 em JavaScript — sem o trim acima, um NSU só de espaço
+  // passaria como "válido" e reabriria o mesmo buraco do NSU vazio/lixo.
+  const valor = Number(semEspacos)
   return Number.isFinite(valor) ? valor : null
 }
 
