@@ -49,6 +49,22 @@ export const getUsuarioLogado = cache(async () => {
 
   if (!usuario) redirect('/login')
 
+  // Conta desativada (funcionário desligado, conta de teste) não pode
+  // continuar usando o sistema, mesmo com a sessão do Supabase ainda válida.
+  // Antes desta checagem, `usuarios.ativo` só filtrava relatório de vendedor —
+  // a pessoa continuava entrando e navegando normalmente em qualquer tela.
+  //
+  // Redireciona para /conta-desativada, não para /login: o middleware só olha
+  // a sessão do Supabase (não o `ativo` do banco), então mandar pro /login com
+  // sessão válida viraria loop (middleware manda de volta pro /dashboard).
+  //
+  // Sem válvula de segurança aqui de propósito: diferente da trava de
+  // /completar-cadastro, estar desativado é uma decisão explícita de um
+  // admin_geral, não um estado em que alguém cai sozinho. Se um admin_geral
+  // for desativado por engano, a saída é pelo banco (UPDATE usuarios SET
+  // ativo = true), não por uma exceção de papel no código.
+  if (!usuario.ativo) redirect('/conta-desativada')
+
   return usuario
 })
 
