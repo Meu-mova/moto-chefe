@@ -124,32 +124,33 @@ test('PIX: maquininha entra — PIX de cliente cai na conta da Stone/InfinitePay
 const SUL_DE_MINAS = '57.113.017/0001-72'
 const BH = '63.009.605/0001-63'
 
-test('Despesa: no Sul de Minas só Sicoob e Sicredi entram', () => {
-  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', SUL_DE_MINAS), true)
-  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', SUL_DE_MINAS), true)
+const HOJE = '2026-09-14T12:00:00.000Z'
+
+test('Despesa: no Sul de Minas só Sicoob, Sicredi e Stone entram', () => {
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', SUL_DE_MINAS, HOJE), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', SUL_DE_MINAS, HOJE), true)
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS, HOJE), true)
 })
 
-test('Despesa: a Stone do Sul de Minas é maquininha e continua fora', () => {
-  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS), false)
-  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas', SUL_DE_MINAS), false)
+test('Despesa: a InfinitePay segue fora — foi desconectada, não liberada', () => {
+  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas', SUL_DE_MINAS, HOJE), false)
 })
 
 // A mesma bandeira tem papel diferente em cada grupo: na BH a Stone é conta de
 // pagar, como a Sicredi. Lista única não representa isso — liberar a Stone pra BH
 // traria a do Sul de Minas junto, desfazendo a limpeza de R$ 2,1 milhões.
-test('Despesa: a Stone da BH entra, e isso não solta a do Sul de Minas', () => {
-  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', BH), true)
-  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', BH), true)
-  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS), false)
+test('Despesa: a Stone da BH entra sem corte de data', () => {
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', BH, HOJE), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', BH, HOJE), true)
 })
 
 test('Despesa: conta nova fica de fora até ser liberada', () => {
-  assert.equal(bancoEntraNaDespesa('Itaú Empresas', SUL_DE_MINAS), false)
-  assert.equal(bancoEntraNaDespesa('Nubank Empresas', BH), false)
+  assert.equal(bancoEntraNaDespesa('Itaú Empresas', SUL_DE_MINAS, HOJE), false)
+  assert.equal(bancoEntraNaDespesa('Nubank Empresas', BH, HOJE), false)
 })
 
 test('Despesa: grupo sem liberação cadastrada não traz nada', () => {
-  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', '65.126.949/0001-88'), false)
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', '65.126.949/0001-88', HOJE), false)
 })
 
 // ── ehTransferenciaEntreContas ───────────────────────────────────────────────
@@ -163,4 +164,28 @@ test('resgate da poupança e depósito em espécie continuam fora', () => {
   assert.equal(ehTransferenciaEntreContas('CRÉD.TRANSF.POUPANÇA INTERCREDIS'), false)
   assert.equal(ehTransferenciaEntreContas('DEP.DINHEIRO - INTERCREDIS - NOME: MOTOCHEFE SUL DE MINAS LTDA|@CPF CNPJ'), false)
   assert.equal(ehTransferenciaEntreContas(null), false)
+})
+
+// ── liberação com data de início ─────────────────────────────────────────────
+// A Stone do Sul de Minas voltou em 14/09/2026, mas só do dia 01/09 em diante:
+// o histórico dela (R$ 2,17 mi desde nov/2025) é 60% varredura pra conta
+// própria e compra de fábrica, e reimportá-lo reescreveria meses já fechados no
+// DRE e no Fechamento. Decisão do Cesar.
+const ANTES = '2026-08-28T12:00:00.000Z'
+const DEPOIS = '2026-09-02T12:00:00.000Z'
+
+test('Despesa: a Stone do Sul de Minas entra só a partir de 01/09/2026', () => {
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS, ANTES), false)
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', SUL_DE_MINAS, DEPOIS), true)
+})
+
+test('Despesa: a data de início não afeta as contas sem corte', () => {
+  assert.equal(bancoEntraNaDespesa('Sicoob Empresas', SUL_DE_MINAS, ANTES), true)
+  assert.equal(bancoEntraNaDespesa('Sicredi Empresas', SUL_DE_MINAS, ANTES), true)
+  // A Stone da BH é conta de pagar desde sempre — o corte é só do Sul de Minas.
+  assert.equal(bancoEntraNaDespesa('Stone Pagamentos Empresas', BH, ANTES), true)
+})
+
+test('Despesa: o corte não solta conta que nunca foi liberada', () => {
+  assert.equal(bancoEntraNaDespesa('InfinitePay Empresas', SUL_DE_MINAS, DEPOIS), false)
 })

@@ -583,13 +583,19 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
 // Metade das saídas grandes do extrato nunca foi categorizada, então a flag acima
 // não alcança: a fábrica de moto só é reconhecível pelo CNPJ do favorecido.
 // `cnpj` guardado só com dígitos — no extrato ele vem formatado de jeitos diferentes.
+// `nome_padrao` existe porque nem todo banco manda CNPJ: a Stone escreve só o
+// nome do favorecido, então a fábrica e a própria empresa do grupo só são
+// reconhecíveis por ele. Ao menos uma das duas chaves é obrigatória (CHECK no
+// banco); casar por nome é responsabilidade de `chaveNome` em
+// despesas-operacionais, que ignora acento, pontuação e caixa.
 export const favorecidosNaoOperacionais = pgTable('favorecidos_nao_operacionais', {
-  id:       uuid('id').primaryKey().defaultRandom(),
-  grupoId:  uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
-  cnpj:     text('cnpj').notNull(),
-  rotulo:   text('rotulo').notNull(),
-  motivo:   text('motivo').notNull().default('compra_moto'),
-  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  id:         uuid('id').primaryKey().defaultRandom(),
+  grupoId:    uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  cnpj:       text('cnpj'),
+  nomePadrao: text('nome_padrao'),
+  rotulo:     text('rotulo').notNull(),
+  motivo:     text('motivo').notNull().default('compra_moto'),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── despesas ─────────────────────────────────────────────────────────────────

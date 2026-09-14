@@ -45,6 +45,13 @@ export type ConfigDespesas = {
   categoriasForaDoCalculo: Set<string>
   /** CNPJ (só dígitos) → motivo, vindo de favorecidos_nao_operacionais. */
   cnpjsForaDoCalculo: Map<string, MotivoForaDoCalculo>
+  /**
+   * Nome do favorecido → motivo, de favorecidos_nao_operacionais.nome_padrao.
+   * Existe porque nem todo banco manda CNPJ: a Stone escreve só
+   * `{"receiver":"Q.P.A DISTRIBUICAO LTDA"}`, e sem isto as duas fábricas e a
+   * varredura pra conta própria entram como custo de operar a loja.
+   */
+  nomesForaDoCalculo?: Map<string, MotivoForaDoCalculo>
   /** Categorias de CAIXA com conta_como_despesa = false (ex.: "Depósito"). */
   categoriasCaixaForaDoCalculo?: Set<string>
   /**
@@ -67,6 +74,22 @@ export type SaidaCaixa = {
 
 export function soDigitos(s: string): string {
   return s.replace(/\D/g, '')
+}
+
+/**
+ * Chave de comparação de nome: só letras e dígitos, sem acento e em minúsculo.
+ *
+ * O cadastro escreve "Q.P.A Distribuição" e o extrato "Q.P.A DISTRIBUICAO
+ * LTDA" — ponto, acento, caixa e sufixo diferentes. Tirar tudo o que não é
+ * letra ou dígito dos dois lados é o mesmo tratamento que o CNPJ já recebe em
+ * `soDigitos`, e faz "qpadistribuicao" achar "qpadistribuicaoltda".
+ */
+export function chaveNome(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
 }
 
 /**
@@ -118,6 +141,15 @@ export function motivoForaDoCalculo(
   const digitos = soDigitos(`${saida.favorecidoNome ?? ''}${saida.descricao ?? ''}`)
   for (const [cnpj, motivo] of config.cnpjsForaDoCalculo) {
     if (cnpj && digitos.includes(cnpj)) return motivo
+  }
+
+  // Nome, para as contas que não mandam CNPJ nenhum. A chave vazia é descartada
+  // de propósito: `''` está contido em qualquer texto, e um cadastro pela
+  // metade tiraria TODAS as saídas do card de uma vez.
+  const nomeDaSaida = chaveNome(`${saida.favorecidoNome ?? ''} ${saida.descricao ?? ''}`)
+  for (const [nome, motivo] of config.nomesForaDoCalculo ?? []) {
+    const alvo = chaveNome(nome)
+    if (alvo && nomeDaSaida.includes(alvo)) return motivo
   }
 
   if (saida.descricao && RETIRADA_RE.test(saida.descricao)) return 'retirada_socio'

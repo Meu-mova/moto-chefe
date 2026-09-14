@@ -322,13 +322,30 @@ export function bancoEntraNoPix(banco: string, cnpjGrupo: string): boolean {
 // junto.
 const BANCOS_DE_DESPESA_POR_CNPJ: Record<string, string[]> = {
   // Sul de Minas
-  '57.113.017/0001-72': ['Sicoob Empresas', 'Sicredi Empresas'],
+  '57.113.017/0001-72': ['Sicoob Empresas', 'Sicredi Empresas', 'Stone Pagamentos Empresas'],
   // BH
   '63.009.605/0001-63': ['Sicredi Empresas', 'Stone Pagamentos Empresas'],
 }
 
-export function bancoEntraNaDespesa(banco: string, cnpjGrupo: string): boolean {
-  return (BANCOS_DE_DESPESA_POR_CNPJ[cnpjGrupo] ?? []).includes(banco)
+// A liberação pode começar numa data. A Stone do Sul de Minas voltou em
+// 14/09/2026, mas só de 01/09 em diante: das R$ 2,17 milhões que ela tem desde
+// nov/2025, R$ 548 mil são varredura pra conta própria e R$ 761 mil são compra
+// de fábrica — reimportar isso reescreveria meses já fechados no DRE e no
+// Fechamento. Decisão do Cesar. Meia-noite de Brasília, não UTC: o corte em
+// 00:00Z jogaria as saídas da noite de 31/08 pra dentro de setembro.
+const INICIO_DA_LIBERACAO_POR_CNPJ_BANCO: Record<string, string> = {
+  '57.113.017/0001-72|Stone Pagamentos Empresas': '2026-09-01T03:00:00.000Z',
+}
+
+/**
+ * A saída entra no Importar do Banco? Precisa da data porque a liberação de uma
+ * conta pode começar num dia — não basta o banco estar na lista.
+ */
+export function bancoEntraNaDespesa(banco: string, cnpjGrupo: string, data: string | Date): boolean {
+  if (!(BANCOS_DE_DESPESA_POR_CNPJ[cnpjGrupo] ?? []).includes(banco)) return false
+  const inicio = INICIO_DA_LIBERACAO_POR_CNPJ_BANCO[`${cnpjGrupo}|${banco}`]
+  if (!inicio) return true
+  return new Date(data).getTime() >= new Date(inicio).getTime()
 }
 
 type TransacaoPix = {
@@ -412,7 +429,7 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'DEBIT' && bancoEntraNaDespesa(t.banco, cnpjGrupo))
+    .filter(t => t.tipo === 'DEBIT' && bancoEntraNaDespesa(t.banco, cnpjGrupo, t.data))
     .map(t => ({
       contaId: t.contaId,
       banco: t.banco,

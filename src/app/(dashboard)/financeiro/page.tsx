@@ -3,7 +3,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db, execRows } from '@/lib/db'
-import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais, ordensServico, vendasPecas, lancamentosCaixa, categoriasCaixa } from '@/lib/db/schema'
+import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, ordensServico, vendasPecas, lancamentosCaixa } from '@/lib/db/schema'
 import { eq, ne, and, gte, lte, sql, count, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +19,7 @@ import { ResumoDespesasGeral } from './components/resumo-despesas-geral'
 import { ResumoDespesasLojaCategoria } from './components/resumo-despesas-loja-categoria'
 import { ResumoRetiradas } from './components/resumo-retiradas'
 import { somarDespesas, valorDespesa, type MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
+import { configDespesas } from '@/lib/queries/config-despesas'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
@@ -78,7 +79,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? sql`AND p.loja_id = ${lojaParamValido}`
     : sql`AND p.loja_id IN (${sql.join(lojaIdsGrupo.map(id => sql`${id}`), sql`, `)})`
 
-  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, parcelamentoRaw, resumoPorModelo, saidasBanco, manuaisForaDoBanco, categoriasForaRows, cnpjsForaRows, totaisOS, totaisPecas, taxasOutras, saidasCaixa, categoriasCaixaForaRows] = await Promise.all([
+  const [totaisVendas, resumoPorLoja, lojasOpts, resumoPorVendedor, resumoPorPagamentoRaw, parcelamentoRaw, resumoPorModelo, saidasBanco, manuaisForaDoBanco, config, totaisOS, totaisPecas, taxasOutras, saidasCaixa] = await Promise.all([
     db
       .select({
         totalVendas: sql<string>`COALESCE(SUM(${vendas.valor}), '0')`,
@@ -238,16 +239,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           : undefined,
       )),
 
-    // Regras de exclusão: categorias marcadas + CNPJ de fábrica.
-    db
-      .select({ nome: categoriasDespesa.nome, motivo: categoriasDespesa.motivoNaoOperacional })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.contaComoDespesa, false)),
-
-    db
-      .select({ cnpj: favorecidosNaoOperacionais.cnpj, motivo: favorecidosNaoOperacionais.motivo })
-      .from(favorecidosNaoOperacionais)
-      .where(eq(favorecidosNaoOperacionais.grupoId, grupo.id)),
+    // Regras de exclusão (categorias marcadas, fábrica, empresa do grupo). Sai
+    // da mesma função que o DRE usa — o resultado operacional de lá tem que
+    // bater com o Lucro Líquido daqui.
+    configDespesas(grupo.id),
 
     // OS concluídas no período — valor de serviço (mão de obra) x peças usadas, separado
     // porque comissiona papéis diferentes (mecânico x aux. adm.) na Folha de Pagamento.
@@ -323,32 +318,13 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           ? eq(lancamentosCaixa.lojaId, lojaParamValido)
           : inArray(lancamentosCaixa.lojaId, lojaIdsGrupo),
       )),
-
-    db
-      .select({ nome: categoriasCaixa.nome })
-      .from(categoriasCaixa)
-      .where(eq(categoriasCaixa.contaComoDespesa, false)),
   ])
 
   const receitaVendas = Number(totaisVendas[0]?.totalVendas ?? 0)
   const receitaLiquida = Number(totaisVendas[0]?.totalLiquido ?? 0)
   const qtdVendas = Number(totaisVendas[0]?.qtdVendas ?? 0)
 
-  const resumoDespesas = somarDespesas(
-    saidasBanco,
-    manuaisForaDoBanco,
-    {
-      categoriasForaDoCalculo:      new Set(categoriasForaRows.map(c => c.nome)),
-      cnpjsForaDoCalculo:           new Map(cnpjsForaRows.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
-      categoriasCaixaForaDoCalculo: new Set(categoriasCaixaForaRows.map(c => c.nome)),
-      motivoPorCategoria: new Map(
-        categoriasForaRows
-          .filter(c => c.motivo)
-          .map(c => [c.nome, c.motivo as MotivoForaDoCalculo]),
-      ),
-    },
-    saidasCaixa,
-  )
+  const resumoDespesas = somarDespesas(saidasBanco, manuaisForaDoBanco, config, saidasCaixa)
   // Resultado por loja, com a despesa sem dono rateada na proporção do que cada
   // uma faturou. Calculado ANTES dos cards de propósito: quando há uma loja no
   // filtro, o card de despesa lê a linha dela aqui, pra card e tabela saírem da

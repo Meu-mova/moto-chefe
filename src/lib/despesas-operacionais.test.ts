@@ -424,3 +424,71 @@ test('transferência entre lojas continua fora, com motivo de transferência int
   const saida = { valor: 10909, categoria: 'Transferencia entre Lojas', favorecidoNome: null, descricao: null }
   assert.equal(motivoForaDoCalculo(saida, config), 'transferencia_interna')
 })
+
+// ── exclusão por NOME do favorecido ──────────────────────────────────────────
+// A Stone não manda CNPJ nenhum no extrato: o payload do Open Finance vem
+// `{"paymentMethod":"PIX","receiver":"Q.P.A DISTRIBUICAO LTDA"}`. A regra de
+// CNPJ (a única que existia) não alcança nada dessa conta — as duas fábricas
+// (R$ 761 mil) e a varredura pra conta própria (R$ 548 mil) entravam como custo
+// de operar a loja. Por isso o favorecido passou a ter também um nome.
+
+const CONFIG_NOME: ConfigDespesas = {
+  categoriasForaDoCalculo: new Set(),
+  cnpjsForaDoCalculo: new Map(),
+  nomesForaDoCalculo: new Map([
+    ['Q.P.A Distribuicao', 'compra_moto'],
+    ['Laiouns', 'compra_moto'],
+    ['Ecomov', 'transferencia_interna'],
+    ['Motochefe', 'transferencia_interna'],
+  ]),
+}
+
+test('fábrica sai pelo nome quando o extrato não traz CNPJ', () => {
+  const s = saida({ favorecidoNome: 'Q.P.A DISTRIBUICAO LTDA', descricao: 'Transferência | Pix | Q.P.A DISTRIBUICAO LTDA' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG_NOME), 'compra_moto')
+})
+
+// O cadastro escreve "Q.P.A Distribuição" e o extrato "Q.P.A DISTRIBUICAO
+// LTDA" — ponto, acento e caixa diferentes. Comparar os dois crus não casa
+// nunca, que é o mesmo motivo de o CNPJ ser guardado só com dígitos.
+test('nome casa sem acento, sem pontuação e sem caixa', () => {
+  const config: ConfigDespesas = {
+    categoriasForaDoCalculo: new Set(),
+    cnpjsForaDoCalculo: new Map(),
+    nomesForaDoCalculo: new Map([['Q.P.A Distribuição', 'compra_moto']]),
+  }
+  assert.equal(motivoForaDoCalculo(saida({ favorecidoNome: 'Q.P.A DISTRIBUICAO LTDA' }), config), 'compra_moto')
+})
+
+test('varredura da maquininha pra conta própria é transferência interna', () => {
+  const s = saida({ valor: '-50000.00', descricao: 'Transferência | Pix | ECOMOV MOBILIDADE LTDA' })
+  assert.equal(motivoForaDoCalculo(s, CONFIG_NOME), 'transferencia_interna')
+})
+
+test('favorecido que não está na lista continua sendo despesa', () => {
+  assert.equal(motivoForaDoCalculo(saida({ favorecidoNome: 'CEMIG DISTRIBUICAO S.A' }), CONFIG_NOME), null)
+  assert.equal(motivoForaDoCalculo(saida({ favorecidoNome: 'MINISTERIO DA FAZENDA' }), CONFIG_NOME), null)
+})
+
+// Linha sem nome cadastrado vira chave vazia, e `''` está contido em QUALQUER
+// texto: sem o guarda, um único cadastro pela metade zeraria o card inteiro.
+test('nome em branco no cadastro não tira todas as saídas do cálculo', () => {
+  const config: ConfigDespesas = {
+    categoriasForaDoCalculo: new Set(),
+    cnpjsForaDoCalculo: new Map(),
+    nomesForaDoCalculo: new Map([['', 'compra_moto'], ['   ', 'compra_moto']]),
+  }
+  assert.equal(motivoForaDoCalculo(saida({ favorecidoNome: 'POSTO BARRA LIMPA LTDA' }), config), null)
+})
+
+test('a soma separa a varredura da despesa real da mesma conta', () => {
+  const r = somarDespesas([
+    saida({ valor: '-50000.00', descricao: 'Transferência | Pix | ECOMOV MOBILIDADE LTDA' }),
+    saida({ valor: '-31579.24', favorecidoNome: 'Q.P.A DISTRIBUICAO LTDA' }),
+    saida({ valor: '-1200.00', categoria: 'Energia elétrica', favorecidoNome: 'CEMIG DISTRIBUICAO S.A' }),
+  ], [], CONFIG_NOME)
+
+  assert.equal(r.total, 1200)
+  assert.equal(r.foraDoCalculo.transferencia_interna, 50000)
+  assert.equal(r.foraDoCalculo.compra_moto, 31579.24)
+})

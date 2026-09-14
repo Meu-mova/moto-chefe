@@ -1,13 +1,14 @@
 import { db, execRows } from '@/lib/db'
 import {
   vendas, lojas, motos, ordensServico, vendasPecas, conciliacoesCartao,
-  despesas, despesasOpenFinance, categoriasDespesa, favorecidosNaoOperacionais,
-  lancamentosCaixa, categoriasCaixa,
+  despesas, despesasOpenFinance, categoriasDespesa,
+  lancamentosCaixa,
 } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
 import { valorLiquidoExpr } from './valor-liquido'
 import { somaCustoMotoExpr } from './custo-moto'
-import { somarDespesas, type MotivoForaDoCalculo, type TotalDespesas } from '@/lib/despesas-operacionais'
+import { somarDespesas, type TotalDespesas } from '@/lib/despesas-operacionais'
+import { configDespesas } from './config-despesas'
 import { grupoOuOutras, somarEntradas, type EntradaDre, type GrupoDre, ENTRADA_VAZIA } from '@/lib/dre'
 
 /**
@@ -24,29 +25,6 @@ const bordas = (ano: number, mes: number) => ({
   inicio: new Date(Date.UTC(ano, mes - 1, 1)),
   fim: new Date(Date.UTC(ano, mes, 1)),
 })
-
-/** Configuração de exclusão das despesas — idêntica à do /financeiro. */
-async function configDespesas(grupoId: string) {
-  const [categoriasFora, cnpjsFora, categoriasCaixaFora] = await Promise.all([
-    db.select({ nome: categoriasDespesa.nome, motivo: categoriasDespesa.motivoNaoOperacional })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.contaComoDespesa, false)),
-    db.select({ cnpj: favorecidosNaoOperacionais.cnpj, motivo: favorecidosNaoOperacionais.motivo })
-      .from(favorecidosNaoOperacionais)
-      .where(eq(favorecidosNaoOperacionais.grupoId, grupoId)),
-    db.select({ nome: categoriasCaixa.nome })
-      .from(categoriasCaixa)
-      .where(eq(categoriasCaixa.contaComoDespesa, false)),
-  ])
-  return {
-    categoriasForaDoCalculo: new Set(categoriasFora.map(c => c.nome)),
-    cnpjsForaDoCalculo: new Map(cnpjsFora.map(c => [c.cnpj, c.motivo as MotivoForaDoCalculo])),
-    categoriasCaixaForaDoCalculo: new Set(categoriasCaixaFora.map(c => c.nome)),
-    motivoPorCategoria: new Map(
-      categoriasFora.filter(c => c.motivo).map(c => [c.nome, c.motivo as MotivoForaDoCalculo]),
-    ),
-  }
-}
 
 /**
  * Categoria → grupo do DRE, comparando por nome normalizado.
