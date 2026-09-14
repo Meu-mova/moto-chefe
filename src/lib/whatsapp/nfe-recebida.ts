@@ -1,6 +1,11 @@
-import { enviarAlertaWhatsapp } from './client'
+import { enviarAlertaWhatsapp, type ResultadoEnvioWhatsapp } from './client'
 
 export type NotaParaAviso = { emitenteNome: string; valor: string; chave: string }
+
+// Acima disso, listar nota a nota vira mensagem gigante no WhatsApp — um
+// backlog de centenas de notas resumidas numa rodada só (ver avisado_em em
+// sincronizar.ts) pode facilmente passar de 10.
+const LIMITE_PARA_RESUMIR = 10
 
 // toLocaleString separa "R$" do número com espaço não-quebrável (U+00A0),
 // invisível na tela e ruim em log e comparação — normalizado, como no aviso de
@@ -22,15 +27,30 @@ export function montarAvisoNfe(grupo: string, notas: NotaParaAviso[]): string {
   const unicas = [...porChave.values()]
 
   const total = unicas.reduce((s, n) => s + Number(n.valor || 0), 0)
-  const linhas = unicas.map(n => `• ${n.emitenteNome} — ${brl(n.valor)}`).join('\n')
   const cabecalho = unicas.length === 1
     ? `MOVA INFORMA: chegou 1 nota nova contra o CNPJ de ${grupo}.`
     : `MOVA INFORMA: chegaram ${unicas.length} notas novas contra o CNPJ de ${grupo}, somando ${brl(String(total))}.`
+
+  // A partir do limite, o cabeçalho acima (que já traz quantidade e total) é
+  // o resumo inteiro — não lista nota a nota. Abaixo do limite, lista.
+  if (unicas.length >= LIMITE_PARA_RESUMIR) {
+    return `${cabecalho}\n\nVeja em Estoque & Fábrica › Notas Recebidas.`
+  }
+
+  const linhas = unicas.map(n => `• ${n.emitenteNome} — ${brl(n.valor)}`).join('\n')
   return `${cabecalho}\n\n${linhas}\n\nVeja em Estoque & Fábrica › Notas Recebidas.`
 }
 
-export async function avisarNotasNovas(grupo: string, notas: NotaParaAviso[]): Promise<void> {
+export type ResultadoAviso = ResultadoEnvioWhatsapp | 'nada_a_avisar'
+
+/**
+ * Devolve o resultado do envio (e não só void): quem chama em sincronizar.ts
+ * precisa saber se o WhatsApp confirmou o envio antes de marcar as notas como
+ * avisadas — nota não avisada por WhatsApp fora do ar tem que continuar
+ * pendente para a próxima rodada, não sumir da fila silenciosamente.
+ */
+export async function avisarNotasNovas(grupo: string, notas: NotaParaAviso[]): Promise<ResultadoAviso> {
   const texto = montarAvisoNfe(grupo, notas)
-  if (!texto) return
-  await enviarAlertaWhatsapp(texto)
+  if (!texto) return 'nada_a_avisar'
+  return enviarAlertaWhatsapp(texto)
 }

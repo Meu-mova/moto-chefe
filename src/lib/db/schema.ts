@@ -1408,6 +1408,11 @@ export const nfeRecebidas = pgTable('nfe_recebidas', {
   manifestadoEm: timestamp('manifestado_em', { withTimezone: true }),
   xml:           text('xml'),
   criadoEm:      timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Quando o aviso de WhatsApp saiu para esta nota. Nulo = ainda não avisada
+  // (inclui nota gravada durante o backlog do cron, que fica pendente até a
+  // fila zerar) — precisa sobreviver entre rodadas, por isso é coluna e não
+  // depende do estado momentâneo da fila.
+  avisadoEm:     timestamp('avisado_em', { withTimezone: true }),
 }, t => [unique('nfe_recebidas_grupo_id_chave_key').on(t.grupoId, t.chave)])
 
 export const nfeDfeSync = pgTable('nfe_dfe_sync', {

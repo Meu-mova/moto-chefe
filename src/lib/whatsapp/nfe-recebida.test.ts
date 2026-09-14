@@ -42,3 +42,25 @@ test('mesma chave duas vezes no lote não soma o valor em dobro (resumo + comple
   assert.doesNotMatch(texto, /200,00/)
   assert.equal(texto.split('\n').filter(l => l.startsWith('•')).length, 1)
 })
+
+function notasFalsas(qtd: number) {
+  return Array.from({ length: qtd }, (_, i) => ({
+    emitenteNome: `FORNECEDOR ${i}`,
+    valor: '10.00',
+    chave: String(i).padStart(44, '0'),
+  }))
+}
+
+test('9 notas ainda lista uma a uma', () => {
+  const texto = montarAvisoNfe('Sul de Minas', notasFalsas(9))
+  assert.equal(texto.split('\n').filter(l => l.startsWith('•')).length, 9)
+  assert.match(texto, /9 notas/)
+  assert.match(texto, /90,00/)
+})
+
+test('10 notas ou mais resume em vez de listar, mas o total continua certo', () => {
+  const texto = montarAvisoNfe('Sul de Minas', notasFalsas(12))
+  assert.equal(texto.split('\n').filter(l => l.startsWith('•')).length, 0)
+  assert.match(texto, /12 notas/)
+  assert.match(texto, /120,00/)
+})

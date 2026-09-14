@@ -1,7 +1,7 @@
 // src/lib/sefaz/sincronizar.ts
 import { db } from '@/lib/db'
 import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
 import { podeConsultar, proximoEstado } from './nsu'
@@ -179,22 +179,56 @@ export async function sincronizarGrupo(
   // gravação das notas nem o avanço do NSU. O aviso é consequência, não parte
   // do registro.
   //
-  // Só avisa quando a fila acabou (regime), nunca durante o backlog: o cron
-  // roda de hora em hora e `podeConsultar` libera enquanto houver fila, então
-  // numa ativação nova (lote grande, milhares de notas atrasadas) o aviso
-  // dispararia dezenas de mensagens ao longo de várias rodadas — ninguém quer
-  // isso no celular. `proximo.proximaConsultaEm === null` é a mesma condição
-  // que `proximoEstado` (nsu.ts) usa para dizer "ainda tem fila"; só quando
-  // ela vem preenchida é que esta rodada alcançou o fim da fila, e "chegou
-  // nota nova" volta a significar nota nova de verdade. As notas continuam
-  // sendo gravadas normalmente durante o backlog e aparecem na tela — só o
-  // WhatsApp fica quieto até então.
-  if (novas.length > 0 && proximo.proximaConsultaEm !== null) {
-    await avisarNotasNovas(grupo.nome, novas.map(d => ({
-      emitenteNome: d.emitenteNome,
-      valor: d.valor,
-      chave: d.chave,
-    }))).catch(() => {})
+  // O gatilho NÃO é "este lote trouxe nota nova" (isso já foi tentado e deu
+  // errado): combinado com "só avisa quando a fila zerar", a nota gravada
+  // numa rodada de backlog vira "conhecida" na mesma rodada e nunca mais
+  // aparece como nova depois — ela nunca seria avisada. Em vez disso,
+  // `avisado_em` (coluna nova, migração 0094) marca no banco o que já foi
+  // avisado; o aviso sobrevive entre rodadas do cron, e não depende do que
+  // cada lote trouxe.
+  //
+  // Durante o backlog (fila ainda não zerou) não avisa e não marca nada — as
+  // notas seguem gravadas e visíveis na tela, só pendentes de aviso. Quando a
+  // fila zera, busca TODAS as pendentes do grupo (de qualquer rodada
+  // anterior, não só desta) e tenta avisar de uma vez, numa mensagem só.
+  if (proximo.proximaConsultaEm !== null) {
+    try {
+      const pendentes = await db.select({
+        emitenteNome: nfeRecebidas.emitenteNome,
+        valor: nfeRecebidas.valor,
+        chave: nfeRecebidas.chave,
+      }).from(nfeRecebidas)
+        .where(and(
+          eq(nfeRecebidas.grupoId, grupoId),
+          isNull(nfeRecebidas.avisadoEm),
+          ne(nfeRecebidas.situacao, 'cancelada'),
+        ))
+
+      if (pendentes.length > 0) {
+        const resultado = await avisarNotasNovas(grupo.nome, pendentes.map(d => ({
+          emitenteNome: d.emitenteNome,
+          valor: d.valor ?? '0',
+          chave: d.chave,
+        })))
+
+        // Só marca como avisada se o WhatsApp confirmou o envio (`'enviado'`).
+        // `'sem_numero'` ou `'erro'` não marcam nada: a nota continua
+        // pendente e entra de novo na busca da próxima rodada — não pode
+        // sumir da fila de pendências sem ter avisado ninguém de verdade.
+        if (resultado === 'enviado') {
+          await db.update(nfeRecebidas)
+            .set({ avisadoEm: agora })
+            .where(and(
+              eq(nfeRecebidas.grupoId, grupoId),
+              inArray(nfeRecebidas.chave, pendentes.map(p => p.chave)),
+            ))
+        }
+      }
+    } catch {
+      // Aviso é efeito colateral: falha aqui (SELECT, envio, UPDATE) não pode
+      // subir e derrubar a sincronização. Como nada foi marcado, a próxima
+      // rodada tenta de novo — as pendentes continuam no banco.
+    }
   }
 
   return { status: 'ok', documentos: retorno.documentos.length, cStat: retorno.cStat }
