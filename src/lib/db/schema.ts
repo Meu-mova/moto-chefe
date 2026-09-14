@@ -1365,3 +1365,62 @@ export const beneficiariosDespesa = pgTable('beneficiarios_despesa', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 }, t => [unique('beneficiarios_despesa_unico_drizzle').on(t.grupoId, t.nome)])
+
+
+// ─── certificados_digitais ───────────────────────────────────────────────────
+// Um certificado A1 por grupo. `arquivo` e `senha` são o pacote cifrado de
+// src/lib/cripto.ts — nunca o conteúdo cru.
+export const certificadosDigitais = pgTable('certificados_digitais', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().unique().references(() => grupos.id, { onDelete: 'cascade' }),
+  arquivo:   text('arquivo').notNull(),
+  senha:     text('senha').notNull(),
+  cnpj:      text('cnpj').notNull(),
+  titular:   text('titular').notNull(),
+  validoAte: timestamp('valido_ate', { withTimezone: true }).notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+
+// ─── nfe_recebidas / nfe_dfe_sync ────────────────────────────────────────────
+// O que a SEFAZ entregou (nfe_recebidas), e de onde continuar lendo (nfe_dfe_sync).
+// `ultNsu` é o ponto de leitura na fila da SEFAZ: pular NSU perde a nota para
+// sempre (a SEFAZ não reoferece o mesmo NSU). `proximaConsultaEm` é a trava que
+// impede consumo indevido — consultar antes da hora depois de um retorno vazio
+// faz a SEFAZ bloquear o CNPJ da empresa.
+//
+// UNIQUE (grupoId, chave) em nfe_recebidas é o que torna inofensivo reprocessar
+// um lote: reinserir a mesma chave não duplica.
+//
+// "Já lançada no MOVA" não é coluna aqui, é junção com motos.nota_fiscal_entrada
+// na hora de montar a tela — como campo, viraria uma segunda verdade que
+// envelhece sozinha quando a moto é registrada depois.
+export const nfeRecebidas = pgTable('nfe_recebidas', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  grupoId:       uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  chave:         text('chave').notNull(),
+  nsu:           text('nsu').notNull(),
+  emitenteCnpj:  text('emitente_cnpj').notNull(),
+  emitenteNome:  text('emitente_nome').notNull(),
+  valor:         numeric('valor', { precision: 12, scale: 2 }),
+  dataEmissao:   timestamp('data_emissao', { withTimezone: true }).notNull(),
+  situacao:      text('situacao').notNull().default('resumo'),
+  manifestadoEm: timestamp('manifestado_em', { withTimezone: true }),
+  xml:           text('xml'),
+  criadoEm:      timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Quando o aviso de WhatsApp saiu para esta nota. Nulo = ainda não avisada
+  // (inclui nota gravada durante o backlog do cron, que fica pendente até a
+  // fila zerar) — precisa sobreviver entre rodadas, por isso é coluna e não
+  // depende do estado momentâneo da fila.
+  avisadoEm:     timestamp('avisado_em', { withTimezone: true }),
+}, t => [unique('nfe_recebidas_grupo_id_chave_key').on(t.grupoId, t.chave)])
+
+export const nfeDfeSync = pgTable('nfe_dfe_sync', {
+  grupoId:           uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
+  ultNsu:            text('ult_nsu').notNull().default('0'),
+  maxNsu:            text('max_nsu').notNull().default('0'),
+  proximaConsultaEm: timestamp('proxima_consulta_em', { withTimezone: true }),
+  ultimoCstat:       integer('ultimo_cstat'),
+  ultimoErro:        text('ultimo_erro'),
+  atualizadoEm:      timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})

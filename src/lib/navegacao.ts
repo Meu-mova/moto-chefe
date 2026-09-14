@@ -86,6 +86,7 @@ export const ITENS: ItemNav[] = [
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
   { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: [],        regraPropria: true },
+  { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
   { id: 'precificacao',   href: '/precificacao',   label: 'Precificação',      icon: Tag,           categoria: 'estoque',      papeis: ADMINS },
   { id: 'compras',        href: '/compras',        label: 'Compras',           icon: ShoppingBag,   categoria: 'estoque',      papeis: ADMINS },
@@ -125,6 +126,9 @@ export const ITENS: ItemNav[] = [
   { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', papeis: GESTORES },
   { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', papeis: ADMINS },
   { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS },
+  // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
+  // item de configuração comum — só admin_geral (SUPER) mexe nisso.
+  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'configuracao', papeis: SUPER },
 ]
 
 // Cópia deliberada de temPapel em @/lib/auth:68 — este arquivo não pode

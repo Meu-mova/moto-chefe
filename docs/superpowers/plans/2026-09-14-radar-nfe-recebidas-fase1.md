@@ -919,8 +919,13 @@ function lerDocumento(nsu: string, xml: string): DocumentoDfe | null {
     }
   }
 
-  // Nota completa: só chega depois de manifestação (fase 2), mas o parser já
-  // sabe ler — assim a fase 2 não mexe neste arquivo.
+  // Nota completa (procNFe/infNFe). A expectativa inicial era que isto só
+  // chegasse depois de manifestação (fase 2) — mas a consulta real de
+  // 14/09/2026 provou o contrário: os NSU 1086 e 1087 vieram como nota
+  // completa direto, sem manifestação nenhuma ter sido feita. Na prática a
+  // SEFAZ pode entregar o processo completo mesmo sem ciência do destinatário.
+  // O parser já lê os dois casos desde a fase 1, então isso não muda código —
+  // só a certeza de quando ele é exercitado.
   const nfe = achar(raiz, 'infNFe')
   if (nfe) {
     const emit = (nfe.emit ?? {}) as Record<string, unknown>
@@ -1809,6 +1814,12 @@ git commit -m "feat(radar-fiscal): aviso no WhatsApp quando chega nota nova"
 
 ## O que a fase 1 NÃO faz
 
-Não envia evento nenhum à SEFAZ, então **não baixa o XML completo**: a tela
-mostra os resumos. O XML e o `/entrada` automático são a fase 2, que começa com
-a manifestação **manual, por nota**, até uma nota real passar ponta a ponta.
+Não envia evento nenhum à SEFAZ — o MOVA nunca manifesta ciência. A premissa
+original era que isso também significava "não baixa o XML completo": a tela
+mostraria só resumos até a fase 2 manifestar. **Não foi bem assim**: a consulta
+real de 14/09/2026 trouxe nota completa (NSU 1086 e 1087) sem manifestação
+nenhuma — na prática a SEFAZ pode entregar o processo completo direto, e o
+parser (Task 5) já lê os dois casos desde a fase 1. O que continua sendo fase
+2 é o botão **"registrar no estoque"** ligado ao `/entrada` e o envio do
+evento de manifestação em si — não a leitura do XML completo, que já acontece
+quando a SEFAZ decide entregar assim.

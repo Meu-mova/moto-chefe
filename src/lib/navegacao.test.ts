@@ -27,7 +27,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo',
     'lojas', 'marketing', 'metas', 'modelos', 'montagens', 'ordens-servico',
-    'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar',
+    'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas', 'veiculos-historico',
   ].sort())
@@ -38,7 +38,7 @@ test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
     'agenda', 'atendimento', 'caixa', 'calendario', 'canais', 'clientes',
     'conciliacao', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas', 'meus-documentos',
     'montagens', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
-    'radar', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
+    'radar', 'radar-fiscal', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas',
   ].sort())
 })
