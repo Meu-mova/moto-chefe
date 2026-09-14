@@ -8,7 +8,7 @@
     },
     {
       "path": "/api/cron/nfe-dfe",
-      "schedule": "0 * * * *"
+      "schedule": "0 11 * * *"
     }
   ]
 }
