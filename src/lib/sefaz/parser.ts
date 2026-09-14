@@ -27,6 +27,16 @@ export type RespostaDistribuicao = {
   ultNSU: string
   maxNSU: string
   documentos: DocumentoDfe[]
+  /**
+   * Quantos `docZip` do lote NÃO viraram documento — XML ilegível/corrompido
+   * (catch do laço abaixo) ou schema que o parser não reconhece (ex.:
+   * `procEventoNFe`, um evento com o processo completo anexado — levaria um
+   * cancelamento junto). O NSU do lote avança de qualquer jeito e a SEFAZ não
+   * reoferece o mesmo NSU depois, então cada descarte é perda permanente:
+   * quem chama (sincronizar.ts) precisa saber que isso aconteceu para não
+   * ficar em silêncio sobre uma nota que sumiu.
+   */
+  descartados: number
 }
 
 const parser = new XMLParser({
@@ -85,8 +95,13 @@ function lerDocumento(nsu: string, xml: string): DocumentoDfe | null {
     }
   }
 
-  // Nota completa: só chega depois de manifestação (fase 2), mas o parser já
-  // sabe ler — assim a fase 2 não mexe neste arquivo.
+  // Nota completa (procNFe/infNFe). A expectativa inicial era que isto só
+  // chegasse depois de manifestação (fase 2) — mas a consulta real de
+  // 14/09/2026 provou o contrário: os NSU 1086 e 1087 vieram como nota
+  // completa direto, sem manifestação nenhuma ter sido feita. Na prática a
+  // SEFAZ pode entregar o processo completo mesmo sem ciência do destinatário.
+  // O parser já lê os dois casos desde a fase 1, então isso não muda código —
+  // só a certeza de quando ele é exercitado.
   const nfe = achar(raiz, 'infNFe')
   if (nfe) {
     const emit = (nfe.emit ?? {}) as Record<string, unknown>
@@ -117,14 +132,23 @@ export function lerRetorno(soapXml: string, descompactar: (b64: string) => strin
   const zips = lote ? lista(lote.docZip as Record<string, unknown> | Record<string, unknown>[]) : []
 
   const documentos: DocumentoDfe[] = []
+  let descartados = 0
   for (const zip of zips) {
     const nsu = texto(zip['@NSU'])
     try {
       const doc = lerDocumento(nsu, descompactar(texto(zip['#text'])))
-      if (doc) documentos.push(doc)
+      if (doc) {
+        documentos.push(doc)
+      } else {
+        // Descompactou e fez parse, mas o schema não é resNFe/resEvento/
+        // infNFe (ex.: procEventoNFe) — descartado em silêncio, e o NSU já
+        // avançou. Conta pra `ultimo_erro` poder avisar.
+        descartados++
+      }
     } catch {
       // Um documento ilegível não pode derrubar o lote: o NSU avança de
       // qualquer jeito e o que ficar de fora não volta a ser oferecido.
+      descartados++
       continue
     }
   }
@@ -135,5 +159,6 @@ export function lerRetorno(soapXml: string, descompactar: (b64: string) => strin
     ultNSU: texto(ret.ultNSU),
     maxNSU: texto(ret.maxNSU),
     documentos,
+    descartados,
   }
 }

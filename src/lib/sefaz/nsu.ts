@@ -17,6 +17,7 @@ export const CSTAT_CONSUMO_INDEVIDO = 656
 
 export type RetornoSefaz = { cStat: number; ultNSU: string; maxNSU: string }
 export type EstadoSync = { ultNSU: string; maxNSU: string; proximaConsultaEm: Date | null }
+export type EstadoAtual = { ultNSU: string; maxNSU: string }
 
 /** `proximaConsultaEm` nulo = nunca consultou, ou ainda tem fila. */
 export function podeConsultar(estado: { proximaConsultaEm: Date | null }, agora: Date): boolean {
@@ -40,7 +41,34 @@ function nsuValido(nsu: string): number | null {
   return Number.isFinite(valor) ? valor : null
 }
 
-export function proximoEstado(retorno: RetornoSefaz, agora: Date): EstadoSync {
+/**
+ * Normaliza o NSU que a SEFAZ devolveu, usando o que já está guardado como
+ * fallback nos dois sentidos em que o valor bruto não presta:
+ *
+ * 1. "Não sei" (ausente, lixo, só espaço) — `nsuValido` devolve `null`.
+ * 2. Retrocesso — numericamente MENOR que o guardado. Isso não devia
+ *    acontecer num retorno são da SEFAZ, mas nada nesta função pode confiar
+ *    cegamente na rede: um retorno estranho não pode fazer a leitura "voltar
+ *    no tempo" e reabrir NSU que já foi processado.
+ *
+ * Nos dois casos o normalizado é o GUARDADO, nunca o bruto. Antes, essa
+ * decisão vivia em `sincronizar.ts` como `proximo.ultNSU || estado?.ultNsu ||
+ * '0'` — e `||` deixa passar `' '` (truthy em JS), que virava `'0'` no
+ * envelope da próxima consulta e reabria a fila inteira. Foi exatamente essa
+ * brecha que causou o cStat 656 de hoje. Devolver o valor já normalizado
+ * daqui elimina a chance de o chamador repetir esse erro.
+ */
+function nsuNormalizado(bruto: string, guardado: string): string {
+  const brutoNum = nsuValido(bruto)
+  if (brutoNum === null) return guardado
+
+  const guardadoNum = nsuValido(guardado)
+  if (guardadoNum !== null && brutoNum < guardadoNum) return guardado
+
+  return bruto.trim()
+}
+
+export function proximoEstado(retorno: RetornoSefaz, agora: Date, estadoAtual: EstadoAtual): EstadoSync {
   const ultNSU = nsuValido(retorno.ultNSU)
   const maxNSU = nsuValido(retorno.maxNSU)
 
@@ -56,8 +84,14 @@ export function proximoEstado(retorno: RetornoSefaz, agora: Date): EstadoSync {
     ultNSU < maxNSU
 
   return {
-    ultNSU: retorno.ultNSU,
-    maxNSU: retorno.maxNSU,
+    ultNSU: nsuNormalizado(retorno.ultNSU, estadoAtual.ultNSU),
+    maxNSU: nsuNormalizado(retorno.maxNSU, estadoAtual.maxNSU),
+    // Enquanto ultNSU < maxNSU ainda tem documento na fila: devolve nulo pra
+    // quem chama poder emendar a próxima consulta na mesma execução, sem
+    // esperar a hora — é o laço de drenagem de `sincronizarGrupo`
+    // (sincronizar.ts) que faz essa emenda de verdade, consultando de novo
+    // até a fila zerar ou bater no teto de iterações/tempo. Aqui só mora a
+    // decisão pura de que emendar é permitido.
     proximaConsultaEm: aindaTemFila ? null : new Date(agora.getTime() + ESPERA_APOS_VAZIO_MS),
   }
 }

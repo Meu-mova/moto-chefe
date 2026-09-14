@@ -9,6 +9,7 @@
 import https from 'node:https'
 import { gunzipSync } from 'node:zlib'
 import { lerRetorno, type RespostaDistribuicao } from './parser'
+import { somenteDigitos } from '@/lib/grupo-cnpj'
 
 const HOST = 'www1.nfe.fazenda.gov.br'
 const CAMINHO = '/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx'
@@ -16,8 +17,37 @@ const ACAO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDist
 
 /** 1 = produção. Homologação não distribui documento real, então não é opção. */
 const TP_AMB = '1'
-/** UF do autor da consulta. 31 = Minas Gerais — os dois grupos são de MG. */
-const C_UF_AUTOR = '31'
+
+/**
+ * UF do autor da consulta (`cUFAutor`), por CNPJ do grupo — mesmo padrão dos
+ * mapas por CNPJ que já existem em `src/lib/mcpai.ts`
+ * (`BANCOS_DE_DESPESA_POR_CNPJ` e afins). Chave em dígitos, como o `cnpj` que
+ * chega aqui de `carregarCertificado` (lido do CN do próprio certificado A1,
+ * nunca com pontuação).
+ *
+ * Antes disto era um `const C_UF_AUTOR = '31'` fixo, escrito quando só
+ * existiam grupos de Minas Gerais. O banco hoje tem TRÊS grupos ativos (Sul
+ * de Minas, BH, Vale) — cravar MG pra todos manda a UF errada pra SEFAZ pro
+ * grupo que não for de lá, e a resposta é uma rejeição genérica que não diz
+ * o que é. Por isso `ufAutor` abaixo FALHA EXPLÍCITO pra CNPJ não cadastrado,
+ * em vez de cair num padrão.
+ */
+const UF_AUTOR_POR_CNPJ: Record<string, string> = {
+  '57113017000172': '31', // Sul de Minas
+  '63009605000163': '31', // BH
+}
+
+function ufAutor(cnpjDigitos: string): string {
+  const uf = UF_AUTOR_POR_CNPJ[cnpjDigitos]
+  if (!uf) {
+    throw new Error(
+      `Falta cadastrar a UF do autor (cUFAutor) para o CNPJ ${cnpjDigitos} em UF_AUTOR_POR_CNPJ ` +
+      `(src/lib/sefaz/distribuicao.ts) — sem isso a consulta nem deveria sair pra SEFAZ, que devolveria ` +
+      `rejeição genérica em vez de dizer que é a UF.`,
+    )
+  }
+  return uf
+}
 
 function envelope(cnpj: string, ultNSU: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -27,7 +57,7 @@ function envelope(cnpj: string, ultNSU: string): string {
    <nfeDadosMsg>
     <distDFeInt versao="1.01" xmlns="http://www.portalfiscal.inf.br/nfe">
      <tpAmb>${TP_AMB}</tpAmb>
-     <cUFAutor>${C_UF_AUTOR}</cUFAutor>
+     <cUFAutor>${ufAutor(cnpj)}</cUFAutor>
      <CNPJ>${cnpj}</CNPJ>
      <distNSU><ultNSU>${ultNSU.padStart(15, '0')}</ultNSU></distNSU>
     </distDFeInt>
@@ -46,7 +76,7 @@ export async function consultarDistribuicao(opts: {
   // Os dois campos interpolados no XML levam a mesma defesa: o ultNSU normalmente
   // já vem só com dígitos (do nsu.ts, que só repassa o que a própria SEFAZ
   // devolveu, ou o literal '0'), mas o tipo é `string` solto e não garante isso.
-  const corpo = envelope(opts.cnpj.replace(/\D/g, ''), opts.ultNSU.replace(/\D/g, '') || '0')
+  const corpo = envelope(somenteDigitos(opts.cnpj), opts.ultNSU.replace(/\D/g, '') || '0')
 
   const resposta = await new Promise<string>((resolve, reject) => {
     const req = https.request(
@@ -56,7 +86,13 @@ export async function consultarDistribuicao(opts: {
         method: 'POST',
         pfx: opts.pfx,
         passphrase: opts.senha,
-        timeout: 60_000,
+        // 30s, não 60s: a função da Vercel tem `maxDuration` de 60s (teto do
+        // plano Hobby — ver vercel.json/route.ts do cron). Um timeout de rede
+        // igual ao teto da função deixava zero folga pro `catch` de
+        // sincronizar.ts gravar `ultimo_erro` antes de a própria função ser
+        // morta — a falha acontecia, mas nada ficava registrado, e a tela
+        // continuava muda sobre o motivo.
+        timeout: 30_000,
         headers: {
           'Content-Type': `application/soap+xml; charset=utf-8; action="${ACAO}"`,
           'Content-Length': Buffer.byteLength(corpo),
@@ -82,7 +118,7 @@ export async function consultarDistribuicao(opts: {
         })
       },
     )
-    req.on('timeout', () => req.destroy(new Error('Timeout de 60s falando com a SEFAZ')))
+    req.on('timeout', () => req.destroy(new Error('Timeout de 30s falando com a SEFAZ')))
     req.on('error', reject)
     req.end(corpo)
   })

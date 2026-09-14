@@ -27,9 +27,12 @@ const EVENTO_CANCELAMENTO = `<resEvento versao="1.01" xmlns="http://www.portalfi
   <dhRecbto>2026-09-13T09:01:00-03:00</dhRecbto>
 </resEvento>`
 
-// Nota completa: só chega depois de manifestação (fase 2), mas o parser já
-// sabe ler. Mínimo necessário: @Id (prefixo "NFe" + 44 dígitos), ide/dhEmi,
-// emit/CNPJ, emit/xNome e total/ICMSTot/vNF.
+// Nota completa (procNFe/infNFe). A expectativa inicial era que isto só
+// chegasse depois de manifestação (fase 2) — a consulta real de 14/09/2026
+// provou o contrário: NSU 1086/1087 vieram completos sem manifestação
+// nenhuma. O parser lê os dois casos desde a fase 1. Mínimo necessário: @Id
+// (prefixo "NFe" + 44 dígitos), ide/dhEmi, emit/CNPJ, emit/xNome e
+// total/ICMSTot/vNF.
 const PROC_NFE = `<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
   <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
     <infNFe Id="NFe31260953780554000115550010000123451000123456" versao="4.00">
@@ -83,6 +86,7 @@ test('lê cStat, ultNSU e maxNSU do retorno', () => {
   assert.equal(r.cStat, 138)
   assert.equal(r.ultNSU, '000000000000117')
   assert.equal(r.maxNSU, '000000000000120')
+  assert.equal(r.descartados, 0)
 })
 
 test('resumo de NF-e vira documento com emitente, valor e data', () => {
@@ -132,15 +136,34 @@ test('lote vazio não quebra', () => {
   assert.equal(r.ultNSU, '000000000000117')
   assert.equal(r.maxNSU, '000000000000120')
   assert.deepEqual(r.documentos, [])
+  assert.equal(r.descartados, 0)
 })
 
 // Um documento ilegível no meio do lote não pode derrubar os outros: o NSU
-// avança de qualquer jeito e o que foi perdido não volta.
-test('documento ilegível é pulado, o resto do lote entra', () => {
+// avança de qualquer jeito e o que foi perdido não volta. `descartados` é o
+// que permite sincronizar.ts avisar em `ultimo_erro` que uma nota se perdeu,
+// em vez de ficar em silêncio.
+test('documento ilegível é pulado, o resto do lote entra, e conta em descartados', () => {
   const r = lerRetorno(envelope([
     { nsu: '000000000000001', schema: 'resNFe_v1.01.xsd', conteudo: '<lixo' },
     { nsu: '000000000000002', schema: 'resNFe_v1.01.xsd', conteudo: RESUMO },
   ]), semGzip)
   assert.equal(r.documentos.length, 1)
   assert.equal(r.documentos[0].nsu, '000000000000002')
+  assert.equal(r.descartados, 1)
+})
+
+// Schema que o parser não reconhece (nem resNFe, nem resEvento, nem infNFe) —
+// por exemplo um procEventoNFe, evento com o processo completo anexado, que
+// levaria um cancelamento junto. `lerDocumento` devolve `null` sem lançar, e
+// isso também tem que contar como descarte: sem isso o NSU avança e ninguém
+// fica sabendo que um documento foi perdido.
+test('schema desconhecido conta como descartado, sem derrubar o lote', () => {
+  const r = lerRetorno(envelope([
+    { nsu: '000000000000001', schema: 'procEventoNFe_v1.00.xsd', conteudo: '<procEventoNFe><algoQueNaoLemos/></procEventoNFe>' },
+    { nsu: '000000000000002', schema: 'resNFe_v1.01.xsd', conteudo: RESUMO },
+  ]), semGzip)
+  assert.equal(r.documentos.length, 1)
+  assert.equal(r.documentos[0].nsu, '000000000000002')
+  assert.equal(r.descartados, 1)
 })
