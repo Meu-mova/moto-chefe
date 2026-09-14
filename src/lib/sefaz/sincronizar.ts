@@ -1,11 +1,10 @@
 // src/lib/sefaz/sincronizar.ts
 import { db, execRows } from '@/lib/db'
 import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
 import { proximoEstado, deveContinuarDrenando, proximaConsultaEmDrenagem, TETO_ITERACOES_DRENAGEM } from './nsu'
-import { avisarNotasNovas } from '@/lib/whatsapp/nfe-recebida'
 
 /** 110111 = Cancelamento de NF-e. Vem mesmo sem manifestação. */
 const EVENTO_CANCELAMENTO = '110111'
@@ -72,7 +71,6 @@ export async function sincronizarGrupo(
   let totalDocumentos = 0
   let totalDescartados = 0
   let ultimoCstat: number | undefined
-  let filaZerou = false
 
   try {
     // C3(a): `carregarCertificado` decifra com CERT_MASTER_KEY. Se a chave
@@ -270,15 +268,7 @@ export async function sincronizarGrupo(
       totalDocumentos += retorno.documentos.length
       ultimoCstat = retorno.cStat
 
-      if (!decisao.continuar) {
-        // Só marca `filaZerou` (dispara o aviso de WhatsApp mais abaixo)
-        // quando o motivo de verdade foi a fila esvaziar — parar por
-        // sem_progresso/teto/tempo não é "terminou", é "ficou pra próxima
-        // execução" (o lease curto gravado acima garante que ela pode
-        // reivindicar a janela de novo em poucos minutos, não em 1 hora).
-        filaZerou = decisao.motivo === 'fila_zerou'
-        break
-      }
+      if (!decisao.continuar) break
       // Senão, segue emendando: a fila ainda tem documento, o NSU avançou, e
       // teto/orçamento não foram atingidos.
     }
@@ -301,62 +291,6 @@ export async function sincronizarGrupo(
       .values({ grupoId, ultimoErro: erro, atualizadoEm: agora })
       .onConflictDoUpdate({ target: nfeDfeSync.grupoId, set: { ultimoErro: erro, atualizadoEm: agora } })
     return { status: 'erro', documentos: totalDocumentos, erro }
-  }
-
-  // Fora do try/catch de propósito: WhatsApp fora do ar não pode virar
-  // status 'erro' de uma sincronização que, na verdade, deu certo.
-  //
-  // O gatilho é a fila ter zerado NESTA execução (`filaZerou`) — não "este
-  // lote trouxe nota nova" (isso já foi tentado e deu errado): combinado com
-  // "só avisa quando a fila zerar", a nota gravada numa rodada de backlog
-  // vira "conhecida" na mesma rodada e nunca mais aparece como nova depois —
-  // ela nunca seria avisada. Em vez disso, `avisado_em` marca no banco o que
-  // já foi avisado; o aviso sobrevive entre execuções, e não depende do que
-  // cada lote trouxe.
-  //
-  // Durante o backlog (fila ainda não zerou, ou o laço saiu por teto/tempo
-  // sem zerar) não avisa e não marca nada — as notas seguem gravadas e
-  // visíveis na tela, só pendentes de aviso. Quando a fila zera, busca TODAS
-  // as pendentes do grupo (de qualquer execução anterior, não só desta) e
-  // tenta avisar de uma vez, numa mensagem só.
-  if (filaZerou) {
-    try {
-      const pendentes = await db.select({
-        emitenteNome: nfeRecebidas.emitenteNome,
-        valor: nfeRecebidas.valor,
-        chave: nfeRecebidas.chave,
-      }).from(nfeRecebidas)
-        .where(and(
-          eq(nfeRecebidas.grupoId, grupoId),
-          isNull(nfeRecebidas.avisadoEm),
-          ne(nfeRecebidas.situacao, 'cancelada'),
-        ))
-
-      if (pendentes.length > 0) {
-        const resultado = await avisarNotasNovas(grupo.nome, pendentes.map(d => ({
-          emitenteNome: d.emitenteNome,
-          valor: d.valor ?? '0',
-          chave: d.chave,
-        })))
-
-        // Só marca como avisada se o WhatsApp confirmou o envio (`'enviado'`).
-        // `'sem_numero'` ou `'erro'` não marcam nada: a nota continua
-        // pendente e entra de novo na busca da próxima execução — não pode
-        // sumir da fila de pendências sem ter avisado ninguém de verdade.
-        if (resultado === 'enviado') {
-          await db.update(nfeRecebidas)
-            .set({ avisadoEm: agora })
-            .where(and(
-              eq(nfeRecebidas.grupoId, grupoId),
-              inArray(nfeRecebidas.chave, pendentes.map(p => p.chave)),
-            ))
-        }
-      }
-    } catch {
-      // Aviso é efeito colateral: falha aqui (SELECT, envio, UPDATE) não pode
-      // subir e derrubar a sincronização. Como nada foi marcado, a próxima
-      // execução tenta de novo — as pendentes continuam no banco.
-    }
   }
 
   return { status: 'ok', documentos: totalDocumentos, cStat: ultimoCstat }

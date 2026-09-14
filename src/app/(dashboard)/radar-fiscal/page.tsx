@@ -11,6 +11,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Radar } from 'lucide-react'
+import { RadarFiltros } from './components/radar-filtros'
+import { NotaDownloads } from './components/nota-downloads'
 
 // cStat "bom" é só um destes dois: 138 (documento localizado) ou 137 (nenhum
 // documento — fila em dia). Qualquer outro (656 — consumo indevido, rejeição,
@@ -30,13 +32,50 @@ const HORAS_PARA_CONSIDERAR_PARADA = 30
 const brl = (v: string | null) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export default async function RadarFiscalPage() {
+type SearchParams = { de?: string; ate?: string; emitente?: string; busca?: string; pendentes?: string }
+
+export default async function RadarFiscalPage({
+  searchParams,
+}: { searchParams: Promise<SearchParams> }) {
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/radar-fiscal')) redirect('/dashboard')
 
+  const params = await searchParams
+  // AAAA-MM-DD ou nada — formato solto (não validado a fundo) só vira filtro
+  // quando os dois lados do período vêm preenchidos; qualquer coisa fora
+  // desse formato (ou dentro do formato mas inexistente no calendário, tipo
+  // "9999-99-99" ou "2026-02-30") cai no ::timestamptz do banco e quebraria
+  // a página inteira — Server Component sem try/catch. Regra da casa é
+  // avisar, não travar: data ruim ignora o filtro (some do período aplicado,
+  // não derruba a tela) em vez de propagar o erro do Postgres. Uma URL colada
+  // à mão é o jeito real disso acontecer; o <input type="date"> não produz.
+  function dataValida(v?: string): v is string {
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
+    const [ano, mes, dia] = v.split('-').map(Number)
+    if (mes < 1 || mes > 12) return false
+    // Dia 0 do mês seguinte = último dia do mês corrente (em UTC, sem fuso
+    // interferindo) — cobre fevereiro e ano bissexto sem tabela de dias fixa.
+    const diasNoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+    return dia >= 1 && dia <= diasNoMes
+  }
+  const deBruta = params.de
+  const ateBruta = params.ate
+  const de = dataValida(deBruta) ? deBruta : ''
+  const ate = dataValida(ateBruta) ? ateBruta : ''
+  const periodoInvalido = (deBruta !== undefined && !dataValida(deBruta)) || (ateBruta !== undefined && !dataValida(ateBruta))
+  const emitente = params.emitente ?? ''
+  const busca = params.busca ?? ''
+  const soNaoLancadas = params.pendentes === '1'
+
   const grupo = await getGrupoAtivo(usuario)
   const [notas, [sync]] = await Promise.all([
-    listarNotasRecebidas(grupo.id),
+    listarNotasRecebidas(grupo.id, {
+      de: de || undefined,
+      ate: ate || undefined,
+      emitente: emitente || undefined,
+      busca: busca || undefined,
+      soNaoLancadas,
+    }),
     db.select().from(nfeDfeSync).where(eq(nfeDfeSync.grupoId, grupo.id)).limit(1),
   ])
 
@@ -66,6 +105,15 @@ export default async function RadarFiscalPage() {
           dia e alcança os últimos 90 dias — nota mais antiga que isso a SEFAZ não distribui mais.
         </p>
       </div>
+
+      <RadarFiltros deInicial={de} ateInicial={ate} emitenteInicial={emitente} buscaInicial={busca} />
+
+      {periodoInvalido && (
+        <p className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <span>Período informado na URL é inválido — ignorado. Mostrando o período padrão.</span>
+        </p>
+      )}
 
       {sync?.ultimoErro && (
         <p className="flex gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
@@ -119,8 +167,9 @@ export default async function RadarFiscalPage() {
                 <TableHead className="pl-4">Emissão</TableHead>
                 <TableHead>Emitente</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead>Chave</TableHead>
+                <TableHead>Número</TableHead>
                 <TableHead className="pr-4">Situação</TableHead>
+                <TableHead className="pr-4">Baixar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -134,7 +183,13 @@ export default async function RadarFiscalPage() {
                     <p className="text-xs text-slate-400">{n.emitenteCnpj}</p>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{brl(n.valor)}</TableCell>
-                  <TableCell className="font-mono text-[11px] text-slate-400">{n.chave}</TableCell>
+                  {/* A chave de 44 dígitos não diz nada pra quem olha — o número é o que
+                      aparece no documento, no e-mail do fornecedor e no cadastro da moto.
+                      A chave continua acessível no title (mouse por cima), pra consultar
+                      no portal da SEFAZ ou conferir. */}
+                  <TableCell className="font-mono text-xs text-slate-500" title={n.chave}>
+                    {n.numeroNota}
+                  </TableCell>
                   <TableCell className="pr-4">
                     {n.situacao === 'cancelada'
                       ? <Badge variant="secondary" className="text-xs">Cancelada</Badge>
@@ -142,11 +197,14 @@ export default async function RadarFiscalPage() {
                         ? <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">Já lançada</Badge>
                         : <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 bg-amber-50">Não lançada</Badge>}
                   </TableCell>
+                  <TableCell className="pr-4">
+                    <NotaDownloads chave={n.chave} temXml={n.temXml} />
+                  </TableCell>
                 </TableRow>
               ))}
               {notas.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-slate-400 py-12">
+                  <TableCell colSpan={6} className="text-center text-slate-400 py-12">
                     <Radar size={32} className="mx-auto mb-2 opacity-20" />
                     Nenhuma nota recebida no período
                   </TableCell>
