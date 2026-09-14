@@ -43,7 +43,10 @@ export async function consultarDistribuicao(opts: {
   cnpj: string
   ultNSU: string
 }): Promise<RespostaDistribuicao> {
-  const corpo = envelope(opts.cnpj.replace(/\D/g, ''), opts.ultNSU || '0')
+  // Os dois campos interpolados no XML levam a mesma defesa: o ultNSU normalmente
+  // já vem só com dígitos (do nsu.ts, que só repassa o que a própria SEFAZ
+  // devolveu, ou o literal '0'), mas o tipo é `string` solto e não garante isso.
+  const corpo = envelope(opts.cnpj.replace(/\D/g, ''), opts.ultNSU.replace(/\D/g, '') || '0')
 
   const resposta = await new Promise<string>((resolve, reject) => {
     const req = https.request(
@@ -61,6 +64,11 @@ export async function consultarDistribuicao(opts: {
       },
       res => {
         const partes: Buffer[] = []
+        // O `req.on('error', ...)` lá embaixo cobre falha ao abrir/manter a
+        // conexão, mas não uma queda no MEIO do corpo da resposta — isso chega
+        // como erro no `res` (IncomingMessage), que sem listener próprio vira
+        // exceção não tratada e derruba o processo em vez de rejeitar a Promise.
+        res.on('error', reject)
         res.on('data', p => partes.push(p))
         res.on('end', () => {
           const texto = Buffer.concat(partes).toString('utf8')
