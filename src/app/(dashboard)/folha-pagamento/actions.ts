@@ -287,7 +287,7 @@ export async function excluirRegraComissaoAction(id: string) {
   revalidatePath('/folha-pagamento')
 }
 
-async function regraDoGrupo(usuario: { id: string; papel: string; lojaId: string | null }, id: string) {
+async function regraDoGrupo(usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null }, id: string) {
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const [regra] = await db
     .select({

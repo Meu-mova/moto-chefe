@@ -66,3 +66,30 @@ export function podeVerGrupo(
   if (grupoDaPropriaLoja && grupoId === grupoDaPropriaLoja) return true
   return (usuario.gruposAcesso ?? []).includes(grupoId)
 }
+
+// ─── Escolha do grupo padrão (fallback de getGrupoAtivo) ──────────────────────
+// Usada quando o cookie `grupoAtivo` não serve (ausente, de um grupo
+// inexistente/inativo, ou de um grupo sem posse): getGrupoAtivo precisa
+// escolher UM grupo sozinho para a página não quebrar.
+//
+// FALHA FECHADO de propósito: recebe só os grupos já filtrados por
+// podeVerGrupo/gruposVisiveis (a lista PERMITIDA), nunca a lista de todos os
+// grupos ativos. Se vier vazia — usuário sem loja e sem grupos_acesso, que
+// existe neste banco (admin_socio sem loja fixa) — lança erro em vez de
+// devolver um grupo à toa.
+//
+// Bug que isto corrige: a versão anterior, ao ver a lista de permitidos
+// vazia, caía de volta para TODOS os grupos ativos e devolvia o primeiro
+// (Sul de Minas por padrão) — servindo dado de um tenant que o usuário nunca
+// deveria ver, em silêncio, sem erro e sem aparecer no seletor.
+export function escolherGrupoPadrao<T extends { id: string }>(
+  permitidos: T[],
+  grupoPadraoId: string,
+): T {
+  if (!permitidos.length) {
+    throw new Error(
+      'Usuário sem nenhum grupo permitido (sem loja e sem grupos_acesso cadastrados) — não há grupo padrão a escolher.',
+    )
+  }
+  return permitidos.find(g => g.id === grupoPadraoId) ?? permitidos[0]
+}

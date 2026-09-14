@@ -10,7 +10,16 @@ import {
   socioAprovaNoGrupo,
   type UsuarioAprovador,
 } from '@/lib/aprovacao-permissao'
-import { gruposVisiveis, podeVerGrupo, type UsuarioAcessoGrupo } from '@/lib/acesso-grupo'
+import { escolherGrupoPadrao, gruposVisiveis, podeVerGrupo, type UsuarioAcessoGrupo } from '@/lib/acesso-grupo'
+
+// Usuário com o campo de acesso OBRIGATÓRIO (mesmo que null) — diferente de
+// UsuarioAcessoGrupo (regra pura em @/lib/acesso-grupo, campo opcional de
+// propósito, undefined vira lista vazia). Aqui, nas funções que orquestram
+// banco+cookie e são chamadas por página/action com o usuário logado inteiro,
+// a omissão do campo é sinal de bug: sem isto, um objeto montado à mão sem
+// grupos_acesso compilava calado e a página podia resolver um grupo diferente
+// do que o seletor mostra, sem erro nem log.
+type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | null }
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -86,13 +95,15 @@ export async function getGrupoAtivo(
       .orderBy(grupos.nome)
     if (!candidatos.length) throw new Error('Nenhum grupo ativo cadastrado')
 
+    // FALHA FECHADO: a escolha é feita só entre os PERMITIDOS, nunca entre
+    // "candidatos" (todos os grupos ativos). Existe admin_socio ativo, neste
+    // banco, com loja_id NULL — se essa pessoa também não tiver grupos_acesso
+    // cadastrado, ela não tem grupo nenhum para ver, e escolherGrupoPadrao
+    // lança erro em vez de inventar um (era isto que a versão anterior fazia,
+    // devolvendo o primeiro grupo de "candidatos" em silêncio — vazamento de
+    // tenant). Ver src/lib/acesso-grupo.ts.
     const permitidos = candidatos.filter(g => podeVerGrupo(usuario, grupoDaPropriaLoja, g.id))
-    // Sem loja e sem grupos_acesso não deveria acontecer para quem tem papel
-    // de admin (admin_geral vê tudo; admin_socio sempre tem loja fixa), mas
-    // se acontecer não é motivo para quebrar a página — cai no padrão
-    // histórico de antes desta trava existir.
-    const base = permitidos.length ? permitidos : candidatos
-    return base.find(g => g.id === GRUPO_PADRAO_ID) ?? base[0]
+    return escolherGrupoPadrao(permitidos, GRUPO_PADRAO_ID)
   }
 
   if (!usuario.lojaId) throw new Error('Usuário sem loja associada')
@@ -138,7 +149,7 @@ export async function listarGruposVisiveis(
 }
 
 export async function listarLojasDoGrupoAtivo(
-  usuario: { papel: string; lojaId: string | null },
+  usuario: { papel: string; lojaId: string | null } & UsuarioComAcessoObrigatorio,
   opts?: { somenteAtivas?: boolean },
 ): Promise<{ id: string; nome: string }[]> {
   const grupo = await getGrupoAtivo(usuario)
@@ -150,7 +161,9 @@ export async function listarLojasDoGrupoAtivo(
     .orderBy(lojas.nome)
 }
 
-export async function listarLojaIdsDoGrupoAtivo(usuario: { papel: string; lojaId: string | null }): Promise<string[]> {
+export async function listarLojaIdsDoGrupoAtivo(
+  usuario: { papel: string; lojaId: string | null } & UsuarioComAcessoObrigatorio,
+): Promise<string[]> {
   const grupo = await getGrupoAtivo(usuario)
   const rows = await db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupo.id))
   return rows.map(r => r.id)

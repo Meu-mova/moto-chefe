@@ -78,7 +78,7 @@ function parseValor(v: string) {
   return v
 }
 
-async function lojaIdValidaNoGrupo(usuario: { papel: string; lojaId: string | null }, lojaId: string | null) {
+async function lojaIdValidaNoGrupo(usuario: { papel: string; lojaId: string | null; gruposAcesso: string[] | null }, lojaId: string | null) {
   if (!lojaId) return null
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   return lojaIdsGrupo.includes(lojaId) ? lojaId : null

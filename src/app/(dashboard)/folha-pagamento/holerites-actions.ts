@@ -35,7 +35,7 @@ function storageAdmin() {
 /** Confere que o funcionário é do grupo ativo. Sem isso, um id de outro grupo na
  *  requisição penduraria o holerite na pessoa errada. */
 async function funcionarioDoGrupo(
-  usuario: { id: string; papel: string; lojaId: string | null },
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null },
   usuarioId: string,
 ) {
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
