@@ -30,6 +30,19 @@ test('sem nota nova, não monta mensagem', () => {
   assert.equal(montarAvisoNfe('Sul de Minas', []), '')
 })
 
+// I3: o radar não filtra por tipo de emitente de propósito — decisão de
+// deixar passar qualquer nota, porque o valor está em pegar a que ninguém
+// esperava. O texto tem que deixar isso claro, senão "chegou 1 nota nova"
+// lido rápido no WhatsApp sugere compra de moto — e a maior parte das notas
+// reais é conta de luz, telefone, fornecedor.
+test('deixa claro que é qualquer nota contra o CNPJ, não só compra de moto', () => {
+  const texto = montarAvisoNfe('Sul de Minas', [
+    { emitenteNome: 'CEMIG DISTRIBUICAO', valor: '450.00', chave: 'a'.repeat(44) },
+  ])
+  assert.match(texto, /não só moto/i)
+  assert.match(texto, /energia/i)
+})
+
 test('mesma chave duas vezes no lote não soma o valor em dobro (resumo + completa no mesmo lote)', () => {
   const chave = 'a'.repeat(44)
   const texto = montarAvisoNfe('Sul de Minas', [

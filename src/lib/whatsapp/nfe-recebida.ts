@@ -27,9 +27,15 @@ export function montarAvisoNfe(grupo: string, notas: NotaParaAviso[]): string {
   const unicas = [...porChave.values()]
 
   const total = unicas.reduce((s, n) => s + Number(n.valor || 0), 0)
+  // Decisão: o radar NÃO filtra por tipo de emitente — o valor dele é
+  // justamente pegar a nota que ninguém esperava. Mas isso só funciona se o
+  // texto deixar claro que é QUALQUER nota emitida contra o CNPJ do grupo
+  // (energia, telefone, fornecedor, fábrica — tudo passa pela Distribuição
+  // DF-e), não só compra de moto. Sem isso, "chegou 1 nota nova" lido rápido
+  // no WhatsApp sugere moto — e a maioria das notas reais é conta de luz.
   const cabecalho = unicas.length === 1
-    ? `MOVA INFORMA: chegou 1 nota nova contra o CNPJ de ${grupo}.`
-    : `MOVA INFORMA: chegaram ${unicas.length} notas novas contra o CNPJ de ${grupo}, somando ${brl(String(total))}.`
+    ? `MOVA INFORMA: chegou 1 nota fiscal nova contra o CNPJ de ${grupo} (qualquer emissor: energia, telefone, fornecedor, fábrica — não só moto).`
+    : `MOVA INFORMA: chegaram ${unicas.length} notas fiscais novas contra o CNPJ de ${grupo} (qualquer emissor: energia, telefone, fornecedor, fábrica — não só moto), somando ${brl(String(total))}.`
 
   // A partir do limite, o cabeçalho acima (que já traz quantidade e total) é
   // o resumo inteiro — não lista nota a nota. Abaixo do limite, lista.
