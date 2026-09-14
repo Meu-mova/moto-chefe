@@ -1809,6 +1809,12 @@ git commit -m "feat(radar-fiscal): aviso no WhatsApp quando chega nota nova"
 
 ## O que a fase 1 NÃO faz
 
-Não envia evento nenhum à SEFAZ, então **não baixa o XML completo**: a tela
-mostra os resumos. O XML e o `/entrada` automático são a fase 2, que começa com
-a manifestação **manual, por nota**, até uma nota real passar ponta a ponta.
+Não envia evento nenhum à SEFAZ — o MOVA nunca manifesta ciência. A premissa
+original era que isso também significava "não baixa o XML completo": a tela
+mostraria só resumos até a fase 2 manifestar. **Não foi bem assim**: a consulta
+real de 14/09/2026 trouxe nota completa (NSU 1086 e 1087) sem manifestação
+nenhuma — na prática a SEFAZ pode entregar o processo completo direto, e o
+parser (Task 5) já lê os dois casos desde a fase 1. O que continua sendo fase
+2 é o botão **"registrar no estoque"** ligado ao `/entrada` e o envio do
+evento de manifestação em si — não a leitura do XML completo, que já acontece
+quando a SEFAZ decide entregar assim.
