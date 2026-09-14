@@ -24,12 +24,33 @@ export function podeConsultar(estado: { proximaConsultaEm: Date | null }, agora:
   return agora.getTime() >= estado.proximaConsultaEm.getTime()
 }
 
-/** NSU vem zero-padded em 15 dígitos; comparar como número evita "9" > "10". */
-const n = (nsu: string) => Number(nsu || 0)
+/**
+ * Comparar como número (em vez de string) é o que protege contra NSU sem
+ * zero-padding ou lixo do parser — se algum dia o NSU chegar sem os zeros à
+ * esquerda, "9" > "10" como string mas 9 < 10 como número. Devolve `null`
+ * quando o valor está ausente ou não é numérico, para o chamador poder
+ * distinguir "não sei" de "zero" e nunca tratar um como o outro.
+ */
+function nsuValido(nsu: string): number | null {
+  if (!nsu) return null
+  const valor = Number(nsu)
+  return Number.isFinite(valor) ? valor : null
+}
 
 export function proximoEstado(retorno: RetornoSefaz, agora: Date): EstadoSync {
+  const ultNSU = nsuValido(retorno.ultNSU)
+  const maxNSU = nsuValido(retorno.maxNSU)
+
+  // Falha fechado: se ultNSU ou maxNSU vier ausente/não numérico (tag
+  // faltando, namespace mudou no parser), NÃO dá pra afirmar que ainda tem
+  // fila. Tratar ausência como zero liberaria consulta imediata por engano
+  // — exatamente o caminho que arrisca bloqueio do CNPJ. Sem certeza,
+  // espera a 1 hora, como se fosse retorno vazio.
   const aindaTemFila =
-    retorno.cStat === CSTAT_DOCUMENTO_LOCALIZADO && n(retorno.ultNSU) < n(retorno.maxNSU)
+    retorno.cStat === CSTAT_DOCUMENTO_LOCALIZADO &&
+    ultNSU !== null &&
+    maxNSU !== null &&
+    ultNSU < maxNSU
 
   return {
     ultNSU: retorno.ultNSU,

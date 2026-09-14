@@ -34,6 +34,30 @@ test('consumo indevido (656) também segura por 1 hora e preserva o NSU', () => 
   assert.equal(estado.ultNSU, '', 'não inventa NSU quando a SEFAZ não devolveu')
 })
 
+// Falha fechado: NSU ausente/não numérico nunca pode virar "0 < maxNSU" e
+// liberar consulta imediata — isso seria o mesmo caminho perigoso do 656.
+test('cStat 138 com ultNSU vazio segura 1 hora (não trata ausência como zero)', () => {
+  const estado = proximoEstado({ cStat: 138, ultNSU: '', maxNSU: '000000000000120' }, AGORA)
+  assert.equal(estado.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
+test('cStat 138 com ultNSU não numérico segura 1 hora', () => {
+  const estado = proximoEstado({ cStat: 138, ultNSU: 'abc', maxNSU: '000000000000120' }, AGORA)
+  assert.equal(estado.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
+test('cStat 138 com maxNSU vazio segura 1 hora', () => {
+  const estado = proximoEstado({ cStat: 138, ultNSU: '000000000000050', maxNSU: '' }, AGORA)
+  assert.equal(estado.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
+// Caso bom continua emendando sem esperar — a defesa acima não pode travar
+// o caminho normal de esvaziar a fila.
+test('com ultNSU e maxNSU válidos e ultNSU < maxNSU, continua emendando sem esperar', () => {
+  const estado = proximoEstado({ cStat: 138, ultNSU: '000000000000050', maxNSU: '000000000000120' }, AGORA)
+  assert.equal(estado.proximaConsultaEm, null)
+})
+
 test('sem trava gravada, pode consultar', () => {
   assert.equal(podeConsultar({ proximaConsultaEm: null }, AGORA), true)
 })
