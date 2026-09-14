@@ -125,6 +125,9 @@ export const ITENS: ItemNav[] = [
   { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', papeis: GESTORES },
   { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', papeis: ADMINS },
   { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS },
+  // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
+  // item de configuração comum — só admin_geral (SUPER) mexe nisso.
+  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'configuracao', papeis: SUPER },
 ]
 
 // Cópia deliberada de temPapel em @/lib/auth:68 — este arquivo não pode
