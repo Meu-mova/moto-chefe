@@ -29,3 +29,16 @@ test('várias notas viram uma mensagem só, com o total', () => {
 test('sem nota nova, não monta mensagem', () => {
   assert.equal(montarAvisoNfe('Sul de Minas', []), '')
 })
+
+test('mesma chave duas vezes no lote não soma o valor em dobro (resumo + completa no mesmo lote)', () => {
+  const chave = 'a'.repeat(44)
+  const texto = montarAvisoNfe('Sul de Minas', [
+    { emitenteNome: 'FORNECEDOR A', valor: '100.00', chave },
+    { emitenteNome: 'FORNECEDOR A', valor: '100.00', chave },
+  ])
+  assert.match(texto, /1 nota/)
+  assert.doesNotMatch(texto, /2 notas/)
+  assert.match(texto, /100,00/)
+  assert.doesNotMatch(texto, /200,00/)
+  assert.equal(texto.split('\n').filter(l => l.startsWith('•')).length, 1)
+})

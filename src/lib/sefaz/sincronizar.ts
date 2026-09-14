@@ -1,7 +1,7 @@
 // src/lib/sefaz/sincronizar.ts
 import { db } from '@/lib/db'
 import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
 import { podeConsultar, proximoEstado } from './nsu'
@@ -67,10 +67,20 @@ export async function sincronizarGrupo(
   // serve para diferenciar nota nova de nota que só teve o NSU atualizado (ex.:
   // resumo que virou completa). Comparar contra o que já está no banco, aqui, é
   // a única forma confiável.
-  const jaConhecidas = new Set(
-    (await db.select({ chave: nfeRecebidas.chave }).from(nfeRecebidas)
-       .where(eq(nfeRecebidas.grupoId, grupoId))).map(l => l.chave),
-  )
+  //
+  // Filtra pelas chaves do próprio lote (`inArray`) em vez de trazer a tabela
+  // inteira do grupo: a tabela cresce para sempre, o lote tem só a dúzia de
+  // chaves que importam agora. Lote sem documento (só evento, ou vazio) nem
+  // chega a consultar — `inArray` com lista vazia é sempre falso no Postgres,
+  // então a guarda evita uma query inútil, não corrige um bug.
+  const chavesDoLote = [...new Set(retorno.documentos.filter(d => d.tipo !== 'evento').map(d => d.chave))]
+  const jaConhecidas = chavesDoLote.length === 0
+    ? new Set<string>()
+    : new Set(
+        (await db.select({ chave: nfeRecebidas.chave }).from(nfeRecebidas)
+           .where(and(eq(nfeRecebidas.grupoId, grupoId), inArray(nfeRecebidas.chave, chavesDoLote))))
+          .map(l => l.chave),
+      )
   const novas = retorno.documentos.filter(d => d.tipo !== 'evento' && !jaConhecidas.has(d.chave))
 
   // Lote e NSU na MESMA transação. Gravar as notas e perder o NSU faz reprocessar
@@ -168,7 +178,18 @@ export async function sincronizarGrupo(
   // Fora da transação de propósito: WhatsApp fora do ar não pode desfazer a
   // gravação das notas nem o avanço do NSU. O aviso é consequência, não parte
   // do registro.
-  if (novas.length > 0) {
+  //
+  // Só avisa quando a fila acabou (regime), nunca durante o backlog: o cron
+  // roda de hora em hora e `podeConsultar` libera enquanto houver fila, então
+  // numa ativação nova (lote grande, milhares de notas atrasadas) o aviso
+  // dispararia dezenas de mensagens ao longo de várias rodadas — ninguém quer
+  // isso no celular. `proximo.proximaConsultaEm === null` é a mesma condição
+  // que `proximoEstado` (nsu.ts) usa para dizer "ainda tem fila"; só quando
+  // ela vem preenchida é que esta rodada alcançou o fim da fila, e "chegou
+  // nota nova" volta a significar nota nova de verdade. As notas continuam
+  // sendo gravadas normalmente durante o backlog e aparecem na tela — só o
+  // WhatsApp fica quieto até então.
+  if (novas.length > 0 && proximo.proximaConsultaEm !== null) {
     await avisarNotasNovas(grupo.nome, novas.map(d => ({
       emitenteNome: d.emitenteNome,
       valor: d.valor,

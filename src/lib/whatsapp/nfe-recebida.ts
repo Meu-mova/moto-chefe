@@ -11,11 +11,21 @@ const brl = (v: string) =>
 /** String vazia = não há o que avisar. Quem chama não manda mensagem vazia. */
 export function montarAvisoNfe(grupo: string, notas: NotaParaAviso[]): string {
   if (notas.length === 0) return ''
-  const total = notas.reduce((s, n) => s + Number(n.valor || 0), 0)
-  const linhas = notas.map(n => `• ${n.emitenteNome} — ${brl(n.valor)}`).join('\n')
-  const cabecalho = notas.length === 1
+
+  // A mesma nota pode aparecer duas vezes no mesmo lote da SEFAZ — o resumo
+  // (NSU N) e, logo depois, a nota completa (NSU N+2), ambos no lote da
+  // mesma rodada. Sem deduplicar por chave aqui, a mensagem lista a nota
+  // duas vezes e soma o valor em dobro. Mantém a última ocorrência (o dado
+  // mais recente da mesma chave, normalmente o mais completo).
+  const porChave = new Map<string, NotaParaAviso>()
+  for (const n of notas) porChave.set(n.chave, n)
+  const unicas = [...porChave.values()]
+
+  const total = unicas.reduce((s, n) => s + Number(n.valor || 0), 0)
+  const linhas = unicas.map(n => `• ${n.emitenteNome} — ${brl(n.valor)}`).join('\n')
+  const cabecalho = unicas.length === 1
     ? `MOVA INFORMA: chegou 1 nota nova contra o CNPJ de ${grupo}.`
-    : `MOVA INFORMA: chegaram ${notas.length} notas novas contra o CNPJ de ${grupo}, somando ${brl(String(total))}.`
+    : `MOVA INFORMA: chegaram ${unicas.length} notas novas contra o CNPJ de ${grupo}, somando ${brl(String(total))}.`
   return `${cabecalho}\n\n${linhas}\n\nVeja em Estoque & Fábrica › Notas Recebidas.`
 }
 
