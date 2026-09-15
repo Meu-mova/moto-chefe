@@ -207,3 +207,33 @@ e só vira automática depois de uma nota real passar ponta a ponta.
 - Manifestar ciência por uma nota real traz o `procNFe` na consulta seguinte.
 - O XML baixado abre no `/entrada` e produz o mesmo preview do arquivo do FSist —
   comparado lado a lado com uma nota já processada.
+
+---
+
+## Revisão de 15/09/2026 — a consulta deixa de ser automática
+
+O desenho acima previa um cron chamando a SEFAZ sozinho. Na prática o Cesar
+pediu o contrário: **nada consulta a SEFAZ sem alguém mandar**. O momento de
+falar com o portal é dele, não do relógio.
+
+O que mudou:
+
+- `src/app/api/cron/nfe-dfe/route.ts` foi removida, e o agendamento saiu do
+  `vercel.json`. O único caminho até a Distribuição DF-e é a action da tela
+  (`/radar-fiscal`), um grupo de cada vez — o do seletor de empresa.
+- A trava de 1 hora (`proxima_consulta_em`, reivindicada atomicamente em
+  `sincronizarGrupo`) **não mudou**: continua sendo o que impede o cStat 656,
+  agora contra dois cliques em vez de cron + clique.
+- O banner "sincronização parada" não olha mais o tempo desde a última leitura.
+  Sem cron, ficar dias sem ler é uso normal; só cStat fora de 137/138 alerta.
+- Botão novo, **"Reler os últimos 90 dias"** (`desdeZero`): manda `ultNSU=0` em
+  vez de continuar do NSU guardado. Existe porque o ponteiro só anda pra frente
+  — documento que a SEFAZ entregou e que não virou nota (schema que o parser
+  não reconheceu, ou lote lido antes de uma correção) ficava inalcançável. A
+  regra de zerar TAMBÉM o piso anti-retrocesso mora em
+  `estadoInicialDaLeitura` (nsu.ts), testada.
+- O retorno da sincronização passou a carregar `descartados`, e a tela mostra
+  na mesma frase ("20 documentos lidos. 12 deles o sistema não conseguiu
+  ler."). `ultimo_erro` sozinho não servia: a execução seguinte o apaga, e era
+  por isso que BH (NSU 184) e Vale (NSU 90) apareciam com zero nota e nenhum
+  aviso de que algo tinha sido descartado no caminho.

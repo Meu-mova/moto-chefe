@@ -4,7 +4,7 @@ import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
 import { sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
 import { consultarDistribuicao } from './distribuicao'
-import { proximoEstado, deveContinuarDrenando, proximaConsultaEmDrenagem, TETO_ITERACOES_DRENAGEM } from './nsu'
+import { proximoEstado, deveContinuarDrenando, proximaConsultaEmDrenagem, estadoInicialDaLeitura, TETO_ITERACOES_DRENAGEM } from './nsu'
 
 /** 110111 = Cancelamento de NF-e. Vem mesmo sem manifestação. */
 const EVENTO_CANCELAMENTO = '110111'
@@ -12,6 +12,15 @@ const EVENTO_CANCELAMENTO = '110111'
 export type ResultadoSync = {
   status: 'ok' | 'esperando' | 'sem_certificado' | 'erro'
   documentos: number
+  /**
+   * Documentos que a SEFAZ entregou e que o parser não conseguiu virar nota
+   * (XML ilegível, ou schema fora das formas conhecidas). Sobe junto no
+   * retorno, e não só em `ultimo_erro`, porque `ultimo_erro` é sobrescrito
+   * pela execução seguinte: um descarte de hoje sumia da tela amanhã, e era
+   * exatamente essa a informação que faltava quando BH e Vale apareceram com
+   * o NSU avançado e zero nota gravada.
+   */
+  descartados: number
   cStat?: number
   erro?: string
 }
@@ -56,18 +65,43 @@ async function reivindicarJanela(grupoId: string, agora: Date): Promise<{ ultNsu
   return { ultNsu: String(linhas[0].ult_nsu), maxNsu: String(linhas[0].max_nsu) }
 }
 
+/**
+ * `desdeZero` relê a fila inteira dos últimos 90 dias em vez de continuar do
+ * NSU guardado.
+ *
+ * A leitura normal é um ponteiro que só anda pra frente: o que a SEFAZ
+ * entregou uma vez e não virou linha em `nfe_recebidas` (documento descartado
+ * pelo parser, ou lote lido antes de uma correção) fica pra trás e o botão
+ * comum nunca mais o alcança — foi o estado em que BH (NSU 184) e Vale (NSU
+ * 90) ficaram, com zero nota gravada. A Distribuição DF-e reentrega tudo o
+ * que ainda está dentro dos 90 dias quando se consulta com `ultNSU=0`, e as
+ * gravações de nota são upsert por (grupo, chave), então reler não duplica
+ * nada: só preenche o que faltou.
+ *
+ * Isso NÃO fura a trava de 1 hora — `reivindicarJanela` continua sendo a
+ * primeira coisa a rodar, e uma releitura gasta a janela como qualquer outra
+ * consulta.
+ */
 export async function sincronizarGrupo(
   grupo: { id: string; nome: string },
   agora = new Date(),
+  opts: { desdeZero?: boolean } = {},
 ): Promise<ResultadoSync> {
   const grupoId = grupo.id
   const inicioMs = Date.now()
 
   const claim = await reivindicarJanela(grupoId, agora)
-  if (!claim) return { status: 'esperando', documentos: 0 }
+  if (!claim) return { status: 'esperando', documentos: 0, descartados: 0 }
 
-  let ultNsuAtual = claim.ultNsu
-  let maxNsuAtual = claim.maxNsu
+  // Na releitura o estado ANTERIOR também volta a zero, não só o NSU enviado —
+  // a razão está em `estadoInicialDaLeitura` (nsu.ts), que é onde essa regra
+  // mora e é testada.
+  const inicio = estadoInicialDaLeitura(
+    { ultNSU: claim.ultNsu, maxNSU: claim.maxNsu },
+    { desdeZero: opts.desdeZero },
+  )
+  let ultNsuAtual = inicio.ultNSU
+  let maxNsuAtual = inicio.maxNSU
   let totalDocumentos = 0
   let totalDescartados = 0
   let ultimoCstat: number | undefined
@@ -79,7 +113,7 @@ export async function sincronizarGrupo(
     // e a tela ficava muda sobre o motivo (só um 500 em log que ninguém lê).
     // Estar dentro do try é o que faz a falha aparecer pro Cesar.
     const cert = await carregarCertificado(grupoId)
-    if (!cert) return { status: 'sem_certificado', documentos: 0 }
+    if (!cert) return { status: 'sem_certificado', documentos: 0, descartados: 0 }
 
     // C1(b): drena a fila numa execução só, em vez de processar um lote e
     // sair. É o padrão sancionado pela SEFAZ (puxar até esvaziar). A decisão
@@ -109,8 +143,12 @@ export async function sincronizarGrupo(
       const nsuAvancou = proximo.ultNSU !== nsuAntesIteracao
 
       // I2: um lote com documento descartado (XML ilegível, ou schema que o
-      // parser não reconhece) perde nota pra sempre — o NSU avança e a SEFAZ
-      // não reoferece. Grava em `ultimo_erro` pra não ficar em silêncio.
+      // parser não reconhece) some da leitura normal — o NSU avança e a
+      // consulta seguinte já pede o próximo. Não é perda definitiva enquanto
+      // o documento estiver dentro dos 90 dias: é isso que a releitura
+      // (`desdeZero`) recupera. Grava em `ultimo_erro` pra não ficar em
+      // silêncio, e volta também no `descartados` do retorno, que a tela
+      // mostra na hora — `ultimo_erro` a execução seguinte apaga.
       //
       // Acumulado ao longo da EXECUÇÃO (não só deste lote): antes, cada
       // iteração sobrescrevia `ultimo_erro` com o descarte só dela — um
@@ -123,8 +161,8 @@ export async function sincronizarGrupo(
       const erroDescarte = totalDescartados === 0
         ? null
         : totalDescartados === 1
-          ? '1 documento não pôde ser lido nesta execução (NSU perdido, sem como reobter)'
-          : `${totalDescartados} documentos não puderam ser lidos nesta execução (NSU perdido, sem como reobter)`
+          ? '1 documento não pôde ser lido nesta execução — use "Reler os últimos 90 dias" para pedir a fila inteira de novo'
+          : `${totalDescartados} documentos não puderam ser lidos nesta execução — use "Reler os últimos 90 dias" para pedir a fila inteira de novo`
 
       const decisao = deveContinuarDrenando({
         filaZerou: filaZerouNestaIteracao,
@@ -291,8 +329,8 @@ export async function sincronizarGrupo(
     await db.insert(nfeDfeSync)
       .values({ grupoId, ultimoErro: erro, atualizadoEm: agora })
       .onConflictDoUpdate({ target: nfeDfeSync.grupoId, set: { ultimoErro: erro, atualizadoEm: agora } })
-    return { status: 'erro', documentos: totalDocumentos, erro }
+    return { status: 'erro', documentos: totalDocumentos, descartados: totalDescartados, erro }
   }
 
-  return { status: 'ok', documentos: totalDocumentos, cStat: ultimoCstat }
+  return { status: 'ok', documentos: totalDocumentos, descartados: totalDescartados, cStat: ultimoCstat }
 }

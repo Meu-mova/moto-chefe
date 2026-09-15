@@ -9,6 +9,7 @@ import {
   TETO_ITERACOES_DRENAGEM,
   ORCAMENTO_DRENAGEM_MS,
   LEASE_DRENAGEM_MS,
+  estadoInicialDaLeitura,
 } from './nsu'
 
 const AGORA = new Date('2026-09-14T12:00:00.000Z')
@@ -191,4 +192,43 @@ test('tempo: grava o lease curto — NSU está andando, só faltou orçamento de
 test('vai continuar (motivo null): grava o lease curto, como teto/tempo', () => {
   const resultado = proximaConsultaEmDrenagem({ proximaConsultaEmSeFilaZerou: null, motivoParada: null, agora: AGORA })
   assert.equal(resultado?.getTime(), AGORA.getTime() + LEASE_DRENAGEM_MS)
+})
+
+// ─── estadoInicialDaLeitura: de onde a execução começa a ler ────────────────
+
+test('leitura normal parte do NSU guardado', () => {
+  assert.deepEqual(
+    estadoInicialDaLeitura({ ultNSU: '000000000000184', maxNSU: '000000000000200' }),
+    { ultNSU: '000000000000184', maxNSU: '000000000000200' },
+  )
+})
+
+test('releitura parte do zero — e zera também o maxNSU, que é o piso anti-retrocesso', () => {
+  // Se o maxNSU guardado continuasse aqui, cada lote da releitura seria
+  // normalizado de volta pro valor antigo e o dreno morreria por
+  // `sem_progresso` sem ler nada. Era o estado real de BH (184) e Vale (90):
+  // NSU adiantado e zero nota gravada.
+  assert.deepEqual(
+    estadoInicialDaLeitura({ ultNSU: '000000000000184', maxNSU: '000000000000200' }, { desdeZero: true }),
+    { ultNSU: '0', maxNSU: '0' },
+  )
+})
+
+test('releitura de fato faz o dreno enxergar progresso no primeiro lote', () => {
+  const inicio = estadoInicialDaLeitura({ ultNSU: '000000000000184', maxNSU: '000000000000184' }, { desdeZero: true })
+  // Primeiro lote da releitura: a SEFAZ devolve os 50 primeiros de 184.
+  const proximo = proximoEstado(
+    { cStat: 138, ultNSU: '000000000000050', maxNSU: '000000000000184' },
+    AGORA,
+    inicio,
+  )
+  assert.equal(proximo.ultNSU, '000000000000050')
+  assert.equal(proximo.proximaConsultaEm, null) // ainda tem fila: emenda o próximo lote
+  const decisao = deveContinuarDrenando({
+    filaZerou: false,
+    nsuAvancou: proximo.ultNSU !== inicio.ultNSU,
+    iteracao: 0,
+    decorridoMs: 0,
+  })
+  assert.deepEqual(decisao, { continuar: true, motivo: null })
 })

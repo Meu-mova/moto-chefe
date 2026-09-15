@@ -71,7 +71,8 @@ export async function consultarDistribuicao(opts: {
         pfx: opts.pfx,
         passphrase: opts.senha,
         // 30s, não 60s: a função da Vercel tem `maxDuration` de 60s (teto do
-        // plano Hobby — ver vercel.json/route.ts do cron). Um timeout de rede
+        // plano Hobby — ver a página do /radar-fiscal, de onde a consulta
+        // parte). Um timeout de rede
         // igual ao teto da função deixava zero folga pro `catch` de
         // sincronizar.ts gravar `ultimo_erro` antes de a própria função ser
         // morta — a falha acontecia, mas nada ficava registrado, e a tela

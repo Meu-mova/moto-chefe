@@ -22,9 +22,8 @@ export const CSTAT_CONSUMO_INDEVIDO = 656
 export const TETO_ITERACOES_DRENAGEM = 40
 
 // Orçamento de tempo do laço de drenagem, em ms: pára de drenar bem antes do
-// `maxDuration` de 60s da rota do cron (route.ts), pra sobrar folga pro que
-// vem depois de cada iteração (grava no banco) e pro aviso de WhatsApp no
-// fim, quando a fila realmente zerar.
+// `maxDuration` de 60s da página que dispara a leitura (/radar-fiscal), pra
+// sobrar folga pro que vem depois de cada iteração (grava no banco).
 export const ORCAMENTO_DRENAGEM_MS = 45_000
 
 // Lease renovado a cada iteração do dreno ENQUANTO a fila não zerou de
@@ -86,6 +85,26 @@ function nsuNormalizado(bruto: string, guardado: string): string {
   if (guardadoNum !== null && brutoNum < guardadoNum) return guardado
 
   return bruto.trim()
+}
+
+/**
+ * De onde ESTA execução começa a ler: do NSU guardado (o dia a dia) ou do
+ * zero (releitura dos últimos 90 dias, pedida na tela).
+ *
+ * O detalhe que não é óbvio: na releitura o `maxNSU` guardado também zera, não
+ * só o `ultNSU`. O guardado não é apenas o ponto de partida — é o PISO que
+ * `nsuNormalizado` usa para impedir retrocesso. Zerar só o `ultNSU` e mandar o
+ * guardado como piso faria cada lote da releitura ser normalizado de volta
+ * para o valor antigo, o NSU nunca "avançaria" aos olhos de
+ * `deveContinuarDrenando`, e a releitura morreria por `sem_progresso` na
+ * primeira iteração — lendo zero documento e ainda gravando a trava longa de
+ * 1 hora.
+ */
+export function estadoInicialDaLeitura(
+  guardado: EstadoAtual,
+  opts: { desdeZero?: boolean } = {},
+): EstadoAtual {
+  return opts.desdeZero ? { ultNSU: '0', maxNSU: '0' } : guardado
 }
 
 export function proximoEstado(retorno: RetornoSefaz, agora: Date, estadoAtual: EstadoAtual): EstadoSync {

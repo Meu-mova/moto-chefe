@@ -22,21 +22,14 @@ import { podeConsultar } from '@/lib/sefaz/nsu'
 // `ultimo_erro` esteja nulo — foi exatamente o caso real de hoje: cStat 656
 // gravado com sucesso (o INSERT não falhou), `ultimo_erro` nulo, e a tela
 // não dizia nada de errado.
-// A atualização manual (actions.ts) roda `sincronizarGrupo` neste mesmo
-// segmento, e o laço de drenagem tem orçamento de 45s. Com o padrão da
-// plataforma a action morreria antes de terminar um backlog — e morrer no meio
-// não perde nota (cada iteração commita), mas devolve erro na cara de quem
-// clicou. 60s é o teto do plano Hobby, o mesmo do cron.
+// A atualização (actions.ts) roda `sincronizarGrupo` neste mesmo segmento, e o
+// laço de drenagem tem orçamento de 45s. Com o padrão da plataforma a action
+// morreria antes de terminar um backlog — e morrer no meio não perde nota
+// (cada iteração commita), mas devolve erro na cara de quem clicou. 60s é o
+// teto do plano Hobby.
 export const maxDuration = 60
 
 const CSTAT_BONS = new Set([CSTAT_DOCUMENTO_LOCALIZADO, CSTAT_NENHUM_DOCUMENTO])
-// O cron roda 1x/dia (0 11 * * *, 8h de Brasília — plano Hobby só tem 1 cron
-// por dia) e `atualizado_em` é carimbado no INÍCIO da execução. Com isso o
-// intervalo normal entre dois carimbos já é ~24h cravado — um limiar de 24h
-// pintava o banner quase todo dia mesmo sem nada errado, só pelo cron ter
-// rodado um pouco mais tarde que ontem. 30h dá folga pra variação normal do
-// horário do cron sem deixar de avisar quando realmente parou.
-const HORAS_PARA_CONSIDERAR_PARADA = 30
 
 const brl = (v: string | null) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -90,28 +83,26 @@ export default async function RadarFiscalPage({
 
   const pendentes = notas.filter(n => !n.jaLancada && n.situacao !== 'cancelada')
 
-  // C3(b): sinaliza "sincronização parada" quando o último cStat não é dos
-  // bons OU quando faz mais de 24h que não roda — as duas coisas
-  // independentes de `ultimo_erro`, que só é preenchido em falha de rede/
+  // C3(b): sinaliza "a SEFAZ recusou" quando o último cStat não é dos bons —
+  // independente de `ultimo_erro`, que só é preenchido em falha de rede/
   // certificado, não em cStat de rejeição (a chamada "deu certo", só que a
   // SEFAZ recusou/bloqueou). Sem `sync` (grupo nunca sincronizou), o card
   // "Última sincronização" abaixo já diz "ainda não rodou" — não duplica aqui.
-  const horasDesdeAtualizacao = sync
-    ? (Date.now() - sync.atualizadoEm.getTime()) / (60 * 60 * 1000)
-    : null
-  const sincronizacaoParada = sync != null && (
-    sync.ultimoCstat == null ||
-    !CSTAT_BONS.has(sync.ultimoCstat) ||
-    (horasDesdeAtualizacao !== null && horasDesdeAtualizacao > HORAS_PARA_CONSIDERAR_PARADA)
-  )
+  //
+  // O tempo desde a última leitura NÃO entra mais nesta conta: não existe mais
+  // cron, a consulta só sai quando alguém clica, e ficar dias sem clicar é uso
+  // normal — não é sintoma de nada quebrado. Alertar por tempo aqui viraria um
+  // banner vermelho permanente, que é como um aviso deixa de ser lido.
+  const sefazRecusou = sync != null && (sync.ultimoCstat == null || !CSTAT_BONS.has(sync.ultimoCstat))
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Notas Recebidas — {grupo.nome}</h1>
         <p className="text-slate-500 text-sm">
-          Toda NF-e emitida contra o CNPJ do grupo, direto da SEFAZ. A consulta roda uma vez por
-          dia e alcança os últimos 90 dias — nota mais antiga que isso a SEFAZ não distribui mais.
+          Toda NF-e emitida contra o CNPJ do grupo, direto da SEFAZ. A consulta não roda sozinha:
+          ela sai quando você clica em &quot;Atualizar leitura da SEFAZ&quot;, e alcança os últimos
+          90 dias — nota mais antiga que isso a SEFAZ não distribui mais.
         </p>
       </div>
 
@@ -131,14 +122,14 @@ export default async function RadarFiscalPage({
         </p>
       )}
 
-      {sincronizacaoParada && sync && (
+      {sefazRecusou && sync && (
         <p className="flex gap-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <span>
-            Sincronização parada — a SEFAZ respondeu cStat {sync.ultimoCstat ?? '—'} em{' '}
-            {sync.atualizadoEm.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}, e não é um retorno
-            normal (137/138) ou já faz mais de {HORAS_PARA_CONSIDERAR_PARADA}h sem rodar. A tela pode estar
-            desatualizada até isso ser resolvido.
+            A SEFAZ respondeu cStat {sync.ultimoCstat ?? '—'} em{' '}
+            {sync.atualizadoEm.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}, que não é um
+            retorno normal (137/138) — a última leitura não trouxe nada. A tela pode estar desatualizada
+            até isso ser resolvido.
           </span>
         </p>
       )}
