@@ -107,6 +107,29 @@ export function estadoInicialDaLeitura(
   return opts.desdeZero ? { ultNSU: '0', maxNSU: '0' } : guardado
 }
 
+/**
+ * O ponteiro só anda quando a SEFAZ ENTREGOU alguma coisa — 138 (documento
+ * localizado) ou 137 (fila em dia). Em qualquer outro retorno o estado
+ * guardado fica como está.
+ *
+ * Isto não é preciosismo: numa resposta **656 (consumo indevido)** a SEFAZ
+ * manda um `ultNSU` junto, e ele NÃO é o ponto até onde nós lemos — é até
+ * onde a fila daquele CNPJ foi consumida, por quem quer que tenha consultado
+ * (o NSU é por CNPJ, não por sistema; o contador da empresa consultando o
+ * mesmo CNPJ conta). Aceitar esse número como progresso próprio faz o radar
+ * PULAR todos os documentos que ele nunca leu, e a partir daí pedir só o que
+ * vier depois — para sempre, porque o ponteiro não retrocede.
+ *
+ * Foi exatamente isso que aconteceu com BH e Vale: o primeiro contato dos
+ * dois com a SEFAZ foi um 656 (o CNPJ já estava sendo consultado por outro
+ * sistema), o radar gravou o `ultNSU` que veio na recusa (184 e 90), e as
+ * notas de 1 até ali nunca foram pedidas. A tela ficou vazia sem nenhum erro
+ * aparente — o ponteiro dizia que estava tudo em dia.
+ */
+function retornoEntregaDocumento(cStat: number): boolean {
+  return cStat === CSTAT_DOCUMENTO_LOCALIZADO || cStat === CSTAT_NENHUM_DOCUMENTO
+}
+
 export function proximoEstado(retorno: RetornoSefaz, agora: Date, estadoAtual: EstadoAtual): EstadoSync {
   const ultNSU = nsuValido(retorno.ultNSU)
   const maxNSU = nsuValido(retorno.maxNSU)
@@ -121,6 +144,16 @@ export function proximoEstado(retorno: RetornoSefaz, agora: Date, estadoAtual: E
     ultNSU !== null &&
     maxNSU !== null &&
     ultNSU < maxNSU
+
+  // Rejeição (656 e qualquer outra): o estado guardado não se mexe. Ver
+  // `retornoEntregaDocumento` acima — é o ponto onde BH e Vale se perderam.
+  if (!retornoEntregaDocumento(retorno.cStat)) {
+    return {
+      ultNSU: estadoAtual.ultNSU,
+      maxNSU: estadoAtual.maxNSU,
+      proximaConsultaEm: new Date(agora.getTime() + ESPERA_APOS_VAZIO_MS),
+    }
+  }
 
   return {
     ultNSU: nsuNormalizado(retorno.ultNSU, estadoAtual.ultNSU),

@@ -10,6 +10,7 @@ import {
   ORCAMENTO_DRENAGEM_MS,
   LEASE_DRENAGEM_MS,
   estadoInicialDaLeitura,
+  CSTAT_CONSUMO_INDEVIDO,
 } from './nsu'
 
 const AGORA = new Date('2026-09-14T12:00:00.000Z')
@@ -231,4 +232,63 @@ test('releitura de fato faz o dreno enxergar progresso no primeiro lote', () => 
     decorridoMs: 0,
   })
   assert.deepEqual(decisao, { continuar: true, motivo: null })
+})
+
+// ─── Rejeição não move o ponteiro ───────────────────────────────────────────
+// O caso real: BH e Vale, cujo primeiro contato com a SEFAZ foi um 656 (o CNPJ
+// já era consultado por outro sistema). A recusa vem com um `ultNSU` que é o
+// consumo da fila do CNPJ — não o que NÓS lemos. Gravar aquilo fez o radar
+// pular 184 e 90 documentos que nunca foram pedidos, e a tela ficou vazia sem
+// erro nenhum.
+
+test('cStat 656: NSU não avança, nem quando a recusa traz ultNSU adiantado', () => {
+  const estado = { ultNSU: '0', maxNSU: '0' }
+  const proximo = proximoEstado(
+    { cStat: CSTAT_CONSUMO_INDEVIDO, ultNSU: '000000000000184', maxNSU: '' },
+    AGORA,
+    estado,
+  )
+  assert.equal(proximo.ultNSU, '0')
+  assert.equal(proximo.maxNSU, '0')
+  assert.equal(proximo.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
+})
+
+test('cStat 656 depois de leituras boas: mantém o que já tínhamos lido, sem pular pra frente', () => {
+  const estado = { ultNSU: '000000000000050', maxNSU: '000000000000184' }
+  const proximo = proximoEstado(
+    { cStat: CSTAT_CONSUMO_INDEVIDO, ultNSU: '000000000000184', maxNSU: '000000000000184' },
+    AGORA,
+    estado,
+  )
+  assert.deepEqual(
+    { ultNSU: proximo.ultNSU, maxNSU: proximo.maxNSU },
+    { ultNSU: '000000000000050', maxNSU: '000000000000184' },
+  )
+})
+
+test('rejeição qualquer (não só 656) também não move o ponteiro', () => {
+  const proximo = proximoEstado(
+    { cStat: 589, ultNSU: '000000000000999', maxNSU: '000000000000999' },
+    AGORA,
+    { ultNSU: '000000000000010', maxNSU: '000000000000010' },
+  )
+  assert.equal(proximo.ultNSU, '000000000000010')
+})
+
+test('137 e 138 continuam movendo o ponteiro normalmente', () => {
+  const comDocumento = proximoEstado(
+    { cStat: 138, ultNSU: '000000000000050', maxNSU: '000000000000184' },
+    AGORA,
+    { ultNSU: '0', maxNSU: '0' },
+  )
+  assert.equal(comDocumento.ultNSU, '000000000000050')
+  assert.equal(comDocumento.proximaConsultaEm, null)
+
+  const filaEmDia = proximoEstado(
+    { cStat: 137, ultNSU: '000000000000184', maxNSU: '000000000000184' },
+    AGORA,
+    { ultNSU: '000000000000184', maxNSU: '000000000000184' },
+  )
+  assert.equal(filaEmDia.ultNSU, '000000000000184')
+  assert.equal(filaEmDia.proximaConsultaEm?.getTime(), AGORA.getTime() + ESPERA_APOS_VAZIO_MS)
 })
