@@ -9,7 +9,7 @@ import { inArray, and, eq, gte, lte, desc, sql } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TrendingUp, RefreshCw, Building2 } from 'lucide-react'
-import { PixFiltros } from '../pix/components/pix-filtros'
+import { PixFiltros } from './components/pix-filtros'
 import { CorrespondenciaForm } from './components/correspondencia-form'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
@@ -182,7 +182,7 @@ export default async function PixMcpPage({
         <div>
           <h1 className="text-2xl font-bold">PIX Recebidos (teste — Open Finance)</h1>
           <p className="text-slate-500 text-sm">
-            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai, sem passar pelo ValidaPix. Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
+            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai (Open Finance). Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
           </p>
           <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
             {syncStatusAtual

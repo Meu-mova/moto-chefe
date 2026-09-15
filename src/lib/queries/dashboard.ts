@@ -3,7 +3,6 @@ import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCai
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
-import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { valorLiquidoExpr } from './valor-liquido'
 
 type Filtros = {
@@ -460,10 +459,8 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
           WHERE venda_id = ${sql.raw('"vendas"."id"')}
           AND conciliado = true
         ), 0)`,
-        pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
-          THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
-          ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
-        END`,
+        // Fonte única de PIX desde 15/09/2026, quando o ValidaPix saiu.
+        pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)`,
       })
       .from(vendas)
       .where(and(eq(vendas.lojaId, lojaId), gte(vendas.dataVenda, desde))),

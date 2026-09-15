@@ -3,7 +3,6 @@ import { documentosAssinatura, lojas, usuarios, vendas } from '@/lib/db/schema'
 import { and, asc, eq, gte, inArray, sql } from 'drizzle-orm'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { inicioDoDiaBrt } from '@/lib/data-venda'
-import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import {
   INICIO_REGRA_DOCUMENTOS,
   pendenciasDaVenda,
@@ -89,10 +88,8 @@ export async function pendenciasDeVendas(
         SELECT SUM(valor_bruto::numeric) FROM conciliacoes_cartao
         WHERE venda_id = ${sql.raw('"vendas"."id"')} AND conciliado = true
       ), 0)`,
-      pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
-        THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
-        ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)
-      END`,
+      // Fonte única de PIX desde 15/09/2026, quando o ValidaPix saiu.
+      pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)`,
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))

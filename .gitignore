@@ -43,3 +43,6 @@ next-env.d.ts
 
 .vercel
 .worktrees/
+
+# backups pontuais de tabela (dado de cliente — nunca vai pro git)
+/backups/

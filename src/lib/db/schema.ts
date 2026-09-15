@@ -37,8 +37,6 @@ export const grupos = pgTable('grupos', {
   nome:               text('nome').notNull(),
   cnpj:               text('cnpj').notNull(),
   ativo:              boolean('ativo').notNull().default(true),
-  validapixEmail:     text('validapix_email'),
-  validapixPassword:  text('validapix_password'),
   blingClientId:      text('bling_client_id'),
   blingClientSecret:  text('bling_client_secret'),
   // Endpoint do mcp.ai desta empresa (Open Finance: extrato, PIX e cartão).
@@ -721,21 +719,10 @@ export const importacoesCartao = pgTable('importacoes_cartao', {
   erro: text('erro'),
 })
 
-// ─── pix_recebimentos ────────────────────────────────────────────────────────
-export const pixRecebimentos = pgTable('pix_recebimentos', {
-  id:               text('id').primaryKey(),  // endToEndId do ValidaPix
-  grupoId:          uuid('grupo_id').notNull().references(() => grupos.id),
-  dataPagamento:    timestamp('data_pagamento', { withTimezone: true }).notNull(),
-  valor:            numeric('valor', { precision: 12, scale: 2 }).notNull(),
-  pagadorNome:      text('pagador_nome'),
-  pagadorDocumento: text('pagador_documento'),
-  observacao:       text('observacao'),
-  vendaId:          uuid('venda_id').references(() => vendas.id),
-  pedidoId:         uuid('pedido_id').references(() => pedidosVenda.id),
-  createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
-
-// ─── pix_recebimentos_mcp (teste — Open Finance via mcp.ai, sem ValidaPix) ────
+// ─── pix_recebimentos_mcp (PIX e TED recebidos, via Open Finance/mcp.ai) ─────
+// Fonte única de PIX recebido desde 15/09/2026. A tabela anterior
+// (`pix_recebimentos`, do ValidaPix) foi removida junto com a integração; o
+// conteúdo dela está exportado em backups/pix_recebimentos_validapix_20260915.json.
 export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   id:                  uuid('id').primaryKey().defaultRandom(),
   grupoId:             uuid('grupo_id').notNull().references(() => grupos.id),

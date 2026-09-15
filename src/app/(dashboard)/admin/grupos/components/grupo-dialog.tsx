@@ -14,8 +14,6 @@ type Grupo = {
   nome: string
   cnpj: string
   ativo: boolean
-  validapixEmail: string | null
-  validapixPassword: string | null
   blingClientId: string | null
   blingClientSecret: string | null
   // A chave do mcp.ai não vem para cá — só se ela existe e um resumo dela
@@ -43,8 +41,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [nome, setNome] = useState(inicial?.nome ?? '')
   const [cnpj, setCnpj] = useState(inicial?.cnpj ?? '')
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true)
-  const [validapixEmail, setValidapixEmail] = useState(inicial?.validapixEmail ?? '')
-  const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
   // Começa sempre vazio, mesmo na edição: o valor salvo não chega aqui. Vazio
@@ -66,7 +62,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     setLoading(true)
     try {
       const dados = {
-        nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret,
+        nome, cnpj, ativo, blingClientId, blingClientSecret,
         mcpaiEndpointUrl, mcpaiRemover,
         razaoSocial, enderecoSede, cidadeSede, comarcaForo,
       }
@@ -155,16 +151,6 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Integrações (opcional)</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">ValidaPix — E-mail</Label>
-                <Input value={validapixEmail} onChange={e => setValidapixEmail(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">ValidaPix — Senha</Label>
-                <Input type="password" value={validapixPassword} onChange={e => setValidapixPassword(e.target.value)} className="h-9 text-sm" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
                 <Label className="text-xs">Bling — Client ID</Label>
                 <Input value={blingClientId} onChange={e => setBlingClientId(e.target.value)} className="h-9 text-sm" />
               </div>
@@ -210,7 +196,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
             </div>
             <p className="text-xs text-slate-400">
               A URL do mcp.ai é gravada cifrada e nunca volta para esta tela — por isso o campo aparece vazio.
-              ValidaPix ainda não é usada pelo sistema. Bling já está em uso (emissão de NF-e). O login da fábrica fica no cadastro de cada loja.
+              Bling é a emissão de NF-e. O login da fábrica fica no cadastro de cada loja.
             </p>
           </div>
 

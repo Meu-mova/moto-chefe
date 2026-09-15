@@ -43,8 +43,6 @@ type GrupoInput = {
   nome: string
   cnpj: string
   ativo: boolean
-  validapixEmail?: string
-  validapixPassword?: string
   blingClientId?: string
   blingClientSecret?: string
   /**
@@ -87,8 +85,6 @@ export async function criarGrupoAction(dados: GrupoInput) {
     nome: dados.nome.trim(),
     cnpj: dados.cnpj.trim(),
     ativo: dados.ativo,
-    validapixEmail: dados.validapixEmail?.trim() || null,
-    validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     mcpaiEndpointUrl: cifrarChaveMcp(dados) ?? null,
@@ -116,8 +112,6 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     // coluna nem entra no UPDATE — é o que faz "campo em branco" preservar a
     // credencial já cadastrada.
     ...(chaveMcp !== undefined ? { mcpaiEndpointUrl: chaveMcp } : {}),
-    validapixEmail: dados.validapixEmail?.trim() || null,
-    validapixPassword: dados.validapixPassword?.trim() || null,
     blingClientId: dados.blingClientId?.trim() || null,
     blingClientSecret: dados.blingClientSecret?.trim() || null,
     razaoSocial: dados.razaoSocial?.trim() || null,

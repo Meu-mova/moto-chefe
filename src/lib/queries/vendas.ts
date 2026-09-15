@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { pedidosVenda, vendas, motos, lojas, grupos, usuarios, modelos, origensVenda } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
-import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
@@ -47,12 +46,10 @@ export async function listarVendas(filtros?: {
         WHERE venda_id = ${vendas.id}
         AND conciliado = true
       ), 0)`,
-      // A partir do corte, concilia só pelo PIX via mcp.ai (Open Finance); vendas
-      // anteriores continuam pelo ValidaPix — ver CORTE_MIGRACAO_PIX.
-      pixConciliadoValor: sql<number>`CASE WHEN ${vendas.dataVenda} >= ${CORTE_MIGRACAO_PIX.toISOString()}
-        THEN COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)
-        ELSE COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos WHERE venda_id = ${vendas.id}), 0)
-      END`,
+      // Fonte única de PIX desde 15/09/2026 (o ValidaPix saiu). Venda anterior a
+      // julho/2026, cujo pagamento só existia na tabela antiga, aparece com PIX
+      // zerado — histórico em backups/pix_recebimentos_validapix_20260915.json.
+      pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${vendas.id}), 0)`,
       // Status de assinatura por tipo, para os ícones da lista. O ORDER BY
       // prioriza o assinado: se houve um cancelado antes e o seguinte foi
       // assinado, o que vale é o assinado.

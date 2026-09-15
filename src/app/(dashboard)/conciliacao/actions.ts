@@ -1,10 +1,9 @@
 'use server'
 import { db } from '@/lib/db'
-import { conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
+import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { CORTE_MIGRACAO_PIX } from '@/lib/pix'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
@@ -450,24 +449,10 @@ export async function buscarPixDoAlvo(alvo: AlvoConciliacao) {
   if (!lojaId) return []
   if (!GESTORES_CONC.includes(usuario.papel) && lojaId !== usuario.lojaId) throw new Error('Sem permissão')
 
-  // Venda de moto anterior ao corte ainda concilia pelo ValidaPix; OS e peça sempre
-  // pelo mcp.ai (nasceram depois da migração). Ver CORTE_MIGRACAO_PIX.
-  if (alvo.tipo === 'moto') {
-    const [venda] = await db.select({ dataVenda: vendas.dataVenda }).from(vendas).where(eq(vendas.id, alvo.id)).limit(1)
-    if (venda && new Date(venda.dataVenda) < CORTE_MIGRACAO_PIX) {
-      return db
-        .select({
-          id:            pixRecebimentos.id,
-          dataPagamento: pixRecebimentos.dataPagamento,
-          valor:         pixRecebimentos.valor,
-          pagadorNome:   pixRecebimentos.pagadorNome,
-          observacao:    pixRecebimentos.observacao,
-        })
-        .from(pixRecebimentos)
-        .where(eq(pixRecebimentos.vendaId, alvo.id))
-    }
-  }
-
+  // Fonte única desde 15/09/2026: o PIX do ValidaPix saiu junto com a
+  // integração. Venda de antes de julho/2026, cujo pagamento só existia lá,
+  // aparece aqui sem PIX — o dado está em
+  // backups/pix_recebimentos_validapix_20260915.json.
   const coluna = alvo.tipo === 'peca' ? pixRecebimentosMcp.pecaVendaId
     : alvo.tipo === 'os'              ? pixRecebimentosMcp.osId
     :                                   pixRecebimentosMcp.vendaId

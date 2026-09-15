@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentos, pixRecebimentosMcp, documentosAssinatura } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -907,11 +907,6 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       .where(eq(conciliacoesCartao.vendaId, vendaId))
       .returning({ valor: conciliacoesCartao.valorBruto })
 
-    const pixAntigos = await tx.update(pixRecebimentos)
-      .set({ vendaId: null })
-      .where(eq(pixRecebimentos.vendaId, vendaId))
-      .returning({ valor: pixRecebimentos.valor })
-
     const pixMcp = await tx.update(pixRecebimentosMcp)
       .set({
         vendaId: null, tipoCorrespondencia: null, osId: null,
@@ -926,15 +921,10 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       .returning({ id: demandas.id })
 
     desvinculados.cartao   = cartoes.length
-    // O mesmo PIX pode estar nas duas tabelas (ValidaPix e mcp.ai) — conta o maior
-    // dos dois, não a soma, senão o aviso na tela dobra o que existe de verdade.
-    desvinculados.pix      = Math.max(pixAntigos.length, pixMcp.length)
+    desvinculados.pix      = pixMcp.length
     desvinculados.demandas = dems.length
     desvinculados.valor    = cartoes.reduce((a, c) => a + Number(c.valor), 0)
-      + Math.max(
-          pixAntigos.reduce((a, p) => a + Number(p.valor), 0),
-          pixMcp.reduce((a, p) => a + Number(p.valor), 0),
-        )
+      + pixMcp.reduce((a, p) => a + Number(p.valor), 0)
 
     // Remover lancamentos antes da venda (lancamentos_caixa tem FK para vendas.id)
     await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
