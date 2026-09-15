@@ -1,4 +1,5 @@
 import { agruparEmFaturas, type Fatura, type FaturaBruta, type LancamentoBruto } from './cartao-fatura'
+import { endpointMcpDoGrupo } from './mcpai-credencial'
 
 type ContaBancaria = {
   id: string
@@ -39,10 +40,12 @@ function parseSse(texto: string): RespostaMcp['json'] {
   return JSON.parse(linha.slice('data:'.length).trim())
 }
 
-async function chamarMcp(sessionId: string | null, body: Record<string, unknown>): Promise<RespostaMcp> {
-  const url = process.env.MCPAI_ENDPOINT_URL
-  if (!url) throw new Error('MCPAI_ENDPOINT_URL não configurada')
-
+// A URL vem de fora, resolvida uma vez por operação a partir do CNPJ do grupo
+// (`endpointMcpDoGrupo`, em mcpai-credencial.ts). Antes era lida da env aqui
+// dentro: com uma conta do mcp.ai por empresa, deixar a origem da credencial
+// escondida no fundo do módulo faria toda chamada falar com a conta do primeiro
+// lojista, independentemente de qual grupo a tela está mostrando.
+async function chamarMcp(url: string, sessionId: string | null, body: Record<string, unknown>): Promise<RespostaMcp> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json, text/event-stream',
@@ -55,9 +58,9 @@ async function chamarMcp(sessionId: string | null, body: Record<string, unknown>
   return { json, sessionId: res.headers.get('mcp-session-id') }
 }
 
-async function forcarSyncContas(sessionId: string, ids: string[]): Promise<void> {
+async function forcarSyncContas(url: string, sessionId: string, ids: string[]): Promise<void> {
   await Promise.all(ids.map(id =>
-    chamarMcp(sessionId, {
+    chamarMcp(url, sessionId, {
       jsonrpc: '2.0',
       id: 4,
       method: 'tools/call',
@@ -70,12 +73,12 @@ async function forcarSyncContas(sessionId: string, ids: string[]): Promise<void>
 // do saldo. Se algum id não voltar na 1ª tentativa, força o sync dessas contas e
 // tenta mais uma vez. Contas que ainda assim não vierem ficam de fora do Map
 // (→ saldo "indisponível" na UI, nunca o valor lixo do list_accounts).
-async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Promise<Map<string, string>> {
+async function buscarSaldosAoVivo(url: string, sessionId: string | null, ids: string[]): Promise<Map<string, string>> {
   const saldos = new Map<string, string>()
   if (!sessionId || ids.length === 0) return saldos
 
   const chamar = async (): Promise<void> => {
-    const chamada = await chamarMcp(sessionId, {
+    const chamada = await chamarMcp(url, sessionId, {
       jsonrpc: '2.0',
       id: 3,
       method: 'tools/call',
@@ -105,7 +108,7 @@ async function buscarSaldosAoVivo(sessionId: string | null, ids: string[]): Prom
   const faltando = ids.filter(id => !saldos.has(id))
   if (faltando.length > 0) {
     try {
-      await forcarSyncContas(sessionId, faltando)
+      await forcarSyncContas(url, sessionId, faltando)
       await chamar()
     } catch { /* mantém o que já veio; faltantes ficam indisponíveis */ }
   }
@@ -184,7 +187,8 @@ type ResultadoTransacoesBrutas =
 // API do mcp.ai pra cada sincronização.
 async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoTransacoesBrutas> {
   try {
-    const init = await chamarMcp(null, {
+    const url = await endpointMcpDoGrupo(cnpjGrupo)
+    const init = await chamarMcp(url, null, {
       jsonrpc: '2.0',
       id: 1,
       method: 'initialize',
@@ -201,7 +205,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
     }
 
-    const contasChamada = await chamarMcp(init.sessionId, {
+    const contasChamada = await chamarMcp(url, init.sessionId, {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
@@ -237,7 +241,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     for (const conta of contas) {
       // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
       // sync, transações recebidas/enviadas nas últimas horas não aparecem ainda.
-      await chamarMcp(init.sessionId, {
+      await chamarMcp(url, init.sessionId, {
         jsonrpc: '2.0',
         id: 4,
         method: 'tools/call',
@@ -247,7 +251,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         },
       }).catch(() => {})
 
-      const txChamada = await chamarMcp(init.sessionId, {
+      const txChamada = await chamarMcp(url, init.sessionId, {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
@@ -452,7 +456,8 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
  */
 export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<ResultadoSaldos> {
   try {
-    const init = await chamarMcp(null, {
+    const url = await endpointMcpDoGrupo(cnpjGrupo)
+    const init = await chamarMcp(url, null, {
       jsonrpc: '2.0',
       id: 1,
       method: 'initialize',
@@ -469,7 +474,7 @@ export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<Resultad
       return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
     }
 
-    const chamada = await chamarMcp(init.sessionId, {
+    const chamada = await chamarMcp(url, init.sessionId, {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
@@ -498,7 +503,7 @@ export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<Resultad
       r => r.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(r.taxNumber, cnpjGrupo),
     )
 
-    const saldosAoVivo = await buscarSaldosAoVivo(init.sessionId, resultados.map(r => r.id))
+    const saldosAoVivo = await buscarSaldosAoVivo(url, init.sessionId, resultados.map(r => r.id))
 
     const contas: ContaBancaria[] = resultados.map(r => ({
       id: r.id,
@@ -554,12 +559,12 @@ function payloadDe(resposta: RespostaMcp): Record<string, unknown> | null {
  * existe só para uma conta com histórico absurdo não travar a tela — em
  * 04/09/2026 o cartão do Sicoob tinha 616 lançamentos, duas páginas.
  */
-async function buscarLancamentosCartao(sessionId: string, accountId: string): Promise<LancamentoBruto[]> {
+async function buscarLancamentosCartao(url: string, sessionId: string, accountId: string): Promise<LancamentoBruto[]> {
   const MAX_PAGINAS = 6
   const todos: LancamentoBruto[] = []
 
   for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-    const resposta = await chamarMcp(sessionId, {
+    const resposta = await chamarMcp(url, sessionId, {
       jsonrpc: '2.0',
       id: 5,
       method: 'tools/call',
@@ -589,7 +594,8 @@ async function buscarLancamentosCartao(sessionId: string, accountId: string): Pr
  */
 export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoCartoes> {
   try {
-    const init = await chamarMcp(null, {
+    const url = await endpointMcpDoGrupo(cnpjGrupo)
+    const init = await chamarMcp(url, null, {
       jsonrpc: '2.0',
       id: 1,
       method: 'initialize',
@@ -603,7 +609,7 @@ export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoC
     if (!init.sessionId) return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
     const sessionId = init.sessionId
 
-    const contas = payloadDe(await chamarMcp(sessionId, {
+    const contas = payloadDe(await chamarMcp(url, sessionId, {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
@@ -616,7 +622,7 @@ export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoC
       if (c.item_id && c.taxNumber) cnpjPorItem.set(c.item_id, c.taxNumber)
     }
 
-    const cartoesBrutos = payloadDe(await chamarMcp(sessionId, {
+    const cartoesBrutos = payloadDe(await chamarMcp(url, sessionId, {
       jsonrpc: '2.0',
       id: 3,
       method: 'tools/call',
@@ -642,7 +648,7 @@ export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoC
     // o risco de paralelizar.
     const cartoes: CartaoDoGrupo[] = []
     for (const c of doGrupo) {
-      const faturasPayload = payloadDe(await chamarMcp(sessionId, {
+      const faturasPayload = payloadDe(await chamarMcp(url, sessionId, {
         jsonrpc: '2.0',
         id: 4,
         method: 'tools/call',
@@ -651,7 +657,7 @@ export async function buscarFaturasCartao(cnpjGrupo: string): Promise<ResultadoC
           arguments: { account_id: c.account_id, include_open_bill: true, page_size: 12 },
         },
       })) as { results?: FaturaBruta[] } | null
-      const lancamentos = await buscarLancamentosCartao(sessionId, c.account_id)
+      const lancamentos = await buscarLancamentosCartao(url, sessionId, c.account_id)
 
       const numero = (v: string | null | undefined) => (v == null || v === '' ? null : Number(v))
       cartoes.push({

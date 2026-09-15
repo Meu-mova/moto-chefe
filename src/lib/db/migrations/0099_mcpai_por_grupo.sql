@@ -1,0 +1,12 @@
+-- Chave do mcp.ai por empresa.
+--
+-- Até aqui o endpoint do mcp.ai era uma variável de ambiente única
+-- (MCPAI_ENDPOINT_URL) e as contas de todos os CNPJs conectados vinham juntas
+-- na mesma resposta. Com cada lojista tendo a própria conta, a chave passa a
+-- ser cadastro da empresa.
+--
+-- Guardada CIFRADA (AES-256-GCM, CERT_MASTER_KEY — o mesmo cofre do
+-- certificado A1): a URL carrega o segredo de acesso dentro dela, então é
+-- credencial, não configuração. O formato do valor é `iv:tag:dados`, tudo em
+-- base64, como em certificados_digitais.
+ALTER TABLE grupos ADD COLUMN IF NOT EXISTS mcpai_endpoint_url text;

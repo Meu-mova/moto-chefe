@@ -18,6 +18,11 @@ type Grupo = {
   validapixPassword: string | null
   blingClientId: string | null
   blingClientSecret: string | null
+  // A chave do mcp.ai não vem para cá — só se ela existe e um resumo dela
+  // (host + últimos caracteres). É credencial de acesso a dado bancário; o
+  // valor não trafega para o navegador.
+  mcpaiConfigurado: boolean
+  mcpaiResumo: string | null
   razaoSocial: string | null
   enderecoSede: string | null
   cidadeSede: string | null
@@ -42,6 +47,10 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [validapixPassword, setValidapixPassword] = useState(inicial?.validapixPassword ?? '')
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
   const [blingClientSecret, setBlingClientSecret] = useState(inicial?.blingClientSecret ?? '')
+  // Começa sempre vazio, mesmo na edição: o valor salvo não chega aqui. Vazio
+  // significa "mantém o que está lá".
+  const [mcpaiEndpointUrl, setMcpaiEndpointUrl] = useState('')
+  const [mcpaiRemover, setMcpaiRemover] = useState(false)
   const [razaoSocial, setRazaoSocial] = useState(inicial?.razaoSocial ?? '')
   const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
   const [cidadeSede, setCidadeSede] = useState(inicial?.cidadeSede ?? '')
@@ -58,6 +67,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
     try {
       const dados = {
         nome, cnpj, ativo, validapixEmail, validapixPassword, blingClientId, blingClientSecret,
+        mcpaiEndpointUrl, mcpaiRemover,
         razaoSocial, enderecoSede, cidadeSede, comarcaForo,
       }
       if (modo === 'criar') {
@@ -163,8 +173,44 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Open Finance (mcp.ai) — URL do endpoint</Label>
+              <Input
+                type="password"
+                value={mcpaiEndpointUrl}
+                onChange={e => { setMcpaiEndpointUrl(e.target.value); setMcpaiRemover(false) }}
+                placeholder={inicial?.mcpaiConfigurado ? 'Deixe em branco para manter a atual' : 'https://api.mcp.ai/...'}
+                className="h-9 text-sm"
+                disabled={mcpaiRemover}
+              />
+              {inicial?.mcpaiConfigurado ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-emerald-700">
+                    Configurada: {inicial.mcpaiResumo}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setMcpaiRemover(v => !v); setMcpaiEndpointUrl('') }}
+                    className="text-[11px] text-slate-400 hover:text-red-600 underline underline-offset-2"
+                  >
+                    {mcpaiRemover ? 'Cancelar remoção' : 'Remover chave'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-amber-600">
+                  Sem chave própria, esta empresa usa a conta global do sistema — e só enxerga extrato,
+                  PIX e cartão se o CNPJ dela estiver conectado lá.
+                </p>
+              )}
+              {mcpaiRemover && (
+                <p className="text-[11px] text-red-600">
+                  A chave será apagada ao salvar. Os módulos de Open Finance desta empresa voltam para a conta global.
+                </p>
+              )}
+            </div>
             <p className="text-xs text-slate-400">
-              ValidaPix ainda não é usada pelo sistema — será ativada em uma etapa futura. Bling já está em uso (emissão de NF-e). O login da fábrica agora fica no cadastro de cada loja.
+              A URL do mcp.ai é gravada cifrada e nunca volta para esta tela — por isso o campo aparece vazio.
+              ValidaPix ainda não é usada pelo sistema. Bling já está em uso (emissão de NF-e). O login da fábrica fica no cadastro de cada loja.
             </p>
           </div>
 

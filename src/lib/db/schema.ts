@@ -41,6 +41,11 @@ export const grupos = pgTable('grupos', {
   validapixPassword:  text('validapix_password'),
   blingClientId:      text('bling_client_id'),
   blingClientSecret:  text('bling_client_secret'),
+  // Endpoint do mcp.ai desta empresa (Open Finance: extrato, PIX e cartão).
+  // CIFRADO (AES-256-GCM/CERT_MASTER_KEY) porque a URL já carrega o segredo de
+  // acesso dentro dela. Nulo = ainda usa a env MCPAI_ENDPOINT_URL global.
+  // Ver src/lib/mcpai-credencial.ts.
+  mcpaiEndpointUrl:   text('mcpai_endpoint_url'),
   // OBSOLETO: avisos migraram para WhatsApp (env WHATSAPP_ALERTA_NUMERO).
   // Coluna mantida só pra evitar migração de drop; remover numa migração futura.
   telegramChatId:     text('telegram_chat_id'),
