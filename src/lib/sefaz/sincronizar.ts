@@ -94,6 +94,7 @@ export async function sincronizarGrupo(
         pfx: cert.pfx,
         senha: cert.senha,
         cnpj: cert.cnpj,
+        uf: cert.uf,
         ultNSU: ultNsuAtual,
       })
 

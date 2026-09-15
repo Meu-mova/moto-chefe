@@ -19,6 +19,7 @@ export default async function CertificadosPage() {
   const [atual] = await db.select({
     titular: certificadosDigitais.titular,
     cnpj: certificadosDigitais.cnpj,
+    uf: certificadosDigitais.uf,
     validoAte: certificadosDigitais.validoAte,
   }).from(certificadosDigitais).where(eq(certificadosDigitais.grupoId, grupo.id)).limit(1)
 
@@ -40,7 +41,7 @@ export default async function CertificadosPage() {
         <CardContent className="pt-6 space-y-2">
           {atual ? (
             <>
-              <p className="text-sm"><strong>{atual.titular}</strong> — CNPJ {atual.cnpj}</p>
+              <p className="text-sm"><strong>{atual.titular}</strong> — CNPJ {atual.cnpj} — {atual.uf}</p>
               <p className="text-sm text-slate-500">
                 Válido até {atual.validoAte.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                 {diasRestantes !== null && ` (${diasRestantes} dias)`}
@@ -61,7 +62,7 @@ export default async function CertificadosPage() {
         </CardContent>
       </Card>
 
-      <UploadForm />
+      <UploadForm ufAtual={atual?.uf ?? null} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { certificadosDigitais } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { cifrar, decifrar } from '@/lib/cripto'
+import type { SiglaUf } from './uf'
 
 export type DadosCertificado = { cnpj: string; titular: string; validoAte: Date }
 
@@ -37,7 +38,13 @@ export function lerDadosDoPfx(pfx: Buffer, senha: string): DadosCertificado {
   return { cnpj, titular: cn.split(':')[0].trim(), validoAte: cert.validity.notAfter }
 }
 
-export async function salvarCertificado(grupoId: string, pfx: Buffer, senha: string): Promise<DadosCertificado> {
+/**
+ * `uf` é a sigla da UF do autor da consulta (cUFAutor), escolhida na tela — o
+ * certificado não a traz de forma confiável: o A1 emitido pela RFB tem ST/L no
+ * subject, mas o de AC privada (o do Vale, por exemplo) não tem nenhum dos
+ * dois. Por isso é parâmetro obrigatório, e não algo lido do .pfx.
+ */
+export async function salvarCertificado(grupoId: string, pfx: Buffer, senha: string, uf: SiglaUf): Promise<DadosCertificado> {
   const dados = lerDadosDoPfx(pfx, senha)
   await db.insert(certificadosDigitais)
     .values({
@@ -46,6 +53,7 @@ export async function salvarCertificado(grupoId: string, pfx: Buffer, senha: str
       senha: cifrar(senha),
       cnpj: dados.cnpj,
       titular: dados.titular,
+      uf,
       validoAte: dados.validoAte,
     })
     .onConflictDoUpdate({
@@ -55,6 +63,7 @@ export async function salvarCertificado(grupoId: string, pfx: Buffer, senha: str
         senha: cifrar(senha),
         cnpj: dados.cnpj,
         titular: dados.titular,
+        uf,
         validoAte: dados.validoAte,
         criadoEm: new Date(),
       },
@@ -78,5 +87,6 @@ export async function carregarCertificado(grupoId: string) {
     senha: decifrar(linha.senha).toString('utf8'),
     validoAte: linha.validoAte,
     cnpj: linha.cnpj,
+    uf: linha.uf,
   }
 }

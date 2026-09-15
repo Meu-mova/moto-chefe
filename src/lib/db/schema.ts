@@ -1385,6 +1385,9 @@ export const certificadosDigitais = pgTable('certificados_digitais', {
   senha:     text('senha').notNull(),
   cnpj:      text('cnpj').notNull(),
   titular:   text('titular').notNull(),
+  // Sigla da UF do autor da consulta (cUFAutor). Escolhida em /admin/certificados;
+  // vira código IBGE em @/lib/sefaz/uf na hora de montar o XML.
+  uf:        text('uf').notNull(),
   validoAte: timestamp('valido_ate', { withTimezone: true }).notNull(),
   criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

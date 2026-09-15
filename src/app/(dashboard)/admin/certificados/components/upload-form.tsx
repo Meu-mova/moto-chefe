@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { enviarCertificado } from '../actions'
+import { UFS } from '@/lib/sefaz/uf'
 import { Card, CardContent } from '@/components/ui/card'
 
-export function UploadForm() {
+export function UploadForm({ ufAtual }: { ufAtual: string | null }) {
   const [enviando, setEnviando] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
@@ -30,6 +31,24 @@ export function UploadForm() {
             <label className="text-sm font-medium">Senha do certificado</label>
             <input type="password" name="senha" required autoComplete="off"
               className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="uf">UF da empresa</label>
+            {/* <select> nativo, não o Select do base-ui: o valor gravado é a
+                sigla e o texto mostrado é o nome do estado, e nesse caso o
+                componente mostra o valor cru no lugar do rótulo. */}
+            <select id="uf" name="uf" required defaultValue={ufAtual ?? ''}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none">
+              <option value="" disabled>Selecione…</option>
+              {UFS.map(uf => (
+                <option key={uf.sigla} value={uf.sigla}>{uf.sigla} — {uf.nome}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">
+              É o estado onde a empresa deste CNPJ está registrada — é o que vai pra SEFAZ
+              como autor da consulta. UF errada faz a consulta voltar recusada sem explicar
+              o motivo.
+            </p>
           </div>
           <button type="submit" disabled={enviando}
             className="rounded-md bg-slate-800 text-white px-3 h-9 text-sm hover:bg-slate-700 disabled:opacity-60">
