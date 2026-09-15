@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Radar } from 'lucide-react'
 import { RadarFiltros } from './components/radar-filtros'
 import { NotaDownloads } from './components/nota-downloads'
+import { AtualizarSefaz } from './components/atualizar-sefaz'
+import { podeConsultar } from '@/lib/sefaz/nsu'
 
 // cStat "bom" é só um destes dois: 138 (documento localizado) ou 137 (nenhum
 // documento — fila em dia). Qualquer outro (656 — consumo indevido, rejeição,
@@ -20,6 +22,13 @@ import { NotaDownloads } from './components/nota-downloads'
 // `ultimo_erro` esteja nulo — foi exatamente o caso real de hoje: cStat 656
 // gravado com sucesso (o INSERT não falhou), `ultimo_erro` nulo, e a tela
 // não dizia nada de errado.
+// A atualização manual (actions.ts) roda `sincronizarGrupo` neste mesmo
+// segmento, e o laço de drenagem tem orçamento de 45s. Com o padrão da
+// plataforma a action morreria antes de terminar um backlog — e morrer no meio
+// não perde nota (cada iteração commita), mas devolve erro na cara de quem
+// clicou. 60s é o teto do plano Hobby, o mesmo do cron.
+export const maxDuration = 60
+
 const CSTAT_BONS = new Set([CSTAT_DOCUMENTO_LOCALIZADO, CSTAT_NENHUM_DOCUMENTO])
 // O cron roda 1x/dia (0 11 * * *, 8h de Brasília — plano Hobby só tem 1 cron
 // por dia) e `atualizado_em` é carimbado no INÍCIO da execução. Com isso o
@@ -150,6 +159,12 @@ export default async function RadarFiscalPage({
               ? sync.atualizadoEm.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
               : 'ainda não rodou'}
           </p>
+          <div className="mt-3">
+            <AtualizarSefaz
+              proximaConsultaEmIso={sync?.proximaConsultaEm?.toISOString() ?? null}
+              liberadoNoServidor={podeConsultar({ proximaConsultaEm: sync?.proximaConsultaEm ?? null }, new Date())}
+            />
+          </div>
         </CardContent></Card>
       </div>
 
