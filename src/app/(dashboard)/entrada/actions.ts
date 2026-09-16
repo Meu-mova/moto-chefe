@@ -135,7 +135,8 @@ type MotoEntradaLote = {
   chassi: string
   cor: string
   motor?: string
-  modeloNome: string
+  modeloId: string
+  precoCompra: string
   notaFiscal: string
 }
 
@@ -160,12 +161,14 @@ export async function registrarEntradaLote(formData: {
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
 
+  // O modelo e o preço de cada moto chegam já revisados na tela (o de-para do XML
+  // é só a sugestão inicial). Aqui o id vindo do payload é conferido contra o
+  // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum.
   const allModelos = await db
-    .select({ id: modelos.id, modelo: modelos.modelo, precoCompraPadrao: modelos.precoCompraPadrao })
+    .select({ id: modelos.id })
     .from(modelos)
 
-  const normalize = (s: string) => s.toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim()
-  const modeloMap = new Map(allModelos.map(m => [normalize(m.modelo), m]))
+  const idsValidos = new Set(allModelos.map(m => m.id))
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
@@ -185,17 +188,19 @@ export async function registrarEntradaLote(formData: {
 
   let inseridos = 0
   const erros: string[] = []
-  const modelosNaoEncontrados = new Set<string>()
 
   for (const moto of formData.motos) {
     const chassi = moto.chassi.trim().toUpperCase()
     if (!chassi) continue
 
-    const modeloInfo = modeloMap.get(normalize(moto.modeloNome))
+    if (!moto.modeloId || !idsValidos.has(moto.modeloId)) {
+      erros.push(`${chassi}: selecione o modelo antes de registrar`)
+      continue
+    }
 
-    if (!modeloInfo) {
-      modelosNaoEncontrados.add(moto.modeloNome)
-      erros.push(`${chassi}: modelo "${moto.modeloNome}" não encontrado`)
+    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
+    if (!precoCompra) {
+      erros.push(`${chassi}: informe o preço de compra`)
       continue
     }
 
@@ -204,13 +209,13 @@ export async function registrarEntradaLote(formData: {
     try {
       const [novaMoto] = await db.insert(motos).values({
         chassi,
-        modeloId: modeloInfo.id,
+        modeloId: moto.modeloId,
         lojaId: loja.id,
         status: 'caixa',
         cor: normalizarCor(moto.cor),
         notaFiscalEntrada: nf,
         motor: moto.motor?.trim() || null,
-        precoCompra: modeloInfo.precoCompraPadrao,
+        precoCompra,
       }).returning({ id: motos.id })
 
       await db.insert(historicoEstoque).values({

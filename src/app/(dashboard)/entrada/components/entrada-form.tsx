@@ -11,7 +11,19 @@ import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
 type Modelo = { id: string; modelo: string; marca: string; precoCompraPadrao: string | null }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
-type MotoLinhaPlanilha = { chassi: string; cor: string; motor: string; modelo: string; nf: string }
+// `modelo` guarda o nome cru que veio do XML/planilha (é a chave de agrupamento da
+// tela); `modeloId` e `preco` são o que de fato vai pro banco, e ambos ficam editáveis.
+type MotoLinhaPlanilha = {
+  chassi: string
+  cor: string
+  motor: string
+  modelo: string
+  nf: string
+  modeloId: string
+  preco: string
+}
+
+const normalize = (s: string) => s.toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim()
 
 export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
@@ -80,6 +92,28 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
     e.target.value = ''
   }
 
+  // --- Modelo/preço das motos importadas ---
+  // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
+  // modeloId e a pessoa escolhe na tela.
+  function sugerirModelo(nomeArquivo: string) {
+    const cadastrado = modelos.find(m => normalize(m.modelo) === normalize(nomeArquivo))
+    return { modeloId: cadastrado?.id || '', preco: cadastrado?.precoCompraPadrao || '' }
+  }
+
+  function trocarModeloDoGrupo(indices: number[], modeloId: string) {
+    const escolhido = modelos.find(m => m.id === modeloId)
+    const alvo = new Set(indices)
+    setLinhasPlanilha(prev => prev.map((l, i) => (
+      // O preço padrão do novo modelo reaplica no bloco inteiro — é o "aplicar a
+      // todas". Modelo sem preço padrão preserva o que já estava digitado.
+      alvo.has(i) ? { ...l, modeloId, preco: escolhido?.precoCompraPadrao || l.preco } : l
+    )))
+  }
+
+  function updatePreco(idx: number, preco: string) {
+    setLinhasPlanilha(prev => prev.map((l, i) => i === idx ? { ...l, preco } : l))
+  }
+
   // --- Planilha XLSX handler ---
   function handleXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -99,13 +133,17 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
 
       const novas: MotoLinhaPlanilha[] = rows
         .filter(r => r['CHASSI'])
-        .map(r => ({
-          chassi: String(r['CHASSI'] || '').trim(),
-          cor: String(r['COR'] || '').trim(),
-          motor: String(r['MOTOR'] || '').trim(),
-          modelo: String(r['MODELO'] || '').trim(),
-          nf: String(r['NF ENTRADA'] || '').trim(),
-        }))
+        .map(r => {
+          const modelo = String(r['MODELO'] || '').trim()
+          return {
+            chassi: String(r['CHASSI'] || '').trim(),
+            cor: String(r['COR'] || '').trim(),
+            motor: String(r['MOTOR'] || '').trim(),
+            modelo,
+            nf: String(r['NF ENTRADA'] || '').trim(),
+            ...sugerirModelo(modelo),
+          }
+        })
 
       if (novas.length === 0) {
         toast.error('Nenhuma moto encontrada na planilha')
@@ -139,12 +177,14 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdProdutos} produto(s) — confira`)
         }
         for (const m of motos) {
+          const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
           novas.push({
             chassi: m.chassi,
             cor: m.cor,
             motor: m.motor,
-            modelo: mapearModelo(m.modelo, nomesMova) ?? m.modelo, // de-para NF → MOVA
+            modelo,
             nf: nNF,
+            ...sugerirModelo(modelo),
           })
         }
       } catch {
@@ -225,6 +265,18 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
       return
     }
 
+    const semModelo = linhasPlanilha.filter(l => !l.modeloId)
+    if (semModelo.length > 0) {
+      toast.error(`${semModelo.length} moto(s) sem modelo selecionado`)
+      return
+    }
+
+    const semPreco = linhasPlanilha.filter(l => !l.preco)
+    if (semPreco.length > 0) {
+      toast.error(`${semPreco.length} moto(s) sem preço de compra`)
+      return
+    }
+
     setLoading(true)
     try {
       const result = await registrarEntradaLote({
@@ -233,7 +285,8 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
           chassi: l.chassi,
           cor: l.cor,
           motor: l.motor,
-          modeloNome: l.modelo,
+          modeloId: l.modeloId,
+          precoCompra: l.preco,
           notaFiscal: l.nf,
         })),
       })
@@ -250,15 +303,15 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
     }
   }
 
-  const normalize = (s: string) => s.toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim()
-
   // --- Agrupar motos por NF > Modelo para exibição ---
-  const nfsAgrupadas = linhasPlanilha.reduce<Record<string, Record<string, MotoLinhaPlanilha[]>>>((acc, m) => {
+  // Guarda o índice de cada linha junto: a chave do grupo é o nome cru do XML, então
+  // trocar o modelo de um bloco não o faz saltar de lugar embaixo do clique.
+  const nfsAgrupadas = linhasPlanilha.reduce<Record<string, Record<string, { moto: MotoLinhaPlanilha; idx: number }[]>>>((acc, m, idx) => {
     const nfKey = m.nf || 'SEM NF'
     const modeloKey = m.modelo.toUpperCase()
     if (!acc[nfKey]) acc[nfKey] = {}
     if (!acc[nfKey][modeloKey]) acc[nfKey][modeloKey] = []
-    acc[nfKey][modeloKey].push(m)
+    acc[nfKey][modeloKey].push({ moto: m, idx })
     return acc
   }, {})
 
@@ -380,23 +433,32 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
                     </div>
 
                     {Object.entries(modelosGrupo).map(([modelo, motosGrupo]) => {
-                      const modeloCadastrado = modelos.find(m => normalize(m.modelo) === normalize(modelo))
+                      const indices = motosGrupo.map(g => g.idx)
+                      // O bloco só tem um modelo escolhido quando todas as suas motos
+                      // apontam pro mesmo — senão o select abre vazio, esperando escolha.
+                      const idsNoGrupo = new Set(motosGrupo.map(g => g.moto.modeloId))
+                      const modeloIdDoGrupo = idsNoGrupo.size === 1 ? [...idsNoGrupo][0] : ''
                       return (
                         <div key={`${nf}-${modelo}`} className="border rounded-md p-3 space-y-2 ml-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{modelo}</span>
-                              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                                {motosGrupo.length} un.
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-sm">{modelo}</span>
+                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                              {motosGrupo.length} un.
+                            </span>
+                            <select
+                              value={modeloIdDoGrupo}
+                              onChange={e => trocarModeloDoGrupo(indices, e.target.value)}
+                              className={`border rounded px-2 py-1 text-xs ${modeloIdDoGrupo ? '' : 'border-red-400 text-red-600 bg-red-50'}`}
+                            >
+                              <option value="">Escolha o modelo cadastrado...</option>
+                              {modelos.map(m => (
+                                <option key={m.id} value={m.id}>{m.marca} — {m.modelo}</option>
+                              ))}
+                            </select>
+                            {!modeloIdDoGrupo && (
+                              <span className="text-xs text-red-500 font-medium">
+                                Modelo não cadastrado — escolha o equivalente
                               </span>
-                              {modeloCadastrado?.precoCompraPadrao && (
-                                <span className="text-xs text-green-600">
-                                  R$ {Number(modeloCadastrado.precoCompraPadrao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /un.
-                                </span>
-                              )}
-                            </div>
-                            {!modeloCadastrado && (
-                              <span className="text-xs text-red-500 font-medium">Modelo não cadastrado</span>
                             )}
                           </div>
                           <table className="w-full text-xs">
@@ -406,15 +468,24 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
                                 <th className="text-left px-2 py-1">Chassi</th>
                                 <th className="text-left px-2 py-1">Motor</th>
                                 <th className="text-left px-2 py-1">Cor</th>
+                                <th className="text-left px-2 py-1 w-32">Preço de compra</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {motosGrupo.map((m, i) => (
-                                <tr key={i} className="border-b last:border-0">
+                              {motosGrupo.map(({ moto: m, idx }, i) => (
+                                <tr key={idx} className="border-b last:border-0">
                                   <td className="px-2 py-1 text-slate-400">{i + 1}</td>
                                   <td className="px-2 py-1 font-mono">{m.chassi}</td>
                                   <td className="px-2 py-1 font-mono">{m.motor}</td>
                                   <td className="px-2 py-1">{m.cor}</td>
+                                  <td className="px-2 py-1">
+                                    <CurrencyInput
+                                      value={m.preco}
+                                      onChange={v => updatePreco(idx, v)}
+                                      placeholder="0,00"
+                                      className="h-7 text-xs"
+                                    />
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
