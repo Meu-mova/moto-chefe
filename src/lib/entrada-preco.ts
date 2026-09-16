@@ -28,6 +28,23 @@ function temValor(preco: string | null): preco is string {
   return !!preco && Number(preco) > 0
 }
 
+/**
+ * Preço a gravar como padrão de cada modelo que acabou de entrar, para o cadastro
+ * ir se preenchendo sozinho: modelo estreante entra sem sugestão uma vez só.
+ * Quando o mesmo modelo vem com preços diferentes no lote, o primeiro vale — quem
+ * conferir o cadastro depois ajusta.
+ */
+export function precosParaCadastrar(inseridas: { modeloId: string; preco: string }[]) {
+  const porModelo = new Map<string, string>()
+
+  for (const { modeloId, preco } of inseridas) {
+    if (!modeloId || !temValor(preco) || porModelo.has(modeloId)) continue
+    porModelo.set(modeloId, preco)
+  }
+
+  return porModelo
+}
+
 export function sugerirModeloEPreco(nomeDoArquivo: string, modelos: ModeloSugestao[]) {
   const alvo = normalizarNomeModelo(nomeDoArquivo)
   const cadastrado = modelos.find(m => normalizarNomeModelo(m.modelo) === alvo)

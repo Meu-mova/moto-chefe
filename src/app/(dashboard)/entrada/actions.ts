@@ -2,11 +2,12 @@
 
 import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque, modelos } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull, lte, or } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
+import { precosParaCadastrar } from '@/lib/entrada-preco'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -30,6 +31,36 @@ async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
   }
 
   return { loja }
+}
+
+/**
+ * Preenche o preço padrão dos modelos que entraram sem ter um. O cadastro do
+ * catálogo nunca foi preenchido por completo, então o valor digitado na entrada
+ * vira o padrão do modelo e a próxima importação já vem sugerida.
+ *
+ * A condição de "ainda não tem preço" vive no WHERE, não em um select antes:
+ * duas entradas simultâneas do mesmo modelo não se atropelam, e preço já
+ * cadastrado nunca é sobrescrito por aqui — isso continua sendo mexida no
+ * cadastro do modelo, feita de propósito na tela de Modelos.
+ */
+async function cadastrarPrecoPadraoFaltante(inseridas: { modeloId: string; preco: string }[]) {
+  const porModelo = precosParaCadastrar(inseridas)
+  let gravados = 0
+
+  for (const [modeloId, preco] of porModelo) {
+    const alterados = await db
+      .update(modelos)
+      .set({ precoCompraPadrao: preco })
+      .where(and(
+        eq(modelos.id, modeloId),
+        or(isNull(modelos.precoCompraPadrao), lte(modelos.precoCompraPadrao, '0')),
+      ))
+      .returning({ id: modelos.id })
+
+    gravados += alterados.length
+  }
+
+  return gravados
 }
 
 type MotoEntrada = {
@@ -116,19 +147,28 @@ export async function registrarEntrada(formData: {
     }
   }
 
+  const cadastrados = inseridos > 0
+    ? await cadastrarPrecoPadraoFaltante([{ modeloId: formData.modeloId, preco: precoCompra }])
+    : 0
+
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
+  if (cadastrados > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
   }
 
+  const avisoCadastro = cadastrados > 0
+    ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
+    : ''
+
   if (erros.length) {
-    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}` }
+    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}${avisoCadastro}` }
   }
 
-  return { success: `${inseridos} moto(s) inserida(s) com sucesso!` }
+  return { success: `${inseridos} moto(s) inserida(s) com sucesso!${avisoCadastro}` }
 }
 
 type MotoEntradaLote = {
@@ -188,6 +228,7 @@ export async function registrarEntradaLote(formData: {
 
   let inseridos = 0
   const erros: string[] = []
+  const entraram: { modeloId: string; preco: string }[] = []
 
   for (const moto of formData.motos) {
     const chassi = moto.chassi.trim().toUpperCase()
@@ -227,6 +268,7 @@ export async function registrarEntradaLote(formData: {
         observacao: `Entrada NF ${nf}`,
       })
 
+      entraram.push({ modeloId: moto.modeloId, preco: precoCompra })
       inseridos++
     } catch (e: any) {
       const isDup = e.code === '23505' || e.cause?.code === '23505' ||
@@ -239,17 +281,24 @@ export async function registrarEntradaLote(formData: {
     }
   }
 
+  const cadastrados = await cadastrarPrecoPadraoFaltante(entraram)
+
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
+  if (cadastrados > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
   }
 
+  const avisoCadastro = cadastrados > 0
+    ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
+    : ''
+
   if (erros.length) {
-    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}` }
+    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}${avisoCadastro}` }
   }
 
-  return { success: `${inseridos} moto(s) inserida(s) com sucesso!` }
+  return { success: `${inseridos} moto(s) inserida(s) com sucesso!${avisoCadastro}` }
 }
