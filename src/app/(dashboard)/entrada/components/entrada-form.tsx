@@ -7,8 +7,15 @@ import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
+import { sugerirModeloEPreco } from '@/lib/entrada-preco'
 
-type Modelo = { id: string; modelo: string; marca: string; precoCompraPadrao: string | null }
+type Modelo = {
+  id: string
+  modelo: string
+  marca: string
+  precoCompraPadrao: string | null
+  ultimoPrecoCompra: string | null
+}
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
 // `modelo` guarda o nome cru que veio do XML/planilha (é a chave de agrupamento da
@@ -22,8 +29,6 @@ type MotoLinhaPlanilha = {
   modeloId: string
   preco: string
 }
-
-const normalize = (s: string) => s.toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim()
 
 export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
@@ -96,17 +101,18 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
   // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
   // modeloId e a pessoa escolhe na tela.
   function sugerirModelo(nomeArquivo: string) {
-    const cadastrado = modelos.find(m => normalize(m.modelo) === normalize(nomeArquivo))
-    return { modeloId: cadastrado?.id || '', preco: cadastrado?.precoCompraPadrao || '' }
+    return sugerirModeloEPreco(nomeArquivo, modelos)
   }
 
   function trocarModeloDoGrupo(indices: number[], modeloId: string) {
     const escolhido = modelos.find(m => m.id === modeloId)
+    // Reaproveita a mesma cascata cadastro → último praticado da importação.
+    const sugerido = escolhido ? sugerirModeloEPreco(escolhido.modelo, modelos).preco : ''
     const alvo = new Set(indices)
     setLinhasPlanilha(prev => prev.map((l, i) => (
-      // O preço padrão do novo modelo reaplica no bloco inteiro — é o "aplicar a
-      // todas". Modelo sem preço padrão preserva o que já estava digitado.
-      alvo.has(i) ? { ...l, modeloId, preco: escolhido?.precoCompraPadrao || l.preco } : l
+      // O preço sugerido do novo modelo reaplica no bloco inteiro — é o "aplicar a
+      // todas". Modelo sem preço conhecido preserva o que já estava digitado.
+      alvo.has(i) ? { ...l, modeloId, preco: sugerido || l.preco } : l
     )))
   }
 
@@ -552,7 +558,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
                     const id = e.target.value
                     setModeloId(id)
                     const m = modelos.find(m => m.id === id)
-                    setPrecoCompra(m?.precoCompraPadrao || '')
+                    setPrecoCompra(m ? sugerirModeloEPreco(m.modelo, modelos).preco : '')
                   }}
                   className="w-full border rounded-md px-3 py-2 text-sm"
                   required

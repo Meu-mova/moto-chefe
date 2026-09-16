@@ -1,21 +1,48 @@
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { modelos } from '@/lib/db/schema'
+import { modelos, motos, historicoEstoque } from '@/lib/db/schema'
 import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { EntradaForm } from './components/entrada-form'
+
+// Último preço de compra praticado em cada modelo, para servir de sugestão quando
+// o cadastro do modelo está sem preço padrão. Só olha as entradas das lojas do
+// grupo ativo — preço de compra de um grupo não é palpite válido para o outro.
+async function ultimoPrecoPorModelo(lojaIds: string[]) {
+  if (!lojaIds.length) return new Map<string, string>()
+
+  const linhas = await db
+    .selectDistinctOn([motos.modeloId], { modeloId: motos.modeloId, preco: motos.precoCompra })
+    .from(motos)
+    .innerJoin(
+      historicoEstoque,
+      and(eq(historicoEstoque.motoId, motos.id), eq(historicoEstoque.tipo, 'entrada')),
+    )
+    .where(and(isNotNull(motos.precoCompra), inArray(motos.lojaId, lojaIds)))
+    .orderBy(motos.modeloId, desc(historicoEstoque.data))
+
+  return new Map(linhas.filter(l => l.preco).map(l => [l.modeloId, l.preco as string]))
+}
 
 export default async function EntradaPage() {
   const usuario = await getUsuarioLogado()
   if (!podeRegistrarEntradaMotos(usuario)) redirect('/dashboard')
 
-  const [modelosOpts, lojasOpts] = await Promise.all([
+  const lojasOpts = await listarLojasDoGrupoAtivo(usuario)
+
+  const [modelosCadastrados, ultimosPrecos] = await Promise.all([
     db
       .select({ id: modelos.id, modelo: modelos.modelo, marca: modelos.marca, precoCompraPadrao: modelos.precoCompraPadrao })
       .from(modelos)
       .orderBy(modelos.marca, modelos.modelo),
-    listarLojasDoGrupoAtivo(usuario),
+    ultimoPrecoPorModelo(lojasOpts.map(l => l.id)),
   ])
+
+  const modelosOpts = modelosCadastrados.map(m => ({
+    ...m,
+    ultimoPrecoCompra: ultimosPrecos.get(m.id) ?? null,
+  }))
 
   return (
     <div className="space-y-6">
