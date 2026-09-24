@@ -172,6 +172,19 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
+  // Ficha fiscal semeada pelo XML da NF-e de entrada (ver lib/nfe-fiscal.ts).
+  // Fica no catálogo porque NCM/CEST são do produto, iguais nos dois CNPJs; a
+  // regra de SAÍDA (CFOP e CST da nossa nota) é por grupo e não mora aqui.
+  ncm: text('ncm'),
+  cest: text('cest'),
+  unidade: text('unidade'),
+  origem: text('origem'),
+  cstIcmsEntrada: text('cst_icms_entrada'),
+  cstPis: text('cst_pis'),
+  cstCofins: text('cst_cofins'),
+  classTribIbsCbs: text('class_trib_ibscbs'),
+  fiscalNota: text('fiscal_nota'),
+  fiscalAtualizadoEm: timestamp('fiscal_atualizado_em', { withTimezone: true }),
 })
 
 // ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────

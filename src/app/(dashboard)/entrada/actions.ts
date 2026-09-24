@@ -8,6 +8,7 @@ import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { precosParaCadastrar } from '@/lib/entrada-preco'
+import { fiscaisParaCadastrar, type FichaFiscal } from '@/lib/nfe-fiscal'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -55,6 +56,55 @@ async function cadastrarPrecoPadraoFaltante(inseridas: { modeloId: string; preco
         eq(modelos.id, modeloId),
         or(isNull(modelos.precoCompraPadrao), lte(modelos.precoCompraPadrao, '0')),
       ))
+      .returning({ id: modelos.id })
+
+    gravados += alterados.length
+  }
+
+  return gravados
+}
+
+/**
+ * Preenche a ficha fiscal (NCM, CEST, origem, CST…) dos modelos que ainda não
+ * têm, a partir dos itens do XML que acabou de ser importado.
+ *
+ * É o primeiro passo para emitir nota própria e sair do Bling: a tributação de
+ * cada modelo mora hoje lá dentro, alcançada pelo `blingCodigo`, e a fonte para
+ * trazê-la é o XML da nota que a fábrica nos emitiu — foi ela quem classificou
+ * o produto.
+ *
+ * Só os campos FISCAIS vêm do XML. O valor não: a nota da fábrica sai com um
+ * valor diferente do que se paga a ela, então o preço de compra continua sendo
+ * o digitado na tela. Não troque isso por `vUnCom` do XML.
+ *
+ * Mesma disciplina do preço padrão: a condição de "ainda não tem" vive no WHERE.
+ * Ficha já preenchida nunca é sobrescrita por aqui, porque reimportar uma nota
+ * antiga não pode desfazer uma correção que o contador fez no cadastro. O NCM é
+ * o que marca a ficha como existente — sem ele não se emite nota.
+ */
+async function cadastrarFichaFiscalFaltante(
+  itens: { modeloId: string; nota: string; ficha: FichaFiscal }[],
+) {
+  const porModelo = fiscaisParaCadastrar(itens)
+  const notaPorModelo = new Map(itens.map(i => [i.modeloId, i.nota]))
+  let gravados = 0
+
+  for (const [modeloId, ficha] of porModelo) {
+    const alterados = await db
+      .update(modelos)
+      .set({
+        ncm: ficha.ncm,
+        cest: ficha.cest || null,
+        unidade: ficha.unidade || null,
+        origem: ficha.origem || null,
+        cstIcmsEntrada: ficha.cstIcmsEntrada || null,
+        cstPis: ficha.cstPis || null,
+        cstCofins: ficha.cstCofins || null,
+        classTribIbsCbs: ficha.classTribIbsCbs || null,
+        fiscalNota: notaPorModelo.get(modeloId) || null,
+        fiscalAtualizadoEm: new Date(),
+      })
+      .where(and(eq(modelos.id, modeloId), isNull(modelos.ncm)))
       .returning({ id: modelos.id })
 
     gravados += alterados.length
@@ -183,6 +233,9 @@ type MotoEntradaLote = {
 export async function registrarEntradaLote(formData: {
   lojaId: string
   motos: MotoEntradaLote[]
+  // Fichas fiscais lidas dos XMLs importados. Opcional: entrada por
+  // planilha e entrada manual não têm XML.
+  fiscais?: { modeloId: string; nota: string; ficha: FichaFiscal }[]
 }) {
   const usuario = await getUsuarioLogado()
   if (!podeRegistrarEntradaMotos(usuario)) {
@@ -282,19 +335,27 @@ export async function registrarEntradaLote(formData: {
   }
 
   const cadastrados = await cadastrarPrecoPadraoFaltante(entraram)
+  // Só as fichas dos modelos que de fato entraram: item de XML que não virou
+  // moto (frete, brinde) não deve mexer no cadastro.
+  const idsQueEntraram = new Set(entraram.map(e => e.modeloId))
+  const fichasGravadas = await cadastrarFichaFiscalFaltante(
+    (formData.fiscais ?? []).filter(f => idsQueEntraram.has(f.modeloId)),
+  )
 
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  if (cadastrados > 0) revalidatePath('/admin/modelos')
+  if (cadastrados > 0 || fichasGravadas > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
   }
 
-  const avisoCadastro = cadastrados > 0
+  const avisoCadastro = (cadastrados > 0
     ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
-    : ''
+    : '') + (fichasGravadas > 0
+    ? `\nFicha fiscal (NCM, CEST, origem) cadastrada para ${fichasGravadas} modelo(s) que ainda não tinha.`
+    : '')
 
   if (erros.length) {
     return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}${avisoCadastro}` }

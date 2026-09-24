@@ -8,6 +8,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
 import { sugerirModeloEPreco } from '@/lib/entrada-preco'
+import { extrairFiscalDaNfe, type FichaFiscal } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -40,6 +41,10 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
+  // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
+  // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
+  // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
+  const [fiscais, setFiscais] = useState<{ modeloId: string; nota: string; ficha: FichaFiscal }[]>([])
 
   const [loading, setLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -171,6 +176,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
 
     const nomesMova = modelos.map(m => m.modelo)
     const novas: MotoLinhaPlanilha[] = []
+    const fichasNovas: { modeloId: string; nota: string; ficha: FichaFiscal }[] = []
     const avisos: string[] = []
 
     for (const file of files) {
@@ -178,6 +184,16 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
         const xml = await file.text()
         const { nNF, infCpl, qtdProdutos } = extrairDaNfe(xml)
         const motos = parseMotosInfCpl(infCpl)
+
+        // Ficha fiscal por item da nota. O `cProd` da fábrica é o próprio nome
+        // do modelo ("GIGA"); quando não for, tenta a descrição. Item que não
+        // casa com modelo cadastrado é ignorado — não há onde gravar.
+        for (const ficha of extrairFiscalDaNfe(xml)) {
+          const nome = mapearModelo(ficha.codigo, nomesMova) ?? mapearModelo(ficha.descricao, nomesMova)
+          if (!nome) continue
+          const { modeloId } = sugerirModelo(nome)
+          if (modeloId) fichasNovas.push({ modeloId, nota: nNF, ficha })
+        }
         // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
         if (qtdProdutos && motos.length !== qtdProdutos) {
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdProdutos} produto(s) — confira`)
@@ -208,6 +224,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
       const add = novas.filter(n => n.chassi && !vistos.has(n.chassi.toUpperCase()))
       return [...prev, ...add]
     })
+    setFiscais(prev => [...prev, ...fichasNovas])
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     avisos.forEach(a => toast.warning(a, { duration: 9000 }))
   }
@@ -295,6 +312,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
           precoCompra: l.preco,
           notaFiscal: l.nf,
         })),
+        fiscais,
       })
 
       if (result.error) {
