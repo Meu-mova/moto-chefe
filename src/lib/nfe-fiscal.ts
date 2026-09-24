@@ -26,6 +26,8 @@
  * se paga a ela, então o preço de compra continua sendo o digitado na tela.
  */
 
+import { mapearModelo } from './nfe-entrada'
+
 export type FichaFiscal = {
   /** `cProd` — código do produto na nota do fornecedor. É por ele que se acha o modelo. */
   codigo: string
@@ -101,53 +103,78 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
  * escolheria uma das duas e emitiria a outra metade do estoque com origem e ST
  * errados. A ficha é da MOTO, e é aqui que ela encontra a sua.
  *
- * As duas pontas da nota falam nomes diferentes: o chassi sai do `infCpl`, onde
- * o modelo vem como "X12"; a ficha sai do `<det>`, onde o código vem como
- * "MT-X12-10" ou "X12 MOTO CHEFE". Por isso a comparação é por prefixo sobre o
- * texto compactado, nos dois sentidos, e vence o casamento mais longo — senão
- * JETMAX cairia em JET, e X11 MINI em X11-12.
+ * As duas pontas da nota falam nomes diferentes. O chassi sai do `infCpl`, onde
+ * o modelo vem com a potência colada ("X12-1000W") ou abreviado ("BOB MC"); a
+ * ficha sai do `<det>`, onde o código vem como "MT-X12-10" ou "X12 MOTO CHEFE".
+ * Por isso o casamento tem duas escadas, da mais confiável para a menos:
+ *
+ * 1. **Pelo catálogo** — `mapearModelo` resolve os dois lados para o nome
+ *    cadastrado no MOVA e eles casam se derem no mesmo modelo. É o caminho que
+ *    liga "X12-1000W" a "X12 MOTO CHEFE", que nenhuma comparação de texto entre
+ *    os dois acertaria.
+ * 2. **Por prefixo compactado**, nos dois sentidos, sem a potência. Vence o
+ *    casamento mais longo, senão JETMAX cairia em JET e X11 MINI em X11-12.
  *
  * Quando nada casa, o chassi fica de fora de propósito: ficha errada emite nota
- * errada, e sem ficha a tela de emissão ainda pode pedir a conferência humana.
- * A única exceção é a nota de um item só, em que não há o que confundir — caso
- * real da LAIOUNS, que às vezes descreve o X12 como "MOTOCICLETA ELETRICA TIPO
+ * errada, e sem ficha a tela de emissão ainda pede a conferência humana. A única
+ * exceção é a nota de um item só, em que não há o que confundir — caso real da
+ * LAIOUNS, que às vezes descreve o X12 como "MOTOCICLETA ELETRICA TIPO
  * MOTONETA", sem citar o modelo em lugar nenhum.
  */
 export function ligarFichasAosChassis(
   motosDaNota: { modelo: string; chassi: string }[],
   fichas: FichaFiscal[],
+  /** Nomes do catálogo (`modelos.modelo`). Sem eles, só a escada 2 funciona. */
+  nomesCatalogo: string[] = [],
 ): Map<string, FichaFiscal> {
   const mapa = new Map<string, FichaFiscal>()
   if (!motosDaNota.length || !fichas.length) return mapa
 
-  // Compacta para comparar: "MT-X12-10" e "X12" viram "X1210" e "X12".
+  // Compacta para comparar e tira a potência do fim: "X12-1000W" e "X12 MOTO
+  // CHEFE" viram "X12" e "X12MOTOCHEFE"; "MT-X12-10" vira "X1210".
   const compactar = (s: string) =>
-    (s ?? '').toUpperCase().replace(/^MT[\s-]*/, '').replace(/[^A-Z0-9]/g, '')
+    (s ?? '')
+      .toUpperCase()
+      .replace(/^MT[\s-]*/, '')
+      .replace(/[^A-Z0-9]/g, '')
+      .replace(/\d+W$/, '')
+
+  const doCatalogo = (s: string) =>
+    nomesCatalogo.length ? mapearModelo(s ?? '', nomesCatalogo) : null
 
   // NCM 8711 = motocicletas. Serve para não eleger o guarda-sol da nota como
   // "item único" quando a moto não casa pelo nome.
   const deVeiculo = fichas.filter(f => f.ncm.startsWith('8711'))
   const fichaUnica = deVeiculo.length === 1 ? deVeiculo[0] : null
 
+  // Pré-resolve o lado das fichas: o código manda, a descrição é o reforço.
+  const resolvidas = fichas.map(f => ({
+    ficha: f,
+    catalogo: doCatalogo(f.codigo) ?? doCatalogo(f.descricao),
+    textos: [f.codigo, f.descricao].map(compactar).filter(Boolean),
+  }))
+
   for (const moto of motosDaNota) {
     const alvo = compactar(moto.modelo)
-    if (!alvo) continue
+    const alvoCatalogo = doCatalogo(moto.modelo)
+    if (!alvo && !alvoCatalogo) continue
 
     let melhor: FichaFiscal | null = null
-    let melhorLen = 0
+    let melhorNota = 0
 
-    for (const f of fichas) {
-      for (const candidato of [f.codigo, f.descricao]) {
-        const c = compactar(candidato)
-        if (!c) continue
-        // Prefixo nos dois sentidos: o código pode ser mais específico que o
-        // modelo ("X1210" para "X12") ou mais curto ("X12" para "X12MINI").
-        const casa = c.startsWith(alvo) || alvo.startsWith(c)
-        const tamanho = Math.min(c.length, alvo.length)
-        if (casa && tamanho > melhorLen) {
-          melhor = f
-          melhorLen = tamanho
-        }
+    for (const r of resolvidas) {
+      // Escada 1: os dois lados apontam para o mesmo modelo cadastrado.
+      if (alvoCatalogo && r.catalogo === alvoCatalogo) {
+        const nota = 1000 + alvoCatalogo.length
+        if (nota > melhorNota) { melhor = r.ficha; melhorNota = nota }
+        continue
+      }
+      // Escada 2: prefixo nos dois sentidos, vence o mais longo.
+      for (const t of r.textos) {
+        if (!alvo) continue
+        const casa = t.startsWith(alvo) || alvo.startsWith(t)
+        const nota = Math.min(t.length, alvo.length)
+        if (casa && nota > melhorNota) { melhor = r.ficha; melhorNota = nota }
       }
     }
 

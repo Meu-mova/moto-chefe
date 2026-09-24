@@ -93,3 +93,48 @@ test('lista vazia dos dois lados não quebra', () => {
   assert.equal(ligarFichasAosChassis([], []).size, 0)
   assert.equal(ligarFichasAosChassis([{ modelo: 'X', chassi: 'C' }], []).size, 0)
 })
+
+// ─── casos reais que falharam no backfill de 24/09 ──────────────────────────
+// O catálogo entra como terceiro argumento: é ele que diz que "X12-1000W" do
+// infCpl e "X12 MOTO CHEFE" do item são o mesmo X12.
+const CATALOGO = ['X12', 'BOB', 'JET', 'JETMAX', 'GIGA', 'PATINETE G5', 'DRIFT CAR', 'MIA TRI', 'X11 MINI']
+
+test('NF 306: "X12-1000W" no infCpl casa com o item "X12 MOTO CHEFE"', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'X12-1000W', chassi: 'MCBRX122602110052' }],
+    [
+      ficha('BOB MOTO CHEFE', 'BOB MOTO CHEFE'),
+      ficha('JET MOTO CHEFE', 'JET MOTO CHEFE'),
+      ficha('X12 MOTO CHEFE', 'X12 MOTO CHEFE', { cest: '2600100', origem: '4', cstIcmsEntrada: '60' }),
+    ],
+    CATALOGO,
+  )
+  assert.equal(mapa.get('MCBRX122602110052')?.codigo, 'X12 MOTO CHEFE')
+})
+
+test('NF 306: "BOB MC" casa com "BOB MOTO CHEFE" e não com JET', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'BOB MC', chassi: 'B1' }],
+    [ficha('BOB MOTO CHEFE', 'BOB MOTO CHEFE'), ficha('JET MOTO CHEFE', 'JET MOTO CHEFE')],
+    CATALOGO,
+  )
+  assert.equal(mapa.get('B1')?.codigo, 'BOB MOTO CHEFE')
+})
+
+test('a potência não faz JET virar JETMAX', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'JET 1000W', chassi: 'J1' }, { modelo: 'JET MAX 1000W', chassi: 'J2' }],
+    [ficha('MT-JET', 'MOTO ELETRICA JET'), ficha('MT-JETMAX', 'MOTO ELETRICA TIPO SCOOTER JETMAX')],
+    CATALOGO,
+  )
+  assert.equal(mapa.get('J1')?.codigo, 'MT-JET')
+  assert.equal(mapa.get('J2')?.codigo, 'MT-JETMAX')
+})
+
+test('sem catálogo continua funcionando como antes', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'GIGA', chassi: 'G1' }],
+    [ficha('MT-GIGA', 'MOTO ELETRICA TIPO SCOOTER GIGA')],
+  )
+  assert.equal(mapa.get('G1')?.codigo, 'MT-GIGA')
+})

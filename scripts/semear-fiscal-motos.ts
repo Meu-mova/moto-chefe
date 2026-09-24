@@ -22,7 +22,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { db } from '../src/lib/db'
-import { motos, motosFiscal, nfeRecebidas } from '../src/lib/db/schema'
+import { motos, motosFiscal, nfeRecebidas, modelos } from '../src/lib/db/schema'
 import { isNotNull } from 'drizzle-orm'
 import { parseMotosInfCpl, extrairDaNfe } from '../src/lib/nfe-entrada'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis } from '../src/lib/nfe-fiscal'
@@ -66,6 +66,9 @@ async function main() {
   }
 
   const noBanco = await db.select({ id: motos.id, chassi: motos.chassi }).from(motos)
+  // O catálogo desempata nomes que só ele liga: "X12-1000W" do infCpl com o
+  // item "X12 MOTO CHEFE" da nota. Ver ligarFichasAosChassis.
+  const nomesCatalogo = (await db.select({ modelo: modelos.modelo }).from(modelos)).map(m => m.modelo)
   const idPorChassi = new Map(noBanco.map(m => [m.chassi.trim().toUpperCase(), m.id]))
   const jaTem = new Set(
     (await db.select({ motoId: motosFiscal.motoId }).from(motosFiscal)).map(r => r.motoId),
@@ -79,7 +82,7 @@ async function main() {
     const emitente = extrairEmitenteDaNfe(xml)
     const { infCpl } = extrairDaNfe(xml)
     const motosDaNota = parseMotosInfCpl(infCpl)
-    const ligadas = ligarFichasAosChassis(motosDaNota, extrairFiscalDaNfe(xml))
+    const ligadas = ligarFichasAosChassis(motosDaNota, extrairFiscalDaNfe(xml), nomesCatalogo)
 
     for (const m of motosDaNota) {
       const chassi = m.chassi.trim().toUpperCase()

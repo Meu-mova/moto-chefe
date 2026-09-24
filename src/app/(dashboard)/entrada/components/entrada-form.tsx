@@ -189,7 +189,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
         // e da Q.P.A com CEST, origem e CST diferentes, e cada moto tem de sair
         // com a classificação da nota que a trouxe.
         const emitente = extrairEmitenteDaNfe(xml)
-        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml))) {
+        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), nomesMova)) {
           fichasNovas.push({ chassi, emitente, ficha })
         }
         // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
