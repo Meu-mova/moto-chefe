@@ -1,14 +1,14 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { motos, lojas, historicoEstoque, modelos } from '@/lib/db/schema'
+import { motos, lojas, historicoEstoque, modelos, motosFiscal } from '@/lib/db/schema'
 import { and, eq, isNull, lte, or } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { precosParaCadastrar } from '@/lib/entrada-preco'
-import { fiscaisParaCadastrar, type FichaFiscal } from '@/lib/nfe-fiscal'
+import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -65,52 +65,52 @@ async function cadastrarPrecoPadraoFaltante(inseridas: { modeloId: string; preco
 }
 
 /**
- * Preenche a ficha fiscal (NCM, CEST, origem, CST…) dos modelos que ainda não
- * têm, a partir dos itens do XML que acabou de ser importado.
+ * Grava a ficha fiscal das motos que acabaram de entrar, copiada do XML da nota
+ * que as trouxe.
  *
- * É o primeiro passo para emitir nota própria e sair do Bling: a tributação de
- * cada modelo mora hoje lá dentro, alcançada pelo `blingCodigo`, e a fonte para
- * trazê-la é o XML da nota que a fábrica nos emitiu — foi ela quem classificou
- * o produto.
+ * É o primeiro passo para emitir nota própria e sair do Bling. A ficha é da
+ * MOTO e não do modelo: o mesmo X12 vem da LAIOUNS como CEST 2600101 / origem 1
+ * / CST 10 e da Q.P.A como 2600100 / origem 4 / CST 60, e a NF de saída espelha
+ * a de entrada daquela moto — inclusive no nome fiscal (`xProd`), que sai
+ * literal como veio.
  *
- * Só os campos FISCAIS vêm do XML. O valor não: a nota da fábrica sai com um
- * valor diferente do que se paga a ela, então o preço de compra continua sendo
- * o digitado na tela. Não troque isso por `vUnCom` do XML.
+ * Só os campos FISCAIS vêm do XML. O valor não: a nota da fábrica sai com valor
+ * diferente do que se paga a ela, então o preço de compra continua sendo o
+ * digitado na tela. Não troque isso por `vUnCom` do XML.
  *
- * Mesma disciplina do preço padrão: a condição de "ainda não tem" vive no WHERE.
- * Ficha já preenchida nunca é sobrescrita por aqui, porque reimportar uma nota
- * antiga não pode desfazer uma correção que o contador fez no cadastro. O NCM é
- * o que marca a ficha como existente — sem ele não se emite nota.
+ * `onConflictDoNothing` porque a ficha é um snapshot da entrada: reimportar a
+ * mesma nota não reescreve o que já está gravado, e uma correção feita depois
+ * no cadastro não é desfeita por aqui.
  */
-async function cadastrarFichaFiscalFaltante(
-  itens: { modeloId: string; nota: string; ficha: FichaFiscal }[],
+async function gravarFichaFiscalDasMotos(
+  fichas: { motoId: string; emitente: EmitenteNfe; ficha: FichaFiscal }[],
 ) {
-  const porModelo = fiscaisParaCadastrar(itens)
-  const notaPorModelo = new Map(itens.map(i => [i.modeloId, i.nota]))
-  let gravados = 0
+  if (!fichas.length) return 0
 
-  for (const [modeloId, ficha] of porModelo) {
-    const alterados = await db
-      .update(modelos)
-      .set({
-        ncm: ficha.ncm,
-        cest: ficha.cest || null,
-        unidade: ficha.unidade || null,
-        origem: ficha.origem || null,
-        cstIcmsEntrada: ficha.cstIcmsEntrada || null,
-        cstPis: ficha.cstPis || null,
-        cstCofins: ficha.cstCofins || null,
-        classTribIbsCbs: ficha.classTribIbsCbs || null,
-        fiscalNota: notaPorModelo.get(modeloId) || null,
-        fiscalAtualizadoEm: new Date(),
-      })
-      .where(and(eq(modelos.id, modeloId), isNull(modelos.ncm)))
-      .returning({ id: modelos.id })
+  const gravadas = await db
+    .insert(motosFiscal)
+    .values(fichas.map(({ motoId, emitente, ficha }) => ({
+      motoId,
+      emitenteCnpj: emitente.cnpj,
+      emitenteNome: emitente.nome || null,
+      nfNumero: emitente.nfNumero || null,
+      nfChave: emitente.nfChave || null,
+      cProd: ficha.codigo || null,
+      xProd: ficha.descricao || null,
+      ncm: ficha.ncm,
+      cest: ficha.cest || null,
+      unidade: ficha.unidade || null,
+      origem: ficha.origem || null,
+      cfopEntrada: ficha.cfopEntrada || null,
+      cstIcmsEntrada: ficha.cstIcmsEntrada || null,
+      cstPis: ficha.cstPis || null,
+      cstCofins: ficha.cstCofins || null,
+      classTribIbsCbs: ficha.classTribIbsCbs || null,
+    })))
+    .onConflictDoNothing()
+    .returning({ motoId: motosFiscal.motoId })
 
-    gravados += alterados.length
-  }
-
-  return gravados
+  return gravadas.length
 }
 
 type MotoEntrada = {
@@ -233,9 +233,9 @@ type MotoEntradaLote = {
 export async function registrarEntradaLote(formData: {
   lojaId: string
   motos: MotoEntradaLote[]
-  // Fichas fiscais lidas dos XMLs importados. Opcional: entrada por
+  // Fichas fiscais lidas dos XMLs, uma por CHASSI. Opcional: entrada por
   // planilha e entrada manual não têm XML.
-  fiscais?: { modeloId: string; nota: string; ficha: FichaFiscal }[]
+  fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
 }) {
   const usuario = await getUsuarioLogado()
   if (!podeRegistrarEntradaMotos(usuario)) {
@@ -282,6 +282,8 @@ export async function registrarEntradaLote(formData: {
   let inseridos = 0
   const erros: string[] = []
   const entraram: { modeloId: string; preco: string }[] = []
+  // chassi -> id da moto recém-inserida, para casar com a ficha fiscal do XML
+  const idPorChassi = new Map<string, string>()
 
   for (const moto of formData.motos) {
     const chassi = moto.chassi.trim().toUpperCase()
@@ -322,6 +324,7 @@ export async function registrarEntradaLote(formData: {
       })
 
       entraram.push({ modeloId: moto.modeloId, preco: precoCompra })
+      idPorChassi.set(chassi, novaMoto.id)
       inseridos++
     } catch (e: any) {
       const isDup = e.code === '23505' || e.cause?.code === '23505' ||
@@ -335,17 +338,18 @@ export async function registrarEntradaLote(formData: {
   }
 
   const cadastrados = await cadastrarPrecoPadraoFaltante(entraram)
-  // Só as fichas dos modelos que de fato entraram: item de XML que não virou
-  // moto (frete, brinde) não deve mexer no cadastro.
-  const idsQueEntraram = new Set(entraram.map(e => e.modeloId))
-  const fichasGravadas = await cadastrarFichaFiscalFaltante(
-    (formData.fiscais ?? []).filter(f => idsQueEntraram.has(f.modeloId)),
+  // Só as motos que de fato entraram: chassi recusado (duplicado, sem modelo)
+  // não deixa ficha órfã para trás.
+  const fichasGravadas = await gravarFichaFiscalDasMotos(
+    (formData.fiscais ?? [])
+      .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
+      .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  if (cadastrados > 0 || fichasGravadas > 0) revalidatePath('/admin/modelos')
+  if (cadastrados > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
@@ -354,7 +358,7 @@ export async function registrarEntradaLote(formData: {
   const avisoCadastro = (cadastrados > 0
     ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
     : '') + (fichasGravadas > 0
-    ? `\nFicha fiscal (NCM, CEST, origem) cadastrada para ${fichasGravadas} modelo(s) que ainda não tinha.`
+    ? `\nFicha fiscal da nota de entrada gravada para ${fichasGravadas} moto(s).`
     : '')
 
   if (erros.length) {

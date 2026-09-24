@@ -172,19 +172,6 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
-  // Ficha fiscal semeada pelo XML da NF-e de entrada (ver lib/nfe-fiscal.ts).
-  // Fica no catálogo porque NCM/CEST são do produto, iguais nos dois CNPJs; a
-  // regra de SAÍDA (CFOP e CST da nossa nota) é por grupo e não mora aqui.
-  ncm: text('ncm'),
-  cest: text('cest'),
-  unidade: text('unidade'),
-  origem: text('origem'),
-  cstIcmsEntrada: text('cst_icms_entrada'),
-  cstPis: text('cst_pis'),
-  cstCofins: text('cst_cofins'),
-  classTribIbsCbs: text('class_trib_ibscbs'),
-  fiscalNota: text('fiscal_nota'),
-  fiscalAtualizadoEm: timestamp('fiscal_atualizado_em', { withTimezone: true }),
 })
 
 // ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────
@@ -195,6 +182,32 @@ export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.modeloId, t.grupoId] }),
 }))
+
+// ─── motos_fiscal (ficha fiscal da moto, copiada da NF-e de entrada) ─────────
+// A ficha e da MOTO, nao do modelo: o mesmo X12 vem da LAIOUNS como CEST
+// 2600101/origem 1/CST 10 e da Q.P.A como 2600100/origem 4/CST 60. E um
+// snapshot da entrada -- a NF de saida espelha a de entrada daquela moto.
+export const motosFiscal = pgTable('motos_fiscal', {
+  motoId:          uuid('moto_id').primaryKey().references(() => motos.id, { onDelete: 'cascade' }),
+  emitenteCnpj:    text('emitente_cnpj').notNull(),
+  emitenteNome:    text('emitente_nome'),
+  nfNumero:        text('nf_numero'),
+  nfChave:         text('nf_chave'),
+  cProd:           text('c_prod'),
+  /** Nome fiscal LITERAL da nota de entrada. E ele que sai na NF de saida. */
+  xProd:           text('x_prod'),
+  ncm:             text('ncm').notNull(),
+  cest:            text('cest'),
+  unidade:         text('unidade'),
+  origem:          text('origem'),
+  // Guardados para conferencia, nao para emitir -- ver a migracao 0103.
+  cfopEntrada:     text('cfop_entrada'),
+  cstIcmsEntrada:  text('cst_icms_entrada'),
+  cstPis:          text('cst_pis'),
+  cstCofins:       text('cst_cofins'),
+  classTribIbsCbs: text('class_trib_ibscbs'),
+  criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
 
 // ─── motos ───────────────────────────────────────────────────────────────────
 export const motos = pgTable('motos', {

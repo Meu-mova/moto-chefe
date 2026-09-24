@@ -8,7 +8,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
 import { sugerirModeloEPreco } from '@/lib/entrada-preco'
-import { extrairFiscalDaNfe, type FichaFiscal } from '@/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -44,7 +44,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
   // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
   // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
   // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
-  const [fiscais, setFiscais] = useState<{ modeloId: string; nota: string; ficha: FichaFiscal }[]>([])
+  const [fiscais, setFiscais] = useState<{ chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]>([])
 
   const [loading, setLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -176,7 +176,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
 
     const nomesMova = modelos.map(m => m.modelo)
     const novas: MotoLinhaPlanilha[] = []
-    const fichasNovas: { modeloId: string; nota: string; ficha: FichaFiscal }[] = []
+    const fichasNovas: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] = []
     const avisos: string[] = []
 
     for (const file of files) {
@@ -185,14 +185,12 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
         const { nNF, infCpl, qtdProdutos } = extrairDaNfe(xml)
         const motos = parseMotosInfCpl(infCpl)
 
-        // Ficha fiscal por item da nota. O `cProd` da fábrica é o próprio nome
-        // do modelo ("GIGA"); quando não for, tenta a descrição. Item que não
-        // casa com modelo cadastrado é ignorado — não há onde gravar.
-        for (const ficha of extrairFiscalDaNfe(xml)) {
-          const nome = mapearModelo(ficha.codigo, nomesMova) ?? mapearModelo(ficha.descricao, nomesMova)
-          if (!nome) continue
-          const { modeloId } = sugerirModelo(nome)
-          if (modeloId) fichasNovas.push({ modeloId, nota: nNF, ficha })
+        // Ficha fiscal por CHASSI, não por modelo: o mesmo X12 vem da LAIOUNS
+        // e da Q.P.A com CEST, origem e CST diferentes, e cada moto tem de sair
+        // com a classificação da nota que a trouxe.
+        const emitente = extrairEmitenteDaNfe(xml)
+        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml))) {
+          fichasNovas.push({ chassi, emitente, ficha })
         }
         // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
         if (qtdProdutos && motos.length !== qtdProdutos) {

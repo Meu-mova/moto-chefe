@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairFiscalDaNfe, fiscaisParaCadastrar } from './nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe } from './nfe-fiscal'
 
 // <det> reais, copiados de notas que o Radar Fiscal já baixou da SEFAZ.
 // O primeiro é a moto GIGA da Q.P.A (a fábrica): ICMS-ST já recolhido por ela,
@@ -63,30 +63,16 @@ test('CSOSN do Simples Nacional entra no lugar do CST', () => {
   assert.equal(item.origem, '0')
 })
 
-// ─── fiscaisParaCadastrar ────────────────────────────────────────────────────
-
-const FICHA = {
-  ncm: '87116000', cest: '2600100', unidade: 'UN', origem: '4',
-  cstIcmsEntrada: '60', cstPis: '01', cstCofins: '01', classTribIbsCbs: '000001',
-  codigo: 'GIGA', descricao: 'GIGA',
-  cfopEntrada: '5405',
-}
-
-test('uma ficha por modelo; o primeiro item do lote vale', () => {
-  const mapa = fiscaisParaCadastrar([
-    { modeloId: 'm1', ficha: FICHA },
-    { modeloId: 'm1', ficha: { ...FICHA, ncm: '99999999' } },
-    { modeloId: 'm2', ficha: { ...FICHA, ncm: '85044010' } },
-  ])
-  assert.equal(mapa.size, 2)
-  assert.equal(mapa.get('m1')!.ncm, '87116000')
-  assert.equal(mapa.get('m2')!.ncm, '85044010')
+test('extrai o emitente: e o CNPJ que explica duas fichas para o mesmo modelo', () => {
+  const xml = `<?xml version="1.0"?><nfeProc><NFe><infNFe Id="NFe31250953780554000549550010000004201234567890" versao="4.00"><ide><nNF>420</nNF></ide><emit><CNPJ>53780554000549</CNPJ><xNome>Q.p.a Distribuicao Ltda</xNome></emit>${DET_GIGA}</infNFe></NFe></nfeProc>`
+  assert.deepEqual(extrairEmitenteDaNfe(xml), {
+    cnpj: '53780554000549',
+    nome: 'Q.p.a Distribuicao Ltda',
+    nfNumero: '420',
+    nfChave: '31250953780554000549550010000004201234567890',
+  })
 })
 
-test('modelo sem id ou ficha sem NCM não entra', () => {
-  const mapa = fiscaisParaCadastrar([
-    { modeloId: '', ficha: FICHA },
-    { modeloId: 'm3', ficha: { ...FICHA, ncm: '' } },
-  ])
-  assert.equal(mapa.size, 0)
+test('emitente ausente devolve campos vazios em vez de quebrar', () => {
+  assert.equal(extrairEmitenteDaNfe('<nfeProc></nfeProc>').cnpj, '')
 })
