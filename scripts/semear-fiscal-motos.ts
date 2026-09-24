@@ -23,9 +23,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { db } from '../src/lib/db'
 import { motos, motosFiscal, nfeRecebidas, modelos, modeloApelidos } from '../src/lib/db/schema'
+import { isNull } from 'drizzle-orm'
 import { isNotNull, eq } from 'drizzle-orm'
 import { parseMotosInfCpl, extrairDaNfe } from '../src/lib/nfe-entrada'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis } from '../src/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, acharFichaDoModelo } from '../src/lib/nfe-fiscal'
 
 const args = process.argv.slice(2)
 const aplicar = args.includes('--aplicar')
@@ -65,7 +66,10 @@ async function main() {
     xmls.push(...rows.map(r => r.xml!))
   }
 
-  const noBanco = await db.select({ id: motos.id, chassi: motos.chassi }).from(motos)
+  const noBanco = await db
+    .select({ id: motos.id, chassi: motos.chassi, nf: motos.notaFiscalEntrada, modelo: modelos.modelo })
+    .from(motos)
+    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
   // O catálogo desempata nomes que só ele liga: "X12-1000W" do infCpl com o
   // item "X12 MOTO CHEFE" da nota. Os apelidos cobrem o que a nota chama de um
   // jeito que o catálogo não conhece ("DRIFT" para DRIFT CAR).
@@ -85,11 +89,24 @@ async function main() {
   let semMoto = 0
   let semFicha = 0
 
+  // Guardado para a segunda passada: numero da nota -> (emitente, itens).
+  const notasPorNumero = new Map<string, { emitente: ReturnType<typeof extrairEmitenteDaNfe>; fichas: ReturnType<typeof extrairFiscalDaNfe> }[]>()
+
   for (const xml of xmls) {
     const emitente = extrairEmitenteDaNfe(xml)
     const { infCpl } = extrairDaNfe(xml)
     const motosDaNota = parseMotosInfCpl(infCpl)
-    const ligadas = ligarFichasAosChassis(motosDaNota, extrairFiscalDaNfe(xml), nomesCatalogo)
+    const fichasDaNota = extrairFiscalDaNfe(xml)
+    const ligadas = ligarFichasAosChassis(motosDaNota, fichasDaNota, nomesCatalogo)
+
+    if (emitente.nfNumero) {
+      const lista = notasPorNumero.get(emitente.nfNumero) ?? []
+      // Mesma chave = mesmo arquivo repetido em duas pastas; conta uma vez.
+      if (!lista.some(n => n.emitente.nfChave === emitente.nfChave)) {
+        lista.push({ emitente, fichas: fichasDaNota })
+        notasPorNumero.set(emitente.nfNumero, lista)
+      }
+    }
 
     for (const m of motosDaNota) {
       const chassi = m.chassi.trim().toUpperCase()
@@ -124,12 +141,58 @@ async function main() {
     }
   }
 
+  // ─── Segunda passada: pelo NUMERO da nota ─────────────────────────────────
+  // O fornecedor nem sempre lista todos os chassis no infCpl -- a NF 38507
+  // vendeu 8 R10 e escreveu um chassi so. As outras 7 motos existem no MOVA e
+  // apontam para essa nota no cadastro, entao a ficha vem por ai. Exige que a
+  // nota tenha exatamente UM item daquele modelo (ver acharFichaDoModelo) e que
+  // so UMA nota com aquele numero sirva -- numero de nota se repete entre
+  // fornecedores, e a ficha errada emitiria a nota errada.
+  let porNota = 0
+  for (const m of noBanco) {
+    const chassi = m.chassi.trim().toUpperCase()
+    const nf = (m.nf ?? '').trim()
+    if (!nf || jaTem.has(m.id) || aGravar.has(chassi)) continue
+
+    const candidatas = (notasPorNumero.get(nf) ?? [])
+      .map(n => ({ n, ficha: acharFichaDoModelo(m.modelo, n.fichas, nomesCatalogo) }))
+      .filter((c): c is typeof c & { ficha: NonNullable<typeof c.ficha> } => !!c.ficha)
+
+    if (candidatas.length !== 1) continue
+    const { n, ficha } = candidatas[0]
+
+    aGravar.set(chassi, {
+      motoId: m.id,
+      emit: `${n.emitente.cnpj} ${n.emitente.nome} (pela NF)`,
+      valores: {
+        motoId: m.id,
+        emitenteCnpj: n.emitente.cnpj,
+        emitenteNome: n.emitente.nome || null,
+        nfNumero: n.emitente.nfNumero || null,
+        nfChave: n.emitente.nfChave || null,
+        cProd: ficha.codigo || null,
+        xProd: ficha.descricao || null,
+        ncm: ficha.ncm,
+        cest: ficha.cest || null,
+        unidade: ficha.unidade || null,
+        origem: ficha.origem || null,
+        cfopEntrada: ficha.cfopEntrada || null,
+        cstIcmsEntrada: ficha.cstIcmsEntrada || null,
+        cstPis: ficha.cstPis || null,
+        cstCofins: ficha.cstCofins || null,
+        classTribIbsCbs: ficha.classTribIbsCbs || null,
+      },
+    })
+    porNota++
+  }
+
   const porEmitente = new Map<string, number>()
   for (const { emit } of aGravar.values()) porEmitente.set(emit, (porEmitente.get(emit) ?? 0) + 1)
 
   console.log(`${xmls.length} XMLs · ${noBanco.length} motos no banco · ${jaTem.size} já com ficha`)
   console.log(`${aGravar.size} moto(s) a preencher`)
   console.log(`  ${semMoto} chassi(s) da nota sem moto no banco · ${semFicha} sem ficha identificada`)
+  console.log(`  ${porNota} achada(s) pelo numero da nota (chassi fora do infCpl)`)
   console.log('\nPor fornecedor:')
   for (const [e, n] of [...porEmitente].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${String(n).padStart(4)}  ${e}`)

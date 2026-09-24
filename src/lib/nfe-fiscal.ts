@@ -220,3 +220,44 @@ export function extrairEmitenteDaNfe(xml: string): EmitenteNfe {
     nfChave: ((xml ?? '').match(/<infNFe[^>]*\bId="NFe(\d{44})"/) || [])[1] ?? '',
   }
 }
+
+/**
+ * Acha a ficha do modelo dentro de uma nota, sem passar pelo chassi.
+ *
+ * Serve para o caso em que o fornecedor não lista todos os chassis no `infCpl`:
+ * a NF 38507 da LAIOUNS vendeu 8 R10 (`qCom` 8 no item `MT-R-10`) e escreveu um
+ * chassi só. As outras 7 motos existem no MOVA, apontam para essa nota em
+ * `motos.nota_fiscal_entrada`, e a ficha delas é a mesma — só não dá para achá-la
+ * pela ponte normal.
+ *
+ * Só devolve quando **exatamente um** item de veículo da nota é daquele modelo.
+ * Com dois, a nota traz o mesmo modelo em classificações diferentes (acontece
+ * quando parte do lote veio com ST já recolhida e parte não) e escolher seria
+ * chutar qual metade é a moto.
+ */
+export function acharFichaDoModelo(
+  modelo: string,
+  fichas: FichaFiscal[],
+  nomesCatalogo: (string | NomeDeModelo)[] = [],
+): FichaFiscal | null {
+  const canonicoPorNome = new Map<string, string>()
+  for (const n of nomesCatalogo) {
+    if (typeof n === 'string') canonicoPorNome.set(n, n)
+    else canonicoPorNome.set(n.nome, n.canonico)
+  }
+  const nomesPlanos = [...canonicoPorNome.keys()]
+  if (!nomesPlanos.length) return null
+
+  const resolver = (s: string) => {
+    const achado = mapearModelo((s ?? '').replace(/^MT[\s-]*/i, ''), nomesPlanos)
+    return achado ? canonicoPorNome.get(achado) ?? achado : null
+  }
+
+  const alvo = resolver(modelo)
+  if (!alvo) return null
+
+  const candidatas = fichas.filter(
+    f => f.ncm.startsWith('8711') && (resolver(f.codigo) ?? resolver(f.descricao)) === alvo,
+  )
+  return candidatas.length === 1 ? candidatas[0] : null
+}

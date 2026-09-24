@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ligarFichasAosChassis } from './nfe-fiscal'
+import { ligarFichasAosChassis, acharFichaDoModelo } from './nfe-fiscal'
 import type { FichaFiscal } from './nfe-fiscal'
 
 const ficha = (codigo: string, descricao: string, extra: Partial<FichaFiscal> = {}): FichaFiscal => ({
@@ -97,6 +97,7 @@ test('lista vazia dos dois lados não quebra', () => {
 // ─── casos reais que falharam no backfill de 24/09 ──────────────────────────
 // O catálogo entra como terceiro argumento: é ele que diz que "X12-1000W" do
 // infCpl e "X12 MOTO CHEFE" do item são o mesmo X12.
+const CATALOGO_R10 = ['R10', 'GIGA']
 const CATALOGO = ['X12', 'BOB', 'JET', 'JETMAX', 'GIGA', 'PATINETE G5', 'DRIFT CAR', 'MIA TRI', 'X11 MINI']
 
 test('NF 306: "X12-1000W" no infCpl casa com o item "X12 MOTO CHEFE"', () => {
@@ -182,4 +183,32 @@ test('apelido funciona também no código do item, apesar do prefixo MT-', () =>
     nomes,
   )
   assert.equal(mapa.get('D1')?.codigo, 'MT-PYC')
+})
+
+// ─── ficha pelo número da nota, quando o infCpl não lista todos os chassis ──
+test('acharFichaDoModelo: nota com um item do modelo devolve a ficha', () => {
+  // NF 38507 real: item MT-R-10 com qCom 8, mas o infCpl traz um chassi só.
+  const f = acharFichaDoModelo('R10', [ficha('MT-R-10', 'MOTO ELETRICA R-10')], CATALOGO_R10)
+  assert.equal(f?.codigo, 'MT-R-10')
+})
+
+test('acharFichaDoModelo: nota com dois itens do mesmo modelo não escolhe', () => {
+  const f = acharFichaDoModelo('R10', [
+    ficha('MT-R-10', 'MOTO ELETRICA R-10', { origem: '1' }),
+    ficha('R10 MOTO CHEFE', 'R10 MOTO CHEFE', { origem: '4' }),
+  ], CATALOGO_R10)
+  assert.equal(f, null)
+})
+
+test('acharFichaDoModelo: modelo que não está na nota devolve null', () => {
+  const f = acharFichaDoModelo('GIGA', [ficha('MT-R-10', 'MOTO ELETRICA R-10')], CATALOGO_R10)
+  assert.equal(f, null)
+})
+
+test('acharFichaDoModelo: ignora item que não é veículo', () => {
+  const f = acharFichaDoModelo('R10', [
+    ficha('MT-R-10', 'MOTO ELETRICA R-10'),
+    ficha('R10-CAPA', 'CAPA PARA R10', { ncm: '39269090' }),
+  ], CATALOGO_R10)
+  assert.equal(f?.codigo, 'MT-R-10')
 })
