@@ -49,29 +49,58 @@ export async function salvarTaxasAction(data: TaxasPayload) {
   revalidatePath('/financeiro')
 }
 
-export async function criarModeloAction(data: { nome: string; valorMinimo: string; custo?: string }) {
+/**
+ * Grava o preço de um modelo. `precId` vem preenchido quando a linha já tem
+ * preço; quando vem null é um modelo do catálogo que ainda não foi precificado
+ * neste grupo, e aí a linha nasce agora.
+ *
+ * O nome grava em caixa alta porque é ele que casa com `modelos.modelo` (que é
+ * todo caixa alta) nas consultas de preço mínimo e de custo. O upsert é por
+ * (grupo, nome) para não criar duas linhas do mesmo modelo se dois usuários
+ * salvarem ao mesmo tempo.
+ */
+export async function salvarPrecoAction(data: {
+  precId?: string | null
+  nome: string
+  valorMinimo: string
+  custo?: string
+}) {
   const grupo = await checarAdmin()
-  await db.insert(precificacao).values({
-    grupoId: grupo.id,
-    nome: data.nome.toUpperCase(),
-    valorMinimo: data.valorMinimo,
-    custo: data.custo || null,
-    taxaPix: '0',
-    taxasCartao: {},
-    taxasLink: {},
-    taxasFinanciamento: {},
-  })
-  revalidatePath('/precificacao')
-  revalidatePath('/simulador')
-}
+  const nome = data.nome.trim().toUpperCase()
+  if (!nome) throw new Error('Nome do modelo é obrigatório')
 
-export async function editarModeloAction(id: string, data: { nome: string; valorMinimo: string; custo?: string }) {
-  const grupo = await checarAdmin()
-  await db.update(precificacao).set({
-    nome: data.nome.toUpperCase(),
-    valorMinimo: data.valorMinimo,
-    custo: data.custo || null,
-  }).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
+  if (data.precId) {
+    await db.update(precificacao).set({
+      nome,
+      valorMinimo: data.valorMinimo,
+      custo: data.custo || null,
+    }).where(and(eq(precificacao.id, data.precId), eq(precificacao.grupoId, grupo.id)))
+  } else {
+    const [existente] = await db
+      .select({ id: precificacao.id })
+      .from(precificacao)
+      .where(and(eq(precificacao.grupoId, grupo.id), sql`upper(btrim(${precificacao.nome})) = ${nome}`))
+      .limit(1)
+
+    if (existente) {
+      await db.update(precificacao).set({
+        nome,
+        valorMinimo: data.valorMinimo,
+        custo: data.custo || null,
+      }).where(eq(precificacao.id, existente.id))
+    } else {
+      await db.insert(precificacao).values({
+        grupoId: grupo.id,
+        nome,
+        valorMinimo: data.valorMinimo,
+        custo: data.custo || null,
+        taxaPix: '0',
+        taxasCartao: {},
+        taxasLink: {},
+        taxasFinanciamento: {},
+      })
+    }
+  }
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
 }

@@ -6,14 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { criarModeloAction, editarModeloAction } from '../actions'
+import { salvarPrecoAction } from '../actions'
 
 type Modelo = {
-  id: string
+  precId: string | null
+  doCatalogo: boolean
   nome: string
-  valorMinimo: string
+  marca: string | null
+  valorMinimo: string | null
   custo: string | null
-  ativo: boolean
 }
 
 type Props = {
@@ -26,6 +27,12 @@ export function ModeloDialog({ modelo, onClose }: Props) {
   const [valorMinimo, setValorMinimo] = useState(modelo?.valorMinimo ?? '')
   const [custo, setCusto] = useState(modelo?.custo ?? '')
   const [loading, setLoading] = useState(false)
+
+  // Modelo do catálogo tem o nome travado: é ele que liga o preço ao cadastro
+  // de /admin/modelos (e às vendas, que casam por nome). Renomear aqui soltaria
+  // o preço do modelo sem ninguém perceber. Para renomear, edite em Modelos.
+  const nomeTravado = modelo?.doCatalogo ?? false
+  const primeiroPreco = !!modelo && modelo.precId === null
 
   const vMin = parseFloat(valorMinimo || '0')
   const vCusto = parseFloat(custo || '0')
@@ -40,14 +47,13 @@ export function ModeloDialog({ modelo, onClose }: Props) {
     }
     setLoading(true)
     try {
-      const payload = { nome, valorMinimo, custo: custo || undefined }
-      if (modelo) {
-        await editarModeloAction(modelo.id, payload)
-        toast.success('Modelo atualizado')
-      } else {
-        await criarModeloAction(payload)
-        toast.success('Modelo criado')
-      }
+      await salvarPrecoAction({
+        precId: modelo?.precId ?? null,
+        nome,
+        valorMinimo,
+        custo: custo || undefined,
+      })
+      toast.success(primeiroPreco || !modelo ? 'Preço definido' : 'Modelo atualizado')
       onClose()
     } catch {
       toast.error('Erro ao salvar')
@@ -56,11 +62,13 @@ export function ModeloDialog({ modelo, onClose }: Props) {
     }
   }
 
+  const titulo = !modelo ? 'Novo Modelo' : primeiroPreco ? 'Definir preço' : 'Editar Modelo'
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{modelo ? 'Editar Modelo' : 'Novo Modelo'}</DialogTitle>
+          <DialogTitle>{titulo}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -69,8 +77,14 @@ export function ModeloDialog({ modelo, onClose }: Props) {
               value={nome}
               onChange={e => setNome(e.target.value)}
               placeholder="Ex: JETMAX PRO"
-              autoFocus
+              autoFocus={!nomeTravado}
+              disabled={nomeTravado}
             />
+            {nomeTravado && (
+              <p className="text-xs text-slate-400">
+                {modelo?.marca ? `${modelo.marca} · ` : ''}Cadastrado em Modelos — para renomear, edite lá.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Custo (R$)</Label>
@@ -79,7 +93,7 @@ export function ModeloDialog({ modelo, onClose }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>Valor Mínimo de Venda — PIX (R$) *</Label>
-            <CurrencyInput value={valorMinimo} onChange={setValorMinimo} placeholder="0,00" />
+            <CurrencyInput value={valorMinimo} onChange={setValorMinimo} placeholder="0,00" autoFocus={nomeTravado} />
           </div>
           {margemR !== null && margemPct !== null && (
             <div className={`rounded-lg p-3 text-sm ${margemPct >= 20 ? 'bg-green-50 border border-green-200' : margemPct >= 10 ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'}`}>
@@ -95,7 +109,7 @@ export function ModeloDialog({ modelo, onClose }: Props) {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : modelo ? 'Salvar' : 'Criar'}
+              {loading ? 'Salvando...' : primeiroPreco || !modelo ? 'Definir preço' : 'Salvar'}
             </Button>
           </DialogFooter>
         </form>
