@@ -47,6 +47,9 @@ export type FichaFiscal = {
   classTribIbsCbs: string
 }
 
+/** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
+export type NomeDeModelo = { nome: string; canonico: string }
+
 const tag = (xml: string, nome: string): string =>
   (xml.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1]?.trim() ?? ''
 
@@ -124,11 +127,24 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
 export function ligarFichasAosChassis(
   motosDaNota: { modelo: string; chassi: string }[],
   fichas: FichaFiscal[],
-  /** Nomes do catálogo (`modelos.modelo`). Sem eles, só a escada 2 funciona. */
-  nomesCatalogo: string[] = [],
+  /**
+   * Nomes que resolvem para um modelo do catálogo. Uma string é um nome do
+   * próprio catálogo; `{ nome, canonico }` é um apelido de `modelo_apelidos`,
+   * como "DRIFT" para DRIFT CAR. Sem esta lista, só a escada 2 funciona.
+   */
+  nomesCatalogo: (string | NomeDeModelo)[] = [],
 ): Map<string, FichaFiscal> {
   const mapa = new Map<string, FichaFiscal>()
   if (!motosDaNota.length || !fichas.length) return mapa
+
+  // Achata catálogo e apelidos numa lista só para o mapearModelo, guardando de
+  // volta para qual modelo cada nome aponta.
+  const canonicoPorNome = new Map<string, string>()
+  for (const n of nomesCatalogo) {
+    if (typeof n === 'string') canonicoPorNome.set(n, n)
+    else canonicoPorNome.set(n.nome, n.canonico)
+  }
+  const nomesPlanos = [...canonicoPorNome.keys()]
 
   // Compacta para comparar e tira a potência do fim: "X12-1000W" e "X12 MOTO
   // CHEFE" viram "X12" e "X12MOTOCHEFE"; "MT-X12-10" vira "X1210".
@@ -139,8 +155,14 @@ export function ligarFichasAosChassis(
       .replace(/[^A-Z0-9]/g, '')
       .replace(/\d+W$/, '')
 
-  const doCatalogo = (s: string) =>
-    nomesCatalogo.length ? mapearModelo(s ?? '', nomesCatalogo) : null
+  const doCatalogo = (s: string) => {
+    if (!nomesPlanos.length) return null
+    // Tira o "MT-" que os fornecedores prefixam no codigo do item, senao o
+    // mapearModelo nunca acha o modelo (nem o apelido) dentro de "MT-PYC".
+    const achado = mapearModelo((s ?? '').replace(/^MT[\s-]*/i, ''), nomesPlanos)
+    // Traduz o apelido para o modelo: "DRIFT" e "DRIFT CAR" têm de dar igual.
+    return achado ? canonicoPorNome.get(achado) ?? achado : null
+  }
 
   // NCM 8711 = motocicletas. Serve para não eleger o guarda-sol da nota como
   // "item único" quando a moto não casa pelo nome.

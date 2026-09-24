@@ -138,3 +138,48 @@ test('sem catálogo continua funcionando como antes', () => {
   )
   assert.equal(mapa.get('G1')?.codigo, 'MT-GIGA')
 })
+
+// ─── apelidos (modelo_apelidos) ─────────────────────────────────────────────
+// O infCpl da LAIOUNS chama o DRIFT CAR de "DRIFT" e o PATINETE G5 de "G5".
+// Não dá para resolver por semelhança — "G5" não é prefixo útil de nada —,
+// então o de-para é cadastro explícito e entra aqui como nome canônico.
+const COM_APELIDOS = [
+  ...CATALOGO,
+  { nome: 'DRIFT', canonico: 'DRIFT CAR' },
+  { nome: 'G5', canonico: 'PATINETE G5' },
+]
+
+test('apelido do infCpl acha a ficha do item pelo nome de catálogo', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'DRIFT', chassi: 'D1' }, { modelo: 'G5', chassi: 'P1' }],
+    [
+      ficha('MT-PTE G5', 'PATINETE G5'),
+      ficha('MT-DRIFT CAR', 'CARRINHO ELETRICO DRIFT CAR'),
+      ficha('MT-GIGA', 'MOTO ELETRICA TIPO SCOOTER GIGA'),
+    ],
+    COM_APELIDOS,
+  )
+  assert.equal(mapa.get('D1')?.codigo, 'MT-DRIFT CAR')
+  assert.equal(mapa.get('P1')?.codigo, 'MT-PTE G5')
+})
+
+test('apelido não sequestra um modelo que já casava sozinho', () => {
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'GIGA', chassi: 'G1' }],
+    [ficha('MT-GIGA', 'MOTO ELETRICA TIPO SCOOTER GIGA'), ficha('MT-PTE G5', 'PATINETE G5')],
+    COM_APELIDOS,
+  )
+  assert.equal(mapa.get('G1')?.codigo, 'MT-GIGA')
+})
+
+test('apelido funciona também no código do item, apesar do prefixo MT-', () => {
+  // Caso da NF 38576: o infCpl diz "DRIFT" e o item é "MT-PYC". Os dois só se
+  // encontram se ambos forem cadastrados como apelido do mesmo modelo.
+  const nomes = [...CATALOGO, { nome: 'DRIFT', canonico: 'DRIFT CAR' }, { nome: 'PYC', canonico: 'DRIFT CAR' }]
+  const mapa = ligarFichasAosChassis(
+    [{ modelo: 'DRIFT', chassi: 'D1' }],
+    [ficha('MT-PYC', 'TRICICLO ELETRICO PYC-001'), ficha('MT-GIGA', 'MOTO ELETRICA TIPO SCOOTER GIGA')],
+    nomes,
+  )
+  assert.equal(mapa.get('D1')?.codigo, 'MT-PYC')
+})

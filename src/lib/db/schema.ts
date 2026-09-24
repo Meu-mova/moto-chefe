@@ -183,6 +183,16 @@ export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
   pk: primaryKey({ columns: [t.modeloId, t.grupoId] }),
 }))
 
+// ─── modelo_apelidos (nomes que as notas usam e o catalogo nao conhece) ───
+// O infCpl da LAIOUNS chama o DRIFT CAR de "DRIFT" e o PATINETE G5 de "G5".
+// Sem de-para o chassi nao acha a ficha fiscal do item. O apelido e a PK: um
+// apelido nunca pode apontar para dois modelos.
+export const modeloApelidos = pgTable('modelo_apelidos', {
+  apelido:  text('apelido').primaryKey(),
+  modeloId: uuid('modelo_id').notNull().references(() => modelos.id, { onDelete: 'cascade' }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── motos_fiscal (ficha fiscal da moto, copiada da NF-e de entrada) ─────────
 // A ficha e da MOTO, nao do modelo: o mesmo X12 vem da LAIOUNS como CEST
 // 2600101/origem 1/CST 10 e da Q.P.A como 2600100/origem 4/CST 60. E um

@@ -2,24 +2,34 @@ import { AdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
+import { modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BlingCodigoCell } from './components/bling-codigo-cell'
 import { ModeloFormButton } from './components/modelo-form-button'
+import { ApelidosCell } from './components/apelidos-cell'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 
-  const [todos, codigos] = await Promise.all([
+  const [todos, codigos, apelidos] = await Promise.all([
     db.select().from(modelos).orderBy(modelos.marca),
     db.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
       .from(modeloBlingCodigos)
       .where(eq(modeloBlingCodigos.grupoId, grupo.id)),
+    // Apelidos nao sao por grupo: e como a NOTA escreve o produto, e a mesma
+    // LAIOUNS vende para os dois CNPJs.
+    db.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
+      .from(modeloApelidos)
+      .orderBy(modeloApelidos.apelido),
   ])
   const codigoPorModelo = new Map(codigos.map(c => [c.modeloId, c.codigo]))
+  const apelidosPorModelo = new Map<string, string[]>()
+  for (const a of apelidos) {
+    apelidosPorModelo.set(a.modeloId, [...(apelidosPorModelo.get(a.modeloId) ?? []), a.apelido])
+  }
 
   return (
     <AdminGuard href="/admin/modelos">
@@ -28,7 +38,9 @@ export default async function ModelosPage() {
           <div>
             <h1 className="text-2xl font-bold">Modelos</h1>
             <p className="text-slate-500 text-sm">
-              Clique na coluna <strong>Cód. Bling</strong> para editar inline — código do grupo <strong>{grupo.nome}</strong>
+              Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
+              <strong>Apelidos na NF</strong> para editar inline. Apelido é como a nota de entrada
+              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.
             </p>
           </div>
           <ModeloFormButton />
@@ -42,6 +54,7 @@ export default async function ModelosPage() {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Potência</TableHead>
                 <TableHead>Cód. Bling</TableHead>
+                <TableHead>Apelidos na NF</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
@@ -56,6 +69,9 @@ export default async function ModelosPage() {
                   <TableCell>{m.potenciaW}W</TableCell>
                   <TableCell>
                     <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />
+                  </TableCell>
+                  <TableCell>
+                    <ApelidosCell modeloId={m.id} valores={apelidosPorModelo.get(m.id) ?? []} />
                   </TableCell>
                   <TableCell>
                     <ModeloFormButton modelo={{

@@ -22,8 +22,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { db } from '../src/lib/db'
-import { motos, motosFiscal, nfeRecebidas, modelos } from '../src/lib/db/schema'
-import { isNotNull } from 'drizzle-orm'
+import { motos, motosFiscal, nfeRecebidas, modelos, modeloApelidos } from '../src/lib/db/schema'
+import { isNotNull, eq } from 'drizzle-orm'
 import { parseMotosInfCpl, extrairDaNfe } from '../src/lib/nfe-entrada'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis } from '../src/lib/nfe-fiscal'
 
@@ -67,8 +67,15 @@ async function main() {
 
   const noBanco = await db.select({ id: motos.id, chassi: motos.chassi }).from(motos)
   // O catálogo desempata nomes que só ele liga: "X12-1000W" do infCpl com o
-  // item "X12 MOTO CHEFE" da nota. Ver ligarFichasAosChassis.
-  const nomesCatalogo = (await db.select({ modelo: modelos.modelo }).from(modelos)).map(m => m.modelo)
+  // item "X12 MOTO CHEFE" da nota. Os apelidos cobrem o que a nota chama de um
+  // jeito que o catálogo não conhece ("DRIFT" para DRIFT CAR).
+  const nomesCatalogo = [
+    ...(await db.select({ modelo: modelos.modelo }).from(modelos)).map(m => m.modelo),
+    ...(await db
+      .select({ nome: modeloApelidos.apelido, canonico: modelos.modelo })
+      .from(modeloApelidos)
+      .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))),
+  ]
   const idPorChassi = new Map(noBanco.map(m => [m.chassi.trim().toUpperCase(), m.id]))
   const jaTem = new Set(
     (await db.select({ motoId: motosFiscal.motoId }).from(motosFiscal)).map(r => r.motoId),

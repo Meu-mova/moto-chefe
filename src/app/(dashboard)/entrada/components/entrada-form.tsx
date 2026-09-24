@@ -8,7 +8,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
 import { sugerirModeloEPreco } from '@/lib/entrada-preco'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -31,7 +31,7 @@ type MotoLinhaPlanilha = {
   preco: string
 }
 
-export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja[] }) {
+export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
 
   const [notaFiscal, setNotaFiscal] = useState('')
@@ -189,7 +189,7 @@ export function EntradaForm({ modelos, lojas }: { modelos: Modelo[]; lojas: Loja
         // e da Q.P.A com CEST, origem e CST diferentes, e cada moto tem de sair
         // com a classificação da nota que a trouxe.
         const emitente = extrairEmitenteDaNfe(xml)
-        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), nomesMova)) {
+        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])) {
           fichasNovas.push({ chassi, emitente, ficha })
         }
         // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
