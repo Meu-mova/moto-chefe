@@ -193,6 +193,44 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── notagateway_config (credencial da emissao propria, por grupo) ───────
+// Token cifrado como o certificado A1. empresaId vem do cadastro na API e e
+// usado em toda chamada seguinte. Ver src/lib/notagateway/.
+export const notagatewayConfig = pgTable('notagateway_config', {
+  grupoId:              uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
+  token:                text('token').notNull(),
+  empresaId:            text('empresa_id'),
+  ambiente:             text('ambiente').notNull().default('Homologacao'),
+  serieNfe:             text('serie_nfe').notNull().default('1'),
+  proximoNumero:        integer('proximo_numero').notNull().default(1),
+  certificadoEnviadoEm: timestamp('certificado_enviado_em', { withTimezone: true }),
+  atualizadoEm:         timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── regras_fiscais_saida (o que a NOSSA nota leva, por grupo) ──────────
+// Nao vem do XML de entrada: 5405 e CFOP de entrada e a saida tem o seu. A do
+// Sul de Minas foi extraida das ~200 notas ja aceitas pela SEFAZ.
+export const regrasFiscaisSaida = pgTable('regras_fiscais_saida', {
+  grupoId:                  uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
+  naturezaOperacao:         text('natureza_operacao').notNull(),
+  cfopInterno:              text('cfop_interno').notNull(),
+  cstIcmsInterno:           text('cst_icms_interno').notNull(),
+  cfopInterestadual:        text('cfop_interestadual').notNull(),
+  cstIcmsInterestadual:     text('cst_icms_interestadual').notNull(),
+  aliquotaIcmsInterestadual: numeric('aliquota_icms_interestadual', { precision: 5, scale: 2 }),
+  cstPis:                   text('cst_pis').notNull(),
+  aliquotaPis:              numeric('aliquota_pis', { precision: 6, scale: 4 }),
+  cstCofins:                text('cst_cofins').notNull(),
+  aliquotaCofins:           numeric('aliquota_cofins', { precision: 6, scale: 4 }),
+  cstIpi:                   text('cst_ipi'),
+  cstIbsCbs:                text('cst_ibscbs'),
+  classTribIbsCbs:          text('class_trib_ibscbs'),
+  crt:                      integer('crt').notNull().default(3),
+  /** NULL = usa a origem real da moto; preenchido = forca esse valor. */
+  origemFixa:               text('origem_fixa'),
+  atualizadoEm:             timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── motos_fiscal (ficha fiscal da moto, copiada da NF-e de entrada) ─────────
 // A ficha e da MOTO, nao do modelo: o mesmo X12 vem da LAIOUNS como CEST
 // 2600101/origem 1/CST 10 e da Q.P.A como 2600100/origem 4/CST 60. E um

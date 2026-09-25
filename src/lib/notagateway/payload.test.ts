@@ -1,0 +1,132 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from './payload'
+
+// Regra do Sul de Minas, extraída das 198 notas que ele já emitiu pelo Bling.
+const REGRA: RegraSaida = {
+  naturezaOperacao: 'Venda de mercadoria com ST',
+  cfopInterno: '5405',
+  cstIcmsInterno: '60',
+  cfopInterestadual: '6404',
+  cstIcmsInterestadual: '00',
+  aliquotaIcmsInterestadual: '12.00',
+  cstPis: '01',
+  aliquotaPis: '0.6500',
+  cstCofins: '01',
+  aliquotaCofins: '3.0000',
+  cstIpi: '99',
+  cstIbsCbs: '000',
+  classTribIbsCbs: '000001',
+  crt: 3,
+  origemFixa: '0',
+}
+
+// Espelha a NF 002470 real: BOB da Q.P.A, cliente em MG.
+const VENDA: DadosVendaMoto = {
+  idExterno: 'mova-venda-abc123',
+  ambiente: 'Homologacao',
+  ufEmitente: 'MG',
+  cliente: {
+    tipoPessoa: 'F',
+    nome: 'BRUNA MARIA ASSIS DA SILVA',
+    cpfCnpj: '35281765043',
+    email: 'bruna@exemplo.com',
+    telefone: '35999998888',
+    endereco: { uf: 'MG', cidade: 'Varginha', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cep: '37000000' },
+  },
+  moto: {
+    // Ficha da nota de entrada — é ela que manda no nome e na classificação.
+    xProd: 'BOB MOTO CHEFE',
+    codigo: 'BOB MOTO CHEFE',
+    ncm: '87116000',
+    cest: '2600100',
+    unidade: 'UN',
+    origem: '4',
+  },
+  valor: 8725.85,
+  pagamentos: [{ tipo: 'Pix', valor: 8725.85 }],
+}
+
+test('venda dentro de MG usa CFOP 5405 e CST 60', () => {
+  const p = montarNfeVendaMoto(VENDA, REGRA)
+  assert.equal(p.itens[0].cfop, '5405')
+  assert.equal(p.itens[0].impostos.icms.situacaoTributaria, '60')
+  assert.equal(p.naturezaOperacao, 'Venda de mercadoria com ST')
+  assert.equal(p.tipoOperacao, 'Saida')
+  assert.equal(p.finalidade, 'Normal')
+})
+
+test('venda para fora da UF vira CFOP 6404 com ICMS destacado', () => {
+  const p = montarNfeVendaMoto(
+    { ...VENDA, cliente: { ...VENDA.cliente, endereco: { ...VENDA.cliente.endereco, uf: 'SP', cidade: 'Campinas' } } },
+    REGRA,
+  )
+  assert.equal(p.itens[0].cfop, '6404')
+  assert.equal(p.itens[0].impostos.icms.situacaoTributaria, '00')
+  assert.equal(p.itens[0].impostos.icms.aliquota, 12)
+})
+
+test('o nome fiscal é o LITERAL da nota de entrada, nunca o comercial', () => {
+  const p = montarNfeVendaMoto(
+    { ...VENDA, moto: { ...VENDA.moto, xProd: 'MOTOCICLETA ELETRICA SCOOTER FANTON' } },
+    REGRA,
+  )
+  assert.equal(p.itens[0].descricao, 'MOTOCICLETA ELETRICA SCOOTER FANTON')
+})
+
+test('origemFixa vence a origem da moto quando preenchida', () => {
+  const p = montarNfeVendaMoto(VENDA, REGRA)
+  // A moto entrou com origem 4, mas a regra fixa 0 — é o que o Bling faz hoje.
+  assert.equal(p.itens[0].impostos.icms.origem, 0)
+})
+
+test('sem origemFixa, usa a origem real da moto', () => {
+  const p = montarNfeVendaMoto(VENDA, { ...REGRA, origemFixa: null })
+  assert.equal(p.itens[0].impostos.icms.origem, 4)
+})
+
+test('NCM e CEST vêm da ficha da moto, não da regra', () => {
+  const p = montarNfeVendaMoto(VENDA, REGRA)
+  assert.equal(p.itens[0].ncm, '87116000')
+  assert.equal(p.itens[0].cest, '2600100')
+  assert.equal(p.itens[0].unidadeMedida, 'UN')
+})
+
+test('PIS, COFINS e IBS/CBS saem da regra', () => {
+  const p = montarNfeVendaMoto(VENDA, REGRA)
+  assert.equal(p.itens[0].impostos.pis.situacaoTributaria, '01')
+  assert.equal(p.itens[0].impostos.pis.aliquota, 0.65)
+  assert.equal(p.itens[0].impostos.cofins.situacaoTributaria, '01')
+  assert.equal(p.itens[0].impostos.cofins.aliquota, 3)
+  assert.equal(p.itens[0].impostos.ibsCbs?.classificacaoTributaria, '000001')
+})
+
+test('moto é sempre quantidade 1 e o valor da venda é o unitário', () => {
+  const p = montarNfeVendaMoto(VENDA, REGRA)
+  assert.equal(p.itens[0].quantidade, 1)
+  assert.equal(p.itens[0].valorUnitario, 8725.85)
+})
+
+test('ambiente vai no payload — é o que separa teste de nota valendo', () => {
+  assert.equal(montarNfeVendaMoto(VENDA, REGRA).ambienteEmissao, 'Homologacao')
+  assert.equal(montarNfeVendaMoto({ ...VENDA, ambiente: 'Producao' }, REGRA).ambienteEmissao, 'Producao')
+})
+
+test('recusa moto sem NCM em vez de emitir nota incompleta', () => {
+  assert.throws(
+    () => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, ncm: '' } }, REGRA),
+    /sem ficha fiscal/i,
+  )
+})
+
+test('recusa venda sem pagamento que feche com o valor', () => {
+  assert.throws(
+    () => montarNfeVendaMoto({ ...VENDA, pagamentos: [{ tipo: 'Pix', valor: 100 }] }, REGRA),
+    /pagamento/i,
+  )
+})
+
+test('CEST vazio não vai como string vazia — a SEFAZ rejeita', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, cest: '' } }, REGRA)
+  assert.equal('cest' in p.itens[0], false)
+})
