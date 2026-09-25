@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { despesasOpenFinance, despesasOfSyncStatus, despesas, lojas, usuarios } from '@/lib/db/schema'
 import { buscarSaidasOpenFinance } from '@/lib/mcpai'
 import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
+import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 
 // Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
@@ -68,6 +69,44 @@ async function autoCategorizarPedagioSicoob(grupoId: string, usuarioSistemaId: s
   }
 }
 
+// Linha recém-inserida que é só o banco reemitindo uma saída já gravada com ID novo
+// (ver reemissao-saida.ts). A linha antiga fica — é ela que carrega a categoria e a
+// despesa lançada — e assume o ID, a data e a descrição atuais; a nova é descartada.
+// Roda antes do auto-categorizador de pedágio, senão ele lançaria a cópia.
+async function absorverReemissoes(
+  grupoId: string,
+  inseridas: (typeof despesasOpenFinance.$inferSelect)[],
+  idsNoBanco: Set<string>,
+) {
+  if (inseridas.length === 0) return
+
+  const UM_DIA_MS = 24 * 60 * 60 * 1000
+  const tempos = inseridas.map(i => i.data.getTime())
+  const idsInseridas = new Set(inseridas.map(i => i.id))
+  const vizinhas = await db.select().from(despesasOpenFinance).where(and(
+    eq(despesasOpenFinance.grupoId, grupoId),
+    inArray(despesasOpenFinance.contaId, [...new Set(inseridas.map(i => i.contaId))]),
+    gte(despesasOpenFinance.data, new Date(Math.min(...tempos) - UM_DIA_MS)),
+    lte(despesasOpenFinance.data, new Date(Math.max(...tempos) + UM_DIA_MS)),
+  ))
+  const sumidas = vizinhas.filter(v => !idsInseridas.has(v.id) && !idsNoBanco.has(v.transacaoId))
+
+  const porId = new Map(inseridas.map(i => [i.id, i]))
+  for (const { nova, antiga } of parearReemissoes(inseridas, sumidas)) {
+    const n = porId.get(nova.id)!
+    await db.transaction(async (tx) => {
+      await tx.delete(despesasOpenFinance).where(eq(despesasOpenFinance.id, n.id))
+      await tx.update(despesasOpenFinance).set({
+        transacaoId: n.transacaoId,
+        data: n.data,
+        descricao: n.descricao,
+        favorecidoNome: n.favorecidoNome,
+        tipoOperacao: n.tipoOperacao,
+      }).where(eq(despesasOpenFinance.id, antiga.id))
+    })
+  }
+}
+
 export type SaidaComDetalhes = typeof despesasOpenFinance.$inferSelect & {
   lojaNome: string | null
   lancadoPorNome: string | null
@@ -96,7 +135,7 @@ export async function sincronizarEBuscarSaidas(
       erroSync = resultado.erro
     } else {
       if (resultado.transacoes.length > 0) {
-        await db.insert(despesasOpenFinance)
+        const inseridas = await db.insert(despesasOpenFinance)
           .values(resultado.transacoes.map(tx => ({
             grupoId: grupo.id,
             contaId: tx.contaId,
@@ -109,6 +148,8 @@ export async function sincronizarEBuscarSaidas(
             tipoOperacao: tx.tipoOperacao,
           })))
           .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
+          .returning()
+        await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)))
       }
       await db.insert(despesasOfSyncStatus)
         .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
