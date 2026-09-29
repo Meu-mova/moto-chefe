@@ -264,7 +264,7 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
                 onChange={e => setRegra(r => ({ ...r, origemFixa: e.target.value }))}
                 className="w-full border rounded-md px-3 py-2 text-sm bg-white sm:max-w-md"
               >
-                <option value="">Usar a origem real de cada moto (da nota de entrada)</option>
+                <option value="">Pela nota de entrada de cada moto (1 sai como 2; 0, 2 e 4 iguais)</option>
                 <option value="0">Sempre 0 — Nacional</option>
                 <option value="1">Sempre 1 — Estrangeira, importação direta</option>
                 <option value="2">Sempre 2 — Estrangeira, mercado interno</option>

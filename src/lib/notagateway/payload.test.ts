@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from './payload'
+import { montarNfeVendaMoto, origemDeSaida, type DadosVendaMoto, type RegraSaida } from './payload'
 
 // Regra do Sul de Minas, extraída das 198 notas que ele já emitiu pelo Bling.
 const REGRA: RegraSaida = {
@@ -161,4 +161,17 @@ test('PIS, COFINS e IPI levam a alíquota dentro de porAliquota', () => {
 test('sem CST de IPI na regra, o bloco de IPI não vai', () => {
   const p = montarNfeVendaMoto(VENDA, { ...REGRA, cstIpi: null })
   assert.equal(p.itens[0].impostos.ipi, undefined)
+})
+
+test('origem de saída segue o contador: 0→0, 1→2, 4→4 (e 2 continua 2)', () => {
+  assert.equal(origemDeSaida('0'), '0')
+  assert.equal(origemDeSaida('1'), '2')
+  assert.equal(origemDeSaida('2'), '2')
+  assert.equal(origemDeSaida('4'), '4')
+  assert.equal(origemDeSaida(null), '0')
+})
+
+test('moto importada direto (origem 1) sai com origem 2', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, origem: '1' } }, { ...REGRA, origemFixa: null })
+  assert.equal(p.itens[0].impostos.icms.origem, 2)
 })

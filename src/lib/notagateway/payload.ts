@@ -133,6 +133,19 @@ const num = (v: string | null | undefined): number | undefined => {
   return Number.isFinite(n) ? n : undefined
 }
 
+/**
+ * Origem da mercadoria na NOSSA nota a partir da origem da nota de entrada —
+ * regra do contador (29/09/2026): 0 sai 0, 1 sai 2, 4 sai 4.
+ *
+ * A 1 vira 2 porque "importação direta" é de quem importou: na revenda a moto
+ * é estrangeira adquirida no mercado interno. O resto passa igual, inclusive a
+ * 2, que já é esse caso.
+ */
+export function origemDeSaida(origemEntrada: string | null | undefined): string {
+  const o = (origemEntrada ?? '').trim() || '0'
+  return o === '1' ? '2' : o
+}
+
 function porAliquota(cst: string, aliquota: string | null): TributoPorAliquota {
   const a = num(aliquota)
   return { situacaoTributaria: cst, ...(a !== undefined ? { porAliquota: { aliquota: a } } : {}) }
@@ -158,7 +171,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
 
   const icms: ImpostosItem['icms'] = {
     situacaoTributaria: interestadual ? regra.cstIcmsInterestadual : regra.cstIcmsInterno,
-    origem: Number(regra.origemFixa ?? moto.origem ?? '0'),
+    origem: Number(regra.origemFixa ?? origemDeSaida(moto.origem)),
   }
   if (interestadual) {
     const aliq = num(regra.aliquotaIcmsInterestadual)
