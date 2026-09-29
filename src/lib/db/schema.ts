@@ -1528,3 +1528,13 @@ export const nfeDfeSync = pgTable('nfe_dfe_sync', {
   ultimoErro:        text('ultimo_erro'),
   atualizadoEm:      timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── leads_convencao (captação da landing pública /convencao) ─────────────────
+export const leadsConvencao = pgTable('leads_convencao', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nome: text('nome').notNull(),
+  email: text('email').notNull(),
+  whatsapp: text('whatsapp').notNull(),
+  unidade: text('unidade').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})

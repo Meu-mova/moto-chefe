@@ -82,6 +82,8 @@ export async function middleware(request: NextRequest) {
 // `assinar` fora do matcher: é a rota pública de assinatura de documento, onde
 // quem entra é o cliente, sem conta no sistema. A credencial ali é o token do
 // link, não a sessão do Supabase.
+// `convencao`: landing pública de captação de lead (QR do pitch da convenção) —
+// não exige login.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar|convencao).*)'],
 }
