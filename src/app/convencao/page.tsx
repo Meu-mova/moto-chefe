@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { FormConvencao } from './form-convencao'
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function ConvencaoPage() {
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
             Convenção MotoChefe 2026
           </span>
-          <h1 className="text-4xl font-extrabold leading-none tracking-tight text-emerald-400">MOVA</h1>
+          <Image src="/mova-logo-dark.png" alt="MOVA" width={165} height={36} priority className="h-9 w-auto" />
           <h2 className="text-2xl font-bold leading-snug text-white">
             Viu o MOVA na convenção? Veja rodando na sua loja.
           </h2>
