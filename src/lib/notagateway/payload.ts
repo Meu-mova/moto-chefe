@@ -104,10 +104,15 @@ export type ImpostosItem = {
     fonte: string
   }
   icms: { situacaoTributaria: string; origem: number; aliquota?: number; baseCalculo?: number }
-  pis: { situacaoTributaria: string; aliquota?: number }
-  cofins: { situacaoTributaria: string; aliquota?: number }
+  // A alíquota vai dentro de `porAliquota` (confirmado pelo suporte em
+  // 29/09/2026). Solta no objeto, a API ignora calada e o PIS sai 0%.
+  pis: TributoPorAliquota
+  cofins: TributoPorAliquota
+  ipi?: TributoPorAliquota
   ibsCbs?: { situacaoTributaria?: string; classificacaoTributaria: string }
 }
+
+export type TributoPorAliquota = { situacaoTributaria: string; porAliquota?: { aliquota: number } }
 
 export type ItemNfe = {
   cfop: string
@@ -126,6 +131,11 @@ const num = (v: string | null | undefined): number | undefined => {
   if (v === null || v === undefined || v === '') return undefined
   const n = Number(v)
   return Number.isFinite(n) ? n : undefined
+}
+
+function porAliquota(cst: string, aliquota: string | null): TributoPorAliquota {
+  const a = num(aliquota)
+  return { situacaoTributaria: cst, ...(a !== undefined ? { porAliquota: { aliquota: a } } : {}) }
 }
 
 export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
@@ -160,9 +170,11 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
 
   const impostos: ImpostosItem = {
     icms,
-    pis: { situacaoTributaria: regra.cstPis, ...(num(regra.aliquotaPis) !== undefined ? { aliquota: num(regra.aliquotaPis) } : {}) },
-    cofins: { situacaoTributaria: regra.cstCofins, ...(num(regra.aliquotaCofins) !== undefined ? { aliquota: num(regra.aliquotaCofins) } : {}) },
+    pis: porAliquota(regra.cstPis, regra.aliquotaPis),
+    cofins: porAliquota(regra.cstCofins, regra.aliquotaCofins),
   }
+  // O Bling manda o IPI CST 99 zerado; sem CST na regra, o bloco fica de fora.
+  if (regra.cstIpi) impostos.ipi = porAliquota(regra.cstIpi, '0')
   const federal = num(regra.ibptFederal)
   const estadual = num(regra.ibptEstadual)
   if (federal !== undefined || estadual !== undefined) {

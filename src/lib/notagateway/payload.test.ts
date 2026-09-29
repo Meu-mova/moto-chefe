@@ -95,9 +95,9 @@ test('NCM e CEST vêm da ficha da moto, não da regra', () => {
 test('PIS, COFINS e IBS/CBS saem da regra', () => {
   const p = montarNfeVendaMoto(VENDA, REGRA)
   assert.equal(p.itens[0].impostos.pis.situacaoTributaria, '01')
-  assert.equal(p.itens[0].impostos.pis.aliquota, 0.65)
+  assert.equal(p.itens[0].impostos.pis.porAliquota?.aliquota, 0.65)
   assert.equal(p.itens[0].impostos.cofins.situacaoTributaria, '01')
-  assert.equal(p.itens[0].impostos.cofins.aliquota, 3)
+  assert.equal(p.itens[0].impostos.cofins.porAliquota?.aliquota, 3)
   assert.equal(p.itens[0].impostos.ibsCbs?.classificacaoTributaria, '000001')
 })
 
@@ -149,4 +149,16 @@ test('com IBPT na regra, manda o total aproximado de tributos (Lei da Transparê
 test('sem IBPT na regra, a nota sai sem o total de tributos', () => {
   const p = montarNfeVendaMoto(VENDA, { ...REGRA, ibptFederal: null, ibptEstadual: null })
   assert.equal(p.itens[0].impostos.percentualAproximadoTributos, undefined)
+})
+
+test('PIS, COFINS e IPI levam a alíquota dentro de porAliquota', () => {
+  const { pis, cofins, ipi } = montarNfeVendaMoto(VENDA, REGRA).itens[0].impostos
+  assert.deepEqual(pis, { situacaoTributaria: '01', porAliquota: { aliquota: 0.65 } })
+  assert.deepEqual(cofins, { situacaoTributaria: '01', porAliquota: { aliquota: 3 } })
+  assert.deepEqual(ipi, { situacaoTributaria: '99', porAliquota: { aliquota: 0 } })
+})
+
+test('sem CST de IPI na regra, o bloco de IPI não vai', () => {
+  const p = montarNfeVendaMoto(VENDA, { ...REGRA, cstIpi: null })
+  assert.equal(p.itens[0].impostos.ipi, undefined)
 })
