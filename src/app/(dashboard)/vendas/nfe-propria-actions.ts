@@ -441,9 +441,18 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 }
 
 /** Para o diálogo de NF decidir se mostra a opção — sem montar a nota. */
+/**
+ * Quem VÊ a opção no diálogo de NF. Até a virada para produção (decisão do
+ * Cesar em 29/09/2026: "esconda até segunda", 05/10), só admin geral e sócio —
+ * para a loja não se confundir entre o MOVA e o Bling. Na virada, trocar por
+ * PAPEIS.
+ */
+const PAPEIS_QUE_VEEM_A_OPCAO = ['admin_geral', 'admin_socio']
+
 export async function nfePropriaDisponivelAction(motoId: string): Promise<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }> {
   try {
-    await exigirPapel()
+    const u = await exigirPapel()
+    if (!PAPEIS_QUE_VEEM_A_OPCAO.includes(u.papel)) return { disponivel: false, ambiente: null }
     const [v] = await db.select({ lojaId: vendas.lojaId }).from(vendas)
       .where(eq(vendas.motoId, motoId)).orderBy(desc(vendas.dataVenda)).limit(1)
     if (!v) return { disponivel: false, ambiente: null }
