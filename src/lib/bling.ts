@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { hojeBrt } from './data-venda'
+import { observacoesVendaMoto } from './nfe-observacoes'
 import { blingConfig, grupos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
@@ -191,26 +192,7 @@ function montarPayloadNFe(dados: DadosNFe, vendedorBlingId?: number | null) {
       }))
     : [{ dias: 0, data: dataHoje, valor: valorTotal, observacoes: 'À vista' }]
 
-  const motorDesc = dados.motor || dados.tipoMotor || 'N/I'
-
-  const garantia =
-    'GARANTIA DE 90 DIAS CONFORME CDC + 9 MESES PARA MOTOR, BATERIA E MODULO ' +
-    '(TOTALIZANDO 1 ANO) MANTENDO AS REVISÕES EM DIA. AS REVISÕES DEVERÃO SER ' +
-    'REALIZADAS NO PERÍODO DE 3 MESES OU 2000KM RODADOS. OS DEMAIS COMPONENTES ' +
-    'A GARANTIA É DE 90 DIAS CONFORME CDC. Garantia não cobre danos causados por ' +
-    'mau uso da parte do cliente.'
-
-  const dadosVeiculo = [
-    `Marca: ${dados.marca || 'N/I'}`,
-    `Modelo: ${dados.modeloNome || 'N/I'}`,
-    `Chassi: ${dados.chassi || 'N/I'}`,
-    `Motor: ${motorDesc}`,
-    `Categoria: ${dados.categoria || 'N/I'}`,
-    `Potência: ${dados.potencia || 'N/I'}`,
-    `Cor: ${dados.cor || 'N/I'}`,
-  ].join('\n')
-
-  const observacoes = `${garantia}\n\n${dadosVeiculo}`
+  const observacoes = observacoesVendaMoto(dados)
 
   return {
     tipo: 1,
