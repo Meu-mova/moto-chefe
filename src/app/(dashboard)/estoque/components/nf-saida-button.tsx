@@ -1,12 +1,14 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { FileCheck, ExternalLink, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react'
+import { FileCheck, ExternalLink, ClipboardCheck, FileText, RefreshCw, Lock, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { criarRascunhoBlingAction, confirmarNFSaidaAction, atualizarRascunhoBlingAction } from '../../vendas/actions'
 import { verificarBloqueioNfAction, liberarNfSemContratoAction } from '../../vendas/assinatura-actions'
+import { nfePropriaDisponivelAction } from '../../vendas/nfe-propria-actions'
+import { NfePropriaPainel } from './nfe-propria-painel'
 
 type Props = {
   motoId: string
@@ -14,7 +16,7 @@ type Props = {
   blingNfeId?: string | null
 }
 
-type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado'
+type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado' | 'propria'
 
 export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
@@ -28,6 +30,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
   const [vendaId, setVendaId] = useState<string | null>(null)
   const [podeLiberar, setPodeLiberar] = useState(false)
   const [motivo, setMotivo] = useState('')
+  const [propria, setPropria] = useState<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }>({ disponivel: false, ambiente: null })
   const [pending, startTransition] = useTransition()
 
   // A trava é consultada ao abrir, não na listagem: seria uma consulta por
@@ -41,7 +44,8 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
     // a tela normal e clicaria num caminho que a action vai recusar.
     setEtapa('verificando')
     startTransition(async () => {
-      const r = await verificarBloqueioNfAction(motoId)
+      const [r, np] = await Promise.all([verificarBloqueioNfAction(motoId), nfePropriaDisponivelAction(motoId)])
+      setPropria(np)
       setVendaId(r.vendaId)
       setPodeLiberar(r.podeLiberar)
       if (r.bloqueio) {
@@ -133,7 +137,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
       </Button>
 
       <Dialog open={aberto} onOpenChange={fechar}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className={etapa === 'propria' ? 'sm:max-w-2xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-sm'}>
           <DialogHeader>
             <DialogTitle>NF-e de Saída</DialogTitle>
             <p className="text-sm text-slate-500">{descricao}</p>
@@ -189,6 +193,24 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
           {etapa === 'inicial' && (
             <div className="space-y-3 py-1">
               <p className="text-sm text-slate-600">Como deseja registrar a NF-e?</p>
+
+              {propria.disponivel && (
+                <button
+                  onClick={() => { setErro(''); setEtapa('propria') }}
+                  disabled={pending}
+                  className="w-full flex items-start gap-3 rounded-lg border border-teal-300 bg-teal-50 p-3 text-left hover:bg-teal-100 disabled:opacity-50 transition-colors"
+                >
+                  <Send size={18} className="mt-0.5 text-teal-700 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-teal-900">
+                      Emitir pelo MOVA{propria.ambiente === 'Homologacao' ? ' (teste)' : ''}
+                    </p>
+                    <p className="text-xs text-teal-700 mt-0.5">
+                      Confere a nota aqui e transmite direto para a SEFAZ
+                    </p>
+                  </div>
+                </button>
+              )}
 
               <button
                 onClick={criarNoBling}
@@ -276,6 +298,10 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
                 </Button>
               </DialogFooter>
             </>
+          )}
+
+          {etapa === 'propria' && (
+            <NfePropriaPainel motoId={motoId} onVoltar={() => setEtapa('inicial')} />
           )}
 
           {etapa === 'manual' && (

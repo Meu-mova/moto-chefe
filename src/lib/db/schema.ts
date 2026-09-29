@@ -196,6 +196,30 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // ─── notagateway_config (credencial da emissao propria, por grupo) ───────
 // Token cifrado como o certificado A1. empresaId vem do cadastro na API e e
 // usado em toda chamada seguinte. Ver src/lib/notagateway/.
+// ─── notas_fiscais_saida (NF-e própria emitida pela Nota Gateway) ───────────
+// Uma linha por tentativa (id externo). Homologação não fatura a venda; em
+// produção um índice parcial garante uma nota viva por venda (migração 0109).
+export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  vendaId:      uuid('venda_id').notNull(),
+  grupoId:      uuid('grupo_id').notNull(),
+  idExterno:    text('id_externo').notNull().unique(),
+  ambiente:     text('ambiente').notNull(),
+  /** Enviando (nosso) → Processando / Autorizada / Negada / Cancelada (da API). */
+  status:       text('status').notNull().default('Enviando'),
+  motivoStatus: text('motivo_status'),
+  numero:       text('numero'),
+  serie:        text('serie'),
+  chave:        text('chave'),
+  protocolo:    text('protocolo'),
+  linkDanfe:    text('link_danfe'),
+  linkXml:      text('link_xml'),
+  payload:      jsonb('payload').notNull(),
+  emitidaPor:   uuid('emitida_por'),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const notagatewayConfig = pgTable('notagateway_config', {
   grupoId:              uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
   token:                text('token').notNull(),

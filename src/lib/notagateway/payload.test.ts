@@ -44,7 +44,7 @@ const VENDA: DadosVendaMoto = {
     origem: '4',
   },
   valor: 8725.85,
-  pagamentos: [{ tipo: 'Pix', valor: 8725.85 }],
+  pagamentos: [{ tipo: 'PagamentoInstantaneoPix', valor: 8725.85 }],
 }
 
 test('venda dentro de MG usa CFOP 5405 e CST 60', () => {
@@ -121,7 +121,7 @@ test('recusa moto sem NCM em vez de emitir nota incompleta', () => {
 
 test('recusa venda sem pagamento que feche com o valor', () => {
   assert.throws(
-    () => montarNfeVendaMoto({ ...VENDA, pagamentos: [{ tipo: 'Pix', valor: 100 }] }, REGRA),
+    () => montarNfeVendaMoto({ ...VENDA, pagamentos: [{ tipo: 'PagamentoInstantaneoPix', valor: 100 }] }, REGRA),
     /pagamento/i,
   )
 })
@@ -174,4 +174,9 @@ test('origem de saída segue o contador: 0→0, 1→2, 4→4 (e 2 continua 2)', 
 test('moto importada direto (origem 1) sai com origem 2', () => {
   const p = montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, origem: '1' } }, { ...REGRA, origemFixa: null })
   assert.equal(p.itens[0].impostos.icms.origem, 2)
+})
+
+test('nota de homologação nunca manda e-mail ao cliente; produção manda', () => {
+  assert.equal(montarNfeVendaMoto({ ...VENDA, ambiente: 'Homologacao' }, REGRA).enviarPorEmail, false)
+  assert.equal(montarNfeVendaMoto({ ...VENDA, ambiente: 'Producao' }, REGRA).enviarPorEmail, true)
 })

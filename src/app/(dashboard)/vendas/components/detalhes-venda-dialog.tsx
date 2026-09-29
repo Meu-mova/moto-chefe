@@ -158,7 +158,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto }: Props) {
                   <p>Vendedor: <span className="text-slate-900">{v.vendedorNome}</span></p>
                   <p className="flex items-center gap-2 flex-wrap">
                     NF Saída: <span className="text-slate-900">{v.notaFiscalSaida ?? '—'}</span>
-                    {v.notaFiscalSaida && v.blingNfeId && (
+                    {v.notaFiscalSaida && (
                       <DanfeButton motoId={v.motoId} />
                     )}
                     {v.notaFiscalSaida && (

@@ -83,7 +83,7 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
               <p>Vendedor: <span className="text-slate-900">{venda.vendedorNome}</span></p>
               <p className="flex items-center gap-2 flex-wrap">
                 NF Saída: <span className="text-slate-900">{venda.notaFiscalSaida ?? '—'}</span>
-                {venda.notaFiscalSaida && venda.blingNfeId && (
+                {venda.notaFiscalSaida && (
                   <DanfeButton motoId={motoId} />
                 )}
                 {venda.notaFiscalSaida && (

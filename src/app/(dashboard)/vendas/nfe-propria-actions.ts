@@ -1,0 +1,448 @@
+'use server'
+import { db } from '@/lib/db'
+import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida } from '@/lib/db/schema'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
+import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
+import { motivoBloqueioNf } from '@/lib/assinatura/nf'
+import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
+import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
+import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
+import { configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
+
+/**
+ * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
+ *
+ * Fluxo da tela: pré-visualiza → confere → transmite. Nunca num clique só — a
+ * conferência humana que o Bling dava continua. A trava do contrato assinado
+ * vale igual aos outros caminhos de NF.
+ *
+ * Homologação emite de verdade na SEFAZ de teste, mas NUNCA fatura a venda:
+ * serve para conferir a nota sem valor fiscal.
+ */
+
+const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
+
+async function exigirPapel() {
+  const u = await getUsuarioLogado()
+  if (!PAPEIS.includes(u.papel)) throw new Error('Sem permissão para emitir NF de saída')
+  return u
+}
+
+export type NotaResumo = {
+  id: string
+  ambiente: string
+  status: string
+  motivoStatus: string | null
+  numero: string | null
+  serie: string | null
+  linkDanfe: string | null
+  linkXml: string | null
+  criadoEm: string
+}
+
+export type FichaMoto = { xProd: string; ncm: string; cest: string; unidade: string; origem: string }
+
+export type PreviaNfe =
+  | { ok: false; error: string }
+  | {
+      ok: true
+      vendaId: string
+      ambiente: 'Homologacao' | 'Producao'
+      jaFaturada: string | null
+      pendencias: string[]
+      /** Nulo = moto sem ficha fiscal; `sugestao` pré-preenche o formulário. */
+      ficha: FichaMoto | null
+      sugestao: FichaMoto
+      resumo: {
+        cliente: { nome: string; documento: string; endereco: string; email: string | null }
+        produto: { descricao: string; ncm: string; cest: string; cfop: string; cst: string; origemEntrada: string; origemSaida: string }
+        valor: number
+        pagamentos: { tipo: string; valor: number }[]
+        tributos: { pis: string; cofins: string; aproximado: number | null }
+        observacao: string
+        interestadual: boolean
+      } | null
+      notas: NotaResumo[]
+    }
+
+const numOuNulo = (v: string | null) => (v == null ? null : v)
+
+/** Junta tudo o que a nota precisa. Pré-visualização e transmissão usam a MESMA montagem. */
+async function montarEmissao(motoId: string) {
+  const [venda] = await db
+    .select()
+    .from(vendas)
+    .where(eq(vendas.motoId, motoId))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+  if (!venda) throw new Error('Nenhuma venda encontrada para esta moto')
+
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+  const cfg = await configNotaGateway(grupoId)
+  if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo — veja Admin → Notas fiscais')
+
+  const [moto] = await db
+    .select({ chassi: motos.chassi, cor: motos.cor, motor: motos.motor, modeloId: motos.modeloId })
+    .from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+
+  const [modelo] = await db
+    .select({ marca: modelos.marca, modelo: modelos.modelo, categoria: modelos.categoria, potenciaW: modelos.potenciaW, motor: modelos.motor })
+    .from(modelos).where(eq(modelos.id, moto.modeloId)).limit(1)
+
+  const [ficha] = await db.select().from(motosFiscal).where(eq(motosFiscal.motoId, motoId)).limit(1)
+  const [regraRow] = await db.select().from(regrasFiscaisSaida).where(eq(regrasFiscaisSaida.grupoId, grupoId)).limit(1)
+
+  const pagamentosMova = ((venda.pagamentos as PagamentoMova[] | null) ?? []).map(p => ({ ...p, valor: Number(p.valor) }))
+  const valor = Number(venda.valor)
+
+  const pendencias = pendenciasDaVenda({
+    clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
+    clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
+    clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
+    clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
+    valor, pagamentos: pagamentosMova, temFicha: !!ficha,
+  })
+  if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
+
+  const regra: RegraSaida | null = regraRow
+    ? {
+        naturezaOperacao: regraRow.naturezaOperacao,
+        cfopInterno: regraRow.cfopInterno,
+        cstIcmsInterno: regraRow.cstIcmsInterno,
+        cfopInterestadual: regraRow.cfopInterestadual,
+        cstIcmsInterestadual: regraRow.cstIcmsInterestadual,
+        aliquotaIcmsInterestadual: numOuNulo(regraRow.aliquotaIcmsInterestadual),
+        cstPis: regraRow.cstPis,
+        aliquotaPis: numOuNulo(regraRow.aliquotaPis),
+        cstCofins: regraRow.cstCofins,
+        aliquotaCofins: numOuNulo(regraRow.aliquotaCofins),
+        cstIpi: regraRow.cstIpi,
+        cstIbsCbs: regraRow.cstIbsCbs,
+        classTribIbsCbs: regraRow.classTribIbsCbs,
+        crt: regraRow.crt,
+        origemFixa: regraRow.origemFixa,
+        ibptFederal: numOuNulo(regraRow.ibptFederal),
+        ibptEstadual: numOuNulo(regraRow.ibptEstadual),
+      }
+    : null
+
+  const observacao = observacoesVendaMoto({
+    marca: modelo?.marca ?? null,
+    modeloNome: modelo?.modelo ?? null,
+    chassi: moto.chassi,
+    motor: moto.motor,
+    tipoMotor: modelo?.motor ?? null,
+    categoria: modelo?.categoria ?? null,
+    potencia: modelo?.potenciaW ?? null,
+    cor: moto.cor,
+  })
+
+  const sugestao: FichaMoto = {
+    xProd: ficha?.xProd ?? `${modelo?.marca ?? ''} ${modelo?.modelo ?? ''}`.trim().toUpperCase(),
+    ncm: ficha?.ncm ?? '87116000',
+    cest: ficha?.cest ?? '',
+    unidade: ficha?.unidade ?? 'UN',
+    origem: ficha?.origem ?? '0',
+  }
+
+  return { venda, grupoId, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias }
+}
+
+type Emissao = Awaited<ReturnType<typeof montarEmissao>>
+
+function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosVendaMoto {
+  const v = e.venda
+  const f = e.ficha!
+  return {
+    idExterno,
+    ambiente: e.cfg.ambiente,
+    ufEmitente,
+    cliente: {
+      tipoPessoa: tipoPessoa(v.clienteCpf),
+      nome: v.clienteNome.trim().toUpperCase(),
+      cpfCnpj: v.clienteCpf,
+      email: v.clienteEmail?.trim() || undefined,
+      telefone: v.clienteCelular?.trim() || undefined,
+      endereco: {
+        uf: (v.clienteEstado ?? '').trim().toUpperCase(),
+        cidade: (v.clienteCidade ?? '').trim(),
+        logradouro: (v.clienteLogradouro ?? '').trim(),
+        numero: (v.clienteNumero ?? '').trim(),
+        complemento: v.clienteComplemento?.trim() || undefined,
+        bairro: (v.clienteBairro ?? '').trim(),
+        cep: v.clienteCep ?? '',
+      },
+    },
+    moto: {
+      xProd: f.xProd ?? '',
+      codigo: f.cProd ?? f.xProd ?? '',
+      ncm: f.ncm,
+      cest: f.cest ?? '',
+      unidade: f.unidade ?? 'UN',
+      origem: f.origem ?? '0',
+    },
+    valor: e.valor,
+    pagamentos: e.pagamentosMova.map(formaPagamentoNfe),
+    informacoesAdicionais: e.observacao,
+  }
+}
+
+async function notasDaVenda(vendaId: string): Promise<NotaResumo[]> {
+  const rows = await db.select().from(notasFiscaisSaida)
+    .where(eq(notasFiscaisSaida.vendaId, vendaId))
+    .orderBy(desc(notasFiscaisSaida.criadoEm))
+  return rows.map(r => ({
+    id: r.id, ambiente: r.ambiente, status: r.status, motivoStatus: r.motivoStatus,
+    numero: r.numero, serie: r.serie, linkDanfe: r.linkDanfe, linkXml: r.linkXml,
+    criadoEm: r.criadoEm.toISOString(),
+  }))
+}
+
+export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
+  try {
+    await exigirPapel()
+    const e = await montarEmissao(motoId)
+    const notas = await notasDaVenda(e.venda.id)
+
+    let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
+    if (e.ficha && e.regra && !e.pendencias.length) {
+      const uf = await ufDaEmpresa(e.cfg)
+      const p = montarNfeVendaMoto(dadosDaVenda(e, uf, 'previa'), e.regra)
+      const item = p.itens[0]
+      const v = e.venda
+      resumo = {
+        cliente: {
+          nome: p.cliente.nome,
+          documento: p.cliente.cpfCnpj,
+          endereco: [
+            `${p.cliente.endereco.logradouro}, ${p.cliente.endereco.numero}`,
+            v.clienteComplemento?.trim(),
+            p.cliente.endereco.bairro,
+            `${p.cliente.endereco.cidade}/${p.cliente.endereco.uf}`,
+            `CEP ${p.cliente.endereco.cep}`,
+          ].filter(Boolean).join(' — '),
+          email: p.cliente.email ?? null,
+        },
+        produto: {
+          descricao: item.descricao,
+          ncm: item.ncm,
+          cest: item.cest ?? '—',
+          cfop: item.cfop,
+          cst: item.impostos.icms.situacaoTributaria,
+          origemEntrada: e.ficha.origem ?? '0',
+          origemSaida: String(item.impostos.icms.origem),
+        },
+        valor: e.valor,
+        pagamentos: p.pedido.pagamento.formas.map(f => ({ tipo: f.descricao ?? f.tipo, valor: f.valor })),
+        tributos: {
+          pis: `${item.impostos.pis.situacaoTributaria} · ${item.impostos.pis.porAliquota?.aliquota ?? 0}%`,
+          cofins: `${item.impostos.cofins.situacaoTributaria} · ${item.impostos.cofins.porAliquota?.aliquota ?? 0}%`,
+          aproximado: item.impostos.percentualAproximadoTributos?.detalhado.valorTotal ?? null,
+        },
+        observacao: e.observacao,
+        interestadual: item.cfop === e.regra.cfopInterestadual && e.regra.cfopInterestadual !== e.regra.cfopInterno,
+      }
+    }
+
+    return {
+      ok: true,
+      vendaId: e.venda.id,
+      ambiente: e.cfg.ambiente,
+      jaFaturada: e.venda.notaFiscalSaida,
+      pendencias: e.pendencias,
+      ficha: e.ficha
+        ? { xProd: e.ficha.xProd ?? '', ncm: e.ficha.ncm, cest: e.ficha.cest ?? '', unidade: e.ficha.unidade ?? 'UN', origem: e.ficha.origem ?? '0' }
+        : null,
+      sugestao: e.sugestao,
+      resumo,
+      notas,
+    }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * Completa a ficha fiscal na hora de emitir — para as motos cuja nota de
+ * entrada nunca foi importada. Não bloqueia a venda: preenche e segue.
+ */
+export async function salvarFichaMotoAction(motoId: string, f: FichaMoto): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await exigirPapel()
+    const ncm = f.ncm.replace(/\D/g, '')
+    if (ncm.length !== 8) return { ok: false, error: 'NCM precisa ter 8 dígitos' }
+    const cest = f.cest.replace(/\D/g, '')
+    if (cest && cest.length !== 7) return { ok: false, error: 'CEST precisa ter 7 dígitos (ou ficar vazio)' }
+    if (!f.xProd.trim()) return { ok: false, error: 'Informe a descrição fiscal do produto' }
+    if (!/^[0-8]$/.test(f.origem)) return { ok: false, error: 'Origem inválida' }
+
+    const valores = {
+      xProd: f.xProd.trim().toUpperCase(),
+      ncm,
+      cest: cest || null,
+      unidade: f.unidade.trim().toUpperCase() || 'UN',
+      origem: f.origem,
+    }
+    await db.insert(motosFiscal)
+      .values({ motoId, emitenteCnpj: 'MANUAL', ...valores })
+      .onConflictDoUpdate({ target: motosFiscal.motoId, set: valores })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
+const FINAIS = ['Autorizada', 'Negada', 'Cancelada', 'Denegada']
+
+/** Grava o retorno da API e, se for nota de PRODUÇÃO autorizada, fatura a venda. */
+async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string, vendaId: string, motoId: string) {
+  await db.update(notasFiscaisSaida).set({
+    status: n.status,
+    motivoStatus: n.motivoStatus ?? (n.status === 'Autorizada' ? null : n.statusSefaz),
+    numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
+    linkDanfe: n.linkDanfe, linkXml: n.linkXml,
+    atualizadoEm: sql`now()` as unknown as Date,
+  }).where(eq(notasFiscaisSaida.id, notaId))
+
+  if (n.status === 'Autorizada' && ambiente === 'Producao' && n.numero) {
+    // O mesmo efeito do "Confirmar NF" manual: número na venda, moto vendida.
+    await db.transaction(async tx => {
+      await tx.update(vendas).set({ notaFiscalSaida: n.numero }).where(eq(vendas.id, vendaId))
+      await tx.update(motos).set({ disponibilidade: 'vendida' as any }).where(eq(motos.id, motoId))
+    })
+    revalidatePath('/vendas')
+    revalidatePath('/estoque')
+  }
+}
+
+/** Consulta até a SEFAZ responder ou o tempo acabar — o que sobrar, a tela reconsulta. */
+async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas = 8) {
+  let ultima: NfeConsultada | null = null
+  for (let i = 0; i < tentativas; i++) {
+    await espera(i === 0 ? 2500 : 2000)
+    ultima = await consultarNfe(cfg, idExterno)
+    if (ultima && FINAIS.includes(ultima.status)) break
+  }
+  return ultima
+}
+
+export type ResultadoTransmissao = { ok: true; nota: NotaResumo } | { ok: false; error: string; nota?: NotaResumo }
+
+async function resumoDaNota(id: string): Promise<NotaResumo> {
+  const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, id)).limit(1)
+  return {
+    id: r.id, ambiente: r.ambiente, status: r.status, motivoStatus: r.motivoStatus,
+    numero: r.numero, serie: r.serie, linkDanfe: r.linkDanfe, linkXml: r.linkXml,
+    criadoEm: r.criadoEm.toISOString(),
+  }
+}
+
+export async function transmitirNfePropriaAction(motoId: string): Promise<ResultadoTransmissao> {
+  let notaId: string | null = null
+  try {
+    const usuario = await exigirPapel()
+    const e = await montarEmissao(motoId)
+
+    const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(e.venda.id))
+    if (bloqueio) return { ok: false, error: bloqueio }
+    if (e.pendencias.length) return { ok: false, error: e.pendencias.join('\n') }
+    if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal — preencha antes de transmitir' }
+    if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }
+
+    if (e.cfg.ambiente === 'Producao') {
+      if (e.venda.notaFiscalSaida) return { ok: false, error: `Esta venda já tem a NF ${e.venda.notaFiscalSaida}` }
+      // Nota viva de produção: não emite outra, acompanha a que existe.
+      const [viva] = await db.select().from(notasFiscaisSaida).where(and(
+        eq(notasFiscaisSaida.vendaId, e.venda.id),
+        eq(notasFiscaisSaida.ambiente, 'Producao'),
+        inArray(notasFiscaisSaida.status, ['Enviando', 'Processando', 'Autorizada']),
+      )).limit(1)
+      if (viva) {
+        const n = await acompanhar(e.cfg, viva.idExterno, 3)
+        if (n) await aplicarRetorno(viva.id, n, viva.ambiente, e.venda.id, motoId)
+        return { ok: true, nota: await resumoDaNota(viva.id) }
+      }
+    }
+
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(notasFiscaisSaida)
+      .where(and(eq(notasFiscaisSaida.vendaId, e.venda.id), eq(notasFiscaisSaida.ambiente, e.cfg.ambiente)))
+    const idExterno = idExternoNfe(e.venda.numero, total + 1, e.cfg.ambiente)
+
+    const uf = await ufDaEmpresa(e.cfg)
+    const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
+
+    const [nova] = await db.insert(notasFiscaisSaida).values({
+      vendaId: e.venda.id, grupoId: e.grupoId, idExterno, ambiente: e.cfg.ambiente,
+      status: 'Enviando', payload, emitidaPor: usuario.id,
+    }).returning({ id: notasFiscaisSaida.id })
+    notaId = nova.id
+
+    try {
+      await enviarNfe(e.cfg, payload)
+    } catch (err) {
+      const msg = (err as Error).message
+      // Recusa de validação (4xx) é definitiva e libera nova tentativa. Rede
+      // ou 5xx fica "Enviando": a nota pode ter chegado, e a consulta descobre
+      // — reenviar às cegas é que duplicaria.
+      if (err instanceof NfeRecusada) {
+        await db.update(notasFiscaisSaida)
+          .set({ status: 'Negada', motivoStatus: msg, atualizadoEm: sql`now()` as unknown as Date })
+          .where(eq(notasFiscaisSaida.id, notaId))
+        return { ok: false, error: msg, nota: await resumoDaNota(notaId) }
+      }
+      throw err
+    }
+
+    await db.update(notasFiscaisSaida)
+      .set({ status: 'Processando', atualizadoEm: sql`now()` as unknown as Date })
+      .where(eq(notasFiscaisSaida.id, notaId))
+
+    const n = await acompanhar(e.cfg, idExterno)
+    if (n) await aplicarRetorno(notaId, n, e.cfg.ambiente, e.venda.id, motoId)
+
+    const nota = await resumoDaNota(notaId)
+    if (nota.status === 'Negada' || nota.status === 'Denegada') {
+      return { ok: false, error: `A SEFAZ não autorizou: ${nota.motivoStatus ?? 'sem motivo informado'}`, nota }
+    }
+    return { ok: true, nota }
+  } catch (err) {
+    const nota = notaId ? await resumoDaNota(notaId).catch(() => undefined) : undefined
+    return { ok: false, error: (err as Error).message, nota }
+  }
+}
+
+/** Reconsulta uma nota que ficou em processamento. */
+export async function consultarNfePropriaAction(notaId: string): Promise<ResultadoTransmissao> {
+  try {
+    await exigirPapel()
+    const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
+    if (!r) return { ok: false, error: 'Nota não encontrada' }
+    const cfg = await configNotaGateway(r.grupoId)
+    if (!cfg) return { ok: false, error: 'Emissão pelo MOVA não configurada para este grupo' }
+    const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1)
+    const n = await consultarNfe(cfg, r.idExterno)
+    if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, v.motoId)
+    return { ok: true, nota: await resumoDaNota(r.id) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** Para o diálogo de NF decidir se mostra a opção — sem montar a nota. */
+export async function nfePropriaDisponivelAction(motoId: string): Promise<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }> {
+  try {
+    await exigirPapel()
+    const [v] = await db.select({ lojaId: vendas.lojaId }).from(vendas)
+      .where(eq(vendas.motoId, motoId)).orderBy(desc(vendas.dataVenda)).limit(1)
+    if (!v) return { disponivel: false, ambiente: null }
+    const cfg = await configNotaGateway(await getGrupoIdDaLoja(v.lojaId))
+    return cfg ? { disponivel: true, ambiente: cfg.ambiente } : { disponivel: false, ambiente: null }
+  } catch {
+    return { disponivel: false, ambiente: null }
+  }
+}

@@ -20,6 +20,8 @@
  * fábrica) e a interestadual sai CST 00 com ICMS destacado a 12%.
  */
 
+import { ehCartao, type FormaPagamentoNfe } from './venda'
+
 export type RegraSaida = {
   naturezaOperacao: string
   cfopInterno: string
@@ -86,7 +88,8 @@ export type DadosVendaMoto = {
     origem: string
   }
   valor: number
-  pagamentos: { tipo: string; valor: number; parcelas?: number }[]
+  /** Já no vocabulário da API — ver `formaPagamentoNfe` em ./venda. */
+  pagamentos: FormaPagamentoNfe[]
   informacoesAdicionais?: string
 }
 
@@ -235,14 +238,18 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     tipoOperacao: 'Saida' as const,
     finalidade: 'Normal' as const,
     consumidorFinal: true,
-    enviarPorEmail: !!cliente.email,
+    // Nota de teste nunca vai para o e-mail do cliente — o destinatário é real.
+    enviarPorEmail: venda.ambiente === 'Producao' && !!cliente.email,
     pedido: {
       presencaConsumidor: 'OperacaoPresencial',
       pagamento: {
         formas: venda.pagamentos.map(p => ({
           tipo: p.tipo,
           valor: p.valor,
-          ...(p.parcelas ? { quantidadeParcelas: p.parcelas } : {}),
+          ...(p.descricao ? { descricao: p.descricao } : {}),
+          // Cartão exige o grupo do credenciador; a maquininha não é integrada
+          // ao MOVA, então vai só o tipo de integração (tpIntegra 2).
+          ...(ehCartao(p.tipo) ? { credenciadoraCartao: { tipoIntegracaoPagamento: 'NaoIntegradoAoSistemaDeGestao' } } : {}),
         })),
       },
     },

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida } from '@/lib/db/schema'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -1459,13 +1459,28 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   await getUsuarioLogado()
 
   const [venda] = await db
-    .select({ blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId })
+    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda?.blingNfeId) throw new Error('ID da NF-e não encontrado. Verifique se o rascunho foi criado pelo MOVA.')
+  // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling.
+  if (venda) {
+    const [propria] = await db
+      .select({ linkDanfe: notasFiscaisSaida.linkDanfe })
+      .from(notasFiscaisSaida)
+      .where(and(
+        eq(notasFiscaisSaida.vendaId, venda.id),
+        eq(notasFiscaisSaida.ambiente, 'Producao'),
+        eq(notasFiscaisSaida.status, 'Autorizada'),
+      ))
+      .orderBy(desc(notasFiscaisSaida.criadoEm))
+      .limit(1)
+    if (propria?.linkDanfe) return { linkDanfe: propria.linkDanfe, linkPDF: propria.linkDanfe }
+  }
+
+  if (!venda?.blingNfeId) throw new Error('Esta NF foi registrada à mão, fora do MOVA — o DANFE não está disponível aqui.')
 
   const { buscarLinksDanfe } = await import('@/lib/bling')
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
