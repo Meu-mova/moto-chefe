@@ -180,7 +180,7 @@ export default async function PixMcpPage({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">PIX Recebidos (teste — Open Finance)</h1>
+          <h1 className="text-2xl font-bold">PIX Recebidos</h1>
           <p className="text-slate-500 text-sm">
             Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai (Open Finance). Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
           </p>
