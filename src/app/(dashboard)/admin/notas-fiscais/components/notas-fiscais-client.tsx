@@ -21,6 +21,7 @@ type Regra = {
   cfopInterestadual: string; cstIcmsInterestadual: string; aliquotaIcmsInterestadual: string
   cstPis: string; aliquotaPis: string; cstCofins: string; aliquotaCofins: string
   cstIpi: string; cstIbsCbs: string; classTribIbsCbs: string; crt: number; origemFixa: string
+  ibptFederal: string; ibptEstadual: string
 }
 type LinhaGrupo = {
   grupoId: string
@@ -35,7 +36,7 @@ const REGRA_VAZIA: Regra = {
   naturezaOperacao: '', cfopInterno: '', cstIcmsInterno: '',
   cfopInterestadual: '', cstIcmsInterestadual: '', aliquotaIcmsInterestadual: '',
   cstPis: '', aliquotaPis: '', cstCofins: '', aliquotaCofins: '',
-  cstIpi: '', cstIbsCbs: '', classTribIbsCbs: '', crt: 3, origemFixa: '',
+  cstIpi: '', cstIbsCbs: '', classTribIbsCbs: '', crt: 3, origemFixa: '', ibptFederal: '', ibptEstadual: '',
 }
 
 const fmtData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
@@ -249,6 +250,11 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
                   <option value={3}>3 — Regime Normal</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Campo label="Tributos aprox. federal (%)" valor={regra.ibptFederal} onChange={setR('ibptFederal')} placeholder="31.60" dica="Tabela do IBPT" />
+              <Campo label="Tributos aprox. estadual (%)" valor={regra.ibptEstadual} onChange={setR('ibptEstadual')} placeholder="12.00" dica="Lei da Transparência" />
             </div>
 
             <div className="space-y-1">

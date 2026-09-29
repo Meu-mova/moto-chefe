@@ -228,6 +228,9 @@ export const regrasFiscaisSaida = pgTable('regras_fiscais_saida', {
   crt:                      integer('crt').notNull().default(3),
   /** NULL = usa a origem real da moto; preenchido = forca esse valor. */
   origemFixa:               text('origem_fixa'),
+  /** Lei da Transparencia: % aproximado de tributos (tabela do IBPT). */
+  ibptFederal:              numeric('ibpt_federal', { precision: 5, scale: 2 }),
+  ibptEstadual:             numeric('ibpt_estadual', { precision: 5, scale: 2 }),
   atualizadoEm:             timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

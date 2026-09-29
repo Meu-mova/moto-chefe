@@ -100,6 +100,8 @@ export type RegraPayload = {
   crt: number
   /** '' = usar a origem real da moto (a da nota de entrada). */
   origemFixa: string
+  ibptFederal: string
+  ibptEstadual: string
 }
 
 const ouNulo = (v: string) => (v.trim() === '' ? null : v.trim())
@@ -141,6 +143,8 @@ export async function salvarRegraAction(data: RegraPayload) {
     classTribIbsCbs: ouNulo(data.classTribIbsCbs),
     crt: data.crt,
     origemFixa: ouNulo(data.origemFixa),
+    ibptFederal: ouNulo(data.ibptFederal),
+    ibptEstadual: ouNulo(data.ibptEstadual),
     atualizadoEm: sql`NOW()` as unknown as Date,
   }
 

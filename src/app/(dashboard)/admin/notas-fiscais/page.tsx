@@ -80,6 +80,8 @@ export default async function NotasFiscaisPage() {
             classTribIbsCbs: regra.classTribIbsCbs ?? '',
             crt: regra.crt,
             origemFixa: regra.origemFixa ?? '',
+            ibptFederal: regra.ibptFederal ?? '',
+            ibptEstadual: regra.ibptEstadual ?? '',
           }
         : null,
       certificado: cert

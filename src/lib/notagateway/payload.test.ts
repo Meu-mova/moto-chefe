@@ -130,3 +130,23 @@ test('CEST vazio não vai como string vazia — a SEFAZ rejeita', () => {
   const p = montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, cest: '' } }, REGRA)
   assert.equal('cest' in p.itens[0], false)
 })
+
+test('com IBPT na regra, manda o total aproximado de tributos (Lei da Transparência)', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, valor: 12990, pagamentos: [{ tipo: 'Dinheiro', valor: 12990 }] },
+    { ...REGRA, ibptFederal: '31.60', ibptEstadual: '12.00' })
+  // Valores conferidos na NF 3003 de homologação: 4104,84 + 1558,80 = 5663,64.
+  assert.deepEqual(p.itens[0].impostos.percentualAproximadoTributos, {
+    detalhado: {
+      percentualFederal: 31.6, valorFederal: 4104.84,
+      percentualEstadual: 12, valorEstadual: 1558.8,
+      percentualMunicipal: 0, valorMunicipal: 0,
+      valorTotal: 5663.64,
+    },
+    fonte: 'IBPT',
+  })
+})
+
+test('sem IBPT na regra, a nota sai sem o total de tributos', () => {
+  const p = montarNfeVendaMoto(VENDA, { ...REGRA, ibptFederal: null, ibptEstadual: null })
+  assert.equal(p.itens[0].impostos.percentualAproximadoTributos, undefined)
+})

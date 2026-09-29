@@ -42,6 +42,13 @@ export type RegraSaida = {
    * como importação direta (origem 1) pode sair como nacional?
    */
   origemFixa: string | null
+  /**
+   * Lei da Transparência: percentuais aproximados do IBPT. Com eles a API
+   * escreve o "Valor aprox. dos Tributos" nas informações complementares, como
+   * o Bling fazia. Nulos = a nota sai sem o total.
+   */
+  ibptFederal?: string | null
+  ibptEstadual?: string | null
 }
 
 export type EnderecoCliente = {
@@ -84,6 +91,18 @@ export type DadosVendaMoto = {
 }
 
 export type ImpostosItem = {
+  percentualAproximadoTributos?: {
+    detalhado: {
+      percentualFederal: number
+      valorFederal: number
+      percentualEstadual: number
+      valorEstadual: number
+      percentualMunicipal: number
+      valorMunicipal: number
+      valorTotal: number
+    }
+    fonte: string
+  }
   icms: { situacaoTributaria: string; origem: number; aliquota?: number; baseCalculo?: number }
   pis: { situacaoTributaria: string; aliquota?: number }
   cofins: { situacaoTributaria: string; aliquota?: number }
@@ -143,6 +162,25 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     icms,
     pis: { situacaoTributaria: regra.cstPis, ...(num(regra.aliquotaPis) !== undefined ? { aliquota: num(regra.aliquotaPis) } : {}) },
     cofins: { situacaoTributaria: regra.cstCofins, ...(num(regra.aliquotaCofins) !== undefined ? { aliquota: num(regra.aliquotaCofins) } : {}) },
+  }
+  const federal = num(regra.ibptFederal)
+  const estadual = num(regra.ibptEstadual)
+  if (federal !== undefined || estadual !== undefined) {
+    const centavos = (v: number) => Math.round(v * 100) / 100
+    const valorFederal = centavos((venda.valor * (federal ?? 0)) / 100)
+    const valorEstadual = centavos((venda.valor * (estadual ?? 0)) / 100)
+    impostos.percentualAproximadoTributos = {
+      detalhado: {
+        percentualFederal: federal ?? 0,
+        valorFederal,
+        percentualEstadual: estadual ?? 0,
+        valorEstadual,
+        percentualMunicipal: 0,
+        valorMunicipal: 0,
+        valorTotal: centavos(valorFederal + valorEstadual),
+      },
+      fonte: 'IBPT',
+    }
   }
   if (regra.classTribIbsCbs) {
     impostos.ibsCbs = {
