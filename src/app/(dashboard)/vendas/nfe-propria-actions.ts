@@ -9,7 +9,7 @@ import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
-import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
+import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 
 /**
@@ -369,9 +369,16 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       }
     }
 
-    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(notasFiscaisSaida)
-      .where(and(eq(notasFiscaisSaida.vendaId, e.venda.id), eq(notasFiscaisSaida.ambiente, e.cfg.ambiente)))
-    const idExterno = idExternoNfe(e.venda.numero, total + 1, e.cfg.ambiente)
+    const existentes = await db.select({ id: notasFiscaisSaida.idExterno }).from(notasFiscaisSaida)
+      .where(eq(notasFiscaisSaida.vendaId, e.venda.id))
+    let tentativa = proximaTentativa(existentes.map(x => x.id), e.venda.numero, e.cfg.ambiente)
+    // O id pode existir na API sem existir aqui (linha apagada, falha antes de
+    // gravar). Reusar um id da API devolveria a nota ANTIGA como se fosse nova.
+    while (await consultarNfe(e.cfg, idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente))) {
+      tentativa++
+      if (tentativa > 50) throw new Error('Não achei um número de controle livre para esta nota')
+    }
+    const idExterno = idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente)
 
     const uf = await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)

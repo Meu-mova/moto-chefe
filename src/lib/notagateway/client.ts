@@ -80,7 +80,9 @@ export type NfeConsultada = {
 /** null = a API ainda não conhece esse id (acabou de ser enviado). */
 export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string): Promise<NfeConsultada | null> {
   const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/${encodeURIComponent(idExterno)}`)
-  if (r.status === 404) return null
+  // "Não encontrada" vem como 400 com o código NFe0001, não como 404.
+  const naoEncontrada = Array.isArray(r.json) && r.json.some((e: { codigo?: string }) => e?.codigo === 'NFe0001')
+  if (r.status === 404 || naoEncontrada) return null
   if (r.status >= 400) throw new Error(`Falha ao consultar a nota: ${mensagensDeErro(r.json, r.texto)}`)
   const n = r.json as Record<string, any>
   return {

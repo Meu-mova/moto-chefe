@@ -101,3 +101,16 @@ export function idExternoNfe(numeroVenda: number, tentativa: number, ambiente: '
   const prefixo = ambiente === 'Producao' ? 'mova' : 'mova-homolog'
   return `${prefixo}-${numeroVenda}-${tentativa}`
 }
+
+/**
+ * Próxima tentativa = maior sufixo já usado + 1. Contar linhas não serve: uma
+ * linha apagada faz a contagem repetir um id que já existe (29/09/2026).
+ */
+export function proximaTentativa(idsExistentes: string[], numeroVenda: number, ambiente: 'Homologacao' | 'Producao') {
+  const prefixo = idExternoNfe(numeroVenda, 0, ambiente).slice(0, -1)
+  const usados = idsExistentes
+    .filter(id => id.startsWith(prefixo))
+    .map(id => Number(id.slice(prefixo.length)))
+    .filter(n => Number.isInteger(n) && n > 0)
+  return (usados.length ? Math.max(...usados) : 0) + 1
+}

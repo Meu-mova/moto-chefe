@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formaPagamentoNfe, tipoPessoa, pendenciasDaVenda, idExternoNfe, type ConferenciaVenda } from './venda'
+import { formaPagamentoNfe, tipoPessoa, pendenciasDaVenda, idExternoNfe, proximaTentativa, type ConferenciaVenda } from './venda'
 
 test('formas de pagamento do MOVA viram os nomes aceitos pela API', () => {
   assert.deepEqual(formaPagamentoNfe({ tipo: 'pix', valor: 10 }), { tipo: 'PagamentoInstantaneoPix', valor: 10 })
@@ -48,4 +48,16 @@ test('id externo separa homologação de produção e numera a tentativa', () =>
   assert.equal(idExternoNfe(31578, 2, 'Homologacao'), 'mova-homolog-31578-2')
   // Com uuid a API devolveu 500; o id tem de ficar na faixa dos que passaram.
   assert.ok(idExternoNfe(9999999, 99, 'Homologacao').length <= 25)
+})
+
+test('próxima tentativa segue o maior sufixo, não a contagem de linhas', () => {
+  // A tentativa 1 foi apagada: contar daria 2 de novo, que já existe.
+  assert.equal(proximaTentativa(['mova-homolog-31578-2'], 31578, 'Homologacao'), 3)
+  assert.equal(proximaTentativa([], 31578, 'Homologacao'), 1)
+})
+
+test('próxima tentativa ignora outro ambiente e outra venda com prefixo parecido', () => {
+  const ids = ['mova-31578-4', 'mova-homolog-31578-1', 'mova-homolog-315780-9']
+  assert.equal(proximaTentativa(ids, 31578, 'Homologacao'), 2)
+  assert.equal(proximaTentativa(ids, 31578, 'Producao'), 5)
 })
