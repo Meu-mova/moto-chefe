@@ -84,6 +84,11 @@ export async function middleware(request: NextRequest) {
 // link, não a sessão do Supabase.
 // `convencao`: landing pública de captação de lead (QR do pitch da convenção) —
 // não exige login.
+// `.*\..*`: qualquer caminho COM extensão (arquivos de /public: .png, .svg…) sai
+// do matcher. Sem isso o middleware redireciona o arquivo pro /login — e o
+// otimizador de imagem da Vercel, que busca a fonte por HTTP, recebe HTML e
+// falha (a logo do MOVA na landing pública não carregava). Nenhuma rota
+// autenticada tem ponto no caminho, então é seguro.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar|convencao).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar|convencao|.*\\..*).*)'],
 }
