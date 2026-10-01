@@ -216,7 +216,7 @@ Ordem: 1 imediatamente; 2 na primeira hora livre do Cesar; 3–5 em sequência; 
 
 ## 8. Checklist do Cesar (em ordem)
 
-1. **Vercel → Settings → Environment Variables**: o que está marcado como Preview hoje? Se for igual a produção, os previews de qualquer branch já acessam o banco real.
+1. **Vercel → Settings → Environment Variables**: o que está marcado como Preview hoje? Se for igual a produção, os previews de qualquer branch já acessam o banco real. **Achado em 2026-10-01:** o PR #1 (fase 1, só config/CI) teve o deployment da Vercel com status "Deployment was blocked" — sem detalhe visível pela API do GitHub. Precisa olhar o painel da Vercel (Deployments → o deployment do PR) para saber a causa antes de confiar em qualquer preview.
 2. **Supabase → org "Motochefe Sul de Minas" → Team**: promover Luis a Administrator (vai criar `mova-staging`).
 3. **GitHub**: aceitar o convite da org `Moto-Chefe` (owner); transferir `moto-chefe` para a org; aprovar o plano Team (US$ 4/usuário/mês); colocar e-mail e cartão da empresa no billing da org. Depois, reconectar o repo na Vercel.
 4. **Vercel**, com o checklist do Luis: colar as variáveis de Preview; domínio `dev.meumova.com` → branch `dev`; Deployment Protection off para Preview.
@@ -225,9 +225,11 @@ Ordem: 1 imediatamente; 2 na primeira hora livre do Cesar; 3–5 em sequência; 
 
 Mensagem pronta para colar:
 
-> Cesar, fechei o plano de staging + CI (docs/seguranca/2026-10-01-plano-staging-ci.md).
-> Preciso de 6 coisas suas, nessa ordem: (1) me dizer o que está no ambiente Preview da Vercel
-> hoje; (2) me promover a Administrator na org do Supabase; (3) aceitar o convite da org
+> Cesar, fechei o plano de staging + CI (docs/seguranca/2026-10-01-plano-staging-ci.md) e já
+> abri o primeiro PR (só config/CI, nada de produto). Preciso de 6 coisas suas, nessa ordem:
+> (1) me dizer o que está no ambiente Preview da Vercel hoje — e por que esse PR aparece lá
+> como "Deployment was blocked", pra eu entender antes de confiar em qualquer preview;
+> (2) me promover a Administrator na org do Supabase; (3) aceitar o convite da org
 > Moto-Chefe no GitHub, transferir o repo pra lá e aprovar o plano Team (US$ 8/mês pelos dois,
 > é o que permite travar a main e a dev para só aceitar PR com CI verde); (4) colar as variáveis
 > de Preview e o domínio dev.meumova.com na Vercel com o checklist que vou te mandar;
