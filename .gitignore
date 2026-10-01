@@ -46,3 +46,6 @@ next-env.d.ts
 
 # backups pontuais de tabela (dado de cliente — nunca vai pro git)
 /backups/
+
+# metadado de link local do Supabase CLI (não é schema nem segredo)
+supabase/.temp/
