@@ -1,0 +1,16 @@
+# Alertas de CVE (automáticos, não configurados aqui) + atualização semanal.
+# PRs contra dev, nunca contra main — ver docs/seguranca/2026-10-01-plano-staging-ci.md D20.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-e-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # major fica fora do grupo acima: PR individual, revisão com mais atenção.
