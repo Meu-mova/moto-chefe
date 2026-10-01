@@ -51,6 +51,11 @@ jobs:
   gitleaks:
     name: segredo no diff
     runs-on: ubuntu-latest
+    # gitleaks-action lista os commits do PR pela API (GET .../pulls/{n}/commits);
+    # sem isso dá 403 "Resource not accessible by integration" (visto no 1º run).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:
