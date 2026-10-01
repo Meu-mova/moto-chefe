@@ -211,30 +211,45 @@ Ordem: 1 imediatamente; 2 na primeira hora livre do Cesar; 3–5 em sequência; 
 | GitHub Team (2 usuários) | US$ 8 | **Cesar** |
 | Bitwarden org Free | US$ 0 | fechada |
 | Revisão IA (cota Max do Luis) | US$ 0 extra | fechada; plano B API com teto US$ 30 |
-| Vercel Pro (1 assento) | US$ 20 | **Cesar**, item separado; motivo: uso comercial no Hobby |
+| Vercel Pro (1 assento p/ Luis) | US$ 20 | **Cesar**; motivo: uso comercial no Hobby **e** (achado 2026-10-01) Hobby não suporta colaborador — nenhum preview de PR do Luis builda sem isso |
 | Supabase Pro (backup diário) | US$ 25 | **Cesar**, pendência da Etapa 1 |
 
 ## 8. Checklist do Cesar (em ordem)
 
-1. **Vercel → Settings → Environment Variables**: o que está marcado como Preview hoje? Se for igual a produção, os previews de qualquer branch já acessam o banco real. **Achado em 2026-10-01:** o PR #1 (fase 1, só config/CI) teve o deployment da Vercel com status "Deployment was blocked" — sem detalhe visível pela API do GitHub. Precisa olhar o painel da Vercel (Deployments → o deployment do PR) para saber a causa antes de confiar em qualquer preview.
+1. **Vercel**: por que o deployment do PR #1 (fase 1, só config/CI, já mesclado em `dev`) saiu
+   com status "Deployment was blocked"? **Achado em 2026-10-01, não confirmado por mim (sem
+   acesso ao painel):** relatos públicos de outros usuários do plano Hobby descrevem exatamente
+   esse sintoma quando o autor do commit/PR não tem acesso de colaborador no projeto Vercel —
+   e o Hobby **não tem conceito de colaborador/time** (confirmado na doc oficial). Se for isso,
+   não dá para "adicionar o Luis": o Hobby não permite, só resolve virando Pro (item 6). Cesar
+   precisa abrir o deployment do PR no painel (Deployments) e ver o motivo exato.
 2. **Supabase → org "Motochefe Sul de Minas" → Team**: promover Luis a Administrator (vai criar `mova-staging`).
 3. **GitHub**: aceitar o convite da org `Moto-Chefe` (owner); transferir `moto-chefe` para a org; aprovar o plano Team (US$ 4/usuário/mês); colocar e-mail e cartão da empresa no billing da org. Depois, reconectar o repo na Vercel.
 4. **Vercel**, com o checklist do Luis: colar as variáveis de Preview; domínio `dev.meumova.com` → branch `dev`; Deployment Protection off para Preview.
 5. **Máquina dele**: trocar `.env.local` para o staging (credenciais chegam pelo Bitwarden).
-6. **Decidir separado**: Vercel Pro (uso comercial; US$ 20/mês) e Supabase Pro (backup; US$ 25/mês).
+6. **Vercel Pro (US$ 20/mês), com Luis como membro**: deixou de ser só "decidir separado por
+   causa do uso comercial" — se o item 1 confirmar a hipótese, é pré-requisito técnico para
+   qualquer preview de PR do Luis builda. Sem isso, a Vercel nunca gera preview pro trabalho
+   dele, e as fases D (smoke Playwright) e o check obrigatório da Vercel (D18) não têm como
+   funcionar. Supabase Pro (backup, US$ 25/mês) continua decisão separada, sem essa urgência.
 
 Mensagem pronta para colar:
 
 > Cesar, fechei o plano de staging + CI (docs/seguranca/2026-10-01-plano-staging-ci.md) e já
-> abri o primeiro PR (só config/CI, nada de produto). Preciso de 6 coisas suas, nessa ordem:
-> (1) me dizer o que está no ambiente Preview da Vercel hoje — e por que esse PR aparece lá
-> como "Deployment was blocked", pra eu entender antes de confiar em qualquer preview;
-> (2) me promover a Administrator na org do Supabase; (3) aceitar o convite da org
-> Moto-Chefe no GitHub, transferir o repo pra lá e aprovar o plano Team (US$ 8/mês pelos dois,
-> é o que permite travar a main e a dev para só aceitar PR com CI verde); (4) colar as variáveis
-> de Preview e o domínio dev.meumova.com na Vercel com o checklist que vou te mandar;
-> (5) trocar o .env.local da sua máquina para o staging; (6) em separado, pensar em Vercel Pro
-> (o Hobby é só para uso não comercial) e Supabase Pro (backup). Custo novo imediato: US$ 8/mês.
+> abri e mesclei o primeiro PR em `dev` (só config/CI, nada de produto, CI passou). Mas o
+> deployment da Vercel desse PR saiu bloqueado ("Deployment was blocked"), e acho que é porque
+> eu não sou colaborador no teu projeto Vercel — no plano Hobby isso nem dá pra resolver
+> adicionando colaborador, porque Hobby não tem esse conceito. Preciso de 6 coisas suas,
+> nessa ordem: (1) abrir esse deployment no painel da Vercel e confirmar a causa; (2) me
+> promover a Administrator na org do Supabase; (3) aceitar o convite da org Moto-Chefe no
+> GitHub, transferir o repo pra lá e aprovar o plano Team (US$ 8/mês pelos dois, é o que
+> permite travar a main e a dev para só aceitar PR com CI verde); (4) colar as variáveis de
+> Preview e o domínio dev.meumova.com na Vercel com o checklist que vou te mandar; (5) trocar
+> o .env.local da sua máquina para o staging; (6) assinar o Vercel Pro (US$ 20/mês) e me
+> adicionar como membro — isso não é mais só sobre o Hobby ser pra uso não comercial, é que
+> sem isso eu não consigo nem gerar preview das minhas PRs. Custo novo imediato: US$ 28/mês
+> (US$ 8 do GitHub Team + US$ 20 do Vercel Pro). Supabase Pro (backup) eu deixaria pra depois,
+> sem a mesma urgência.
 
 ## 9. Riscos e cuidados
 
