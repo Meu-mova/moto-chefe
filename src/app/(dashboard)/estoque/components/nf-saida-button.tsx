@@ -262,6 +262,26 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
                     Rascunho criado! Confira no Bling, transmita a nota e volte aqui para confirmar o número.
                   </div>
                 )}
+                {/* Venda que ficou com rascunho no Bling antes da virada também
+                    pode sair pelo MOVA — desde que o rascunho NÃO tenha sido
+                    transmitido, senão são duas notas para a mesma moto. */}
+                {propria.disponivel && (
+                  <button
+                    onClick={() => { setErro(''); setEtapa('propria') }}
+                    disabled={pending}
+                    className="w-full flex items-start gap-3 rounded-lg border border-teal-300 bg-teal-50 p-3 text-left hover:bg-teal-100 disabled:opacity-50 transition-colors"
+                  >
+                    <Send size={18} className="mt-0.5 text-teal-700 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-teal-900">
+                        Emitir pelo MOVA em vez do Bling{propria.ambiente === 'Homologacao' ? ' (teste)' : ''}
+                      </p>
+                      <p className="text-xs text-teal-700 mt-0.5">
+                        Só se o rascunho do Bling NÃO foi transmitido — senão a moto fica com duas notas
+                      </p>
+                    </div>
+                  </button>
+                )}
                 <div className="flex items-center gap-2">
                   <a href={blingUrl} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
@@ -301,7 +321,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
           )}
 
           {etapa === 'propria' && (
-            <NfePropriaPainel motoId={motoId} onVoltar={() => setEtapa('inicial')} />
+            <NfePropriaPainel motoId={motoId} onVoltar={() => setEtapa(blingUrl ? 'aguardando' : 'inicial')} />
           )}
 
           {etapa === 'manual' && (
