@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MOVA
 
-## Getting Started
+Sistema de gestão das lojas MotoChefe (motos elétricas): estoque, vendas, ordens de serviço,
+peças, financeiro, folha e fiscal. Em produção, usado todo dia pelas lojas de três grupos (Sul
+de Minas, BH e Vale).
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgres
+(Supabase) · Tailwind 4 · `@base-ui/react` · Vercel.
+
+## Antes de tudo
+
+- Leia o [`AGENTS.md`](AGENTS.md): cada regra ali nasceu de um incidente real.
+- **O `.env.local` ainda aponta para a produção.** Para desenvolver, use o staging.
+
+## Rodar localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev:staging   # app contra o mova-staging (dado sintético); ver docs/infra/staging.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+As variáveis estão listadas no [`.env.example`](.env.example). Os valores do staging ficam no
+Bitwarden (coleção "MOVA staging"); ver [`docs/infra/segredos.md`](docs/infra/segredos.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Antes de abrir um PR
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run type-check
+npm test
+npm run build
+```
 
-## Learn More
+Fluxo de branches, revisão e tamanho de PR: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-To learn more about Next.js, take a look at the following resources:
+## Documentação
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Índice em [`docs/README.md`](docs/README.md): decisões de arquitetura (ADRs), runbooks de
+operação e o histórico de cada funcionalidade.

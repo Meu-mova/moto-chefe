@@ -24,6 +24,8 @@ permissão: testar no navegador (preview do PR, que aponta para o staging) — v
 - PR do responsável técnico: CI verde é suficiente para merge (mais a revisão por IA,
   quando configurada — comentários dela servem de insumo, não bloqueiam).
 - PR de qualquer outra pessoa: revisão do responsável técnico antes do merge.
+- PR escrito por agente de IA (Claude Code ou similar) conta como PR de outra pessoa: o
+  responsável técnico revisa no GitHub antes do merge (ADR 0002).
 - IA revisa bug local, padrão, null, caso de borda, legibilidade. Humano revisa design,
   regra de negócio, impacto no sistema e qualidade dos testes.
 
