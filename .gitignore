@@ -49,3 +49,8 @@ next-env.d.ts
 
 # metadado de link local do Supabase CLI (não é schema nem segredo)
 supabase/.temp/
+
+# saída local dos servidores MCP (Playwright, Serena)
+.playwright/
+.playwright-mcp/
+.serena/
