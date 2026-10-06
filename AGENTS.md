@@ -53,8 +53,25 @@ O fluxo real:
 1. Edite `src/lib/db/schema.ts`.
 2. Escreva SQL à mão em `src/lib/db/migrations/NNNN_nome.sql` — **confira o
    próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
-3. Aplique: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file NNNN_nome.sql`
-4. Confira: `... scripts/sql.ts --query "select ... from information_schema.columns ..."`.
+3. Aplique no **staging** (`mova-staging`, credencial em `.env.staging.local`):
+   `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar`
+   (`--status` mostra o que está pendente sem aplicar nada).
+4. Confira lá: `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select ..."`.
+5. Na **produção**, o mesmo `migrate.ts --aplicar` com o env da prod e `--prod` no fim.
+   Enquanto a prod não tiver a tabela `schema_migrations` (o `--status` avisa), aplique
+   com `scripts/sql.ts --file NNNN_nome.sql --prod`.
+
+`sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem
+`--prod`**. Hoje o `.env.local` ainda é a produção, então todo comando com ele leva `--prod`.
+
+**Migração na produção só pelo `migrate.ts`** — nunca pelo MCP do Supabase
+(`apply_migration`/`execute_sql`) nem pelo SQL Editor do painel. O que entra por fora
+não fica anotado em `schema_migrations`, e o próximo `--aplicar` tenta rodar de novo.
+Também não edite um arquivo de migração já aplicado: o `migrate.ts` compara o
+checksum e trava. Correção vira arquivo novo.
+
+Cada arquivo roda numa transação. `ALTER TYPE ... ADD VALUE` não pode usar o valor
+novo no mesmo arquivo: separe em dois.
 
 Constraint criada inline ganha nome `<tabela>_<col>_key`, não o que o schema.ts
 sugere — `drop constraint if exists` com nome errado não faz nada e não avisa.

@@ -6,24 +6,38 @@
  * e aplicado por aqui.
  *
  * Uso:
- *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --file 0039_algo.sql
- *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1" --prod
+ *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select 1"
  *
+ * Imprime o banco antes de tudo e recusa a produção sem --prod. Migração nova
+ * não passa mais por --file: use scripts/migrate.ts, que anota o que rodou.
  * O caminho de --file é relativo a src/lib/db/migrations.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postgres from 'postgres'
+import { descreverAlvo, motivoRecusaProducao, rotuloAlvo } from './lib/alvo-banco'
 
-const [modo, valor] = process.argv.slice(2)
+const args = process.argv.slice(2)
+const temProd = args.includes('--prod')
+const [modo, valor] = args.filter(a => a !== '--prod')
 
 if ((modo !== '--file' && modo !== '--query') || !valor) {
-  console.error('Uso: scripts/sql.ts --file <arquivo.sql> | --query "<sql>"')
+  console.error('Uso: scripts/sql.ts --file <arquivo.sql> | --query "<sql>"  [--prod]')
   process.exit(1)
 }
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
+  process.exit(1)
+}
+
+const alvo = descreverAlvo(process.env.DATABASE_URL)
+// stderr: quem redireciona a saída JSON para um arquivo não quer esta linha lá.
+console.error(rotuloAlvo(alvo))
+const recusa = motivoRecusaProducao(alvo, temProd)
+if (recusa) {
+  console.error(recusa)
   process.exit(1)
 }
 
