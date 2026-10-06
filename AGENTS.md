@@ -58,8 +58,6 @@ O fluxo real:
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select ..."`.
 5. Na **produção**, o mesmo `migrate.ts --aplicar` com o env da prod e `--prod` no fim.
-   Enquanto a prod não tiver a tabela `schema_migrations` (o `--status` avisa), aplique
-   com `scripts/sql.ts --file NNNN_nome.sql --prod`.
 
 `sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem
 `--prod`**. Hoje o `.env.local` ainda é a produção, então todo comando com ele leva `--prod`.

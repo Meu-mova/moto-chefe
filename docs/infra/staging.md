@@ -76,7 +76,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 
 Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
 `src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
-Antes de cada PR `dev → main`, rode `scripts/schema-diff.sh`: compara o `public` daqui com o da
+Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
+OK do Cesar). Antes de cada PR `dev → main`, rode `scripts/schema-diff.sh`: compara o `public` daqui com o da
 prod e sai com erro se forem diferentes.
 
 ## Recriar
@@ -91,7 +92,4 @@ Projeto em org Pro não pausa por inatividade (diferente do Free previsto na D1)
 
 ## Ainda não existe
 
-- `schema_migrations` na produção: aguarda o OK do Cesar (`--baseline-ate` com `--prod`).
-  Até lá, migração na prod vai por `sql.ts --file ... --prod` e precisa ser aplicada aqui
-  também pelo `migrate.ts`.
 - Seed sintético (`scripts/seed-staging.ts`) e usuários de teste: fase 5.
