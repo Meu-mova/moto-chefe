@@ -109,6 +109,22 @@ export function motivoBloqueioPedidoAprovacao(
   return null
 }
 
+/**
+ * Motivo pelo qual a reserva da moto não pode ser cancelada agora, ou null se
+ * pode. Com venda aguardando aprovação, o pedido pode ter saído da própria
+ * reserva: cancelar no meio deixa a recusa devolvendo a moto a 'reservada' sem
+ * reserva ativa, e a aprovação gerando venda sem reserva_id que ainda lança a
+ * entrada da reserva cancelada.
+ */
+export function motivoBloqueioCancelarReserva(
+  moto: { disponibilidade: string | null },
+): string | null {
+  if (moto.disponibilidade === 'aguardando_aprovacao') {
+    return 'Esta moto tem uma venda aguardando aprovação — aprove ou recuse a venda antes de cancelar a reserva'
+  }
+  return null
+}
+
 export const statusLabel: Record<Status, string> = {
   caixa:       'Caixa',
   montada:     'Montada',
