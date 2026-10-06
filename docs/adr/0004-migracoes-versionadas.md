@@ -30,11 +30,12 @@ real. A trava `--prod` impede rodar na produção sem querer.
 
 ## Alternativas descartadas
 
-- **Consertar o journal do Drizzle:** não registrado na fonte por que foi descartado.
+- **Consertar o journal do Drizzle:** não foi avaliado no plano, que só registra o journal
+  quebrado (§2). A avaliação está na issue #20.
 - **`apply_migration` do MCP do Supabase:** cria uma trilha paralela (`supabase_migrations`)
   que o `migrate.ts` não enxerga (`docs/infra/staging.md`).
 
 ## Quando revisar
 
-Se o Drizzle voltar a gerar migrações corretas a partir do schema atual, ou se a migração no CI
-(fase 9) mudar o fluxo.
+Quando a issue #20 concluir (o `drizzle-kit generate` pode virar gerador de rascunho, sem
+deixar de aplicar pelo `migrate.ts`), ou se a migração no CI (fase 9) mudar o fluxo.
