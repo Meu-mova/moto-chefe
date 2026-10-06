@@ -19,6 +19,7 @@ Secrets do GitHub:
 |---|---|---|
 | `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença) | cadastrado em 2026-10-05 |
 | `CLAUDE_CODE_OAUTH_TOKEN` | revisão por IA em PR (fase 8, D19) | ainda não existe |
+| `STAGING_DATABASE_URL`, usuário e senha do smoke | migração automática e smoke Playwright (fases 9 e 10, §5.6) | planejados |
 
 ## Arquivos locais
 
@@ -31,10 +32,17 @@ Todos ignorados pelo git (`.env*` no `.gitignore`, exceto `.env.example`).
 | `.env.production.local` | não existe | produção, só para quem opera a prod |
 
 A D5 troca arquivos na máquina de cada um; nenhum PR faz isso. Combinar com o Cesar antes:
-muda o que o `npm run dev` dele mostra, e os scripts que leem `.env.local` direto
-(`db:studio`, `backfill-*`, `arquivar-nfe-saida-bling`, `test-readonly`) passam a precisar do
-`.env.production.local` para rodar na prod. O Next carrega `.env.production.local` sozinho em
-`next build`/`next start`, então `npm start` local com esse arquivo presente fala com a prod.
+muda o que o `npm run dev` dele mostra, e o que hoje aponta para `.env.local` passa a apontar
+para o staging:
+
+- caminho fixo no código: `scripts/upload-imagens-modelos.mjs`, `scripts/test-readonly.mjs`,
+  o padrão de produção do `scripts/schema-diff.ts` (aceita argumento) e os `db:*` do
+  `package.json`;
+- só no comentário de uso (`dotenv -e .env.local`): `backfill-*`, `arquivar-nfe-saida-bling`,
+  `conciliacao/agente.ts`. Basta trocar o `-e`.
+
+O Next carrega `.env.production.local` sozinho em `next build`/`next start`, então `npm start`
+local com esse arquivo presente fala com a prod.
 
 ## Regras
 
@@ -50,7 +58,8 @@ muda o que o `npm run dev` dele mostra, e os scripts que leem `.env.local` diret
 
 ## Divergências conhecidas (2026-10-06)
 
-Comparação só por nome entre a Vercel e o código da `dev`:
+Comparação só por nome entre o painel da Vercel (Environment Variables, conferido por print em
+2026-10-06) e o código da `dev`:
 
 - **Na Vercel e sem uso no código:** `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`,
   `FABRICA_EMAIL`, `FABRICA_SENHA`, `VALIDAPIX_EMAIL`, `VALIDAPIX_PASSWORD`,
@@ -61,6 +70,6 @@ Comparação só por nome entre a Vercel e o código da `dev`:
   WhatsApp (MCPAI) estão marcados "Production and Preview", sem Supabase nem `DATABASE_URL` no
   Preview. Pelo plano (§5.5), o Preview recebe os valores do staging e as integrações ficam
   vazias.
-- **No código e fora da Vercel (usam fallback):** `NEXT_PUBLIC_APP_URL`/`MOVA_URL` (os links de
-  assinatura saem com `moto-chefe.vercel.app`), `LEADS_EMAIL_TO`, `KOMMO_REDIRECT_URI`,
-  `BLING_NATUREZA_OPERACAO`.
+- **No código e fora da Vercel (usam fallback):** `NEXT_PUBLIC_APP_URL`/`MOVA_URL` (em
+  Production os links de assinatura saem com `moto-chefe.vercel.app`; em Preview, com o host do
+  deployment), `LEADS_EMAIL_TO`, `KOMMO_REDIRECT_URI`, `BLING_NATUREZA_OPERACAO`.
