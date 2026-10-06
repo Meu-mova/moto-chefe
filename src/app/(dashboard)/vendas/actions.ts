@@ -1195,12 +1195,17 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
   }
 
   await db.transaction(async (tx) => {
+    // Trava a linha até o commit: um pedido de aprovação gravado no meio
+    // seria sobrescrito para 'disponivel' lá embaixo, deixando a moto à venda
+    // com o pedido ainda pendente.
     const [moto] = await tx
       .select({ status: motos.status, disponibilidade: motos.disponibilidade })
       .from(motos)
       .where(eq(motos.id, reserva.motoId))
       .limit(1)
-    const bloqueio = moto ? motivoBloqueioCancelarReserva(moto) : null
+      .for('update')
+    if (!moto) throw new Error('Moto não encontrada')
+    const bloqueio = motivoBloqueioCancelarReserva(moto)
     if (bloqueio) throw new Error(bloqueio)
 
     // O filtro por status no UPDATE evita corrida com quem estiver convertendo
@@ -1224,7 +1229,9 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       .where(and(eq(reservas.motoId, reserva.motoId), eq(reservas.status, 'ativa')))
       .limit(1)
 
-    if (!outraAtiva && moto?.disponibilidade === 'reservada') {
+    // Só mexe se ainda estiver 'reservada': moto na caixa sem disponibilidade
+    // ou já 'disponivel' (reserva duplicada) fica como está.
+    if (!outraAtiva && moto.disponibilidade === 'reservada') {
       await tx.update(motos)
         // Moto ainda na caixa volta para disponibilidade nula — é o estado de
         // quem não foi montada; 'disponivel' a colocaria à venda sem montagem.

@@ -92,3 +92,7 @@ test('reserva de moto reservada pode ser cancelada', () => {
 test('reserva de moto disponível pode ser cancelada', () => {
   assert.equal(motivoBloqueioCancelarReserva({ disponibilidade: 'disponivel' }), null)
 })
+
+test('reserva de moto na caixa pode ser cancelada', () => {
+  assert.equal(motivoBloqueioCancelarReserva({ disponibilidade: null }), null)
+})

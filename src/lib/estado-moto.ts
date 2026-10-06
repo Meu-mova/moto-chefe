@@ -120,7 +120,7 @@ export function motivoBloqueioCancelarReserva(
   moto: { disponibilidade: string | null },
 ): string | null {
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    return 'Esta moto tem uma venda aguardando aprovação — aprove ou recuse a venda antes de cancelar a reserva'
+    return 'Esta moto tem uma venda aguardando aprovação — a venda precisa ser aprovada ou recusada antes de cancelar a reserva'
   }
   return null
 }
