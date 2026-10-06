@@ -14,10 +14,16 @@ seguem o padrão do arquivo em volta.
 Cada regra abaixo nasceu de um incidente real. Se uma parecer exagerada, pergunte
 ao Cesar antes de contornar.
 
-## ⚠️ Não existe ambiente de desenvolvimento
+## ⚠️ O `.env.local` ainda aponta para a produção
 
 O `.env.local` aponta para o **banco de PRODUÇÃO**. Script, `npm run dev` e
 consulta rodando na sua máquina mexem em dado real de cliente.
+
+Já existe um banco de **staging** (`mova-staging`, sem dado real; credencial em
+`.env.staging.local`), mas por enquanto só para **migração e consulta** (ver
+"Banco e migrações" e `docs/infra/staging.md`). O app ainda não roda contra ele:
+faltam as chaves do staging e os dados de teste. Quando isso existir, o `.env.local`
+passa a ser o staging e a produção fica num arquivo à parte.
 
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
 - Nunca imprima, logue, commite ou cole em chat o conteúdo do `.env.local`.
@@ -34,7 +40,7 @@ Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgre
 (Supabase) · Tailwind 4 · `@base-ui/react` (não Radix) · Vercel.
 
 ```bash
-npm run dev          # local (lembre: banco de produção)
+npm run dev          # local — com o .env.local, isso é o banco de PRODUÇÃO
 npm run type-check   # tsc --noEmit
 npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega
