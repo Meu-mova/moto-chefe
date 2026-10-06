@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, itensVisiveis, podeAcessar, type UsuarioNav } from './navegacao'
+import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type UsuarioNav } from './navegacao'
 
 const SEM_REGRA_PROPRIA = { entrada: false }
 
@@ -107,6 +107,16 @@ test('bloqueio ganha de liberação quando os dois marcam o mesmo item', () => {
 test('item de regra própria não é decidido pela tabela', () => {
   assert.ok(!ids(ADMIN_GERAL).includes('entrada'))
   assert.ok(ids(ADMIN_GERAL, { entrada: true }).includes('entrada'))
+})
+
+test('item oculto some do menu, mas a rota continua liberada', () => {
+  const ocultos = ITENS.filter(i => i.oculto)
+  assert.ok(ocultos.length > 0)
+  const menu = itensDoMenu(ADMIN_GERAL, SEM_REGRA_PROPRIA).map(i => i.id)
+  for (const i of ocultos) {
+    assert.ok(!menu.includes(i.id), `${i.id} apareceu no menu`)
+    assert.ok(podeAcessar(ADMIN_GERAL, i.href, SEM_REGRA_PROPRIA), `${i.href} ficou bloqueado`)
+  }
 })
 
 test('href desconhecido nunca é liberado', () => {
