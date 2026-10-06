@@ -116,20 +116,27 @@ qualquer grupo, mas não transferência.
 ## Rodar o app contra o staging
 
 ```bash
-npm run dev:staging            # argumentos extras vão para o next dev: npm run dev:staging -- --port 3001
+npm run dev:staging            # http://localhost:3000; argumentos extras vão para o next dev
 ```
 
 Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
 toda chave que ainda não existe — a produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria
 para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
-Supabase forem o `mova-staging`, e define como vazia toda chave que outro `.env` tem e o staging não
-(o Next não sobrescreve chave já definida; o app trata vazio como "não configurado"). Ele lista os
-nomes anulados ao subir.
+Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
+e define como vazia toda chave que eles têm e o staging não. O Next não sobrescreve chave já
+definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
+`kommo.ts`, integrações que não funcionam no staging). Ele lista os nomes anulados ao subir.
+
+Porta diferente de 3000 (`npm run dev:staging -- --port 3001`) exige mudar `MOVA_URL` e
+`NEXT_PUBLIC_APP_URL` no `.env.staging.local`; senão os links gerados apontam para a 3000.
 
 O `.env.staging.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 (publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, geradas
 localmente; não são as da prod), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`).
-Integrações (Resend, Open Finance, Bling, Kommo, WhatsApp, Nota Gateway) ficam desligadas (D7).
+Nenhuma credencial de integração vem do env no staging: Open Finance, Bling, Kommo e WhatsApp ficam
+desligados. Pela D7, Nota Gateway em homologação se configura por grupo em `/admin/notas-fiscais`
+do próprio staging (fica no banco, cifrada com a `CERT_MASTER_KEY` do staging), e o Resend entra em
+modo de teste quando for preciso.
 
 ## Recriar
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { descreverAlvo, motivoRecusaProducao, REF_PRODUCAO } from './alvo-banco'
+import { descreverAlvo, motivoRecusaForaDoStaging, motivoRecusaProducao, REF_PRODUCAO } from './alvo-banco'
 
 const POOLER_PROD = `postgresql://postgres.${REF_PRODUCAO}:s3nh%40x@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`
 const POOLER_STAGING = 'postgresql://postgres.pulsqeymzsheasxsdnnk:s3nh@aws-0-sa-east-1.pooler.supabase.com:5432/postgres'
@@ -40,4 +40,24 @@ test('produção sem --prod é recusada; com --prod segue', () => {
 
 test('staging não pede --prod', () => {
   assert.equal(motivoRecusaProducao(descreverAlvo(POOLER_STAGING), false), null)
+})
+
+const SUPABASE_STAGING = 'https://pulsqeymzsheasxsdnnk.supabase.co'
+const SUPABASE_PROD = `https://${REF_PRODUCAO}.supabase.co`
+
+test('banco e Supabase do staging passam na trava de staging', () => {
+  assert.equal(motivoRecusaForaDoStaging(POOLER_STAGING, SUPABASE_STAGING), null)
+})
+
+test('banco do staging com Supabase da produção é recusado', () => {
+  assert.notEqual(motivoRecusaForaDoStaging(POOLER_STAGING, SUPABASE_PROD), null)
+})
+
+test('banco da produção com Supabase do staging é recusado', () => {
+  assert.notEqual(motivoRecusaForaDoStaging(POOLER_PROD, SUPABASE_STAGING), null)
+})
+
+test('URL ausente ou inválida é recusada', () => {
+  assert.notEqual(motivoRecusaForaDoStaging(undefined, SUPABASE_STAGING), null)
+  assert.notEqual(motivoRecusaForaDoStaging(POOLER_STAGING, 'não-é-url'), null)
 })

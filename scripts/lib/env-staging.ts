@@ -5,15 +5,13 @@
  * produção: Open Finance, Resend, Bling, CERT_MASTER_KEY.
  */
 
-/** Arquivos que o `next dev` lê, na ordem de @next/env (modo development). */
-export const ARQUIVOS_ENV_DO_NEXT_DEV = ['.env.development.local', '.env.local', '.env.development', '.env']
-
 export type EnvStaging = { env: Record<string, string | undefined>; anuladas: string[] }
 
 /**
  * Valores do staging por cima do ambiente atual; chave que só existe nos outros
- * arquivos vira string vazia, que o Next não sobrescreve e o app trata como
- * "não configurado".
+ * arquivos vira string vazia, que o Next não sobrescreve. O app trata vazio como
+ * "não configurado" nas checagens com `!` ou `if (!x)`; usos com `??` (bling.ts,
+ * kommo.ts) leem "" como valor, mas só em integrações desligadas no staging.
  */
 export function montarEnvStaging(
   ambienteAtual: Record<string, string | undefined>,

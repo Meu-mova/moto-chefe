@@ -16,7 +16,7 @@ import {
   ordensServico, origensVenda, pedidosVenda, precificacao, reservas, usuarios, usuariosDados, vendas,
 } from '../src/lib/db/schema'
 import { hojeBrt } from '../src/lib/data-venda'
-import { descreverAlvo, REF_STAGING, rotuloAlvo } from './lib/alvo-banco'
+import { descreverAlvo, motivoRecusaForaDoStaging, rotuloAlvo } from './lib/alvo-banco'
 import {
   CATEGORIAS_CAIXA, CATEGORIAS_DESPESA, DOMINIO_TESTE, GRUPOS, LOJAS, MODELOS, ORIGENS, TAXAS,
   gerarCpf, grupoDaLoja, minimoDoModelo, montarMotos, montarReservas, montarUsuarios, nomeCliente,
@@ -30,13 +30,10 @@ if (faltando.length > 0) {
   process.exit(1)
 }
 
-// As duas pontas (banco e Auth) precisam ser o staging: uma URL de Auth da prod
-// com o banco do staging apagaria usuário real.
-const alvo = descreverAlvo(DATABASE_URL!)
-console.error(rotuloAlvo(alvo))
-const refAuth = new URL(NEXT_PUBLIC_SUPABASE_URL!).hostname.split('.')[0]
-if (alvo.ref !== REF_STAGING || refAuth !== REF_STAGING) {
-  console.error(`Recusado: o seed só roda no mova-staging (${REF_STAGING}). Banco: ${alvo.ref ?? '?'}, Auth: ${refAuth}.`)
+console.error(rotuloAlvo(descreverAlvo(DATABASE_URL!)))
+const recusa = motivoRecusaForaDoStaging(DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL)
+if (recusa) {
+  console.error(`Recusado: ${recusa}`)
   process.exit(1)
 }
 
