@@ -1,22 +1,21 @@
 /**
- * Roda SQL avulso contra a DATABASE_URL — o caminho de migração deste repo.
+ * Roda SQL avulso (consulta ou arquivo) contra a DATABASE_URL.
  *
- * `drizzle-kit migrate` não roda aqui: o journal em src/lib/db/migrations/meta
- * está quebrado desde a fusão multi-grupo. Então a migração é SQL escrito à mão
- * e aplicado por aqui.
+ * Não é o caminho de migração: migração nova vai pelo scripts/migrate.ts, que
+ * anota em schema_migrations o que rodou em cada banco. Aplicar um arquivo de
+ * migração por --file deixa o banco sem esse registro.
  *
  * Uso:
- *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1" --prod
  *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select 1"
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1" --prod
  *
- * Imprime o banco antes de tudo e recusa a produção sem --prod. Migração nova
- * não passa mais por --file: use scripts/migrate.ts, que anota o que rodou.
+ * Imprime o banco antes de tudo e recusa a produção sem --prod.
  * O caminho de --file é relativo a src/lib/db/migrations.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postgres from 'postgres'
-import { descreverAlvo, motivoRecusaProducao, rotuloAlvo } from './lib/alvo-banco'
+import { exigirAlvoPermitido } from './lib/alvo-banco'
 
 const args = process.argv.slice(2)
 const temProd = args.includes('--prod')
@@ -28,18 +27,11 @@ if ((modo !== '--file' && modo !== '--query') || !valor) {
 }
 
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
+  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e <arquivo .env> -- ...`')
   process.exit(1)
 }
 
-const alvo = descreverAlvo(process.env.DATABASE_URL)
-// stderr: quem redireciona a saída JSON para um arquivo não quer esta linha lá.
-console.error(rotuloAlvo(alvo))
-const recusa = motivoRecusaProducao(alvo, temProd)
-if (recusa) {
-  console.error(recusa)
-  process.exit(1)
-}
+exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
 
 const texto = modo === '--file'
   ? readFileSync(resolve(process.cwd(), 'src/lib/db/migrations', valor), 'utf8')

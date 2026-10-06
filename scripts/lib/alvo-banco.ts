@@ -45,3 +45,18 @@ export function rotuloAlvo(alvo: AlvoBanco): string {
   const nome = alvo.ref === REF_PRODUCAO ? 'PRODUÇÃO' : alvo.ref ? `projeto ${alvo.ref}` : 'projeto desconhecido'
   return `Banco: ${alvo.host} (${nome})`
 }
+
+/**
+ * Porta de entrada dos scripts: mostra o banco e encerra o processo se for a
+ * produção sem --prod. stderr para não sujar saída que alguém redirecione.
+ */
+export function exigirAlvoPermitido(databaseUrl: string, temFlagProd: boolean): AlvoBanco {
+  const alvo = descreverAlvo(databaseUrl)
+  console.error(rotuloAlvo(alvo))
+  const recusa = motivoRecusaProducao(alvo, temFlagProd)
+  if (recusa) {
+    console.error(recusa)
+    process.exit(1)
+  }
+  return alvo
+}

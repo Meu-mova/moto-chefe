@@ -17,25 +17,22 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postgres from 'postgres'
-import { descreverAlvo, motivoRecusaProducao, rotuloAlvo } from './lib/alvo-banco'
+import { exigirAlvoPermitido } from './lib/alvo-banco'
 import {
-  arquivosDoBaseline, checksumDe, filtrarArquivosMigracao, planejar,
+  arquivosDoBaseline, checksumDe, filtrarArquivosMigracao, planejar, temControleDeTransacao,
   type ArquivoMigracao, type RegistroMigracao,
 } from './lib/migracoes'
 
 const PASTA = resolve(process.cwd(), 'src/lib/db/migrations')
+const USO = 'Uso: scripts/migrate.ts --status | --aplicar | --baseline-ate <NNNN>  [--prod]'
 
 const args = process.argv.slice(2)
 const temProd = args.includes('--prod')
-const idxBaseline = args.indexOf('--baseline-ate')
-const modo = args.includes('--status') ? 'status'
-  : args.includes('--aplicar') ? 'aplicar'
-  : idxBaseline >= 0 ? 'baseline'
-  : null
-const limiteBaseline = idxBaseline >= 0 ? parseInt(args[idxBaseline + 1], 10) : NaN
+const modos = ['--status', '--aplicar', '--baseline-ate'].filter(m => args.includes(m))
+const valorBaseline = args[args.indexOf('--baseline-ate') + 1] ?? ''
 
-if (!modo || (modo === 'baseline' && isNaN(limiteBaseline))) {
-  console.error('Uso: scripts/migrate.ts --status | --aplicar | --baseline-ate <NNNN>  [--prod]')
+if (modos.length !== 1 || (modos[0] === '--baseline-ate' && !/^\d+$/.test(valorBaseline))) {
+  console.error(USO)
   process.exit(1)
 }
 if (!process.env.DATABASE_URL) {
@@ -43,17 +40,12 @@ if (!process.env.DATABASE_URL) {
   process.exit(1)
 }
 
-const alvo = descreverAlvo(process.env.DATABASE_URL)
-console.log(rotuloAlvo(alvo))
-const recusa = motivoRecusaProducao(alvo, temProd)
-if (recusa) {
-  console.error(recusa)
-  process.exit(1)
-}
-
+exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 15 })
 
-function lerArquivos(): (ArquivoMigracao & { conteudo: string })[] {
+type ArquivoComConteudo = ArquivoMigracao & { conteudo: string }
+
+function lerArquivos(): ArquivoComConteudo[] {
   return filtrarArquivosMigracao(readdirSync(PASTA)).map(arquivo => {
     const conteudo = readFileSync(resolve(PASTA, arquivo), 'utf8')
     return { arquivo, checksum: checksumDe(conteudo), conteudo }
@@ -69,12 +61,16 @@ async function lerRegistros(): Promise<RegistroMigracao[]> {
   return sql<RegistroMigracao[]>`select arquivo, checksum from public.schema_migrations order by arquivo`
 }
 
-async function baseline() {
+async function registrar(tx: postgres.TransactionSql, m: ArquivoMigracao) {
+  await tx`insert into public.schema_migrations (arquivo, checksum) values (${m.arquivo}, ${m.checksum})`
+}
+
+async function baseline(limite: number) {
   if (await tabelaExiste()) {
     const [{ n }] = await sql`select count(*)::int as n from public.schema_migrations`
     if (n > 0) throw new Error(`schema_migrations já tem ${n} registros — o baseline só roda uma vez por banco`)
   }
-  const marcados = arquivosDoBaseline(lerArquivos(), limiteBaseline)
+  const marcados = arquivosDoBaseline(lerArquivos(), limite)
   await sql.begin(async tx => {
     await tx.unsafe(`
       create table if not exists public.schema_migrations (
@@ -86,47 +82,58 @@ async function baseline() {
       -- Só o dono do banco lê e escreve; nada disto passa pela Data API.
       revoke all on public.schema_migrations from anon, authenticated;
     `).simple()
-    for (const m of marcados) {
-      await tx`insert into public.schema_migrations (arquivo, checksum) values (${m.arquivo}, ${m.checksum})`
-    }
+    for (const m of marcados) await registrar(tx, m)
   })
-  console.log(`Baseline registrado: ${marcados.length} arquivos (até ${String(limiteBaseline).padStart(4, '0')}).`)
+  console.log(`Baseline registrado: ${marcados.length} arquivos (até ${String(limite).padStart(4, '0')}).`)
 }
 
-async function status(aplicar: boolean) {
+/** Lista o que falta. Devolve os pendentes só se nada impedir aplicá-los. */
+async function status(): Promise<ArquivoComConteudo[] | null> {
   if (!(await tabelaExiste())) {
     throw new Error('Este banco não tem public.schema_migrations — rode --baseline-ate antes')
   }
-  const arquivos = lerArquivos()
-  const plano = planejar(arquivos, await lerRegistros())
+  const plano = planejar(lerArquivos(), await lerRegistros())
+  const problemas = [
+    ...plano.problemas,
+    ...plano.pendentes
+      .filter(p => temControleDeTransacao(p.conteudo))
+      .map(p => `BEGIN/COMMIT dentro do arquivo (o migrate.ts já abre a transação): ${p.arquivo}`),
+  ]
 
-  if (plano.problemas.length > 0) {
+  if (problemas.length > 0) {
     console.error('Banco e repo discordam — nada foi aplicado:')
-    for (const p of plano.problemas) console.error(`  - ${p}`)
+    for (const p of problemas) console.error(`  - ${p}`)
     process.exitCode = 1
-    return
+    return null
   }
   if (plano.pendentes.length === 0) {
     console.log('Nada pendente.')
-    return
+    return []
   }
   console.log(`Pendentes (${plano.pendentes.length}):`)
   for (const p of plano.pendentes) console.log(`  - ${p.arquivo}`)
-  if (!aplicar) return
+  for (const f of plano.foraDeOrdem) {
+    console.log(`  ! ${f} tem número abaixo de uma migração já aplicada — confira se a ordem importa`)
+  }
+  return plano.pendentes
+}
 
-  const conteudoDe = new Map(arquivos.map(a => [a.arquivo, a.conteudo]))
-  for (const p of plano.pendentes) {
+async function aplicar() {
+  const pendentes = await status()
+  if (!pendentes) return
+  for (const p of pendentes) {
     await sql.begin(async tx => {
-      await tx.unsafe(conteudoDe.get(p.arquivo)!).simple()
-      await tx`insert into public.schema_migrations (arquivo, checksum) values (${p.arquivo}, ${p.checksum})`
+      await tx.unsafe(p.conteudo).simple()
+      await registrar(tx, p)
     })
     console.log(`  ✓ ${p.arquivo}`)
   }
 }
 
 async function main() {
-  if (modo === 'baseline') await baseline()
-  else await status(modo === 'aplicar')
+  if (modos[0] === '--baseline-ate') await baseline(parseInt(valorBaseline, 10))
+  else if (modos[0] === '--aplicar') await aplicar()
+  else await status()
   await sql.end()
 }
 

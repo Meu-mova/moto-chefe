@@ -69,16 +69,17 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
    npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --baseline-ate 110
    npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --status   # "Nada pendente."
    ```
-   Depois disso a contagem de tabelas do passo 4 vira 85 (a `schema_migrations`, com RLS e sem
-   grant para `anon`/`authenticated`). Se houver migração acima de 0110 no repo, rode `--aplicar`.
+   Depois disso, no passo 4, `tabelas` e `com_rls` viram 85 (a `schema_migrations`, com RLS);
+   `grants_anon` continua 85, porque ela não tem grant para `anon`/`authenticated`. Se houver migração acima de 0110 no repo, rode `--aplicar`.
 
 ## Migrações
 
 Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
 `src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
 Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
-OK do Cesar). Antes de cada PR `dev → main`, rode `scripts/schema-diff.sh`: compara o `public` daqui com o da
-prod e sai com erro se forem diferentes.
+OK do Cesar). Antes de cada PR `dev → main`, rode `node --import tsx scripts/schema-diff.ts`: compara o
+`public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
+é o staging e o segundo é a produção, e recusa se não forem.
 
 ## Recriar
 
