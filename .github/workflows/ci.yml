@@ -64,8 +64,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Grátis, mas repo de ORGANIZAÇÃO exige cadastro em gitleaks.io
-          # (conta pessoal não precisa). Pendência do checklist do Cesar quando
-          # o repo for transferido para a org Moto-Chefe — sem o secret, este
-          # step falha após a transferência.
+          # Grátis, mas repo de ORGANIZAÇÃO exige licença de gitleaks.io
+          # (conta pessoal não precisa). Secret GITLEAKS_LICENSE cadastrado no
+          # repo Meu-mova/moto-chefe em 2026-10-05; sem ele este step falha.
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
