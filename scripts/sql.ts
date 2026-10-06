@@ -2,8 +2,8 @@
  * Roda SQL avulso (consulta ou arquivo) contra a DATABASE_URL.
  *
  * Não é o caminho de migração: migração nova vai pelo scripts/migrate.ts, que
- * anota em schema_migrations o que rodou em cada banco. Aplicar um arquivo de
- * migração por --file deixa o banco sem esse registro.
+ * anota em schema_migrations o que rodou em cada banco. Por isso --file recusa
+ * a produção mesmo com --prod: lá, arquivo de migração só entra anotado.
  *
  * Uso:
  *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select 1"
@@ -31,7 +31,11 @@ if (!process.env.DATABASE_URL) {
   process.exit(1)
 }
 
-exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
+const alvo = exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
+if (modo === '--file' && alvo.ehProducao) {
+  console.error('Na produção, arquivo de migração entra pelo scripts/migrate.ts --aplicar --prod, que anota em schema_migrations.')
+  process.exit(1)
+}
 
 const texto = modo === '--file'
   ? readFileSync(resolve(process.cwd(), 'src/lib/db/migrations', valor), 'utf8')

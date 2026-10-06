@@ -69,7 +69,8 @@ O fluxo real:
 `--prod`**. Hoje o `.env.local` ainda é a produção, então todo comando com ele leva `--prod`.
 
 **Migração na produção só pelo `migrate.ts`** — nunca pelo MCP do Supabase
-(`apply_migration`/`execute_sql`) nem pelo SQL Editor do painel. O que entra por fora
+(`apply_migration`/`execute_sql`) nem pelo SQL Editor do painel (o `sql.ts --file`
+já recusa a produção, mesmo com `--prod`). O que entra por fora
 não fica anotado em `schema_migrations`, e o próximo `--aplicar` tenta rodar de novo.
 Também não edite um arquivo de migração já aplicado: o `migrate.ts` compara o
 checksum e trava. Correção vira arquivo novo.
