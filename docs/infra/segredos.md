@@ -8,7 +8,7 @@ nomes, com o propósito de cada um, está em `.env.example`. Plano de origem:
 
 | O quê | Fonte da verdade | Cópias permitidas |
 |---|---|---|
-| Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`) | `.env.local` na máquina de quem opera a prod (hoje; ver "Arquivos locais") |
+| Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.local` na máquina de quem opera a prod (hoje; ver "Arquivos locais") |
 | Staging | **Bitwarden, coleção "MOVA staging"** | `.env.staging.local` local; Vercel **Preview** quando a fase 6 sair |
 | CI (GitHub Actions) | **Secrets do repo** `Meu-mova/moto-chefe` (Settings → Secrets and variables → Actions) | nenhuma |
 | Credencial de integração por grupo ou loja | **Banco**. Cifradas com `src/lib/cripto.ts` (AES-256-GCM, chave `CERT_MASTER_KEY`): MCPAI, Nota Gateway, certificado A1. Bling, Kommo e fábrica: não há uso de `cripto.ts` em `bling.ts`, `kommo.ts` nem `fabrica-por-loja.ts` | nenhuma |
@@ -61,11 +61,19 @@ local com esse arquivo presente fala com a prod.
 Comparação só por nome entre o painel da Vercel (Environment Variables, conferido por print em
 2026-10-06) e o código da `dev`:
 
-- **Na Vercel e sem uso no código:** `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`,
-  `FABRICA_EMAIL`, `FABRICA_SENHA`, `VALIDAPIX_EMAIL`, `VALIDAPIX_PASSWORD`,
-  `TELEGRAM_ALLOWED_CHAT_ID`. Credencial viva sem uso é risco sem benefício; remover depende do
-  Cesar. `TELEGRAM_BOT_TOKEN` e `TELEGRAM_WEBHOOK_SECRET` também estão lá, mas só scripts locais
-  os leem.
+- **Na Vercel e sem uso no código** (busca por nome em `src/` e `scripts/` da `dev`):
+
+  | Variável | Saiu do código em | Onde a credencial mora hoje |
+  |---|---|---|
+  | `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET` | `fc802b7` (2026-07-09), Bling por grupo | `bling_config`, por grupo |
+  | `FABRICA_EMAIL`, `FABRICA_SENHA` | `6097094` (2026-08-05), "credencial sai do grupo e do ambiente" | por loja, no banco |
+  | `VALIDAPIX_EMAIL`, `VALIDAPIX_PASSWORD` | `d00a4bc` (2026-07-01); ValidaPix removido na migração 0100 (2026-09-15) | não existe mais |
+  | `TELEGRAM_ALLOWED_CHAT_ID` | `952c29a` (2026-08-10), "aposenta bot e disparos do telegram" | não existe mais |
+
+  `TELEGRAM_BOT_TOKEN` e `TELEGRAM_WEBHOOK_SECRET` também estão lá, mas o app não os lê desde
+  `952c29a`; só `scripts/set-telegram-webhook.mjs` e `scripts/conciliacao/navegador.ts`.
+  Credencial viva sem uso é risco sem benefício. Revisar e remover: Luis (Owner do time MOVA
+  na Vercel desde 2026-10-06).
 - **Preview tem segredo de produção:** Resend, Telegram, Jarvis, Bling, fábrica, ValidaPix,
   WhatsApp (MCPAI) estão marcados "Production and Preview", sem Supabase nem `DATABASE_URL` no
   Preview. Pelo plano (§5.5), o Preview recebe os valores do staging e as integrações ficam
