@@ -33,12 +33,15 @@ Não registradas na fonte.
 
 ## Situação em 2026-10-06
 
-A Vercel está no plano Hobby. Pela doc da Vercel (link acima), o Hobby não faz deploy de
-repositório privado de organização; ao reconectar o Git em 2026-10-06, o painel recusou com
-essa mesma mensagem. Desde que o repo foi para `Meu-mova`, não há deploy automático. A decisão
-continua valendo; a entrega depende do upgrade para Pro, em discussão com o Cesar.
+- De manhã, o projeto estava num time Hobby. Pela doc da Vercel (link acima), o Hobby não faz
+  deploy de repositório privado de organização. O painel recusou a reconexão com essa mesma
+  mensagem, e desde a ida do repo para `Meu-mova` não havia deploy automático.
+- À noite, o projeto foi transferido para o time **MOVA (Pro)**. Luis é Owner e Cesar é
+  Billing. A reconexão funcionou, e um commit de PR gerou preview com sucesso.
+- Ainda falta:
+  - tornar o check da Vercel obrigatório (D18, via rulesets, fase 8);
+  - apontar o Preview para o staging (D6, fase 6).
 
 ## Quando revisar
 
-Quando o Pro for contratado (reconectar o Git e tornar obrigatório o check da Vercel, D18), ou
-se a hospedagem mudar.
+Se a hospedagem mudar, ou se o custo de uso no Pro (issue #15) pedir outra forma de entrega.
