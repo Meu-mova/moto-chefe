@@ -113,6 +113,24 @@ que é onde os usuários de teste estão: quem não é admin só vê "Finalizar 
 Quem aprova: `socio.<grupo>@` (valor mínimo e transferência). `geral@` aprova valor mínimo em
 qualquer grupo, mas não transferência.
 
+## Rodar o app contra o staging
+
+```bash
+npm run dev:staging            # argumentos extras vão para o next dev: npm run dev:staging -- --port 3001
+```
+
+Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
+toda chave que ainda não existe — a produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria
+para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
+Supabase forem o `mova-staging`, e define como vazia toda chave que outro `.env` tem e o staging não
+(o Next não sobrescreve chave já definida; o app trata vazio como "não configurado"). Ele lista os
+nomes anulados ao subir.
+
+O `.env.staging.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, geradas
+localmente; não são as da prod), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`).
+Integrações (Resend, Open Finance, Bling, Kommo, WhatsApp, Nota Gateway) ficam desligadas (D7).
+
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).

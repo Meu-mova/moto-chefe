@@ -19,11 +19,12 @@ ao Cesar antes de contornar.
 O `.env.local` aponta para o **banco de PRODUÇÃO**. Script, `npm run dev` e
 consulta rodando na sua máquina mexem em dado real de cliente.
 
-Já existe um banco de **staging** (`mova-staging`, sem dado real; credencial em
-`.env.staging.local`), mas por enquanto só para **migração e consulta** (ver
-"Banco e migrações" e `docs/infra/staging.md`). O app ainda não roda contra ele:
-faltam as chaves do staging e os dados de teste. Quando isso existir, o `.env.local`
-passa a ser o staging e a produção fica num arquivo à parte.
+Já existe um **staging** (`mova-staging`, só dado sintético; credencial em
+`.env.staging.local`): migração e consulta (ver "Banco e migrações"), dados de teste
+(`scripts/seed-staging.ts`) e o app local via **`npm run dev:staging`**. Não rode o
+app contra o staging com `dotenv-cli ... next dev`: o Next completaria o ambiente com
+chaves da produção do `.env.local`. Detalhes em `docs/infra/staging.md`. Mais adiante
+o `.env.local` passa a ser o staging e a produção fica num arquivo à parte.
 
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
 - Nunca imprima, logue, commite ou cole em chat o conteúdo do `.env.local`.
@@ -41,6 +42,7 @@ Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgre
 
 ```bash
 npm run dev          # local — com o .env.local, isso é o banco de PRODUÇÃO
+npm run dev:staging  # local contra o mova-staging (sem dado real); ver docs/infra/staging.md
 npm run type-check   # tsc --noEmit
 npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega
