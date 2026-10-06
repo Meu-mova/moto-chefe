@@ -5,6 +5,8 @@
  * preço a modelo pelo nome); preço, pessoa, cliente, loja e CNPJ são inventados.
  */
 
+import type { TipoOrigem } from '../../src/lib/origem-venda'
+
 export const DOMINIO_TESTE = 'teste.meumova.com'
 
 // ─── Documentos válidos e fictícios ──────────────────────────────────────────
@@ -70,11 +72,12 @@ export const TAXAS = {
   taxasFinanciamento: { '12': 0.1, '24': 0.18, '36': 0.25 },
 }
 
-export const ORIGENS = [
+// Tipado com TIPOS_ORIGEM: o banco tem um CHECK com a mesma lista.
+export const ORIGENS: { nome: string; tipo: TipoOrigem }[] = [
   { nome: 'Instagram', tipo: 'Digital' },
   { nome: 'WhatsApp', tipo: 'Digital' },
-  { nome: 'Indicação de cliente', tipo: 'Indicação' },
-  { nome: 'Passou na porta', tipo: 'Loja' },
+  { nome: 'Indicação de cliente', tipo: 'Relacional' },
+  { nome: 'Passou na porta', tipo: 'Presencial' },
 ]
 
 export const CATEGORIAS_CAIXA = [

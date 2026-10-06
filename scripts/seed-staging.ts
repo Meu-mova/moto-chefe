@@ -208,7 +208,9 @@ async function main() {
 }
 
 main().catch(async (e: unknown) => {
-  console.error('FALHOU:', e instanceof Error ? e.message : String(e))
+  // O Drizzle embrulha o erro do Postgres e deixa o motivo real em `cause`.
+  const causa = e instanceof Error && e.cause instanceof Error ? `\n  causa: ${e.cause.message}` : ''
+  console.error('FALHOU:', e instanceof Error ? e.message : String(e), causa)
   await cliente.end({ timeout: 5 })
   process.exit(1)
 })
