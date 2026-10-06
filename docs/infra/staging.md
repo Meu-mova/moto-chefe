@@ -81,6 +81,38 @@ OK do Cesar). Antes de cada PR `dev → main`, rode `node --import tsx scripts/s
 `public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
 é o staging e o segundo é a produção, e recusa se não forem.
 
+## Dados de teste (seed)
+
+`scripts/seed-staging.ts` apaga e recria o conjunto sintético: esvazia todas as tabelas do
+`public` (menos `schema_migrations`) e os usuários `@teste.meumova.com` do Auth. Só roda se banco
+**e** Auth forem o `mova-staging` (lista de permissão no código; nenhuma flag libera outro projeto).
+
+```bash
+npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/seed-staging.ts
+```
+
+Precisa no `.env.staging.local`: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY` (painel → Project Settings → API Keys) e `SEED_SENHA` (senha única
+de todos os usuários de teste; guardada no Bitwarden).
+
+O que cria (dados em `scripts/lib/seed-dados.ts`): 3 grupos e 8 lojas fictícios, 16 usuários
+(`geral@`, e por grupo `socio.`, `aux.`, `vendedor.`, `mecanico.`, `motorista.` + `sul|bh|vale`),
+6 modelos do catálogo com preço mínimo e taxas por grupo, 32 motos, 4 reservas ativas, 8 vendas
+e 5 OS. Só o `socio.*` aprova transferência; o `aux.*` cai no pedido de aprovação.
+
+Reservas para testar a finalização com aprovação. Ficam nas lojas principais de cada grupo,
+que é onde os usuários de teste estão: quem não é admin só vê "Finalizar Venda" na própria loja.
+
+| Loja | Login | Cenário |
+|---|---|---|
+| Teste Sul Centro | `aux.sul@` | total abaixo do mínimo, entrada em PIX → aprovação de valor mínimo |
+| Teste Sul Centro | `aux.sul@` | entrada por transferência, acima do mínimo → aprovação de pagamento sensível |
+| Teste BH Centro | `aux.bh@` | acima do mínimo, PIX → finaliza direto |
+| Teste Vale Centro | `aux.vale@` | abaixo do mínimo e por transferência → aprovação de pagamento sensível (a tela checa transferência primeiro) |
+
+Quem aprova: `socio.<grupo>@` (valor mínimo e transferência). `geral@` aprova valor mínimo em
+qualquer grupo, mas não transferência.
+
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
@@ -93,4 +125,3 @@ Projeto em org Pro não pausa por inatividade (diferente do Free previsto na D1)
 
 ## Ainda não existe
 
-- Seed sintético (`scripts/seed-staging.ts`) e usuários de teste: fase 5.
