@@ -6,6 +6,8 @@
 // Projeto "Estoque Chassi". O ref não é segredo: já vai ao navegador no
 // NEXT_PUBLIC_SUPABASE_URL.
 export const REF_PRODUCAO = 'bzlaradpofaecqzawyym'
+// `mova-staging`. Usado como lista de permissão por quem apaga dado (seed).
+export const REF_STAGING = 'pulsqeymzsheasxsdnnk'
 
 export type AlvoBanco = {
   host: string
