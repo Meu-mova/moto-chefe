@@ -100,14 +100,18 @@ O que cria (dados em `scripts/lib/seed-dados.ts`): 3 grupos e 8 lojas fictícios
 6 modelos do catálogo com preço mínimo e taxas por grupo, 32 motos, 4 reservas ativas, 8 vendas
 e 5 OS. Só o `socio.*` aprova transferência; o `aux.*` cai no pedido de aprovação.
 
-Reservas para testar a finalização com aprovação:
+Reservas para testar a finalização com aprovação. Ficam nas lojas principais de cada grupo,
+que é onde os usuários de teste estão: quem não é admin só vê "Finalizar Venda" na própria loja.
 
-| Loja | Cenário |
-|---|---|
-| Teste Sul Centro | total abaixo do mínimo, entrada em PIX → aprovação de valor mínimo |
-| Teste Sul Norte | entrada por transferência → aprovação de pagamento sensível |
-| Teste BH Centro | acima do mínimo → finaliza direto |
-| Teste Vale Centro | abaixo do mínimo com cartão |
+| Loja | Login | Cenário |
+|---|---|---|
+| Teste Sul Centro | `aux.sul@` | total abaixo do mínimo, entrada em PIX → aprovação de valor mínimo |
+| Teste Sul Centro | `aux.sul@` | entrada por transferência, acima do mínimo → aprovação de pagamento sensível |
+| Teste BH Centro | `aux.bh@` | acima do mínimo, PIX → finaliza direto |
+| Teste Vale Centro | `aux.vale@` | abaixo do mínimo e por transferência → aprovação de pagamento sensível (a tela checa transferência primeiro) |
+
+Quem aprova: `socio.<grupo>@` (valor mínimo e transferência). `geral@` aprova valor mínimo em
+qualquer grupo, mas não transferência.
 
 ## Recriar
 

@@ -6,6 +6,8 @@
  */
 
 import type { TipoOrigem } from '../../src/lib/origem-venda'
+import type { PgtoCalc } from '../../src/lib/preco-minimo'
+import type { papelEnum } from '../../src/lib/db/schema'
 
 export const DOMINIO_TESTE = 'teste.meumova.com'
 
@@ -35,7 +37,7 @@ export function gerarCnpj(n: number): string {
 // ─── Estrutura ───────────────────────────────────────────────────────────────
 
 export type ChaveGrupo = 'sul' | 'bh' | 'vale'
-export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista'
+export type Papel = (typeof papelEnum.enumValues)[number]
 
 export const GRUPOS: { chave: ChaveGrupo; nome: string; cnpj: string; cidadeSede: string }[] = [
   { chave: 'sul',  nome: 'Grupo Teste Sul',  cnpj: gerarCnpj(11111111), cidadeSede: 'Cidade Sul' },
@@ -63,6 +65,14 @@ export const MODELOS: { modelo: string; potenciaW: string; valorMinimo: number }
   { modelo: 'GIGA',    potenciaW: '1000 W', valorMinimo: 13990 },
   { modelo: 'BIG TRI', potenciaW: '—',      valorMinimo: 12990 },
 ]
+
+export function minimoDoModelo(modelo: string): number {
+  return MODELOS.find(m => m.modelo === modelo)!.valorMinimo
+}
+
+export function grupoDaLoja(loja: string): ChaveGrupo {
+  return LOJAS.find(l => l.chave === loja)!.grupo
+}
 
 // Chave = número de parcelas, como o calcLiquidoRecebido lê.
 export const TAXAS = {
@@ -115,7 +125,8 @@ export function montarUsuarios(): UsuarioSeed[] {
   // admin_geral não tem loja e não passa por /completar-cadastro, então sem CPF.
   const usuarios: UsuarioSeed[] = [{
     email: `geral@${DOMINIO_TESTE}`, nome: 'Admin Geral Teste', papel: 'admin_geral',
-    loja: null, aprovaPagamentoSensivel: true, cpf: null,
+    // Sem loja nem gruposAprovacao a flag não teria efeito (aprovacao-permissao.ts).
+    loja: null, aprovaPagamentoSensivel: false, cpf: null,
   }]
   let n = 1
   for (const g of GRUPOS) {
@@ -158,13 +169,27 @@ const PERFIL_LOJA: Pick<MotoSeed, 'status' | 'disponibilidade'>[] = [
 ]
 
 export type ReservaSeed = {
+  chave: string
   chassi: string
   valorTotalVenda: number
-  pagamentos: { tipo: string; valor: number; parcelas?: number }[]
+  pagamentos: PgtoCalc[]
   cliente: number
-  /** Para o roteiro do fix: o que esta reserva exercita. */
+  /** O que esta reserva exercita, para o roteiro de teste. */
   cenario: string
 }
+
+// Só nas lojas principais (sul-1, bh-1, vale-1): é onde os usuários de teste
+// estão, e quem não é admin só vê "Finalizar Venda" em moto da própria loja.
+const PLANO_RESERVAS: (Omit<ReservaSeed, 'chassi' | 'valorTotalVenda'> & { loja: string; ajuste: number })[] = [
+  { chave: 'minimo-pix', loja: 'sul-1', ajuste: -500, pagamentos: [{ tipo: 'pix', valor: 3000 }], cliente: 101,
+    cenario: 'total abaixo do mínimo, entrada em PIX → aprovação de valor mínimo' },
+  { chave: 'transferencia', loja: 'sul-1', ajuste: 500, pagamentos: [{ tipo: 'transferencia', valor: 3000 }], cliente: 102,
+    cenario: 'entrada por transferência, acima do mínimo → aprovação de pagamento sensível' },
+  { chave: 'comum', loja: 'bh-1', ajuste: 1000, pagamentos: [{ tipo: 'pix', valor: 4000 }], cliente: 103,
+    cenario: 'acima do mínimo, PIX → finaliza sem aprovação' },
+  { chave: 'transferencia-abaixo', loja: 'vale-1', ajuste: -300, pagamentos: [{ tipo: 'transferencia', valor: 4500 }], cliente: 104,
+    cenario: 'abaixo do mínimo e por transferência → a tela checa transferência primeiro: aprovação de pagamento sensível' },
+]
 
 export function montarMotos(): MotoSeed[] {
   const motos: MotoSeed[] = []
@@ -181,27 +206,20 @@ export function montarMotos(): MotoSeed[] {
       n++
     })
   })
-  // A 2ª disponível de 4 lojas vira reservada (ver montarReservas).
-  for (const loja of ['sul-1', 'sul-2', 'bh-1', 'vale-1']) {
-    motos.filter(m => m.loja === loja && m.disponibilidade === 'disponivel')[1].disponibilidade = 'reservada'
+  // Cada reserva planejada toma a próxima moto disponível da sua loja.
+  for (const r of PLANO_RESERVAS) {
+    motos.find(m => m.loja === r.loja && m.disponibilidade === 'disponivel')!.disponibilidade = 'reservada'
   }
   return motos
 }
 
-export function montarReservas(motos: MotoSeed[]): ReservaSeed[] {
-  const reservada = (loja: string) => motos.find(m => m.loja === loja && m.disponibilidade === 'reservada')!
-  const minimo = (m: MotoSeed) => MODELOS.find(x => x.modelo === m.modelo)!.valorMinimo
-  const [r1, r2, r3, r4] = ['sul-1', 'sul-2', 'bh-1', 'vale-1'].map(reservada)
-  return [
-    { chassi: r1.chassi, valorTotalVenda: minimo(r1) - 500, pagamentos: [{ tipo: 'pix', valor: 3000 }], cliente: 101,
-      cenario: 'total abaixo do mínimo, entrada em PIX → pede aprovação de valor mínimo' },
-    { chassi: r2.chassi, valorTotalVenda: minimo(r2) + 500, pagamentos: [{ tipo: 'transferencia', valor: 3000 }], cliente: 102,
-      cenario: 'entrada por transferência → aux_adm cai na aprovação de pagamento sensível' },
-    { chassi: r3.chassi, valorTotalVenda: minimo(r3) + 1000, pagamentos: [{ tipo: 'pix', valor: 4000 }], cliente: 103,
-      cenario: 'reserva comum, acima do mínimo → finaliza sem aprovação' },
-    { chassi: r4.chassi, valorTotalVenda: minimo(r4) - 300, pagamentos: [{ tipo: 'cartao_credito', valor: 4500, parcelas: 3 }], cliente: 104,
-      cenario: 'abaixo do mínimo com cartão (taxa reduz o líquido)' },
-  ]
+export function montarReservas(motos: MotoSeed[]): (ReservaSeed & { loja: string })[] {
+  const usadas = new Set<string>()
+  return PLANO_RESERVAS.map(({ ajuste, ...r }) => {
+    const moto = motos.find(m => m.loja === r.loja && m.disponibilidade === 'reservada' && !usadas.has(m.chassi))!
+    usadas.add(moto.chassi)
+    return { ...r, chassi: moto.chassi, valorTotalVenda: minimoDoModelo(moto.modelo) + ajuste }
+  })
 }
 
 export function nomeCliente(n: number): string {

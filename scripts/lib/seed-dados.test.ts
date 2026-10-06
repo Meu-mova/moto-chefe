@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { cpfValido } from '../../src/lib/dados-funcionario'
 import { calcLiquidoRecebido } from '../../src/lib/preco-minimo'
 import {
-  DOMINIO_TESTE, GRUPOS, LOJAS, MODELOS, TAXAS,
-  gerarCnpj, gerarCpf, montarMotos, montarReservas, montarUsuarios,
+  DOMINIO_TESTE, GRUPOS, LOJAS, TAXAS,
+  gerarCnpj, gerarCpf, grupoDaLoja, minimoDoModelo, montarMotos, montarReservas, montarUsuarios,
 } from './seed-dados'
 
 test('CPFs gerados passam no validador do app', () => {
@@ -54,17 +54,25 @@ test('chassis únicos e 4 motos reservadas, cada uma com uma reserva', () => {
   assert.ok(reservadas.every(m => m.status === 'montada'))
 })
 
+test('cada reserva está na loja do aux_adm do seu grupo (senão não aparece "Finalizar Venda" para ele)', () => {
+  const usuarios = montarUsuarios()
+  for (const r of montarReservas(montarMotos())) {
+    const aux = usuarios.find(u => u.papel === 'aux_adm' && u.loja && grupoDaLoja(u.loja) === grupoDaLoja(r.loja))!
+    assert.equal(r.loja, aux.loja, r.chave)
+  }
+})
+
 test('há reserva com total abaixo do mínimo e reserva com entrada por transferência', () => {
   const motos = montarMotos()
   const reservas = montarReservas(motos)
-  const minimoDe = (chassi: string) => MODELOS.find(x => x.modelo === motos.find(m => m.chassi === chassi)!.modelo)!.valorMinimo
+  const minimoDe = (chassi: string) => minimoDoModelo(motos.find(m => m.chassi === chassi)!.modelo)
   assert.ok(reservas.some(r => r.valorTotalVenda < minimoDe(r.chassi)))
   assert.ok(reservas.some(r => r.pagamentos.some(p => p.tipo === 'transferencia')))
 })
 
 test('a reserva comum fica acima do mínimo pelo mesmo cálculo da tela de venda', () => {
   const motos = montarMotos()
-  const comum = montarReservas(motos).find(r => r.cenario.startsWith('reserva comum'))!
-  const minimo = MODELOS.find(x => x.modelo === motos.find(m => m.chassi === comum.chassi)!.modelo)!.valorMinimo
+  const comum = montarReservas(motos).find(r => r.chave === 'comum')!
+  const minimo = minimoDoModelo(motos.find(m => m.chassi === comum.chassi)!.modelo)
   assert.ok(calcLiquidoRecebido([{ tipo: 'pix', valor: comum.valorTotalVenda }], TAXAS) >= minimo)
 })

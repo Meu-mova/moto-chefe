@@ -19,7 +19,7 @@ import { hojeBrt } from '../src/lib/data-venda'
 import { descreverAlvo, REF_STAGING, rotuloAlvo } from './lib/alvo-banco'
 import {
   CATEGORIAS_CAIXA, CATEGORIAS_DESPESA, DOMINIO_TESTE, GRUPOS, LOJAS, MODELOS, ORIGENS, TAXAS,
-  gerarCpf, montarMotos, montarReservas, montarUsuarios, nomeCliente,
+  gerarCpf, grupoDaLoja, minimoDoModelo, montarMotos, montarReservas, montarUsuarios, nomeCliente,
 } from './lib/seed-dados'
 
 const { DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SEED_SENHA } = process.env
@@ -51,24 +51,27 @@ function somarDias(isoData: string, dias: number): string {
   return new Date(Date.UTC(a, m - 1, d + dias)).toISOString().slice(0, 10)
 }
 
+const POR_PAGINA = 1000
+
 async function limparAuth() {
-  let apagados = 0
+  // Junta todos antes de apagar: apagar durante a listagem desloca as páginas
+  // seguintes e pula usuários.
+  const deTeste: { id: string; email: string }[] = []
   let outros = 0
   for (let page = 1; ; page++) {
-    const { data, error } = await auth.listUsers({ page, perPage: 1000 })
+    const { data, error } = await auth.listUsers({ page, perPage: POR_PAGINA })
     if (error) throw new Error(`listUsers: ${error.message}`)
     for (const u of data.users) {
-      if (u.email?.endsWith(`@${DOMINIO_TESTE}`)) {
-        const { error: e } = await auth.deleteUser(u.id)
-        if (e) throw new Error(`deleteUser ${u.email}: ${e.message}`)
-        apagados++
-      } else {
-        outros++
-      }
+      if (u.email?.endsWith(`@${DOMINIO_TESTE}`)) deTeste.push({ id: u.id, email: u.email })
+      else outros++
     }
-    if (data.users.length < 1000) break
+    if (data.users.length < POR_PAGINA) break
   }
-  console.log(`Auth: ${apagados} usuários de teste apagados.`)
+  for (const u of deTeste) {
+    const { error } = await auth.deleteUser(u.id)
+    if (error) throw new Error(`deleteUser ${u.email}: ${error.message}`)
+  }
+  console.log(`Auth: ${deTeste.length} usuários de teste apagados.`)
   if (outros > 0) console.log(`  ! ${outros} usuários fora de @${DOMINIO_TESTE} ficaram no Auth (não são do seed).`)
 }
 
@@ -136,10 +139,7 @@ async function main() {
     }
     idUsuario.set(u.email, data.user.id)
   }
-  const usuarioDe = (prefixo: string, loja: string) => {
-    const grupo = LOJAS.find(l => l.chave === loja)!.grupo
-    return idUsuario.get(`${prefixo}.${grupo}@${DOMINIO_TESTE}`)!
-  }
+  const usuarioDe = (prefixo: string, loja: string) => idUsuario.get(`${prefixo}.${grupoDaLoja(loja)}@${DOMINIO_TESTE}`)!
 
   await db.insert(categoriasCaixa).values(CATEGORIAS_CAIXA.map((c, i) => ({ ...c, ordem: i })))
   await db.insert(categoriasDespesa).values(CATEGORIAS_DESPESA.map((c, i) => ({ ...c, ordem: i })))
@@ -156,11 +156,11 @@ async function main() {
     idMoto.set(m.chassi, r.id)
   }
 
-  for (const r of montarReservas(listaMotos)) {
-    const moto = listaMotos.find(m => m.chassi === r.chassi)!
+  const listaReservas = montarReservas(listaMotos)
+  for (const r of listaReservas) {
     const total = r.pagamentos.reduce((a, p) => a + p.valor, 0)
     await db.insert(reservas).values({
-      motoId: idMoto.get(r.chassi)!, lojaId: idLoja.get(moto.loja)!, vendedorId: usuarioDe('vendedor', moto.loja),
+      motoId: idMoto.get(r.chassi)!, lojaId: idLoja.get(r.loja)!, vendedorId: usuarioDe('vendedor', r.loja),
       valorReserva: total.toFixed(2), valorTotalVenda: r.valorTotalVenda.toFixed(2),
       meioPagamento: r.pagamentos[0].tipo, pagamentos: r.pagamentos,
       dataPrevistaFinalizacao: somarDias(hoje, 14),
@@ -171,10 +171,10 @@ async function main() {
     })
   }
 
-  // Uma venda por moto vendida (8), espalhadas pelo mês corrente para o dashboard.
+  // Uma venda por moto vendida (8), uma por dia nos últimos 8 dias.
   const vendidas = listaMotos.filter(m => m.status === 'vendida')
   for (const [i, m] of vendidas.entries()) {
-    const valor = MODELOS.find(x => x.modelo === m.modelo)!.valorMinimo + 500
+    const valor = minimoDoModelo(m.modelo) + 500
     const lojaId = idLoja.get(m.loja)!
     const vendedorId = usuarioDe('vendedor', m.loja)
     const [pedido] = await db.insert(pedidosVenda).values({
@@ -186,7 +186,7 @@ async function main() {
       clienteNome: nomeCliente(200 + i), clienteCpf: gerarCpf(200 + i),
       valor: valor.toFixed(2), formaPagamento: 'pix', pagamentos: [{ tipo: 'pix', valor }],
       dataVenda: new Date(`${somarDias(hoje, -i)}T15:00:00-03:00`),
-      origemId: idOrigem.get(LOJAS.find(l => l.chave === m.loja)!.grupo)!,
+      origemId: idOrigem.get(grupoDaLoja(m.loja))!,
     })
   }
 
@@ -203,7 +203,7 @@ async function main() {
   }
 
   console.log(`Seed concluído: ${GRUPOS.length} grupos, ${LOJAS.length} lojas, ${idUsuario.size} usuários, `
-    + `${listaMotos.length} motos, 4 reservas, ${vendidas.length} vendas, ${statusOs.length} OS.`)
+    + `${listaMotos.length} motos, ${listaReservas.length} reservas, ${vendidas.length} vendas, ${statusOs.length} OS.`)
   await cliente.end()
 }
 
