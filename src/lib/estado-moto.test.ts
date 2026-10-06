@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { motivoBloqueioPorVenda, type VendaVinculada } from './estado-moto'
+import { motivoBloqueioPorVenda, motivoBloqueioPedidoAprovacao, type VendaVinculada } from './estado-moto'
 
 // A venda que estragou a LYDAE3936T1207627: efetivada em 20/08 e já faturada.
 const VENDA_FATURADA: VendaVinculada = { numero: 31118, notaFiscalSaida: '2263' }
@@ -49,6 +49,32 @@ test('antes da NF de saída, disponibilidade nula é o estado correto', () => {
   // criarVendaTx deixa status='vendida' + disponibilidade=NULL até a NF sair.
   assert.equal(
     motivoBloqueioPorVenda(VENDA_SEM_NF, { status: 'vendida', disponibilidade: null }),
+    null,
+  )
+})
+
+// ─── Pedido de aprovação de venda ────────────────────────────────────────────
+
+test('moto reservada pode ir para aprovação', () => {
+  // Finalizar reserva que precisa de aprovação parte sempre de moto 'reservada'.
+  assert.equal(motivoBloqueioPedidoAprovacao({ status: 'montada', disponibilidade: 'reservada' }), null)
+})
+
+test('moto disponível pode ir para aprovação', () => {
+  assert.equal(motivoBloqueioPedidoAprovacao({ status: 'montada', disponibilidade: 'disponivel' }), null)
+})
+
+test('moto na caixa não vai para aprovação', () => {
+  assert.notEqual(motivoBloqueioPedidoAprovacao({ status: 'caixa', disponibilidade: null }), null)
+})
+
+test('moto vendida não vai para aprovação', () => {
+  assert.notEqual(motivoBloqueioPedidoAprovacao({ status: 'vendida', disponibilidade: null }), null)
+})
+
+test('moto com pedido pendente não ganha um segundo pedido', () => {
+  assert.notEqual(
+    motivoBloqueioPedidoAprovacao({ status: 'montada', disponibilidade: 'aguardando_aprovacao' }),
     null,
   )
 })

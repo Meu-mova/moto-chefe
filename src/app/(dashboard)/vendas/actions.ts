@@ -14,6 +14,7 @@ import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
 import { parseDataInput } from '@/lib/data-venda'
+import { motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
@@ -1505,10 +1506,8 @@ export async function solicitarAprovacaoVendaAction(
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
-  if (moto.status === 'caixa') throw new Error('Moto ainda não foi montada — não pode ser vendida')
-  if (moto.status === 'vendida') throw new Error('Moto já foi vendida')
-  if (moto.disponibilidade === 'aguardando_aprovacao') throw new Error('Esta moto já tem uma venda aguardando aprovação')
-  if (moto.disponibilidade === 'reservada') throw new Error('Moto está reservada — finalize ou cancele a reserva antes')
+  const bloqueio = motivoBloqueioPedidoAprovacao(moto)
+  if (bloqueio) throw new Error(bloqueio)
 
   const valorNum = parseFloat(data.valorTotal)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')

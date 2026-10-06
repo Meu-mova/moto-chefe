@@ -94,6 +94,21 @@ export function motivoBloqueioPorVenda(
   return `Moto já vendida na venda nº ${venda.numero} — não pode voltar ao estoque. Se a venda foi um engano, cancele a venda primeiro; o cancelamento devolve a moto ao Showroom.`
 }
 
+/**
+ * Motivo pelo qual a moto não pode receber um pedido de aprovação de venda, ou
+ * null se pode. Moto 'reservada' é aceita de propósito: é assim que se finaliza
+ * uma reserva abaixo do mínimo ou com transferência. A aprovação converte a
+ * reserva ativa (criarVendaTx) e a recusa devolve a moto a 'reservada'.
+ */
+export function motivoBloqueioPedidoAprovacao(
+  moto: { status: string; disponibilidade: string | null },
+): string | null {
+  if (moto.status === 'caixa') return 'Moto ainda não foi montada — não pode ser vendida'
+  if (moto.status === 'vendida') return 'Moto já foi vendida'
+  if (moto.disponibilidade === 'aguardando_aprovacao') return 'Esta moto já tem uma venda aguardando aprovação'
+  return null
+}
+
 export const statusLabel: Record<Status, string> = {
   caixa:       'Caixa',
   montada:     'Montada',
