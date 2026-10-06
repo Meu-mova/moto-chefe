@@ -63,6 +63,24 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
    17 funções SECURITY DEFINER executáveis por `anon`/`authenticated`. Não corrija no staging
    à parte: a correção é testada aqui e vai à prod como migração.
 
+6. Registre o baseline de migrações (cria `public.schema_migrations` e marca 0000–0110 como
+   aplicadas, porque o baseline já as contém):
+   ```bash
+   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --baseline-ate 110
+   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --status   # "Nada pendente."
+   ```
+   Depois disso, no passo 4, `tabelas` e `com_rls` viram 85 (a `schema_migrations`, com RLS);
+   `grants_anon` continua 85, porque ela não tem grant para `anon`/`authenticated`. Se houver migração acima de 0110 no repo, rode `--aplicar`.
+
+## Migrações
+
+Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
+`src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
+Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
+OK do Cesar). Antes de cada PR `dev → main`, rode `node --import tsx scripts/schema-diff.ts`: compara o
+`public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
+é o staging e o segundo é a produção, e recusa se não forem.
+
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
@@ -75,6 +93,4 @@ Projeto em org Pro não pausa por inatividade (diferente do Free previsto na D1)
 
 ## Ainda não existe
 
-- Migrações versionadas depois do baseline (`schema_migrations` + `scripts/migrate.ts`): fase 4.
-  Até lá, o baseline não muda; mudança de schema na prod precisa ser reaplicada aqui à mão.
 - Seed sintético (`scripts/seed-staging.ts`) e usuários de teste: fase 5.
