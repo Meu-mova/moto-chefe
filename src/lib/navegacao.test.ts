@@ -109,12 +109,14 @@ test('item de regra própria não é decidido pela tabela', () => {
   assert.ok(ids(ADMIN_GERAL, { entrada: true }).includes('entrada'))
 })
 
-test('item oculto some do menu, mas a rota continua liberada', () => {
+test('item oculto some do menu de todos os papéis, e o admin_geral ainda abre a rota', () => {
   const ocultos = ITENS.filter(i => i.oculto)
   assert.ok(ocultos.length > 0)
-  const menu = itensDoMenu(ADMIN_GERAL, SEM_REGRA_PROPRIA).map(i => i.id)
+  for (const usuario of [ADMIN_GERAL, SOCIO, AUX, VENDEDOR, MECANICO, MOTORISTA]) {
+    const menu = itensDoMenu(usuario, SEM_REGRA_PROPRIA).map(i => i.id)
+    for (const i of ocultos) assert.ok(!menu.includes(i.id), `${i.id} apareceu no menu de ${usuario.papel}`)
+  }
   for (const i of ocultos) {
-    assert.ok(!menu.includes(i.id), `${i.id} apareceu no menu`)
     assert.ok(podeAcessar(ADMIN_GERAL, i.href, SEM_REGRA_PROPRIA), `${i.href} ficou bloqueado`)
   }
 })
