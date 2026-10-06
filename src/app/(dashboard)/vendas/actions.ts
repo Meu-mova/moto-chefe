@@ -14,7 +14,7 @@ import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
 import { parseDataInput } from '@/lib/data-venda'
-import { motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
+import { motivoBloqueioCancelarReserva, motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
@@ -1158,8 +1158,8 @@ const PAPEIS_CANCELAR_RESERVA = ['admin_geral', 'admin_socio', 'aux_adm']
  * cliente, se houver, é combinada fora do sistema — por isso o motivo é
  * obrigatório e fica gravado.
  *
- * A disponibilidade só é mexida se ainda estiver 'reservada': se nesse meio
- * tempo a moto entrou em venda aguardando aprovação, quem manda é a venda.
+ * Com venda aguardando aprovação o cancelamento é recusado (ver
+ * motivoBloqueioCancelarReserva): primeiro se aprova ou recusa a venda.
  */
 export async function cancelarReservaAction(reservaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
@@ -1195,6 +1195,19 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
   }
 
   await db.transaction(async (tx) => {
+    // Trava a linha até o commit: um pedido de aprovação gravado no meio
+    // seria sobrescrito para 'disponivel' lá embaixo, deixando a moto à venda
+    // com o pedido ainda pendente.
+    const [moto] = await tx
+      .select({ status: motos.status, disponibilidade: motos.disponibilidade })
+      .from(motos)
+      .where(eq(motos.id, reserva.motoId))
+      .limit(1)
+      .for('update')
+    if (!moto) throw new Error('Moto não encontrada')
+    const bloqueio = motivoBloqueioCancelarReserva(moto)
+    if (bloqueio) throw new Error(bloqueio)
+
     // O filtro por status no UPDATE evita corrida com quem estiver convertendo
     // a reserva em venda neste instante.
     const cancelada = await tx.update(reservas)
@@ -1208,12 +1221,6 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       .returning({ id: reservas.id })
     if (cancelada.length === 0) throw new Error('A reserva mudou de estado — recarregue a página')
 
-    const [moto] = await tx
-      .select({ status: motos.status, disponibilidade: motos.disponibilidade })
-      .from(motos)
-      .where(eq(motos.id, reserva.motoId))
-      .limit(1)
-
     // Uma moto não deveria ter duas reservas ativas, mas tem na base (o buraco
     // que este botão fecha). Enquanto sobrar outra, a moto continua reservada.
     const [outraAtiva] = await tx
@@ -1222,7 +1229,9 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       .where(and(eq(reservas.motoId, reserva.motoId), eq(reservas.status, 'ativa')))
       .limit(1)
 
-    if (!outraAtiva && moto?.disponibilidade === 'reservada') {
+    // Só mexe se ainda estiver 'reservada': moto na caixa sem disponibilidade
+    // ou já 'disponivel' (reserva duplicada) fica como está.
+    if (!outraAtiva && moto.disponibilidade === 'reservada') {
       await tx.update(motos)
         // Moto ainda na caixa volta para disponibilidade nula — é o estado de
         // quem não foi montada; 'disponivel' a colocaria à venda sem montagem.
