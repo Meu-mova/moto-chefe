@@ -22,7 +22,7 @@ controle.
 ## Por quê
 
 Dado pessoal fora da produção é risco sem benefício: vazamento de um ambiente de teste é
-vazamento de verdade (LGPD).
+vazamento de verdade.
 
 ## Alternativas descartadas
 

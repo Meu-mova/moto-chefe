@@ -29,8 +29,3 @@ Ponto de entrada da documentação. Para trabalhar no código, comece pelo
   passo).
 
 São registros do momento em que a feature foi feita; o código pode ter mudado depois.
-
-## A caminho
-
-Visão do produto (`produto/visao.md`), glossário do domínio (`CONTEXT.md`) e visão de
-arquitetura (`arquitetura.md`).

@@ -17,8 +17,12 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 ## Decisão
 ## Por quê
 ## Alternativas descartadas
+## Situação em AAAA-MM-DD   (opcional: o que ainda não foi feito ou está prejudicado)
 ## Quando revisar
 ```
+
+- **Status** diz respeito à decisão, não à execução. Decisão tomada e ainda não implementada é
+  "Aceita", com o que falta em "Situação".
 
 - Numeração sequencial, nunca reaproveitada. Nome do arquivo: `NNNN-titulo-em-kebab.md`.
 - Decisão mudou? Novo ADR que substitui o antigo; o antigo ganha "Substituída por NNNN" e fica.
@@ -34,7 +38,7 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0003](0003-ci-como-portao-vercel-como-entrega.md) | CI do GitHub como portão, Vercel como entrega | Aceita |
 | [0004](0004-migracoes-versionadas.md) | Migrações SQL à mão, versionadas em `schema_migrations` | Aceita |
 | [0005](0005-zero-dado-real-fora-de-producao.md) | Zero dado real fora de produção | Aceita |
-| [0006](0006-revisao-por-ia-com-assinatura.md) | Revisão por IA no PR, com a assinatura do Claude | Proposta |
+| [0006](0006-revisao-por-ia-com-assinatura.md) | Revisão por IA no PR, com a assinatura do Claude | Aceita |
 | [0007](0007-multi-tenant-por-cnpj.md) | Multi-tenant por CNPJ (`grupo_id`) | Aceita |
 | [0008](0008-nome-fiscal-literal-da-entrada.md) | Nome do produto na NF de saída = literal da nota de entrada | Aceita |
 | [0009](0009-driver-pg-com-attach-database-pool.md) | Driver `pg` com `attachDatabasePool` | Aceita |

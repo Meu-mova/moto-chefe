@@ -1,7 +1,7 @@
 # 0001. Staging em projeto Supabase separado, com schema por dump da produção
 
 - **Status:** Aceita
-- **Data da decisão:** 2026-10-01 (executada em 2026-10-06, PR #4)
+- **Data da decisão:** 2026-10-01; exclusão do schema `crm` em 2026-10-05 (executada em 2026-10-05, PR #4)
 - **Fontes:** `docs/seguranca/2026-10-01-plano-staging-ci.md` (D1, D2), `docs/infra/staging.md`
 
 ## Contexto
@@ -9,7 +9,8 @@
 Até outubro de 2026 não existia ambiente de teste: o `.env.local` de quem desenvolve apontava
 para o banco de produção, e todo `npm run dev` ou script mexia em dado real de cliente. O schema
 também não era reproduzível a partir do repo: 107 migrações escritas à mão, journal do Drizzle
-quebrado, e RLS e funções vindos de arquivos fora de qualquer trilha.
+quebrado, `rls.sql`/`rpcs.sql`/`supabase-extras.sql` fora da trilha e o RLS das tabelas vindo de
+trigger do Supabase (plano, §2).
 
 ## Decisão
 
@@ -28,11 +29,16 @@ migrações do repo daria um banco diferente da produção.
 
 ## Alternativas descartadas
 
-- **Branching do Supabase:** exigia o plano Pro na época da decisão (plano, §2).
+- **Branching do Supabase:** exigia o plano Pro, e a org era Free na época (plano, §2).
 - **Recriar o schema pelas migrações do repo:** sem replay confiável (journal quebrado,
   arquivos fora da trilha).
 
+## Situação em 2026-10-06
+
+A org passou para o Pro (`docs/infra/staging.md`), então o Branching virou opção. Não foi
+reavaliado.
+
 ## Quando revisar
 
-Se o Supabase Branching passar a cobrir o fluxo com custo aceitável, ou se o staging divergir
-da produção a ponto de o `scripts/schema-diff.ts` acusar diferenças recorrentes.
+Já cabe comparar o Branching com o projeto separado (custo e fluxo). Também se o staging
+divergir da produção a ponto de o `scripts/schema-diff.ts` acusar diferenças recorrentes.

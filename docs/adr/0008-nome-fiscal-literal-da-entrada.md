@@ -1,8 +1,8 @@
 # 0008. Nome do produto na NF de saída = literal da nota de entrada
 
 - **Status:** Aceita (decisão firme do Cesar)
-- **Data da decisão:** antes de 2026-09-30 (registrada no `AGENTS.md` nessa data); a ficha
-  fiscal por moto é de 2026-09-24
+- **Data da decisão:** 2026-09-24 (commit `64b71a3`: "x_prod guarda o nome fiscal literal da
+  entrada, que sai igual na NF de saída — decisão do Cesar")
 - **Fontes:** `AGENTS.md` ("Fiscal — cuidado redobrado"), commits `64b71a3` e `e959a8b`
   (2026-09-24), `motos_fiscal.x_prod`
 
@@ -29,7 +29,8 @@ conforme o CNPJ da fábrica (`64b71a3`), então só a nota de entrada diz o que 
 
 - **Ficha fiscal por modelo:** descartada em `64b71a3`. Erra a classificação quando o mesmo
   modelo entra por CNPJs diferentes.
-- **Nome padronizado do catálogo:** recusado pelo Cesar.
+- **Nome padronizado** ("não padronize", `AGENTS.md`). A tela continua mostrando o nome
+  comercial; só a NF usa o literal (`64b71a3`).
 
 ## Quando revisar
 

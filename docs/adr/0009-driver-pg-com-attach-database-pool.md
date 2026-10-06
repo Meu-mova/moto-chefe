@@ -17,7 +17,7 @@ configuração do pool já derrubou essas telas três vezes.
   `@vercel/functions`, que libera as conexões antes de a instância suspender.
 - `max: 10`, sobre o pooler Supavisor em transaction mode (porta 6543).
 - O `postgres.js` fica só para o Jarvis.
-- **Não mexer** em `src/lib/db/index.ts` sem plano próprio.
+- **Não mexer** em `src/lib/db/index.ts` (`AGENTS.md`).
 
 ## Por quê
 

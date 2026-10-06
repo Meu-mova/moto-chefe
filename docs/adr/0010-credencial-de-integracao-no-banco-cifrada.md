@@ -4,12 +4,12 @@
 - **Data da decisão:** credencial por grupo no banco em 2026-07-01; cifra (`cripto.ts`) em
   2026-09-14 (commit `8b638bd`)
 - **Fontes:** `docs/superpowers/specs/2026-07-01-multi-grupo-design.md`, `src/lib/cripto.ts`,
-  `AGENTS.md` ("Fiscal"), `docs/infra/segredos.md`
+  `AGENTS.md` ("Fiscal")
 
 ## Contexto
 
-Cada grupo ([0007](0007-multi-tenant-por-cnpj.md)) tem contas próprias nas integrações (Bling,
-ValidaPix, fábrica, Nota Gateway, MCPAI). Env var global não comporta várias contas, e
+Cada grupo ([0007](0007-multi-tenant-por-cnpj.md)) tem contas próprias nas integrações (hoje
+Bling, fábrica, Nota Gateway e MCPAI; o ValidaPix saiu em 2026-09-15, migração 0100). Env var global não comporta várias contas, e
 certificado A1 em claro no banco daria a quem lê o banco o poder de emitir nota em nome das
 empresas.
 
@@ -32,8 +32,8 @@ Não registradas na fonte.
 
 ## Situação em 2026-10-06
 
-Cifrados: MCPAI, Nota Gateway e certificado A1. Não encontrei uso de `cripto.ts` em `bling.ts`,
-`kommo.ts` nem `fabrica-por-loja.ts` (`docs/infra/segredos.md`).
+Cifrados: MCPAI, Nota Gateway e certificado A1. `src/lib/bling.ts`, `src/lib/kommo.ts` e
+`src/lib/fabrica-por-loja.ts` não usam `cripto.ts`.
 
 ## Quando revisar
 

@@ -21,6 +21,8 @@ produção.
   - PR de outra pessoa, **inclusive PR escrito por agente de IA**: o responsável técnico (Luis)
     revisa no GitHub antes do merge;
   - PR do Cesar: o Luis revisa;
+  - PR que o Luis escreve sem agente: CI verde e comentários da revisão por IA lidos, sem
+    aprovador obrigatório (D12);
   - revisão automática por IA ([0006](0006-revisao-por-ia-com-assinatura.md)) é insumo, não
     substitui a revisão humana.
 
@@ -29,8 +31,8 @@ produção.
 Lote pequeno e frequente para a produção, com um lugar (`dev` + staging) para validar antes. O
 squash deixa uma linha por mudança no histórico da `dev`. O merge commit em `dev → main`
 preserva quais mudanças subiram juntas. Código escrito por agente passa por revisão humana
-porque a IA revisa bem bug local e padrão, mas não regra de negócio nem impacto no sistema
-(papéis da revisão em `CONTRIBUTING.md`).
+porque, pela divisão do `CONTRIBUTING.md`, design, regra de negócio e impacto no sistema são
+papel do humano.
 
 ## Alternativas descartadas
 

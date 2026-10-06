@@ -9,13 +9,15 @@
 ## Contexto
 
 O sistema nasceu para o Grupo Motochefe Sul de Minas. A abertura da Motochefe BH, com CNPJ,
-lojas e integrações próprias (Bling, ValidaPix, fábrica), exigiu que as duas operações
+lojas e integrações próprias (na época Bling, ValidaPix e fábrica), exigiu que as duas operações
 convivessem com dados isolados. Hoje são três grupos: Sul de Minas, BH e Vale.
 
 ## Decisão
 
-- Um só sistema, um só banco e um só login. Cada operação é um **grupo** (`grupos`), e os dados
-  pertencem a um grupo via `grupo_id not null references grupos(id)`.
+- Um só sistema, um só banco e um só login. Cada operação é um **grupo** (`grupos`).
+- As tabelas que já tinham `loja_id` (vendas, motos, OS, garantias…) derivam o grupo pela loja
+  (`loja → grupo`); `grupo_id` foi para `lojas` e para as tabelas sem loja (spec).
+- Tabela nova nasce com `grupo_id not null references grupos(id)` (`AGENTS.md`).
 - Funcionário vê o grupo da sua loja; `admin_geral` e `admin_socio` trocam de grupo pelo
   seletor no topo.
 - Toda funcionalidade nova nasce separada por grupo: consultas filtradas por `getGrupoAtivo()`
