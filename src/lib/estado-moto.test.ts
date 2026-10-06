@@ -55,9 +55,8 @@ test('antes da NF de saída, disponibilidade nula é o estado correto', () => {
 
 // ─── Pedido de aprovação de venda ────────────────────────────────────────────
 
-test('moto reservada pode ir para aprovação — finalizar reserva abaixo do mínimo', () => {
-  // Finalizar uma reserva é sempre sobre moto 'reservada'; a trava antiga fazia
-  // todo pedido de aprovação vindo de reserva estourar com 500 em produção.
+test('moto reservada pode ir para aprovação', () => {
+  // Finalizar reserva que precisa de aprovação parte sempre de moto 'reservada'.
   assert.equal(motivoBloqueioPedidoAprovacao({ status: 'montada', disponibilidade: 'reservada' }), null)
 })
 
