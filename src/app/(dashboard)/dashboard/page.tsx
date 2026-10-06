@@ -7,10 +7,10 @@ import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import {
-  getKPIs, getVendasPorDia, getEstoquePorLoja, getSaldoCaixaPorLoja,
+  getKPIs, getVendasPorDia, getSaldoCaixaPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
   getOsAbertas, getMotoMaisVendida, getFaturamentoOS,
-  getRankingVendedores, getRankingLojas, getModelosMaisVendidos,
+  getRankingVendedores, getModelosMaisVendidos,
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
 import { descontosPorVendedor, totalDescontos } from '@/lib/queries/descontos'
@@ -30,10 +30,10 @@ import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 import { KpiCards } from './components/kpi-cards'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
-import { GraficoVendasPorDia, GraficoEstoquePorLoja, GraficoCaixaPorLoja } from './components/charts'
+import { GraficoVendasPorDia, GraficoCaixaPorLoja } from './components/charts'
 import {
   TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo,
-  TabelaOsAbertas, TabelaRankingVendedores, TabelaRankingLojas, TabelaModelosMaisVendidos,
+  TabelaOsAbertas, TabelaRankingVendedores, TabelaModelosMaisVendidos,
 } from './components/tabelas-resumo'
 import { SectionErrorBoundary } from './section-error-boundary'
 import { proximosEventos } from '@/lib/queries/calendario'
@@ -170,13 +170,11 @@ async function PendenciasDocumentosSection({
 
 async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
   let vendasDia: Awaited<ReturnType<typeof getVendasPorDia>>,
-      estoqueLoja: Awaited<ReturnType<typeof getEstoquePorLoja>>,
       saldoCaixaLoja: Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>
   try {
-    ;[vendasDia, estoqueLoja, saldoCaixaLoja] = await withTimeout(
+    ;[vendasDia, saldoCaixaLoja] = await withTimeout(
       Promise.all([
         getVendasPorDia(filtros),
-        getEstoquePorLoja(filtros.lojaId),
         isAdmin ? getSaldoCaixaPorLoja(filtros.lojaId) : Promise.resolve([] as Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>),
       ]),
       25000,
@@ -187,10 +185,8 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
   }
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <GraficoVendasPorDia dados={vendasDia} />
-        <GraficoEstoquePorLoja dados={estoqueLoja} />
-      </div>
+      {/* "Showroom por loja" oculto para a apresentação de 06/10/2026. */}
+      <GraficoVendasPorDia dados={vendasDia} />
       {isAdmin && saldoCaixaLoja.length > 0 && <GraficoCaixaPorLoja dados={saldoCaixaLoja} />}
     </>
   )
@@ -205,14 +201,12 @@ async function RankingSection({
   vendedorAtualId?: string
 }) {
   let rankingVendedores: Awaited<ReturnType<typeof getRankingVendedores>>,
-      rankingLojas: Awaited<ReturnType<typeof getRankingLojas>>,
       modelosMaisVendidos: Awaited<ReturnType<typeof getModelosMaisVendidos>>,
       descontos: Awaited<ReturnType<typeof descontosPorVendedor>>
   try {
-    ;[rankingVendedores, rankingLojas, modelosMaisVendidos, descontos] = await withTimeout(
+    ;[rankingVendedores, modelosMaisVendidos, descontos] = await withTimeout(
       Promise.all([
         getRankingVendedores(filtrosRanking),
-        getRankingLojas(filtrosRanking),
         getModelosMaisVendidos(filtros),
         // Quem não pode ver o desconto dos colegas recebe só a própria linha —
         // a query já filtra por vendedor, então o dado nem chega ao cliente.
@@ -233,10 +227,8 @@ async function RankingSection({
   }
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TabelaModelosMaisVendidos modelos={modelosMaisVendidos} />
-        <TabelaRankingLojas ranking={rankingLojas} />
-      </div>
+      {/* "Ranking de lojas" oculto para a apresentação de 06/10/2026. */}
+      <TabelaModelosMaisVendidos modelos={modelosMaisVendidos} />
       <TabelaRankingVendedores ranking={rankingVendedores} vendedorAtualId={vendedorAtualId} descontos={descontosRanking} />
     </>
   )
@@ -502,24 +494,8 @@ export default async function DashboardPage({
         </SectionErrorBoundary>
       )}
 
-      {(isVendedor || isAdmin || isAuxAdm) && (
-        <SectionErrorBoundary key={`atendimento-${filtroKey}`} label="o painel de atendimento">
-          <Suspense fallback={null}>
-            <AtendimentoSection
-              usuario={usuario}
-              dataInicio={dataInicio}
-              dataFim={dataFim}
-              // Vendedor vê os próprios leads; admin/aux_adm veem o grupo, ou um
-              // vendedor específico quando filtram por ele (mesma regra dos KPIs).
-              usuarioId={filtros.vendedorId}
-              // Vendedor precisa das lojas do grupo inteiro pro ranking sair certo
-              // (o filtro dele é só a própria loja); admin/aux_adm respeitam o
-              // filtro de loja da página.
-              lojaIdsFiltro={!isAdmin && isVendedor ? undefined : lojaIds}
-            />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
+      {/* Painel de atendimento (Kommo) oculto para a apresentação de 06/10/2026;
+          AtendimentoSection continua acima, volta com o revert. */}
 
       {/* aux_adm entra junto: é quem cadastra a meta em /admin/metas e cobra a loja —
           não faz sentido preencher o alvo e não enxergar o placar. */}

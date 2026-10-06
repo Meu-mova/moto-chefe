@@ -2,7 +2,7 @@
 // arquivo separado porque @/lib/auth importa o db no topo, e navegacao.ts
 // precisa continuar testável sem banco.
 import { podeRegistrarEntradaMotos } from '@/lib/auth'
-import { itensVisiveis, podeAcessar, type ItemNav, type UsuarioNav } from '@/lib/navegacao'
+import { itensDoMenu, podeAcessar, type ItemNav, type UsuarioNav } from '@/lib/navegacao'
 
 export type UsuarioServidor = UsuarioNav & { email: string }
 
@@ -11,7 +11,7 @@ function regrasDe(usuario: UsuarioServidor) {
 }
 
 export function itensDoUsuario(usuario: UsuarioServidor): ItemNav[] {
-  return itensVisiveis(usuario, regrasDe(usuario))
+  return itensDoMenu(usuario, regrasDe(usuario))
 }
 
 export function usuarioPodeAcessar(usuario: UsuarioServidor, href: string): boolean {

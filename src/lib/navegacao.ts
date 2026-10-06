@@ -23,6 +23,8 @@ export type ItemNav = {
   destaque?: true
   /** Permissão não sai da tabela; quem chama informa em RegrasProprias. */
   regraPropria?: true
+  /** Some do menu e dos hubs, mas a rota continua liberada para quem tem a permissão. */
+  oculto?: true
 }
 
 export type UsuarioNav = {
@@ -57,6 +59,8 @@ const TODOS:     Papel[] = [...COMERCIAL, 'mecanico']
 // só para pegar o holerite, então só os itens marcados com BASICO aparecem.
 const BASICO:    Papel[] = [...TODOS, 'motorista']
 
+// `oculto: true` temporário: menu enxuto para a apresentação de 06/10/2026.
+// Sai com o revert do PR, quando o Luis decidir.
 export const ITENS: ItemNav[] = [
   { id: 'dashboard',      href: '/dashboard',      label: 'Dashboard',         icon: Home,          categoria: null,           papeis: BASICO,    destaque: true },
   // Página pessoal, não operacional: fica solta no menu como o Dashboard, sem
@@ -67,8 +71,8 @@ export const ITENS: ItemNav[] = [
   { id: 'vendas',         href: '/vendas',         label: 'Vendas',            icon: ShoppingCart,  categoria: 'comercial',    papeis: COMERCIAL, destaque: true },
   { id: 'demandas',       href: '/demandas',       label: 'Demandas',          icon: ClipboardList, categoria: 'comercial',    papeis: COMERCIAL },
   { id: 'clientes',       href: '/clientes',       label: 'Clientes',          icon: Users,         categoria: 'comercial',    papeis: COMERCIAL },
-  { id: 'atendimento',    href: '/atendimento',    label: 'Atendimento',       icon: Headset,       categoria: 'comercial',    papeis: GESTORES },
-  { id: 'marketing',      href: '/marketing',      label: 'Marketing',         icon: Megaphone,     categoria: 'comercial',    papeis: GESTORES },
+  { id: 'atendimento',    href: '/atendimento',    label: 'Atendimento',       icon: Headset,       categoria: 'comercial',    papeis: GESTORES, oculto: true },
+  { id: 'marketing',      href: '/marketing',      label: 'Marketing',         icon: Megaphone,     categoria: 'comercial',    papeis: GESTORES, oculto: true },
   { id: 'simulador',      href: '/simulador',      label: 'Simulador',         icon: Calculator,    categoria: 'comercial',    papeis: COMERCIAL },
   { id: 'radar',          href: '/radar',          label: 'RADAR',             icon: Radar,         categoria: 'comercial',    papeis: COMERCIAL },
 
@@ -85,7 +89,7 @@ export const ITENS: ItemNav[] = [
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
   { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: [],        regraPropria: true },
-  { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES },
+  { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES, oculto: true },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
   { id: 'precificacao',   href: '/precificacao',   label: 'Precificação',      icon: Tag,           categoria: 'estoque',      papeis: ADMINS },
   { id: 'compras',        href: '/compras',        label: 'Compras',           icon: ShoppingBag,   categoria: 'estoque',      papeis: ADMINS },
@@ -95,7 +99,7 @@ export const ITENS: ItemNav[] = [
   { id: 'caixa',          href: '/caixa',          label: 'Caixa',             icon: Wallet,        categoria: 'financeiro',   papeis: GESTORES },
   { id: 'pix',            href: '/pix-mcp',        label: 'PIX',               icon: QrCode,        categoria: 'financeiro',   papeis: COMERCIAL },
   { id: 'conciliacao',    href: '/conciliacao',    label: 'Conciliação',       icon: CreditCard,    categoria: 'financeiro',   papeis: GESTORES },
-  { id: 'cartoes',        href: '/cartoes',        label: 'Cartões de Crédito', icon: CreditCard,   categoria: 'financeiro',   papeis: ADMINS },
+  { id: 'cartoes',        href: '/cartoes',        label: 'Cartões de Crédito', icon: CreditCard,   categoria: 'financeiro',   papeis: ADMINS, oculto: true },
   { id: 'contas-pagar',   href: '/contas-pagar',   label: 'Contas a Pagar',    icon: Receipt,       categoria: 'financeiro',   papeis: ADMINS },
   { id: 'despesas',       href: '/despesas',       label: 'Despesas',          icon: TrendingDown,  categoria: 'financeiro',   papeis: ADMINS },
   { id: 'financeiro',     href: '/financeiro',     label: 'Financeiro',        icon: BarChart3,     categoria: 'financeiro',   papeis: ADMINS },
@@ -109,26 +113,26 @@ export const ITENS: ItemNav[] = [
   { id: 'metas',          href: '/admin/metas',    label: 'Metas',             icon: Target,        categoria: 'gestao',       papeis: GESTORES },
   { id: 'calendario',     href: '/calendario',     label: 'Calendário',        icon: CalendarRange, categoria: 'gestao',       papeis: BASICO },
   { id: 'comunicados',    href: '/admin/comunicados', label: 'Comunicados',    icon: Megaphone,     categoria: 'gestao',       papeis: ADMINS },
-  { id: 'veiculos-historico', href: '/admin/veiculos-historico', label: 'Histórico de Veículos', icon: FileText, categoria: 'gestao', papeis: ADMINS },
-  { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER },
+  { id: 'veiculos-historico', href: '/admin/veiculos-historico', label: 'Histórico de Veículos', icon: FileText, categoria: 'gestao', papeis: ADMINS, oculto: true },
+  { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER, oculto: true },
 
   // ── Configuração
-  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'configuracao', papeis: ADMINS },
-  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER },
+  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'configuracao', papeis: ADMINS, oculto: true },
+  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, oculto: true },
   { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: SUPER },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
   { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
   { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
   { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', papeis: ADMINS },
-  { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', papeis: GESTORES },
+  { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', papeis: GESTORES, oculto: true },
   { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', papeis: GESTORES },
-  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', papeis: ADMINS },
+  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', papeis: ADMINS, oculto: true },
   { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', papeis: ADMINS },
-  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS },
+  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS, oculto: true },
   // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
   // item de configuração comum — só admin_geral (SUPER) mexe nisso.
-  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'configuracao', papeis: SUPER },
+  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'configuracao', papeis: SUPER, oculto: true },
 ]
 
 // Cópia deliberada de temPapel em @/lib/auth:68 — este arquivo não pode
@@ -148,6 +152,12 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
 
 export function itensVisiveis(usuario: UsuarioNav, regras: RegrasProprias): ItemNav[] {
   return ITENS.filter(i => visivel(i, usuario, regras))
+}
+
+// O que o sidebar e os hubs mostram. Separado de itensVisiveis porque item
+// oculto continua acessível pela URL — oculta só a visualização.
+export function itensDoMenu(usuario: UsuarioNav, regras: RegrasProprias): ItemNav[] {
+  return itensVisiveis(usuario, regras).filter(i => !i.oculto)
 }
 
 export function podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasProprias): boolean {
