@@ -62,3 +62,20 @@ export function exigirAlvoPermitido(databaseUrl: string, temFlagProd: boolean): 
   }
   return alvo
 }
+
+/**
+ * Para quem apaga ou usa dado como se fosse de teste (seed, dev:staging): banco
+ * E Supabase precisam ser o mova-staging. Uma ponta só no staging não basta — a
+ * URL do Supabase da prod com o banco do staging apagaria usuário real do Auth.
+ */
+export function motivoRecusaForaDoStaging(databaseUrl: string | undefined, supabaseUrl: string | undefined): string | null {
+  const refBanco = databaseUrl ? descreverAlvo(databaseUrl).ref : null
+  let refSupabase: string | null = null
+  try {
+    refSupabase = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null
+  } catch {
+    refSupabase = null
+  }
+  if (refBanco === REF_STAGING && refSupabase === REF_STAGING) return null
+  return `Só roda no mova-staging (${REF_STAGING}). Banco: ${refBanco ?? '?'}, Supabase: ${refSupabase ?? '?'}.`
+}
