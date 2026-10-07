@@ -43,6 +43,8 @@ Não implementada: o workflow e o secret `CLAUDE_CODE_OAUTH_TOKEN` ainda não ex
 - Os comentários saem como `github-actions[bot]`. Não verificado se o plugin os reconhece
   como "já revisado" para pular o PR no push seguinte.
 - Token: validade, revogação e riscos em `docs/infra/segredos.md`.
+- PR do Dependabot fica de fora (o job nem roda): ele só lê o cofre de secrets do Dependabot,
+  onde o token não está, e revisar bump de versão gastaria cota sem ganho.
 
 ## Quando revisar
 
