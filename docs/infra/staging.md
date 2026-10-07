@@ -133,8 +133,8 @@ Porta diferente de 3000 (`npm run dev:staging -- --port 3001`) exige mudar `MOVA
 `NEXT_PUBLIC_APP_URL` no `.env.local`; senão os links gerados apontam para a 3000.
 
 O `.env.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, geradas
-localmente; não são as da prod; a `CERT_MASTER_KEY` tem de ser a mesma em toda máquina, porque
+(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, no
+Bitwarden; não são as da prod; a `CERT_MASTER_KEY` tem de ser a mesma em toda máquina, porque
 uma nova não decifra o que já está cifrado no banco), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`). É o
 bloco "Mínimo" do [`.env.example`](../../.env.example).
 Nenhuma credencial de integração vem do env no staging: Open Finance, Bling, Kommo e WhatsApp ficam
