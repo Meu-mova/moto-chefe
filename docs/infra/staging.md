@@ -142,11 +142,33 @@ desligados. Pela D7, Nota Gateway em homologação se configura por grupo em `/a
 do próprio staging (fica no banco, cifrada com a `CERT_MASTER_KEY` do staging), e o Resend entra em
 modo de teste quando for preciso.
 
+## App na Vercel (Preview)
+
+Desde 2026-10-07, o ambiente **Preview** do projeto `mova-motochefe` (time MOVA) é o staging: cada
+PR e a branch `dev` sobem com ele (D6 do plano).
+
+| Variável (Preview) | Valor |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | do `mova-staging` |
+| `DATABASE_URL` | do `mova-staging`, pooler em **transaction mode (6543)**, como o app espera na Vercel; o `.env.local` usa o Session pooler (5432) |
+| `CERT_MASTER_KEY`, `CRON_SECRET` | as do staging (Bitwarden) |
+| `MOVA_URL`, `NEXT_PUBLIC_APP_URL` | sem valor: o app usa o host do deployment (`VERCEL_URL`) |
+| Integrações (Resend, WhatsApp, Bling, Kommo, Jarvis, Telegram, fábrica) | nenhuma (D7) |
+
+- **Domínio:** `dev.meumova.com` → branch `dev`. A zona DNS do `meumova.com` fica na conta
+  pessoal do Cesar na Vercel, não no time MOVA; a posse foi provada com o TXT
+  `_vercel.meumova.com` criado lá.
+- **Proteção:** Standard Protection (login da Vercel) vale para todos os previews, inclusive o
+  `dev.meumova.com`. Abrir para quem não é do time (D6 previa desligar) está **pendente de
+  decisão do Luis**. Até lá, teste autenticado com `vercel curl <caminho> --deployment <url>`.
+- **Conferir:** `vercel curl /assinar/token-falso --deployment <url>` responde 404 (app e banco
+  no ar) e `/dashboard` redireciona para `/login`.
+
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
 O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.local`, este runbook e
-as variáveis Preview da Vercel (fase 6).
+as variáveis Preview da Vercel ([App na Vercel](#app-na-vercel-preview)).
 
 ## Pausa
 

@@ -9,7 +9,7 @@ nomes, com o propósito de cada um e os padrões não secretos, está em `.env.e
 | O quê | Fonte da verdade | Cópias permitidas |
 |---|---|---|
 | Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.prod.local`, só na máquina de quem opera a prod |
-| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` local; Vercel **Preview** quando a fase 6 sair |
+| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` local; Vercel **Preview** (desde 2026-10-07; ver [`staging.md`](staging.md#app-na-vercel-preview)) |
 | CI (GitHub Actions) | **Secrets do repo** `Meu-mova/moto-chefe` (Settings → Secrets and variables → Actions) | nenhuma |
 | Credencial de integração por grupo ou loja | **Banco**. Cifradas com `src/lib/cripto.ts` (AES-256-GCM, chave `CERT_MASTER_KEY`): MCPAI, Nota Gateway, certificado A1. Bling, Kommo e fábrica: não há uso de `cripto.ts` em `bling.ts`, `kommo.ts` nem `fabrica-por-loja.ts` | nenhuma |
 
@@ -94,10 +94,15 @@ Comparação só por nome entre o painel da Vercel (Environment Variables, confe
   `952c29a`; só `scripts/set-telegram-webhook.mjs` e `scripts/conciliacao/navegador.ts`.
   Credencial viva sem uso é risco sem benefício. Revisar e remover: Luis (Owner do time MOVA
   na Vercel desde 2026-10-06).
-- **Preview tem segredo de produção:** Resend, Telegram, Jarvis, Bling, fábrica, ValidaPix,
-  WhatsApp (MCPAI) estão marcados "Production and Preview", sem Supabase nem `DATABASE_URL` no
-  Preview. Pelo plano (§5.5), o Preview recebe os valores do staging e as integrações ficam
-  vazias.
+- **Preview deixou de ter segredo de produção (2026-10-07):** as 15 credenciais de integração
+  que estavam em "Production and Preview" (Resend, Telegram, Jarvis, Bling, fábrica, ValidaPix,
+  WhatsApp) ficaram só em Production; nada de Production mudou. O Preview tem só as variáveis do
+  staging ([`staging.md`](staging.md#app-na-vercel-preview)). Se um teste no staging precisar de
+  uma integração, ela entra só no Preview, com credencial de teste, depois de analisada.
+- **Mudar o ambiente de uma variável na Vercel:** edite o alvo pela API
+  (`vercel api /v9/projects/<projeto>/env/<id>?teamId=<time> -X PATCH` com `{"target": [...]}`),
+  que mantém os outros ambientes. O `id` sai de `vercel api /v10/projects/<projeto>/env?teamId=<time>`
+  (lista sem valores). Valor `sensitive` apagado não volta.
 - **No código e fora da Vercel (usam fallback):** `NEXT_PUBLIC_APP_URL`/`MOVA_URL` (em
   Production os links de assinatura saem com `moto-chefe.vercel.app`; em Preview, com o host do
   deployment), `LEADS_EMAIL_TO`, `KOMMO_REDIRECT_URI`, `BLING_NATUREZA_OPERACAO`.
