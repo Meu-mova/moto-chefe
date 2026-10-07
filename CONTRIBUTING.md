@@ -7,7 +7,8 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
 
 - `main` = produção. `dev` = integração e staging.
 - Trabalho novo nasce de `dev`, com o tipo do Conventional Commits como prefixo:
-  `feat/*`, `fix/*`, `chore/*`, `docs/*`... PR para `dev`, merge por **squash**.
+  `feat/*`, `fix/*`, `chore/*`, `docs/*`... PR para `dev`, merge por **squash** (exceção: o PR
+  `main → dev` depois de hotfix ou de release que entrou por squash vai com merge commit).
 - `dev → main`: PR com **merge commit** (não squash), sempre que houver algo validado,
   no mínimo semanal. Lote pequeno e frequente evita que o release vire um pacotão. Cada
   promoção é uma release — ver "Issues, quadro e releases".
