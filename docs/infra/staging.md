@@ -125,16 +125,17 @@ acrescenta duas travas: só sobe se banco e Supabase do `.env.local` forem o `mo
 os outros `.env` (`.env`, `.env.development` e afins) com o próprio carregador do Next
 (`@next/env`), definindo como vazia toda chave que eles têm e o `.env.local` não. Sem isso, um
 desses arquivos esquecido com valor da produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`)
-entraria no app de staging, porque o Next preenche toda chave que ainda não existe. O Next não sobrescreve chave já
-definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
+entraria no app de staging, porque o Next preenche toda chave que ainda não existe. O Next não
+sobrescreve chave já definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
 `kommo.ts`, integrações que não funcionam no staging). Ele lista os nomes anulados ao subir.
 
 Porta diferente de 3000 (`npm run dev:staging -- --port 3001`) exige mudar `MOVA_URL` e
 `NEXT_PUBLIC_APP_URL` no `.env.local`; senão os links gerados apontam para a 3000.
 
 O `.env.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, no
-Bitwarden; não são as da prod), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`). É o
+(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, geradas
+localmente; não são as da prod; a `CERT_MASTER_KEY` tem de ser a mesma em toda máquina, porque
+uma nova não decifra o que já está cifrado no banco), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`). É o
 bloco "Mínimo" do [`.env.example`](../../.env.example).
 Nenhuma credencial de integração vem do env no staging: Open Finance, Bling, Kommo e WhatsApp ficam
 desligados. Pela D7, Nota Gateway em homologação se configura por grupo em `/admin/notas-fiscais`

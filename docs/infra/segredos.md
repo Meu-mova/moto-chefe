@@ -1,7 +1,7 @@
 # Segredos e variáveis de ambiente
 
 Onde cada segredo do MOVA mora, qual é a fonte da verdade e as regras de manuseio. A lista de
-nomes, com o propósito de cada um, está em `.env.example`. Plano de origem:
+nomes, com o propósito de cada um e os padrões não secretos, está em `.env.example`. Plano de origem:
 `docs/seguranca/2026-10-01-plano-staging-ci.md` (D5, D8, §5.4–5.6).
 
 ## Onde mora cada coisa
@@ -45,8 +45,8 @@ já existir um `.env.prod.local`, para não sobrescrever nada):
   || { mv .env.local .env.prod.local && cp .env.example .env.local; }
 ```
 
-Depois preencha o bloco "Mínimo" do novo `.env.local` com os valores do Bitwarden (coleção "MOVA
-staging").
+Depois preencha o bloco "Mínimo" do novo `.env.local` com os valores do staging (Bitwarden,
+coleção "MOVA staging"; a nota de cada variável no `.env.example` diz de onde ela vem).
 
 Conferir sem imprimir valores, pelo banner que o `sql.ts` mostra antes de tudo:
 - `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"` tem que

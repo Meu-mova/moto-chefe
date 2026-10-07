@@ -32,7 +32,7 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
   staging (detalhes em `docs/infra/staging.md`).
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
 - Nunca imprima, logue, commite ou cole em chat o conteúdo de nenhum `.env*` com valores
-  (o `.env.example` só tem nomes).
+  (o `.env.example` só tem nomes e padrões não secretos, como `http://localhost:3000`).
 - Segredos que dão poder real: `CERT_MASTER_KEY` (abre os certificados A1 →
   emite nota fiscal em nome das empresas), `SUPABASE_SERVICE_ROLE_KEY` (ignora
   RLS), `DATABASE_URL`.
