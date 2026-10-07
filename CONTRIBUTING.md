@@ -124,8 +124,8 @@ Não crie label nova sem combinar.
 - Passo a passo:
   1. Na `dev`, por PR, commit `chore(release): vX.Y.Z` atualizando o `version` do
      `package.json`.
-  2. PR `dev → main` com merge commit (antes, `scripts/schema-diff.sh` sem diferença — plano de
-     staging, §5).
+  2. PR `dev → main` com merge commit (antes, `scripts/schema-diff.ts` sem diferença — ver
+     `docs/infra/staging.md`).
   3. Tag `vX.Y.Z` no merge commit da `main`.
   4. GitHub Release com notas em português, para o Cesar: **Novidades**, **Correções**,
      **Interno**, cada item com o link da issue ou do PR. O rascunho pode ser de um agente; o
