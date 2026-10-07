@@ -20,13 +20,18 @@ Secrets do GitHub:
 | `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença) | cadastrado em 2026-10-05 |
 | `CLAUDE_CODE_OAUTH_TOKEN` | workflow `Revisão por IA` (`claude-code-review.yml`, fase 8, D19); ver nota abaixo | cadastrado em 2026-10-07 |
 | `STAGING_DATABASE_URL` | job `aplicar-staging` do `migracoes.yml` (fase 9): Session pooler (5432) do `mova-staging`, igual ao `.env.local` | cadastrado em 2026-10-07 |
-| usuário e senha do smoke | smoke Playwright (fase 10, §5.6) | planejados |
+| `SMOKE_SENHA` | workflow `Smoke do preview` (`smoke.yml`, fase 10): senha dos usuários sintéticos, igual à `SEED_SENHA` do staging | cadastrado em 2026-10-07 |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | `smoke.yml`: passa pela proteção da Vercel nos previews (Protection Bypass for Automation, nota "Smoke Playwright" no projeto). Revogar no painel ou pela API (`PATCH /v1/projects/<projeto>/protection-bypass` com `revoke`) | cadastrado em 2026-10-07 |
 
 `CLAUDE_CODE_OAUTH_TOKEN`: token da assinatura do Luis, gerado com `claude setup-token`, válido
 por 1 ano e consumindo a cota dela. Apagar o secret não invalida o token, e a doc do Claude Code
 não mostra como revogá-lo. Como o `STAGING_DATABASE_URL`, quem tem push no repo consegue lê-lo
 por um PR de branch do próprio repo. `401 Invalid bearer token` no workflow quer dizer que o
 valor cadastrado não é aceito; recadastre colando o token numa linha só, sem espaços.
+
+`SMOKE_SENHA` e `VERCEL_AUTOMATION_BYPASS_SECRET` têm o mesmo risco: o `smoke.yml` roda o código
+do commit do preview, então quem tem push no repo consegue lê-los. O `smoke.ts` só os manda para
+um preview do projeto ou para o `dev.meumova.com`, e o bypass vai só nas requisições ao preview.
 
 ## Arquivos locais
 
