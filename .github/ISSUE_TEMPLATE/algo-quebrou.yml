@@ -1,0 +1,52 @@
+name: Algo quebrou
+description: Uma tela, botão ou cálculo do MOVA não funcionou como devia.
+type: Bug
+labels: [needs-triage]
+projects: [Meu-mova/2]
+body:
+  - type: input
+    id: onde
+    attributes:
+      label: Onde
+      description: "Tela ou menu (ex.: Vendas → Nova venda)."
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava
+    validations:
+      required: true
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu
+      description: Mensagem de erro, valor errado, o que apareceu na tela. Pode colar print aqui.
+    validations:
+      required: true
+  - type: dropdown
+    id: grupo
+    attributes:
+      label: Grupo
+      options:
+        - Sul de Minas
+        - BH
+        - Vale
+        - Todos / não sei
+    validations:
+      required: true
+  - type: input
+    id: loja
+    attributes:
+      label: Loja e usuário
+      description: Em qual loja e com qual login aconteceu.
+  - type: dropdown
+    id: urgencia
+    attributes:
+      label: Urgência
+      options:
+        - Parou a loja (ninguém consegue trabalhar)
+        - Atrapalha, mas dá para contornar
+        - Pode esperar
+    validations:
+      required: true

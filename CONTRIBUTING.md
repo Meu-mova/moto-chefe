@@ -6,10 +6,13 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
 ## Branches
 
 - `main` = produção. `dev` = integração e staging.
-- Trabalho novo nasce de `dev`: `feat/*`, `fix/*`, `chore/*`. PR para `dev`, merge por
-  **squash**.
+- Trabalho novo nasce de `dev`, com o tipo do Conventional Commits como prefixo:
+  `feat/*`, `fix/*`, `chore/*`, `docs/*`... PR para `dev`, merge por **squash**.
 - `dev → main`: PR com **merge commit** (não squash), sempre que houver algo validado,
-  no mínimo semanal. Lote pequeno e frequente evita que o release vire um pacotão.
+  no mínimo semanal. Lote pequeno e frequente evita que o release vire um pacotão. Cada
+  promoção é uma release — ver "Issues, quadro e releases".
+- Branch de trabalho se apaga à mão depois do merge. Não ligue "apagar branch após o merge"
+  no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main`.
 - Hotfix: nasce de `main`, PR para `main`, depois PR `main → dev` para não perder o fix
   na próxima vez que `dev` for pra produção.
 - Ninguém dá push direto em `dev` ou `main`, incluindo quem tem acesso de admin.
@@ -59,3 +62,53 @@ acima de ~400 linhas, e a revisão por IA não muda isso.
 Conventional Commits, em inglês: `type(escopo opcional): descrição`. Tipos: `feat, fix,
 docs, style, refactor, perf, test, build, ci, chore, revert`. Corpo só quando a mudança não
 é óbvia pelo diff.
+
+## Issues, quadro e releases
+
+O porquê está no [ADR 0012](docs/adr/0012-versionamento-semver-e-releases.md).
+
+**Quadro.** O GitHub Project
+[MOVA — Desenvolvimento](https://github.com/orgs/Meu-mova/projects/2) é onde o Cesar acompanha
+o trabalho. Colunas: Backlog → Em andamento → Em revisão (PR aberto) → Pronto p/ subir (merge
+na `dev`) → Em produção (saiu na release). Cada item tem **Módulo** (Comercial, Oficina, Estoque,
+Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) e **Prioridade** (Alta, Média,
+Baixa). Tarefa técnica miúda vira checklist dentro da issue, não item no quadro.
+
+**Issues**
+- Mudança com valor visível para o Cesar (feature, bug, mudança de fluxo) nasce de issue.
+  `chore`, `docs` e refactor podem ir direto em PR.
+- Título em português. Tipo pelo **Issue Type** (`Bug`, `Feature`, `Task`), não por label.
+- Para quem não é dev, há dois formulários: "Algo quebrou" e "Pedido de melhoria".
+- **Milestone** = uma entrega de negócio ("NF-e própria", "Agendamento público"). Data limite
+  só quando houver prazo prometido.
+
+**Labels.** Só estados transversais:
+
+| Label | Quando |
+|---|---|
+| `needs-triage` | Ainda não avaliada |
+| `needs-info` | Esperando informação de quem abriu |
+| `ready-for-agent` | Especificada o bastante para um agente implementar sozinho |
+| `ready-for-human` | Precisa de implementação humana |
+| `wontfix` | Não vai ser feita |
+| `duplicate` | Repetida de outra issue |
+| `pr/grande` | PR acima de ~400 linhas de produção |
+
+Não crie label nova sem combinar.
+
+**PR.** Para `dev`, cite a issue com **`Refs #N`, nunca `Closes #N`**: a issue só fecha quando
+chega em produção, no passo da release. (O `Closes` num PR para `dev` não fecharia nada: o GitHub
+só fecha pela palavra-chave na branch padrão.)
+
+**Release.** Cada PR `dev → main` é uma release SemVer, a primeira é a `v1.0.0`. Hotfix também.
+- Número: patch se só houver `fix`, `chore`, `docs`, `refactor`, `perf`, `build`, `ci`; minor
+  se houver algum `feat`; major só por marco de negócio decidido pelo Luis e pelo Cesar.
+- Passo a passo:
+  1. Na `dev`, commit `chore(release): vX.Y.Z` atualizando o `version` do `package.json`.
+  2. PR `dev → main` com merge commit (antes, `schema-diff` sem diferença).
+  3. Tag `vX.Y.Z` no merge commit da `main`.
+  4. GitHub Release com notas em português, para o Cesar: **Novidades**, **Correções**,
+     **Interno**, cada item com o link da issue ou do PR.
+  5. Fechar as issues que entraram, com o comentário "Saiu na vX.Y.Z". O quadro as move para
+     "Em produção".
+- Hotfix: o mesmo passo, com patch, na `main`; depois o PR `main → dev` de sempre.

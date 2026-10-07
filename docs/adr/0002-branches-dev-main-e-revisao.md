@@ -1,7 +1,8 @@
 # 0002. Branches `dev`/`main`, PR com squash e quem revisa
 
 - **Status:** Aceita
-- **Data da decisão:** 2026-10-01; regra de revisão de PR escrito por IA ajustada em 2026-10-06
+- **Data da decisão:** 2026-10-01; regra de revisão de PR escrito por IA e prefixos de branch
+  ajustados em 2026-10-06
 - **Fontes:** `docs/seguranca/2026-10-01-plano-staging-ci.md` (D10, D11, D12), `CONTRIBUTING.md`
 
 ## Contexto
@@ -13,10 +14,14 @@ produção.
 ## Decisão
 
 - `main` = produção; `dev` = integração e staging.
-- `feat/*`, `fix/*` e `chore/*` nascem de `dev` e voltam por PR com **squash**.
+- Branches de trabalho nascem de `dev` e voltam por PR com **squash**. Prefixo = tipo do
+  Conventional Commits (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`...).
 - `dev → main` por PR com **merge commit**, no mínimo uma vez por semana.
 - Hotfix nasce de `main`, PR para `main`, depois PR `main → dev`.
 - Ninguém dá push direto em `dev` ou `main`.
+- "Apagar branch após o merge" fica **desligado** no repo: sem proteção de branch, apagaria a
+  `dev` no PR `dev → main`. Branch de trabalho se apaga à mão.
+- Cada PR `dev → main` é uma release ([0012](0012-versionamento-semver-e-releases.md)).
 - **Revisão:**
   - PR de outra pessoa, **inclusive PR escrito por agente de IA**: o responsável técnico (Luis)
     revisa no GitHub antes do merge;

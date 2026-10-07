@@ -44,3 +44,4 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0009](0009-driver-pg-com-attach-database-pool.md) | Driver `pg` com `attachDatabasePool` | Aceita |
 | [0010](0010-credencial-de-integracao-no-banco-cifrada.md) | Credencial de integração no banco, por grupo, cifrada | Aceita |
 | [0011](0011-avise-nao-bloqueie.md) | Avise, não bloqueie | Aceita |
+| [0012](0012-versionamento-semver-e-releases.md) | Versionamento SemVer, uma release a cada promoção para a `main` | Aceita |
