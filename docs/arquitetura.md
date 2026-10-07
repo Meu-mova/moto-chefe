@@ -121,11 +121,12 @@ Telegram (`scripts/conciliacao/navegador.ts`), a coluna `grupos.telegram_chat_id
 
 | | Produção | Staging | Local |
 |---|---|---|---|
-| App | Vercel, time MOVA, branch `main` | ainda não há app de staging na Vercel: o Preview usa segredos de integração da produção e não tem banco (fase 6) | `npm run dev:staging` |
+| App | Vercel, time MOVA, branch `main` | ainda não há app de staging na Vercel: o Preview usa segredos de integração da produção e não tem banco (fase 6) | `npm run dev` (ou `dev:staging`) |
 | Banco | Supabase "Estoque Chassi" | Supabase `mova-staging`, só dado sintético ([ADR 0005](adr/0005-zero-dado-real-fora-de-producao.md)) | o do staging |
 | Detalhes | [`infra/backup-restore.md`](infra/backup-restore.md) | [`infra/staging.md`](infra/staging.md) | [`infra/segredos.md`](infra/segredos.md) |
 
-O `.env.local` ainda aponta para a produção (D5 pendente; ver `AGENTS.md`).
+Local: o `.env.local` é o staging, e a produção só existe em `.env.production.local`, usada de
+forma explícita ([`infra/segredos.md`](infra/segredos.md)).
 
 ## Do código à produção
 

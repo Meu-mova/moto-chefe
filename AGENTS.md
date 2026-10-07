@@ -14,20 +14,22 @@ seguem o padrão do arquivo em volta.
 Cada regra abaixo nasceu de um incidente real. Se uma parecer exagerada, pergunte
 ao Cesar antes de contornar.
 
-## ⚠️ O `.env.local` ainda aponta para a produção
+## ⚠️ Local é staging; produção só explícita
 
-O `.env.local` aponta para o **banco de PRODUÇÃO**. Script, `npm run dev` e
-consulta rodando na sua máquina mexem em dado real de cliente.
+O `.env.local` aponta para o **staging** (`mova-staging`, só dado sintético). A
+**produção** fica em `.env.production.local`, que só existe na máquina de quem
+opera a produção. Máquina que ainda tenha a produção no `.env.local`: troque antes
+de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
 
-Já existe um **staging** (`mova-staging`, só dado sintético; credencial em
-`.env.staging.local`): migração e consulta (ver "Banco e migrações"), dados de teste
-(`scripts/seed-staging.ts`) e o app local via **`npm run dev:staging`**. Não rode o
-app contra o staging com `dotenv-cli ... next dev`: o Next completaria o ambiente com
-chaves da produção do `.env.local`. Detalhes em `docs/infra/staging.md`. Mais adiante
-o `.env.local` passa a ser o staging e a produção fica num arquivo à parte.
-
+- `npm run dev` e script sem env explícito falam com o staging. Na dúvida, o
+  `sql.ts` e o `migrate.ts` imprimem o banco antes de tudo.
+- Produção sempre explícita: `npx dotenv-cli -e .env.production.local -- ... --prod`.
+- O Next carrega o `.env.production.local` sozinho em `next build`/`next start`:
+  um `npm start` local com esse arquivo presente fala com a produção.
+- `npm run dev:staging` continua valendo: só sobe se banco e Supabase forem o
+  staging (detalhes em `docs/infra/staging.md`).
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
-- Nunca imprima, logue, commite ou cole em chat o conteúdo do `.env.local`.
+- Nunca imprima, logue, commite ou cole em chat o conteúdo de nenhum `.env*`.
 - Segredos que dão poder real: `CERT_MASTER_KEY` (abre os certificados A1 →
   emite nota fiscal em nome das empresas), `SUPABASE_SERVICE_ROLE_KEY` (ignora
   RLS), `DATABASE_URL`.
@@ -46,8 +48,8 @@ Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgre
 (Supabase) · Tailwind 4 · `@base-ui/react` (não Radix) · Vercel.
 
 ```bash
-npm run dev          # local — com o .env.local, isso é o banco de PRODUÇÃO
-npm run dev:staging  # local contra o mova-staging (sem dado real); ver docs/infra/staging.md
+npm run dev          # local contra o staging (.env.local)
+npm run dev:staging  # idem, mas recusa subir se o env não for o staging; ver docs/infra/staging.md
 npm run type-check   # tsc --noEmit
 npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega
@@ -70,10 +72,10 @@ O fluxo real:
    `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select ..."`.
-5. Na **produção**, o mesmo `migrate.ts --aplicar` com o env da prod e `--prod` no fim.
+5. Na **produção**: `npx dotenv-cli -e .env.production.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
 
 `sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem
-`--prod`**. Hoje o `.env.local` ainda é a produção, então todo comando com ele leva `--prod`.
+`--prod`**. Produção só com `-e .env.production.local` e `--prod`.
 
 **Migração na produção só pelo `migrate.ts`** — nunca pelo MCP do Supabase
 (`apply_migration`/`execute_sql`) nem pelo SQL Editor do painel (o `sql.ts --file`

@@ -121,7 +121,7 @@ async function main() {
 
   console.log(`\n${baixados} XML(s) baixado(s) em ${destino}`)
   console.log(`  ${pulados} já existiam · ${semXml} sem XML no Bling · ${erros} com erro`)
-  console.log(`\nAgora rode:\n  npx dotenv-cli -e .env.local -- node --import tsx scripts/semear-fiscal-motos.ts --pasta "${destinoRaiz}" --aplicar`)
+  console.log(`\nAgora rode:\n  npx dotenv-cli -e .env.production.local -- node --import tsx scripts/semear-fiscal-motos.ts --pasta "${destinoRaiz}" --aplicar`)
   process.exit(0)
 }
 

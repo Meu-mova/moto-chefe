@@ -6,7 +6,7 @@
  * Rodada única — depois disso o sync normal mantém o campo.
  *
  * Uso:
- *   npx dotenv-cli -e .env.local -- node --import tsx scripts/backfill-kommo-source.ts
+ *   npx dotenv-cli -e .env.production.local -- node --import tsx scripts/backfill-kommo-source.ts
  *   ... scripts/backfill-kommo-source.ts --desde 2026-01-01   (recorte opcional)
  */
 import postgres from 'postgres'
@@ -17,7 +17,7 @@ const arg = (nome: string) => {
 }
 
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
+  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.production.local -- ...`')
   process.exit(1)
 }
 

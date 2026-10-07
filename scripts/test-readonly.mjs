@@ -1,7 +1,7 @@
 // Prova que, dentro da transacao read-only, uma ESCRITA e' recusada pelo Postgres
 // (mesmo que a validacao de string fosse burlada). Rodar: node scripts/test-readonly.mjs
 import { config } from 'dotenv'
-config({ path: '.env.local' }) // Next.js guarda os envs em .env.local
+config({ path: '.env.production.local' }) // testa o papel read-only na produção
 import postgres from 'postgres'
 
 const client = postgres(process.env.DATABASE_URL, { max: 1, prepare: false })

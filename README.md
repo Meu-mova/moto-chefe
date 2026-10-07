@@ -10,7 +10,8 @@ de Minas, BH e Vale).
 ## Antes de tudo
 
 - Leia o [`AGENTS.md`](AGENTS.md): cada regra ali nasceu de um incidente real.
-- **O `.env.local` ainda aponta para a produção.** Para desenvolver, use o staging.
+- **Local é staging:** o `.env.local` aponta para o `mova-staging` (dado sintético). Produção só
+  em `.env.production.local`, explícita (ver [`docs/infra/segredos.md`](docs/infra/segredos.md)).
 
 ## Rodar localmente
 

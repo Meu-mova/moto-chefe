@@ -120,8 +120,8 @@ npm run dev:staging            # http://localhost:3000; argumentos extras vão p
 ```
 
 Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
-toda chave que ainda não existe — a produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria
-para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
+toda chave que ainda não existe. Numa máquina em que o `.env.local` ainda seja a produção, a produção
+(Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
 Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
 e define como vazia toda chave que eles têm e o staging não. O Next não sobrescreve chave já
 definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
