@@ -35,12 +35,14 @@ Não implementada: o workflow e o secret `CLAUDE_CODE_OAUTH_TOKEN` ainda não ex
 
 ## Situação em 2026-10-07
 
-- Workflow `.github/workflows/claude-code-review.yml`: plugin `code-review` com `--comment`, em
-  PR para a `dev` fora de rascunho, `--max-turns 20`.
+- Workflow `.github/workflows/claude-code-review.yml`: plugin `code-review` com `--comment` nos
+  PRs para a `dev` (o plugin pula rascunho, trivial e já revisado), `--max-turns 20`, e a
+  divisão de papéis acima no system prompt.
 - A action usa o token do próprio workflow (`github_token`), com escrita só em PR e issue, em vez
   do Claude GitHub App, que pediria escrita em workflows e actions.
-- O token da assinatura vale 1 ano. A doc do Claude Code não mostra como revogá-lo, e apagar o
-  secret não o invalida: o caminho de revogação ainda está por descobrir.
+- Os comentários saem como `github-actions[bot]`. Não verificado se o plugin os reconhece
+  como "já revisado" para pular o PR no push seguinte.
+- Token: validade, revogação e riscos em `docs/infra/segredos.md`.
 
 ## Quando revisar
 
