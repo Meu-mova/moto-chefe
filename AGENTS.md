@@ -73,7 +73,9 @@ O fluxo real:
    próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
 3. Abra o PR: o workflow `Migrações` aplica baseline + migrações num Postgres descartável
    e barra SQL quebrado. Depois do merge na `dev`, ele mesmo aplica no **staging**.
-   Para testar no staging antes do merge, aplique à mão (o CI vê que já está aplicada):
+   Para testar no staging antes do merge, aplique à mão (o CI vê que já está aplicada).
+   Depois disso, não edite o arquivo nem abandone o PR sem desfazer no staging: o
+   `migrate.ts` acusa checksum diferente ou registro sem arquivo, e o job do staging trava:
    `npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select ..."`.

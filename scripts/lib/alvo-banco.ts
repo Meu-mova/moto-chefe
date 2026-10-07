@@ -21,9 +21,10 @@ const HOSTS_LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 /**
  * `emCi`: só o migrate.ts liga, com o CI=true do GitHub Actions; os demais scripts
- * nunca aceitam loopback. Mesmo no CI, loopback só conta como local se o usuário não
- * trouxer ref de projeto: na máquina de alguém, um túnel para a produção também
- * responde em localhost.
+ * nunca aceitam loopback. Na máquina de alguém, um túnel para a produção também
+ * responde em localhost: por isso fora do CI loopback é produção. No CI, recusa
+ * ainda o usuário com ref (pooler); um túnel por conexão direta (usuário `postgres`,
+ * sem ref) passaria — o limite é não ter CI=true fora do Actions.
  */
 export function descreverAlvo(databaseUrl: string, emCi = false): AlvoBanco {
   let url: URL
