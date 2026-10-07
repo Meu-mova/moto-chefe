@@ -7,8 +7,8 @@
  *
  * Sai com código 1 se alguma tela falhar (regras em scripts/lib/smoke.ts).
  */
-import { chromium, type BrowserContext } from 'playwright'
-import { motivosDeFalha, USUARIOS_SMOKE, type Visita } from './lib/smoke'
+import { chromium, type Browser, type BrowserContext } from 'playwright'
+import { motivoUrlRecusada, motivosDeFalha, USUARIOS_SMOKE, type Visita } from './lib/smoke'
 
 const base = process.env.SMOKE_URL?.replace(/\/$/, '')
 const senha = process.env.SMOKE_SENHA
@@ -17,7 +17,22 @@ if (!base || !senha) {
   process.exit(1)
 }
 const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+const recusa = motivoUrlRecusada(base, Boolean(bypass))
+if (recusa) {
+  console.error(`Recusado: ${recusa}`)
+  process.exit(1)
+}
 const origem = new URL(base).origin
+
+/** O bypass vai só nas requisições ao preview, nunca a terceiros (Supabase, vercel.live). */
+async function novoContexto(navegador: Browser): Promise<BrowserContext> {
+  const contexto = await navegador.newContext()
+  if (bypass) {
+    await contexto.route(url => url.origin === origem, rota =>
+      rota.continue({ headers: { ...rota.request().headers(), 'x-vercel-protection-bypass': bypass } }))
+  }
+  return contexto
+}
 
 async function entrar(contexto: BrowserContext, email: string): Promise<string | null> {
   const pagina = await contexto.newPage()
@@ -63,11 +78,7 @@ async function main() {
   let falhas = 0
   try {
     for (const usuario of USUARIOS_SMOKE) {
-      const contexto = await navegador.newContext({
-        extraHTTPHeaders: bypass
-          ? { 'x-vercel-protection-bypass': bypass, 'x-vercel-set-bypass-cookie': 'true' }
-          : {},
-      })
+      const contexto = await novoContexto(navegador)
       console.log(`\n${usuario.email}`)
       const erroLogin = await entrar(contexto, usuario.email)
       if (erroLogin) {

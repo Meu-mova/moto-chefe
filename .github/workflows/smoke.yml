@@ -18,6 +18,8 @@ jobs:
       !contains(github.event.deployment.environment, 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # O código vem do commit do deployment, e os secrets chegam ao script dele: quem tem
+    # push no repo consegue lê-los (como no migracoes.yml). Ver docs/infra/segredos.md.
     concurrency:
       group: smoke-${{ github.event.deployment.sha }}
       cancel-in-progress: true
@@ -37,8 +39,8 @@ jobs:
 
       - name: smoke
         env:
-          # environment_url é o endereço do deployment; target_url, a página dele na Vercel.
-          SMOKE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          # Endereço do deployment. O smoke.ts recusa host que não seja preview do projeto.
+          SMOKE_URL: ${{ github.event.deployment_status.environment_url }}
           SMOKE_SENHA: ${{ secrets.SMOKE_SENHA }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |

@@ -16,6 +16,25 @@ export const USUARIOS_SMOKE: UsuarioSmoke[] = [
   { email: `geral@${DOMINIO_TESTE}`, telas: [...TELAS_DA_LOJA, ...TELAS_DE_ADMIN] },
 ]
 
+/**
+ * Senha e bypass só vão para um preview deste projeto ou para o dev.meumova.com. Sem
+ * bypass (rodando à mão contra o app local), qualquer URL serve.
+ */
+export function motivoUrlRecusada(url: string, comBypass: boolean): string | null {
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return 'URL inválida'
+  }
+  if (!comBypass) return null
+  const previewDoProjeto = /^mova-motochefe-[a-z0-9-]+\.vercel\.app$/.test(u.hostname)
+  if (u.protocol !== 'https:' || !(previewDoProjeto || u.hostname === 'dev.meumova.com')) {
+    return `host fora dos previews do projeto: ${u.host}`
+  }
+  return null
+}
+
 export type Visita = {
   tela: string
   /** Status do documento principal; null se a navegação nem respondeu. */

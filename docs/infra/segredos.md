@@ -29,6 +29,10 @@ não mostra como revogá-lo. Como o `STAGING_DATABASE_URL`, quem tem push no rep
 por um PR de branch do próprio repo. `401 Invalid bearer token` no workflow quer dizer que o
 valor cadastrado não é aceito; recadastre colando o token numa linha só, sem espaços.
 
+`SMOKE_SENHA` e `VERCEL_AUTOMATION_BYPASS_SECRET` têm o mesmo risco: o `smoke.yml` roda o código
+do commit do preview, então quem tem push no repo consegue lê-los. O `smoke.ts` só os manda para
+um preview do projeto ou para o `dev.meumova.com`, e o bypass vai só nas requisições ao preview.
+
 ## Arquivos locais
 
 Todos ignorados pelo git (`.env*` no `.gitignore`, exceto `.env.example`).

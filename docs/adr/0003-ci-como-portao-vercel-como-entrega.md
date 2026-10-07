@@ -56,9 +56,9 @@ Não registradas na fonte.
 - Smoke (fase 10, `smoke.yml`): quando o preview fica pronto, o robô entra com usuários
   sintéticos e visita as telas principais, passando pela proteção com o bypass de automação
   da Vercel.
-- O `ci.yml` segue sem secret de aplicação. A exceção é o workflow `migracoes.yml` (fase 9,
-  ADR 0004): o job `aplicar-staging` usa a credencial do banco de **staging**, só em push na
-  `dev`.
+- O `ci.yml` segue sem secret de aplicação. As exceções usam só credenciais do **staging**: o
+  `smoke.yml` (acima; senha dos usuários sintéticos e bypass dos previews) e o `migracoes.yml`
+  (fase 9, ADR 0004; o job `aplicar-staging` usa a credencial do banco, só em push na `dev`).
 
 ## Quando revisar
 
