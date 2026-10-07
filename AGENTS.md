@@ -32,8 +32,13 @@ o `.env.local` passa a ser o staging e a produção fica num arquivo à parte.
   emite nota fiscal em nome das empresas), `SUPABASE_SERVICE_ROLE_KEY` (ignora
   RLS), `DATABASE_URL`.
 - **Todo push na `main` vai ao ar sozinho** (deploy automático na Vercel).
-  Se você não é o Cesar (nem está trabalhando na máquina dele): trabalhe em
-  branch e abra Pull Request; ele decide o que sobe.
+  **Ninguém dá push direto em `main` ou `dev`, nem o Cesar nem um agente
+  rodando na máquina dele**: trabalhe em branch e abra Pull Request para `dev`
+  (ver `CONTRIBUTING.md` e `docs/adr/0002-branches-dev-main-e-revisao.md`).
+  O responsável técnico (Luis) revisa e decide o que sobe.
+- Na Vercel, só o Owner do time MOVA (Luis) publica. Commit de outro autor
+  chega à `main` mas o deploy é recusado ("Deployment failed"); foi o que
+  aconteceu com o `30150e3` em 2026-10-06.
 
 ## Stack
 
