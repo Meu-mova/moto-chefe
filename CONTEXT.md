@@ -1,18 +1,18 @@
 # MOVA
 
 Sistema de gestão das lojas MotoChefe (motos elétricas): estoque, vendas, oficina, financeiro,
-fiscal e RH de várias empresas no mesmo sistema. Este arquivo é o glossário: um nome por
+fiscal e RH de vários grupos (CNPJs) no mesmo sistema. Este arquivo é o glossário: um nome por
 conceito, como o negócio fala. Decisões de arquitetura ficam em `docs/adr/`.
 
 ## Organização
 
 **Grupo**:
-Uma empresa (um CNPJ) com suas lojas, contas e integrações próprias. Hoje: Sul de Minas, BH e
-Vale. Os dados de um grupo não aparecem para outro.
-_Evitar_: bandeira, empresa, tenant
+Um CNPJ com suas lojas, contas e integrações próprias. Hoje: Sul de Minas, BH e Vale. Os dados
+de um grupo não aparecem para outro.
+_Evitar_: bandeira (no sentido de grupo; "bandeira" do cartão é outra coisa), tenant
 
 **Loja**:
-Ponto físico de um grupo. Todo funcionário e toda moto pertencem a uma loja.
+Ponto físico de um grupo. Toda moto está em uma loja, e todo funcionário de loja pertence a uma.
 
 **Galpão Matriz**:
 Loja do grupo Sul de Minas que funciona como estoque central de chegada; qualquer vendedor pode
@@ -28,14 +28,14 @@ Depósito da fábrica onde a loja retira peças compradas.
 A função de quem usa o sistema, que define o que ele pode fazer: `admin_geral`, `admin_socio`,
 `aux_adm`, vendedor, mecânico ou motorista. Papéis extras só somam permissão.
 
-**admin_geral**:
+**Administrador geral** (`admin_geral`):
 Administrador do sistema: o único que mexe em grupos, usuários e certificados.
 
-**admin_socio**:
+**Sócio** (`admin_socio`):
 Sócio. Acompanha e aprova, mas não opera a rotina da loja.
 _Evitar_: adm, para se referir a ele
 
-**aux_adm**:
+**Auxiliar administrativo** (`aux_adm`):
 Quem opera a loja no dia a dia: muda o estado físico das motos e finaliza vendas.
 Quando se diz "adm", quase sempre é o aux_adm.
 
@@ -69,36 +69,44 @@ Onde a moto está fisicamente: na caixa, montada, em garantia ou vendida.
 
 **Na caixa**:
 Status da moto que chegou e ainda não foi montada. A tela mostra "Caixa".
-_Evitar_: caixa (sozinho), que é o dinheiro da loja; faturada (status antigo, extinto)
+_Evitar_: caixa (sozinho), que é o dinheiro da loja; faturada (status legado, sem motos hoje)
 
 **Montagem**:
-Tirar a moto da caixa e deixá-la pronta, com mecânico responsável e data.
+Desembalar a moto e deixá-la pronta, com mecânico responsável e data.
 
 **Vendida**:
 Status final da moto que saiu da loja por uma venda.
 
 **Disponibilidade**:
-Situação comercial de uma moto montada: disponível, reservada, aguardando aprovação ou vendida.
-Para moto vendida, diz se a NF de saída já foi emitida (a tela mostra "Ag. NF Saída" enquanto
-não sai).
+Situação comercial da moto: disponível, reservada ou aguardando aprovação enquanto está à venda.
+Depois da venda, só diz se a NF de saída já saiu: a tela mostra "Ag. NF Saída" até a nota ser
+emitida.
 
 **Showroom**:
 O conjunto de motos do grupo à venda, com status e disponibilidade.
 _Evitar_: estoque, quando a intenção é "o que está à venda"
 
 **Transferência**:
-Pedido para mudar uma moto de loja, que a loja de destino aceita ou recusa.
+Solicitação para mudar uma moto de loja, que a loja de destino aceita ou recusa.
+
+**Entrada de motos**:
+Recebimento das motos de uma nota de entrada no estoque da loja (tela "Entrada").
+
+**RADAR**:
+Busca de qualquer moto pelo chassi, inclusive as vendidas.
+_Evitar_: Radar Fiscal (é a tela de notas recebidas)
 
 ## Venda
 
 **Reserva**:
-Moto separada para um cliente mediante uma entrada, com data prevista para finalizar a venda.
-Termina convertida em venda ou cancelada.
+Moto separada para um cliente mediante a entrada da reserva, com data prevista para finalizar a
+venda. Termina convertida em venda ou cancelada.
 
-**Entrada**:
-O dinheiro que o cliente paga para reservar a moto, com um valor mínimo.
-_Evitar_: sinal, valor da reserva; e não confundir com nota de entrada ou entrada no estoque,
-que sempre levam o nome completo
+**Entrada da reserva**:
+O dinheiro que o cliente paga para reservar uma moto, com um valor mínimo. A tela chama de
+"Valor da Entrada".
+_Evitar_: valor da reserva; "entrada" sozinha, que também é entrada de motos, entrada de caixa e
+entrada do financiamento
 
 **Venda**:
 O registro definitivo da venda de uma moto: cliente, valor, formas de pagamento, origem da venda
@@ -106,18 +114,23 @@ e NF de saída. A tela chama o ato de "finalizar" ou "registrar" venda.
 
 **Venda faturada**:
 Venda cuja NF de saída já foi emitida em produção.
-_Evitar_: faturada, para moto
+_Evitar_: faturada, para moto (status legado)
 
 **Pedido de venda**:
 Registro interno que numera a venda. Não é uma etapa do negócio: toda venda já nasce com o
-pedido efetivado.
+pedido efetivado. Quando um PIX recebido aponta para um "pedido", é este.
 _Evitar_: pedido (sozinho), que se confunde com o pedido da fábrica
 
+**Precificação**:
+Tabela de preços de cada modelo no grupo, com as taxas de cada meio de pagamento. É de onde sai o
+preço mínimo.
+
 **Preço mínimo**:
-Menor valor pelo qual um modelo pode ser vendido no grupo, considerando o meio de pagamento.
+Menor valor pelo qual um modelo pode ser vendido no grupo, conforme a precificação.
 
 **Desconto**:
-Quanto a venda ficou abaixo do preço mínimo.
+Quanto o valor líquido da venda (depois das taxas do meio de pagamento) ficou abaixo do preço
+mínimo.
 
 **Aprovação**:
 Venda (ou OS, ou venda de peça) retida até alguém autorizado aprovar ou recusar. Há dois tipos:
@@ -128,7 +141,8 @@ _Evitar_: pedido de aprovação
 Exigida quando a venda fica abaixo do preço mínimo; aprova um sócio ou o admin do grupo.
 
 **Aprovação de pagamento sensível**:
-Exigida quando o pagamento é por transferência bancária; aprova só quem tem essa permissão.
+Exigida por certos meios de pagamento (transferência bancária na venda de moto, financiamento
+na venda de peça); aprova só quem tem essa permissão.
 
 **Origem da venda**:
 Por onde chegou quem comprou, escolhida pelo vendedor ao fechar a venda, num catálogo de cada
@@ -138,6 +152,10 @@ _Evitar_: origem (sozinho), canal
 **Demanda**:
 Encomenda de um modelo e cor que a loja não tem no estoque. Pode ter sinal pago e termina
 atendida quando vira venda.
+
+**Sinal**:
+O dinheiro que o cliente adianta numa demanda, com recibo. Na reserva, o equivalente se chama
+entrada da reserva.
 
 ## Comercial
 
@@ -158,15 +176,15 @@ Eventos de gestão do grupo (reuniões, datas), diferente da agenda da oficina.
 ## Oficina
 
 **OS (ordem de serviço)**:
-Atendimento de uma moto na oficina: aberta, na oficina, em andamento, finalizada, pendente de
-pagamento, concluída. Pode ser cancelada enquanto não tem pagamento.
+Atendimento de uma moto na oficina, da abertura até a conclusão e o pagamento. Pode ser cancelada
+enquanto não tem pagamento.
 
 **Agendamento**:
 Horário marcado na agenda da oficina, que vira OS quando o cliente chega.
 
 **Garantia**:
-Período de cobertura de uma moto vendida, ativo ou encerrado, que pode gerar pedido de peça à
-fábrica.
+Período de cobertura de uma moto vendida, ativo ou encerrado. A peça trocada na garantia pode
+ser solicitada à fábrica.
 
 **Serviço**:
 Mão de obra do catálogo, cobrada numa OS.
@@ -181,12 +199,20 @@ Venda de balcão de peças e acessórios, sem nota fiscal.
 Desconto emitido à mão que abate só a mão de obra de uma OS; vence numa data.
 
 **Pedido da fábrica**:
-Compra feita pela loja no portal da fábrica (peças, retirada no galpão da fábrica).
+Compra de peças feita pela loja no portal da fábrica.
+
+**Retirada de peças**:
+Peças de pedidos da fábrica já separados que a loja busca no galpão da fábrica. As demais a
+fábrica envia pelos Correios.
+
+**Histórico de veículos**:
+Relação de todas as motos já comercializadas (chassi, modelo, cor, ano), importada para
+completar os dados da moto ao abrir uma OS.
 
 ## Financeiro
 
 **Caixa**:
-O dinheiro da loja: entradas e saídas lançadas no dia, com aprovação.
+O dinheiro da loja: lançamentos de entrada e saída do dia, com aprovação.
 _Evitar_: caixa, para o status da moto (use "na caixa")
 
 **Despesa**:
@@ -230,7 +256,8 @@ _Evitar_: origem (sozinho)
 Certificado digital do grupo que autoriza emitir nota e consultar a SEFAZ em nome do CNPJ.
 
 **Notas recebidas**:
-NF-e emitidas por terceiros contra o CNPJ do grupo, lidas da SEFAZ (tela Radar Fiscal).
+NF-e emitidas por terceiros contra o CNPJ do grupo, lidas da SEFAZ (tela "Notas Recebidas").
+_Evitar_: Radar, que é a busca de moto pelo chassi
 
 **Contrato de venda**:
 Documento que o cliente assina, digitalmente ou no papel. A NF de saída só sai com o contrato
