@@ -52,7 +52,7 @@ Não registradas na fonte.
   de integração e `dev.meumova.com` ligado à branch `dev`. Detalhes em `docs/infra/staging.md`
   ("App na Vercel").
 - A Vercel Authentication continua ligada em todos os previews, inclusive o `dev.meumova.com`.
-  A D6 previa desligar; o Luis decidiu manter (2026-10-07).
+  A D6 previa desligar; o Luis decidiu manter.
 - O `ci.yml` segue sem secret de aplicação. A exceção é o workflow `migracoes.yml` (fase 9,
   ADR 0004): o job `aplicar-staging` usa a credencial do banco de **staging**, só em push na
   `dev`.

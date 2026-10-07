@@ -20,7 +20,8 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
 ## Antes de abrir o PR
 
 `npm run type-check` → `npm test` → `npm run build`. Fluxo com diálogo, Server Action ou
-permissão: testar no navegador (preview do PR, que aponta para o staging) — ver `AGENTS.md`.
+permissão: testar no navegador (preview do PR, que aponta para o staging e exige login da Vercel
+como membro do time; ver `docs/infra/staging.md`) — ver `AGENTS.md`.
 
 ## Revisão
 
