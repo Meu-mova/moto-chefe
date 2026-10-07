@@ -15,7 +15,7 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 
 ## Acesso
 
-- **Conexão local:** `.env.staging.local` (ignorado pelo git), com as variáveis do staging; a
+- **Conexão local:** `.env.local` (ignorado pelo git), com as variáveis do staging; a
   `DATABASE_URL` é a do **Session pooler** (`postgres.pulsqeymzsheasxsdnnk@aws-…-sa-east-1.pooler.supabase.com:5432`).
   No painel: **Connect → Direct (Connection string) → Session pooler**. Senha esquecida:
   **Project Settings → Database → Reset database password**.
@@ -32,10 +32,10 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
    `anon`/`authenticated` da prod, porque o dump sai sem privilégios) e **Enable automatic RLS**
    (cria o event trigger `ensure_rls`, o mesmo da prod). **Integração GitHub do Supabase:
    desligada.**
-2. Preencha `.env.staging.local` como em [Acesso](#acesso).
+2. Preencha o `.env.local` como em [Acesso](#acesso).
 3. Aplique (o baseline vai numa transação só: ou entra tudo, ou nada):
    ```bash
-   set -a; source .env.staging.local; set +a
+   set -a; source .env.local; set +a
    psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/schema-baseline.sql
    psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -f supabase/staging-buckets.sql
    ```
@@ -66,8 +66,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 6. Registre o baseline de migrações (cria `public.schema_migrations` e marca 0000–0110 como
    aplicadas, porque o baseline já as contém):
    ```bash
-   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --baseline-ate 110
-   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --status   # "Nada pendente."
+   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --baseline-ate 110
+   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --status   # "Nada pendente."
    ```
    Depois disso, no passo 4, `tabelas` e `com_rls` viram 85 (a `schema_migrations`, com RLS);
    `grants_anon` continua 85, porque ela não tem grant para `anon`/`authenticated`. Se houver migração acima de 0110 no repo, rode `--aplicar`.
@@ -78,7 +78,7 @@ Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
 `src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
 Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
 OK do Cesar). Antes de cada PR `dev → main`, rode
-`node --import tsx scripts/schema-diff.ts .env.staging.local .env.prod.local`: compara o
+`node --import tsx scripts/schema-diff.ts .env.local .env.prod.local`: compara o
 `public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
 é o staging e o segundo é a produção, e recusa se não forem.
 
@@ -89,10 +89,10 @@ OK do Cesar). Antes de cada PR `dev → main`, rode
 **e** Auth forem o `mova-staging` (lista de permissão no código; nenhuma flag libera outro projeto).
 
 ```bash
-npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/seed-staging.ts
+npx dotenv-cli -e .env.local -- node --import tsx scripts/seed-staging.ts
 ```
 
-Precisa no `.env.staging.local`: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+Precisa no `.env.local`: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY` (painel → Project Settings → API Keys) e `SEED_SENHA` (senha única
 de todos os usuários de teste; guardada no Bitwarden).
 
@@ -120,20 +120,22 @@ qualquer grupo, mas não transferência.
 npm run dev:staging            # http://localhost:3000; argumentos extras vão para o next dev
 ```
 
-Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
-toda chave que ainda não existe. Numa máquina em que o `.env.local` ainda seja a produção, a
-produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria para dentro do app de staging.
-O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
-e define como vazia toda chave que eles têm e o staging não. O Next não sobrescreve chave já
+O `npm run dev` já lê o `.env.local`, que é o staging. O `dev:staging` (`scripts/dev-staging.ts`)
+acrescenta duas travas: só sobe se banco e Supabase do `.env.local` forem o `mova-staging`, e lê
+os outros `.env` (`.env`, `.env.development` e afins) com o próprio carregador do Next
+(`@next/env`), definindo como vazia toda chave que eles têm e o `.env.local` não. Sem isso, um
+desses arquivos esquecido com valor da produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`)
+entraria no app de staging, porque o Next preenche toda chave que ainda não existe. O Next não sobrescreve chave já
 definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
 `kommo.ts`, integrações que não funcionam no staging). Ele lista os nomes anulados ao subir.
 
 Porta diferente de 3000 (`npm run dev:staging -- --port 3001`) exige mudar `MOVA_URL` e
-`NEXT_PUBLIC_APP_URL` no `.env.staging.local`; senão os links gerados apontam para a 3000.
+`NEXT_PUBLIC_APP_URL` no `.env.local`; senão os links gerados apontam para a 3000.
 
-O `.env.staging.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, geradas
-localmente; não são as da prod), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`).
+O `.env.local` para o app precisa, além do que o seed usa: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+(publishable key do staging), `CERT_MASTER_KEY` e `CRON_SECRET` (próprias do staging, no
+Bitwarden; não são as da prod), `MOVA_URL` e `NEXT_PUBLIC_APP_URL` (`http://localhost:3000`). É o
+bloco "Mínimo" do [`.env.example`](../../.env.example).
 Nenhuma credencial de integração vem do env no staging: Open Finance, Bling, Kommo e WhatsApp ficam
 desligados. Pela D7, Nota Gateway em homologação se configura por grupo em `/admin/notas-fiscais`
 do próprio staging (fica no banco, cifrada com a `CERT_MASTER_KEY` do staging), e o Resend entra em
@@ -142,8 +144,8 @@ modo de teste quando for preciso.
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
-O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.staging.local` e o
-`.env.local`, este runbook e as variáveis Preview da Vercel (fase 6).
+O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.local`, este runbook e
+as variáveis Preview da Vercel (fase 6).
 
 ## Pausa
 

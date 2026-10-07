@@ -9,7 +9,7 @@ nomes, com o propósito de cada um, está em `.env.example`. Plano de origem:
 | O quê | Fonte da verdade | Cópias permitidas |
 |---|---|---|
 | Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.prod.local`, só na máquina de quem opera a prod |
-| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` e `.env.staging.local` locais; Vercel **Preview** quando a fase 6 sair |
+| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` local; Vercel **Preview** quando a fase 6 sair |
 | CI (GitHub Actions) | **Secrets do repo** `Meu-mova/moto-chefe` (Settings → Secrets and variables → Actions) | nenhuma |
 | Credencial de integração por grupo ou loja | **Banco**. Cifradas com `src/lib/cripto.ts` (AES-256-GCM, chave `CERT_MASTER_KEY`): MCPAI, Nota Gateway, certificado A1. Bling, Kommo e fábrica: não há uso de `cripto.ts` em `bling.ts`, `kommo.ts` nem `fabrica-por-loja.ts` | nenhuma |
 
@@ -28,21 +28,25 @@ Todos ignorados pelo git (`.env*` no `.gitignore`, exceto `.env.example`).
 | Arquivo | O que tem | Quem tem |
 |---|---|---|
 | `.env.local` | **staging** (`mova-staging`) | toda máquina de desenvolvimento |
-| `.env.staging.local` | staging, mesmo conteúdo do `.env.local` | **manter**: os comandos de migração no staging (`AGENTS.md`), o `dev:staging` e o `schema-diff.ts` leem este arquivo |
 | `.env.prod.local` | **produção** | só quem opera a produção (hoje, o Luis) |
 
 Convenção da D5 (plano de staging/CI), adotada em 2026-10-06, com uma mudança: o arquivo da
 produção se chama `.env.prod.local`, e não `.env.production.local`, porque o Next carrega esse
 segundo nome sozinho em `next build`/`next start`. O Cesar não desenvolve mais,
-então a troca vale só para a máquina do Luis (situação em 2026-10-06).
+então a troca vale só para a máquina do Luis (situação em 2026-10-06). Até 2026-10-07 existia
+também um `.env.staging.local`, cópia do `.env.local`; os scripts passaram a ler o `.env.local` e
+ele pode ser apagado.
 
 **Trocar numa máquina que ainda tem a produção no `.env.local`** (o primeiro comando para tudo se
 já existir um `.env.prod.local`, para não sobrescrever nada):
 
 ```bash
 [ -e .env.prod.local ] && echo "Já existe .env.prod.local: pare e confira" \
-  || { mv .env.local .env.prod.local && cp .env.staging.local .env.local; }
+  || { mv .env.local .env.prod.local && cp .env.example .env.local; }
 ```
+
+Depois preencha o bloco "Mínimo" do novo `.env.local` com os valores do Bitwarden (coleção "MOVA
+staging").
 
 Conferir sem imprimir valores, pelo banner que o `sql.ts` mostra antes de tudo:
 - `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"` tem que

@@ -6,7 +6,7 @@
  * a produção mesmo com --prod: lá, arquivo de migração só entra anotado.
  *
  * Uso:
- *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select 1"
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"
  *   npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/sql.ts --query "select 1" --prod
  *
  * Imprime o banco antes de tudo e recusa a produção sem --prod.

@@ -2,7 +2,7 @@
  * Compara o schema `public` do staging com o da produção. Rode antes de cada
  * PR dev → main: diferença significa migração aplicada num banco e não no outro.
  *
- * Uso: node --import tsx scripts/schema-diff.ts .env.staging.local .env.prod.local
+ * Uso: node --import tsx scripts/schema-diff.ts .env.local .env.prod.local
  *      O arquivo da produção é obrigatório: produção nunca entra por padrão.
  * Precisa de pg_dump 17 (brew install postgresql@17).
  */
@@ -13,9 +13,9 @@ import { join } from 'node:path'
 import { parseEnv } from 'node:util'
 import { descreverAlvo, REF_PRODUCAO, rotuloAlvo } from './lib/alvo-banco'
 
-const [envStaging = '.env.staging.local', envProducao] = process.argv.slice(2)
+const [envStaging = '.env.local', envProducao] = process.argv.slice(2)
 if (!envProducao) {
-  console.error('Uso: scripts/schema-diff.ts <env do staging> <env da produção>   (ex.: .env.staging.local .env.prod.local)')
+  console.error('Uso: scripts/schema-diff.ts <env do staging> <env da produção>   (ex.: .env.local .env.prod.local)')
   process.exit(1)
 }
 const PG_DUMP = process.env.PG_DUMP

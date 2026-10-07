@@ -1,7 +1,7 @@
 /**
  * Apaga e recria o conjunto sintético do staging (fase 5 do plano).
  *
- * Uso: npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/seed-staging.ts
+ * Uso: npx dotenv-cli -e .env.local -- node --import tsx scripts/seed-staging.ts
  * Precisa no env: DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SEED_SENHA.
  *
  * Esvazia TODAS as tabelas do public (menos schema_migrations) e os usuários
