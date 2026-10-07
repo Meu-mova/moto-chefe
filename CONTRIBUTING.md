@@ -82,7 +82,8 @@ Fonte única do "como" para issues, quadro, labels e releases; o porquê está n
 o trabalho. Colunas: Backlog → Em andamento → Em revisão (PR aberto) → Pronto p/ subir (merge
 na `dev`) → Em produção (saiu na release). Cada item tem **Módulo** (Comercial, Oficina,
 Estoque, Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) e **Prioridade**
-(Alta, Média, Baixa).
+(Alta, Média, Baixa); ao chegar em "Em produção", ganha também **Release** (`vX.Y.Z`). O README
+do Project mostra a versão que está no ar.
 
 **Issues**
 - Mudança com valor visível para o Cesar (feature, bug, mudança de fluxo) nasce de issue.
@@ -125,14 +126,19 @@ Não crie label nova sem combinar.
   1. Na `dev`, por PR, commit `chore(release): vX.Y.Z` atualizando o `version` do
      `package.json`.
   2. PR `dev → main` com merge commit (antes, `scripts/schema-diff.ts` sem diferença — ver
-     `docs/infra/staging.md`).
+     `docs/infra/staging.md`). No botão do GitHub, "Create a merge commit", não squash. Se
+     entrar por squash, abra um PR `main → dev` e faça o merge dele com merge commit: sem isso a
+     `main` fica fora do histórico da `dev` e a próxima release mostra os commits de novo.
   3. Tag `vX.Y.Z` no merge commit da `main`.
   4. GitHub Release com notas em português, para o Cesar: **Novidades**, **Correções**,
      **Interno**, cada item com o link da issue ou do PR. O rascunho pode ser de um agente; o
      Luis revisa antes de publicar.
-  5. Fechar como "completed" as issues que entraram, com o comentário "Saiu na vX.Y.Z". O quadro
-     as move para "Em produção".
+  5. Fechar como "completed" as issues que entraram, com o comentário "Saiu na vX.Y.Z". No
+     Project, mover para "Em produção" as issues e os PRs que entraram e preencher **Release**
+     com `vX.Y.Z` (os workflows do quadro estão desligados: nada disso é automático).
   6. Milestone cuja última issue entrou: fechar a milestone e pôr nas notas
      "✅ Entrega concluída: <nome>".
+  7. Atualizar a descrição e a seção "No ar agora" do README do Project: `vX.Y.Z`, a data e o
+     link das notas.
 - Hotfix: o bump (`chore(release)`, patch) vai na própria branch do hotfix, antes do PR para a
-  `main`; depois os passos 3 a 6 e o PR `main → dev` de sempre.
+  `main`; depois os passos 3 a 7 e o PR `main → dev` de sempre.
