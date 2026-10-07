@@ -12,7 +12,7 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
   no mínimo semanal. Lote pequeno e frequente evita que o release vire um pacotão. Cada
   promoção é uma release — ver "Issues, quadro e releases".
 - Branch de trabalho se apaga à mão depois do merge. Não ligue "apagar branch após o merge"
-  no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main`.
+  no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main` (ADR 0013).
 - Hotfix: nasce de `main`, PR para `main`, depois PR `main → dev` para não perder o fix
   na próxima vez que `dev` for pra produção.
 - Ninguém dá push direto em `dev` ou `main`, incluindo quem tem acesso de admin.
@@ -65,22 +65,28 @@ docs, style, refactor, perf, test, build, ci, chore, revert`. Corpo só quando a
 
 ## Issues, quadro e releases
 
-O porquê está no [ADR 0012](docs/adr/0012-versionamento-semver-e-releases.md).
+Fonte única do "como" para issues, quadro, labels e releases; o porquê está nos ADRs
+[0012](docs/adr/0012-versionamento-semver-e-releases.md) e
+[0013](docs/adr/0013-prefixo-livre-e-branch-apagada-a-mao.md).
 
 **Quadro.** O GitHub Project
 [MOVA — Desenvolvimento](https://github.com/orgs/Meu-mova/projects/2) é onde o Cesar acompanha
 o trabalho. Colunas: Backlog → Em andamento → Em revisão (PR aberto) → Pronto p/ subir (merge
-na `dev`) → Em produção (saiu na release). Cada item tem **Módulo** (Comercial, Oficina, Estoque,
-Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) e **Prioridade** (Alta, Média,
-Baixa). Tarefa técnica miúda vira checklist dentro da issue, não item no quadro.
+na `dev`) → Em produção (saiu na release). Cada item tem **Módulo** (Comercial, Oficina,
+Estoque, Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) e **Prioridade**
+(Alta, Média, Baixa).
 
 **Issues**
 - Mudança com valor visível para o Cesar (feature, bug, mudança de fluxo) nasce de issue.
   `chore`, `docs` e refactor podem ir direto em PR.
+- Uma issue por entrega que o Cesar reconhece. Tarefa técnica miúda vira checklist dentro da
+  issue, não issue própria.
 - Título em português. Tipo pelo **Issue Type** (`Bug`, `Feature`, `Task`), não por label.
 - Para quem não é dev, há dois formulários: "Algo quebrou" e "Pedido de melhoria".
 - **Milestone** = uma entrega de negócio ("NF-e própria", "Agendamento público"). Data limite
   só quando houver prazo prometido.
+- Issue que não vai ser feita fecha como **"not planned"** (com `wontfix` ou `duplicate`), nunca
+  como "completed": só "completed" significa que chegou em produção.
 
 **Labels.** Só estados transversais:
 
@@ -96,19 +102,22 @@ Baixa). Tarefa técnica miúda vira checklist dentro da issue, não item no quad
 
 Não crie label nova sem combinar.
 
-**PR.** Para `dev`, cite a issue com **`Refs #N`, nunca `Closes #N`**: a issue só fecha quando
-chega em produção, no passo da release. (O `Closes` num PR para `dev` não fecharia nada: o GitHub
-só fecha pela palavra-chave na branch padrão.)
+**PR e commits.** Cite a issue com **`Refs #N`** — na descrição do PR e nos commits. Nunca
+`Closes`/`Fixes #N`: a issue só fecha no passo da release.
 
 **Release.** Cada PR `dev → main` é uma release SemVer, a primeira é a `v1.0.0`. Hotfix também.
 - Número: patch se só houver `fix`, `chore`, `docs`, `refactor`, `perf`, `build`, `ci`; minor
   se houver algum `feat`; major só por marco de negócio decidido pelo Luis e pelo Cesar.
 - Passo a passo:
-  1. Na `dev`, commit `chore(release): vX.Y.Z` atualizando o `version` do `package.json`.
-  2. PR `dev → main` com merge commit (antes, `schema-diff` sem diferença).
+  1. Na `dev`, por PR, commit `chore(release): vX.Y.Z` atualizando o `version` do
+     `package.json`.
+  2. PR `dev → main` com merge commit (antes, `scripts/schema-diff.sh` sem diferença — plano de
+     staging, §5).
   3. Tag `vX.Y.Z` no merge commit da `main`.
   4. GitHub Release com notas em português, para o Cesar: **Novidades**, **Correções**,
-     **Interno**, cada item com o link da issue ou do PR.
-  5. Fechar as issues que entraram, com o comentário "Saiu na vX.Y.Z". O quadro as move para
-     "Em produção".
-- Hotfix: o mesmo passo, com patch, na `main`; depois o PR `main → dev` de sempre.
+     **Interno**, cada item com o link da issue ou do PR. O rascunho pode ser de um agente; o
+     Luis revisa antes de publicar.
+  5. Fechar como "completed" as issues que entraram, com o comentário "Saiu na vX.Y.Z". O quadro
+     as move para "Em produção".
+- Hotfix: o bump (`chore(release)`, patch) vai na própria branch do hotfix, antes do PR para a
+  `main`; depois os passos 3 a 5 e o PR `main → dev` de sempre.

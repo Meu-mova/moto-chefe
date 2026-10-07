@@ -21,9 +21,14 @@ body:
     id: aconteceu
     attributes:
       label: O que aconteceu
-      description: Mensagem de erro, valor errado, o que apareceu na tela. Pode colar print aqui.
+      description: Mensagem de erro, valor errado, o que apareceu na tela.
     validations:
       required: true
+  - type: textarea
+    id: print
+    attributes:
+      label: Print ou vídeo
+      description: Arraste a imagem para cá.
   - type: dropdown
     id: grupo
     attributes:

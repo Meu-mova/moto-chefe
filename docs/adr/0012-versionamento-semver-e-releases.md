@@ -21,11 +21,12 @@ na `dev` ia subir.
   - major: só por marco de negócio decidido pelo Luis e pelo Cesar (ex.: desligar o Bling,
     mudança que pede treinamento das lojas). Nunca automático.
 - O `version` do `package.json` acompanha a tag, num commit `chore(release): vX.Y.Z` na `dev`
-  antes do PR de promoção.
+  antes do PR de promoção (no hotfix, na própria branch do hotfix).
 - Notas da release **em português, escritas para o Cesar**, em três seções: Novidades,
-  Correções, Interno. As notas ficam só na GitHub Release; não há `CHANGELOG.md`.
-- A issue só fecha quando chega em produção, no passo da release. PR para `dev` cita `Refs #N`,
-  nunca `Closes #N`.
+  Correções, Interno. Rascunho pode ser de um agente; o Luis revisa antes de publicar. As notas
+  ficam só na GitHub Release; não há `CHANGELOG.md`.
+- A issue só fecha como "completed" quando chega em produção, no passo da release. PR e commits
+  citam `Refs #N`, nunca `Closes #N`. Issue que não vai ser feita fecha como "not planned".
 
 ## Por quê
 
@@ -35,9 +36,10 @@ na `dev` ia subir.
 - `v1.0.0`, e não `0.x`: o sistema roda em produção todo dia nas lojas.
 - Notas em português e por área de negócio: os títulos de PR são técnicos e em inglês, e quem
   lê a release é o Cesar.
-- Fechar a issue só em produção faz "fechada" significar "no ar". Além disso, `Closes #N` num PR
-  para `dev` não fecharia nada: o GitHub só fecha pela palavra-chave quando o PR entra na
-  branch padrão (`main`).
+- Fechar a issue só em produção faz "fechada como completed" significar "no ar". `Closes #N` não
+  serve para isso: na descrição de um PR para `dev` não fecha nada (o GitHub só fecha pela
+  palavra-chave em PR para a branch padrão), e num commit fecha a issue quando o commit chega na
+  `main`, sem o comentário da release.
 
 ## Alternativas descartadas
 

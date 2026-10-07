@@ -1,16 +1,14 @@
-# Triage Labels
+# Labels de triagem
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+As skills falam em cinco papéis de triagem. Este arquivo liga cada papel à label usada neste repo.
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| Papel nas skills (mattpocock) | Label no repo | Significado |
+| ----------------------------- | ------------------- | ---------------------------------------- |
+| `needs-triage`                | `needs-triage`      | Ainda não avaliada |
+| `needs-info`                  | `needs-info`        | Esperando informação de quem abriu |
+| `ready-for-agent`             | `ready-for-agent`   | Especificada para um agente implementar sozinho |
+| `ready-for-human`             | `ready-for-human`   | Precisa de implementação humana |
+| `wontfix`                     | `wontfix`           | Não vai ser feita |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Besides these five, the repo keeps only `duplicate` and `pr/grande` (PR above ~400 production
-lines). Issue type (bug/feature/task) is the GitHub **Issue Type**, not a label.
+Quando uma skill citar um papel (ex.: "apply the AFK-ready triage label"), use a label desta
+tabela. A lista completa de labels do repo está no `CONTRIBUTING.md`.
