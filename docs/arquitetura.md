@@ -121,7 +121,7 @@ Telegram (`scripts/conciliacao/navegador.ts`), a coluna `grupos.telegram_chat_id
 
 | | Produção | Staging | Local |
 |---|---|---|---|
-| App | Vercel, time MOVA, branch `main` | ainda não há app de staging na Vercel: o Preview usa segredos de integração da produção e não tem banco (fase 6) | `npm run dev` (ou `dev:staging`) |
+| App | Vercel, time MOVA, branch `main` | Vercel, ambiente Preview: `dev.meumova.com` (branch `dev`) e um preview por PR, com as variáveis do staging e sem integrações ([`infra/staging.md`](infra/staging.md#app-na-vercel-preview)) | `npm run dev` (ou `dev:staging`) |
 | Banco | Supabase "Estoque Chassi" | Supabase `mova-staging`, só dado sintético ([ADR 0005](adr/0005-zero-dado-real-fora-de-producao.md)) | o do staging |
 | Detalhes | [`infra/backup-restore.md`](infra/backup-restore.md) | [`infra/staging.md`](infra/staging.md) | [`infra/segredos.md`](infra/segredos.md) |
 

@@ -46,6 +46,14 @@ Não registradas na fonte.
   this repository public"). O plano previa o Team. Até o Cesar decidir sobre a assinatura, os
   checks "que devem barrar o merge" só avisam, e o D11 e a fase 8 ficam sem caminho.
 
+## Situação em 2026-10-07
+
+- O Preview aponta para o staging (D6, fase 6): variáveis do `mova-staging`, nenhuma credencial
+  de integração e `dev.meumova.com` ligado à branch `dev`. Detalhes em `docs/infra/staging.md`
+  ("App na Vercel").
+- A Vercel Authentication continua ligada em todos os previews, inclusive o `dev.meumova.com`.
+  A D6 previa desligar; a decisão está com o Luis.
+
 ## Quando revisar
 
 Se a hospedagem mudar, ou se o custo de uso no Pro (issue #15) pedir outra forma de entrega.

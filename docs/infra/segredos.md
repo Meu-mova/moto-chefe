@@ -9,7 +9,7 @@ nomes, com o propósito de cada um e os padrões não secretos, está em `.env.e
 | O quê | Fonte da verdade | Cópias permitidas |
 |---|---|---|
 | Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.prod.local`, só na máquina de quem opera a prod |
-| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` local; Vercel **Preview** quando a fase 6 sair |
+| Staging | **Bitwarden, coleção "MOVA staging"** | `.env.local` local; Vercel **Preview** (desde 2026-10-07; ver [`staging.md`](staging.md#app-na-vercel-preview)) |
 | CI (GitHub Actions) | **Secrets do repo** `Meu-mova/moto-chefe` (Settings → Secrets and variables → Actions) | nenhuma |
 | Credencial de integração por grupo ou loja | **Banco**. Cifradas com `src/lib/cripto.ts` (AES-256-GCM, chave `CERT_MASTER_KEY`): MCPAI, Nota Gateway, certificado A1. Bling, Kommo e fábrica: não há uso de `cripto.ts` em `bling.ts`, `kommo.ts` nem `fabrica-por-loja.ts` | nenhuma |
 
@@ -75,6 +75,14 @@ para a produção: lá a convenção não muda.
   no mesmo dia. `CERT_MASTER_KEY` não pode simplesmente ser trocada: tudo que foi cifrado com ela
   precisa ser recifrado antes.
 - URL de deploy hook da Vercel também é segredo: quem tem a URL publica. Revogar depois de usar.
+- **Mudar o ambiente de uma variável na Vercel:** edite o alvo pela API
+  (`vercel api /v9/projects/<projeto>/env/<id>?teamId=<time> -X PATCH` com `{"target": [...]}`);
+  os outros ambientes ficam como estavam (testado em 2026-10-07, PR #32). O `id` sai de
+  `vercel api /v10/projects/<projeto>/env?teamId=<time>` (lista sem valores). Não use
+  `vercel env rm <nome> <ambiente>` para isso: não testamos se ele remove só aquele ambiente ou o
+  registro inteiro, e valor `sensitive` apagado não volta.
+- Integração no staging, se um teste precisar: analisar antes e cadastrar só no Preview, com
+  credencial de teste.
 
 ## Divergências conhecidas (2026-10-06)
 
@@ -94,10 +102,9 @@ Comparação só por nome entre o painel da Vercel (Environment Variables, confe
   `952c29a`; só `scripts/set-telegram-webhook.mjs` e `scripts/conciliacao/navegador.ts`.
   Credencial viva sem uso é risco sem benefício. Revisar e remover: Luis (Owner do time MOVA
   na Vercel desde 2026-10-06).
-- **Preview tem segredo de produção:** Resend, Telegram, Jarvis, Bling, fábrica, ValidaPix,
-  WhatsApp (MCPAI) estão marcados "Production and Preview", sem Supabase nem `DATABASE_URL` no
-  Preview. Pelo plano (§5.5), o Preview recebe os valores do staging e as integrações ficam
-  vazias.
+- ~~**Preview tem segredo de produção**~~: resolvido em 2026-10-07 (PR #32). As 15 credenciais
+  de integração que estavam em "Production and Preview" ficaram só em Production, e o Preview
+  passou a ter só as variáveis do staging ([`staging.md`](staging.md#app-na-vercel-preview)).
 - **No código e fora da Vercel (usam fallback):** `NEXT_PUBLIC_APP_URL`/`MOVA_URL` (em
   Production os links de assinatura saem com `moto-chefe.vercel.app`; em Preview, com o host do
   deployment), `LEADS_EMAIL_TO`, `KOMMO_REDIRECT_URI`, `BLING_NATUREZA_OPERACAO`.
