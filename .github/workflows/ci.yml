@@ -1,0 +1,70 @@
+name: CI
+
+# Fase A do plano de staging/CI (docs/seguranca/2026-10-01-plano-staging-ci.md).
+# Roda em PR para dev/main e em push em dev/main. Sem secrets: `npm run build`
+# passa sem nenhuma env (verificado em 2026-10-01).
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: type-check, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run type-check
+
+      - run: npm test
+
+      - run: npm run build
+
+      # Aviso, não bloqueia: sem baseline ainda (ver plano §5.10, rollout do Biome
+      # é item separado). Serve para acompanhar lib morta sem travar PR.
+      - name: knip (arquivos e dependências não usados)
+        run: npx knip
+        continue-on-error: true
+
+      # Aviso, não bloqueia: xlsx@0.18.5 tem CVE sem correção (relatório de
+      # segurança 2026-09-30, item 6). Vira bloqueante quando for trocado.
+      - name: npm audit (CVEs conhecidas)
+        run: npm audit
+        continue-on-error: true
+
+  gitleaks:
+    name: segredo no diff
+    runs-on: ubuntu-latest
+    # gitleaks-action lista os commits do PR pela API (GET .../pulls/{n}/commits);
+    # sem isso dá 403 "Resource not accessible by integration" (visto no 1º run).
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Grátis, mas repo de ORGANIZAÇÃO exige licença de gitleaks.io
+          # (conta pessoal não precisa). Secret GITLEAKS_LICENSE cadastrado no
+          # repo Meu-mova/moto-chefe em 2026-10-05; sem ele este step falha.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

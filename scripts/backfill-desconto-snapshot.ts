@@ -7,7 +7,7 @@
  * linhas saem com snapshot_estimado = true.
  *
  * Uso:
- *   npx dotenv-cli -e .env.local -- node --import tsx scripts/backfill-desconto-snapshot.ts [--dry]
+ *   npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/backfill-desconto-snapshot.ts [--dry]
  *
  * Idempotente: só toca linha com valor_minimo_snapshot NULL. Rodar de novo não
  * reescreve nada. --dry mostra o que faria sem gravar.
@@ -18,7 +18,7 @@ import { calcLiquidoRecebido, type TaxasVenda } from '../src/lib/preco-minimo'
 const dry = process.argv.includes('--dry')
 
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
+  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.prod.local -- ...`')
   process.exit(1)
 }
 

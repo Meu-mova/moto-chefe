@@ -1,0 +1,44 @@
+name: Pedido de melhoria
+description: Algo novo ou diferente que o MOVA deveria fazer.
+type: Feature
+labels: [needs-triage]
+projects: [Meu-mova/2]
+assignees: [LuisCarlos01]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve
+      description: O que hoje dá trabalho, se perde ou é feito fora do sistema.
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Como você imagina
+      description: Opcional — se já tiver uma ideia de tela ou de fluxo.
+  - type: checkboxes
+    id: quem
+    attributes:
+      label: Quem usa
+      options:
+        - label: Sócios (admin)
+        - label: Administrativo da loja (aux_adm)
+        - label: Vendedor
+        - label: Mecânico / oficina
+        - label: Cliente final
+  - type: dropdown
+    id: urgencia
+    attributes:
+      label: Urgência
+      options:
+        - Tem prazo (diga qual abaixo)
+        - Importante, sem prazo
+        - Quando der
+    validations:
+      required: true
+  - type: input
+    id: prazo
+    attributes:
+      label: Prazo
+      description: Só se houver data combinada.
