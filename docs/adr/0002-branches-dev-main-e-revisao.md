@@ -42,3 +42,8 @@ Não registradas na fonte.
 
 Quando entrarem mais pessoas desenvolvendo, ou quando os rulesets do GitHub (D11, fase 8)
 passarem a impor a regra: hoje ela é combinada, não imposta pela ferramenta.
+
+## Situação em 2026-10-06
+
+Ampliada pelo [0013](0013-prefixo-livre-e-branch-apagada-a-mao.md): prefixo de branch passa a ser
+qualquer tipo do Conventional Commits, e branch de trabalho se apaga à mão.

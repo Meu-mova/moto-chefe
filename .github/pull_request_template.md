@@ -1,3 +1,6 @@
+<!-- Issue: Refs #N (nunca Closes — a issue fecha na release; ver CONTRIBUTING.md) -->
+Refs #
+
 ## O que muda e por quê
 
 

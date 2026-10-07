@@ -41,6 +41,10 @@ Não registradas na fonte.
 - Ainda falta:
   - tornar o check da Vercel obrigatório (D18, via rulesets, fase 8);
   - apontar o Preview para o staging (D6, fase 6).
+- **Rulesets bloqueados pelo plano do GitHub:** a org `Meu-mova` está no plano Free, e com o repo
+  privado a API de proteção de branch e de rulesets responde 403 ("Upgrade to GitHub Pro or make
+  this repository public"). O plano previa o Team. Até o Cesar decidir sobre a assinatura, os
+  checks "que devem barrar o merge" só avisam, e o D11 e a fase 8 ficam sem caminho.
 
 ## Quando revisar
 
