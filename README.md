@@ -17,7 +17,8 @@ de Minas, BH e Vale).
 
 ```bash
 npm ci
-npm run dev:staging   # app contra o mova-staging (dado sintético); ver docs/infra/staging.md
+npm run dev           # app contra o staging (.env.local)
+npm run dev:staging   # idem, com trava: recusa subir fora do mova-staging
 ```
 
 As variáveis estão listadas no [`.env.example`](.env.example). Os valores do staging ficam no

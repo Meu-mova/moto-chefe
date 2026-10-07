@@ -23,14 +23,16 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
 
 - `npm run dev` e script rodado com o env padrão falam com o staging. Na dúvida, o
   `sql.ts` e o `migrate.ts` imprimem o banco antes de tudo.
-- Produção sempre explícita: `npx dotenv-cli -e .env.prod.local -- ... --prod`.
+- Produção sempre explícita: `npx dotenv-cli -e .env.prod.local -- ...` (o `sql.ts` e o
+  `migrate.ts` exigem também `--prod`).
 - O nome é `.env.prod.local` de propósito: o Next carregaria sozinho um
   `.env.production.local` em `next build`/`next start`, e o build local que o
   "Antes de dar por pronto" pede passaria a usar a produção.
 - `npm run dev:staging` continua valendo: só sobe se banco e Supabase forem o
   staging (detalhes em `docs/infra/staging.md`).
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
-- Nunca imprima, logue, commite ou cole em chat o conteúdo de nenhum `.env*`.
+- Nunca imprima, logue, commite ou cole em chat o conteúdo de nenhum `.env*` com valores
+  (o `.env.example` só tem nomes).
 - Segredos que dão poder real: `CERT_MASTER_KEY` (abre os certificados A1 →
   emite nota fiscal em nome das empresas), `SUPABASE_SERVICE_ROLE_KEY` (ignora
   RLS), `DATABASE_URL`.
@@ -50,7 +52,7 @@ Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgre
 
 ```bash
 npm run dev          # local contra o staging (.env.local)
-npm run dev:staging  # idem, mas recusa subir se o env não for o staging; ver docs/infra/staging.md
+npm run dev:staging  # lê o .env.staging.local e recusa subir fora do staging; ver docs/infra/staging.md
 npm run type-check   # tsc --noEmit
 npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega

@@ -77,7 +77,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
 `src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
 Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
-OK do Cesar). Antes de cada PR `dev → main`, rode `node --import tsx scripts/schema-diff.ts`: compara o
+OK do Cesar). Antes de cada PR `dev → main`, rode
+`node --import tsx scripts/schema-diff.ts .env.staging.local .env.prod.local`: compara o
 `public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
 é o staging e o segundo é a produção, e recusa se não forem.
 
@@ -141,8 +142,8 @@ modo de teste quando for preciso.
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
-O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.staging.local`, este
-runbook e as variáveis Preview da Vercel (fase 6).
+O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.staging.local` e o
+`.env.local`, este runbook e as variáveis Preview da Vercel (fase 6).
 
 ## Pausa
 
