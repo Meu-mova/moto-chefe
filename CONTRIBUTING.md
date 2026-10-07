@@ -25,8 +25,9 @@ como membro do time; ver `docs/infra/staging.md`) — ver `AGENTS.md`.
 
 ## Revisão
 
-- PR do responsável técnico: CI verde é suficiente para merge (mais a revisão por IA,
-  quando configurada — comentários dela servem de insumo, não bloqueiam).
+- PR do responsável técnico: CI verde é suficiente para merge, mais a leitura da revisão por
+  IA (workflow `Revisão por IA`, que comenta em todo PR para a `dev` fora de rascunho). Os
+  comentários dela servem de insumo, não bloqueiam.
 - PR de qualquer outra pessoa: revisão do responsável técnico antes do merge.
 - PR escrito por agente de IA (Claude Code ou similar) conta como PR de outra pessoa: o
   responsável técnico revisa no GitHub antes do merge (ADR 0002).
