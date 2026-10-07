@@ -43,6 +43,9 @@ acima de ~400 linhas, e a revisão por IA não muda isso.
   remoção de código morto, feature que não dá pra dividir).
 - O limite é um alerta, não um bloqueio. Não fatie PRs artificialmente em partes que não
   compilam ou não fazem sentido sozinhas.
+- O workflow `Tamanho do PR` (`.github/workflows/pr-size.yml`) conta sozinho: acima de 400 põe
+  a label `pr/grande` e comenta com os maiores arquivos. A regra do que conta está em
+  `scripts/lib/tamanho-pr.ts`.
 
 **O que NÃO conta no limite**
 - Testes (mas eles DEVEM ser revisados normalmente)

@@ -1,0 +1,68 @@
+name: Tamanho do PR
+
+# D13 do plano de staging/CI e CONTRIBUTING.md ("Tamanho de PR"): conta as linhas de
+# produção e, acima de 400, põe a label `pr/grande` e comenta. Alerta, nunca falha o PR.
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-size-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Label e comentário de PR passam pela API de issues.
+  issues: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tamanho:
+    name: linhas de produção
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: contar e avisar
+        # Erro aqui (API fora, por exemplo) não vira PR vermelho: o tamanho é só alerta.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          total=$(git diff --numstat -M "$BASE...$HEAD" | node --import tsx scripts/tamanho-pr.ts comentario.md)
+          echo "Linhas de produção: $total"
+
+          existente=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- tamanho-pr -->")) | .id' | head -n1)
+
+          if [ "$total" -gt 400 ]; then
+            gh pr edit "$PR" --repo "$REPO" --add-label pr/grande
+          else
+            gh pr edit "$PR" --repo "$REPO" --remove-label pr/grande || true
+          fi
+
+          # Um comentário só por PR, atualizado a cada push. Abaixo do limite, só atualiza
+          # se já existir (para dizer que voltou ao alvo); não cria.
+          if [ -n "$existente" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existente" -F body=@comentario.md >/dev/null
+          elif [ "$total" -gt 400 ]; then
+            gh pr comment "$PR" --repo "$REPO" --body-file comentario.md
+          fi
