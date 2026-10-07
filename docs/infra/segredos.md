@@ -75,6 +75,14 @@ para a produção: lá a convenção não muda.
   no mesmo dia. `CERT_MASTER_KEY` não pode simplesmente ser trocada: tudo que foi cifrado com ela
   precisa ser recifrado antes.
 - URL de deploy hook da Vercel também é segredo: quem tem a URL publica. Revogar depois de usar.
+- **Mudar o ambiente de uma variável na Vercel:** edite o alvo pela API
+  (`vercel api /v9/projects/<projeto>/env/<id>?teamId=<time> -X PATCH` com `{"target": [...]}`);
+  os outros ambientes ficam como estavam (testado em 2026-10-07, PR #32). O `id` sai de
+  `vercel api /v10/projects/<projeto>/env?teamId=<time>` (lista sem valores). Não use
+  `vercel env rm <nome> <ambiente>` para isso: não testamos se ele remove só aquele ambiente ou o
+  registro inteiro, e valor `sensitive` apagado não volta.
+- Integração no staging, se um teste precisar: analisar antes e cadastrar só no Preview, com
+  credencial de teste.
 
 ## Divergências conhecidas (2026-10-06)
 
@@ -94,15 +102,9 @@ Comparação só por nome entre o painel da Vercel (Environment Variables, confe
   `952c29a`; só `scripts/set-telegram-webhook.mjs` e `scripts/conciliacao/navegador.ts`.
   Credencial viva sem uso é risco sem benefício. Revisar e remover: Luis (Owner do time MOVA
   na Vercel desde 2026-10-06).
-- **Preview deixou de ter segredo de produção (2026-10-07):** as 15 credenciais de integração
-  que estavam em "Production and Preview" (Resend, Telegram, Jarvis, Bling, fábrica, ValidaPix,
-  WhatsApp) ficaram só em Production; nada de Production mudou. O Preview tem só as variáveis do
-  staging ([`staging.md`](staging.md#app-na-vercel-preview)). Se um teste no staging precisar de
-  uma integração, ela entra só no Preview, com credencial de teste, depois de analisada.
-- **Mudar o ambiente de uma variável na Vercel:** edite o alvo pela API
-  (`vercel api /v9/projects/<projeto>/env/<id>?teamId=<time> -X PATCH` com `{"target": [...]}`),
-  que mantém os outros ambientes. O `id` sai de `vercel api /v10/projects/<projeto>/env?teamId=<time>`
-  (lista sem valores). Valor `sensitive` apagado não volta.
+- ~~**Preview tem segredo de produção**~~: resolvido em 2026-10-07 (PR #32). As 15 credenciais
+  de integração que estavam em "Production and Preview" ficaram só em Production, e o Preview
+  passou a ter só as variáveis do staging ([`staging.md`](staging.md#app-na-vercel-preview)).
 - **No código e fora da Vercel (usam fallback):** `NEXT_PUBLIC_APP_URL`/`MOVA_URL` (em
   Production os links de assinatura saem com `moto-chefe.vercel.app`; em Preview, com o host do
   deployment), `LEADS_EMAIL_TO`, `KOMMO_REDIRECT_URI`, `BLING_NATUREZA_OPERACAO`.

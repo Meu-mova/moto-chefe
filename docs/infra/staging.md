@@ -152,8 +152,8 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | do `mova-staging` |
 | `DATABASE_URL` | do `mova-staging`, pooler em **transaction mode (6543)**, como o app espera na Vercel; o `.env.local` usa o Session pooler (5432) |
 | `CERT_MASTER_KEY`, `CRON_SECRET` | as do staging (Bitwarden) |
-| `MOVA_URL`, `NEXT_PUBLIC_APP_URL` | sem valor: o app usa o host do deployment (`VERCEL_URL`) |
-| Integrações (Resend, WhatsApp, Bling, Kommo, Jarvis, Telegram, fábrica) | nenhuma (D7) |
+| `MOVA_URL`, `NEXT_PUBLIC_APP_URL` | sem valor. Fora de produção, o link de assinatura usa sempre o host do deployment (`VERCEL_URL`, `src/lib/assinatura/url.ts`), mesmo com elas definidas |
+| Credenciais de integração (Resend, WhatsApp, Telegram, Jarvis, Bling, fábrica, ValidaPix) | nenhuma: ficaram só em Production (D7) |
 
 - **Domínio:** `dev.meumova.com` → branch `dev`. A zona DNS do `meumova.com` fica na conta
   pessoal do Cesar na Vercel, não no time MOVA; a posse foi provada com o TXT
@@ -161,6 +161,11 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 - **Proteção:** Standard Protection (login da Vercel) vale para todos os previews, inclusive o
   `dev.meumova.com`. Abrir para quem não é do time (D6 previa desligar) está **pendente de
   decisão do Luis**. Até lá, teste autenticado com `vercel curl <caminho> --deployment <url>`.
+- **Diferenças da §5.5 do plano:** a URL do app não foi fixada em `https://dev.meumova.com` (ver a
+  tabela), e `EMAIL_FROM`, `LEADS_EMAIL_TO` e `DEFAULT_USER_PASSWORD` não foram definidas no
+  Preview: e-mail fica desligado (D7) e a senha dos usuários sintéticos é a `SEED_SENHA` do seed.
+- **Link de assinatura em preview:** aponta para o host `*.vercel.app` do deployment, que fica
+  atrás da proteção da Vercel; quem não é do time não abre.
 - **Conferir:** `vercel curl /assinar/token-falso --deployment <url>` responde 404 (app e banco
   no ar) e `/dashboard` redireciona para `/login`.
 

@@ -19,7 +19,7 @@ produção. O `npm run build` pega erros de fronteira server/client que o `tsc` 
   - só avisam: `knip` e `npm audit`;
   - não usa nenhum secret de aplicação.
 - **Entrega:** a Vercel publica `main` em produção e as demais branches como Preview. O Preview
-  aponta para o staging (D6, configurado em 2026-10-07; ver `docs/infra/staging.md`).
+  aponta para o staging (D6, ainda não configurado).
 
 ## Por quê
 
