@@ -15,8 +15,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 
 ## Acesso
 
-- **Conexão local:** `.env.staging.local` (ignorado pelo git) com só `DATABASE_URL` do
-  **Session pooler** (`postgres.pulsqeymzsheasxsdnnk@aws-…-sa-east-1.pooler.supabase.com:5432`).
+- **Conexão local:** `.env.staging.local` (ignorado pelo git), com as variáveis do staging; a
+  `DATABASE_URL` é a do **Session pooler** (`postgres.pulsqeymzsheasxsdnnk@aws-…-sa-east-1.pooler.supabase.com:5432`).
   No painel: **Connect → Direct (Connection string) → Session pooler**. Senha esquecida:
   **Project Settings → Database → Reset database password**.
 - Nunca imprima o conteúdo do arquivo nem a URL, nem em mensagem de erro.
@@ -77,7 +77,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
 `src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
 Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
-OK do Cesar). Antes de cada PR `dev → main`, rode `node --import tsx scripts/schema-diff.ts`: compara o
+OK do Cesar). Antes de cada PR `dev → main`, rode
+`node --import tsx scripts/schema-diff.ts .env.staging.local .env.prod.local`: compara o
 `public` daqui com o da prod e sai com erro se forem diferentes. Ele confere que o primeiro env
 é o staging e o segundo é a produção, e recusa se não forem.
 
@@ -120,9 +121,9 @@ npm run dev:staging            # http://localhost:3000; argumentos extras vão p
 ```
 
 Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
-toda chave que ainda não existe — a produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria
-para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
-Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
+toda chave que ainda não existe. Numa máquina em que o `.env.local` ainda seja a produção, a
+produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria para dentro do app de staging.
+O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
 e define como vazia toda chave que eles têm e o staging não. O Next não sobrescreve chave já
 definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
 `kommo.ts`, integrações que não funcionam no staging). Ele lista os nomes anulados ao subir.
@@ -141,8 +142,8 @@ modo de teste quando for preciso.
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
-O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.staging.local`, este
-runbook e as variáveis Preview da Vercel (fase 6).
+O ref muda: atualize o MCP `supabase-staging` (`~/.claude.json`), o `.env.staging.local` e o
+`.env.local`, este runbook e as variáveis Preview da Vercel (fase 6).
 
 ## Pausa
 

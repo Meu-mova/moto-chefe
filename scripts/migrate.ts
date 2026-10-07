@@ -5,7 +5,7 @@
  * Uso (staging):
  *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --status
  *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar
- * Na produção, o mesmo comando com o env da prod e --prod no fim.
+ * Na produção: npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod
  *
  * Uma vez por banco, para registrar o que já existia antes desta tabela:
  *   ... scripts/migrate.ts --baseline-ate 110

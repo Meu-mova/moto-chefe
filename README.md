@@ -10,13 +10,15 @@ de Minas, BH e Vale).
 ## Antes de tudo
 
 - Leia o [`AGENTS.md`](AGENTS.md): cada regra ali nasceu de um incidente real.
-- **O `.env.local` ainda aponta para a produção.** Para desenvolver, use o staging.
+- **Local é staging:** o `.env.local` aponta para o `mova-staging` (dado sintético). Produção só
+  em `.env.prod.local`, explícita (ver [`docs/infra/segredos.md`](docs/infra/segredos.md)).
 
 ## Rodar localmente
 
 ```bash
 npm ci
-npm run dev:staging   # app contra o mova-staging (dado sintético); ver docs/infra/staging.md
+npm run dev           # app contra o staging (.env.local)
+npm run dev:staging   # idem, com trava: recusa subir fora do mova-staging
 ```
 
 As variáveis estão listadas no [`.env.example`](.env.example). Os valores do staging ficam no
