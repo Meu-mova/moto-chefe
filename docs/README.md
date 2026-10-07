@@ -8,6 +8,11 @@ Ponto de entrada da documentação. Para trabalhar no código, comece pelo
 
 - [`adr/`](adr/README.md): decisões de arquitetura (ADRs), com contexto, motivo e alternativas.
 
+## Arquitetura
+
+- [`arquitetura.md`](arquitetura.md): as peças do sistema, as integrações, o que roda sozinho,
+  os ambientes e o caminho do código até a produção.
+
 ## Domínio
 
 - [`CONTEXT.md`](../CONTEXT.md): glossário do negócio, um nome por conceito (grupo, reserva,
