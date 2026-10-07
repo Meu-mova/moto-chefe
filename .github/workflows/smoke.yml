@@ -1,0 +1,46 @@
+name: Smoke do preview
+
+# Fase 10 do plano de staging/CI (D17): quando a Vercel termina um preview (PR ou dev),
+# entra com os usuários sintéticos e visita as telas principais (scripts/smoke.ts).
+# O preview usa o staging (D6); a proteção da Vercel continua ligada e o robô passa
+# pelo bypass de automação (docs/infra/staging.md, "Smoke").
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke do preview
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      !contains(github.event.deployment.environment, 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: smoke-${{ github.event.deployment.sha }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: smoke
+        env:
+          # environment_url é o endereço do deployment; target_url, a página dele na Vercel.
+          SMOKE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          SMOKE_SENHA: ${{ secrets.SMOKE_SENHA }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          echo "Preview: $SMOKE_URL"
+          node --import tsx scripts/smoke.ts

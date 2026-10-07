@@ -20,7 +20,8 @@ Secrets do GitHub:
 | `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença) | cadastrado em 2026-10-05 |
 | `CLAUDE_CODE_OAUTH_TOKEN` | workflow `Revisão por IA` (`claude-code-review.yml`, fase 8, D19); ver nota abaixo | cadastrado em 2026-10-07 |
 | `STAGING_DATABASE_URL` | job `aplicar-staging` do `migracoes.yml` (fase 9): Session pooler (5432) do `mova-staging`, igual ao `.env.local` | cadastrado em 2026-10-07 |
-| usuário e senha do smoke | smoke Playwright (fase 10, §5.6) | planejados |
+| `SMOKE_SENHA` | workflow `Smoke do preview` (`smoke.yml`, fase 10): senha dos usuários sintéticos, igual à `SEED_SENHA` do staging | cadastrado em 2026-10-07 |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | `smoke.yml`: passa pela proteção da Vercel nos previews (Protection Bypass for Automation, nota "Smoke Playwright" no projeto). Revogar no painel ou pela API (`PATCH /v1/projects/<projeto>/protection-bypass` com `revoke`) | cadastrado em 2026-10-07 |
 
 `CLAUDE_CODE_OAUTH_TOKEN`: token da assinatura do Luis, gerado com `claude setup-token`, válido
 por 1 ano e consumindo a cota dela. Apagar o secret não invalida o token, e a doc do Claude Code

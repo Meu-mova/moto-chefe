@@ -182,6 +182,28 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 - **Conferir:** `vercel curl /assinar/token-falso --deployment <url>` responde 404 (app e banco
   no ar) e `/dashboard` redireciona para `/login`.
 
+## Smoke
+
+O workflow `Smoke do preview` (`.github/workflows/smoke.yml`, fase 10, D17) roda quando a Vercel
+marca um preview como pronto (evento `deployment_status`; Production fica de fora). O
+`scripts/smoke.ts` entra com dois usuários do seed e visita as telas:
+
+| Usuário | Telas |
+|---|---|
+| `aux.sul@teste.meumova.com` (aux_adm) | `/dashboard`, `/estoque`, `/vendas`, `/ordens-servico`, `/conciliacao` |
+| `geral@teste.meumova.com` (admin_geral) | as cinco acima, `/folha-pagamento`, `/financeiro`, `/admin/notas-fiscais` |
+
+Uma tela falha com status 5xx, redirecionamento (inclusive para `/login`), erro no console do
+navegador, exceção na página ou resposta 5xx de requisição do próprio app. Só navega: não
+preenche nem confirma formulário. As regras estão em `scripts/lib/smoke.ts`.
+
+- **Secrets:** `SMOKE_SENHA` (a `SEED_SENHA`) e `VERCEL_AUTOMATION_BYPASS_SECRET` (o header
+  `x-vercel-protection-bypass` deixa o robô passar pela proteção, que segue ligada para o resto).
+- **Rodar à mão** contra o app local (`npm run dev:staging`), sem bypass:
+  `SMOKE_URL=http://localhost:3000 SMOKE_SENHA=<senha do seed> node --import tsx scripts/smoke.ts`.
+- Se o seed mudar os usuários ou o primeiro acesso deles (`/completar-cadastro`,
+  `/trocar-senha`), o smoke falha no login.
+
 ## Recriar
 
 Não testado. O caminho mais limpo é apagar o projeto e refazer [Criar do zero](#criar-do-zero).
