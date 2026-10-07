@@ -99,8 +99,9 @@ Telegram (`scripts/conciliacao/navegador.ts`), a coluna `grupos.telegram_chat_id
 `TELEGRAM_*` ([`infra/segredos.md`](infra/segredos.md)).
 
 **Riscos conhecidos:**
-- desde 2026-09-01, o portal da fábrica exige uma verificação anti-robô que só o navegador
-  resolve (`fabrica-scraper.ts`), e a leitura automática pode falhar;
+- desde 2026-09-01, o portal da fábrica pode exigir uma verificação anti-robô que só o
+  navegador resolve (`fabrica-scraper.ts`). Em 2026-10-06 a leitura funcionava para as 5 lojas
+  com credencial; acompanhamento na issue #24;
 - o Jarvis roda `SELECT` livre, só leitura e sem filtro de grupo (`src/lib/jarvis/consulta-readonly.ts`).
 
 ## O que roda sozinho
