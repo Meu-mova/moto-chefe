@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { caminhoFinal, contaNoLimite, contarLinhasDeProducao, montarComentario, MARCADOR_COMENTARIO } from './tamanho-pr'
+import { acimaDoAlerta, caminhoFinal, contaNoLimite, contarLinhasDeProducao, montarComentario, MARCADOR_COMENTARIO } from './tamanho-pr'
 
 test('código de produção e migração escrita à mão contam', () => {
   assert.equal(contaNoLimite('src/app/(dashboard)/vendas/page.tsx'), true)
@@ -18,6 +18,15 @@ test('testes, docs, gerados e lockfile não contam', () => {
     'supabase/schema-baseline.sql',
     'package-lock.json',
   ]) assert.equal(contaNoLimite(arquivo), false, arquivo)
+})
+
+test('o alerta começa acima de 400', () => {
+  assert.equal(acimaDoAlerta(400), false)
+  assert.equal(acimaDoAlerta(401), true)
+})
+
+test('caminho com acento (quotePath=false) cai no filtro de docs', () => {
+  assert.equal(contaNoLimite('docs/relatório.md'), false)
 })
 
 test('renomeação vale pelo caminho novo', () => {

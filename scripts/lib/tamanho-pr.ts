@@ -5,7 +5,9 @@
 
 export const LIMITE_ALERTA = 400
 export const LIMITE_JUSTIFICATIVA = 500
+// O pr-size.yml procura este texto para achar o comentário antigo: mude os dois juntos.
 export const MARCADOR_COMENTARIO = '<!-- tamanho-pr -->'
+const MAX_ARQUIVOS_NO_COMENTARIO = 15
 
 export type ArquivoContado = { arquivo: string; linhas: number }
 export type Contagem = { total: number; arquivos: ArquivoContado[] }
@@ -32,6 +34,10 @@ export function caminhoFinal(campo: string): string {
     .replace(/\/{2,}/g, '/')
 }
 
+export function acimaDoAlerta(total: number): boolean {
+  return total > LIMITE_ALERTA
+}
+
 export function contarLinhasDeProducao(numstat: string): Contagem {
   const arquivos: ArquivoContado[] = []
   for (const linha of numstat.split('\n')) {
@@ -48,14 +54,15 @@ export function contarLinhasDeProducao(numstat: string): Contagem {
 }
 
 export function montarComentario({ total, arquivos }: Contagem): string {
-  if (total <= LIMITE_ALERTA) {
+  if (!acimaDoAlerta(total)) {
     return `${MARCADOR_COMENTARIO}\n**Tamanho do PR: ${total} linhas de produção**, dentro do alvo (até ${LIMITE_ALERTA}).\n`
   }
   const pedido = total > LIMITE_JUSTIFICATIVA
     ? `Acima de ${LIMITE_JUSTIFICATIVA}: justifique na descrição do PR (ex.: migração grande, remoção de código morto, feature que não dá para dividir).`
     : `Entre ${LIMITE_ALERTA} e ${LIMITE_JUSTIFICATIVA}: vale conferir se dá para separar responsabilidades.`
-  const maiores = arquivos.slice(0, 15).map(a => `| \`${a.arquivo}\` | ${a.linhas} |`)
-  const outros = arquivos.length > 15 ? [`| (mais ${arquivos.length - 15} arquivos) | |`] : []
+  const maiores = arquivos.slice(0, MAX_ARQUIVOS_NO_COMENTARIO).map(a => `| \`${a.arquivo}\` | ${a.linhas} |`)
+  const resto = arquivos.length - MAX_ARQUIVOS_NO_COMENTARIO
+  const outros = resto > 0 ? [`| (mais ${resto} arquivos) | |`] : []
   return [
     MARCADOR_COMENTARIO,
     `**Tamanho do PR: ${total} linhas de produção** (alvo: até ${LIMITE_ALERTA}). É alerta, não bloqueio.`,
