@@ -4,6 +4,11 @@ Ponto de entrada da documentação. Para trabalhar no código, comece pelo
 [`AGENTS.md`](../AGENTS.md) (regras que nasceram de incidentes) e pelo
 [`CONTRIBUTING.md`](../CONTRIBUTING.md) (branches, PR, revisão).
 
+## Produto
+
+- [`produto/visao.md`](produto/visao.md): o que o MOVA é, para quem, os módulos, objetivos e o
+  que fica fora do escopo (PRD retroativo; objetivos a validar com o Cesar).
+
 ## Decisões
 
 - [`adr/`](adr/README.md): decisões de arquitetura (ADRs), com contexto, motivo e alternativas.
