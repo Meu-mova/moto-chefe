@@ -3,7 +3,7 @@
  * PR dev → main: diferença significa migração aplicada num banco e não no outro.
  *
  * Uso: node --import tsx scripts/schema-diff.ts [env do staging] [env da produção]
- *      padrão: .env.staging.local e .env.production.local
+ *      padrão: .env.staging.local e .env.prod.local
  * Precisa de pg_dump 17 (brew install postgresql@17).
  */
 import { spawnSync } from 'node:child_process'
@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { parseEnv } from 'node:util'
 import { descreverAlvo, REF_PRODUCAO, rotuloAlvo } from './lib/alvo-banco'
 
-const [envStaging = '.env.staging.local', envProducao = '.env.production.local'] = process.argv.slice(2)
+const [envStaging = '.env.staging.local', envProducao = '.env.prod.local'] = process.argv.slice(2)
 const PG_DUMP = process.env.PG_DUMP
   ?? (existsSync('/opt/homebrew/opt/postgresql@17/bin/pg_dump') ? '/opt/homebrew/opt/postgresql@17/bin/pg_dump' : 'pg_dump')
 

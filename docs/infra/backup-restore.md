@@ -68,7 +68,7 @@ Em dúvida, prefira o projeto novo: não desfaz o dia de ninguém.
    da produção.
 4. Devolver dado à produção é escrita na prod. Monte o `insert`/`update`, rode antes um `select`
    com o mesmo `where`, combine com o Cesar e aplique com
-   `scripts/sql.ts --query "..." --prod` (env da prod). Não pelo SQL Editor nem pelo MCP.
+   `npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/sql.ts --query "..." --prod`. Não pelo SQL Editor nem pelo MCP.
 5. Apague o projeto novo quando terminar.
 
 ## Checklist depois de restaurar o projeto inteiro
@@ -90,7 +90,7 @@ Em dúvida, prefira o projeto novo: não desfaz o dia de ninguém.
       volta a nota já emitida (ou a negada). Liste no painel da Nota Gateway os ids
       `mova-<n>-<t>` (os de homologação são `mova-homolog-*`) emitidos depois do backup e
       reconcilie com as vendas antes de emitir de novo.
-- [ ] **Migrações.** `migrate.ts --status` com o env da prod e `--prod`: migração aplicada
+- [ ] **Migrações.** `migrate.ts --status` com `-e .env.prod.local` e `--prod`: migração aplicada
       depois do backup aparece como pendente e precisa ser reaplicada pelo `migrate.ts`.
 - [ ] **Storage.** Comprovantes, assinaturas e holerites enviados no dia ficaram órfãos; os
       registros que apontavam para eles precisam ser refeitos.

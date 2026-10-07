@@ -17,15 +17,16 @@ ao Cesar antes de contornar.
 ## ⚠️ Local é staging; produção só explícita
 
 O `.env.local` aponta para o **staging** (`mova-staging`, só dado sintético). A
-**produção** fica em `.env.production.local`, que só existe na máquina de quem
+**produção** fica em `.env.prod.local`, que só existe na máquina de quem
 opera a produção. Máquina que ainda tenha a produção no `.env.local`: troque antes
 de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
 
-- `npm run dev` e script sem env explícito falam com o staging. Na dúvida, o
+- `npm run dev` e script rodado com o env padrão falam com o staging. Na dúvida, o
   `sql.ts` e o `migrate.ts` imprimem o banco antes de tudo.
-- Produção sempre explícita: `npx dotenv-cli -e .env.production.local -- ... --prod`.
-- O Next carrega o `.env.production.local` sozinho em `next build`/`next start`:
-  um `npm start` local com esse arquivo presente fala com a produção.
+- Produção sempre explícita: `npx dotenv-cli -e .env.prod.local -- ... --prod`.
+- O nome é `.env.prod.local` de propósito: o Next carregaria sozinho um
+  `.env.production.local` em `next build`/`next start`, e o build local que o
+  "Antes de dar por pronto" pede passaria a usar a produção.
 - `npm run dev:staging` continua valendo: só sobe se banco e Supabase forem o
   staging (detalhes em `docs/infra/staging.md`).
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
@@ -72,10 +73,10 @@ O fluxo real:
    `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select ..."`.
-5. Na **produção**: `npx dotenv-cli -e .env.production.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
+5. Na **produção**: `npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
 
 `sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem
-`--prod`**. Produção só com `-e .env.production.local` e `--prod`.
+`--prod`**. Produção só com `-e .env.prod.local` e `--prod`.
 
 **Migração na produção só pelo `migrate.ts`** — nunca pelo MCP do Supabase
 (`apply_migration`/`execute_sql`) nem pelo SQL Editor do painel (o `sql.ts --file`

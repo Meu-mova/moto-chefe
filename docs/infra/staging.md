@@ -15,8 +15,8 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 
 ## Acesso
 
-- **Conexão local:** `.env.staging.local` (ignorado pelo git) com só `DATABASE_URL` do
-  **Session pooler** (`postgres.pulsqeymzsheasxsdnnk@aws-…-sa-east-1.pooler.supabase.com:5432`).
+- **Conexão local:** `.env.staging.local` (ignorado pelo git), com as variáveis do staging; a
+  `DATABASE_URL` é a do **Session pooler** (`postgres.pulsqeymzsheasxsdnnk@aws-…-sa-east-1.pooler.supabase.com:5432`).
   No painel: **Connect → Direct (Connection string) → Session pooler**. Senha esquecida:
   **Project Settings → Database → Reset database password**.
 - Nunca imprima o conteúdo do arquivo nem a URL, nem em mensagem de erro.
@@ -120,9 +120,9 @@ npm run dev:staging            # http://localhost:3000; argumentos extras vão p
 ```
 
 Não use `dotenv-cli -e .env.staging.local -- next dev`: no dev, o Next lê o `.env.local` e preenche
-toda chave que ainda não existe. Numa máquina em que o `.env.local` ainda seja a produção, a produção
-(Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria para dentro do app de staging. O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e
-Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
+toda chave que ainda não existe. Numa máquina em que o `.env.local` ainda seja a produção, a
+produção (Open Finance, Resend, Bling, `CERT_MASTER_KEY`) vazaria para dentro do app de staging.
+O `dev:staging` (`scripts/dev-staging.ts`) só sobe se banco e Supabase forem o `mova-staging`, lê os outros `.env` com o próprio carregador do Next (`@next/env`)
 e define como vazia toda chave que eles têm e o staging não. O Next não sobrescreve chave já
 definida, e o app trata vazio como "não configurado" (exceção: usos com `??` em `bling.ts` e
 `kommo.ts`, integrações que não funcionam no staging). Ele lista os nomes anulados ao subir.

@@ -7,7 +7,7 @@
  * encerrar o Bling para pegar as notas mais novas.
  *
  * Uso:
- *   npx dotenv-cli -e .env.production.local -- node --import tsx scripts/arquivar-nfe-saida-bling.ts --grupo "Sul de Minas"
+ *   npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/arquivar-nfe-saida-bling.ts --grupo "Sul de Minas"
  *   (opcional) --pasta "D:\ECOMOV\Notas de Saida\_Bling"
  *
  * Saída: <pasta>/<grupo>/<AAAA-MM>/NF-<numero>_<chave>.xml|.pdf e

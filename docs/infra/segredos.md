@@ -8,7 +8,7 @@ nomes, com o propósito de cada um, está em `.env.example`. Plano de origem:
 
 | O quê | Fonte da verdade | Cópias permitidas |
 |---|---|---|
-| Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.production.local`, só na máquina de quem opera a prod |
+| Produção | **Vercel → Environment Variables → Production** (projeto `mova-motochefe`, time MOVA) | `.env.prod.local`, só na máquina de quem opera a prod |
 | Staging | **Bitwarden, coleção "MOVA staging"** | `.env.staging.local` local; Vercel **Preview** quando a fase 6 sair |
 | CI (GitHub Actions) | **Secrets do repo** `Meu-mova/moto-chefe` (Settings → Secrets and variables → Actions) | nenhuma |
 | Credencial de integração por grupo ou loja | **Banco**. Cifradas com `src/lib/cripto.ts` (AES-256-GCM, chave `CERT_MASTER_KEY`): MCPAI, Nota Gateway, certificado A1. Bling, Kommo e fábrica: não há uso de `cripto.ts` em `bling.ts`, `kommo.ts` nem `fabrica-por-loja.ts` | nenhuma |
@@ -28,30 +28,31 @@ Todos ignorados pelo git (`.env*` no `.gitignore`, exceto `.env.example`).
 | Arquivo | O que tem | Quem tem |
 |---|---|---|
 | `.env.local` | **staging** (`mova-staging`) | toda máquina de desenvolvimento |
-| `.env.staging.local` | staging, para o `npm run dev:staging` (que recusa subir fora do staging) | opcional, mesmo conteúdo do `.env.local` |
-| `.env.production.local` | **produção** | só quem opera a produção (hoje, o Luis) |
+| `.env.staging.local` | staging, mesmo conteúdo do `.env.local` | **manter**: os comandos de migração no staging (`AGENTS.md`), o `dev:staging` e o `schema-diff.ts` leem este arquivo |
+| `.env.prod.local` | **produção** | só quem opera a produção (hoje, o Luis) |
 
-Convenção da D5 (plano de staging/CI), adotada em 2026-10-07. O Cesar não desenvolve mais,
+Convenção da D5 (plano de staging/CI), adotada em 2026-10-06, com uma mudança: o arquivo da
+produção se chama `.env.prod.local`, e não `.env.production.local`, porque o Next carrega esse
+segundo nome sozinho em `next build`/`next start`. O Cesar não desenvolve mais,
 então a troca vale só para a máquina do Luis.
 
 **Trocar numa máquina que ainda tem a produção no `.env.local`:**
-1. `mv .env.local .env.production.local`
+1. `mv -n .env.local .env.prod.local` (o `-n` não sobrescreve se já existir)
 2. `cp .env.staging.local .env.local`
 3. Conferir sem imprimir valores:
    `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select 1"`.
    O banner tem que dizer `pulsqeymzsheasxsdnnk` (staging), sem pedir `--prod`.
 
 Para rodar algo na produção, sempre explícito:
-`npx dotenv-cli -e .env.production.local -- node --import tsx scripts/... --prod`.
+`npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/... --prod`.
 
-Os scripts que miram a produção de propósito já leem o `.env.production.local`:
-`upload-imagens-modelos.mjs`, `test-readonly.mjs`, o padrão do `schema-diff.ts` e o comentário de
-uso dos `backfill-*`, `arquivar-nfe-saida-bling` e `baixar-xmls-bling`. O agente de conciliação
+Scripts que miram a produção de propósito: o padrão do `schema-diff.ts` (compara staging com
+produção, só leitura) e o comentário de uso de `upload-imagens-modelos.mjs`, `backfill-*`,
+`arquivar-nfe-saida-bling` e `baixar-xmls-bling`. Nenhum script carrega a produção sozinho: o
+env vem sempre do `-e`. Os `db:*` do `package.json` seguem no `.env.local`, ou seja, no staging:
+`db:generate`/`db:migrate` são proibidos, e o `db:studio` serve para inspecionar. O agente de conciliação
 (`scripts/conciliacao/agente.ts`) roda no PC da loja, que tem o próprio `.env.local` apontando
 para a produção: lá a convenção não muda.
-
-O Next carrega o `.env.production.local` sozinho em `next build`/`next start`, então um
-`npm start` local com esse arquivo presente fala com a prod.
 
 ## Regras
 

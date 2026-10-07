@@ -125,7 +125,7 @@ Telegram (`scripts/conciliacao/navegador.ts`), a coluna `grupos.telegram_chat_id
 | Banco | Supabase "Estoque Chassi" | Supabase `mova-staging`, só dado sintético ([ADR 0005](adr/0005-zero-dado-real-fora-de-producao.md)) | o do staging |
 | Detalhes | [`infra/backup-restore.md`](infra/backup-restore.md) | [`infra/staging.md`](infra/staging.md) | [`infra/segredos.md`](infra/segredos.md) |
 
-Local: o `.env.local` é o staging, e a produção só existe em `.env.production.local`, usada de
+Local: o `.env.local` é o staging, e a produção só existe em `.env.prod.local`, usada de
 forma explícita ([`infra/segredos.md`](infra/segredos.md)).
 
 ## Do código à produção

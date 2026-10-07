@@ -14,7 +14,7 @@
  * numa janela e a resposta em outra não vira falso "sem resposta".
  *
  * Uso:
- *   npx dotenv-cli -e .env.production.local -- node --import tsx scripts/backfill-kommo-resposta.ts --dias 14
+ *   npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/backfill-kommo-resposta.ts --dias 14
  */
 import postgres from 'postgres'
 import { estadoRespostaDoLead } from '../src/lib/kommo-resposta'
@@ -25,7 +25,7 @@ const arg = (nome: string) => {
 }
 
 if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.production.local -- ...`')
+  console.error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.prod.local -- ...`')
   process.exit(1)
 }
 

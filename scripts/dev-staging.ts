@@ -1,6 +1,7 @@
 /**
  * `npm run dev:staging`: sobe o `next dev` contra o mova-staging, sem herdar
- * nenhuma chave da produção que o .env.local tenha e o staging não.
+ * nenhuma chave de outro .env que o .env.staging.local não tenha (numa máquina
+ * que ainda não trocou, o .env.local é a produção).
  *
  * Só sobe se banco e Supabase forem o staging (mesma trava do seed).
  * Argumentos extras vão para o next dev (ex.: `-- --turbopack`). Porta diferente

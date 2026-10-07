@@ -2,14 +2,14 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, readdirSync } from 'fs'
 import { join, extname, basename } from 'path'
 
-import { config } from 'dotenv'
-config({ path: '.env.production.local' })
+// Escreve na produção (Storage e preços): o env vem só do -e, nunca de arquivo fixo.
+//   npx dotenv-cli -e .env.prod.local -- node scripts/upload-imagens-modelos.mjs
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('Variáveis NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias (.env.production.local)')
+  console.error('Variáveis NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias (rode com dotenv-cli -e)')
   process.exit(1)
 }
 const IMAGENS_DIR = 'D:/ECOMOV/Arquivos ECOMOV/IMAGENS'
