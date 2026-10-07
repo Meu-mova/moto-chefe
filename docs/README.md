@@ -8,6 +8,11 @@ Ponto de entrada da documentação. Para trabalhar no código, comece pelo
 
 - [`adr/`](adr/README.md): decisões de arquitetura (ADRs), com contexto, motivo e alternativas.
 
+## Domínio
+
+- [`CONTEXT.md`](../CONTEXT.md): glossário do negócio, um nome por conceito (grupo, reserva,
+  entrada, status × disponibilidade…).
+
 ## Operação (runbooks)
 
 - [`infra/staging.md`](infra/staging.md): o ambiente de staging (`mova-staging`), como criar,
