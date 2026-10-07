@@ -20,10 +20,12 @@ export type AlvoBanco = {
 const HOSTS_LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 /**
- * `emCi` vem do CI=true que o GitHub Actions define. Loopback só conta como local
- * no CI: na máquina de alguém, um túnel para a produção também responde em localhost.
+ * `emCi`: só o migrate.ts liga, com o CI=true do GitHub Actions; os demais scripts
+ * nunca aceitam loopback. Mesmo no CI, loopback só conta como local se o usuário não
+ * trouxer ref de projeto: na máquina de alguém, um túnel para a produção também
+ * responde em localhost.
  */
-export function descreverAlvo(databaseUrl: string, emCi = process.env.CI === 'true'): AlvoBanco {
+export function descreverAlvo(databaseUrl: string, emCi = false): AlvoBanco {
   let url: URL
   try {
     url = new URL(databaseUrl)
@@ -35,7 +37,7 @@ export function descreverAlvo(databaseUrl: string, emCi = process.env.CI === 'tr
   const refDoUsuario = decodeURIComponent(url.username).split('.')[1] ?? null
   const refDoHost = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/)?.[1] ?? null
   const ref = refDoUsuario || refDoHost
-  const ehLocalDoCi = emCi && HOSTS_LOOPBACK.has(url.hostname)
+  const ehLocalDoCi = emCi && HOSTS_LOOPBACK.has(url.hostname) && ref === null
   return {
     host: `${url.hostname}:${url.port || '5432'}`,
     ref,
@@ -54,9 +56,10 @@ export function motivoRecusaProducao(alvo: AlvoBanco, temFlagProd: boolean): str
 }
 
 export function rotuloAlvo(alvo: AlvoBanco): string {
-  const nome = alvo.ehLocalDoCi ? 'Postgres local do CI'
-    : alvo.ref === REF_PRODUCAO ? 'PRODUÇÃO'
-    : alvo.ref ? `projeto ${alvo.ref}` : 'projeto desconhecido'
+  let nome = 'projeto desconhecido'
+  if (alvo.ehLocalDoCi) nome = 'Postgres local do CI'
+  else if (alvo.ref === REF_PRODUCAO) nome = 'PRODUÇÃO'
+  else if (alvo.ref) nome = `projeto ${alvo.ref}`
   return `Banco: ${alvo.host} (${nome})`
 }
 
@@ -64,8 +67,8 @@ export function rotuloAlvo(alvo: AlvoBanco): string {
  * Porta de entrada dos scripts: mostra o banco e encerra o processo se for a
  * produção sem --prod. stderr para não sujar saída que alguém redirecione.
  */
-export function exigirAlvoPermitido(databaseUrl: string, temFlagProd: boolean): AlvoBanco {
-  const alvo = descreverAlvo(databaseUrl)
+export function exigirAlvoPermitido(databaseUrl: string, temFlagProd: boolean, emCi = false): AlvoBanco {
+  const alvo = descreverAlvo(databaseUrl, emCi)
   console.error(rotuloAlvo(alvo))
   const recusa = motivoRecusaProducao(alvo, temFlagProd)
   if (recusa) {

@@ -5,6 +5,7 @@ name: Migrações
 #   quebrado barra aqui, sem tocar banco real. Sem secrets.
 # - aplicar-staging: depois do merge na dev, aplica o que faltar no mova-staging.
 #   Produção continua manual (`migrate.ts --aplicar --prod`).
+# A lista de `paths` se repete nos dois gatilhos: mude as duas juntas.
 on:
   pull_request:
     branches: [dev, main]
@@ -14,6 +15,9 @@ on:
       - 'scripts/migrate.ts'
       - 'scripts/lib/**'
       - '.github/workflows/migracoes.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
   push:
     branches: [dev]
     paths:
@@ -22,9 +26,17 @@ on:
       - 'scripts/migrate.ts'
       - 'scripts/lib/**'
       - '.github/workflows/migracoes.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
 
 permissions:
   contents: read
+
+# bash com pipefail: o `| tee` não esconde a saída de erro do migrate.ts.
+defaults:
+  run:
+    shell: bash
 
 jobs:
   validar:
@@ -46,7 +58,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # Loopback com CI=true é aceito pela trava de produção (scripts/lib/alvo-banco.ts).
+      # O migrate.ts aceita loopback sem --prod só com CI=true (scripts/lib/alvo-banco.ts).
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v6
@@ -82,9 +94,9 @@ jobs:
     concurrency:
       group: migracoes-staging
       cancel-in-progress: false
-    env:
-      # Session pooler (5432) do mova-staging. Só existe em push na dev: PR não vê.
-      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+    # O secret só chega aos dois passos do migrate.ts (o `npm ci` não o vê). Quem impede
+    # um PR de usá-lo é este `if:` e a revisão humana: PR de branch do próprio repo
+    # recebe secrets, e sem environment protegido (plano Free) não há outra trava.
     steps:
       - uses: actions/checkout@v6
 
@@ -96,7 +108,12 @@ jobs:
       - run: npm ci
 
       - name: aplicar
+        env:
+          # Session pooler (5432) do mova-staging.
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: node --import tsx scripts/migrate.ts --aplicar --exigir-staging
 
       - name: conferir que nada ficou pendente
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: node --import tsx scripts/migrate.ts --status --exigir-staging | tee status.txt && grep -qx 'Nada pendente.' status.txt

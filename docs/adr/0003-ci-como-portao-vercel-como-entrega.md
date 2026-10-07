@@ -53,6 +53,9 @@ Não registradas na fonte.
   ("App na Vercel").
 - A Vercel Authentication continua ligada em todos os previews, inclusive o `dev.meumova.com`.
   A D6 previa desligar; a decisão está com o Luis.
+- O `ci.yml` segue sem secret de aplicação. A exceção é o workflow `migracoes.yml` (fase 9,
+  ADR 0004): o job `aplicar-staging` usa a credencial do banco de **staging**, só em push na
+  `dev`.
 
 ## Quando revisar
 

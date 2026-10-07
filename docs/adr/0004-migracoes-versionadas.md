@@ -39,8 +39,9 @@ real. A trava `--prod` impede rodar na produção sem querer.
 
 A fase 9 (D16) está no `.github/workflows/migracoes.yml`: cada PR que mexe em migração passa por
 um Postgres descartável, e o push na `dev` aplica no staging. A produção continua manual com
-`--prod`. É o único job de CI com credencial de banco (`STAGING_DATABASE_URL`, do staging), e só
-roda em push na `dev`, nunca em PR. Detalhes em `docs/infra/staging.md` ("Migrações").
+`--prod`. É o único job de CI com credencial de banco (`STAGING_DATABASE_URL`, do staging), e o
+`if:` do job o limita a push na `dev`. Um PR de branch do próprio repo que altere o workflow
+poderia usá-lo: a trava é a revisão humana, porque o plano Free não tem environment protegido. Detalhes em `docs/infra/staging.md` ("Migrações").
 
 ## Quando revisar
 

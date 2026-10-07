@@ -42,7 +42,8 @@ if (!process.env.DATABASE_URL) {
   process.exit(1)
 }
 
-const alvo = exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
+// CI=true: aceita o Postgres descartável do migracoes.yml em localhost (ver alvo-banco.ts).
+const alvo = exigirAlvoPermitido(process.env.DATABASE_URL, temProd, process.env.CI === 'true')
 if (exigirStaging && alvo.ref !== REF_STAGING) {
   console.error(`Recusado: --exigir-staging, e o banco não é o mova-staging (${REF_STAGING}).`)
   process.exit(1)
