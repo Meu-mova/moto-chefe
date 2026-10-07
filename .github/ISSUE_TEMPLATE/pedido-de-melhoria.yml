@@ -3,6 +3,7 @@ description: Algo novo ou diferente que o MOVA deveria fazer.
 type: Feature
 labels: [needs-triage]
 projects: [Meu-mova/2]
+assignees: [LuisCarlos01]
 body:
   - type: textarea
     id: problema

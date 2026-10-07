@@ -5,8 +5,8 @@
 Regras em `CONTRIBUTING.md` ("Issues, quadro e releases"); o porquê nos ADRs 0012 e 0013. O que
 mais se erra:
 
-- Mudança com valor visível para o Cesar **nasce de issue** e entra no Project com Módulo e
-  Prioridade. Tarefa miúda vira checklist dentro da issue.
+- Mudança com valor visível para o Cesar **nasce de issue**, com o Luis (`LuisCarlos01`) como
+  responsável, e entra no Project com Módulo e Prioridade. Tarefa miúda vira checklist dentro da issue.
 - Tipo da issue é o **Issue Type**, não label. Só as labels da tabela do `CONTRIBUTING.md`; nova,
   só combinando com o Luis.
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.

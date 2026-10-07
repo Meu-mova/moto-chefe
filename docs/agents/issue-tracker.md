@@ -7,9 +7,11 @@ quadro e releases"); aqui fica só o que os agentes executam.
 
 ## Operações
 
-- **Criar**: `gh issue create --title "..." --body "..." --type <Bug|Feature|Task> --project "MOVA — Desenvolvimento"`.
-  Corpo longo por heredoc. Depois, no Project, preencha Status (`Backlog`), Módulo e Prioridade
-  com `gh project item-edit` (opções em `gh project field-list 2 --owner Meu-mova`).
+- **Criar**: `gh issue create --title "..." --body "..." --type <Bug|Feature|Task> --assignee LuisCarlos01 --label <estado> --project "MOVA — Desenvolvimento"`.
+  Corpo longo por heredoc. Toda issue nasce com o Luis (`LuisCarlos01`) como responsável.
+  Estado: `needs-triage` por padrão; `ready-for-agent` quando a skill mandar (`/to-spec`,
+  `/to-tickets`). Depois, no Project, preencha Status (`Backlog`), Módulo e Prioridade com
+  `gh project item-edit` (opções em `gh project field-list 2 --owner Meu-mova`).
 - **Ler**: `gh issue view <n> --comments`.
 - **Listar**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,
   com `--label` e `--state` conforme o caso.

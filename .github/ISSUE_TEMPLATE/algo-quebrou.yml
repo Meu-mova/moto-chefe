@@ -3,6 +3,7 @@ description: Uma tela, botão ou cálculo do MOVA não funcionou como devia.
 type: Bug
 labels: [needs-triage]
 projects: [Meu-mova/2]
+assignees: [LuisCarlos01]
 body:
   - type: input
     id: onde

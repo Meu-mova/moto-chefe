@@ -81,6 +81,7 @@ Estoque, Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) 
   `chore`, `docs` e refactor podem ir direto em PR.
 - Uma issue por entrega que o Cesar reconhece. Tarefa técnica miúda vira checklist dentro da
   issue, não issue própria.
+- Toda issue nasce com o **Luis como responsável** (os formulários já fazem isso).
 - Título em português. Tipo pelo **Issue Type** (`Bug`, `Feature`, `Task`), não por label.
 - Para quem não é dev, há dois formulários: "Algo quebrou" e "Pedido de melhoria".
 - **Milestone** = uma entrega de negócio ("NF-e própria", "Agendamento público"). Data limite
