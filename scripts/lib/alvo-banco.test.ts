@@ -20,8 +20,50 @@ test('staging não é produção', () => {
   assert.equal(alvo.ref, 'pulsqeymzsheasxsdnnk')
 })
 
+const LOCAL = 'postgresql://postgres:x@localhost:5432/postgres'
+
 test('host desconhecido é tratado como produção', () => {
-  assert.equal(descreverAlvo('postgresql://postgres:x@localhost:5432/postgres').ehProducao, true)
+  assert.equal(descreverAlvo(LOCAL).ehProducao, true)
+})
+
+test('localhost no CI é o Postgres descartável, não produção', () => {
+  const alvo = descreverAlvo(LOCAL, true)
+  assert.equal(alvo.ehProducao, false)
+  assert.equal(alvo.ehLocalDoCi, true)
+  assert.equal(motivoRecusaProducao(alvo, false), null)
+})
+
+test('127.0.0.1 e ::1 no CI também são locais', () => {
+  assert.equal(descreverAlvo('postgresql://postgres:x@127.0.0.1:5432/postgres', true).ehProducao, false)
+  assert.equal(descreverAlvo('postgresql://postgres:x@[::1]:5432/postgres', true).ehProducao, false)
+})
+
+test('fora do CI, localhost continua exigindo --prod (pode ser túnel para a produção)', () => {
+  assert.notEqual(motivoRecusaProducao(descreverAlvo(LOCAL, false), false), null)
+})
+
+test('sem pedir emCi, localhost exige --prod mesmo com CI=true no ambiente', () => {
+  const antes = process.env.CI
+  process.env.CI = 'true'
+  try {
+    assert.equal(descreverAlvo(LOCAL).ehProducao, true)
+  } finally {
+    if (antes === undefined) delete process.env.CI
+    else process.env.CI = antes
+  }
+})
+
+test('no CI, localhost com usuário da produção continua sendo produção', () => {
+  const tunel = `postgresql://postgres.${REF_PRODUCAO}:x@localhost:6543/postgres`
+  assert.equal(descreverAlvo(tunel, true).ehProducao, true)
+})
+
+test('no CI, host remoto desconhecido continua sendo tratado como produção', () => {
+  assert.equal(descreverAlvo('postgresql://postgres:x@db.exemplo.com:5432/postgres', true).ehProducao, true)
+})
+
+test('produção no CI continua sendo produção', () => {
+  assert.equal(descreverAlvo(POOLER_PROD, true).ehProducao, true)
 })
 
 test('a descrição do alvo não carrega a senha', () => {

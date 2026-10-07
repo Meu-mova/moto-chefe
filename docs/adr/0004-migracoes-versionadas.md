@@ -35,6 +35,15 @@ real. A trava `--prod` impede rodar na produção sem querer.
 - **`apply_migration` do MCP do Supabase:** cria uma trilha paralela (`supabase_migrations`)
   que o `migrate.ts` não enxerga (`docs/infra/staging.md`).
 
+## Situação em 2026-10-07
+
+A fase 9 (D16) está no `.github/workflows/migracoes.yml`: cada PR que mexe em migração passa por
+um Postgres descartável, e o push na `dev` aplica no staging. A produção continua manual com
+`--prod`. É o único job de CI com credencial de banco (`STAGING_DATABASE_URL`, do staging), e o
+`if:` do job o limita a push na `dev`. Isso não protege o secret: um PR de branch do próprio
+repo roda o workflow da branch dele, com secrets, antes de qualquer revisão. Quem pode lê-lo é
+quem tem push no repo, porque o plano Free não tem environment protegido. Detalhes em `docs/infra/staging.md` ("Migrações").
+
 ## Quando revisar
 
 Quando a issue #20 concluir (o `drizzle-kit generate` pode virar gerador de rascunho, sem

@@ -19,7 +19,8 @@ Secrets do GitHub:
 |---|---|---|
 | `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença) | cadastrado em 2026-10-05 |
 | `CLAUDE_CODE_OAUTH_TOKEN` | revisão por IA em PR (fase 8, D19) | ainda não existe |
-| `STAGING_DATABASE_URL`, usuário e senha do smoke | migração automática e smoke Playwright (fases 9 e 10, §5.6) | planejados |
+| `STAGING_DATABASE_URL` | job `aplicar-staging` do `migracoes.yml` (fase 9): Session pooler (5432) do `mova-staging`, igual ao `.env.local` | cadastrado em 2026-10-07 |
+| usuário e senha do smoke | smoke Playwright (fase 10, §5.6) | planejados |
 
 ## Arquivos locais
 
