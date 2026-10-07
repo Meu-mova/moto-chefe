@@ -1,9 +1,9 @@
 /**
- * Ambiente do `npm run dev:staging`. O Next, no dev, carrega .env.local e afins
- * e só preenche chave que ainda não existe no process.env (@next/env). Sem isto,
- * toda chave que o .env.staging.local não define viria do .env.local — que, em
- * máquina que ainda não trocou para o staging, é a produção: Open Finance,
- * Resend, Bling, CERT_MASTER_KEY.
+ * Ambiente do `npm run dev:staging`. O Next, no dev, carrega além do .env.local
+ * o .env, o .env.development e afins, e só preenche chave que ainda não existe no
+ * process.env (@next/env). Sem isto, chave que o .env.local não define viria de
+ * um desses arquivos — um esquecido com valor da produção (Open Finance, Resend,
+ * Bling, CERT_MASTER_KEY) entraria no app de staging.
  */
 
 export type EnvStaging = { env: Record<string, string | undefined>; anuladas: string[] }

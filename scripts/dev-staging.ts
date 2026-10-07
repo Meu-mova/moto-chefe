@@ -1,11 +1,10 @@
 /**
  * `npm run dev:staging`: sobe o `next dev` contra o mova-staging, sem herdar
- * nenhuma chave de outro .env que o .env.staging.local não tenha (numa máquina
- * que ainda não trocou, o .env.local é a produção).
+ * nenhuma chave de outro .env que o .env.local não tenha (ver lib/env-staging.ts).
  *
  * Só sobe se banco e Supabase forem o staging (mesma trava do seed).
  * Argumentos extras vão para o next dev (ex.: `-- --turbopack`). Porta diferente
- * de 3000 exige mudar MOVA_URL/NEXT_PUBLIC_APP_URL no .env.staging.local, senão
+ * de 3000 exige mudar MOVA_URL/NEXT_PUBLIC_APP_URL no .env.local, senão
  * os links gerados apontam para a porta errada.
  */
 import { spawn } from 'node:child_process'
@@ -15,7 +14,7 @@ import { loadEnvConfig } from '@next/env'
 import { REF_STAGING, motivoRecusaForaDoStaging } from './lib/alvo-banco'
 import { montarEnvStaging } from './lib/env-staging'
 
-const ARQUIVO_STAGING = '.env.staging.local'
+const ARQUIVO_STAGING = '.env.local'
 
 // Antes do loadEnvConfig, que escreve no process.env deste processo.
 const ambienteOriginal = { ...process.env }

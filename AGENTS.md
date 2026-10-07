@@ -32,7 +32,7 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
   staging (detalhes em `docs/infra/staging.md`).
 - Antes de todo `update`/`delete`/`drop`, rode um `select` com o mesmo `where` e confira.
 - Nunca imprima, logue, commite ou cole em chat o conteúdo de nenhum `.env*` com valores
-  (o `.env.example` só tem nomes).
+  (o `.env.example` só tem nomes e padrões não secretos, como `http://localhost:3000`).
 - Segredos que dão poder real: `CERT_MASTER_KEY` (abre os certificados A1 →
   emite nota fiscal em nome das empresas), `SUPABASE_SERVICE_ROLE_KEY` (ignora
   RLS), `DATABASE_URL`.
@@ -52,7 +52,7 @@ Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgre
 
 ```bash
 npm run dev          # local contra o staging (.env.local)
-npm run dev:staging  # lê o .env.staging.local e recusa subir fora do staging; ver docs/infra/staging.md
+npm run dev:staging  # como o dev, mas recusa subir fora do staging; ver docs/infra/staging.md
 npm run type-check   # tsc --noEmit
 npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega
@@ -71,10 +71,10 @@ O fluxo real:
 1. Edite `src/lib/db/schema.ts`.
 2. Escreva SQL à mão em `src/lib/db/migrations/NNNN_nome.sql` — **confira o
    próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
-3. Aplique no **staging** (`mova-staging`, credencial em `.env.staging.local`):
-   `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar`
+3. Aplique no **staging** (`mova-staging`, credencial no `.env.local`):
+   `npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
-4. Confira lá: `npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/sql.ts --query "select ..."`.
+4. Confira lá: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select ..."`.
 5. Na **produção**: `npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
 
 `sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem

@@ -3,8 +3,8 @@
  * da DATABASE_URL, e anota cada uma em public.schema_migrations.
  *
  * Uso (staging):
- *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --status
- *   npx dotenv-cli -e .env.staging.local -- node --import tsx scripts/migrate.ts --aplicar
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --status
+ *   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar
  * Na produção: npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod
  *
  * Uma vez por banco, para registrar o que já existia antes desta tabela:
