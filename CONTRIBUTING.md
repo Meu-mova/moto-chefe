@@ -84,8 +84,12 @@ Estoque, Financeiro, Gestão, Configuração, Fiscal, Integrações, Infra/Dev) 
 - Toda issue nasce com o **Luis como responsável** (os formulários já fazem isso).
 - Título em português. Tipo pelo **Issue Type** (`Bug`, `Feature`, `Task`), não por label.
 - Para quem não é dev, há dois formulários: "Algo quebrou" e "Pedido de melhoria".
-- **Milestone** = uma entrega de negócio ("NF-e própria", "Agendamento público"). Data limite
-  só quando houver prazo prometido.
+- **Milestone** = uma entrega de negócio ("NF-e própria", "Agendamento público"). A barra de
+  progresso mostra quanto dela já está no ar, porque a issue só fecha em produção.
+  - Só se cria quando a entrega tem 2+ issues, ou quando o Cesar pede para acompanhar algo.
+  - Spec que vira várias tickets (`/to-spec` + `/to-tickets`): a spec e todas as tickets na
+    mesma milestone.
+  - Data limite só quando houver prazo prometido.
 - Issue que não vai ser feita fecha como **"not planned"** (com `wontfix` ou `duplicate`), nunca
   como "completed": só "completed" significa que chegou em produção.
 
@@ -120,5 +124,7 @@ Não crie label nova sem combinar.
      Luis revisa antes de publicar.
   5. Fechar como "completed" as issues que entraram, com o comentário "Saiu na vX.Y.Z". O quadro
      as move para "Em produção".
+  6. Milestone cuja última issue entrou: fechar a milestone e pôr nas notas
+     "✅ Entrega concluída: <nome>".
 - Hotfix: o bump (`chore(release)`, patch) vai na própria branch do hotfix, antes do PR para a
-  `main`; depois os passos 3 a 5 e o PR `main → dev` de sempre.
+  `main`; depois os passos 3 a 6 e o PR `main → dev` de sempre.

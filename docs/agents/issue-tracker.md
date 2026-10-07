@@ -25,7 +25,12 @@ quadro e releases"); aqui fica só o que os agentes executam.
 - Título e corpo em português.
 - Tipo pelo Issue Type, nunca por label. Não crie labels fora da tabela do `CONTRIBUTING.md`.
 - Uma issue por entrega que o Cesar reconhece; tarefa técnica miúda vira checklist na issue.
-- Milestone: só anexe se já existir; não crie sem OK do usuário.
+- Milestone (regras no `CONTRIBUTING.md`): criar só com OK do usuário
+  (`gh api repos/Meu-mova/moto-chefe/milestones -f title="..."`); anexar com
+  `gh issue create|edit --milestone "<título>"`.
+  - `/to-spec`: se a entrega vai virar 2+ issues, proponha uma milestone com o nome da entrega.
+  - `/to-tickets`: toda ticket herda a milestone da spec de origem.
+  - `/triage`: sugira uma milestone aberta se a issue se encaixar (`gh api repos/Meu-mova/moto-chefe/milestones --jq '.[].title'`).
 - PR e commits citam `Refs #N`, nunca `Closes #N`.
 
 ## Pull requests como superfície de triagem
