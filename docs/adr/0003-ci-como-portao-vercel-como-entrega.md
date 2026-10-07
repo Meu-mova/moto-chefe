@@ -41,6 +41,18 @@ Não registradas na fonte.
 - Ainda falta:
   - tornar o check da Vercel obrigatório (D18, via rulesets, fase 8);
   - apontar o Preview para o staging (D6, fase 6).
+- **Rulesets bloqueados pelo plano do GitHub:** a org `Meu-mova` está no plano Free, e com o repo
+  privado a API de proteção de branch e de rulesets responde 403 ("Upgrade to GitHub Pro or make
+  this repository public"). O plano previa o Team. Até o Cesar decidir sobre a assinatura, os
+  checks "que devem barrar o merge" só avisam, e o D11 e a fase 8 ficam sem caminho.
+
+## Situação em 2026-10-07
+
+- O Preview aponta para o staging (D6, fase 6): variáveis do `mova-staging`, nenhuma credencial
+  de integração e `dev.meumova.com` ligado à branch `dev`. Detalhes em `docs/infra/staging.md`
+  ("App na Vercel").
+- A Vercel Authentication continua ligada em todos os previews, inclusive o `dev.meumova.com`.
+  A D6 previa desligar; a decisão está com o Luis.
 
 ## Quando revisar
 
