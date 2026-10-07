@@ -17,8 +17,8 @@ Secrets do GitHub:
 
 | Secret | Para quê | Situação |
 |---|---|---|
-| `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença) | cadastrado em 2026-10-05 |
-| `CLAUDE_CODE_OAUTH_TOKEN` | workflow `Revisão por IA` (`claude-code-review.yml`, fase 8, D19); ver nota abaixo | cadastrado em 2026-10-07 |
+| `GITLEAKS_LICENSE` | job `gitleaks` do `ci.yml` (repo de organização exige licença). Também no cofre **Dependabot** (Settings → Secrets and variables → Dependabot): PR do Dependabot só lê esse cofre | Actions: 2026-10-05; Dependabot: 2026-10-07 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | workflow `Revisão por IA` (`claude-code-review.yml`, fase 8, D19); ver nota abaixo. Fora do cofre Dependabot de propósito: a revisão pula PR do Dependabot | cadastrado em 2026-10-07 |
 | `STAGING_DATABASE_URL` | job `aplicar-staging` do `migracoes.yml` (fase 9): Session pooler (5432) do `mova-staging`, igual ao `.env.local` | cadastrado em 2026-10-07 |
 | `SMOKE_SENHA` | workflow `Smoke do preview` (`smoke.yml`, fase 10): senha dos usuários sintéticos, igual à `SEED_SENHA` do staging | cadastrado em 2026-10-07 |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | `smoke.yml`: passa pela proteção da Vercel nos previews (Protection Bypass for Automation, nota "Smoke Playwright" no projeto). Revogar no painel ou pela API (`PATCH /v1/projects/<projeto>/protection-bypass` com `revoke`) | cadastrado em 2026-10-07 |
