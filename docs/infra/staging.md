@@ -170,9 +170,10 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 - **Domínio:** `dev.meumova.com` → branch `dev`. A zona DNS do `meumova.com` fica na conta
   pessoal do Cesar na Vercel, não no time MOVA; a posse foi provada com o TXT
   `_vercel.meumova.com` criado lá.
-- **Proteção:** Standard Protection (login da Vercel) vale para todos os previews, inclusive o
-  `dev.meumova.com`. Abrir para quem não é do time (D6 previa desligar) está **pendente de
-  decisão do Luis**. Até lá, teste autenticado com `vercel curl <caminho> --deployment <url>`.
+- **Proteção:** Vercel Authentication (Standard Protection) em todos os previews, inclusive o
+  `dev.meumova.com`: quem entra passa pelo login da Vercel, como membro do time MOVA, e depois
+  pelo do MOVA. A D6 previa desligar; **mantida por decisão do Luis em 2026-10-07**. Para
+  testar por linha de comando: `vercel curl <caminho> --deployment <url>`.
 - **Diferenças da §5.5 do plano:** a URL do app não foi fixada em `https://dev.meumova.com` (ver a
   tabela), e `EMAIL_FROM`, `LEADS_EMAIL_TO` e `DEFAULT_USER_PASSWORD` não foram definidas no
   Preview: e-mail fica desligado (D7) e a senha dos usuários sintéticos é a `SEED_SENHA` do seed.
