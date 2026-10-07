@@ -13,9 +13,17 @@ export type AlvoBanco = {
   host: string
   ref: string | null
   ehProducao: boolean
+  /** Postgres descartável do CI (service container do migracoes.yml). */
+  ehLocalDoCi: boolean
 }
 
-export function descreverAlvo(databaseUrl: string): AlvoBanco {
+const HOSTS_LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * `emCi` vem do CI=true que o GitHub Actions define. Loopback só conta como local
+ * no CI: na máquina de alguém, um túnel para a produção também responde em localhost.
+ */
+export function descreverAlvo(databaseUrl: string, emCi = process.env.CI === 'true'): AlvoBanco {
   let url: URL
   try {
     url = new URL(databaseUrl)
@@ -27,11 +35,13 @@ export function descreverAlvo(databaseUrl: string): AlvoBanco {
   const refDoUsuario = decodeURIComponent(url.username).split('.')[1] ?? null
   const refDoHost = url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/)?.[1] ?? null
   const ref = refDoUsuario || refDoHost
+  const ehLocalDoCi = emCi && HOSTS_LOOPBACK.has(url.hostname)
   return {
     host: `${url.hostname}:${url.port || '5432'}`,
     ref,
     // Na dúvida, trata como produção: o custo de pedir --prod à toa é baixo.
-    ehProducao: ref === null || ref === REF_PRODUCAO,
+    ehProducao: !ehLocalDoCi && (ref === null || ref === REF_PRODUCAO),
+    ehLocalDoCi,
   }
 }
 
@@ -44,7 +54,9 @@ export function motivoRecusaProducao(alvo: AlvoBanco, temFlagProd: boolean): str
 }
 
 export function rotuloAlvo(alvo: AlvoBanco): string {
-  const nome = alvo.ref === REF_PRODUCAO ? 'PRODUÇÃO' : alvo.ref ? `projeto ${alvo.ref}` : 'projeto desconhecido'
+  const nome = alvo.ehLocalDoCi ? 'Postgres local do CI'
+    : alvo.ref === REF_PRODUCAO ? 'PRODUÇÃO'
+    : alvo.ref ? `projeto ${alvo.ref}` : 'projeto desconhecido'
   return `Banco: ${alvo.host} (${nome})`
 }
 

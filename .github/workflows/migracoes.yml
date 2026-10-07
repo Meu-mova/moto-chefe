@@ -1,0 +1,102 @@
+name: Migrações
+
+# Fase 9 do plano de staging/CI (D4 e D16; docs/seguranca/2026-10-01-plano-staging-ci.md).
+# - validar: aplica baseline + migrações num Postgres descartável. Migração com SQL
+#   quebrado barra aqui, sem tocar banco real. Sem secrets.
+# - aplicar-staging: depois do merge na dev, aplica o que faltar no mova-staging.
+#   Produção continua manual (`migrate.ts --aplicar --prod`).
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'src/lib/db/migrations/**'
+      - 'supabase/**'
+      - 'scripts/migrate.ts'
+      - 'scripts/lib/**'
+      - '.github/workflows/migracoes.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'src/lib/db/migrations/**'
+      - 'supabase/**'
+      - 'scripts/migrate.ts'
+      - 'scripts/lib/**'
+      - '.github/workflows/migracoes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: migrações num Postgres descartável
+    runs-on: ubuntu-latest
+    concurrency:
+      group: migracoes-validar-${{ github.ref }}
+      cancel-in-progress: true
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Loopback com CI=true é aceito pela trava de produção (scripts/lib/alvo-banco.ts).
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: stubs do Supabase + baseline
+        run: |
+          psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -f supabase/ci-stubs.sql
+          psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/schema-baseline.sql
+
+      - name: registrar baseline (0000–0110)
+        run: node --import tsx scripts/migrate.ts --baseline-ate 110
+
+      - name: aplicar migrações novas
+        run: node --import tsx scripts/migrate.ts --aplicar
+
+      # --status sai 0 mesmo com pendência; o que vale é a frase.
+      - name: conferir que nada ficou pendente
+        run: node --import tsx scripts/migrate.ts --status | tee status.txt && grep -qx 'Nada pendente.' status.txt
+
+  aplicar-staging:
+    name: aplicar no mova-staging
+    needs: validar
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    # Fila, nunca duas ao mesmo tempo, e sem cancelar uma aplicação no meio.
+    concurrency:
+      group: migracoes-staging
+      cancel-in-progress: false
+    env:
+      # Session pooler (5432) do mova-staging. Só existe em push na dev: PR não vê.
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: aplicar
+        run: node --import tsx scripts/migrate.ts --aplicar --exigir-staging
+
+      - name: conferir que nada ficou pendente
+        run: node --import tsx scripts/migrate.ts --status --exigir-staging | tee status.txt && grep -qx 'Nada pendente.' status.txt

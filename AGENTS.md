@@ -71,11 +71,13 @@ O fluxo real:
 1. Edite `src/lib/db/schema.ts`.
 2. Escreva SQL à mão em `src/lib/db/migrations/NNNN_nome.sql` — **confira o
    próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
-3. Aplique no **staging** (`mova-staging`, credencial no `.env.local`):
+3. Abra o PR: o workflow `Migrações` aplica baseline + migrações num Postgres descartável
+   e barra SQL quebrado. Depois do merge na `dev`, ele mesmo aplica no **staging**.
+   Para testar no staging antes do merge, aplique à mão (o CI vê que já está aplicada):
    `npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select ..."`.
-5. Na **produção**: `npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
+5. Na **produção** (sempre manual): `npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod`.
 
 `sql.ts` e `migrate.ts` imprimem o banco antes de tudo e **recusam a produção sem
 `--prod`**. Produção só com `-e .env.prod.local` e `--prod`.

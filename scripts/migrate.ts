@@ -6,6 +6,7 @@
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --status
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar
  * Na produção: npx dotenv-cli -e .env.prod.local -- node --import tsx scripts/migrate.ts --aplicar --prod
+ * No CI (migracoes.yml), contra o staging: --aplicar --exigir-staging (recusa qualquer outro banco).
  *
  * Uma vez por banco, para registrar o que já existia antes desta tabela:
  *   ... scripts/migrate.ts --baseline-ate 110
@@ -17,21 +18,22 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postgres from 'postgres'
-import { exigirAlvoPermitido } from './lib/alvo-banco'
+import { exigirAlvoPermitido, REF_STAGING } from './lib/alvo-banco'
 import {
   arquivosDoBaseline, checksumDe, filtrarArquivosMigracao, planejar, temControleDeTransacao,
   type ArquivoMigracao, type RegistroMigracao,
 } from './lib/migracoes'
 
 const PASTA = resolve(process.cwd(), 'src/lib/db/migrations')
-const USO = 'Uso: scripts/migrate.ts --status | --aplicar | --baseline-ate <NNNN>  [--prod]'
+const USO = 'Uso: scripts/migrate.ts --status | --aplicar | --baseline-ate <NNNN>  [--prod | --exigir-staging]'
 
 const args = process.argv.slice(2)
 const temProd = args.includes('--prod')
+const exigirStaging = args.includes('--exigir-staging')
 const modos = ['--status', '--aplicar', '--baseline-ate'].filter(m => args.includes(m))
 const valorBaseline = args[args.indexOf('--baseline-ate') + 1] ?? ''
 
-if (modos.length !== 1 || (modos[0] === '--baseline-ate' && !/^\d+$/.test(valorBaseline))) {
+if (modos.length !== 1 || (modos[0] === '--baseline-ate' && !/^\d+$/.test(valorBaseline)) || (temProd && exigirStaging)) {
   console.error(USO)
   process.exit(1)
 }
@@ -40,7 +42,11 @@ if (!process.env.DATABASE_URL) {
   process.exit(1)
 }
 
-exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
+const alvo = exigirAlvoPermitido(process.env.DATABASE_URL, temProd)
+if (exigirStaging && alvo.ref !== REF_STAGING) {
+  console.error(`Recusado: --exigir-staging, e o banco não é o mova-staging (${REF_STAGING}).`)
+  process.exit(1)
+}
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 15 })
 
 type ArquivoComConteudo = ArquivoMigracao & { conteudo: string }

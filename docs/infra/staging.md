@@ -75,7 +75,17 @@ Banco de staging do MOVA: projeto Supabase separado da produção, com o mesmo s
 ## Migrações
 
 Fluxo completo no `AGENTS.md` ("Banco e migrações"). Resumo: arquivo novo em
-`src/lib/db/migrations/` → `migrate.ts --aplicar` aqui → conferir → `migrate.ts --aplicar --prod`.
+`src/lib/db/migrations/` → PR (o CI valida num Postgres descartável) → merge na `dev` (o CI
+aplica aqui) → conferir → `migrate.ts --aplicar --prod`.
+
+O workflow é o `.github/workflows/migracoes.yml`:
+- **`validar`** (PR para `dev`/`main` e push na `dev`, só quando mexe em migração, `supabase/`,
+  `migrate.ts` ou `scripts/lib/`): Postgres 17 puro + `supabase/ci-stubs.sql` (papéis do
+  Supabase e `auth.uid()`) + baseline + `migrate.ts`. Migração que mexa em `storage.*` ou em
+  tabelas do `auth` falha aqui até o stub ganhar o que ela usa.
+- **`aplicar-staging`** (só push na `dev`): `migrate.ts --aplicar --exigir-staging` com o secret
+  `STAGING_DATABASE_URL` (Session pooler). O `--exigir-staging` recusa qualquer banco que não
+  seja o `mova-staging`.
 Staging e produção têm `schema_migrations` com baseline até 0110 (registrado em 2026-10-06, com
 OK do Cesar). Antes de cada PR `dev → main`, rode
 `node --import tsx scripts/schema-diff.ts .env.local .env.prod.local`: compara o
