@@ -113,7 +113,7 @@ O registro definitivo da venda de uma moto: cliente, valor, formas de pagamento,
 e NF de saída. A tela chama o ato de "finalizar" ou "registrar" venda.
 
 **Venda faturada**:
-Venda cuja NF de saída já foi emitida em produção.
+Venda cuja NF de saída já foi emitida em produção e não foi cancelada.
 _Evitar_: faturada, para moto (status legado)
 
 **Pedido de venda**:
@@ -244,6 +244,16 @@ NF de saída.
 **NF de saída**:
 Nota fiscal que o grupo emite ao vender a moto, pela Nota Gateway.
 _Evitar_: nota, nota fiscal (sozinhos), quando houver dúvida entre entrada e saída
+
+**Cancelamento da NF de saída**:
+Anulação de uma NF de saída autorizada junto à SEFAZ, possível só nas 24h seguintes à
+autorização. A venda continua e volta a aguardar NF de saída.
+_Evitar_: cancelar a venda (é outra coisa: desfaz a venda inteira); excluir a nota
+
+**NF de devolução**:
+Nota que registra o retorno da moto vendida, referenciando a NF de saída original. É o caminho
+quando o prazo de cancelamento da NF de saída já passou.
+_Evitar_: nota de estorno
 
 **Homologação**:
 Ambiente de teste da emissão fiscal: a nota não vale e não fatura a venda.
