@@ -14,6 +14,9 @@ incidente real; o incidente desta não está registrado.
 Nas palavras do `AGENTS.md`: "validação que discorda do usuário vira aviso e deixa gravar; só o
 efeito derivado (preencher um valor sozinho) é que não acontece."
 
+Exceção: venda com NF de saída autorizada em produção não se cancela
+([ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md)).
+
 ## Por quê
 
 Não registrado.
