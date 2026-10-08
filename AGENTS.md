@@ -158,6 +158,8 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   nunca `{ ...value, ...patch }` — a resposta async desfaz a última tecla.
 - **Avise, não bloqueie**: validação que discorda do usuário vira aviso e deixa
   gravar; só o efeito derivado (preencher um valor sozinho) é que não acontece.
+  Exceção: venda com NF de saída autorizada em produção não se cancela; o
+  "Cancelar venda" recusa e orienta a cancelar a NF antes (ADR-0014).
 
 ## Fiscal — cuidado redobrado
 
