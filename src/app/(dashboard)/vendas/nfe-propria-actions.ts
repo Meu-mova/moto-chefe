@@ -1,7 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
 import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida } from '@/lib/db/schema'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, notInArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
@@ -11,6 +11,7 @@ import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
+import { STATUS_MORTOS, ehFinal, ehRecusada } from '@/lib/notagateway/status'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -297,7 +298,6 @@ export async function salvarFichaMotoAction(motoId: string, f: FichaMoto): Promi
 }
 
 const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
-const FINAIS = ['Autorizada', 'Negada', 'Cancelada', 'Denegada']
 
 /** Grava o retorno da API e, se for nota de PRODUÇÃO autorizada, fatura a venda. */
 async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string, vendaId: string, motoId: string) {
@@ -326,7 +326,7 @@ async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas 
   for (let i = 0; i < tentativas; i++) {
     await espera(i === 0 ? 2500 : 2000)
     ultima = await consultarNfe(cfg, idExterno)
-    if (ultima && FINAIS.includes(ultima.status)) break
+    if (ultima && ehFinal(ultima.status)) break
   }
   return ultima
 }
@@ -360,7 +360,7 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       const [viva] = await db.select().from(notasFiscaisSaida).where(and(
         eq(notasFiscaisSaida.vendaId, e.venda.id),
         eq(notasFiscaisSaida.ambiente, 'Producao'),
-        inArray(notasFiscaisSaida.status, ['Enviando', 'Processando', 'Autorizada']),
+        notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
       )).limit(1)
       if (viva) {
         const n = await acompanhar(e.cfg, viva.idExterno, 3)
@@ -413,7 +413,7 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
     if (n) await aplicarRetorno(notaId, n, e.cfg.ambiente, e.venda.id, motoId)
 
     const nota = await resumoDaNota(notaId)
-    if (nota.status === 'Negada' || nota.status === 'Denegada') {
+    if (ehRecusada(nota.status)) {
       return { ok: false, error: `A SEFAZ não autorizou: ${nota.motivoStatus ?? 'sem motivo informado'}`, nota }
     }
     return { ok: true, nota }
