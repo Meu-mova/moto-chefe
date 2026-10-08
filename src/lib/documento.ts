@@ -1,3 +1,5 @@
+import { cpfValido } from './dados-funcionario'
+
 // CPF/CNPJ. A formatação estava copiada em três telas de Clientes; o código novo
 // (venda de peças e OS para empresa) usa daqui.
 
@@ -44,4 +46,48 @@ export function validarDocumento(
   if (!d) return { ok: true, documento: null }
   if (d.length !== 11) return { ok: false, erro: 'CPF deve ter 11 dígitos' }
   return { ok: true, documento: d }
+}
+
+function cnpjValido(cnpj: string): boolean {
+  // 00.000.000/0000-00 e afins passam na conta do dígito verificador mas não existem.
+  if (/^(\d)\1{13}$/.test(cnpj)) return false
+  const digito = (ate: number): number => {
+    // Pesos de 2 a 9, da direita para a esquerda, recomeçando depois do 9.
+    let soma = 0
+    for (let i = 0; i < ate; i++) soma += Number(cnpj[i]) * (((ate - 1 - i) % 8) + 2)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  return digito(12) === Number(cnpj[12]) && digito(13) === Number(cnpj[13])
+}
+
+/**
+ * Lê o CPF/CNPJ do cliente na venda, reserva e demanda: o tipo de pessoa sai do
+ * tamanho (11 = física, 14 = jurídica).
+ */
+export function lerDocumentoCliente(
+  texto: string | null | undefined,
+): { ok: true; tipoPessoa: TipoPessoa; documento: string } | { ok: false; erro: string } {
+  const d = soDigitosDoc(texto)
+  if (d.length === 14) {
+    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido — confira os números' }
+    return { ok: true, tipoPessoa: 'juridica', documento: d }
+  }
+  if (d.length !== 11) return { ok: false, erro: 'Informe o CPF (11 dígitos) ou o CNPJ (14 dígitos)' }
+  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido — confira os números' }
+  return { ok: true, tipoPessoa: 'fisica', documento: d }
+}
+
+/** Máscara do campo CPF/CNPJ enquanto se digita. */
+export function mascararCpfCnpj(texto: string): string {
+  const d = soDigitosDoc(texto).slice(0, 14)
+  if (d.length > 11) {
+    return d
+      .replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})?$/, (_, a, b, c, e, f) =>
+        `${a}.${b}.${c}/${e}${f ? `-${f}` : ''}`)
+  }
+  return d
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d{1})/, '$1.$2.$3-$4')
 }
