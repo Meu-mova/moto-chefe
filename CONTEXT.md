@@ -50,6 +50,10 @@ do usuário que faz login.
 Quem compra (pessoa física ou jurídica). O cadastro é único no sistema inteiro, por CPF ou CNPJ,
 e não pertence a um grupo.
 
+**Representante legal**:
+A pessoa que assina o contrato de venda em nome de um cliente pessoa jurídica. É da venda, não do
+cliente: a mesma empresa pode mandar pessoas diferentes em cada compra.
+
 ## Estoque de motos
 
 **Modelo**:
