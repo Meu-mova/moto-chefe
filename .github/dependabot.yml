@@ -14,3 +14,10 @@ updates:
           - "minor"
           - "patch"
     # major fica fora do grupo acima: PR individual, revisão com mais atenção.
+    ignore:
+      # O Next 16.2 não reconhece o TypeScript 7 (build quebra no #45); liberar quando o Next suportar.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Tipos acompanham o Node do runtime (24.x no .nvmrc e no engines).
+      - dependency-name: "@types/node"
+        versions: [">=25"]

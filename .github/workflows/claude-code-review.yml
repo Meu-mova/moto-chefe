@@ -20,7 +20,9 @@ permissions:
 jobs:
   revisar:
     name: revisão por IA
-    if: ${{ !github.event.pull_request.draft }}
+    # PR do Dependabot só lê o cofre de secrets do Dependabot, onde o token do Claude não
+    # fica de propósito; e revisar bump de versão gasta cota sem ganho.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.user.login != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Com github_token próprio, a action não precisa do Claude GitHub App instalado (que
