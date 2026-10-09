@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, FileDown, Loader2, RefreshCw
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ehFinal, ehRecusada } from '@/lib/notagateway/status'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
@@ -312,7 +313,7 @@ function Historico({ notas, pending, onReconsultar }: { notas: NotaResumo[]; pen
         {notas.map(n => (
           <li key={n.id} className="space-y-0.5">
             <p>
-              <span className={n.status === 'Autorizada' ? 'text-green-700' : n.status === 'Negada' ? 'text-red-700' : 'text-slate-700'}>
+              <span className={n.status === 'Autorizada' ? 'text-green-700' : ehRecusada(n.status) ? 'text-red-700' : 'text-slate-700'}>
                 {n.status}
               </span>
               {n.numero && <> · NF {n.numero} série {n.serie}</>}
@@ -321,7 +322,7 @@ function Historico({ notas, pending, onReconsultar }: { notas: NotaResumo[]; pen
             {n.motivoStatus && n.status !== 'Autorizada' && <p className="text-xs text-red-600">{n.motivoStatus}</p>}
             <div className="flex items-center gap-3">
               <Links nota={n} />
-              {(n.status === 'Enviando' || n.status === 'Processando') && (
+              {!ehFinal(n.status) && (
                 <button onClick={() => onReconsultar(n.id)} disabled={pending} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
                   <RefreshCw size={12} /> Consultar
                 </button>
@@ -359,7 +360,7 @@ function Resultado({ r, teste, pending, onReconsultar, onTentarDeNovo, onVoltar 
     )
   }
 
-  if (nota.status === 'Enviando' || nota.status === 'Processando') {
+  if (!ehFinal(nota.status)) {
     return (
       <div className="space-y-3 py-2">
         <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
