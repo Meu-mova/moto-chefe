@@ -183,11 +183,12 @@ export function MenuMobile({ itensIds, conecta, usuario }: Omit<Props, 'recolhid
       <Sheet open={aberto} onOpenChange={setAberto}>
         <SheetContent side="left" className="w-[85%] max-w-xs gap-0 bg-sidebar p-0 text-sidebar-foreground">
           <SheetTitle className="px-5 pt-5 pb-4"><Logo /></SheetTitle>
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
-            <ListaNav itens={itens} conecta={conectaSeguro} onNavegar={() => setAberto(false)} />
+          {/* Usuário no topo: no celular a gaveta é alta e a lista curta; preso no fundo, ficava um vão. */}
+          <div className="border-b border-sidebar-border px-2 pb-2">
+            <MenuUsuario usuario={usuario} lado="bottom" />
           </div>
-          <div className="border-t border-sidebar-border p-2">
-            <MenuUsuario usuario={usuario} />
+          <div className="flex-1 overflow-y-auto px-2 py-3">
+            <ListaNav itens={itens} conecta={conectaSeguro} onNavegar={() => setAberto(false)} />
           </div>
         </SheetContent>
       </Sheet>

@@ -24,8 +24,8 @@ function iniciais(nome: string) {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase()
 }
 
-/** Rodapé da barra lateral: avatar e nome; o clique abre, para cima, os dados da conta e o sair. */
-export function MenuUsuario({ usuario, compacto }: { usuario: UsuarioMenu; compacto?: boolean }) {
+/** Avatar e nome; o clique abre os dados da conta e o sair (para cima no rodapé, para baixo no topo da gaveta). */
+export function MenuUsuario({ usuario, compacto, lado = 'top' }: { usuario: UsuarioMenu; compacto?: boolean; lado?: 'top' | 'bottom' }) {
   const avatar = (
     <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
       {iniciais(usuario.nome)}
@@ -51,7 +51,7 @@ export function MenuUsuario({ usuario, compacto }: { usuario: UsuarioMenu; compa
           </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-60">
+      <DropdownMenuContent side={lado} align="start" className="w-60">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-2 py-1.5">
             <span className="block text-sm font-medium text-foreground">{usuario.nome}</span>
