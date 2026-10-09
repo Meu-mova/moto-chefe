@@ -81,3 +81,17 @@ export function limiteCancelamento(dataAutorizacao: string): Date {
 export function deveDesfazerFaturamento(nota: { status: string; ambiente: string; dataAutorizacao: string | null }): boolean {
   return nota.status === 'Cancelada' && nota.ambiente === 'Producao' && !!nota.dataAutorizacao
 }
+
+/**
+ * O que a resposta da API faz com a venda. Só na troca de status: consultar de
+ * novo uma nota que já estava autorizada ou cancelada não desfaz uma correção
+ * feita à mão na venda ou na moto.
+ */
+export function efeitoNaVenda(
+  statusAntes: string | null,
+  nota: { status: string; ambiente: string; dataAutorizacao: string | null },
+): 'faturar' | 'desfazer' | null {
+  if (nota.status === statusAntes || nota.ambiente !== 'Producao') return null
+  if (nota.status === 'Autorizada') return 'faturar'
+  return deveDesfazerFaturamento(nota) ? 'desfazer' : null
+}
