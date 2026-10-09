@@ -1,6 +1,6 @@
 /**
  * Classificação dos status da NF de saída: os da Nota Gateway e os nossos
- * (Enviando, Processando). Trava, consulta e tela decidem pela mesma lista.
+ * (Enviando, Processando, Descartada). Trava, consulta e tela decidem pela mesma lista.
  * Status oficiais: https://docs.notagateway.com.br/docs/status-da-nota-fiscal-no-gateway
  */
 
@@ -9,13 +9,25 @@
  * emitir) é por exclusão de propósito: status intermediário, ou que a API passe
  * a ter depois, segura a venda em vez de deixar sair uma segunda nota (#80).
  */
-export const STATUS_MORTOS = ['Negada', 'Denegada', 'Cancelada']
+export const STATUS_MORTOS = ['Negada', 'Denegada', 'Cancelada', 'Descartada']
 
 const STATUS_FINAIS = [...STATUS_MORTOS, 'Autorizada', 'CancelamentoNegado']
 
 /** Final: a nota não muda mais sozinha. Nos demais a tela oferece "Consultar". */
 export function ehFinal(status: string): boolean {
   return STATUS_FINAIS.includes(status)
+}
+
+/**
+ * Espera antes de descartar uma tentativa presa em Enviando (#88). A Nota Gateway
+ * registra a nota ao recebê-la; a espera cobre o envio que ainda estava em
+ * andamento, que hoje pode durar até o limite da função na Vercel.
+ */
+const ESPERA_PARA_DESCARTAR_MS = 15 * 60 * 1000
+
+/** Tentativa que ficou em Enviando: o envio falhou e a nota pode não ter chegado. */
+export function podeDescartarTentativa(nota: { status: string; criadoEm: string }, agora: Date): boolean {
+  return nota.status === 'Enviando' && agora.getTime() - new Date(nota.criadoEm).getTime() >= ESPERA_PARA_DESCARTAR_MS
 }
 
 /** A SEFAZ não autorizou a nota. */

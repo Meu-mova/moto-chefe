@@ -12,7 +12,7 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
-import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, motivoDoStatus, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
 
 /**
@@ -514,7 +514,7 @@ export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; n
 const prazo = (n: NotaResumo) => (n.dataAutorizacao ? diaEHoraBrt(limiteCancelamento(n.dataAutorizacao).toISOString()) : 'o fim do prazo')
 
 const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => string> = {
-  emissao_em_andamento: () => 'Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída" e cancele a venda depois que a emissão terminar.',
+  emissao_em_andamento: () => 'Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída"; se ela estiver parada em "Enviando" há mais de 15 minutos, dá para descartar a tentativa por lá. Depois, cancele a venda.',
   cancelar_nf: n => `A NF ${n.numero} está autorizada na SEFAZ. Cancele a NF antes, até ${prazo(n)}, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
   cancelamento_em_andamento: n => `O cancelamento da NF ${n.numero} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
   tentar_de_novo: n => `A SEFAZ recusou o cancelamento da NF ${n.numero}${n.motivoStatus ? ` (${n.motivoStatus})` : ''}, e a nota continua valendo. Peça de novo pelo número da NF, até ${prazo(n)}; com a nota cancelada, a venda fica livre.`,
@@ -604,6 +604,41 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
       return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
     }
     return { ok: true, nota: atual }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * Descarta a tentativa presa em Enviando (#88) só depois de a Nota Gateway
+ * confirmar que não conhece a nota. Se ela tiver a nota, vale o status dela, e
+ * nada é descartado: emitir de novo duplicaria a NF.
+ */
+export async function descartarTentativaAction(notaId: string): Promise<ResultadoTransmissao> {
+  try {
+    const usuario = await exigirPapel('descartar')
+    const carregada = await carregarNota(notaId, usuario)
+    const { r, cfg } = carregada
+    if (!podeDescartarTentativa({ status: r.status, criadoEm: r.criadoEm.toISOString() }, new Date())) {
+      return { ok: false, error: 'Só a tentativa parada em "Enviando" há 15 minutos ou mais pode ser descartada', nota: await resumoDaNota(r.id) }
+    }
+    const n = await consultarNfe(cfg, r.idExterno)
+    if (n) {
+      await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
+      return { ok: false, error: 'A Nota Gateway tem esta nota: nada foi descartado, e o status foi atualizado', nota: await resumoDaNota(r.id) }
+    }
+    const descartada = await db.update(notasFiscaisSaida).set({
+      status: 'Descartada',
+      cancelamentoMotivo: 'Tentativa descartada: não chegou à Nota Gateway',
+      cancelamentoPor: usuario.id,
+      cancelamentoEm: sql`now()` as unknown as Date,
+      atualizadoEm: sql`now()` as unknown as Date,
+    }).where(and(eq(notasFiscaisSaida.id, r.id), eq(notasFiscaisSaida.status, 'Enviando')))
+      .returning({ id: notasFiscaisSaida.id })
+    if (!descartada.length) {
+      return { ok: false, error: 'A nota mudou de status enquanto era conferida — consulte de novo', nota: await resumoDaNota(r.id) }
+    }
+    return { ok: true, nota: await resumoDaNota(r.id) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
