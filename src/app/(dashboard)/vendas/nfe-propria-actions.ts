@@ -489,6 +489,30 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
   }
 }
 
+/**
+ * As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. Nota de
+ * antes de a data de autorização ser gravada ganha a data aqui, e o diálogo já
+ * mostra o prazo de cancelamento.
+ */
+export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; notas: NotaResumo[] } | { ok: false; error: string }> {
+  try {
+    const usuario = await exigirPapel()
+    const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+    if (!venda) return { ok: false, error: 'Venda não encontrada' }
+    if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId)))) {
+      return { ok: false, error: 'Sem permissão para NF de saída deste grupo' }
+    }
+    const notas = await notasDaVenda(vendaId)
+    const semData = notas.filter(n => situacaoCancelamento(n, new Date()) === 'sem_data')
+    if (!semData.length) return { ok: true, notas }
+    // Se a consulta falhar, a nota continua sem data e o card oferece "Consultar".
+    await Promise.all(semData.map(n => carregarNota(n.id, usuario).then(reconsultar).catch(() => null)))
+    return { ok: true, notas: await notasDaVenda(vendaId) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
 const SEM_CANCELAMENTO: Record<Exclude<SituacaoCancelamento, 'disponivel'>, string> = {
   fora_do_prazo: 'Passou o prazo de 24h para cancelar esta nota',
   em_andamento: 'O cancelamento desta nota já está em andamento — consulte em instantes',
