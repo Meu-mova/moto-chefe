@@ -11,6 +11,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "MOVA — Gestão de Motos Elétricas",
   description: "MOVA — Sistema multi-loja de gestão de motos elétricas",
+  // Declarados aqui para usar nomes próprios: ao declarar `icons`, o Next deixa de gerar as tags
+  // de app/icon.* e app/apple-icon.*. O favicon.ico continua pela convenção de arquivo.
+  icons: {
+    icon: [{ url: "/brand/mova-favicon.svg", type: "image/svg+xml" }],
+    apple: "/brand/mova-icone-tela-inicial.png", // tela inicial do iPhone, 180 px
+  },
 };
 
 export default function RootLayout({
