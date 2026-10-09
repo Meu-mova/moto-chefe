@@ -4,7 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida } from '@/lib/db/schema'
-import { eq, and, isNull, desc, sql } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
@@ -20,6 +20,7 @@ import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { STATUS_MORTOS } from '@/lib/notagateway/status'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -1559,7 +1560,8 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling.
+  // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling: a nota viva
+  // mais recente que tem DANFE, inclusive a com cancelamento negado.
   if (venda) {
     const [propria] = await db
       .select({ linkDanfe: notasFiscaisSaida.linkDanfe })
@@ -1567,7 +1569,8 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
       .where(and(
         eq(notasFiscaisSaida.vendaId, venda.id),
         eq(notasFiscaisSaida.ambiente, 'Producao'),
-        eq(notasFiscaisSaida.status, 'Autorizada'),
+        notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
+        isNotNull(notasFiscaisSaida.linkDanfe),
       ))
       .orderBy(desc(notasFiscaisSaida.criadoEm))
       .limit(1)

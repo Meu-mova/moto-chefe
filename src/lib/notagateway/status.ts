@@ -22,3 +22,36 @@ export function ehFinal(status: string): boolean {
 export function ehRecusada(status: string): boolean {
   return status === 'Negada' || status === 'Denegada'
 }
+
+/** Regra geral da SEFAZ: 24h contadas da autorização; depois disso ela recusa com 220. */
+const PRAZO_CANCELAMENTO_MS = 24 * 60 * 60 * 1000
+
+const EM_CANCELAMENTO = ['SolicitandoCancelamento', 'CancelamentoSolicitado', 'EmProcessoDeCancelamento', 'CanceladaAguardandoAtualizacaoPDF']
+
+/** Fim do pedido de cancelamento. Autorizada não conta: logo depois do pedido a consulta ainda pode devolvê-la. */
+export function cancelamentoConcluido(status: string): boolean {
+  return status === 'Cancelada' || status === 'CancelamentoNegado'
+}
+
+export type SituacaoCancelamento = 'disponivel' | 'fora_do_prazo' | 'em_andamento' | 'indisponivel' | 'sem_data'
+
+/**
+ * Só nota autorizada (ou com cancelamento negado) cancela. Pedir o cancelamento
+ * de uma negada também volta "Cancelada" da API, mas é cancelamento lógico,
+ * sem nada na SEFAZ.
+ */
+export function situacaoCancelamento(nota: { status: string; dataAutorizacao: string | null }, agora: Date): SituacaoCancelamento {
+  if (EM_CANCELAMENTO.includes(nota.status)) return 'em_andamento'
+  if (nota.status !== 'Autorizada' && nota.status !== 'CancelamentoNegado') return 'indisponivel'
+  if (!nota.dataAutorizacao) return 'sem_data'
+  const limite = new Date(nota.dataAutorizacao).getTime() + PRAZO_CANCELAMENTO_MS
+  return agora.getTime() < limite ? 'disponivel' : 'fora_do_prazo'
+}
+
+/**
+ * Só a nota que valeu na SEFAZ desfaz o faturamento: sem data de autorização,
+ * "Cancelada" é o cancelamento lógico de uma negada. Homologação nunca faturou.
+ */
+export function deveDesfazerFaturamento(nota: { status: string; ambiente: string; dataAutorizacao: string | null }): boolean {
+  return nota.status === 'Cancelada' && nota.ambiente === 'Producao' && !!nota.dataAutorizacao
+}
