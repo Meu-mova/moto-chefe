@@ -11,7 +11,7 @@ import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, emCancelamento, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -322,7 +322,7 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
 
     await tx.update(notasFiscaisSaida).set({
       status: n.status,
-      motivoStatus: n.motivoStatus ?? (n.status === 'Autorizada' ? null : n.statusSefaz),
+      motivoStatus: motivoDoStatus(n),
       numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
       linkDanfe: n.linkDanfe, linkXml: n.linkXml,
       // Resposta sem data não apaga a que já está gravada.
@@ -357,12 +357,12 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
 }
 
 /** Consulta até a SEFAZ responder ou o tempo acabar — o que sobrar, a tela reconsulta. */
-async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas = 8, terminou: (status: string) => boolean = ehFinal) {
+async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas = 8, terminou: (n: NfeConsultada) => boolean = n => ehFinal(n.status)) {
   let ultima: NfeConsultada | null = null
   for (let i = 0; i < tentativas; i++) {
     await espera(i === 0 ? 2500 : 2000)
     ultima = await consultarNfe(cfg, idExterno)
-    if (ultima && terminou(ultima.status)) break
+    if (ultima && terminou(ultima)) break
   }
   return ultima
 }
@@ -490,7 +490,7 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 }
 
 const SEM_CANCELAMENTO: Record<Exclude<SituacaoCancelamento, 'disponivel'>, string> = {
-  fora_do_prazo: 'Passou o prazo de 24h para cancelar: o caminho é a NF de devolução ou o cancelamento extemporâneo na SEFAZ, combinado com o contador',
+  fora_do_prazo: 'Passou o prazo de 24h para cancelar esta nota',
   em_andamento: 'O cancelamento desta nota já está em andamento — consulte em instantes',
   indisponivel: 'Só nota autorizada pode ser cancelada',
   sem_data: 'Não deu para confirmar a data de autorização desta nota — consulte e tente de novo',
@@ -500,7 +500,9 @@ const NOME_AMBIENTE: Record<string, string> = { Producao: 'produção', Homologa
 
 /**
  * Pede o cancelamento de uma NF autorizada. O motivo fica só no nosso registro:
- * a Nota Gateway manda à SEFAZ sempre "Pedido cancelado".
+ * a Nota Gateway manda à SEFAZ sempre "Pedido cancelado". A recusa da SEFAZ volta
+ * com ok, porque o bloco da nota mostra o motivo; o erro fica para o que ele não
+ * mostra (pedido não aceito, prazo, falta de resposta).
  */
 export async function cancelarNfePropriaAction(notaId: string, motivo: string): Promise<ResultadoTransmissao> {
   try {
@@ -530,6 +532,7 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
       atualizadoEm: sql`now()` as unknown as Date,
     }).where(eq(notasFiscaisSaida.id, r.id))
 
+    const pedido = { statusAntes: nota.status, em: new Date() }
     try {
       await cancelarNfe(cfg, r.idExterno)
     } catch (err) {
@@ -537,21 +540,18 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
       // (a nota que já estava cancelada, por exemplo, volta como Cancelada).
       await reconsultar(carregada).catch(() => null)
       const atual = await resumoDaNota(r.id)
-      if (atual.status === 'Cancelada' || situacaoCancelamento(atual, new Date()) === 'em_andamento') return { ok: true, nota: atual }
+      if (atual.status === 'Cancelada' || emCancelamento(atual.status)) return { ok: true, nota: atual }
       const msg = err instanceof CancelamentoRecusado
         ? `A Nota Gateway não aceitou o pedido: ${err.message}`
         : `Não deu para confirmar o pedido de cancelamento (${(err as Error).message}) — consulte e, se a nota continuar autorizada, peça de novo`
       return { ok: false, error: msg, nota: atual }
     }
 
-    const n = await acompanhar(cfg, r.idExterno, 8, cancelamentoConcluido)
+    const n = await acompanhar(cfg, r.idExterno, 8, c => cancelamentoConcluido(c, pedido))
     if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
     const atual = await resumoDaNota(r.id)
-    if (atual.status === 'CancelamentoNegado') {
-      return { ok: false, error: `A SEFAZ recusou o cancelamento: ${atual.motivoStatus ?? 'sem motivo informado'}`, nota: atual }
-    }
     if (atual.status === 'Autorizada') {
-      return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido — consulte em instantes e, se a nota continuar autorizada, peça de novo', nota: atual }
+      return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
     }
     return { ok: true, nota: atual }
   } catch (err) {
