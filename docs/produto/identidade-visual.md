@@ -73,8 +73,8 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-foreground` | texto sobre `primary` | `#ffffff` | `#03140c` |
 | `primary-text` | link e texto em verde | `#036443` | `#4ee8a8` |
 | `primary-soft` | fundo de item ativo, selo "concluída" | `#e3f6ee` | `#0f3326` |
-| `warning` / `warning-foreground` | alerta | `#fff7e0` / `#7a4a00` | `#3a2a05` / `#ffd58a` |
-| `destructive` / `destructive-foreground` | erro, pendência | `#fdecec` / `#a11c1c` | `#3d1214` / `#ffb3b3` |
+| `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% | `#8a5300` | `#ffc861` |
+| `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
 logo com texto branco não chega a 4.5:1.
@@ -99,8 +99,11 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `primary-foreground` / `primary` | 5.38 | 11.04 | 4.5 |
 | `primary-text` / `card` | 7.22 | 11.12 | 4.5 |
 | `primary-text` / `primary-soft` | 6.43 | 8.83 | 4.5 |
-| `warning-foreground` / `warning` | 6.99 | 10.00 | 4.5 |
-| `destructive-foreground` / `destructive` | 6.81 | 9.54 | 4.5 |
+| `warning` / `card` | 6.33 | 11.33 | 4.5 |
+| `warning` / fundo de alerta (`warning` a 10%/20% sobre `card`) | 5.47 | 7.04 | 4.5 |
+| `destructive` / `card` | 6.57 | 7.61 | 4.5 |
+| `destructive` / fundo de erro (sobre `card`) | 5.57 | 5.34 | 4.5 |
+| `destructive` / fundo de erro (sobre `background`, claro) | 5.16 | — | 4.5 |
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
