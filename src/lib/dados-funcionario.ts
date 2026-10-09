@@ -20,9 +20,6 @@ export function normalizarCpf(valor: string): string {
   return (valor ?? '').replace(/\D/g, '')
 }
 
-// Mora em documento.ts desde a venda para CNPJ (#65); reexportado para quem já importava daqui.
-export { cpfValido }
-
 function normalizarCelular(valor: string): string {
   let digitos = (valor ?? '').replace(/\D/g, '')
   // Aceita com ou sem o código do país; guardamos sempre com.

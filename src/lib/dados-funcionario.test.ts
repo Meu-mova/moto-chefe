@@ -1,8 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  normalizarCpf, cpfValido, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
+  normalizarCpf, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
 } from './dados-funcionario'
+import { cpfValido } from './documento'
 
 // ─── CPF ──────────────────────────────────────────────────────────────────
 test('CPF com dígito verificador correto é aceito', () => {

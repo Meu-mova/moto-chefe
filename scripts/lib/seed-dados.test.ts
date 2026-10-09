@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cpfValido } from '../../src/lib/dados-funcionario'
+import { cpfValido } from '../../src/lib/documento'
 import { calcLiquidoRecebido } from '../../src/lib/preco-minimo'
 import {
   DOMINIO_TESTE, GRUPOS, LOJAS, TAXAS,

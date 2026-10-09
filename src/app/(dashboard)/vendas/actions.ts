@@ -58,7 +58,7 @@ async function garantirOrigemValida(
 /**
  * Confere o CPF/CNPJ do comprador. A tela também barra, mas o navegador não é
  * fonte de verdade. Documento inválido bloqueia, exceção ao "avise, não
- * bloqueie" (ADR-0011): a SEFAZ recusaria a nota. Devolve o documento
+ * bloqueie" (ADR-0015): a SEFAZ recusaria a nota. Devolve o documento
  * formatado, como a máscara da tela grava, e o representante só quando é
  * pessoa jurídica.
  *
@@ -88,14 +88,15 @@ function conferirComprador(
     return { clienteCpf: documento, tipoPessoa, representanteNome: null, representanteCpf: null }
   }
 
-  // O CPF do representante não vai para a nota: aqui vale o "avise, não
-  // bloqueie" — a tela avisa e o servidor grava como veio.
+  // O CPF do representante não vai para a nota, então não barra (ADR-0011):
+  // grava os dígitos recebidos, com máscara só quando formam um CPF.
   const cpfRepresentante = soDigitosDoc(representante?.cpf)
   return {
     clienteCpf: documento,
     tipoPessoa,
     representanteNome: representante?.nome?.trim() || null,
-    representanteCpf: cpfRepresentante ? formatarCpfCnpj(cpfRepresentante) : null,
+    representanteCpf: !cpfRepresentante ? null
+      : cpfRepresentante.length === 11 ? formatarCpfCnpj(cpfRepresentante) : cpfRepresentante,
   }
 }
 

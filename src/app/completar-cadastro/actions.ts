@@ -4,9 +4,10 @@ import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import {
-  cpfValido, normalizarCpf, chavePixValida, normalizarChavePix, nascimentoValido,
+  normalizarCpf, chavePixValida, normalizarChavePix, nascimentoValido,
   type TipoChavePix,
 } from '@/lib/dados-funcionario'
+import { cpfValido } from '@/lib/documento'
 
 type Entrada = {
   cpf: string
