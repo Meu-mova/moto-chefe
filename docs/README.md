@@ -8,6 +8,8 @@ Ponto de entrada da documentação. Para trabalhar no código, comece pelo
 
 - [`produto/visao.md`](produto/visao.md): o que o MOVA é, para quem, os módulos, objetivos e o
   que fica fora do escopo (PRD retroativo; objetivos a validar com o Cesar).
+- [`produto/identidade-visual.md`](produto/identidade-visual.md): logo, favicon, fonte, cores
+  dos temas claro e escuro e o contraste medido de cada par.
 
 ## Decisões
 
