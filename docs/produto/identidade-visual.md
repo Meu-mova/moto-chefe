@@ -73,7 +73,7 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-foreground` | texto sobre `primary` | `#ffffff` | `#03140c` |
 | `primary-text` | link e texto em verde | `#036443` | `#4ee8a8` |
 | `primary-soft` | fundo de item ativo, selo "concluída" | `#e3f6ee` | `#0f3326` |
-| `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% | `#8a5300` | `#ffc861` |
+| `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
