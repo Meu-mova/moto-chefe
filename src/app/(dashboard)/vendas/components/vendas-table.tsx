@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { GarantiaButton } from '../../estoque/components/garantia-button'
@@ -6,6 +7,8 @@ import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
 import { CancelarVendaButton } from './cancelar-venda-button'
 import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
+import { NfSaidaVendaDialog, type NfDaVenda } from './nf-saida-venda-dialog'
+import { podeOperarNfSaida } from '../papeis-nf-saida'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
@@ -128,8 +131,21 @@ type Props = {
   descontos?: Map<string, DescontoDaVenda>
 }
 
-export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens, descontos }: Props) {
+export function VendasTable(props: Props) {
+  const [nfAberta, setNfAberta] = useState<NfDaVenda | null>(null)
+  return (
+    <>
+      <TabelaDeVendas {...props} onAbrirNf={setNfAberta} />
+      {/* Fora das linhas: cancelar a NF em produção tira o número da venda, e o
+          revalidatePath redesenha a linha sem o botão que abriu o diálogo. */}
+      {nfAberta && <NfSaidaVendaDialog nf={nfAberta} onFechar={() => setNfAberta(null)} />}
+    </>
+  )
+}
+
+function TabelaDeVendas({ vendas, papel, lojaIdUsuario, vendedores, origens, descontos, onAbrirNf }: Props & { onAbrirNf: (nf: NfDaVenda) => void }) {
   const podeFazerGarantia  = podeGarantia.has(papel)
+  const podeNfSaida        = podeOperarNfSaida(papel)
   const isAdmin            = ADMINS.has(papel)
   const podeEditarVenda    = podeEditar.has(papel)
   const podeConciliacao    = isAdmin || papel === 'aux_adm'
@@ -171,6 +187,7 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens,
       </TableHeader>
       <TableBody>
         {vendasFiltradas.map(({ venda: v, status }) => {
+          const descricaoMoto = `${v.modelo} — ${v.chassi}`
           return (
             <TableRow key={v.id}>
               <TableCell className="font-mono font-medium text-slate-700">#{v.numero}</TableCell>
@@ -201,7 +218,16 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens,
                 </div>
               </TableCell>
               <TableCell className="text-slate-500">
-                {v.notaFiscalSaida ?? '—'}
+                {v.notaFiscalSaida && podeNfSaida ? (
+                  <button
+                    type="button"
+                    onClick={() => onAbrirNf({ vendaId: v.id, vendaNumero: v.numero, numeroNf: v.notaFiscalSaida!, descricao: descricaoMoto })}
+                    className="font-medium text-blue-600 hover:underline"
+                    title="Ver a NF de saída"
+                  >
+                    {v.notaFiscalSaida}
+                  </button>
+                ) : (v.notaFiscalSaida ?? '—')}
               </TableCell>
               <TableCell className="font-medium tabular-nums">{formatarValor(v.valor)}</TableCell>
               {descontos && <CelulaDesconto d={descontos.get(v.id)} />}
@@ -214,10 +240,10 @@ export function VendasTable({ vendas, papel, lojaIdUsuario, vendedores, origens,
                 <div className="flex items-center gap-1 justify-end">
                   <DetalhesVendaDialog venda={v} papel={papel} desconto={descontos?.get(v.id)} />
                   {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} origens={origens} />}
-                  {!v.notaFiscalSaida && podeFazerGarantia && (
+                  {!v.notaFiscalSaida && podeNfSaida && (
                     <NfSaidaButton
                       motoId={v.motoId}
-                      descricao={`${v.modelo} — ${v.chassi}`}
+                      descricao={descricaoMoto}
                     />
                   )}
                   {podeFazerGarantia && (

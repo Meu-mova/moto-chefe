@@ -11,7 +11,8 @@ import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, emCancelamento, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
+import { podeOperarNfSaida } from './papeis-nf-saida'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -24,11 +25,9 @@ import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal,
  * serve para conferir a nota sem valor fiscal.
  */
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
-
 async function exigirPapel(acao = 'emitir') {
   const u = await getUsuarioLogado()
-  if (!PAPEIS.includes(u.papel)) throw new Error(`Sem permissão para ${acao} NF de saída`)
+  if (!podeOperarNfSaida(u.papel)) throw new Error(`Sem permissão para ${acao} NF de saída`)
   return u
 }
 
@@ -317,7 +316,7 @@ const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
  */
 async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string, vendaId: string, motoId: string) {
   const mexeuNaVenda = await db.transaction(async tx => {
-    const [antes] = await tx.select({ numero: notasFiscaisSaida.numero, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
+    const [antes] = await tx.select({ status: notasFiscaisSaida.status, numero: notasFiscaisSaida.numero, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
       .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
 
     await tx.update(notasFiscaisSaida).set({
@@ -330,7 +329,9 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
       atualizadoEm: sql`now()` as unknown as Date,
     }).where(eq(notasFiscaisSaida.id, notaId))
 
-    if (n.status === 'Autorizada' && ambiente === 'Producao' && n.numero) {
+    const dataAutorizacao = n.dataAutorizacao ?? antes?.dataAutorizacao?.toISOString() ?? null
+    const efeito = efeitoNaVenda(antes?.status ?? null, { status: n.status, ambiente, dataAutorizacao })
+    if (efeito === 'faturar' && n.numero) {
       // O mesmo efeito do "Confirmar NF" manual: número na venda, moto vendida.
       await tx.update(vendas).set({ notaFiscalSaida: n.numero }).where(eq(vendas.id, vendaId))
       await tx.update(motos).set({ disponibilidade: 'vendida' as any }).where(eq(motos.id, motoId))
@@ -338,8 +339,7 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
     }
 
     const numero = n.numero ?? antes?.numero
-    const dataAutorizacao = n.dataAutorizacao ?? antes?.dataAutorizacao?.toISOString() ?? null
-    if (!numero || !deveDesfazerFaturamento({ status: n.status, ambiente, dataAutorizacao })) return false
+    if (efeito !== 'desfazer' || !numero) return false
     // O "Confirmar NF" ao contrário, só se a venda ainda tem o número desta
     // nota: uma nota nova já pode ter faturado a venda de novo.
     const venda = await tx.update(vendas).set({ notaFiscalSaida: null })
@@ -457,12 +457,16 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
 
 type Usuario = Awaited<ReturnType<typeof exigirPapel>>
 
+/** O grupo é o do CNPJ do registro; o grupo ativo da sessão não conta. */
+async function exigirGrupo(usuario: Usuario, grupoId: string) {
+  if (!(await podeUsuarioVerGrupo(usuario, grupoId))) throw new Error('Sem permissão para NF de saída deste grupo')
+}
+
 /** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
 async function carregarNota(notaId: string, usuario: Usuario) {
   const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
   if (!r) throw new Error('Nota não encontrada')
-  // O grupo da nota é o CNPJ que emitiu; o grupo ativo da sessão não conta.
-  if (!(await podeUsuarioVerGrupo(usuario, r.grupoId))) throw new Error('Sem permissão para NF de saída deste grupo')
+  await exigirGrupo(usuario, r.grupoId)
   const cfg = await configNotaGateway(r.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
   const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1)
@@ -481,9 +485,22 @@ async function reconsultar({ r, cfg, motoId }: NotaCarregada) {
 /** Reconsulta uma nota que ficou em processamento. */
 export async function consultarNfePropriaAction(notaId: string): Promise<ResultadoTransmissao> {
   try {
-    const nota = await carregarNota(notaId, await exigirPapel())
+    const nota = await carregarNota(notaId, await exigirPapel('consultar'))
     await reconsultar(nota)
     return { ok: true, nota: await resumoDaNota(nota.r.id) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. */
+export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; notas: NotaResumo[] } | { ok: false; error: string }> {
+  try {
+    const usuario = await exigirPapel('consultar')
+    const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+    if (!venda) return { ok: false, error: 'Venda não encontrada' }
+    await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+    return { ok: true, notas: await notasDaVenda(vendaId) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }

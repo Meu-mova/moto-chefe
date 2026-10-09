@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, situacaoCancelamento } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, situacaoCancelamento } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -145,4 +145,19 @@ test('na nota recusada sem motivoStatus, o motivo é o statusSefaz', () => {
 
 test('o motivoStatus da API vence o statusSefaz', () => {
   assert.equal(motivoDoStatus({ status: 'Negada', motivoStatus: '778 - Rejeição: NCM inexistente', statusSefaz: '225 - Rejeição: Falha no Schema XML' }), '778 - Rejeição: NCM inexistente')
+})
+
+test('nota de produção que acaba de ser autorizada fatura a venda; a que acaba de ser cancelada desfaz', () => {
+  assert.equal(efeitoNaVenda('Processando', { status: 'Autorizada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }), 'faturar')
+  assert.equal(efeitoNaVenda('EmProcessoDeCancelamento', { status: 'Cancelada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }), 'desfazer')
+})
+
+test('nota que já estava autorizada ou cancelada não mexe de novo na venda', () => {
+  assert.equal(efeitoNaVenda('Autorizada', { status: 'Autorizada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }), null)
+  assert.equal(efeitoNaVenda('Cancelada', { status: 'Cancelada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }), null)
+})
+
+test('nota de homologação e cancelamento lógico de nota negada não mexem na venda', () => {
+  assert.equal(efeitoNaVenda('Processando', { status: 'Autorizada', ambiente: 'Homologacao', dataAutorizacao: AUTORIZADA_EM }), null)
+  assert.equal(efeitoNaVenda('Negada', { status: 'Cancelada', ambiente: 'Producao', dataAutorizacao: null }), null)
 })
