@@ -91,7 +91,7 @@ test('tipo de pessoa pelo tamanho do documento', () => {
 
 test('tipo de pessoa só com o documento completo, sem conferir o dígito verificador', () => {
   assert.equal(tipoPessoaSeCompleto('11.222.333/0001-82'), 'juridica')
-  assert.equal(tipoPessoaSeCompleto('529.982.247-25'), 'fisica')
+  assert.equal(tipoPessoaSeCompleto('529.982.247-26'), 'fisica')
   assert.equal(tipoPessoaSeCompleto('11.222.333/0001'), null)
   assert.equal(tipoPessoaSeCompleto(''), null)
 })
@@ -99,5 +99,6 @@ test('tipo de pessoa só com o documento completo, sem conferir o dígito verifi
 test('rótulo do documento: CNPJ para 14 dígitos, CPF para o resto', () => {
   assert.equal(rotuloDocumento('11.222.333/0001-81'), 'CNPJ')
   assert.equal(rotuloDocumento('529.982.247-25'), 'CPF')
+  assert.equal(rotuloDocumento('11.222.333/0001'), 'CPF')
   assert.equal(rotuloDocumento(null), 'CPF')
 })
