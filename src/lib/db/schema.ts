@@ -216,6 +216,11 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   linkXml:      text('link_xml'),
   payload:      jsonb('payload').notNull(),
   emitidaPor:   uuid('emitida_por'),
+  /** Da consulta à API; o prazo de cancelamento conta daqui. */
+  dataAutorizacao:    timestamp('data_autorizacao', { withTimezone: true }),
+  cancelamentoMotivo: text('cancelamento_motivo'),
+  cancelamentoPor:    uuid('cancelamento_por'),
+  cancelamentoEm:     timestamp('cancelamento_em', { withTimezone: true }),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
