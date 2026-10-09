@@ -14,8 +14,13 @@ incidente real; o incidente desta não está registrado.
 Nas palavras do `AGENTS.md`: "validação que discorda do usuário vira aviso e deixa gravar; só o
 efeito derivado (preencher um valor sozinho) é que não acontece."
 
-Exceção: venda com NF de saída autorizada em produção não se cancela
-([ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md)).
+Exceções:
+
+- Venda com NF de saída autorizada em produção não se cancela
+  ([ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md)).
+- CPF/CNPJ do comprador com dígito verificador errado bloqueia venda, reserva e demanda: a SEFAZ
+  recusaria a nota (decisão do Luis na triagem da #65, 2026-10-08). O CPF do representante legal
+  não vai para a nota e segue a regra: avisa e deixa gravar.
 
 ## Por quê
 
