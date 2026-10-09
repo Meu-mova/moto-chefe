@@ -26,6 +26,20 @@ export function tipoPessoaDoDocumento(documento: string | null | undefined): Tip
   return soDigitosDoc(documento).length === 14 ? 'juridica' : 'fisica'
 }
 
+/** Como `tipoPessoaDoDocumento`, mas null enquanto o documento não tem 11 nem 14
+ *  dígitos: a tela não troca rótulo nem etiqueta no meio da digitação. Não confere
+ *  o dígito verificador; quem barra é `lerDocumentoCliente`. */
+export function tipoPessoaSeCompleto(documento: string | null | undefined): TipoPessoa | null {
+  const tamanho = soDigitosDoc(documento).length
+  if (tamanho === 14) return 'juridica'
+  if (tamanho === 11) return 'fisica'
+  return null
+}
+
+export function rotuloDocumento(documento: string | null | undefined): 'CPF' | 'CNPJ' {
+  return tipoPessoaDoDocumento(documento) === 'juridica' ? 'CNPJ' : 'CPF'
+}
+
 /**
  * Valida o documento do tomador da venda pelo tipo de pessoa.
  *

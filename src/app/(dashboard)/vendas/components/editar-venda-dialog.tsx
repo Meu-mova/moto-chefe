@@ -12,7 +12,8 @@ import { editarVendaAction } from '../actions'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
-import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta, tipoPessoaDoCampo } from '@/components/documento-cliente'
+import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
+import { tipoPessoaSeCompleto } from '@/lib/documento'
 
 type Pgto = {
   id:          string
@@ -92,7 +93,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
   const [estado,      setEstado]      = useState(v.clienteEstado ?? '')
   const [representanteNome, setRepresentanteNome] = useState(v.representanteNome ?? '')
   const [representanteCpf,  setRepresentanteCpf]  = useState(v.representanteCpf ?? '')
-  const juridica = tipoPessoaDoCampo(clienteCpf) === 'juridica'
+  const juridica = tipoPessoaSeCompleto(clienteCpf) === 'juridica'
 
   const [pending, startTransition] = useTransition()
 

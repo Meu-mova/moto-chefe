@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Search, UserCheck, UserX, Loader2 } from 'lucide-react'
 import { buscarClientePorCpfAction } from '../../vendas/actions'
-import { soDigitosDoc } from '@/lib/documento'
-import { DocumentoClienteInput, TipoPessoaEtiqueta, tipoPessoaDoCampo } from '@/components/documento-cliente'
+import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { DocumentoClienteInput, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 export type ClienteForm = {
   clienteNome: string
@@ -29,7 +29,7 @@ export const CLIENTE_VAZIO: ClienteForm = {
 }
 
 export function clienteCompleto(v: ClienteForm): boolean {
-  return !!(v.clienteNome.trim() && tipoPessoaDoCampo(v.clienteCpf) && v.clienteCelular.trim())
+  return !!(v.clienteNome.trim() && lerDocumentoCliente(v.clienteCpf).ok && v.clienteCelular.trim())
 }
 
 export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChange: React.Dispatch<React.SetStateAction<ClienteForm>> }) {
@@ -44,10 +44,9 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
   const set = (patch: Partial<ClienteForm>) => onChange(prev => ({ ...prev, ...patch }))
 
   function handleDocumento(mascarado: string) {
-    const d = soDigitosDoc(mascarado)
     set({ clienteCpf: mascarado })
     setStatus(null)
-    if (d.length === 11 || d.length === 14) buscarClientePorCpf(d)
+    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(soDigitosDoc(mascarado))
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {
@@ -109,7 +108,7 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
     }
   }
 
-  const juridica = tipoPessoaDoCampo(value.clienteCpf) === 'juridica'
+  const juridica = tipoPessoaSeCompleto(value.clienteCpf) === 'juridica'
 
   return (
     <div className="space-y-3">

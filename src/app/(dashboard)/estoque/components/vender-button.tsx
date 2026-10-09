@@ -16,8 +16,8 @@ import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from 
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { soDigitosDoc } from '@/lib/documento'
-import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta, tipoPessoaDoCampo } from '@/components/documento-cliente'
+import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
 function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
@@ -243,10 +243,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
   // ── Máscaras ──
   function handleDocumento(mascarado: string) {
-    const d = soDigitosDoc(mascarado)
     setClienteCpf(mascarado)
     setClienteStatus(null)
-    if (d.length === 11 || d.length === 14) buscarClientePorCpf(d)
+    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(soDigitosDoc(mascarado))
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {
@@ -335,12 +334,12 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const pgtoReserva = pgtoHandlers(setPgtosReserva)
 
   // ── Validações de venda ──
-  const tipoPessoa = tipoPessoaDoCampo(clienteCpf)
+  const tipoPessoa = tipoPessoaSeCompleto(clienteCpf)
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somatorioOk = valorNum > 0 && Math.abs(somatorio - valorNum) < 0.01
   const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda))
-  const clientePreenchido = !!(clienteNome && tipoPessoa && clienteCelular && clienteEmail)
+  const clientePreenchido = !!(clienteNome && lerDocumentoCliente(clienteCpf).ok && clienteCelular && clienteEmail)
 
   // ── Validação de preço mínimo (venda) ──
   const pgtoCalc = pgtos

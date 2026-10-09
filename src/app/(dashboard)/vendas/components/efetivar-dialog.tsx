@@ -11,8 +11,8 @@ import { efetivarVendaAction } from '../actions'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
-import { mascararCpfCnpj } from '@/lib/documento'
-import { DocumentoClienteInput, tipoPessoaDoCampo } from '@/components/documento-cliente'
+import { lerDocumentoCliente, mascararCpfCnpj, tipoPessoaSeCompleto } from '@/lib/documento'
+import { DocumentoClienteInput } from '@/components/documento-cliente'
 
 type Props = { pedidoId: string; chassi: string; modelo: string; origens: OrigemParaEscolher[] }
 
@@ -58,7 +58,8 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
     }
   }
 
-  const podeEfetivar = !!clienteNome && !!tipoPessoaDoCampo(clienteCpf) && !!valor && !!formaPagamento
+  const juridica = tipoPessoaSeCompleto(clienteCpf) === 'juridica'
+  const podeEfetivar = !!clienteNome && lerDocumentoCliente(clienteCpf).ok && !!valor && !!formaPagamento
     && origemPreenchida(origens, origemId, origemDetalhe)
 
   return (
@@ -77,8 +78,8 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label>{tipoPessoaDoCampo(clienteCpf) === 'juridica' ? 'Razão social' : 'Nome do Cliente'}</Label>
-              <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder="Nome completo ou razão social" />
+              <Label>{juridica ? 'Razão social' : 'Nome do Cliente'}</Label>
+              <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder={juridica ? 'Razão social da empresa' : 'Nome completo'} />
             </div>
             <div className="space-y-2">
               <Label>CPF/CNPJ do Cliente</Label>

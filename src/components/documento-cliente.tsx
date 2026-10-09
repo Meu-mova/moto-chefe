@@ -1,13 +1,7 @@
 'use client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cpfValido, lerDocumentoCliente, mascararCpfCnpj, soDigitosDoc, type TipoPessoa } from '@/lib/documento'
-
-/** Tipo de pessoa do documento digitado, ou null enquanto ele não é um CPF/CNPJ válido. */
-export function tipoPessoaDoCampo(texto: string): TipoPessoa | null {
-  const doc = lerDocumentoCliente(texto)
-  return doc.ok ? doc.tipoPessoa : null
-}
+import { cpfValido, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
 
 /**
  * Campo CPF/CNPJ do comprador: máscara enquanto digita e o resultado da
@@ -21,7 +15,7 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
   /** Esconde o "✓ válido" (ex.: enquanto a busca do cadastro roda). */
   ocultarValido?: boolean
 }) {
-  const completo = [11, 14].includes(soDigitosDoc(value).length)
+  const completo = tipoPessoaSeCompleto(value) !== null
   const doc = lerDocumentoCliente(value)
   return (
     <>
@@ -34,14 +28,14 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
       />
       {completo && !doc.ok && <p className="text-xs text-red-500">{doc.erro}</p>}
       {doc.ok && !ocultarValido && (
-        <p className="text-xs text-green-600">✓ {doc.tipoPessoa === 'juridica' ? 'CNPJ' : 'CPF'} válido</p>
+        <p className="text-xs text-green-600">✓ {rotuloDocumento(doc.documento)} válido</p>
       )}
     </>
   )
 }
 
 export function TipoPessoaEtiqueta({ documento }: { documento: string }) {
-  const tipo = tipoPessoaDoCampo(documento)
+  const tipo = tipoPessoaSeCompleto(documento)
   if (!tipo) return null
   return tipo === 'juridica'
     ? <span className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded px-1.5 py-0.5">Pessoa jurídica</span>
@@ -74,7 +68,7 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
         <Label>CPF do representante</Label>
         <Input
           value={cpf}
-          onChange={e => onCpfChange(mascararCpfCnpj(e.target.value.replace(/\D/g, '').slice(0, 11)))}
+          onChange={e => onCpfChange(mascararCpfCnpj(soDigitosDoc(e.target.value).slice(0, 11)))}
           placeholder="000.000.000-00"
           className={digitos && !valido ? 'border-amber-400 focus-visible:ring-amber-300' : ''}
         />
