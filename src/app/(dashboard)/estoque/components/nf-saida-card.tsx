@@ -43,11 +43,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
         onAtualizada(r.nota)
         setFormAberto(false)
       }
-      // A recusa nova da SEFAZ já aparece no bloco, com o motivo dela. Ao pedir
-      // de novo, a nota continua CancelamentoNegado também quando o pedido nem
-      // saiu, e aí o erro precisa aparecer.
-      const recusaNova = r.nota?.status === 'CancelamentoNegado' && nota.status !== 'CancelamentoNegado'
-      if (!r.ok && !recusaNova) setErro(r.error)
+      if (!r.ok) setErro(r.error)
     })
   }
 
@@ -141,7 +137,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
       <div className="space-y-1.5 rounded-md border border-red-200 bg-red-50 p-3">
         <p className="flex items-center gap-1.5 font-medium text-red-800"><XCircle size={15} /> A SEFAZ recusou o cancelamento</p>
         <p className="text-xs text-red-700">{nota.motivoStatus ?? 'Sem motivo informado.'}</p>
-        <p className="text-xs text-red-800">A NF {nota.numero} continua valendo{producao ? ' e a venda continua faturada' : ''}.</p>
+        <p className="text-xs text-red-800">A NF {nota.numero} continua autorizada{producao ? ' e a venda continua faturada' : ''}.</p>
         {registro}
         {situacao === 'disponivel' && limite ? (
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

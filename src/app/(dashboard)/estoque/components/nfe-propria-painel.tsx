@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, FileDown, Loader2, RefreshCw
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ehFinal, ehRecusada, situacaoCancelamento } from '@/lib/notagateway/status'
+import { ehFinal, ehRecusada, emCancelamento } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
@@ -347,7 +347,7 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
     )
   }
 
-  if (!ehFinal(nota.status) && situacaoCancelamento(nota, new Date()) !== 'em_andamento') {
+  if (!ehFinal(nota.status) && !emCancelamento(nota.status)) {
     return (
       <div className="space-y-3 py-2">
         <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">

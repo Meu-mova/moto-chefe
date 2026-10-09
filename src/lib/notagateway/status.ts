@@ -24,8 +24,8 @@ export function ehRecusada(status: string): boolean {
 }
 
 /**
- * O statusSefaz só serve de motivo à nota recusada: na cancelada ele continua
- * "100 - Autorizado o uso da NF-e" (staging, 09/10/2026).
+ * O statusSefaz só serve de motivo à nota recusada: na nota cancelada do teste no
+ * staging (09/10/2026), ele veio "100 - Autorizado o uso da NF-e".
  */
 export function motivoDoStatus(n: { status: string; motivoStatus: string | null; statusSefaz: string | null }): string | null {
   return n.motivoStatus ?? (ehRecusada(n.status) ? n.statusSefaz : null)
@@ -36,13 +36,24 @@ const PRAZO_CANCELAMENTO_MS = 24 * 60 * 60 * 1000
 
 const EM_CANCELAMENTO = ['SolicitandoCancelamento', 'CancelamentoSolicitado', 'EmProcessoDeCancelamento', 'CanceladaAguardandoAtualizacaoPDF']
 
+/** Cancelamento pedido, à espera da SEFAZ. */
+export function emCancelamento(status: string): boolean {
+  return EM_CANCELAMENTO.includes(status)
+}
+
 /**
- * Fim do pedido de cancelamento. O status de antes do pedido não conta: logo
- * depois dele, a consulta ainda pode devolver a Autorizada ou a recusa do pedido
- * anterior.
+ * Fim de um pedido de cancelamento. Logo depois do pedido, a consulta ainda pode
+ * devolver o estado de antes: a Autorizada, ou a recusa do pedido anterior, que
+ * só conta se a Nota Gateway alterou a nota depois do pedido. Sem essa data, a
+ * recusa de um "Tentar de novo" só aparece no fim das consultas.
  */
-export function cancelamentoConcluido(status: string, statusAntes: string): boolean {
-  return status !== statusAntes && (status === 'Cancelada' || status === 'CancelamentoNegado')
+export function cancelamentoConcluido(
+  n: { status: string; dataUltimaAlteracao: string | null },
+  pedido: { statusAntes: string; em: Date },
+): boolean {
+  if (n.status === 'Cancelada') return true
+  if (n.status !== 'CancelamentoNegado') return false
+  return pedido.statusAntes !== 'CancelamentoNegado' || (!!n.dataUltimaAlteracao && new Date(n.dataUltimaAlteracao) >= pedido.em)
 }
 
 export type SituacaoCancelamento = 'disponivel' | 'fora_do_prazo' | 'em_andamento' | 'indisponivel' | 'sem_data'
@@ -53,7 +64,7 @@ export type SituacaoCancelamento = 'disponivel' | 'fora_do_prazo' | 'em_andament
  * sem nada na SEFAZ.
  */
 export function situacaoCancelamento(nota: { status: string; dataAutorizacao: string | null }, agora: Date): SituacaoCancelamento {
-  if (EM_CANCELAMENTO.includes(nota.status)) return 'em_andamento'
+  if (emCancelamento(nota.status)) return 'em_andamento'
   if (nota.status !== 'Autorizada' && nota.status !== 'CancelamentoNegado') return 'indisponivel'
   if (!nota.dataAutorizacao) return 'sem_data'
   return agora < limiteCancelamento(nota.dataAutorizacao) ? 'disponivel' : 'fora_do_prazo'

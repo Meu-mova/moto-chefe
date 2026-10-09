@@ -97,16 +97,24 @@ test('nota autorizada sem a data de autorização gravada não tem prazo calcul�
   assert.equal(situacaoCancelamento({ status: 'Autorizada', dataAutorizacao: null }, new Date()), 'sem_data')
 })
 
-test('pedido sobre nota autorizada: só Cancelada e CancelamentoNegado contam como fim', () => {
-  for (const status of ['Cancelada', 'CancelamentoNegado']) assert.equal(cancelamentoConcluido(status, 'Autorizada'), true, status)
+const PEDIDO_EM = new Date('2026-10-09T15:00:00Z')
+
+test('pedido sobre nota autorizada: Cancelada e CancelamentoNegado encerram a espera; Autorizada e status intermediários, não', () => {
+  const pedido = { statusAntes: 'Autorizada', em: PEDIDO_EM }
+  for (const status of ['Cancelada', 'CancelamentoNegado']) {
+    assert.equal(cancelamentoConcluido({ status, dataUltimaAlteracao: null }, pedido), true, status)
+  }
   for (const status of ['Autorizada', 'SolicitandoCancelamento', 'EmProcessoDeCancelamento', 'CanceladaAguardandoAtualizacaoPDF']) {
-    assert.equal(cancelamentoConcluido(status, 'Autorizada'), false, status)
+    assert.equal(cancelamentoConcluido({ status, dataUltimaAlteracao: null }, pedido), false, status)
   }
 })
 
-test('pedido de novo depois de uma recusa: a recusa anterior não conta como fim, a Cancelada conta', () => {
-  assert.equal(cancelamentoConcluido('CancelamentoNegado', 'CancelamentoNegado'), false)
-  assert.equal(cancelamentoConcluido('Cancelada', 'CancelamentoNegado'), true)
+test('pedido de novo sobre CancelamentoNegado: a recusa só encerra a espera se a última alteração for depois do pedido', () => {
+  const pedido = { statusAntes: 'CancelamentoNegado', em: PEDIDO_EM }
+  assert.equal(cancelamentoConcluido({ status: 'CancelamentoNegado', dataUltimaAlteracao: '2026-10-09T15:00:03Z' }, pedido), true)
+  assert.equal(cancelamentoConcluido({ status: 'CancelamentoNegado', dataUltimaAlteracao: '2026-10-09T14:58:00Z' }, pedido), false)
+  assert.equal(cancelamentoConcluido({ status: 'CancelamentoNegado', dataUltimaAlteracao: null }, pedido), false)
+  assert.equal(cancelamentoConcluido({ status: 'Cancelada', dataUltimaAlteracao: null }, pedido), true)
 })
 
 test('nota de produção cancelada com data de autorização é caso de desfazer o faturamento', () => {
@@ -125,8 +133,10 @@ test('o limite para cancelar é 24h depois da autorização', () => {
   assert.equal(limiteCancelamento(AUTORIZADA_EM).toISOString(), '2026-10-09T15:40:00.000Z')
 })
 
-test('na nota cancelada, o statusSefaz "100 - Autorizado o uso da NF-e" não vira motivo', () => {
-  assert.equal(motivoDoStatus({ status: 'Cancelada', motivoStatus: null, statusSefaz: '100 - Autorizado o uso da NF-e' }), null)
+test('na nota cancelada ou com cancelamento negado, o statusSefaz "100 - Autorizado o uso da NF-e" não vira motivo', () => {
+  for (const status of ['Cancelada', 'CancelamentoNegado']) {
+    assert.equal(motivoDoStatus({ status, motivoStatus: null, statusSefaz: '100 - Autorizado o uso da NF-e' }), null, status)
+  }
 })
 
 test('na nota recusada sem motivoStatus, o motivo é o statusSefaz', () => {

@@ -97,6 +97,13 @@ export type NfeConsultada = {
   linkXml: string | null
   /** ISO; vazio na nota negada, inclusive depois do cancelamento lógico. */
   dataAutorizacao: string | null
+  dataUltimaAlteracao: string | null
+}
+
+// A doc traz ISO com Z; formato que não vira data conta como ausente, para não
+// derrubar a gravação do resto do retorno.
+function dataIso(valor: unknown): string | null {
+  return typeof valor === 'string' && !Number.isNaN(Date.parse(valor)) ? valor : null
 }
 
 /** null = a API ainda não conhece esse id (acabou de ser enviado). */
@@ -117,9 +124,8 @@ export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string): P
     protocolo: n?.protocolo?.numero ?? null,
     linkDanfe: n?.linkDanfe || null,
     linkXml: n?.linkDownloadXml || null,
-    // A doc traz ISO com Z; formato que não vira data conta como ausente, para
-    // não derrubar a gravação do resto do retorno.
-    dataAutorizacao: n?.dataAutorizacao && !Number.isNaN(Date.parse(n.dataAutorizacao)) ? String(n.dataAutorizacao) : null,
+    dataAutorizacao: dataIso(n?.dataAutorizacao),
+    dataUltimaAlteracao: dataIso(n?.dataUltimaAlteracao),
   }
 }
 
