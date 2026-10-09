@@ -12,7 +12,7 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
-import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, explicarTrava, motivoDoStatus, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento } from '@/lib/notagateway/status'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -493,14 +493,39 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
   }
 }
 
+/** As notas de uma venda, com a permissão no grupo da loja dela. */
+async function notasDaVendaPermitidas(vendaId: string, usuario: Usuario) {
+  const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  if (!venda) throw new Error('Venda não encontrada')
+  await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+  return notasDaVenda(vendaId)
+}
+
 /** As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. */
 export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; notas: NotaResumo[] } | { ok: false; error: string }> {
   try {
+    return { ok: true, notas: await notasDaVendaPermitidas(vendaId, await exigirPapel('consultar')) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * A orientação da trava do "Cancelar venda" (ADR-0014), ou null se a venda pode
+ * ser cancelada. Nota de produção viva sem data de autorização é consultada antes:
+ * sem a data, o prazo não se calcula.
+ */
+export async function travaDoCancelamentoDaVendaAction(vendaId: string): Promise<{ ok: true; trava: string | null } | { ok: false; error: string }> {
+  try {
     const usuario = await exigirPapel('consultar')
-    const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
-    if (!venda) return { ok: false, error: 'Venda não encontrada' }
-    await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
-    return { ok: true, notas: await notasDaVenda(vendaId) }
+    let notas = await notasDaVendaPermitidas(vendaId, usuario)
+    const semData = notas.filter(n => n.ambiente === 'Producao' && situacaoCancelamento(n, new Date()) === 'sem_data')
+    if (semData.length) {
+      await Promise.all(semData.map(n => carregarNota(n.id, usuario).then(reconsultar).catch(() => null)))
+      notas = await notasDaVenda(vendaId)
+    }
+    const trava = travaDoCancelamentoDaVenda(notas, new Date())
+    return { ok: true, trava: trava && explicarTrava(trava) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }

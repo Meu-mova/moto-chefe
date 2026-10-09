@@ -21,6 +21,7 @@ import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
+import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -946,6 +947,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     .limit(1)
 
   if (!vendaRecord) throw new Error('Venda não encontrada')
+
+  // ADR-0014. A recusa volta como valor porque, em produção, o Next não leva ao
+  // cliente a mensagem de um erro lançado na action.
+  const t = await travaDoCancelamentoDaVendaAction(vendaId)
+  if (!t.ok) return { trava: `Não deu para conferir a NF de saída desta venda: ${t.error}` }
+  if (t.trava) return { trava: t.trava }
 
   // Cancelar apaga a linha da venda, e conciliacoes_cartao, pix_recebimentos,
   // pix_recebimentos_mcp e demandas apontam para vendas.id com ON DELETE NO ACTION.

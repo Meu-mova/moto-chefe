@@ -95,3 +95,42 @@ export function efeitoNaVenda(
   if (nota.status === 'Autorizada') return 'faturar'
   return deveDesfazerFaturamento(nota) ? 'desfazer' : null
 }
+
+export type TravaDaVenda = {
+  tipo: 'emissao_em_andamento' | 'cancelar_nf' | 'cancelamento_em_andamento' | 'tentar_de_novo' | 'fora_do_prazo' | 'sem_data'
+  numero: string | null
+}
+
+/**
+ * Trava do "Cancelar venda" (ADR-0014). Só a nota de produção viva trava: a de
+ * homologação nunca valeu na SEFAZ, e a morta não vale mais. O índice da 0111
+ * deixa no máximo uma viva por venda.
+ */
+export function travaDoCancelamentoDaVenda(
+  notas: { ambiente: string; status: string; dataAutorizacao: string | null; numero: string | null }[],
+  agora: Date,
+): TravaDaVenda | null {
+  const viva = notas.find(n => n.ambiente === 'Producao' && !STATUS_MORTOS.includes(n.status))
+  if (!viva) return null
+  const situacao = situacaoCancelamento(viva, agora)
+  const tipo: TravaDaVenda['tipo'] =
+    situacao === 'disponivel' ? (viva.status === 'CancelamentoNegado' ? 'tentar_de_novo' : 'cancelar_nf')
+    : situacao === 'em_andamento' ? 'cancelamento_em_andamento'
+    : situacao === 'indisponivel' ? 'emissao_em_andamento'
+    : situacao
+  return { tipo, numero: viva.numero }
+}
+
+const ORIENTACAO_DA_TRAVA: Record<TravaDaVenda['tipo'], (nf: string) => string> = {
+  emissao_em_andamento: () => 'Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída" e cancele a venda depois que a emissão terminar.',
+  cancelar_nf: nf => `A NF ${nf} está autorizada na SEFAZ. Cancele a NF antes, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
+  cancelamento_em_andamento: nf => `O cancelamento da NF ${nf} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
+  tentar_de_novo: nf => `A SEFAZ recusou o cancelamento da NF ${nf}, e a nota continua valendo. Peça de novo pelo número da NF; com a nota cancelada, a venda fica livre.`,
+  fora_do_prazo: nf => `A NF ${nf} passou do prazo de 24h para cancelar. O caminho é a NF de devolução, que o MOVA ainda não emite: até lá, esta venda não pode ser cancelada aqui.`,
+  sem_data: nf => `Não deu para confirmar o prazo de cancelamento da NF ${nf}. Abra a NF pelo número dela, consulte e tente de novo.`,
+}
+
+/** A orientação que o "Cancelar venda" mostra, e que o servidor devolve ao recusar. */
+export function explicarTrava(trava: TravaDaVenda): string {
+  return ORIENTACAO_DA_TRAVA[trava.tipo](trava.numero ?? 'da venda')
+}
