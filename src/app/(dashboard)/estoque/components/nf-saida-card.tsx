@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { diaEHoraBrt } from '@/lib/data-venda'
-import { deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, podeDescartarTentativa, situacaoCancelamento } from '@/lib/notagateway/status'
-import { cancelarNfePropriaAction, consultarNfePropriaAction, descartarTentativaAction, type NotaResumo } from '../../vendas/nfe-propria-actions'
+import { MINUTOS_PARA_DESCARTAR, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, podeDescartarTentativa, situacaoCancelamento } from '@/lib/notagateway/status'
+import { cancelarNfePropriaAction, consultarNfePropriaAction, descartarTentativaAction, type NotaResumo, type ResultadoTransmissao } from '../../vendas/nfe-propria-actions'
 
 type Props = { nota: NotaResumo; onAtualizada: (nota: NotaResumo) => void }
 type Acao = 'cancelar' | 'consultar' | 'descartar'
 
-const EXECUTAR: Record<Acao, (notaId: string, motivo: string) => ReturnType<typeof consultarNfePropriaAction>> = {
+const ACOES: Record<Acao, (notaId: string, motivo: string) => Promise<ResultadoTransmissao>> = {
   cancelar: cancelarNfePropriaAction,
   consultar: id => consultarNfePropriaAction(id),
   descartar: id => descartarTentativaAction(id),
@@ -45,7 +45,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
     setErro('')
     setAcao(tipo)
     startTransition(async () => {
-      const r = await EXECUTAR[tipo](nota.id, motivo)
+      const r = await ACOES[tipo](nota.id, motivo)
       setAcao(null)
       if (r.nota) {
         onAtualizada(r.nota)
@@ -147,7 +147,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   } else if (nota.status === 'Descartada') {
     corpo = (
       <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-3">
-        <p className="font-medium text-slate-800">Tentativa descartada: não chegou à Nota Gateway</p>
+        <p className="font-medium text-slate-800">{nota.cancelamento?.motivo ?? 'Tentativa descartada'}</p>
         {nota.cancelamento && (
           <p className="text-xs text-slate-600">
             Descartada por {nota.cancelamento.por ?? '—'} em {diaEHoraBrt(nota.cancelamento.em)}. A venda pode ter uma nova emissão.
@@ -217,7 +217,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   } else if (!ehFinal(nota.status)) {
     corpo = podeDescartarTentativa(nota, new Date()) ? (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
-        <p className="text-xs text-slate-700">Parada em &quot;Enviando&quot; há mais de 15 minutos: se a nota não chegou à Nota Gateway, dá para descartar a tentativa e emitir de novo.</p>
+        <p className="text-xs text-slate-700">Parada em &quot;Enviando&quot; há {MINUTOS_PARA_DESCARTAR} minutos ou mais: se a nota não chegou à Nota Gateway, dá para descartar a tentativa e emitir de novo.</p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => { setErro(''); setConfirmarDescarte(true) }} className="gap-1">
             <Trash2 size={13} /> Descartar tentativa

@@ -365,11 +365,15 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
   }
 
   if (!ehRecusada(nota.status)) {
-    // Cancelada, com cancelamento recusado ou em andamento, ou parada em Enviando: o card mostra o que dá para fazer.
+    // Cancelada, com cancelamento recusado ou em andamento, parada em Enviando ou já
+    // descartada: o card mostra o que dá para fazer.
     return (
       <div className="space-y-3 py-2">
         <NfSaidaCard nota={nota} onAtualizada={onAtualizada} />
-        <div className="flex justify-end"><Button variant="outline" onClick={onVoltar}>Fechar</Button></div>
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onVoltar}>Fechar</Button>
+          {nota.status === 'Descartada' && <Button onClick={onTentarDeNovo}>Tentar de novo</Button>}
+        </div>
       </div>
     )
   }

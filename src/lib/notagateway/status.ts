@@ -5,8 +5,8 @@
  */
 
 /**
- * Só estes liberam nova emissão. A trava (índice da 0111 e checagem antes de
- * emitir) é por exclusão de propósito: status intermediário, ou que a API passe
+ * Só estes liberam nova emissão. A trava (índice de nota única, na migração mais
+ * recente que o cria, e checagem antes de emitir) é por exclusão de propósito: status intermediário, ou que a API passe
  * a ter depois, segura a venda em vez de deixar sair uma segunda nota (#80).
  */
 export const STATUS_MORTOS = ['Negada', 'Denegada', 'Cancelada', 'Descartada']
@@ -23,11 +23,11 @@ export function ehFinal(status: string): boolean {
  * registra a nota ao recebê-la; a espera cobre o envio que ainda estava em
  * andamento, que hoje pode durar até o limite da função na Vercel.
  */
-const ESPERA_PARA_DESCARTAR_MS = 15 * 60 * 1000
+export const MINUTOS_PARA_DESCARTAR = 15
 
 /** Tentativa que ficou em Enviando: o envio falhou e a nota pode não ter chegado. */
 export function podeDescartarTentativa(nota: { status: string; criadoEm: string }, agora: Date): boolean {
-  return nota.status === 'Enviando' && agora.getTime() - new Date(nota.criadoEm).getTime() >= ESPERA_PARA_DESCARTAR_MS
+  return nota.status === 'Enviando' && agora.getTime() - new Date(nota.criadoEm).getTime() >= MINUTOS_PARA_DESCARTAR * 60 * 1000
 }
 
 /** A SEFAZ não autorizou a nota. */
@@ -114,7 +114,7 @@ export type TravaDoCancelamento =
 /**
  * Trava do "Cancelar venda" (ADR-0014), com a nota que trava. Só a nota de
  * produção viva trava: a de homologação nunca valeu na SEFAZ, e a morta não vale
- * mais. O índice da 0111 deixa no máximo uma viva por venda.
+ * mais. O índice de nota única deixa no máximo uma viva por venda.
  */
 export function travaDoCancelamentoDaVenda<N extends { ambiente: string; status: string; dataAutorizacao: string | null }>(
   notas: N[],

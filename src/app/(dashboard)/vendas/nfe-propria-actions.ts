@@ -12,7 +12,7 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
-import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
 
 /**
@@ -43,7 +43,7 @@ export type NotaResumo = {
   linkXml: string | null
   criadoEm: string
   dataAutorizacao: string | null
-  /** O último pedido de cancelamento: nosso motivo, quem pediu e quando. */
+  /** O último pedido de cancelamento, ou o descarte da tentativa: nosso motivo, quem pediu e quando. */
   cancelamento: { motivo: string; por: string | null; em: string } | null
 }
 
@@ -196,18 +196,18 @@ function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosV
 }
 
 async function resumos(filtro: SQL): Promise<NotaResumo[]> {
-  const rows = await db.select({ r: notasFiscaisSaida, canceladaPor: usuarios.nome })
+  const rows = await db.select({ r: notasFiscaisSaida, pedidoPor: usuarios.nome })
     .from(notasFiscaisSaida)
     .leftJoin(usuarios, eq(usuarios.id, notasFiscaisSaida.cancelamentoPor))
     .where(filtro)
     .orderBy(desc(notasFiscaisSaida.criadoEm))
-  return rows.map(({ r, canceladaPor }) => ({
+  return rows.map(({ r, pedidoPor }) => ({
     id: r.id, ambiente: r.ambiente, status: r.status, motivoStatus: r.motivoStatus,
     numero: r.numero, serie: r.serie, linkDanfe: r.linkDanfe, linkXml: r.linkXml,
     criadoEm: r.criadoEm.toISOString(),
     dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null,
     cancelamento: r.cancelamentoEm
-      ? { motivo: r.cancelamentoMotivo ?? '', por: canceladaPor, em: r.cancelamentoEm.toISOString() }
+      ? { motivo: r.cancelamentoMotivo ?? '', por: pedidoPor, em: r.cancelamentoEm.toISOString() }
       : null,
   }))
 }
@@ -400,6 +400,19 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
         if (n) await aplicarRetorno(viva.id, n, viva.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(viva.id) }
       }
+      // Tentativa descartada que aparece depois na Nota Gateway volta a valer
+      // (#88): emitir outra seria a segunda NF da venda.
+      const descartadas = await db.select().from(notasFiscaisSaida).where(and(
+        eq(notasFiscaisSaida.vendaId, e.venda.id),
+        eq(notasFiscaisSaida.ambiente, 'Producao'),
+        eq(notasFiscaisSaida.status, 'Descartada'),
+      ))
+      for (const d of descartadas) {
+        const n = await consultarNfe(e.cfg, d.idExterno)
+        if (!n) continue
+        await aplicarRetorno(d.id, n, d.ambiente, e.venda.id, motoId)
+        return { ok: true, nota: await resumoDaNota(d.id) }
+      }
     }
 
     const existentes = await db.select({ id: notasFiscaisSaida.idExterno }).from(notasFiscaisSaida)
@@ -477,8 +490,8 @@ async function carregarNota(notaId: string, usuario: Usuario) {
 type NotaCarregada = Awaited<ReturnType<typeof carregarNota>>
 
 /** Consulta a API e grava o que ela disser. */
-async function reconsultar({ r, cfg, motoId }: NotaCarregada) {
-  const n = await consultarNfe(cfg, r.idExterno)
+async function reconsultar({ r, cfg, motoId }: NotaCarregada, opcoes: { estrito?: boolean } = {}) {
+  const n = await consultarNfe(cfg, r.idExterno, opcoes)
   if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, motoId)
   return n
 }
@@ -514,7 +527,7 @@ export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; n
 const prazo = (n: NotaResumo) => (n.dataAutorizacao ? diaEHoraBrt(limiteCancelamento(n.dataAutorizacao).toISOString()) : 'o fim do prazo')
 
 const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => string> = {
-  emissao_em_andamento: () => 'Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída"; se ela estiver parada em "Enviando" há mais de 15 minutos, dá para descartar a tentativa por lá. Depois, cancele a venda.',
+  emissao_em_andamento: () => `Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída"; se ela estiver parada em "Enviando" há ${MINUTOS_PARA_DESCARTAR} minutos ou mais, dá para descartar a tentativa por lá. Depois, cancele a venda.`,
   cancelar_nf: n => `A NF ${n.numero} está autorizada na SEFAZ. Cancele a NF antes, até ${prazo(n)}, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
   cancelamento_em_andamento: n => `O cancelamento da NF ${n.numero} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
   tentar_de_novo: n => `A SEFAZ recusou o cancelamento da NF ${n.numero}${n.motivoStatus ? ` (${n.motivoStatus})` : ''}, e a nota continua valendo. Peça de novo pelo número da NF, até ${prazo(n)}; com a nota cancelada, a venda fica livre.`,
@@ -620,11 +633,13 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
     const carregada = await carregarNota(notaId, usuario)
     const { r, cfg } = carregada
     if (!podeDescartarTentativa({ status: r.status, criadoEm: r.criadoEm.toISOString() }, new Date())) {
-      return { ok: false, error: 'Só a tentativa parada em "Enviando" há 15 minutos ou mais pode ser descartada', nota: await resumoDaNota(r.id) }
+      return { ok: false, error: `Só a tentativa parada em "Enviando" há ${MINUTOS_PARA_DESCARTAR} minutos ou mais pode ser descartada`, nota: await resumoDaNota(r.id) }
     }
-    const n = await consultarNfe(cfg, r.idExterno)
-    if (n) {
-      await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
+    // Consultar com a configuração de outro ambiente pode dar um "não encontrada" falso.
+    if (cfg.ambiente !== r.ambiente) {
+      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para descartá-la`, nota: await resumoDaNota(r.id) }
+    }
+    if (await reconsultar(carregada, { estrito: true })) {
       return { ok: false, error: 'A Nota Gateway tem esta nota: nada foi descartado, e o status foi atualizado', nota: await resumoDaNota(r.id) }
     }
     const descartada = await db.update(notasFiscaisSaida).set({
@@ -633,7 +648,7 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
       cancelamentoPor: usuario.id,
       cancelamentoEm: sql`now()` as unknown as Date,
       atualizadoEm: sql`now()` as unknown as Date,
-    }).where(and(eq(notasFiscaisSaida.id, r.id), eq(notasFiscaisSaida.status, 'Enviando')))
+    }).where(and(eq(notasFiscaisSaida.id, r.id), eq(notasFiscaisSaida.status, r.status)))
       .returning({ id: notasFiscaisSaida.id })
     if (!descartada.length) {
       return { ok: false, error: 'A nota mudou de status enquanto era conferida — consulte de novo', nota: await resumoDaNota(r.id) }

@@ -218,7 +218,7 @@ test('tentativa em Enviando há menos de 15 minutos ainda não pode ser descarta
   assert.equal(podeDescartarTentativa({ status: 'Enviando', criadoEm: criadaHa(14) }, AGORA), false)
 })
 
-test('só tentativa em Enviando pode ser descartada', () => {
+test('Processando, EmProcessoDeAutorizacao, Autorizada, Negada e Descartada não podem ser descartadas', () => {
   for (const status of ['Processando', 'EmProcessoDeAutorizacao', 'Autorizada', 'Negada', 'Descartada']) {
     assert.equal(podeDescartarTentativa({ status, criadoEm: criadaHa(90) }, AGORA), false, status)
   }
