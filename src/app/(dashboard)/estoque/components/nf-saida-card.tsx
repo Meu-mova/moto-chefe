@@ -22,11 +22,7 @@ function falta(ate: Date) {
   return horas > 0 ? `${horas}h ${String(minutos % 60).padStart(2, '0')}min` : `${minutos}min`
 }
 
-/**
- * Uma NF de saída emitida pelo MOVA: status, links e cancelamento. Serve o
- * histórico do painel de emissão e, depois, a NF da venda já faturada.
- */
-export function NotaSaidaCard({ nota, onAtualizada }: Props) {
+export function NfSaidaCard({ nota, onAtualizada }: Props) {
   const [formAberto, setFormAberto] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState('')
@@ -47,8 +43,11 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
         onAtualizada(r.nota)
         setFormAberto(false)
       }
-      // A recusa da SEFAZ já aparece no próprio bloco, com o motivo dela.
-      if (!r.ok && r.nota?.status !== 'CancelamentoNegado') setErro(r.error)
+      // A recusa nova da SEFAZ já aparece no bloco, com o motivo dela. Ao pedir
+      // de novo, a nota continua CancelamentoNegado também quando o pedido nem
+      // saiu, e aí o erro precisa aparecer.
+      const recusaNova = r.nota?.status === 'CancelamentoNegado' && nota.status !== 'CancelamentoNegado'
+      if (!r.ok && !recusaNova) setErro(r.error)
     })
   }
 
@@ -72,7 +71,7 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
     </p>
   )
 
-  const consultar = (
+  const botaoConsultar = (
     <Button variant="outline" size="sm" onClick={() => executar('consultar')} className="gap-1">
       <RefreshCw size={13} /> Consultar
     </Button>
@@ -151,7 +150,7 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
               <RefreshCw size={13} /> Tentar de novo
             </Button>
           </div>
-        ) : situacao === 'fora_do_prazo' && <AvisoForaDoPrazo />}
+        ) : situacao === 'fora_do_prazo' && <AvisoForaDoPrazo producao={producao} />}
       </div>
     )
   } else if (situacao === 'em_andamento') {
@@ -160,7 +159,7 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
         <p className="flex items-center gap-1.5 font-medium text-amber-900"><Clock size={15} /> Cancelamento em andamento na SEFAZ</p>
         <p className="text-xs text-amber-800">A NF {nota.numero} ainda vale até a SEFAZ confirmar. Consulte de novo em instantes; não emita outra nota.</p>
         {registro}
-        <div className="flex justify-end pt-1">{consultar}</div>
+        <div className="flex justify-end pt-1">{botaoConsultar}</div>
       </div>
     )
   } else if (situacao === 'disponivel' && limite) {
@@ -173,18 +172,18 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
       </div>
     )
   } else if (situacao === 'fora_do_prazo') {
-    corpo = <AvisoForaDoPrazo />
+    corpo = <AvisoForaDoPrazo producao={producao} />
   } else if (situacao === 'sem_data') {
     corpo = (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
         <p className="text-xs text-slate-700">A data de autorização desta nota ainda não foi gravada: consulte para ver o prazo de cancelamento.</p>
-        {consultar}
+        {botaoConsultar}
       </div>
     )
   } else if (ehRecusada(nota.status)) {
     corpo = nota.motivoStatus && <p className="text-xs text-red-600">{nota.motivoStatus}</p>
   } else if (!ehFinal(nota.status)) {
-    corpo = <div className="flex justify-end">{consultar}</div>
+    corpo = <div className="flex justify-end">{botaoConsultar}</div>
   }
 
   return (
@@ -216,12 +215,14 @@ export function NotaSaidaCard({ nota, onAtualizada }: Props) {
   )
 }
 
-function AvisoForaDoPrazo() {
+function AvisoForaDoPrazo({ producao }: { producao: boolean }) {
   return (
     <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3">
       <p className="flex items-center gap-1.5 font-medium text-amber-900"><AlertTriangle size={15} /> Passou o prazo de 24h para cancelar</p>
       <p className="text-xs text-amber-800">
-        O caminho agora é a <b>NF de devolução</b> ou o cancelamento extemporâneo na SEFAZ, combinado com o contador.
+        {producao
+          ? <>O caminho agora é a <b>NF de devolução</b> ou o cancelamento extemporâneo na SEFAZ, combinado com o contador.</>
+          : 'Nota de homologação, sem valor fiscal: não precisa fazer nada.'}
       </p>
     </div>
   )

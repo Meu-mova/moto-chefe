@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, situacaoCancelamento } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, situacaoCancelamento } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -97,12 +97,16 @@ test('nota autorizada sem a data de autorização gravada não tem prazo calcul�
   assert.equal(situacaoCancelamento({ status: 'Autorizada', dataAutorizacao: null }, new Date()), 'sem_data')
 })
 
-test('só Cancelada e CancelamentoNegado contam como fim do pedido de cancelamento', () => {
-  for (const status of ['Cancelada', 'CancelamentoNegado']) assert.equal(cancelamentoConcluido(status), true, status)
-  // Logo depois do pedido, a consulta ainda pode devolver Autorizada.
+test('pedido sobre nota autorizada: só Cancelada e CancelamentoNegado contam como fim', () => {
+  for (const status of ['Cancelada', 'CancelamentoNegado']) assert.equal(cancelamentoConcluido(status, 'Autorizada'), true, status)
   for (const status of ['Autorizada', 'SolicitandoCancelamento', 'EmProcessoDeCancelamento', 'CanceladaAguardandoAtualizacaoPDF']) {
-    assert.equal(cancelamentoConcluido(status), false, status)
+    assert.equal(cancelamentoConcluido(status, 'Autorizada'), false, status)
   }
+})
+
+test('pedido de novo depois de uma recusa: a recusa anterior não conta como fim, a Cancelada conta', () => {
+  assert.equal(cancelamentoConcluido('CancelamentoNegado', 'CancelamentoNegado'), false)
+  assert.equal(cancelamentoConcluido('Cancelada', 'CancelamentoNegado'), true)
 })
 
 test('nota de produção cancelada com data de autorização é caso de desfazer o faturamento', () => {
@@ -119,4 +123,16 @@ test('cancelamento lógico de nota negada, nota de homologação e cancelamento 
 
 test('o limite para cancelar é 24h depois da autorização', () => {
   assert.equal(limiteCancelamento(AUTORIZADA_EM).toISOString(), '2026-10-09T15:40:00.000Z')
+})
+
+test('na nota cancelada, o statusSefaz "100 - Autorizado o uso da NF-e" não vira motivo', () => {
+  assert.equal(motivoDoStatus({ status: 'Cancelada', motivoStatus: null, statusSefaz: '100 - Autorizado o uso da NF-e' }), null)
+})
+
+test('na nota recusada sem motivoStatus, o motivo é o statusSefaz', () => {
+  assert.equal(motivoDoStatus({ status: 'Negada', motivoStatus: null, statusSefaz: '778 - Rejeição: NCM inexistente' }), '778 - Rejeição: NCM inexistente')
+})
+
+test('o motivoStatus da API vence o statusSefaz', () => {
+  assert.equal(motivoDoStatus({ status: 'Negada', motivoStatus: '778 - Rejeição: NCM inexistente', statusSefaz: '225 - Rejeição: Falha no Schema XML' }), '778 - Rejeição: NCM inexistente')
 })

@@ -4,8 +4,8 @@ import { AlertTriangle, CheckCircle2, ExternalLink, FileDown, Loader2, RefreshCw
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ehFinal, ehRecusada } from '@/lib/notagateway/status'
-import { NotaSaidaCard } from './nota-saida-card'
+import { ehFinal, ehRecusada, situacaoCancelamento } from '@/lib/notagateway/status'
+import { NfSaidaCard } from './nf-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
@@ -315,7 +315,7 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
     <div className="rounded-md border p-3">
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Tentativas anteriores</p>
       <div className="space-y-2">
-        {notas.map(n => <NotaSaidaCard key={n.id} nota={n} onAtualizada={onAtualizada} />)}
+        {notas.map(n => <NfSaidaCard key={n.id} nota={n} onAtualizada={onAtualizada} />)}
       </div>
     </div>
   )
@@ -347,7 +347,7 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
     )
   }
 
-  if (!ehFinal(nota.status)) {
+  if (!ehFinal(nota.status) && situacaoCancelamento(nota, new Date()) !== 'em_andamento') {
     return (
       <div className="space-y-3 py-2">
         <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
@@ -365,10 +365,10 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
   }
 
   if (!ehRecusada(nota.status)) {
-    // Cancelada ou com cancelamento recusado: mostra a nota com o estado do cancelamento.
+    // Cancelada, com cancelamento recusado ou em andamento: mostra a nota com o estado do cancelamento.
     return (
       <div className="space-y-3 py-2">
-        <NotaSaidaCard nota={nota} onAtualizada={onAtualizada} />
+        <NfSaidaCard nota={nota} onAtualizada={onAtualizada} />
         <div className="flex justify-end"><Button variant="outline" onClick={onVoltar}>Fechar</Button></div>
       </div>
     )

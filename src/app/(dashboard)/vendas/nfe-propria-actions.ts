@@ -11,7 +11,7 @@ import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -322,9 +322,7 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
 
     await tx.update(notasFiscaisSaida).set({
       status: n.status,
-      // O statusSefaz só explica a nota recusada; na cancelada ele continua
-      // "100 - Autorizado o uso da NF-e" (staging, 09/10/2026).
-      motivoStatus: n.motivoStatus ?? (ehRecusada(n.status) ? n.statusSefaz : null),
+      motivoStatus: motivoDoStatus(n),
       numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
       linkDanfe: n.linkDanfe, linkXml: n.linkXml,
       // Resposta sem data não apaga a que já está gravada.
@@ -492,7 +490,7 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 }
 
 const SEM_CANCELAMENTO: Record<Exclude<SituacaoCancelamento, 'disponivel'>, string> = {
-  fora_do_prazo: 'Passou o prazo de 24h para cancelar: o caminho é a NF de devolução ou o cancelamento extemporâneo na SEFAZ, combinado com o contador',
+  fora_do_prazo: 'Passou o prazo de 24h para cancelar esta nota',
   em_andamento: 'O cancelamento desta nota já está em andamento — consulte em instantes',
   indisponivel: 'Só nota autorizada pode ser cancelada',
   sem_data: 'Não deu para confirmar a data de autorização desta nota — consulte e tente de novo',
@@ -546,7 +544,7 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
       return { ok: false, error: msg, nota: atual }
     }
 
-    const n = await acompanhar(cfg, r.idExterno, 8, cancelamentoConcluido)
+    const n = await acompanhar(cfg, r.idExterno, 8, status => cancelamentoConcluido(status, nota.status))
     if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
     const atual = await resumoDaNota(r.id)
     if (atual.status === 'CancelamentoNegado') {

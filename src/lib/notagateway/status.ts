@@ -23,14 +23,26 @@ export function ehRecusada(status: string): boolean {
   return status === 'Negada' || status === 'Denegada'
 }
 
+/**
+ * O statusSefaz só serve de motivo à nota recusada: na cancelada ele continua
+ * "100 - Autorizado o uso da NF-e" (staging, 09/10/2026).
+ */
+export function motivoDoStatus(n: { status: string; motivoStatus: string | null; statusSefaz: string | null }): string | null {
+  return n.motivoStatus ?? (ehRecusada(n.status) ? n.statusSefaz : null)
+}
+
 /** Regra geral da SEFAZ: 24h contadas da autorização; depois disso ela recusa com 220. */
 const PRAZO_CANCELAMENTO_MS = 24 * 60 * 60 * 1000
 
 const EM_CANCELAMENTO = ['SolicitandoCancelamento', 'CancelamentoSolicitado', 'EmProcessoDeCancelamento', 'CanceladaAguardandoAtualizacaoPDF']
 
-/** Fim do pedido de cancelamento. Autorizada não conta: logo depois do pedido a consulta ainda pode devolvê-la. */
-export function cancelamentoConcluido(status: string): boolean {
-  return status === 'Cancelada' || status === 'CancelamentoNegado'
+/**
+ * Fim do pedido de cancelamento. O status de antes do pedido não conta: logo
+ * depois dele, a consulta ainda pode devolver a Autorizada ou a recusa do pedido
+ * anterior.
+ */
+export function cancelamentoConcluido(status: string, statusAntes: string): boolean {
+  return status !== statusAntes && (status === 'Cancelada' || status === 'CancelamentoNegado')
 }
 
 export type SituacaoCancelamento = 'disponivel' | 'fora_do_prazo' | 'em_andamento' | 'indisponivel' | 'sem_data'
