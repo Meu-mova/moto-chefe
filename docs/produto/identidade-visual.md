@@ -30,14 +30,18 @@ tela de carregamento. Botões e destaques usam o verde chapado da paleta.
 
 ## Favicon e ícones de app
 
-Convenção de arquivos do Next ([app-icons](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/app-icons)),
-em `src/app/`:
-
 | Arquivo | Para quê |
 |---|---|
-| `favicon.ico` | aba do navegador, navegadores antigos |
-| `icon.svg` | favicon nítido em qualquer tela; o Next marca `sizes="any"` ("`sizes="any"` is added to icons when the extension is `.svg`") |
-| `apple-icon.png` (180 × 180) | tela inicial do iPhone; a convenção não aceita SVG para `apple-icon` |
+| `src/app/favicon.ico` (16/32/48 px) | aba do navegador; vale pela convenção de arquivo do Next |
+| `public/brand/mova-favicon.svg` | favicon nítido em qualquer tela |
+| `public/brand/mova-icone-tela-inicial.png` (180 px) | ícone de quando salvam o MOVA na tela inicial do iPhone |
+
+Os dois últimos são declarados em `metadata.icons` do `src/app/layout.tsx`
+([generateMetadata, `icons`](https://nextjs.org/docs/app/api-reference/functions/generate-metadata#icons)),
+para usar nomes do projeto em vez dos nomes fixos da convenção
+([app-icons](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/app-icons)).
+Ao declarar `icons`, o Next deixa de gerar as tags de `app/icon.*` e `app/apple-icon.*`
+(conferido no build): ícone novo entra ali, não como arquivo solto em `src/app/`.
 
 O favicon é uma versão simplificada do ícone: quadrado arredondado com o degradê e o "M" branco,
 **com traço mais grosso** que o do ícone grande, sem ondas nem sombra. É isso que o mantém nítido
