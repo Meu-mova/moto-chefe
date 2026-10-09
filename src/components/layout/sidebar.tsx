@@ -73,21 +73,26 @@ function ListaNav({ itens, conecta, onNavegar }: { itens: ItemNav[]; conecta: st
         </Link>
       ))}
       {grupos.map(g => (
-        <div key={g.slug} className="pt-2">
+        <div key={g.slug}>
           <button
             type="button"
             onClick={() => setAbertos(a => ({ ...a, [g.slug]: !a[g.slug] }))}
             aria-expanded={!!abertos[g.slug]}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-sidebar-foreground"
+            className={linkCls(false)}
           >
-            {g.nome}
+            <g.icon className="size-4 shrink-0" /> <span className="truncate">{g.nome}</span>
             <ChevronDown className={cn('ml-auto size-3.5 transition-transform', !abertos[g.slug] && '-rotate-90')} />
           </button>
-          {abertos[g.slug] && g.itens.map(({ id, href, label, icon: Icon }) => (
-            <Link key={id} href={href} onClick={onNavegar} className={linkCls(ativo(pathname, href))}>
-              <Icon className="size-4 shrink-0" /> <span className="truncate">{label}</span>
-            </Link>
-          ))}
+          {/* Itens do grupo recuados sob o ícone da categoria, com uma guia à esquerda. */}
+          {abertos[g.slug] && (
+            <div className="ml-5 space-y-0.5 border-l border-sidebar-border pl-2">
+              {g.itens.map(({ id, href, label, icon: Icon }) => (
+                <Link key={id} href={href} onClick={onNavegar} className={linkCls(ativo(pathname, href))}>
+                  <Icon className="size-4 shrink-0" /> <span className="truncate">{label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       ))}
       {conecta && (
