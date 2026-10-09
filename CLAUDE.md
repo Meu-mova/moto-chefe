@@ -14,6 +14,19 @@ mais se erra:
   release.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
+## Cores: nenhuma cor hardcoded
+
+- **Nenhuma cor hardcoded no projeto.** Cor só pelo nome (variável do `src/app/globals.css`):
+  `bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`, `bg-primary`,
+  `text-primary-text`, `text-destructive`, `border-input` etc. Proibido: paleta do Tailwind
+  (`bg-slate-900`, `text-emerald-500`, `bg-white`), hex/rgb/oklch em `className`, `style` ou CSS
+  de componente, e valor arbitrário (`bg-[#047a4f]`).
+- Valores de cor existem só em dois lugares: as variáveis do `globals.css` (claro e escuro) e os
+  arquivos de marca (`public/brand/`, `src/app/icon.svg`). Cor nova entra primeiro no
+  `globals.css` e na tabela de contraste de `docs/produto/identidade-visual.md` (ADR-0016).
+- Arquivo que você tocar sai sem cor hardcoded nas linhas que mudou. As telas antigas migram pela
+  épica #90; não misture migração em massa num PR de outra coisa.
+
 ## Vercel CLI
 
 - **Nunca rode `vercel env pull` sem informar o arquivo de destino.** Sem arquivo, ele sobrescreve
