@@ -4,6 +4,7 @@ import { eq, desc } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { DanfeButton } from './danfe-button'
+import { rotuloDocumento } from '@/lib/documento'
 
 const formatCurrency = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -139,7 +140,7 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
             <p className="font-semibold text-slate-700">Cliente</p>
             <div className="grid grid-cols-2 gap-1.5 text-slate-600">
               <p className="col-span-2">Nome: <span className="text-slate-900 font-medium">{venda.clienteNome}</span></p>
-              <p>CPF: <span className="text-slate-900 font-mono">{venda.clienteCpf}</span></p>
+              <p>{rotuloDocumento(venda.clienteCpf)}: <span className="text-slate-900 font-mono">{venda.clienteCpf}</span></p>
               <p>Celular: <span className="text-slate-900">{venda.clienteCelular ?? '—'}</span></p>
               <p className="col-span-2">E-mail: <span className="text-slate-900">{venda.clienteEmail ?? '—'}</span></p>
               {(venda.clienteLogradouro || venda.clienteCidade) && (
