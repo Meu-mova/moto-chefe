@@ -18,6 +18,10 @@ Enquanto a venda tiver NF de saída autorizada em produção, o "Cancelar venda"
 dentro do prazo, cancelar a NF antes; fora dele, emitir a NF de devolução. É uma exceção ao
 ADR-0011 ("avise, não bloqueie").
 
+Conta a nota viva, não só a autorizada: a que ainda está em emissão pode sair autorizada a qualquer
+momento, e a que está com o cancelamento pendente ainda vale. Precisado em 2026-10-09, na
+implementação (#66).
+
 ## Por quê
 
 O ADR-0011 serve para validação que discorda do usuário. Aqui, o efeito de um aviso ignorado é
@@ -31,10 +35,13 @@ elimina esse risco usando o cancelamento de NF que a #66 já constrói.
   Olist, TOTVS Protheus) tratam o pedido com NF, mas exige um estado de "venda em cancelamento" e
   o tratamento da recusa da SEFAZ. Fica para a #74.
 
-## Situação em 2026-10-08
+## Situação em 2026-10-09
 
-Não implementado: entra com a #66. Hoje o "Cancelar venda" ainda apaga a venda com NF autorizada,
-e o histórico de NF da venda vai junto (#73).
+Implementado com a #66: o diálogo do "Cancelar venda" confere a trava ao abrir e mostra a
+orientação, e o servidor confere de novo ao confirmar. Só conta nota do MOVA de produção viva; a
+NF do Bling continua só com o aviso de que o cancelamento dela é feito no Bling. Fora do prazo, a
+venda fica travada até a NF de devolução existir no MOVA (#75), sem saída manual. Cancelar a
+venda depois de cancelar a NF ainda apaga o histórico de NF dela (#73).
 
 ## Quando revisar
 

@@ -12,7 +12,8 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
-import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, motivoDoStatus, situacaoCancelamento, type SituacaoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, motivoDoStatus, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
+import { diaEHoraBrt } from '@/lib/data-venda'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -493,14 +494,46 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
   }
 }
 
+/** A permissão é no grupo da loja da venda. */
+async function exigirGrupoDaVenda(vendaId: string, usuario: Usuario) {
+  const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  if (!venda) throw new Error('Venda não encontrada')
+  await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+}
+
 /** As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. */
 export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; notas: NotaResumo[] } | { ok: false; error: string }> {
   try {
-    const usuario = await exigirPapel('consultar')
-    const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
-    if (!venda) return { ok: false, error: 'Venda não encontrada' }
-    await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+    await exigirGrupoDaVenda(vendaId, await exigirPapel('consultar'))
     return { ok: true, notas: await notasDaVenda(vendaId) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+const prazo = (n: NotaResumo) => (n.dataAutorizacao ? diaEHoraBrt(limiteCancelamento(n.dataAutorizacao).toISOString()) : 'o fim do prazo')
+
+const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => string> = {
+  emissao_em_andamento: () => 'Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída" e cancele a venda depois que a emissão terminar.',
+  cancelar_nf: n => `A NF ${n.numero} está autorizada na SEFAZ. Cancele a NF antes, até ${prazo(n)}, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
+  cancelamento_em_andamento: n => `O cancelamento da NF ${n.numero} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
+  tentar_de_novo: n => `A SEFAZ recusou o cancelamento da NF ${n.numero}${n.motivoStatus ? ` (${n.motivoStatus})` : ''}, e a nota continua valendo. Peça de novo pelo número da NF, até ${prazo(n)}; com a nota cancelada, a venda fica livre.`,
+  fora_do_prazo: n => `A NF ${n.numero} passou do prazo de 24h para cancelar: o caminho é a NF de devolução ou o cancelamento extemporâneo na SEFAZ, combinado com o contador. Enquanto a NF valer, esta venda não pode ser cancelada aqui.`,
+  sem_data: n => `Não deu para confirmar o prazo de cancelamento da NF ${n.numero}. Abra a NF pelo número dela, consulte e tente de novo.`,
+}
+
+/** A orientação da trava do "Cancelar venda" (ADR-0014), ou null se a venda pode ser cancelada. */
+export async function travaDoCancelamentoDaVendaAction(vendaId: string): Promise<{ ok: true; trava: string | null } | { ok: false; error: string }> {
+  try {
+    const usuario = await exigirPapel('consultar')
+    await exigirGrupoDaVenda(vendaId, usuario)
+    let r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
+    if (r?.trava === 'sem_data') {
+      // Sem a data de autorização, o prazo não se calcula: a consulta traz e grava.
+      await carregarNota(r.nota.id, usuario).then(reconsultar).catch(() => null)
+      r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
+    }
+    return { ok: true, trava: r && ORIENTACAO_CANCELAR_VENDA[r.trava](r.nota) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }

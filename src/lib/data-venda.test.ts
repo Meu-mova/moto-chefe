@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDataInput, inicioDoDiaBrt, fimDoDiaBrt, hojeBrt, mesBrt } from './data-venda'
+import { diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput } from './data-venda'
 
 test('mesBrt: virada de mês à noite NÃO pula pro mês seguinte', () => {
   // 01/08 02:00Z = 31/07 23:00 em Brasília — ainda é julho.
@@ -77,4 +77,8 @@ test('evento noturno do último dia continua no mês certo', () => {
 test('rejeita formato fora de YYYY-MM-DD', () => {
   assert.throws(() => inicioDoDiaBrt('31/07/2026'))
   assert.throws(() => fimDoDiaBrt(''))
+})
+
+test('dia e hora em Brasília: 12:20 UTC vira 09:20', () => {
+  assert.equal(diaEHoraBrt('2026-10-09T12:20:16.000Z'), '09/10 às 09:20')
 })

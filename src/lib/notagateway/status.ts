@@ -95,3 +95,26 @@ export function efeitoNaVenda(
   if (nota.status === 'Autorizada') return 'faturar'
   return deveDesfazerFaturamento(nota) ? 'desfazer' : null
 }
+
+export type TravaDoCancelamento =
+  'emissao_em_andamento' | 'cancelar_nf' | 'cancelamento_em_andamento' | 'tentar_de_novo' | 'fora_do_prazo' | 'sem_data'
+
+/**
+ * Trava do "Cancelar venda" (ADR-0014), com a nota que trava. Só a nota de
+ * produção viva trava: a de homologação nunca valeu na SEFAZ, e a morta não vale
+ * mais. O índice da 0111 deixa no máximo uma viva por venda.
+ */
+export function travaDoCancelamentoDaVenda<N extends { ambiente: string; status: string; dataAutorizacao: string | null }>(
+  notas: N[],
+  agora: Date,
+): { trava: TravaDoCancelamento; nota: N } | null {
+  const nota = notas.find(n => n.ambiente === 'Producao' && !STATUS_MORTOS.includes(n.status))
+  if (!nota) return null
+  const situacao = situacaoCancelamento(nota, agora)
+  const trava: TravaDoCancelamento =
+    situacao === 'disponivel' ? (nota.status === 'CancelamentoNegado' ? 'tentar_de_novo' : 'cancelar_nf')
+    : situacao === 'em_andamento' ? 'cancelamento_em_andamento'
+    : situacao === 'indisponivel' ? 'emissao_em_andamento'
+    : situacao
+  return { trava, nota }
+}

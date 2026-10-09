@@ -158,8 +158,9 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   nunca `{ ...value, ...patch }` — a resposta async desfaz a última tecla.
 - **Avise, não bloqueie**: validação que discorda do usuário vira aviso e deixa
   gravar; só o efeito derivado (preencher um valor sozinho) é que não acontece.
-  Exceções: venda com NF de saída autorizada em produção não se cancela; o
-  "Cancelar venda" recusa e orienta a cancelar a NF antes (ADR-0014). E
+  Exceções: venda com NF de saída do MOVA viva em produção (autorizada, em
+  emissão ou em cancelamento) não se cancela; o "Cancelar venda" recusa e orienta
+  a cancelar a NF antes (ADR-0014). E
   CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
 
 ## Fiscal — cuidado redobrado
