@@ -12,6 +12,7 @@ import { editarVendaAction } from '../actions'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta, tipoPessoaDoCampo } from '@/components/documento-cliente'
 
 type Pgto = {
   id:          string
@@ -89,6 +90,9 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
   const [bairro,      setBairro]      = useState(v.clienteBairro ?? '')
   const [cidade,      setCidade]      = useState(v.clienteCidade ?? '')
   const [estado,      setEstado]      = useState(v.clienteEstado ?? '')
+  const [representanteNome, setRepresentanteNome] = useState(v.representanteNome ?? '')
+  const [representanteCpf,  setRepresentanteCpf]  = useState(v.representanteCpf ?? '')
+  const juridica = tipoPessoaDoCampo(clienteCpf) === 'juridica'
 
   const [pending, startTransition] = useTransition()
 
@@ -110,7 +114,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
 
   function handleSalvar() {
     if (!clienteNome.trim() || !clienteCpf.trim() || !valor) {
-      toast.error('Preencha nome, CPF e valor')
+      toast.error('Preencha nome, CPF/CNPJ e valor')
       return
     }
     // Venda antiga pode não ter origem; se mexeram no campo, tem de ficar válido.
@@ -143,6 +147,8 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
           clienteBairro:      bairro.trim() || null,
           clienteCidade:      cidade.trim() || null,
           clienteEstado:      estado.trim() || null,
+          // Pessoa física não manda: o servidor limpa o representante sozinho.
+          ...(juridica ? { representanteNome, representanteCpf } : {}),
           ...(origemId ? { origemId, origemDetalhe: origemDetalhe.trim() || null } : {}),
         })
         toast.success('Venda atualizada')
@@ -319,15 +325,18 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
 
             {/* ── Cliente ── */}
             <div className="space-y-3">
-              <p className="font-semibold text-slate-700 text-base">Dados do Cliente</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-slate-700 text-base">Dados do Cliente</p>
+                <TipoPessoaEtiqueta documento={clienteCpf} />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label>Nome</Label>
+                  <Label>{juridica ? 'Razão social' : 'Nome'}</Label>
                   <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>CPF</Label>
-                  <Input value={clienteCpf} onChange={e => setClienteCpf(e.target.value)} />
+                  <Label>CPF/CNPJ</Label>
+                  <DocumentoClienteInput value={clienteCpf} onChange={setClienteCpf} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Celular</Label>
@@ -337,6 +346,14 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
                   <Label>E-mail</Label>
                   <Input value={email} onChange={e => setEmail(e.target.value)} />
                 </div>
+                {juridica && (
+                  <RepresentanteLegalCampos
+                    nome={representanteNome}
+                    cpf={representanteCpf}
+                    onNomeChange={setRepresentanteNome}
+                    onCpfChange={setRepresentanteCpf}
+                  />
+                )}
                 <div className="space-y-1.5">
                   <Label>CEP</Label>
                   <Input value={cep} onChange={e => setCep(e.target.value)} />

@@ -50,7 +50,7 @@ test('CPF de cliente já cadastrado sobrevive à busca automática', async () =>
   await act(async () => { root.render(React.createElement(Harness)) })
 
   const inputCpf = [...document.querySelectorAll('input')]
-    .find(i => i.placeholder === '000.000.000-00') as HTMLInputElement
+    .find(i => i.placeholder === 'CPF ou CNPJ') as HTMLInputElement
 
   for (let i = 1; i <= CPF.length; i++) {
     await act(async () => { digitar(inputCpf, CPF.slice(0, i)) })
@@ -59,4 +59,11 @@ test('CPF de cliente já cadastrado sobrevive à busca automática', async () =>
 
   assert.equal(ultimo.clienteCpf, CPF, 'o CPF não pode perder o último dígito depois da busca')
   assert.ok(clienteCompleto(ultimo), 'o botão precisa habilitar com os dados vindos do cadastro')
+})
+
+test('demanda com CNPJ válido fica completa; com dígito errado, não', async () => {
+  const { CLIENTE_VAZIO, clienteCompleto } = await import('./cliente-campos')
+  const empresa = { ...CLIENTE_VAZIO, clienteNome: 'Locadora Exemplo Ltda', clienteCelular: '(35) 99999-0001' }
+  assert.ok(clienteCompleto({ ...empresa, clienteCpf: '11.222.333/0001-81' }))
+  assert.ok(!clienteCompleto({ ...empresa, clienteCpf: '11.222.333/0001-82' }))
 })

@@ -16,21 +16,8 @@ import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from 
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-
-function validarCpf(cpf: string): boolean {
-  const d = cpf.replace(/\D/g, '')
-  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
-  let sum = 0
-  for (let i = 0; i < 9; i++) sum += +d[i] * (10 - i)
-  let r = sum % 11
-  const dig1 = r < 2 ? 0 : 11 - r
-  if (dig1 !== +d[9]) return false
-  sum = 0
-  for (let i = 0; i < 10; i++) sum += +d[i] * (11 - i)
-  r = sum % 11
-  const dig2 = r < 2 ? 0 : 11 - r
-  return dig2 === +d[10]
-}
+import { soDigitosDoc } from '@/lib/documento'
+import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta, tipoPessoaDoCampo } from '@/components/documento-cliente'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
 function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
@@ -139,6 +126,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [clienteBairro, setClienteBairro] = useState('')
   const [clienteCidade, setClienteCidade] = useState('')
   const [clienteEstado, setClienteEstado] = useState('')
+  const [representanteNome, setRepresentanteNome] = useState('')
+  const [representanteCpf, setRepresentanteCpf] = useState('')
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [buscandoCliente, setBuscandoCliente] = useState(false)
   const [clienteStatus, setClienteStatus] = useState<'encontrado' | 'nao-encontrado' | null>(null)
@@ -187,6 +176,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
   function resetForm(tipoInicial: 'venda' | 'reserva') {
     setReservaCriadaId(null)
+    setRepresentanteNome(''); setRepresentanteCpf('')
     setDemandaVinculadaId(null)
     setTipo(reservaAtiva ? 'venda' : tipoInicial)
     if (reservaAtiva) {
@@ -252,15 +242,11 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   }
 
   // ── Máscaras ──
-  function handleCpf(v: string) {
-    const d = v.replace(/\D/g, '').slice(0, 11)
-    const formatado = d
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d{1})/, '$1.$2.$3-$4')
-    setClienteCpf(formatado)
+  function handleDocumento(mascarado: string) {
+    const d = soDigitosDoc(mascarado)
+    setClienteCpf(mascarado)
     setClienteStatus(null)
-    if (d.length === 11) buscarClientePorCpf(d)
+    if (d.length === 11 || d.length === 14) buscarClientePorCpf(d)
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {
@@ -349,14 +335,12 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const pgtoReserva = pgtoHandlers(setPgtosReserva)
 
   // ── Validações de venda ──
-  const cpfDigits = clienteCpf.replace(/\D/g, '')
-  const cpfCompleto = cpfDigits.length === 11
-  const cpfValido = cpfCompleto && validarCpf(cpfDigits)
+  const tipoPessoa = tipoPessoaDoCampo(clienteCpf)
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somatorioOk = valorNum > 0 && Math.abs(somatorio - valorNum) < 0.01
   const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda))
-  const clientePreenchido = !!(clienteNome && cpfValido && clienteCelular && clienteEmail)
+  const clientePreenchido = !!(clienteNome && tipoPessoa && clienteCelular && clienteEmail)
 
   // ── Validação de preço mínimo (venda) ──
   const pgtoCalc = pgtos
@@ -412,6 +396,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       if (tipo === 'venda') {
         const payload = {
           motoId, ...clienteBase, valorTotal: valorVenda,
+          ...(tipoPessoa === 'juridica' ? { representanteNome, representanteCpf } : {}),
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
           origemId,
@@ -638,34 +623,40 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     <UserX size={11} /> Novo cliente — preencha os dados abaixo
                   </span>
                 )}
+                <TipoPessoaEtiqueta documento={clienteCpf} />
               </div>
 
               {/* Campos identificação */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>CPF <span className="text-red-500">*</span></Label>
-                  <Input
+                  <Label>CPF/CNPJ <span className="text-red-500">*</span></Label>
+                  <DocumentoClienteInput
                     value={clienteCpf}
-                    onChange={e => handleCpf(e.target.value)}
-                    placeholder="000.000.000-00"
+                    onChange={handleDocumento}
                     autoFocus={!reservaAtiva}
-                    className={cpfCompleto && !cpfValido ? 'border-red-400 focus-visible:ring-red-400' : ''}
+                    ocultarValido={buscandoCliente}
                   />
-                  {cpfCompleto && !cpfValido && <p className="text-xs text-red-500">CPF inválido</p>}
-                  {cpfValido && !buscandoCliente && <p className="text-xs text-green-600">✓ CPF válido</p>}
                 </div>
                 <div className="space-y-1">
                   <Label>Celular <span className="text-red-500">*</span></Label>
                   <Input value={clienteCelular} onChange={e => handleCelular(e.target.value)} placeholder="(00) 00000-0000" />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label>Nome completo <span className="text-red-500">*</span></Label>
-                  <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder="Nome completo do cliente" />
+                  <Label>{tipoPessoa === 'juridica' ? 'Razão social' : 'Nome completo'} <span className="text-red-500">*</span></Label>
+                  <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder={tipoPessoa === 'juridica' ? 'Razão social da empresa' : 'Nome completo do cliente'} />
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label>E-mail <span className="text-red-500">*</span></Label>
                   <Input type="email" value={clienteEmail} onChange={e => setClienteEmail(e.target.value)} placeholder="email@exemplo.com" />
                 </div>
+                {tipo === 'venda' && tipoPessoa === 'juridica' && (
+                  <RepresentanteLegalCampos
+                    nome={representanteNome}
+                    cpf={representanteCpf}
+                    onNomeChange={setRepresentanteNome}
+                    onCpfChange={setRepresentanteCpf}
+                  />
+                )}
               </div>
 
               <div className="h-px bg-slate-100" />
