@@ -1,6 +1,8 @@
 // Validação dos dados que o próprio funcionário preenche em /completar-cadastro.
 // Tudo puro: sem banco, sem fetch — é o que permite testar as bordas sem subir nada.
 
+import { cpfValido } from './documento'
+
 export type TipoChavePix = 'cpf' | 'celular' | 'email' | 'aleatoria'
 
 export const TIPOS_CHAVE_PIX: { valor: TipoChavePix; rotulo: string }[] = [
@@ -18,21 +20,8 @@ export function normalizarCpf(valor: string): string {
   return (valor ?? '').replace(/\D/g, '')
 }
 
-export function cpfValido(valor: string): boolean {
-  const cpf = normalizarCpf(valor)
-  if (cpf.length !== 11) return false
-  // 111.111.111-11 e afins passam na conta do dígito verificador mas não existem.
-  if (/^(\d)\1{10}$/.test(cpf)) return false
-
-  const digito = (ate: number): number => {
-    let soma = 0
-    for (let i = 0; i < ate; i++) soma += Number(cpf[i]) * (ate + 1 - i)
-    const resto = (soma * 10) % 11
-    return resto === 10 ? 0 : resto
-  }
-
-  return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10])
-}
+// Mora em documento.ts desde a venda para CNPJ (#65); reexportado para quem já importava daqui.
+export { cpfValido }
 
 function normalizarCelular(valor: string): string {
   let digitos = (valor ?? '').replace(/\D/g, '')

@@ -19,8 +19,7 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
-import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc } from '@/lib/documento'
-import { cpfValido } from '@/lib/dados-funcionario'
+import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -57,50 +56,56 @@ async function garantirOrigemValida(
 }
 
 /**
- * Confere o CPF/CNPJ do comprador e o CPF do representante legal. A tela também
- * barra, mas o navegador não é fonte de verdade. Devolve o documento formatado,
- * como a máscara da tela grava, e o representante só quando é pessoa jurídica.
+ * Confere o CPF/CNPJ do comprador. A tela também barra, mas o navegador não é
+ * fonte de verdade. Documento inválido bloqueia, exceção ao "avise, não
+ * bloqueie" (ADR-0011): a SEFAZ recusaria a nota. Devolve o documento
+ * formatado, como a máscara da tela grava, e o representante só quando é
+ * pessoa jurídica.
  *
  * `documentoGravado`: na edição, a venda antiga pode ter um documento que não
- * passa na conferência de hoje. Se ele não mudou, segue como está; corrigir o
- * valor da venda não pode travar por causa do CPF.
+ * passa na conferência de hoje (ou nenhum). Se ele não mudou, segue como está;
+ * corrigir o valor da venda não pode travar por causa do CPF.
  */
 function conferirComprador(
   clienteCpf: string,
   representante?: { nome?: string | null; cpf?: string | null },
   documentoGravado?: string | null,
-): { clienteCpf: string; representanteNome: string | null; representanteCpf: string | null } {
+): { clienteCpf: string; tipoPessoa: TipoPessoa; representanteNome: string | null; representanteCpf: string | null } {
   const digitos = soDigitosDoc(clienteCpf)
-  let juridica: boolean
+  let tipoPessoa: TipoPessoa
   let documento: string
-  if (documentoGravado && digitos === soDigitosDoc(documentoGravado)) {
-    juridica = digitos.length === 14
+  if (documentoGravado != null && digitos === soDigitosDoc(documentoGravado)) {
+    tipoPessoa = tipoPessoaDoDocumento(digitos)
     documento = clienteCpf
   } else {
     const doc = lerDocumentoCliente(clienteCpf)
     if (!doc.ok) throw new Error(doc.erro)
-    juridica = doc.tipoPessoa === 'juridica'
+    tipoPessoa = doc.tipoPessoa
     documento = formatarCpfCnpj(doc.documento)
   }
 
-  if (!juridica) return { clienteCpf: documento, representanteNome: null, representanteCpf: null }
-
-  const cpfRepresentante = soDigitosDoc(representante?.cpf)
-  if (cpfRepresentante && !cpfValido(cpfRepresentante)) {
-    throw new Error('CPF do representante inválido — confira os números')
+  if (tipoPessoa === 'fisica') {
+    return { clienteCpf: documento, tipoPessoa, representanteNome: null, representanteCpf: null }
   }
+
+  // O CPF do representante não vai para a nota: aqui vale o "avise, não
+  // bloqueie" — a tela avisa e o servidor grava como veio.
+  const cpfRepresentante = soDigitosDoc(representante?.cpf)
   return {
     clienteCpf: documento,
+    tipoPessoa,
     representanteNome: representante?.nome?.trim() || null,
     representanteCpf: cpfRepresentante ? formatarCpfCnpj(cpfRepresentante) : null,
   }
 }
 
-/** A venda com o comprador já conferido — ver conferirComprador. */
 function comCompradorConferido(data: DadosVendaCompleta): DadosVendaCompleta {
+  const comprador = conferirComprador(data.clienteCpf, { nome: data.representanteNome, cpf: data.representanteCpf })
   return {
     ...data,
-    ...conferirComprador(data.clienteCpf, { nome: data.representanteNome, cpf: data.representanteCpf }),
+    clienteCpf: comprador.clienteCpf,
+    representanteNome: comprador.representanteNome,
+    representanteCpf: comprador.representanteCpf,
   }
 }
 
@@ -308,7 +313,7 @@ async function criarVendaTx(
       .values({
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
-        tipoPessoa:  cpfLimpo.length === 14 ? 'juridica' : 'fisica',
+        tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
         email:       data.clienteEmail        || null,
         celular:     data.clienteCelular       || null,
         endereco:    data.clienteLogradouro    || null,
@@ -1376,7 +1381,9 @@ export async function editarVendaAction(vendaId: string, dados: {
     { nome: dados.representanteNome, cpf: dados.representanteCpf },
     vendaAtual.clienteCpf,
   )
-  const mexeNoRepresentante = dados.representanteNome !== undefined || dados.representanteCpf !== undefined
+  // Venda que virou pessoa física não guarda representante, mesmo sem os campos no payload.
+  const gravaRepresentante = comprador.tipoPessoa === 'fisica'
+    || dados.representanteNome !== undefined || dados.representanteCpf !== undefined
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
@@ -1413,7 +1420,7 @@ export async function editarVendaAction(vendaId: string, dados: {
         ...(dados.vendedorId ? { vendedorId: dados.vendedorId } : {}),
         clienteNome:        dados.clienteNome,
         clienteCpf:         comprador.clienteCpf,
-        ...(mexeNoRepresentante ? {
+        ...(gravaRepresentante ? {
           representanteNome: comprador.representanteNome,
           representanteCpf:  comprador.representanteCpf,
         } : {}),
@@ -1498,7 +1505,8 @@ export async function buscarClientePorCpfAction(cpf: string) {
       estado: vendas.clienteEstado,
     })
     .from(vendas)
-    .where(eq(vendas.clienteCpf, cpf))
+    // A venda grava o documento formatado; compara só os dígitos.
+    .where(sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`)
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 

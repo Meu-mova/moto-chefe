@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatarCpfCnpj, lerDocumentoCliente, mascararCpfCnpj, soDigitosDoc, validarDocumento } from './documento'
+import { formatarCpfCnpj, lerDocumentoCliente, mascararCpfCnpj, soDigitosDoc, tipoPessoaDoDocumento, validarDocumento } from './documento'
 
 test('formata CPF e CNPJ pelo comprimento', () => {
   assert.equal(formatarCpfCnpj('12345678901'), '123.456.789-01')
@@ -81,4 +81,10 @@ test('de 12 a 14 dígitos a máscara é de CNPJ', () => {
 
 test('dígito além do 14º é ignorado', () => {
   assert.equal(mascararCpfCnpj('112223330001819'), '11.222.333/0001-81')
+})
+
+test('tipo de pessoa pelo tamanho do documento', () => {
+  assert.equal(tipoPessoaDoDocumento('11.222.333/0001-81'), 'juridica')
+  assert.equal(tipoPessoaDoDocumento('529.982.247-25'), 'fisica')
+  assert.equal(tipoPessoaDoDocumento(''), 'fisica')
 })
