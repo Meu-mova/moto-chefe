@@ -94,7 +94,8 @@ para a produção: lá a convenção não muda.
   `vercel env rm <nome> <ambiente>` para isso: não testamos se ele remove só aquele ambiente ou o
   registro inteiro, e valor `sensitive` apagado não volta.
 - Integração no staging, se um teste precisar: analisar antes e cadastrar só no Preview, com
-  credencial de teste.
+  credencial de teste. Exceção, só durante o teste da #66: a chave da Nota Gateway é a da conta, a
+  mesma da produção (ADR-0005, "Situação"; passo a passo em `docs/infra/staging.md`).
 
 ## Divergências conhecidas (2026-10-06)
 

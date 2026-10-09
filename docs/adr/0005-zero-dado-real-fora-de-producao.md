@@ -30,13 +30,18 @@ vazamento de verdade.
 
 ## Situação em 2026-10-09
 
-Uma exceção, decidida pelo Luis em 2026-10-08 (#66): a chave da Nota Gateway no staging é a da
-conta, a mesma que emite em produção para BH e Sul de Minas. Ela fica cifrada no banco do staging,
-só num grupo de teste ligado à empresa de teste da Nota Gateway (CNPJ da própria Nota Gateway), em
-homologação, para testar emissão e cancelamento de NF-e sem certificado nem dado das nossas
-empresas. Fora do app publicado em produção, a trava em `src/lib/notagateway/ambiente.ts` recusa
-qualquer chamada com configuração em `Producao`. Nenhum dado de cliente real entra. Passo a passo
-em `docs/infra/staging.md` ("Nota Gateway em homologação").
+Uma exceção, decidida pelo Luis em 2026-10-08, só enquanto durar o teste da #66: a chave da Nota
+Gateway no staging é a da conta, a mesma que emite em produção para BH e Sul de Minas (a chave da
+API é uma só por conta). Ela fica cifrada no banco do staging, só num grupo de teste ligado à
+empresa de teste da Nota Gateway (CNPJ da própria Nota Gateway), em homologação, para testar
+emissão e cancelamento de NF-e sem certificado nem dado das nossas empresas. Fora do app publicado
+em produção, a trava em `src/lib/notagateway/ambiente.ts` recusa qualquer chamada com configuração
+em `Producao`. Nenhum dado de cliente real entra.
+
+Risco que fica: quem tem o banco do staging e a `CERT_MASTER_KEY` do staging (`.env.local` de quem
+desenvolve, Preview da Vercel) consegue decifrar uma chave que emite em produção, e a trava só vale
+dentro do app. Terminado o teste da #66, a chave sai do staging. Passo a passo em
+`docs/infra/staging.md` ("Nota Gateway em homologação").
 
 ## Quando revisar
 
