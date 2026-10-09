@@ -160,7 +160,7 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   gravar; só o efeito derivado (preencher um valor sozinho) é que não acontece.
   Exceções: venda com NF de saída autorizada em produção não se cancela; o
   "Cancelar venda" recusa e orienta a cancelar a NF antes (ADR-0014). E
-  CPF/CNPJ do comprador inválido bloqueia a venda (a SEFAZ recusaria a nota; ADR-0011).
+  CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
 
 ## Fiscal — cuidado redobrado
 
