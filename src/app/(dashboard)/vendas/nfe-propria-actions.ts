@@ -322,7 +322,9 @@ async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string
 
     await tx.update(notasFiscaisSaida).set({
       status: n.status,
-      motivoStatus: n.motivoStatus ?? (n.status === 'Autorizada' ? null : n.statusSefaz),
+      // O statusSefaz só explica a nota recusada; na cancelada ele continua
+      // "100 - Autorizado o uso da NF-e" (staging, 09/10/2026).
+      motivoStatus: n.motivoStatus ?? (ehRecusada(n.status) ? n.statusSefaz : null),
       numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
       linkDanfe: n.linkDanfe, linkXml: n.linkXml,
       // Resposta sem data não apaga a que já está gravada.

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, situacaoCancelamento } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, situacaoCancelamento } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -115,4 +115,8 @@ test('cancelamento lógico de nota negada, nota de homologação e cancelamento 
   for (const status of ['CancelamentoNegado', 'EmProcessoDeCancelamento', 'Autorizada']) {
     assert.equal(deveDesfazerFaturamento({ status, ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }), false, status)
   }
+})
+
+test('o limite para cancelar é 24h depois da autorização', () => {
+  assert.equal(limiteCancelamento(AUTORIZADA_EM).toISOString(), '2026-10-09T15:40:00.000Z')
 })

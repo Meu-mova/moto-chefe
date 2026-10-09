@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ehFinal, ehRecusada } from '@/lib/notagateway/status'
+import { NotaSaidaCard } from './nota-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
@@ -107,6 +108,10 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
     })
   }
 
+  function atualizarNota(nota: NotaResumo) {
+    setPrevia(p => p && { ...p, notas: p.notas.map(n => (n.id === nota.id ? nota : n)) })
+  }
+
   function tentarDeNovo() {
     setResultado(null)
     setConferido(false)
@@ -142,7 +147,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
     )
   }
 
-  if (resultado) return <Resultado r={resultado} teste={teste} pending={pending} onReconsultar={reconsultar} onTentarDeNovo={tentarDeNovo} onVoltar={onVoltar} />
+  if (resultado) return <Resultado r={resultado} teste={teste} pending={pending} onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo} onVoltar={onVoltar} />
 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
@@ -256,7 +261,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
         </div>
       )}
 
-      {previa.notas.length > 0 && <Historico notas={previa.notas} pending={pending} onReconsultar={reconsultar} />}
+      {previa.notas.length > 0 && <Historico notas={previa.notas} onAtualizada={atualizarNota} />}
 
       {erro && <p className="whitespace-pre-line text-sm text-red-600">{erro}</p>}
 
@@ -305,41 +310,23 @@ function Links({ nota }: { nota: NotaResumo }) {
   )
 }
 
-function Historico({ notas, pending, onReconsultar }: { notas: NotaResumo[]; pending: boolean; onReconsultar: (id: string) => void }) {
+function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada: (nota: NotaResumo) => void }) {
   return (
     <div className="rounded-md border p-3">
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Tentativas anteriores</p>
-      <ul className="space-y-2 text-sm">
-        {notas.map(n => (
-          <li key={n.id} className="space-y-0.5">
-            <p>
-              <span className={n.status === 'Autorizada' ? 'text-green-700' : ehRecusada(n.status) ? 'text-red-700' : 'text-slate-700'}>
-                {n.status}
-              </span>
-              {n.numero && <> · NF {n.numero} série {n.serie}</>}
-              <span className="text-slate-400"> · {n.ambiente === 'Producao' ? 'produção' : 'teste'} · {new Date(n.criadoEm).toLocaleString('pt-BR')}</span>
-            </p>
-            {n.motivoStatus && n.status !== 'Autorizada' && <p className="text-xs text-red-600">{n.motivoStatus}</p>}
-            <div className="flex items-center gap-3">
-              <Links nota={n} />
-              {!ehFinal(n.status) && (
-                <button onClick={() => onReconsultar(n.id)} disabled={pending} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
-                  <RefreshCw size={12} /> Consultar
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <div className="space-y-2">
+        {notas.map(n => <NotaSaidaCard key={n.id} nota={n} onAtualizada={onAtualizada} />)}
+      </div>
     </div>
   )
 }
 
-function Resultado({ r, teste, pending, onReconsultar, onTentarDeNovo, onVoltar }: {
+function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeNovo, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   pending: boolean
   onReconsultar: (id: string) => void
+  onAtualizada: (nota: NotaResumo) => void
   onTentarDeNovo: () => void
   onVoltar: () => void
 }) {
@@ -373,6 +360,16 @@ function Resultado({ r, teste, pending, onReconsultar, onTentarDeNovo, onVoltar 
             <RefreshCw size={14} className={pending ? 'animate-spin' : ''} /> Consultar agora
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  if (!ehRecusada(nota.status)) {
+    // Cancelada ou com cancelamento recusado: mostra a nota com o estado do cancelamento.
+    return (
+      <div className="space-y-3 py-2">
+        <NotaSaidaCard nota={nota} onAtualizada={onAtualizada} />
+        <div className="flex justify-end"><Button variant="outline" onClick={onVoltar}>Fechar</Button></div>
       </div>
     )
   }

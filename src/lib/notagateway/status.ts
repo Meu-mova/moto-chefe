@@ -44,8 +44,11 @@ export function situacaoCancelamento(nota: { status: string; dataAutorizacao: st
   if (EM_CANCELAMENTO.includes(nota.status)) return 'em_andamento'
   if (nota.status !== 'Autorizada' && nota.status !== 'CancelamentoNegado') return 'indisponivel'
   if (!nota.dataAutorizacao) return 'sem_data'
-  const limite = new Date(nota.dataAutorizacao).getTime() + PRAZO_CANCELAMENTO_MS
-  return agora.getTime() < limite ? 'disponivel' : 'fora_do_prazo'
+  return agora < limiteCancelamento(nota.dataAutorizacao) ? 'disponivel' : 'fora_do_prazo'
+}
+
+export function limiteCancelamento(dataAutorizacao: string): Date {
+  return new Date(new Date(dataAutorizacao).getTime() + PRAZO_CANCELAMENTO_MS)
 }
 
 /**

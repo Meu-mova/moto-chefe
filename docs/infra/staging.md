@@ -154,6 +154,33 @@ desligados. Pela D7, Nota Gateway em homologação se configura por grupo em `/a
 do próprio staging (fica no banco, cifrada com a `CERT_MASTER_KEY` do staging), e o Resend entra em
 modo de teste quando for preciso.
 
+## Nota Gateway em homologação
+
+Para testar emissão e cancelamento de NF-e, o "Grupo Teste Sul" usa a empresa de teste da Nota
+Gateway (CNPJ da própria Nota Gateway, de MG, regime normal), em homologação. A chave é a da conta
+da Nota Gateway, a mesma da produção (exceção registrada no ADR-0005): ela entra só pela tela, nunca
+por chat, arquivo ou commit.
+
+1. `npm run dev:staging` e entrar como `geral@teste.meumova.com`.
+2. Em `/admin/notas-fiscais`, no "Grupo Teste Sul": digitar a chave e escolher **Homologação**. A
+   tela não grava o `empresaId`, que vem do cadastro da empresa na API.
+3. Gravar o `empresaId` da empresa de teste. O ID fica fora do git; quem opera a Nota Gateway tem.
+   É escrita no banco do staging:
+   ```bash
+   npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "update notagateway_config set empresa_id = '<id>' where grupo_id = (select id from grupos where nome = 'Grupo Teste Sul')"
+   ```
+4. Na mesma tela, a regra fiscal de saída que a empresa de teste aceita: CFOP 5102 (6102 fora da
+   UF), CST do ICMS 41, PIS e COFINS 49, IBS/CBS 000 com classificação 000001, CRT 3 (regime
+   normal). CSOSN, como 102, volta a recusa 591.
+5. A venda a emitir precisa do endereço completo do cliente (editar venda) e da ficha fiscal da moto
+   (o painel de emissão pede). Contrato não assinado se libera com motivo, por admin.
+
+- Ambiente sempre em homologação: fora do app de produção, a trava em
+  `src/lib/notagateway/ambiente.ts` recusa `Producao`.
+- Sem webhook na Nota Gateway: o cadastro vale para a conta inteira, e os eventos da produção
+  viriam para o staging.
+- Para desligar, apague a linha do grupo em `notagateway_config`.
+
 ## App na Vercel (Preview)
 
 Desde 2026-10-07, o ambiente **Preview** do projeto `mova-motochefe` (time MOVA) é o staging: cada
