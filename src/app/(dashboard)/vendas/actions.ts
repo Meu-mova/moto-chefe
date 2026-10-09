@@ -951,8 +951,8 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   // ADR-0014. A recusa volta como valor porque, em produção, o Next não leva ao
   // cliente a mensagem de um erro lançado na action.
   const t = await travaDoCancelamentoDaVendaAction(vendaId)
-  if (!t.ok) return { trava: `Não deu para conferir a NF de saída desta venda: ${t.error}` }
-  if (t.trava) return { trava: t.trava }
+  if (!t.ok) return { ok: false as const, error: t.error }
+  if (t.trava) return { ok: false as const, error: t.trava, travada: true }
 
   // Cancelar apaga a linha da venda, e conciliacoes_cartao, pix_recebimentos,
   // pix_recebimentos_mcp e demandas apontam para vendas.id com ON DELETE NO ACTION.
@@ -963,7 +963,16 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   // Caminhos no bucket, coletados dentro da transação e apagados depois dela.
   const arquivosAssinatura: string[] = []
 
-  await db.transaction(async (tx) => {
+  const notaVivaNoMeio = await db.transaction(async (tx) => {
+    // Uma emissão na mesma hora gravaria a nota e iria à SEFAZ, e o DELETE da
+    // venda a apagaria junto (CASCADE). Com a linha da venda travada, a emissão
+    // espera e falha na chave; a que chegou antes aparece na conferência abaixo.
+    await tx.select({ id: vendas.id }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
+    const [viva] = await tx.select({ id: notasFiscaisSaida.id }).from(notasFiscaisSaida)
+      .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.ambiente, 'Producao'), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
+      .limit(1)
+    if (viva) return true
+
     // Reverter moto para montada/disponível
     await tx.update(motos)
       .set({ status: 'montada', disponibilidade: 'disponivel' })
@@ -1041,7 +1050,13 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       statusNovo: 'montada',
       observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido}${assinaturas} — Motivo: ${motivo}`,
     })
+    return false
   })
+  if (notaVivaNoMeio) {
+    const agora = await travaDoCancelamentoDaVendaAction(vendaId)
+    if (agora.ok && agora.trava) return { ok: false as const, error: agora.trava, travada: true }
+    return { ok: false as const, error: 'uma NF de saída entrou nesta venda agora' }
+  }
 
   // Selfies e traços da assinatura. Fora da transação porque o Storage é outro
   // serviço; best-effort, pois a venda já foi cancelada e um erro aqui só
@@ -1066,7 +1081,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
 
-  return desvinculados
+  return { ok: true as const, ...desvinculados }
 }
 
 // ─── Reserva ─────────────────────────────────────────────────────────────────

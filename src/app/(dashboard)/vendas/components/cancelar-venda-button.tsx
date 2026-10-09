@@ -20,26 +20,28 @@ type Props = {
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+type Conferencia =
+  | { estado: 'conferindo' }
+  | { estado: 'livre' }
+  | { estado: 'travada'; trava: string }
+  | { estado: 'falhou'; erro: string }
+
 export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, notaFiscalSaida }: Props) {
   const [open, setOpen] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [loading, setLoading] = useState(false)
-  const [conferindo, setConferindo] = useState(false)
-  const [trava, setTrava] = useState<string | null>(null)
+  const [conferencia, setConferencia] = useState<Conferencia>({ estado: 'conferindo' })
 
   const temRecebimento = valorRecebido > 0.005
 
   async function abrir() {
     setOpen(true)
-    setTrava(null)
-    setConferindo(true)
+    setConferencia({ estado: 'conferindo' })
     try {
       const t = await travaDoCancelamentoDaVendaAction(vendaId)
-      setTrava(t.ok ? t.trava : `Não deu para conferir a NF de saída desta venda: ${t.error}`)
+      setConferencia(!t.ok ? { estado: 'falhou', erro: t.error } : t.trava ? { estado: 'travada', trava: t.trava } : { estado: 'livre' })
     } catch {
-      setTrava('Não deu para conferir a NF de saída desta venda: feche e abra de novo.')
-    } finally {
-      setConferindo(false)
+      setConferencia({ estado: 'falhou', erro: 'sem resposta do servidor' })
     }
   }
 
@@ -51,11 +53,11 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
     setLoading(true)
     try {
       const r = await cancelarVendaCompletaAction(vendaId, motivo)
-      if ('trava' in r) {
-        setTrava(r.trava)
+      if (!r.ok) {
+        setConferencia(r.travada ? { estado: 'travada', trava: r.error } : { estado: 'falhou', erro: r.error })
         return
       }
-      const desvinculados = (r?.cartao ?? 0) + (r?.pix ?? 0)
+      const desvinculados = r.cartao + r.pix
       toast.success(
         desvinculados > 0
           ? `Venda cancelada — ${desvinculados} recebimento(s) desvinculado(s), ${fmt(r.valor)} de volta como não conciliado`
@@ -87,15 +89,19 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
             <DialogTitle>Cancelar Venda</DialogTitle>
             <p className="text-sm text-slate-500 pt-1">{descricao}</p>
           </DialogHeader>
-          {conferindo ? (
+          {conferencia.estado === 'conferindo' ? (
             <p className="flex items-center gap-2 text-sm text-slate-500">
               <Loader2 size={14} className="animate-spin text-teal-600" /> Conferindo a NF de saída da venda…
             </p>
-          ) : trava ? (
+          ) : conferencia.estado === 'travada' ? (
             <div className="space-y-1 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               <p className="flex items-center gap-1.5 font-semibold"><Lock size={14} /> Esta venda não pode ser cancelada agora</p>
-              <p>{trava}</p>
+              <p>{conferencia.trava}</p>
             </div>
+          ) : conferencia.estado === 'falhou' ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              Não deu para conferir a NF de saída desta venda ({conferencia.erro}). Feche e abra de novo.
+            </p>
           ) : (
           <div className="space-y-3">
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
@@ -135,7 +141,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
             <Button
               variant="destructive"
               onClick={handleConfirm}
-              disabled={loading || conferindo || !!trava}
+              disabled={loading || conferencia.estado !== 'livre'}
             >
               {loading ? 'Cancelando...' : 'Confirmar Cancelamento'}
             </Button>

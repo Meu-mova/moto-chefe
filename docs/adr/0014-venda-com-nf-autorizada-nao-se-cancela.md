@@ -18,6 +18,10 @@ Enquanto a venda tiver NF de saída autorizada em produção, o "Cancelar venda"
 dentro do prazo, cancelar a NF antes; fora dele, emitir a NF de devolução. É uma exceção ao
 ADR-0011 ("avise, não bloqueie").
 
+Conta a nota viva, não só a autorizada: a que ainda está em emissão pode sair autorizada a qualquer
+momento, e a que está com o cancelamento pendente ainda vale. Precisado em 2026-10-09, na
+implementação (#66).
+
 ## Por quê
 
 O ADR-0011 serve para validação que discorda do usuário. Aqui, o efeito de um aviso ignorado é

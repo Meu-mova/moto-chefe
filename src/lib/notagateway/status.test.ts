@@ -164,7 +164,7 @@ test('nota de homologação e cancelamento lógico de nota negada não mexem na 
 
 const DENTRO_DO_PRAZO = new Date('2026-10-08T16:00:00.000Z')
 const FORA_DO_PRAZO = new Date('2026-10-09T16:00:00.000Z')
-const notaDaVenda = (status: string, extra: { ambiente?: string; dataAutorizacao?: string | null } = {}) =>
+const notaDaVenda = (status: string, extra: { ambiente?: string; dataAutorizacao?: string | null; numero?: string } = {}) =>
   ({ ambiente: 'Producao', status, dataAutorizacao: AUTORIZADA_EM, numero: '4512', ...extra })
 
 test('venda sem nota de produção viva do MOVA pode ser cancelada', () => {
@@ -176,28 +176,32 @@ test('nota de homologação não trava o cancelamento da venda', () => {
   assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('Autorizada', { ambiente: 'Homologacao' })], DENTRO_DO_PRAZO), null)
 })
 
-test('nota de produção ainda em emissão trava: esperar a emissão terminar', () => {
-  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('Processando', { dataAutorizacao: null })], DENTRO_DO_PRAZO)?.tipo, 'emissao_em_andamento')
-})
-
-test('nota autorizada no prazo trava: cancelar a NF antes, mesmo com uma nota cancelada na venda', () => {
-  assert.deepEqual(travaDoCancelamentoDaVenda([notaDaVenda('Cancelada'), notaDaVenda('Autorizada')], DENTRO_DO_PRAZO), { tipo: 'cancelar_nf', numero: '4512' })
-})
-
-test('cancelamento da NF em andamento trava: esperar a SEFAZ', () => {
-  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('EmProcessoDeCancelamento')], DENTRO_DO_PRAZO)?.tipo, 'cancelamento_em_andamento')
-})
-
-test('cancelamento recusado no prazo trava: pedir de novo', () => {
-  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('CancelamentoNegado')], DENTRO_DO_PRAZO)?.tipo, 'tentar_de_novo')
-})
-
-test('fora do prazo, nota autorizada ou com cancelamento recusado trava: NF de devolução', () => {
-  for (const status of ['Autorizada', 'CancelamentoNegado']) {
-    assert.equal(travaDoCancelamentoDaVenda([notaDaVenda(status)], FORA_DO_PRAZO)?.tipo, 'fora_do_prazo', status)
+test('nota de produção em emissão, ou num status novo da API, trava como emissão em andamento', () => {
+  for (const status of ['Enviando', 'Processando', 'EmProcessoDeAutorizacao', 'AutorizadaAguardandoGeracaoPDF', 'StatusQueAApiAindaNaoTem']) {
+    assert.equal(travaDoCancelamentoDaVenda([notaDaVenda(status, { dataAutorizacao: null })], DENTRO_DO_PRAZO)?.trava, 'emissao_em_andamento', status)
   }
 })
 
-test('nota autorizada sem data de autorização trava: prazo não confirmado', () => {
-  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('Autorizada', { dataAutorizacao: null })], DENTRO_DO_PRAZO)?.tipo, 'sem_data')
+test('nota autorizada no prazo trava como cancelar a NF, e a trava aponta a nota viva', () => {
+  const r = travaDoCancelamentoDaVenda([notaDaVenda('Cancelada', { numero: '4511' }), notaDaVenda('Autorizada')], DENTRO_DO_PRAZO)
+  assert.equal(r?.trava, 'cancelar_nf')
+  assert.equal(r?.nota.numero, '4512')
+})
+
+test('cancelamento em andamento trava como cancelamento em andamento', () => {
+  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('EmProcessoDeCancelamento')], DENTRO_DO_PRAZO)?.trava, 'cancelamento_em_andamento')
+})
+
+test('cancelamento recusado no prazo trava como tentar de novo', () => {
+  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('CancelamentoNegado')], DENTRO_DO_PRAZO)?.trava, 'tentar_de_novo')
+})
+
+test('fora do prazo, nota autorizada ou com cancelamento recusado trava como fora do prazo', () => {
+  for (const status of ['Autorizada', 'CancelamentoNegado']) {
+    assert.equal(travaDoCancelamentoDaVenda([notaDaVenda(status)], FORA_DO_PRAZO)?.trava, 'fora_do_prazo', status)
+  }
+})
+
+test('nota autorizada sem data de autorização trava como sem data', () => {
+  assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('Autorizada', { dataAutorizacao: null })], DENTRO_DO_PRAZO)?.trava, 'sem_data')
 })

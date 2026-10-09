@@ -60,3 +60,11 @@ export function fimDoDiaBrt(yyyyMmDd: string): Date {
   seguinte.setUTCDate(seguinte.getUTCDate() + 1)
   return new Date(seguinte.getTime() - 1)
 }
+
+/** "09/10 às 09:20", no horário de Brasília. */
+export function diaEHoraBrt(iso: string): string {
+  const d = new Date(iso)
+  const dia = d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
+  const hora = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+  return `${dia} às ${hora}`
+}

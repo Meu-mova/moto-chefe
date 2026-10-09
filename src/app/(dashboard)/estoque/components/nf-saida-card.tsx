@@ -4,17 +4,11 @@ import { AlertTriangle, CheckCircle2, Clock, ExternalLink, FileDown, FileX, Load
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { diaEHoraBrt } from '@/lib/data-venda'
 import { deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, situacaoCancelamento } from '@/lib/notagateway/status'
 import { cancelarNfePropriaAction, consultarNfePropriaAction, type NotaResumo } from '../../vendas/nfe-propria-actions'
 
 type Props = { nota: NotaResumo; onAtualizada: (nota: NotaResumo) => void }
-
-function quando(iso: string) {
-  const d = new Date(iso)
-  const dia = d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
-  const hora = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
-  return `${dia} às ${hora}`
-}
 
 function falta(ate: Date) {
   const minutos = Math.max(0, Math.floor((ate.getTime() - Date.now()) / 60000))
@@ -63,7 +57,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
 
   const registro = nota.cancelamento && (
     <p className="text-xs text-slate-600">
-      Motivo: <b>{nota.cancelamento.motivo}</b> · pedido por {nota.cancelamento.por ?? '—'} em {quando(nota.cancelamento.em)}
+      Motivo: <b>{nota.cancelamento.motivo}</b> · pedido por {nota.cancelamento.por ?? '—'} em {diaEHoraBrt(nota.cancelamento.em)}
     </p>
   )
 
@@ -141,7 +135,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
         {registro}
         {situacao === 'disponivel' && limite ? (
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <p className="text-xs text-slate-600">Ainda dá para pedir de novo até {quando(limite.toISOString())} (faltam {falta(limite)}).</p>
+            <p className="text-xs text-slate-600">Ainda dá para pedir de novo até {diaEHoraBrt(limite.toISOString())} (faltam {falta(limite)}).</p>
             <Button variant="outline" size="sm" onClick={() => abrirForm(nota.cancelamento?.motivo)} className="gap-1 border-red-300 text-red-700 hover:bg-red-100">
               <RefreshCw size={13} /> Tentar de novo
             </Button>
@@ -161,7 +155,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   } else if (situacao === 'disponivel' && limite) {
     corpo = (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-200 bg-teal-50/60 p-3">
-        <p className="text-xs text-teal-900">Dá para cancelar até <b>{quando(limite.toISOString())}</b> (faltam {falta(limite)}).</p>
+        <p className="text-xs text-teal-900">Dá para cancelar até <b>{diaEHoraBrt(limite.toISOString())}</b> (faltam {falta(limite)}).</p>
         <Button variant="destructive" size="sm" onClick={() => abrirForm()} className="gap-1">
           <FileX size={13} /> Cancelar NF
         </Button>
@@ -189,10 +183,10 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
         <span className={nota.status === 'Cancelada' ? 'font-medium text-slate-500 line-through' : 'font-medium'}>
           {nota.numero ? `NF ${nota.numero} · série ${nota.serie}` : 'Sem número'}
         </span>
-        <span className="text-xs text-slate-400">· {producao ? 'produção' : 'homologação'} · {quando(nota.criadoEm)}</span>
+        <span className="text-xs text-slate-400">· {producao ? 'produção' : 'homologação'} · {diaEHoraBrt(nota.criadoEm)}</span>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-        {nota.dataAutorizacao && <span>Autorizada em {quando(nota.dataAutorizacao)}</span>}
+        {nota.dataAutorizacao && <span>Autorizada em {diaEHoraBrt(nota.dataAutorizacao)}</span>}
         {nota.linkDanfe && (
           <a href={nota.linkDanfe} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
             <ExternalLink size={12} /> DANFE
