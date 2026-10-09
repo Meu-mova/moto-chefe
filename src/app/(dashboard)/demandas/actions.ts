@@ -5,6 +5,7 @@ import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { pagamentosFecham, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { lerDocumentoCliente } from '@/lib/documento'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const PODE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -40,8 +41,8 @@ export type NovaDemanda = {
 
 function validarSnapshot(s: ClienteSnapshot) {
   if (!s.clienteNome?.trim()) throw new Error('Nome do cliente é obrigatório')
-  const cpf = (s.clienteCpf ?? '').replace(/\D/g, '')
-  if (cpf.length !== 11) throw new Error('CPF do cliente é obrigatório (11 dígitos)')
+  const doc = lerDocumentoCliente(s.clienteCpf)
+  if (!doc.ok) throw new Error(doc.erro)
   if (!s.clienteCelular?.trim()) throw new Error('Celular do cliente é obrigatório')
 }
 

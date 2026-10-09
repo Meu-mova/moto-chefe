@@ -374,6 +374,9 @@ export const vendas = pgTable('vendas', {
   clienteBairro: text('cliente_bairro'),
   clienteCidade: text('cliente_cidade'),
   clienteEstado: text('cliente_estado'),
+  /** Quem assina pela empresa na venda para pessoa jurídica. Opcional. */
+  representanteNome: text('representante_nome'),
+  representanteCpf: text('representante_cpf'),
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   formaPagamento: text('forma_pagamento').notNull(),
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),

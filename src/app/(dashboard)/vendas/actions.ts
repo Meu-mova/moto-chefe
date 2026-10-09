@@ -19,6 +19,7 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
+import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -51,6 +52,61 @@ async function garantirOrigemValida(
   return {
     origemId: origem!.id,
     origemDetalhe: normalizarDetalhe(origemDetalhe, origem!.pedeDetalhe),
+  }
+}
+
+/**
+ * Confere o CPF/CNPJ do comprador. A tela também barra, mas o navegador não é
+ * fonte de verdade. Documento inválido bloqueia, exceção ao "avise, não
+ * bloqueie" (ADR-0015): a SEFAZ recusaria a nota. Devolve o documento
+ * formatado, como a máscara da tela grava, e o representante só quando é
+ * pessoa jurídica.
+ *
+ * `documentoGravado`: na edição, a venda antiga pode ter um documento que não
+ * passa na conferência de hoje (ou nenhum). Se ele não mudou, segue como está;
+ * corrigir o valor da venda não pode travar por causa do CPF.
+ */
+function conferirComprador(
+  clienteCpf: string,
+  representante?: { nome?: string | null; cpf?: string | null },
+  documentoGravado?: string | null,
+): { clienteCpf: string; tipoPessoa: TipoPessoa; representanteNome: string | null; representanteCpf: string | null } {
+  const digitos = soDigitosDoc(clienteCpf)
+  let tipoPessoa: TipoPessoa
+  let documento: string
+  if (documentoGravado != null && digitos === soDigitosDoc(documentoGravado)) {
+    tipoPessoa = tipoPessoaDoDocumento(digitos)
+    documento = clienteCpf
+  } else {
+    const doc = lerDocumentoCliente(clienteCpf)
+    if (!doc.ok) throw new Error(doc.erro)
+    tipoPessoa = doc.tipoPessoa
+    documento = formatarCpfCnpj(doc.documento)
+  }
+
+  if (tipoPessoa === 'fisica') {
+    return { clienteCpf: documento, tipoPessoa, representanteNome: null, representanteCpf: null }
+  }
+
+  // O CPF do representante não vai para a nota, então não barra (ADR-0011):
+  // grava os dígitos recebidos, com máscara só quando formam um CPF.
+  const cpfRepresentante = soDigitosDoc(representante?.cpf)
+  return {
+    clienteCpf: documento,
+    tipoPessoa,
+    representanteNome: representante?.nome?.trim() || null,
+    representanteCpf: !cpfRepresentante ? null
+      : cpfRepresentante.length === 11 ? formatarCpfCnpj(cpfRepresentante) : cpfRepresentante,
+  }
+}
+
+function comCompradorConferido(data: DadosVendaCompleta): DadosVendaCompleta {
+  const comprador = conferirComprador(data.clienteCpf, { nome: data.representanteNome, cpf: data.representanteCpf })
+  return {
+    ...data,
+    clienteCpf: comprador.clienteCpf,
+    representanteNome: comprador.representanteNome,
+    representanteCpf: comprador.representanteCpf,
   }
 }
 
@@ -163,13 +219,14 @@ export async function efetivarVendaAction(
   }
 
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
+  const comprador = conferirComprador(clienteCpf)
 
   const supabase = await createClient()
   const { data: vendaId, error } = await supabase.rpc('efetivar_venda', {
     p_pedido_id: pedidoId,
     p_efetivado_por: usuario.id,
     p_cliente_nome: clienteNome,
-    p_cliente_cpf: clienteCpf,
+    p_cliente_cpf: comprador.clienteCpf,
     p_valor: parseFloat(valor),
     p_forma_pagamento: formaPagamento,
     p_origem_id: origem.origemId,
@@ -204,6 +261,9 @@ type DadosVendaCompleta = {
   clienteBairro: string
   clienteCidade: string
   clienteEstado: string
+  /** Só na venda para pessoa jurídica; opcionais. */
+  representanteNome?: string | null
+  representanteCpf?: string | null
   valorTotal: string
   dataVenda?: string
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
@@ -245,7 +305,7 @@ async function criarVendaTx(
     dataAtualizacao: dataVendaFinal,
   }).returning({ id: pedidosVenda.id })
 
-  // Upsert cliente por CPF — cria se não existir, atualiza se existir
+  // Upsert cliente por CPF/CNPJ — cria se não existir, atualiza se existir
   const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
   let clienteVinculadoId: string | null = null
   if (cpfLimpo.length >= 11) {
@@ -254,6 +314,7 @@ async function criarVendaTx(
       .values({
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
+        tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
         email:       data.clienteEmail        || null,
         celular:     data.clienteCelular       || null,
         endereco:    data.clienteLogradouro    || null,
@@ -268,6 +329,7 @@ async function criarVendaTx(
         target: clientes.cpfCnpj,
         set: {
           nome:        sql`excluded.nome`,
+          tipoPessoa:  sql`excluded.tipo_pessoa`,
           email:       sql`excluded.email`,
           celular:     sql`excluded.celular`,
           endereco:    sql`excluded.endereco`,
@@ -293,6 +355,8 @@ async function criarVendaTx(
     clienteId:    clienteVinculadoId,
     clienteNome: data.clienteNome,
     clienteCpf: data.clienteCpf,
+    representanteNome: data.representanteNome ?? null,
+    representanteCpf: data.representanteCpf ?? null,
     clienteCelular: data.clienteCelular,
     clienteEmail: data.clienteEmail,
     clienteCep: data.clienteCep,
@@ -378,6 +442,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
     throw new Error('Sem permissão para registrar venda')
   }
+  data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
@@ -1057,6 +1122,8 @@ export async function registrarReservaAction(data: DadosReserva) {
   const valorNum = parseFloat(data.valorReserva)
   if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
 
+  const { clienteCpf } = conferirComprador(data.clienteCpf)
+
   const pagamentos = data.pagamentos ?? []
   if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
     throw new Error('Toda forma de pagamento precisa de tipo e valor')
@@ -1104,7 +1171,7 @@ export async function registrarReservaAction(data: DadosReserva) {
       dataPrevistaFinalizacao: data.dataPrevistaFinalizacao,
       status: 'ativa',
       clienteNome: data.clienteNome,
-      clienteCpf: data.clienteCpf,
+      clienteCpf,
       clienteCelular: data.clienteCelular,
       clienteEmail: data.clienteEmail,
       clienteCep: data.clienteCep,
@@ -1279,6 +1346,9 @@ export async function editarVendaAction(vendaId: string, dados: {
   clienteBairro?:     string | null
   clienteCidade?:     string | null
   clienteEstado?:     string | null
+  /** Ausentes (`undefined`) = não mexe no representante gravado. */
+  representanteNome?: string | null
+  representanteCpf?:  string | null
   origemId?:          string | null
   origemDetalhe?:     string | null
 }) {
@@ -1289,7 +1359,7 @@ export async function editarVendaAction(vendaId: string, dados: {
 
   // Busca venda atual para validações de acesso e sincronização
   const [vendaAtual] = await db
-    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida })
+    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf })
     .from(vendas)
     .where(eq(vendas.id, vendaId))
     .limit(1)
@@ -1306,6 +1376,15 @@ export async function editarVendaAction(vendaId: string, dados: {
   const origemCorrigida = dados.origemId
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
+
+  const comprador = conferirComprador(
+    dados.clienteCpf,
+    { nome: dados.representanteNome, cpf: dados.representanteCpf },
+    vendaAtual.clienteCpf,
+  )
+  // Venda que virou pessoa física não guarda representante, mesmo sem os campos no payload.
+  const gravaRepresentante = comprador.tipoPessoa === 'fisica'
+    || dados.representanteNome !== undefined || dados.representanteCpf !== undefined
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
@@ -1341,7 +1420,11 @@ export async function editarVendaAction(vendaId: string, dados: {
         formaPagamento,
         ...(dados.vendedorId ? { vendedorId: dados.vendedorId } : {}),
         clienteNome:        dados.clienteNome,
-        clienteCpf:         dados.clienteCpf,
+        clienteCpf:         comprador.clienteCpf,
+        ...(gravaRepresentante ? {
+          representanteNome: comprador.representanteNome,
+          representanteCpf:  comprador.representanteCpf,
+        } : {}),
         clienteCelular:     dados.clienteCelular || null,
         clienteEmail:       dados.clienteEmail || null,
         clienteCep:         dados.clienteCep || null,
@@ -1381,12 +1464,12 @@ export async function editarVendaAction(vendaId: string, dados: {
   revalidatePath('/caixa')
 }
 
-// ─── Buscar cliente por CPF ──────────────────────────────────────────────────
+// ─── Buscar cliente por CPF/CNPJ ──────────────────────────────────────────────────
 
 export async function buscarClientePorCpfAction(cpf: string) {
   await getUsuarioLogado()
   const cpfLimpo = cpf.replace(/\D/g, '')
-  if (cpfLimpo.length !== 11) return null
+  if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) return null
 
   // 1. Busca na tabela de clientes
   const [cliente] = await db
@@ -1423,7 +1506,8 @@ export async function buscarClientePorCpfAction(cpf: string) {
       estado: vendas.clienteEstado,
     })
     .from(vendas)
-    .where(eq(vendas.clienteCpf, cpf))
+    // A venda grava o documento formatado; compara só os dígitos.
+    .where(sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`)
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
@@ -1512,6 +1596,8 @@ export async function solicitarAprovacaoVendaAction(
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
     throw new Error('Sem permissão para registrar venda')
   }
+  // Confere já no pedido: documento inválido só quebraria na hora de aprovar.
+  data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')

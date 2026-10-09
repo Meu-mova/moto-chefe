@@ -7,7 +7,7 @@ export function soDigitosDoc(v: string | null | undefined): string {
 
 /** Formata pelo comprimento: 11 dígitos vira CPF, 14 vira CNPJ. Qualquer outra
  *  coisa sai como veio — documento estrangeiro ou meio digitado não é erro aqui,
- *  quem barra é `validarDocumento` no momento de gravar. */
+ *  quem barra é `validarDocumento` ou `lerDocumentoCliente` no momento de gravar. */
 export function formatarCpfCnpj(v: string | null | undefined): string {
   const d = soDigitosDoc(v)
   if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
@@ -21,13 +21,18 @@ export function isTipoPessoa(v: string): v is TipoPessoa {
   return v === 'fisica' || v === 'juridica'
 }
 
+/** Tipo de pessoa pelo tamanho do documento: 14 dígitos é CNPJ, o resto conta como pessoa física. */
+export function tipoPessoaDoDocumento(documento: string | null | undefined): TipoPessoa {
+  return soDigitosDoc(documento).length === 14 ? 'juridica' : 'fisica'
+}
+
 /**
  * Valida o documento do tomador da venda pelo tipo de pessoa.
  *
- * Só confere o comprimento, de propósito: não há verificação de dígito
- * verificador em nenhum outro cadastro do sistema, e barrar aqui um CNPJ que o
- * cadastro de clientes aceita travaria a venda no balcão. Devolve o documento
- * limpo (só dígitos) ou uma mensagem de erro.
+ * Só confere o comprimento, de propósito: o cadastro de clientes não confere o
+ * dígito verificador, e barrar aqui um CNPJ que ele aceita travaria a venda de
+ * peça ou a OS no balcão. A venda de moto confere (`lerDocumentoCliente`).
+ * Devolve o documento limpo (só dígitos) ou uma mensagem de erro.
  */
 export function validarDocumento(
   tipoPessoa: string,
@@ -44,4 +49,64 @@ export function validarDocumento(
   if (!d) return { ok: true, documento: null }
   if (d.length !== 11) return { ok: false, erro: 'CPF deve ter 11 dígitos' }
   return { ok: true, documento: d }
+}
+
+export function cpfValido(valor: string): boolean {
+  const cpf = soDigitosDoc(valor)
+  if (cpf.length !== 11) return false
+  // 111.111.111-11 e afins passam na conta do dígito verificador mas não existem.
+  if (/^(\d)\1{10}$/.test(cpf)) return false
+
+  const digito = (ate: number): number => {
+    let soma = 0
+    for (let i = 0; i < ate; i++) soma += Number(cpf[i]) * (ate + 1 - i)
+    const resto = (soma * 10) % 11
+    return resto === 10 ? 0 : resto
+  }
+
+  return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10])
+}
+
+function cnpjValido(cnpj: string): boolean {
+  // 00.000.000/0000-00 e afins passam na conta do dígito verificador mas não existem.
+  if (/^(\d)\1{13}$/.test(cnpj)) return false
+  const digito = (ate: number): number => {
+    // Pesos de 2 a 9, da direita para a esquerda, recomeçando depois do 9.
+    let soma = 0
+    for (let i = 0; i < ate; i++) soma += Number(cnpj[i]) * (((ate - 1 - i) % 8) + 2)
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  return digito(12) === Number(cnpj[12]) && digito(13) === Number(cnpj[13])
+}
+
+/**
+ * Lê o CPF/CNPJ do cliente na venda, reserva e demanda: o tipo de pessoa sai do
+ * tamanho (11 = física, 14 = jurídica).
+ */
+export function lerDocumentoCliente(
+  texto: string | null | undefined,
+): { ok: true; tipoPessoa: TipoPessoa; documento: string } | { ok: false; erro: string } {
+  const d = soDigitosDoc(texto)
+  if (d.length === 14) {
+    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido — confira os números' }
+    return { ok: true, tipoPessoa: 'juridica', documento: d }
+  }
+  if (d.length !== 11) return { ok: false, erro: 'Informe o CPF (11 dígitos) ou o CNPJ (14 dígitos)' }
+  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido — confira os números' }
+  return { ok: true, tipoPessoa: 'fisica', documento: d }
+}
+
+/** Máscara do campo CPF/CNPJ enquanto se digita. */
+export function mascararCpfCnpj(texto: string): string {
+  const d = soDigitosDoc(texto).slice(0, 14)
+  if (d.length > 11) {
+    return d
+      .replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})?$/, (_, a, b, c, e, f) =>
+        `${a}.${b}.${c}/${e}${f ? `-${f}` : ''}`)
+  }
+  return d
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d{1})/, '$1.$2.$3-$4')
 }

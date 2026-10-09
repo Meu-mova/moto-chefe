@@ -47,3 +47,4 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0012](0012-versionamento-semver-e-releases.md) | Versionamento SemVer, uma release a cada promoção para a `main` | Aceita |
 | [0013](0013-prefixo-livre-e-branch-apagada-a-mao.md) | Prefixo de branch = tipo do Conventional Commits; branch apagada à mão | Aceita |
 | [0014](0014-venda-com-nf-autorizada-nao-se-cancela.md) | Venda com NF de saída autorizada em produção não se cancela (exceção ao 0011) | Aceita |
+| [0015](0015-documento-invalido-do-comprador-bloqueia.md) | CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (exceção ao 0011) | Aceita |
