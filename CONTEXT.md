@@ -254,6 +254,12 @@ Anulação de uma NF de saída autorizada junto à SEFAZ, possível só dentro d
 na regra geral da SEFAZ). Em produção, a venda continua e volta a aguardar NF de saída.
 _Evitar_: cancelar a venda (é outra coisa: desfaz a venda inteira); excluir a nota
 
+**Tentativa descartada**:
+Tentativa de emissão de NF de saída que ficou parada em "Enviando" porque o envio não chegou à
+Nota Gateway, descartada depois que a consulta confirmou que a nota não existe lá. Nunca valeu na
+SEFAZ e libera nova emissão para a venda.
+_Evitar_: cancelada (cancelamento é de nota que valeu na SEFAZ)
+
 **NF de devolução**:
 Nota que registra o retorno da moto vendida, referenciando a NF de saída original. Depois do
 prazo de cancelamento, é a saída usual; a outra é o cancelamento extemporâneo, pedido à SEFAZ.

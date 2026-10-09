@@ -106,12 +106,16 @@ function dataIso(valor: unknown): string | null {
   return typeof valor === 'string' && !Number.isNaN(Date.parse(valor)) ? valor : null
 }
 
-/** null = a API ainda não conhece esse id (acabou de ser enviado). */
-export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string): Promise<NfeConsultada | null> {
+/**
+ * null = a API ainda não conhece esse id (acabou de ser enviado). No modo
+ * estrito, só o "não encontrada" da Nota Gateway conta: para descartar uma
+ * tentativa (#88), um 404 sem o código não prova que a nota não existe.
+ */
+export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string, { estrito = false }: { estrito?: boolean } = {}): Promise<NfeConsultada | null> {
   const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/${encodeURIComponent(idExterno)}`)
   // "Não encontrada" vem como 400 com o código NFe0001, não como 404.
   const naoEncontrada = Array.isArray(r.json) && r.json.some((e: { codigo?: string }) => e?.codigo === 'NFe0001')
-  if (r.status === 404 || naoEncontrada) return null
+  if (naoEncontrada || (r.status === 404 && !estrito)) return null
   if (r.status >= 400) throw new Error(`Falha ao consultar a nota: ${mensagensDeErro(r.json, r.texto)}`)
   const n = r.json as Record<string, any>
   return {

@@ -198,14 +198,15 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // usado em toda chamada seguinte. Ver src/lib/notagateway/.
 // ─── notas_fiscais_saida (NF-e própria emitida pela Nota Gateway) ───────────
 // Uma linha por tentativa (id externo). Homologação não fatura a venda; em
-// produção um índice parcial garante uma nota viva por venda (migração 0111).
+// produção um índice parcial garante uma nota viva por venda (a migração mais
+// recente que cria notas_fiscais_saida_uma_viva_idx).
 export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   id:           uuid('id').primaryKey().defaultRandom(),
   vendaId:      uuid('venda_id').notNull(),
   grupoId:      uuid('grupo_id').notNull(),
   idExterno:    text('id_externo').notNull().unique(),
   ambiente:     text('ambiente').notNull(),
-  /** Enviando e Processando são nossos; o resto vem da API. Classifique por notagateway/status.ts. */
+  /** Enviando, Processando e Descartada são nossos; o resto vem da API. Classifique por notagateway/status.ts. */
   status:       text('status').notNull().default('Enviando'),
   motivoStatus: text('motivo_status'),
   numero:       text('numero'),

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -22,12 +22,12 @@ test('Autorizada, CancelamentoNegado e os nossos status de envio não estão na 
   }
 })
 
-test('Negada, Denegada e Cancelada estão na lista que libera nova emissão', () => {
-  for (const status of ['Negada', 'Denegada', 'Cancelada']) assert.equal(STATUS_MORTOS.includes(status), true, status)
+test('Negada, Denegada, Cancelada e Descartada estão na lista que libera nova emissão', () => {
+  for (const status of ['Negada', 'Denegada', 'Cancelada', 'Descartada']) assert.equal(STATUS_MORTOS.includes(status), true, status)
 })
 
-test('Autorizada, Negada, Denegada, Cancelada e CancelamentoNegado são finais', () => {
-  for (const status of ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado']) {
+test('Autorizada, Negada, Denegada, Cancelada, Descartada e CancelamentoNegado são finais', () => {
+  for (const status of ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'Descartada', 'CancelamentoNegado']) {
     assert.equal(ehFinal(status), true, status)
   }
 })
@@ -204,4 +204,22 @@ test('fora do prazo, nota autorizada ou com cancelamento recusado trava como for
 
 test('nota autorizada sem data de autorização trava como sem data', () => {
   assert.equal(travaDoCancelamentoDaVenda([notaDaVenda('Autorizada', { dataAutorizacao: null })], DENTRO_DO_PRAZO)?.trava, 'sem_data')
+})
+
+const AGORA = new Date('2026-10-09T18:00:00.000Z')
+const criadaHa = (minutos: number) => new Date(AGORA.getTime() - minutos * 60 * 1000).toISOString()
+
+test('tentativa parada em Enviando há 15 minutos ou mais pode ser descartada', () => {
+  assert.equal(podeDescartarTentativa({ status: 'Enviando', criadoEm: criadaHa(15) }, AGORA), true)
+  assert.equal(podeDescartarTentativa({ status: 'Enviando', criadoEm: criadaHa(90) }, AGORA), true)
+})
+
+test('tentativa em Enviando há menos de 15 minutos ainda não pode ser descartada', () => {
+  assert.equal(podeDescartarTentativa({ status: 'Enviando', criadoEm: criadaHa(14) }, AGORA), false)
+})
+
+test('Processando, EmProcessoDeAutorizacao, Autorizada, Negada e Descartada não podem ser descartadas', () => {
+  for (const status of ['Processando', 'EmProcessoDeAutorizacao', 'Autorizada', 'Negada', 'Descartada']) {
+    assert.equal(podeDescartarTentativa({ status, criadoEm: criadaHa(90) }, AGORA), false, status)
+  }
 })
