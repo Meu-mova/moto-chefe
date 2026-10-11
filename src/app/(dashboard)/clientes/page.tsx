@@ -1,10 +1,13 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { userAgent } from 'next/server'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
 import { ClienteForm } from './components/cliente-form'
+import { Plus } from 'lucide-react'
 import { ClientesFiltros } from './components/clientes-filtros'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +30,9 @@ export default async function ClientesPage({
   if (!usuarioPodeAcessar(usuario, '/clientes')) redirect('/dashboard')
 
   const isAdmin = usuario.papel === 'admin_geral'
+  // Celular/tablet mostra cartões: 20 por página para o "Próxima" não ficar tão longe.
+  const { device } = userAgent({ headers: await headers() })
+  const celularOuTablet = device.type === 'mobile' || device.type === 'tablet'
   const pagina = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
 
   const [resultado, cidades] = await Promise.all([
@@ -36,6 +42,7 @@ export default async function ClientesPage({
       sexo: params.sexo,
       cidade: params.cidade,
       page: pagina,
+      porPagina: celularOuTablet ? 20 : 50,
     }),
     listarCidadesAction(),
   ])
@@ -46,14 +53,22 @@ export default async function ClientesPage({
   const fim = Math.min(pagina * pageSize, total)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 lg:pb-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-sm text-muted-foreground">Cadastro e histórico de clientes</p>
         </div>
-        <ClienteForm trigger={<Button>Novo Cliente</Button>} />
+        <ClienteForm trigger={<Button className="hidden lg:inline-flex">Novo Cliente</Button>} />
       </div>
+      {/* Celular e tablet: "novo" suspenso no canto, ao alcance do polegar. */}
+      <ClienteForm
+        trigger={
+          <Button aria-label="Novo cliente" className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 size-14 rounded-full shadow-lg lg:hidden">
+            <Plus className="size-6" />
+          </Button>
+        }
+      />
 
       <ClientesFiltros
         valores={{ busca: params.busca, tipoPessoa: params.tipoPessoa, sexo: params.sexo, cidade: params.cidade }}

@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
-import { Filter, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Filter, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -10,7 +11,8 @@ type Valores = { busca?: string; tipoPessoa?: string; sexo?: string; cidade?: st
 const TIPOS = [['todos', 'Todos'], ['fisica', 'Pessoa Física'], ['juridica', 'Pessoa Jurídica']]
 const SEXOS = [['todos', 'Todos'], ['masculino', 'Masculino'], ['feminino', 'Feminino'], ['nao_identificado', 'Não identificado']]
 
-const campo = 'h-10 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// text-base no celular: o iOS dá zoom ao focar campo com fonte menor que 16px.
+const campo = 'h-10 w-full rounded-lg border border-input bg-card px-3 text-base lg:text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /**
  * Busca à vista e o resto num só botão "Filtros". Tudo vai por GET na URL, como antes,
@@ -18,6 +20,23 @@ const campo = 'h-10 w-full rounded-lg border border-input bg-card px-3 text-sm t
  */
 export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidades: string[] }) {
   const [aberto, setAberto] = useState(false)
+  const [termo, setTermo] = useState(valores.busca ?? '')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Busca ao digitar: espera a pessoa parar 350 ms (como em Vendas) e volta à página 1.
+  useEffect(() => {
+    if (termo.trim() === (valores.busca ?? '')) return
+    const t = setTimeout(() => {
+      const p = new URLSearchParams(searchParams.toString())
+      if (termo.trim()) p.set('busca', termo.trim())
+      else p.delete('busca')
+      p.delete('page')
+      router.replace(`${pathname}?${p.toString()}`)
+    }, 350)
+    return () => clearTimeout(t)
+  }, [termo]) // eslint-disable-line react-hooks/exhaustive-deps
   const ativos = [valores.tipoPessoa, valores.sexo, valores.cidade].filter(v => v && v !== 'todos').length
 
   // Gaveta do celular: Tipo e Sexo em pílulas (rádio), sem a lista nativa abrindo fora da gaveta.
@@ -65,7 +84,13 @@ export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidade
   const busca = (
     <div className="relative min-w-0 flex-1">
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input name="busca" aria-label="Busca" placeholder="Nome, CPF/CNPJ ou celular…" defaultValue={valores.busca ?? ''} className="h-10 pl-9" />
+      <Input name="busca" aria-label="Busca" placeholder="Nome, CPF/CNPJ ou celular…" value={termo} onChange={e => setTermo(e.target.value)} className="h-10 pl-9 pr-9" />
+      {termo && (
+        <button type="button" onClick={() => setTermo('')} aria-label="Limpar busca"
+          className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+          <X className="size-4" />
+        </button>
+      )}
     </div>
   )
 
