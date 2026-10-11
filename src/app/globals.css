@@ -38,6 +38,8 @@
   --color-primary-text: var(--primary-text);
   --color-primary-soft: var(--primary-soft);
   --color-warning: var(--warning);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-press: var(--primary-press);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -64,6 +66,9 @@
   --primary-foreground: #ffffff;
   --primary-text: #036443;
   --primary-soft: #e3f6ee;
+  --primary-hover: #036a45;
+  --primary-press: #024d33;
+  --primary-glow: rgb(4 122 79 / 0.35);
   --secondary: #eef1f5;
   --secondary-foreground: #0f172a;
   --muted: #eef1f5;
@@ -83,6 +88,12 @@
   --chart-4: #526079;
   --chart-5: #8a5300;
   --radius: 0.625rem;
+  /* Degradê da marca (ADR-0016): só no logo, no login e no carregamento. Igual nos dois temas. */
+  --brand-1: #028775;
+  --brand-2: #02c184;
+  --brand-3: #21f49a;
+  --brand-o-1: #22e080;
+  --brand-o-2: #00bb74;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #047a4f;
@@ -104,6 +115,9 @@
   --primary-foreground: #03140c;
   --primary-text: #4ee8a8;
   --primary-soft: #0f3326;
+  --primary-hover: #5ae8b0;
+  --primary-press: #1fc684;
+  --primary-glow: rgb(46 224 154 / 0.35);
   --secondary: #19233a;
   --secondary-foreground: #e8edf5;
   --muted: #19233a;
@@ -140,4 +154,50 @@
   html {
     @apply font-sans;
   }
+}
+/* ── Tela de login (src/app/(auth)): ondas, logo traçado e botão. Parado com "reduzir movimento". */
+@keyframes mova-onda { from { transform: translateX(0) } to { transform: translateX(-800px) } }
+@keyframes mova-onda-volta { from { transform: translateX(-800px) } to { transform: translateX(0) } }
+@keyframes mova-balancar { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-14px) } }
+@keyframes mova-tracar { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
+@keyframes mova-pulso { 0%, 100% { opacity: 0.55 } 50% { opacity: 1 } }
+@keyframes mova-subir { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+@keyframes mova-brilho { to { transform: translateX(100%) } }
+@keyframes mova-ripple { to { transform: scale(4); opacity: 0 } }
+
+@layer components {
+  .mova-onda { animation: mova-onda 22s linear infinite; will-change: transform }
+  .mova-onda-volta { animation: mova-onda-volta 34s linear infinite; will-change: transform }
+  .mova-balancar { animation: mova-balancar 7s ease-in-out infinite }
+  .mova-balancar-2 { animation: mova-balancar 9s -3s ease-in-out infinite }
+  .mova-tracar { stroke-dasharray: 1; stroke-dashoffset: 1; animation: mova-tracar 0.55s cubic-bezier(0.65, 0, 0.35, 1) forwards }
+  .mova-desenhar { stroke-dasharray: 1; stroke-dashoffset: 1; animation: mova-tracar 3s ease-out forwards }
+  .mova-pulso { animation: mova-pulso 4s ease-in-out infinite }
+  .mova-subir { animation: mova-subir 0.6s 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both }
+
+  .mova-botao {
+    position: relative; overflow: hidden;
+    background: var(--primary); color: var(--primary-foreground);
+    transition: background-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  }
+  .mova-botao:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 8px 20px -6px var(--primary-glow) }
+  .mova-botao:active:not(:disabled) { background: var(--primary-press); transform: scale(0.98); box-shadow: none }
+  .mova-botao[data-enviando] { background: var(--primary-press) }
+  .mova-botao[data-enviando]::after {
+    content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--primary-foreground) 28%, transparent) 50%, transparent 80%);
+    animation: mova-brilho 1.1s ease-in-out infinite;
+  }
+  .mova-ripple {
+    position: absolute; border-radius: 9999px; pointer-events: none; transform: scale(0);
+    background: color-mix(in srgb, var(--primary-foreground) 40%, transparent);
+    animation: mova-ripple 0.6s ease-out forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mova-onda, .mova-onda-volta, .mova-balancar, .mova-balancar-2, .mova-pulso, .mova-subir { animation: none }
+  .mova-tracar, .mova-desenhar { animation: none; stroke-dashoffset: 0 }
+  .mova-botao, .mova-botao:hover:not(:disabled), .mova-botao:active:not(:disabled) { transform: none; transition: background-color 0.2s }
+  .mova-botao[data-enviando]::after, .mova-ripple { display: none }
 }

@@ -25,8 +25,13 @@ deste guia.
 - Área de respiro: no mínimo a altura do "O" em volta do nome. Não distorcer, não trocar as cores
   do nome, não aplicar sombra.
 
-**Degradê da marca** (`#21F49A` → `#02C184` → `#028775`): só no ícone, na tela de login e na
-tela de carregamento. Botões e destaques usam o verde chapado da paleta.
+**Degradê da marca** (`--brand-1` `#028775` → `--brand-2` `#02C184` → `--brand-3` `#21F49A`, e o "O"
+do nome em `--brand-o-1` `#22E080` → `--brand-o-2` `#00BB74`): só no ícone, na tela de login e na
+tela de carregamento. É igual nos dois temas. Botões e destaques usam o verde chapado da paleta.
+
+**Tela de login** (`src/app/(auth)/`): fundo liso, ondas da marca deslizando embaixo, o nome "MOVA"
+traçado letra por letra e o cartão do formulário subindo. O botão tem hover, onda no clique e
+brilho enquanto envia. Com "reduzir movimento" ligado no aparelho, tudo fica parado.
 
 ## Favicon e ícones de app
 
@@ -77,6 +82,9 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-foreground` | texto sobre `primary` | `#ffffff` | `#03140c` |
 | `primary-text` | link e texto em verde | `#036443` | `#4ee8a8` |
 | `primary-soft` | fundo de item ativo, selo "concluída" | `#e3f6ee` | `#0f3326` |
+| `primary-hover` | botão principal com o cursor em cima | `#036a45` | `#5ae8b0` |
+| `primary-press` | botão principal pressionado ou enviando | `#024d33` | `#1fc684` |
+| `primary-glow` | sombra do botão no hover (decorativa) | `#047a4f` a 35% | `#2ee09a` a 35% |
 | `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
@@ -101,6 +109,8 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `muted-foreground` / `card` | 6.35 | 7.22 | 4.5 |
 | `muted-foreground` / `background` | 5.86 | 7.83 | 4.5 |
 | `primary-foreground` / `primary` | 5.38 | 11.04 | 4.5 |
+| `primary-foreground` / `primary-hover` | 6.66 | 12.26 | 4.5 |
+| `primary-foreground` / `primary-press` | 9.94 | 8.54 | 4.5 |
 | `primary-text` / `card` | 7.22 | 11.12 | 4.5 |
 | `primary-text` / `primary-soft` | 6.43 | 8.83 | 4.5 |
 | `warning` / `card` | 6.33 | 11.33 | 4.5 |
