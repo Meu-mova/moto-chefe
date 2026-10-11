@@ -214,25 +214,21 @@ export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chass
         </SheetContent>
       </Sheet>
 
-      {/* Desktop: as duas linhas de sempre. */}
-      <div className="hidden space-y-3 rounded-lg border border-border bg-card p-3 lg:block">
-        <div className="flex flex-wrap items-center gap-2">
-          {filtroModelo}
-          {filtroVendedor}
-          {filtroLoja}
-          {filtroConc}
-          {temFiltro && (
-            <Button variant="ghost" size="sm" onClick={limpar} className="ml-auto gap-1.5 text-muted-foreground hover:text-foreground">
-              <X size={13} />
-              Limpar filtros
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-          {buscaChassi('w-44')}
-          {buscaNf('w-36')}
-          {periodo}
-        </div>
+      {/* Desktop: uma linha só — busca, filtros e o período à direita. */}
+      <div className="hidden flex-wrap items-center gap-2 lg:flex">
+        {buscaChassi('w-64')}
+        {buscaNf('w-40')}
+        {filtroModelo}
+        {filtroVendedor}
+        {filtroLoja}
+        {filtroConc}
+        {temFiltro && (
+          <Button variant="ghost" size="sm" onClick={limpar} className="gap-1.5 text-muted-foreground hover:text-foreground">
+            <X size={13} />
+            Limpar filtros
+          </Button>
+        )}
+        <div className="ml-auto">{periodo}</div>
       </div>
     </>
   )

@@ -16,6 +16,8 @@ type Props = {
   /** Total já conciliado (cartão + PIX). Vira aviso: esse dinheiro será desvinculado. */
   valorRecebido?: number
   notaFiscalSaida?: string | null
+  /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
+  gatilho?: (abrir: () => void) => React.ReactNode
 }
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -26,7 +28,7 @@ type Conferencia =
   | { estado: 'travada'; trava: string }
   | { estado: 'falhou'; erro: string }
 
-export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, notaFiscalSaida }: Props) {
+export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, notaFiscalSaida, gatilho }: Props) {
   const [open, setOpen] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [loading, setLoading] = useState(false)
@@ -73,6 +75,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
 
   return (
     <>
+      {gatilho ? gatilho(abrir) : (
       <Button
         variant="ghost"
         size="icon"
@@ -82,6 +85,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
       >
         <XCircle size={16} />
       </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
