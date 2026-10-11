@@ -64,7 +64,7 @@ export function MultiSelectFiltro({ placeholder, opcoes, selecionados, onChange,
         type="button"
         onClick={() => setAberto(v => !v)}
         className={cn(
-          'flex items-center justify-between gap-2 h-9 px-3 rounded-md border text-sm whitespace-nowrap',
+          'flex w-full items-center justify-between gap-2 h-9 px-3 rounded-md border text-sm whitespace-nowrap',
           ativo
             ? 'border-slate-700 bg-slate-100 text-slate-800 font-medium'
             : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
