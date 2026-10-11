@@ -35,7 +35,7 @@ export function PesquisaTelas({ itens, onNavegar }: { itens: ItemNav[]; onNavega
         <Autocomplete.Input
           placeholder="Buscar tela…"
           aria-label="Buscar tela"
-          className="h-9 w-full rounded-md border border-input bg-card pr-3 pl-9 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 w-full rounded-md border border-input bg-card pr-3 pl-9 text-base text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring lg:text-sm"
         />
       </div>
       <Autocomplete.Portal>

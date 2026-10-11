@@ -33,19 +33,24 @@ export async function listarClientesAction(params: {
   sexo?: string
   cidade?: string
   page?: number
+  /** 20 no celular/tablet, 50 no desktop; qualquer outro valor vira 50. */
+  porPagina?: number
 }) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
 
+  const pageSize = params.porPagina === 20 ? 20 : PAGE_SIZE
   const page = Math.max(1, params.page ?? 1)
-  const offset = (page - 1) * PAGE_SIZE
+  const offset = (page - 1) * pageSize
 
   const conds: SQL[] = []
   if (params.busca) {
+    // Busca só por letras não tem dígito: sem este cuidado, o CPF virava '%%' e casava com todos.
+    const digitos = params.busca.replace(/\D/g, '')
     conds.push(or(
       ilike(clientes.nome, `%${params.busca}%`),
-      ilike(clientes.cpfCnpj, `%${params.busca.replace(/\D/g, '')}%`),
       ilike(clientes.celular, `%${params.busca}%`),
+      ...(digitos ? [ilike(clientes.cpfCnpj, `%${digitos}%`)] : []),
     )!)
   }
   if (params.tipoPessoa && params.tipoPessoa !== 'todos') {
@@ -64,12 +69,12 @@ export async function listarClientesAction(params: {
     db.select().from(clientes)
       .where(where)
       .orderBy(clientes.nome)
-      .limit(PAGE_SIZE)
+      .limit(pageSize)
       .offset(offset),
     db.select({ total: sql<number>`count(*)::int` }).from(clientes).where(where),
   ])
 
-  return { clientes: rows, total, page, pageSize: PAGE_SIZE }
+  return { clientes: rows, total, page, pageSize }
 }
 
 export async function buscarClientesAction(termo: string) {
