@@ -94,15 +94,10 @@ export default async function ClienteDetalhePage({ params }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/clientes">
-            <Button variant="ghost" size="sm">← Voltar</Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{cliente.nome}</h1>
-            <p className="text-slate-500 text-sm">{formatarCpfCnpj(cliente.cpfCnpj)}</p>
-          </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold break-words">{cliente.nome}</h1>
+          <p className="text-sm text-muted-foreground">{formatarCpfCnpj(cliente.cpfCnpj)}</p>
         </div>
         <ClienteForm
           trigger={<Button>Editar</Button>}
@@ -111,7 +106,7 @@ export default async function ClienteDetalhePage({ params }: Props) {
       </div>
 
       {/* Contato + Endereço */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Contato</CardTitle>

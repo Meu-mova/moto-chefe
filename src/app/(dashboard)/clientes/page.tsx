@@ -5,16 +5,9 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
 import { ClienteForm } from './components/cliente-form'
-import { Input } from '@/components/ui/input'
+import { ClientesFiltros } from './components/clientes-filtros'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 function buildUrl(params: Record<string, string | undefined>, overrides: Record<string, string>) {
   const p = new URLSearchParams()
@@ -57,79 +50,18 @@ export default async function ClientesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-slate-500 text-sm">Cadastro e histórico de clientes</p>
+          <p className="text-sm text-muted-foreground">Cadastro e histórico de clientes</p>
         </div>
         <ClienteForm trigger={<Button>Novo Cliente</Button>} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form method="GET" className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Busca</label>
-              <Input
-                name="busca"
-                placeholder="Nome, CPF/CNPJ ou celular..."
-                defaultValue={params.busca ?? ''}
-              />
-            </div>
-
-            <div className="w-44">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Tipo</label>
-              <Select name="tipoPessoa" defaultValue={params.tipoPessoa ?? 'todos'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="fisica">Pessoa Física</SelectItem>
-                  <SelectItem value="juridica">Pessoa Jurídica</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-44">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Sexo</label>
-              <Select name="sexo" defaultValue={params.sexo ?? 'todos'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="masculino">Masculino</SelectItem>
-                  <SelectItem value="feminino">Feminino</SelectItem>
-                  <SelectItem value="nao_identificado">Não identificado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {cidades.length > 0 && (
-              <div className="w-44">
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Cidade</label>
-                <Select name="cidade" defaultValue={params.cidade ?? 'todos'}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todas</SelectItem>
-                    {cidades.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Button type="submit">Filtrar</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <ClientesFiltros
+        valores={{ busca: params.busca, tipoPessoa: params.tipoPessoa, sexo: params.sexo, cidade: params.cidade }}
+        cidades={cidades}
+      />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">
             {total === 0
               ? 'Nenhum cliente encontrado'
@@ -142,7 +74,7 @@ export default async function ClientesPage({
               ) : (
                 <Link href={buildUrl(params, { page: String(pagina - 1) })} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Anterior</Link>
               )}
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-muted-foreground">
                 Página {pagina} de {totalPaginas}
               </span>
               {pagina >= totalPaginas ? (
