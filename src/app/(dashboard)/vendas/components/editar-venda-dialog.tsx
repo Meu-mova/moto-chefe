@@ -52,6 +52,8 @@ type Props = {
   papel: string
   vendedores: { id: string; nome: string }[]
   origens: OrigemParaEscolher[]
+  /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
+  gatilho?: (abrir: () => void) => React.ReactNode
 }
 
 const TIPOS_CARTAO  = new Set(['cartao_credito', 'cartao_debito'])
@@ -62,7 +64,7 @@ const TIPO_LABEL: Record<string, string> = {
   transferencia: 'Transferência Bancária',
 }
 
-export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
+export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Props) {
   const [open, setOpen] = useState(false)
 
   // Venda
@@ -162,6 +164,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
 
   return (
     <>
+      {gatilho ? gatilho(() => setOpen(true)) : (
       <Button
         variant="ghost"
         size="icon"
@@ -171,6 +174,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens }: Props) {
       >
         <Pencil size={15} />
       </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

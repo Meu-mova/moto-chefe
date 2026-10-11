@@ -74,17 +74,23 @@ async function montarTabela(papel: string) {
   const desenhar = (vendas: VendaComDetalhes[]) => act(async () => {
     root.render(React.createElement(VendasTable, { vendas, papel, vendedores: [], origens: [] }))
   })
+  // No desktop a NF fica no painel da venda: abre clicando na linha da tabela.
+  const abrirVenda = () => act(async () => {
+    document.querySelector('tbody tr')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  })
   const abrirNf = async () => {
+    if (!botaoDaNf()) await abrirVenda()
     await act(async () => { botaoDaNf()!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })) })
     await act(async () => { await esperar(50) })
   }
   const desmontar = () => act(async () => { root.unmount() })
-  return { desenhar, abrirNf, desmontar, act }
+  return { desenhar, abrirVenda, abrirNf, desmontar, act }
 }
 
 test('o diálogo aberto pelo número da NF continua na tela quando a venda perde o número', async () => {
   const t = await montarTabela('aux_adm')
   await t.desenhar([VENDA])
+  await t.abrirVenda()
   assert.ok(botaoDaNf(), 'para o aux_adm, o número da NF é um botão')
   await t.abrirNf()
   assert.ok(textoDaTela().includes('NF de saída 4512'), 'o diálogo abre')
@@ -109,6 +115,7 @@ test('o diálogo continua na tela quando a venda sai da lista', async () => {
 test('para o vendedor, o número da NF aparece sem botão', async () => {
   const t = await montarTabela('vendedor')
   await t.desenhar([VENDA])
+  await t.abrirVenda()
   assert.equal(botaoDaNf(), undefined)
   assert.ok(textoDaTela().includes('4512'))
   await t.desmontar()

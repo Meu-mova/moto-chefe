@@ -52,9 +52,15 @@ type Hist        = Awaited<ReturnType<typeof buscarHistoricoMotoAction>>[number]
 type Pgto        = PgtoOS
 
 type Tab = 'detalhes' | 'historico'
-type Props = { venda: VendaComDetalhes; papel: string; desconto?: DescontoDaVenda }
+type Props = {
+  venda: VendaComDetalhes
+  papel: string
+  desconto?: DescontoDaVenda
+  /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
+  gatilho?: (abrir: () => void) => React.ReactNode
+}
 
-export function DetalhesVendaDialog({ venda: v, papel, desconto }: Props) {
+export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Props) {
   const [open, setOpen]        = useState(false)
   const [tab, setTab]          = useState<Tab>('detalhes')
   const [hist, setHist]        = useState<Hist[] | null>(null)
@@ -87,6 +93,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto }: Props) {
 
   return (
     <>
+      {gatilho ? gatilho(abrirDialog) : (
       <Button
         variant="ghost"
         size="icon"
@@ -96,6 +103,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto }: Props) {
       >
         <Eye size={16} />
       </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">

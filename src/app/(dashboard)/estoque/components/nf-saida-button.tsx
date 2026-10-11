@@ -14,11 +14,13 @@ type Props = {
   motoId: string
   descricao: string
   blingNfeId?: string | null
+  /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
+  gatilho?: (abrir: () => void) => React.ReactNode
 }
 
 type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado' | 'propria'
 
-export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
+export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
 
   const [aberto, setAberto] = useState(false)
@@ -125,6 +127,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
 
   return (
     <>
+      {gatilho ? gatilho(abrir) : (
       <Button
         size="sm"
         variant="outline"
@@ -135,6 +138,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId }: Props) {
         <FileCheck size={14} />
         {blingNfeId ? 'Confirmar NF' : 'NF Saída'}
       </Button>
+      )}
 
       <Dialog open={aberto} onOpenChange={fechar}>
         <DialogContent className={etapa === 'propria' ? 'sm:max-w-2xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-sm'}>

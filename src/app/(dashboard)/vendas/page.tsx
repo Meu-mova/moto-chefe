@@ -79,6 +79,22 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const TOM_KPI = {
+  aviso:  'bg-warning/10 text-warning',
+  perigo: 'bg-destructive/10 text-destructive',
+  ok:     'bg-primary-soft text-primary-text',
+}
+
+function Kpi({ tom, titulo, valor, nota }: { tom: keyof typeof TOM_KPI; titulo: string; valor: React.ReactNode; nota?: string }) {
+  return (
+    <div className={`min-w-40 shrink-0 snap-start rounded-lg px-4 py-3 lg:min-w-0 ${TOM_KPI[tom]}`}>
+      <p className="text-xs font-medium tracking-wide uppercase opacity-80">{titulo}</p>
+      <p className="mt-0.5 text-2xl font-bold">{valor}</p>
+      {nota && <p className="mt-0.5 text-xs opacity-80">{nota}</p>}
+    </div>
+  )
+}
+
 const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
 export default async function VendasPage({
@@ -207,54 +223,34 @@ export default async function VendasPage({
         </h2>
 
         {(concStats || semNfSaida > 0 || (resumoDesconto && resumoDesconto.qtd > 0)) && (
-          <div className={`grid gap-3 ${concStats ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-2 max-w-md'}`}>
+          // Celular: faixa que rola para o lado, sem barra à vista. Desktop: grade.
+          <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-3 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
             {/* NF Saída pendente — sempre visível quando há pendências */}
             {semNfSaida > 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
-                <p className="text-xs font-medium text-orange-500 uppercase tracking-wide">Sem NF Saída</p>
-                <p className="text-2xl font-bold text-orange-700 mt-0.5">{semNfSaida}</p>
-                <p className="text-xs text-orange-500 mt-0.5">venda{semNfSaida !== 1 ? 's' : ''} sem nota fiscal</p>
-              </div>
+              <Kpi tom="aviso" titulo="Sem NF Saída" valor={semNfSaida} nota={`venda${semNfSaida !== 1 ? 's' : ''} sem nota fiscal`} />
             )}
 
             {/* Desconto concedido no recorte filtrado. Filtrando por um vendedor,
                 este card é o total dele no período. */}
             {resumoDesconto && resumoDesconto.qtd > 0 && (
-              <div className="bg-rose-50 border border-rose-200 rounded-lg px-4 py-3">
-                <p className="text-xs font-medium text-rose-500 uppercase tracking-wide">Descontos</p>
-                <p className="text-2xl font-bold text-rose-700 mt-0.5">
-                  {fmt(resumoDesconto.margem)}{resumoDesconto.estimados > 0 ? '*' : ''}
-                </p>
-                <p className="text-xs text-rose-500 mt-0.5">
-                  {resumoDesconto.qtd} de {vendasList.length} vendas
-                  {faturamentoLista > 0 && ` · ${percentualDesconto(resumoDesconto.margem, faturamentoLista)}% do faturamento`}
-                  {resumoDesconto.preco > 0 && ` · ${fmt(resumoDesconto.preco)} de preço`}
-                </p>
-              </div>
+              <Kpi
+                tom="perigo"
+                titulo="Descontos"
+                valor={`${fmt(resumoDesconto.margem)}${resumoDesconto.estimados > 0 ? '*' : ''}`}
+                nota={`${resumoDesconto.qtd} de ${vendasList.length} vendas`
+                  + (faturamentoLista > 0 ? ` · ${percentualDesconto(resumoDesconto.margem, faturamentoLista)}% do faturamento` : '')
+                  + (resumoDesconto.preco > 0 ? ` · ${fmt(resumoDesconto.preco)} de preço` : '')}
+              />
             )}
 
             {/* Conciliação — apenas para admin/aux_adm */}
             {concStats && (
               <>
-                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                  <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Conc. Pendentes</p>
-                  <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
-                  {concStats.valorPendente > 0 && (
-                    <p className="text-xs text-red-500 mt-0.5">{fmt(concStats.valorPendente)} em aberto</p>
-                  )}
-                </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-                  <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Conc. Parciais</p>
-                  <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
-                  {concStats.valorParcial > 0 && (
-                    <p className="text-xs text-amber-500 mt-0.5">{fmt(concStats.valorParcial)} restante</p>
-                  )}
-                </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-                  <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
-                  <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
-                  <p className="text-xs text-green-500 mt-0.5">sem pendências</p>
-                </div>
+                <Kpi tom="perigo" titulo="Conc. Pendentes" valor={concStats.pendente}
+                  nota={concStats.valorPendente > 0 ? `${fmt(concStats.valorPendente)} em aberto` : undefined} />
+                <Kpi tom="aviso" titulo="Conc. Parciais" valor={concStats.parcial}
+                  nota={concStats.valorParcial > 0 ? `${fmt(concStats.valorParcial)} restante` : undefined} />
+                <Kpi tom="ok" titulo="Conciliadas" valor={concStats.conciliada} nota="sem pendências" />
               </>
             )}
           </div>
@@ -271,9 +267,7 @@ export default async function VendasPage({
           dataFimInicial={params.ate ?? ''}
           podeConciliacao={podeConciliacao}
         />
-        <div className="bg-white rounded-lg border overflow-x-auto">
-          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
-        </div>
+        <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         {resumoDesconto && resumoDesconto.estimados > 0 && (
           <p className="text-[11px] text-slate-400">
             * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a

@@ -155,6 +155,19 @@
     @apply font-sans;
   }
 }
+
+/* iOS dá zoom ao focar campo com fonte menor que 16px e não desfaz. No celular/tablet, os
+   tamanhos pequenos viram 16px só dentro dos campos: text-xs/text-sm leem estas variáveis no
+   próprio elemento, e quem já usa text-lg ou maior não muda. */
+@media (max-width: 1023.98px) {
+  input, select, textarea {
+    --text-xs: 1rem;
+    --text-sm: 1rem;
+  }
+  input:not([class*="text-"]), select:not([class*="text-"]), textarea:not([class*="text-"]) {
+    font-size: 1rem;
+  }
+}
 /* ── Tela de login (src/app/(auth)): ondas, logo traçado e botão. Parado com "reduzir movimento". */
 @keyframes mova-onda { from { transform: translateX(0) } to { transform: translateX(-800px) } }
 @keyframes mova-onda-volta { from { transform: translateX(-800px) } to { transform: translateX(0) } }
