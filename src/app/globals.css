@@ -201,3 +201,6 @@
   .mova-botao, .mova-botao:hover:not(:disabled), .mova-botao:active:not(:disabled) { transform: none; transition: background-color 0.2s }
   .mova-botao[data-enviando]::after, .mova-ripple { display: none }
 }
+
+/* Login: sem o "elástico" do iOS ao arrastar além do fim da página. */
+html:has(.mova-auth) { overscroll-behavior: none }
