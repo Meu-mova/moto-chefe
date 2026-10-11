@@ -1,12 +1,13 @@
 // Ondas da marca no fundo do login. Cada onda repete o mesmo desenho a cada 800 px, então
 // deslizar 800 px fecha o loop sem emenda; o balanço vertical fica num <g> separado.
+// O preenchimento desce além da base (V900): com o balanço, a onda sobe e não pode descobrir o fundo.
 function onda(y: number, a: number) {
-  return `M0 ${y} C 200 ${y - a}, 600 ${y + a}, 800 ${y} C 1000 ${y - a}, 1400 ${y + a}, 1600 ${y} V600 H0Z`
+  return `M0 ${y} C 200 ${y - a}, 600 ${y + a}, 800 ${y} C 1000 ${y - a}, 1400 ${y + a}, 1600 ${y} V900 H0Z`
 }
 
 export function FundoOndas() {
   return (
-    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden>
+    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" className="absolute inset-0 size-full" aria-hidden>
       <defs>
         <linearGradient id="mova-onda" x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" style={{ stopColor: 'var(--brand-1)' }} />
