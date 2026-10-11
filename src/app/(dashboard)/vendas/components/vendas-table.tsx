@@ -60,12 +60,13 @@ const botaoGrade = 'flex h-16 w-full flex-col items-center justify-center gap-1 
 
 /**
  * Ações da venda no painel (gaveta do celular e painel do desktop): a principal (emitir NF)
- * larga no topo, as outras numa grade igual e o cancelar separado, discreto. Permissões
+ * larga no topo e as outras numa grade igual, com o cancelar em vermelho no fim. Permissões
  * iguais às da antiga coluna de ações da tabela.
  */
 function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }: Omit<Props, 'vendas'> & { v: VendaComDetalhes }) {
   const podeEditarVenda = podeEditar.has(papel) && (!lojaIdUsuario || v.lojaId === lojaIdUsuario)
   const podeEmitirNf    = !v.notaFiscalSaida && podeOperarNfSaida(papel)
+  const blocos = 1 + (podeEditarVenda ? 1 : 0) + (podeGarantia.has(papel) ? 1 : 0) + (podeCancelar.has(papel) ? 1 : 0)
   return (
     <div className="space-y-2">
       {podeEmitirNf && (
@@ -79,7 +80,7 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
           )}
         />
       )}
-      <div className="grid grid-cols-3 gap-2">
+      <div className={cn('grid gap-2', ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4'][blocos - 1])}>
         <DetalhesVendaDialog
           venda={v}
           papel={papel}
@@ -102,20 +103,20 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
             gatilho={abrir => <button type="button" onClick={abrir} className={botaoGrade}><ShieldAlert className="size-4 text-muted-foreground" /> Garantia</button>}
           />
         )}
+        {podeCancelar.has(papel) && (
+          <CancelarVendaButton
+            vendaId={v.id}
+            descricao={`${descricaoMoto(v)} — ${v.clienteNome}`}
+            valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
+            notaFiscalSaida={v.notaFiscalSaida}
+            gatilho={abrir => (
+              <button type="button" onClick={abrir} className={cn(botaoGrade, 'border-destructive/30 text-destructive hover:bg-destructive/10')}>
+                <XCircle className="size-4" /> Cancelar
+              </button>
+            )}
+          />
+        )}
       </div>
-      {podeCancelar.has(papel) && (
-        <CancelarVendaButton
-          vendaId={v.id}
-          descricao={`${descricaoMoto(v)} — ${v.clienteNome}`}
-          valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
-          notaFiscalSaida={v.notaFiscalSaida}
-          gatilho={abrir => (
-            <button type="button" onClick={abrir} className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10">
-              <XCircle className="size-4" /> Cancelar venda
-            </button>
-          )}
-        />
-      )}
     </div>
   )
 }
