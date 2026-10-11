@@ -9,7 +9,7 @@ import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
-import { ArrowLeft, Printer, Ban } from 'lucide-react'
+import { Printer, Ban } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { OSStatusBar } from './components/os-status-bar'
 import { OSItensPanel } from './components/os-itens-panel'
@@ -83,9 +83,6 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/ordens-servico" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-            <ArrowLeft size={16} /> Voltar
-          </Link>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">OS #{os.numero}</h1>
