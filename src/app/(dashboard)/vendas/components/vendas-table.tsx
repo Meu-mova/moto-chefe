@@ -9,6 +9,7 @@ import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
 import { NfSaidaVendaDialog, type NfDaVenda } from './nf-saida-venda-dialog'
 import { podeOperarNfSaida } from '../papeis-nf-saida'
+import { CartoesVendas } from './vendas-cartoes'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
@@ -75,7 +76,7 @@ const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 // Só o que é específico de venda de moto fica aqui: o fallback para
 // vendas.status_conciliacao das vendas antigas, anteriores ao array `pagamentos`.
 // O resto é a mesma conta de peças, OS e dashboard — ver @/lib/conciliacao-status.
-function calcStatus(
+export function calcStatus(
   pagamentos: unknown,
   conciliadoValor: number,
   pixConciliadoValor: number,
@@ -131,6 +132,41 @@ type Props = {
   descontos?: Map<string, DescontoDaVenda>
 }
 
+/** Ações de uma venda: na última coluna da tabela e na gaveta do cartão (celular). */
+export function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos, comRotulo }: Omit<Props, 'vendas'> & { v: VendaComDetalhes; comRotulo?: boolean }) {
+  const podeFazerGarantia = podeGarantia.has(papel)
+  const podeNfSaida       = podeOperarNfSaida(papel)
+  const podeEditarVenda   = podeEditar.has(papel)
+  const descricaoMoto = `${v.modelo} — ${v.chassi}`
+  return (
+    <>
+                  <DetalhesVendaDialog venda={v} papel={papel} desconto={descontos?.get(v.id)} />
+                  {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} origens={origens} />}
+                  {!v.notaFiscalSaida && podeNfSaida && (
+                    <NfSaidaButton
+                      motoId={v.motoId}
+                      descricao={descricaoMoto}
+                    />
+                  )}
+                  {podeFazerGarantia && (
+                    <GarantiaButton
+                      showLabel={comRotulo}
+                      motoId={v.motoId}
+                      descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
+                    />
+                  )}
+                  {podeCancelar.has(papel) && (
+                    <CancelarVendaButton
+                      vendaId={v.id}
+                      descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
+                      valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
+                      notaFiscalSaida={v.notaFiscalSaida}
+                    />
+                  )}
+    </>
+  )
+}
+
 export function VendasTable(props: Props) {
   const [nfAberta, setNfAberta] = useState<NfDaVenda | null>(null)
   return (
@@ -147,7 +183,6 @@ function TabelaDeVendas({ vendas, papel, lojaIdUsuario, vendedores, origens, des
   const podeFazerGarantia  = podeGarantia.has(papel)
   const podeNfSaida        = podeOperarNfSaida(papel)
   const isAdmin            = ADMINS.has(papel)
-  const podeEditarVenda    = podeEditar.has(papel)
   const podeConciliacao    = isAdmin || papel === 'aux_adm'
   const colSpan = (podeFazerGarantia ? (podeConciliacao ? 11 : 10) : (podeConciliacao ? 10 : 9)) + (descontos ? 1 : 0)
 
@@ -163,6 +198,17 @@ function TabelaDeVendas({ vendas, papel, lojaIdUsuario, vendedores, origens, des
     : vendasComStatus
 
   return (
+    <>
+    <div className="lg:hidden">
+      <CartoesVendas
+        itens={vendasFiltradas}
+        acoes={v => <AcoesVenda v={v} papel={papel} lojaIdUsuario={lojaIdUsuario} vendedores={vendedores} origens={origens} descontos={descontos} comRotulo />}
+        onAbrirNf={podeNfSaida ? onAbrirNf : undefined}
+        podeConciliacao={podeConciliacao}
+        descontos={descontos}
+      />
+    </div>
+    <div className="hidden overflow-x-auto rounded-lg border border-border bg-card lg:block">
     <Table>
       <TableHeader>
         <TableRow>
@@ -238,28 +284,7 @@ function TabelaDeVendas({ vendas, papel, lojaIdUsuario, vendedores, origens, des
               )}
               <TableCell className="text-right">
                 <div className="flex items-center gap-1 justify-end">
-                  <DetalhesVendaDialog venda={v} papel={papel} desconto={descontos?.get(v.id)} />
-                  {podeEditarVenda && (!lojaIdUsuario || v.lojaId === lojaIdUsuario) && <EditarVendaDialog venda={v} papel={papel} vendedores={vendedores} origens={origens} />}
-                  {!v.notaFiscalSaida && podeNfSaida && (
-                    <NfSaidaButton
-                      motoId={v.motoId}
-                      descricao={descricaoMoto}
-                    />
-                  )}
-                  {podeFazerGarantia && (
-                    <GarantiaButton
-                      motoId={v.motoId}
-                      descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
-                    />
-                  )}
-                  {podeCancelar.has(papel) && (
-                    <CancelarVendaButton
-                      vendaId={v.id}
-                      descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
-                      valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
-                      notaFiscalSaida={v.notaFiscalSaida}
-                    />
-                  )}
+                  <AcoesVenda v={v} papel={papel} lojaIdUsuario={lojaIdUsuario} vendedores={vendedores} origens={origens} descontos={descontos} />
                 </div>
               </TableCell>
             </TableRow>
@@ -274,5 +299,7 @@ function TabelaDeVendas({ vendas, papel, lojaIdUsuario, vendedores, origens, des
         )}
       </TableBody>
     </Table>
+    </div>
+    </>
   )
 }

@@ -271,9 +271,7 @@ export default async function VendasPage({
           dataFimInicial={params.ate ?? ''}
           podeConciliacao={podeConciliacao}
         />
-        <div className="bg-white rounded-lg border overflow-x-auto">
-          <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
-        </div>
+        <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         {resumoDesconto && resumoDesconto.estimados > 0 && (
           <p className="text-[11px] text-slate-400">
             * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a

@@ -1,0 +1,181 @@
+'use client'
+import { useState } from 'react'
+import { Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import type { VendaComDetalhes } from '@/lib/queries/vendas'
+import type { StatusConc } from '@/lib/conciliacao-status'
+import type { DescontoDaVenda } from '@/lib/queries/descontos'
+import type { NfDaVenda } from './nf-saida-venda-dialog'
+
+type Item = { venda: VendaComDetalhes; status: StatusConc }
+type Estado = 'ok' | 'andamento' | 'nada'
+
+function moeda(v: string | number) {
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function data(d: Date) {
+  return new Date(d).toLocaleDateString('pt-BR')
+}
+
+function estadoAssinatura(s: string | null): Estado {
+  return s === 'assinado' ? 'ok' : s === 'pendente' || s === 'visualizado' ? 'andamento' : 'nada'
+}
+
+function textoAssinatura(s: string | null) {
+  return s === 'assinado' ? 'Assinado' : s === 'pendente' || s === 'visualizado' ? 'Aguardando o cliente' : 'Não enviado'
+}
+
+const CONC: Record<StatusConc, { estado: Estado; texto: string }> = {
+  conciliada: { estado: 'ok', texto: 'Conciliada' },
+  parcial:    { estado: 'andamento', texto: 'Parcial' },
+  pendente:   { estado: 'nada', texto: 'Pendente' },
+  na:         { estado: 'nada', texto: '—' },
+}
+
+/** Onde a venda parou: Contrato → NF saída → Conciliação (esta só para quem concilia). */
+function etapas(v: VendaComDetalhes, status: StatusConc, podeConciliacao: boolean) {
+  const lista: { nome: string; estado: Estado }[] = [
+    { nome: 'Contrato', estado: estadoAssinatura(v.contratoStatus) },
+    { nome: 'NF saída', estado: v.notaFiscalSaida ? 'ok' : 'nada' },
+  ]
+  if (podeConciliacao) lista.push({ nome: 'Conciliação', estado: CONC[status].estado })
+  return lista
+}
+
+function Etapas({ itens }: { itens: { nome: string; estado: Estado }[] }) {
+  return (
+    <ol className="mt-3 flex items-start" aria-label="Etapas da venda">
+      {itens.map((e, i) => (
+        <li key={e.nome} className="flex flex-1 items-start last:flex-none">
+          <span className="flex flex-col items-center gap-1">
+            <span
+              className={cn(
+                'grid size-5 place-items-center rounded-full text-[10px] font-bold',
+                e.estado === 'ok' && 'bg-primary text-primary-foreground',
+                e.estado === 'andamento' && 'bg-warning/10 text-warning ring-1 ring-warning',
+                e.estado === 'nada' && 'bg-muted text-muted-foreground ring-1 ring-border',
+              )}
+            >
+              {e.estado === 'ok' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
+            </span>
+            <span
+              className={cn(
+                'text-[11px] whitespace-nowrap',
+                e.estado === 'ok' ? 'text-primary-text' : e.estado === 'andamento' ? 'text-warning' : 'text-muted-foreground',
+              )}
+            >
+              {e.nome}
+              <span className="sr-only">: {e.estado === 'ok' ? 'feito' : e.estado === 'andamento' ? 'em andamento' : 'pendente'}</span>
+            </span>
+          </span>
+          {i < itens.length - 1 && (
+            <span className={cn('mx-1 mt-2.5 h-0.5 flex-1 rounded', e.estado === 'ok' ? 'bg-primary' : 'bg-border')} />
+          )}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-border py-2 last:border-0">
+      <span className="text-muted-foreground">{rotulo}</span>
+      <span className="min-w-0 text-right break-words">{children}</span>
+    </div>
+  )
+}
+
+type Props = {
+  itens: Item[]
+  /** As mesmas ações da tabela, com rótulo. */
+  acoes: (v: VendaComDetalhes) => React.ReactNode
+  /** Ausente = sem permissão de operar NF: o número aparece como texto. */
+  onAbrirNf?: (nf: NfDaVenda) => void
+  podeConciliacao: boolean
+  descontos?: Map<string, DescontoDaVenda>
+}
+
+/** Vendas no celular/tablet: cartão com as etapas; o toque abre a gaveta com detalhe e ações. */
+export function CartoesVendas({ itens, acoes, onAbrirNf, podeConciliacao, descontos }: Props) {
+  // Guarda só o id: depois de uma action, o revalidatePath traz a venda nova e a gaveta mostra ela.
+  const [abertaId, setAbertaId] = useState<string | null>(null)
+  const aberta = itens.find(i => i.venda.id === abertaId)
+
+  if (itens.length === 0) {
+    return <p className="rounded-lg border border-border bg-card py-8 text-center text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
+  }
+
+  return (
+    <>
+      <div className="space-y-3">
+        {itens.map(({ venda: v, status }) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setAbertaId(v.id)}
+            className="block w-full rounded-2xl border border-border bg-card p-4 text-left shadow-sm hover:bg-muted"
+          >
+            <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>#{v.numero} · {data(v.dataVenda)}</span>
+              <span className="truncate">{v.lojaNome}</span>
+            </span>
+            <span className="mt-1 flex items-end justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block truncate font-semibold">{v.modelo}</span>
+                <span className="block truncate text-sm text-muted-foreground">{v.clienteNome}</span>
+              </span>
+              <span className="text-lg font-bold whitespace-nowrap tabular-nums">{moeda(v.valor)}</span>
+            </span>
+            <Etapas itens={etapas(v, status, podeConciliacao)} />
+          </button>
+        ))}
+      </div>
+
+      <Sheet open={!!aberta} onOpenChange={o => !o && setAbertaId(null)}>
+        <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto rounded-t-2xl p-4 pb-8">
+          {aberta && (() => {
+            const { venda: v, status } = aberta
+            const d = descontos?.get(v.id)
+            return (
+              <div className="space-y-4">
+                <div className="pr-8">
+                  <SheetTitle className="text-base">Venda #{v.numero}</SheetTitle>
+                  <p className="text-sm text-muted-foreground">{v.modelo} · {v.cor}</p>
+                </div>
+                <div className="text-sm">
+                  <Linha rotulo="Data">{data(v.dataVenda)}</Linha>
+                  <Linha rotulo="Cliente">{v.clienteNome}</Linha>
+                  <Linha rotulo="Vendedor">{v.vendedorNome} · {v.lojaNome}</Linha>
+                  <Linha rotulo="Chassi"><span className="font-mono text-xs">{v.chassi}</span></Linha>
+                  <Linha rotulo="Valor"><b className="tabular-nums">{moeda(v.valor)}</b></Linha>
+                  {d && <Linha rotulo="Desconto"><span className="tabular-nums text-destructive">{moeda(d.margem)}{d.estimado ? '*' : ''}</span></Linha>}
+                  <Linha rotulo="Contrato">
+                    {textoAssinatura(v.contratoStatus)}
+                    {v.contratoStatus !== 'assinado' && v.nfLiberadaEm ? ' · NF liberada por exceção' : ''}
+                  </Linha>
+                  <Linha rotulo="Checklist">{textoAssinatura(v.checklistStatus)}</Linha>
+                  <Linha rotulo="NF saída">
+                    {v.notaFiscalSaida && onAbrirNf ? (
+                      <button
+                        type="button"
+                        onClick={() => onAbrirNf({ vendaId: v.id, vendaNumero: v.numero, numeroNf: v.notaFiscalSaida!, descricao: `${v.modelo} — ${v.chassi}` })}
+                        className="font-medium text-primary-text underline-offset-2 hover:underline"
+                      >
+                        {v.notaFiscalSaida}
+                      </button>
+                    ) : (v.notaFiscalSaida ?? 'Sem NF')}
+                  </Linha>
+                  {podeConciliacao && <Linha rotulo="Conciliação">{CONC[status].texto}</Linha>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">{acoes(v)}</div>
+              </div>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
+    </>
+  )
+}
