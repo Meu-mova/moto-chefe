@@ -7,7 +7,7 @@ function onda(y: number, a: number) {
 
 export function FundoOndas() {
   return (
-    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full" aria-hidden>
+    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" className="absolute inset-0 size-full" aria-hidden>
       <defs>
         <linearGradient id="mova-onda" x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" style={{ stopColor: 'var(--brand-1)' }} />

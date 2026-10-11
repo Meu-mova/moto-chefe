@@ -4,11 +4,11 @@ import { NomeAnimado } from '@/components/auth/nome-animado'
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="mova-auth relative flex min-h-dvh items-center justify-center p-4">
-      {/* Fundo preso à tela e com um bloco verde abaixo: no iPhone, o teclado e o "elástico" ao
-          arrastar revelam a área além do fim da página, que antes aparecia como faixa clara. */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 bg-background">
-        <div className="relative h-lvh"><FundoOndas /></div>
-        <div className="h-lvh bg-linear-to-r from-(--brand-1) to-(--brand-2)" />
+      {/* Fundo preso à tela (inset-0 acompanha a área visível de verdade; unidades como lvh não
+          crescem quando a barra do Chrome no iPhone se recolhe). O que ficar fora dele, ao abrir o
+          teclado, aparece no verde da marca (regra html:has(.mova-auth) no globals.css). */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 bg-background">
+        <FundoOndas />
       </div>
       <div className="relative w-full max-w-md">
         <NomeAnimado className="mx-auto mb-6 h-10 w-auto" />

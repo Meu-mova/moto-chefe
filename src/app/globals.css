@@ -202,5 +202,6 @@
   .mova-botao[data-enviando]::after, .mova-ripple { display: none }
 }
 
-/* Login: sem o "elástico" do iOS ao arrastar além do fim da página. */
-html:has(.mova-auth) { overscroll-behavior: none }
+/* Login: sem o "elástico" do iOS ao arrastar além do fim da página; e o que o navegador mostrar
+   além da página (teclado, barra recolhendo) sai no verde da base das ondas, não no fundo claro. */
+html:has(.mova-auth) { overscroll-behavior: none; background: var(--brand-1) }
