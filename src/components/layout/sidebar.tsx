@@ -8,6 +8,7 @@ import { CATEGORIAS, ITENS, type ItemNav } from '@/lib/navegacao'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { MenuUsuario, type UsuarioMenu } from './menu-usuario'
 import { COOKIE_SIDEBAR_RECOLHIDA } from './sidebar-cookie'
+import { PesquisaTelas } from './pesquisa-telas'
 
 
 type Props = {
@@ -157,6 +158,7 @@ export function Sidebar({ itensIds, conecta, usuario, recolhidaInicial }: Props)
       ) : (
         <>
           <div className="px-5 pt-5 pb-4"><Logo /></div>
+          <div className="px-3 pb-3"><PesquisaTelas itens={itens} /></div>
           <div className="flex-1 overflow-y-auto px-2 pb-3">
             <ListaNav itens={itens} conecta={conectaSeguro} />
           </div>
@@ -175,6 +177,7 @@ export function MenuMobile({ itensIds, conecta, usuario }: Omit<Props, 'recolhid
   const itens = usarItens(itensIds)
   const conectaSeguro = conecta && /^https?:\/\//i.test(conecta) ? conecta : null
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-sidebar px-3 lg:hidden">
       <button type="button" onClick={() => setAberto(true)} aria-label="Abrir menu" className="-ml-1 rounded-md p-2 text-sidebar-foreground hover:bg-muted">
         <Menu className="size-5" />
@@ -187,11 +190,17 @@ export function MenuMobile({ itensIds, conecta, usuario }: Omit<Props, 'recolhid
           <div className="border-b border-sidebar-border px-2 pb-2">
             <MenuUsuario usuario={usuario} lado="bottom" />
           </div>
+          <div className="px-3 pt-3"><PesquisaTelas itens={itens} onNavegar={() => setAberto(false)} /></div>
           <div className="flex-1 overflow-y-auto px-2 py-3">
             <ListaNav itens={itens} conecta={conectaSeguro} onNavegar={() => setAberto(false)} />
           </div>
         </SheetContent>
       </Sheet>
     </header>
+    {/* Pesquisa à vista no celular, fora da gaveta; rola junto com a página para não roubar altura. */}
+    <div className="border-b border-sidebar-border bg-sidebar px-3 py-2 lg:hidden">
+      <PesquisaTelas itens={itens} />
+    </div>
+    </>
   )
 }
