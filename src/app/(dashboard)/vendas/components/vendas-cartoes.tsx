@@ -46,9 +46,9 @@ function etapas(v: VendaComDetalhes, status: StatusConc, podeConciliacao: boolea
 
 function Etapas({ itens }: { itens: { nome: string; estado: Estado }[] }) {
   return (
-    <ol className="mt-3 flex items-start" aria-label="Etapas da venda">
+    <span role="list" className="mt-3 flex items-start" aria-label="Etapas da venda">
       {itens.map((e, i) => (
-        <li key={e.nome} className="flex flex-1 items-start last:flex-none">
+        <span role="listitem" key={e.nome} className="flex flex-1 items-start last:flex-none">
           <span className="flex flex-col items-center gap-1">
             <span
               className={cn(
@@ -73,9 +73,9 @@ function Etapas({ itens }: { itens: { nome: string; estado: Estado }[] }) {
           {i < itens.length - 1 && (
             <span className={cn('mx-1 mt-2.5 h-0.5 flex-1 rounded', e.estado === 'ok' ? 'bg-primary' : 'bg-border')} />
           )}
-        </li>
+        </span>
       ))}
-    </ol>
+    </span>
   )
 }
 

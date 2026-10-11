@@ -76,7 +76,7 @@ const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 // Só o que é específico de venda de moto fica aqui: o fallback para
 // vendas.status_conciliacao das vendas antigas, anteriores ao array `pagamentos`.
 // O resto é a mesma conta de peças, OS e dashboard — ver @/lib/conciliacao-status.
-export function calcStatus(
+function calcStatus(
   pagamentos: unknown,
   conciliadoValor: number,
   pixConciliadoValor: number,
