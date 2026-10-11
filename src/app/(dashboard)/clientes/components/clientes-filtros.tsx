@@ -25,6 +25,12 @@ export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidade
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
+  // Voltar do navegador ou "Limpar" mudam a URL: o campo acompanha.
+  // Compara sem espaços para não comer o espaço que a pessoa acabou de digitar.
+  useEffect(() => {
+    setTermo(t => (t.trim() === (valores.busca ?? '') ? t : valores.busca ?? ''))
+  }, [valores.busca])
+
   // Busca ao digitar: espera a pessoa parar 350 ms (como em Vendas) e volta à página 1.
   useEffect(() => {
     if (termo.trim() === (valores.busca ?? '')) return
@@ -33,7 +39,7 @@ export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidade
       if (termo.trim()) p.set('busca', termo.trim())
       else p.delete('busca')
       p.delete('page')
-      router.replace(`${pathname}?${p.toString()}`)
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false })
     }, 350)
     return () => clearTimeout(t)
   }, [termo]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -84,7 +90,7 @@ export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidade
   const busca = (
     <div className="relative min-w-0 flex-1">
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input name="busca" aria-label="Busca" placeholder="Nome, CPF/CNPJ ou celular…" value={termo} onChange={e => setTermo(e.target.value)} className="h-10 pl-9 pr-9" />
+      <Input name="busca" aria-label="Busca" placeholder="Nome, CPF/CNPJ ou celular…" value={termo} onChange={e => setTermo(e.target.value)} className="h-10 pl-9 pr-9 md:text-base lg:text-sm" />
       {termo && (
         <button type="button" onClick={() => setTermo('')} aria-label="Limpar busca"
           className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -113,7 +119,7 @@ export function ClientesFiltros({ valores, cidades }: { valores: Valores; cidade
         <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto rounded-t-2xl p-4 pb-8">
           <SheetTitle className="mb-3 text-base">Filtros</SheetTitle>
           <form method="GET" className="space-y-4">
-            {valores.busca && <input type="hidden" name="busca" value={valores.busca} />}
+            {termo.trim() && <input type="hidden" name="busca" value={termo.trim()} />}
             {pilulas('tipoPessoa', TIPOS, valores.tipoPessoa)}
             {pilulas('sexo', SEXOS, valores.sexo)}
             {cidade}
