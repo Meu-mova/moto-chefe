@@ -3,7 +3,7 @@ import { NomeAnimado } from '@/components/auth/nome-animado'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background p-4">
       <FundoOndas />
       <div className="relative w-full max-w-md">
         <NomeAnimado className="mx-auto mb-6 h-10 w-auto" />

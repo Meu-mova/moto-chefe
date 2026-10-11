@@ -1,7 +1,8 @@
 // Ondas da marca no fundo do login. Cada onda repete o mesmo desenho a cada 800 px, então
 // deslizar 800 px fecha o loop sem emenda; o balanço vertical fica num <g> separado.
+// O preenchimento desce além da base (V900): com o balanço, a onda sobe e não pode descobrir o fundo.
 function onda(y: number, a: number) {
-  return `M0 ${y} C 200 ${y - a}, 600 ${y + a}, 800 ${y} C 1000 ${y - a}, 1400 ${y + a}, 1600 ${y} V600 H0Z`
+  return `M0 ${y} C 200 ${y - a}, 600 ${y + a}, 800 ${y} C 1000 ${y - a}, 1400 ${y + a}, 1600 ${y} V900 H0Z`
 }
 
 export function FundoOndas() {
