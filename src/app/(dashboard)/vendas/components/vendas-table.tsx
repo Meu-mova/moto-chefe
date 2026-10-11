@@ -11,7 +11,7 @@ import { DetalhesVendaDialog } from './detalhes-venda-dialog'
 import { EditarVendaDialog } from './editar-venda-dialog'
 import { NfSaidaVendaDialog, type NfDaVenda } from './nf-saida-venda-dialog'
 import { podeOperarNfSaida } from '../papeis-nf-saida'
-import { CartoesVendas, EtapasMini, PainelVenda, type ItemVenda } from './vendas-cartoes'
+import { CartoesVendas, EtapasMini, PainelVenda, data, descricaoMoto, moeda, type ItemVenda } from './vendas-cartoes'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
@@ -45,14 +45,6 @@ function calcStatus(
   return calcStatusMultiPagamento(pagamentos, conciliadoValor, pixConciliadoValor, valorVenda)
 }
 
-function formatarValor(v: string) {
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-function formatarData(d: Date) {
-  return new Date(d).toLocaleDateString('pt-BR')
-}
-
 type Props = {
   vendas: VendaComDetalhes[]
   papel: string
@@ -79,7 +71,7 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
       {podeEmitirNf && (
         <NfSaidaButton
           motoId={v.motoId}
-          descricao={`${v.modelo} — ${v.chassi}`}
+          descricao={descricaoMoto(v)}
           gatilho={abrir => (
             <button type="button" onClick={abrir} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary-hover">
               <FileText className="size-4" /> Emitir NF de saída
@@ -114,7 +106,7 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
       {podeCancelar.has(papel) && (
         <CancelarVendaButton
           vendaId={v.id}
-          descricao={`${v.modelo} — ${v.chassi} — ${v.clienteNome}`}
+          descricao={`${descricaoMoto(v)} — ${v.clienteNome}`}
           valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
           notaFiscalSaida={v.notaFiscalSaida}
           gatilho={abrir => (
@@ -174,11 +166,10 @@ export function VendasTable(props: Props) {
                 <TableRow
                   key={v.id}
                   onClick={() => setSelecionadaId(v.id)}
-                  aria-selected={v.id === selecionadaId}
                   className={cn('cursor-pointer hover:bg-muted', v.id === selecionadaId && 'bg-primary-soft hover:bg-primary-soft')}
                 >
                   <TableCell className="font-mono text-muted-foreground">#{v.numero}</TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">{formatarData(v.dataVenda)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">{data(v.dataVenda)}</TableCell>
                   <TableCell>
                     <span className="block font-medium">{v.modelo} <span className="font-normal text-muted-foreground">· {v.cor}</span></span>
                     <span className="block max-w-48 truncate font-mono text-[11px] text-muted-foreground" title={v.chassi}>{v.chassi}</span>
@@ -186,9 +177,9 @@ export function VendasTable(props: Props) {
                   <TableCell className="max-w-48 truncate">{v.clienteNome}</TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{v.vendedorNome}</TableCell>
                   <TableCell><EtapasMini v={v} status={status} podeConciliacao={podeConciliacao} /></TableCell>
-                  <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">{formatarValor(v.valor)}</TableCell>
+                  <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">{moeda(v.valor)}</TableCell>
                   <TableCell>
-                    <button type="button" aria-label={`Abrir venda #${v.numero}`} onClick={() => setSelecionadaId(v.id)} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
+                    <button type="button" aria-label={`Abrir venda #${v.numero}`} onClick={e => { e.stopPropagation(); setSelecionadaId(v.id) }} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
                       <ChevronRight className="size-4" />
                     </button>
                   </TableCell>

@@ -8,14 +8,14 @@ import type { StatusConc } from '@/lib/conciliacao-status'
 import type { DescontoDaVenda } from '@/lib/queries/descontos'
 import type { NfDaVenda } from './nf-saida-venda-dialog'
 
-type Item = { venda: VendaComDetalhes; status: StatusConc }
+export type ItemVenda = { venda: VendaComDetalhes; status: StatusConc }
 type Estado = 'ok' | 'andamento' | 'nada'
 
-function moeda(v: string | number) {
+export function moeda(v: string | number) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function data(d: Date) {
+export function data(d: Date) {
   return new Date(d).toLocaleDateString('pt-BR')
 }
 
@@ -23,9 +23,20 @@ function estadoAssinatura(s: string | null): Estado {
   return s === 'assinado' ? 'ok' : s === 'pendente' || s === 'visualizado' ? 'andamento' : 'nada'
 }
 
-function textoAssinatura(s: string | null) {
-  return s === 'assinado' ? 'Assinado' : s === 'pendente' || s === 'visualizado' ? 'Aguardando o cliente' : 'Não enviado'
+const TEXTO_ASSINATURA: Record<Estado, string> = { ok: 'Assinado', andamento: 'Aguardando o cliente', nada: 'Não enviado' }
+const textoAssinatura = (s: string | null) => TEXTO_ASSINATURA[estadoAssinatura(s)]
+
+// Uma fonte só para cor e texto de cada estado: bolinha grande, miniatura e leitor de tela.
+const BOLINHA: Record<Estado, string> = {
+  ok:        'bg-primary text-primary-foreground',
+  andamento: 'bg-warning/10 text-warning ring-1 ring-warning',
+  nada:      'bg-muted text-muted-foreground ring-1 ring-border',
 }
+const TEXTO_ETAPA: Record<Estado, string> = { ok: 'text-primary-text', andamento: 'text-warning', nada: 'text-muted-foreground' }
+const LEITURA: Record<Estado, string> = { ok: 'feito', andamento: 'em andamento', nada: 'pendente' }
+
+/** Descrição da moto usada nos diálogos (NF, cancelamento). */
+export const descricaoMoto = (v: VendaComDetalhes) => `${v.modelo} — ${v.chassi}`
 
 const CONC: Record<StatusConc, { estado: Estado; texto: string }> = {
   conciliada: { estado: 'ok', texto: 'Conciliada' },
@@ -53,21 +64,14 @@ function Etapas({ itens }: { itens: { nome: string; estado: Estado }[] }) {
             <span
               className={cn(
                 'grid size-5 place-items-center rounded-full text-[10px] font-bold',
-                e.estado === 'ok' && 'bg-primary text-primary-foreground',
-                e.estado === 'andamento' && 'bg-warning/10 text-warning ring-1 ring-warning',
-                e.estado === 'nada' && 'bg-muted text-muted-foreground ring-1 ring-border',
+                BOLINHA[e.estado],
               )}
             >
               {e.estado === 'ok' ? <Check className="size-3" strokeWidth={3} /> : i + 1}
             </span>
-            <span
-              className={cn(
-                'text-[11px] whitespace-nowrap',
-                e.estado === 'ok' ? 'text-primary-text' : e.estado === 'andamento' ? 'text-warning' : 'text-muted-foreground',
-              )}
-            >
+            <span className={cn('text-[11px] whitespace-nowrap', TEXTO_ETAPA[e.estado])}>
               {e.nome}
-              <span className="sr-only">: {e.estado === 'ok' ? 'feito' : e.estado === 'andamento' ? 'em andamento' : 'pendente'}</span>
+              <span className="sr-only">: {LEITURA[e.estado]}</span>
             </span>
           </span>
           {i < itens.length - 1 && (
@@ -82,7 +86,7 @@ function Etapas({ itens }: { itens: { nome: string; estado: Estado }[] }) {
 /** Etapas em miniatura, para caber na linha da tabela do desktop. */
 export function EtapasMini({ v, status, podeConciliacao }: { v: VendaComDetalhes; status: StatusConc; podeConciliacao: boolean }) {
   const itens = etapas(v, status, podeConciliacao)
-  const descricao = itens.map(e => `${e.nome}: ${e.estado === 'ok' ? 'feito' : e.estado === 'andamento' ? 'em andamento' : 'pendente'}`).join(' · ')
+  const descricao = itens.map(e => `${e.nome}: ${LEITURA[e.estado]}`).join(' · ')
   return (
     <span className="flex items-center gap-1" title={descricao} aria-label={descricao}>
       {itens.map((e, i) => (
@@ -90,9 +94,7 @@ export function EtapasMini({ v, status, podeConciliacao }: { v: VendaComDetalhes
           <span
             className={cn(
               'grid size-4 place-items-center rounded-full text-[9px] font-bold',
-              e.estado === 'ok' && 'bg-primary text-primary-foreground',
-              e.estado === 'andamento' && 'bg-warning/10 text-warning ring-1 ring-warning',
-              e.estado === 'nada' && 'bg-muted text-muted-foreground ring-1 ring-border',
+              BOLINHA[e.estado],
             )}
           >
             {e.estado === 'ok' ? <Check className="size-2.5" strokeWidth={3} /> : i + 1}
@@ -113,10 +115,8 @@ function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode
   )
 }
 
-export type ItemVenda = Item
-
 type PainelProps = {
-  item: Item
+  item: ItemVenda
   /** Ações da venda, já no layout do painel. */
   acoes: React.ReactNode
   /** Ausente = sem permissão de operar NF: o número aparece como texto. */
@@ -160,7 +160,7 @@ export function PainelVenda({ item, acoes, onAbrirNf, podeConciliacao, desconto:
           {v.notaFiscalSaida && onAbrirNf ? (
             <button
               type="button"
-              onClick={() => onAbrirNf({ vendaId: v.id, vendaNumero: v.numero, numeroNf: v.notaFiscalSaida!, descricao: `${v.modelo} — ${v.chassi}` })}
+              onClick={() => onAbrirNf({ vendaId: v.id, vendaNumero: v.numero, numeroNf: v.notaFiscalSaida!, descricao: descricaoMoto(v) })}
               className="font-medium text-primary-text underline-offset-2 hover:underline"
             >
               {v.notaFiscalSaida}
@@ -175,7 +175,7 @@ export function PainelVenda({ item, acoes, onAbrirNf, podeConciliacao, desconto:
 }
 
 type Props = {
-  itens: Item[]
+  itens: ItemVenda[]
   acoes: (v: VendaComDetalhes) => React.ReactNode
   onAbrirNf?: (nf: NfDaVenda) => void
   podeConciliacao: boolean

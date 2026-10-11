@@ -54,7 +54,7 @@ export function GarantiaButton({ motoId, descricao, showLabel, disabled, gatilho
 
   return (
     <>
-      {gatilho ? gatilho(() => setOpen(true)) : (
+      {gatilho ? gatilho(() => { if (!disabled) setOpen(true) }) : (
       <Button
         variant={showLabel ? 'outline' : 'ghost'}
         size={showLabel ? 'sm' : 'icon'}
