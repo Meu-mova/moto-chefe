@@ -21,11 +21,12 @@ function estaVivo(d: DocumentoResumo): boolean {
   return d.status === 'pendente' || d.status === 'visualizado'
 }
 
-type Situacao = 'nada' | 'aguardando' | 'abriu' | 'expirado' | 'assinado'
+type Situacao = 'nada' | 'cancelado' | 'aguardando' | 'abriu' | 'expirado' | 'assinado'
 
 // Uma tabela só para texto, cor e borda de cada situação do documento.
 const SITUACAO: Record<Situacao, { rotulo: string; cor: string; borda: string }> = {
   nada:       { rotulo: 'Não enviado',          cor: 'text-muted-foreground', borda: 'border-l-border' },
+  cancelado:  { rotulo: 'Envio cancelado',      cor: 'text-muted-foreground', borda: 'border-l-border' },
   aguardando: { rotulo: 'Aguardando o cliente', cor: 'text-warning',          borda: 'border-l-warning' },
   abriu:      { rotulo: 'Cliente abriu o link', cor: 'text-warning',          borda: 'border-l-warning' },
   expirado:   { rotulo: 'Link expirado',        cor: 'text-destructive',      borda: 'border-l-destructive' },
@@ -37,6 +38,7 @@ function situacaoDe(doc: DocumentoResumo | null, expirado: boolean): Situacao {
   if (expirado) return 'expirado'
   if (doc?.status === 'visualizado') return 'abriu'
   if (doc?.status === 'pendente') return 'aguardando'
+  if (doc?.status === 'cancelado') return 'cancelado'
   return 'nada'
 }
 
@@ -199,22 +201,22 @@ export function PainelAssinatura(
         const vivo = !!doc && estaVivo(doc) && !expirado
         // Uma ação principal por situação; o resto fica no "Mais opções".
         const principal =
-          sit === 'nada' || sit === 'expirado' || doc?.status === 'cancelado'
+          sit === 'nada' || sit === 'expirado' || sit === 'cancelado'
             ? { texto: sit === 'expirado' ? 'Enviar de novo por e-mail' : 'Enviar por e-mail ao cliente', acao: () => enviarPorEmail(tipo) }
             : null
         return (
           <section key={tipo} className={cn('rounded-lg border border-l-4 border-border bg-card p-4', SITUACAO[sit].borda)}>
             <h3 className="font-semibold">{label}</h3>
             <p className={cn('text-sm font-medium', SITUACAO[sit].cor)}>{SITUACAO[sit].rotulo}</p>
-            {doc && sit !== 'nada' && (
+            {doc && (sit === 'aguardando' || sit === 'abriu' || sit === 'expirado') && (
               <p className="text-xs text-muted-foreground">
-                {sit === 'assinado' ? 'Documento assinado' : `Expira em ${dataHora(doc.expiraEm)}`}
+                {sit === 'expirado' ? 'Expirou em' : 'Expira em'} {dataHora(doc.expiraEm)}
               </p>
             )}
 
             {/* O Resend avisou por webhook que o e-mail voltou (bounce/spam):
                 o cliente NÃO recebeu, mesmo o painel tendo dito "enviado". */}
-            {doc?.emailVoltou && (
+            {doc?.emailVoltou && sit !== 'assinado' && (
               <p className="mt-3 border-l-2 border-l-destructive pl-3 text-sm text-destructive">
                 O e-mail voltou: o cliente não recebeu. Confira o e-mail no cadastro da venda e envie de novo, ou copie o link.
               </p>
@@ -248,7 +250,7 @@ export function PainelAssinatura(
                   <FileSearch className="size-4" /> Ver dossiê
                 </a>
               )}
-              {sit !== 'assinado' && (
+              {(sit !== 'assinado' || doc) && (
                 <button type="button" onClick={() => setMenu(tipo)} className={cn(botaoSecundario, !principal && 'flex-1')} aria-label={`Mais opções: ${label}`}>
                   <MoreHorizontal className="size-5" />{!principal && 'Mais opções'}
                 </button>
@@ -268,7 +270,7 @@ export function PainelAssinatura(
             return (
               <>
                 <SheetTitle className="px-4 py-4 text-base">{label}</SheetTitle>
-                {!vivo && (
+                {!vivo && doc?.status !== 'assinado' && (
                   <button type="button" disabled={pending} onClick={() => { fechar(); gerarLink(tipo) }} className={itemMenu}>
                     <ItemMenu icone={<Copy className="size-4" />} titulo="Criar link sem enviar e-mail" descricao="Copia o link para mandar por WhatsApp ou outro canal" />
                   </button>
@@ -278,8 +280,14 @@ export function PainelAssinatura(
                     <ItemMenu icone={<RefreshCw className="size-4" />} titulo="Renovar prazo do link" descricao="Mais 7 dias e copia o link. Não envia nada ao cliente" />
                   </button>
                 )}
+                {doc && !vivo && doc.status !== 'cancelado' && (
+                  <button type="button" onClick={() => { fechar(); copiar(doc.token) }} className={itemMenu}>
+                    <ItemMenu icone={<Copy className="size-4" />} titulo="Copiar link do documento" descricao={doc.status === 'assinado' ? 'O cliente vê o documento já assinado' : 'O link expirou: o cliente não consegue mais assinar por ele'} />
+                  </button>
+                )}
                 {/* Cliente sem acesso digital: imprime, assina à caneta na loja,
                     e a via digitalizada volta pelo item de baixo. */}
+                {doc?.status !== 'assinado' && (<>
                 <a href={`/vendas/${vendaId}/documento/${tipo}`} target="_blank" rel="noopener noreferrer" onClick={fechar} className={itemMenu}>
                   <ItemMenu icone={<Printer className="size-4" />} titulo="Imprimir para assinar à caneta" descricao="Para o cliente sem celular ou sem e-mail" />
                 </a>
@@ -297,6 +305,7 @@ export function PainelAssinatura(
                     }}
                   />
                 </label>
+                </>)}
                 {vivo && (
                   <button type="button" disabled={pending} onClick={() => { fechar(); cancelar(doc.id) }} className={itemMenu}>
                     <ItemMenu icone={<X className="size-4 text-destructive" />} titulo="Cancelar envio" descricao="O link para de funcionar" perigo />
