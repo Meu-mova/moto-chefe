@@ -47,8 +47,10 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
   const [conferencia, setConferencia] = useState<Conferencia>({ estado: 'conferindo' })
 
   const temRecebimento = valorRecebido > 0.005
+  const fechar = () => { if (!loading) setOpen(false) }
   const detalhe = motivo.trim()
-  const motivoFinal = escolhido ? (detalhe ? `${escolhido}: ${detalhe}` : escolhido) : detalhe
+  // Sem opção marcada, o texto livre precisa dizer alguma coisa de verdade.
+  const motivoFinal = escolhido ? (detalhe ? `${escolhido}: ${detalhe}` : escolhido) : detalhe.length >= 3 ? detalhe : ''
 
   async function abrir() {
     setOpen(true)
@@ -103,20 +105,20 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
       </Button>
       )}
 
-      <Dialog open={open} onOpenChange={o => !loading && setOpen(o)}>
+      <Dialog open={open} onOpenChange={o => (o ? setOpen(true) : fechar())}>
         <DialogContent
           showCloseButton={false}
           className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
         >
           <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
-            <button type="button" onClick={() => setOpen(false)} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
+            <button type="button" onClick={fechar} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
               <ArrowLeft className="size-5" />
             </button>
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-base font-semibold">Cancelar venda</DialogTitle>
               <DialogDescription className="truncate text-xs">{descricao}</DialogDescription>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
+            <button type="button" onClick={fechar} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
               <X className="size-5" />
             </button>
           </div>
@@ -197,12 +199,18 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
           )}
           </div>
 
+          {(conferencia.estado === 'travada' || conferencia.estado === 'falhou') && (
+            <div className="border-t border-border p-3">
+              <Button variant="outline" onClick={fechar} className="h-11 w-full">Fechar</Button>
+            </div>
+          )}
+
           {conferencia.estado === 'livre' && (
             <div className="space-y-1 border-t border-border p-3">
               <Button variant="destructive" onClick={handleConfirm} disabled={loading || !motivoFinal} className="h-12 w-full text-base">
                 {loading ? 'Cancelando…' : 'Cancelar venda'}
               </Button>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading} className="h-10 w-full text-muted-foreground">
+              <Button variant="ghost" onClick={fechar} disabled={loading} className="h-10 w-full text-muted-foreground">
                 Manter a venda
               </Button>
             </div>
