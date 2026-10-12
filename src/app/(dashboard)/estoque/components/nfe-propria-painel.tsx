@@ -128,6 +128,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     return erro ? (
       <div className="space-y-4 py-2">
         <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>
+        {/* A emissão pelo MOVA falhou: o Bling e a nota já emitida continuam à mão. */}
+        {outrasFormas}
         <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Voltar</Button>
       </div>
     ) : (

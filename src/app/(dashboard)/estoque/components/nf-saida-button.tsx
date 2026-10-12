@@ -198,6 +198,9 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
           {etapa === 'inicial' && (
             <div className="space-y-2 pb-4">
               <p className="mb-3 font-medium">Como registrar esta nota?</p>
+              {propria.disponivel && (
+                <Opcao titulo={`Emitir pelo MOVA${propria.ambiente === 'Homologacao' ? ' (teste)' : ''}`} descricao="Confere a nota aqui e transmite direto para a SEFAZ" onClick={() => { setErro(''); setEtapa('propria') }} disabled={pending} />
+              )}
               <Opcao titulo={pending ? 'Criando no Bling…' : 'Gerar rascunho no Bling'} descricao="O MOVA cria a NF no Bling para você revisar e transmitir" onClick={criarNoBling} disabled={pending} />
               <Opcao titulo="Nota já emitida" descricao="NF gerada fora do MOVA: informe o número para registrar" onClick={() => setEtapa('manual')} disabled={pending} />
               {erro && <p className="text-sm text-destructive">{erro}</p>}
