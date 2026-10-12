@@ -221,7 +221,7 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
       <Sugestao
         key={c.id}
         titulo={titulo}
-        linhas={[raw?.portador ? `Portador: ${raw.portador}` : '', `${c.autorizacao ? `Aut. #${c.autorizacao}` : 'Sem autorização'} · ${data} · ${fmt(c.valorBruto)}`]}
+        detalhes={[raw?.portador ? `Portador: ${raw.portador}` : '', `${c.autorizacao ? `Aut. #${c.autorizacao}` : 'Sem autorização'} · ${data} · ${fmt(c.valorBruto)}`]}
         valor={c.valorBruto}
         onVincular={() => vincular(c.id)}
         vinculando={vinculando}
@@ -237,7 +237,7 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
       <Sugestao
         key={p.id}
         titulo={quem}
-        linhas={[[p.descricao, quando, fmt(p.valor)].filter(Boolean).join(' · ')]}
+        detalhes={[[p.descricao, quando, fmt(p.valor)].filter(Boolean).join(' · ')]}
         valor={p.valor}
         onVincular={() => vincularPix(p.id)}
         vinculando={vinculando}
@@ -246,8 +246,12 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
     )
   }
 
+  const modo = buscandoPix ? MODO.pix : MODO.cartao
+  const sugestoes = buscandoPix ? candidatosPix.map(renderCandidatoPix) : candidatos.map(renderCandidato)
+  const achadosLivres = buscandoPix ? livresPix.map(renderCandidatoPix) : livres.map(renderCandidato)
+
   // Situação de cada pagamento, já na ordem em que aparece: pendentes primeiro.
-  const linhas = pagamentos.map((p, i) => {
+  const itens = pagamentos.map((p, i) => {
     const precisa    = precisaConciliar(p.tipo)
     const cobertura  = conciliados[i]
     const forcado    = Boolean(p.conciliadoManual)
@@ -255,16 +259,16 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
     const pendente   = precisa && !loading && !cobertura.conciliado
     // Achou dinheiro, mas menos do que foi lançado: nem verde nem vermelho.
     const parcial    = pendente && cobertura.coberto > 0.005
-    const situacao: Situacao = !precisa ? 'livre' : loading ? 'carregando' : forcado ? 'forcado' : conciliado ? 'conciliado' : parcial ? 'parcial' : 'pendente'
+    const situacao = situacaoDe({ precisa, loading, forcado, conciliado, parcial })
     return { p, i, situacao, coberto: cobertura.coberto }
   }).filter(l => !somenteConciliaveis || l.situacao !== 'livre')
   const ordem: Record<Situacao, number> = { pendente: 0, parcial: 1, carregando: 2, forcado: 3, conciliado: 4, livre: 5 }
-  linhas.sort((x, y) => ordem[x.situacao] - ordem[y.situacao] || x.i - y.i)
+  itens.sort((x, y) => ordem[x.situacao] - ordem[y.situacao] || x.i - y.i)
 
-  const conciliaveis = linhas.filter(l => l.situacao !== 'livre')
+  const conciliaveis = itens.filter(l => l.situacao !== 'livre')
   const totalConc   = conciliaveis.reduce((a, l) => a + l.p.valor, 0)
-  const totalOk     = conciliaveis.reduce((a, l) => a + (l.situacao === 'conciliado' || l.situacao === 'forcado' ? l.p.valor : Math.min(l.coberto, l.p.valor)), 0)
-  const nPendentes  = linhas.filter(l => l.situacao === 'pendente' || l.situacao === 'parcial').length
+  const totalOk     = conciliaveis.reduce((a, l) => a + (RESOLVIDA.has(l.situacao) ? l.p.valor : Math.min(l.coberto, l.p.valor)), 0)
+  const nPendentes  = itens.filter(l => RESOLVIVEL.has(l.situacao)).length
 
   return (
     <div className="space-y-3">
@@ -286,21 +290,24 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
       )}
 
       <ul className="space-y-2">
-        {linhas.map(({ p, i, situacao, coberto }) => {
-          const resolvivel = situacao === 'pendente' || situacao === 'parcial'
+        {itens.map(({ p, i, situacao, coberto }) => {
+          const resolvivel = RESOLVIVEL.has(situacao)
+          // Sem ação possível para este papel e tipo (ex.: aux_adm com financiamento), a linha não abre.
+          const temAcao = podeForcar || (podeBuscar && p.tipo !== 'financiamento')
+          const mostraBusca = buscandoIdx === i && podeBuscar && p.tipo !== 'financiamento'
           const aberto = resolvivel && (buscandoIdx === i || forcandoIdx === i)
           const detalhe = [p.operadora, p.parcelas ? `${p.parcelas}x` : '', p.autorizacao ? `#${p.autorizacao}` : ''].filter(Boolean).join(' · ')
-          const sub =
+          const complemento =
             situacao === 'forcado' && p.conciliadoManual
               ? `${p.conciliadoManual.porNome} · ${new Date(p.conciliadoManual.em).toLocaleDateString('pt-BR')} · ${p.conciliadoManual.motivo}`
               : situacao === 'parcial'
                 ? `Entrou ${fmt(coberto)} · faltam ${fmt(p.valor - coberto)}`
                 : detalhe
           return (
-            <li key={i} className={cn('overflow-hidden rounded-xl border border-l-4 border-border', BORDA[situacao], aberto && 'shadow-sm')}>
+            <li key={i} className={cn('overflow-hidden rounded-xl border border-l-4 border-border', SITUACAO[situacao].borda, aberto && 'shadow-sm')}>
               <button
                 type="button"
-                disabled={!resolvivel || (!podeBuscar && !podeForcar)}
+                disabled={!resolvivel || !temAcao}
                 aria-expanded={resolvivel ? aberto : undefined}
                 onClick={() => abrirOuFechar(i, p)}
                 className="flex min-h-14 w-full items-center gap-3 p-3 text-left disabled:cursor-default"
@@ -308,12 +315,12 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{TIPO_LABEL[p.tipo] ?? p.tipo}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    <span className={cn('font-medium', COR_ROTULO[situacao])}>{ROTULO[situacao]}</span>
-                    {sub ? ` · ${sub}` : ''}
+                    <span className={cn('font-medium', SITUACAO[situacao].cor)}>{SITUACAO[situacao].rotulo}</span>
+                    {complemento ? ` · ${complemento}` : ''}
                   </p>
                 </div>
                 <span className="text-sm font-semibold tabular-nums">{fmt(p.valor)}</span>
-                {resolvivel && (podeBuscar || podeForcar) && (
+                {resolvivel && temAcao && (
                   <ChevronDown aria-hidden className={cn('size-4 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
                 )}
               </button>
@@ -340,6 +347,8 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                       <textarea
                         value={motivo}
                         onChange={e => setMotivo(e.target.value)}
+                        // Enter envia, como no diálogo antigo; Shift+Enter quebra linha.
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (motivo.trim().length >= 3) forcar() } }}
                         placeholder="Por que está marcando? Ex.: PIX caiu na conta pessoal"
                         aria-label="Motivo"
                         rows={2}
@@ -360,22 +369,20 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                     </div>
                   ) : (
                     <>
-                      {buscandoIdx === i && p.tipo !== 'financiamento' && podeBuscar && (
+                      {mostraBusca && (
                         <>
                           {buscaLoading ? (
                             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Procurando recebimentos…</p>
-                          ) : (buscandoPix ? candidatosPix.length : candidatos.length) > 0 ? (
+                          ) : sugestoes.length > 0 ? (
                             <div className="space-y-2">
                               <p className="text-xs text-muted-foreground">
-                                {buscandoPix ? 'PIX' : 'Transações'} de valor próximo a <b className="text-foreground">{fmt(p.valor)}</b> ainda sem vínculo:
+                                {modo.nome} de valor próximo a <b className="text-foreground">{fmt(p.valor)}</b> ainda sem vínculo:
                               </p>
-                              {buscandoPix ? candidatosPix.map(renderCandidatoPix) : candidatos.map(renderCandidato)}
+                              {sugestoes}
                             </div>
                           ) : (
                             <p className="text-sm text-muted-foreground">
-                              {buscandoPix
-                                ? 'Nenhum PIX livre com esse valor por enquanto. Sincronize o Open Finance em /pix-mcp, ou procure por outro valor ou data:'
-                                : 'Nenhuma transação com esse valor. Importe o relatório da operadora em /conciliacao, ou procure por outro valor ou data:'}
+                              {modo.vazio}
                             </p>
                           )}
 
@@ -386,8 +393,8 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                               value={buscaLivre}
                               onChange={e => { setBuscaLivre(e.target.value); setBuscouLivre(false) }}
                               onKeyDown={e => e.key === 'Enter' && buscarLivre()}
-                              aria-label={buscandoPix ? 'Procurar outro PIX' : 'Procurar outra transação'}
-                              placeholder={buscandoPix ? 'Pagador, descrição, data (AAAA-MM-DD) ou valor' : 'Autorização, NSU, data (AAAA-MM-DD) ou valor'}
+                              aria-label={modo.procurar}
+                              placeholder={modo.placeholder}
                               className="h-11 w-full rounded-lg border border-input bg-card pr-20 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             />
                             <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center">
@@ -402,17 +409,13 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
                             </div>
                           </div>
 
-                          {buscouLivre && (buscandoPix ? livresPix.length === 0 : livres.length === 0) && (
-                            <p className="text-sm text-muted-foreground">{buscandoPix ? 'Nenhum PIX encontrado.' : 'Nenhuma transação encontrada.'}</p>
-                          )}
-                          {(buscandoPix ? livresPix.length > 0 : livres.length > 0) && (
-                            <div className="space-y-2">{buscandoPix ? livresPix.map(renderCandidatoPix) : livres.map(renderCandidato)}</div>
-                          )}
+                          {buscouLivre && achadosLivres.length === 0 && <p className="text-sm text-muted-foreground">{modo.nada}</p>}
+                          {achadosLivres.length > 0 && <div className="space-y-2">{achadosLivres}</div>}
                         </>
                       )}
 
                       {podeForcar && (
-                        <div className={cn('flex items-center gap-3', buscandoIdx === i && p.tipo !== 'financiamento' && podeBuscar && 'border-t border-border pt-3')}>
+                        <div className={cn('flex items-center gap-3', mostraBusca && 'border-t border-border pt-3')}>
                           <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                             {p.tipo === 'financiamento'
                               ? 'O banco já depositou? Marque como recebido.'
@@ -439,12 +442,12 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
   )
 }
 
-function Sugestao({ titulo, linhas, valor, onVincular, rotulo, vinculando }: { titulo: string; linhas: string[]; valor: string | number; onVincular: () => void; rotulo: string; vinculando: boolean }) {
+function Sugestao({ titulo, detalhes, valor, onVincular, rotulo, vinculando }: { titulo: string; detalhes: string[]; valor: string | number; onVincular: () => void; rotulo: string; vinculando: boolean }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{titulo}</p>
-        {linhas.filter(Boolean).map(l => <p key={l} className="truncate text-xs text-muted-foreground">{l}</p>)}
+        {detalhes.filter(Boolean).map(l => <p key={l} className="truncate text-xs text-muted-foreground">{l}</p>)}
       </div>
       <span className="hidden text-sm tabular-nums sm:block">{fmt(valor)}</span>
       <button
@@ -461,13 +464,38 @@ function Sugestao({ titulo, linhas, valor, onVincular, rotulo, vinculando }: { t
 }
 
 type Situacao = 'pendente' | 'parcial' | 'carregando' | 'forcado' | 'conciliado' | 'livre'
+const RESOLVIDA  = new Set<Situacao>(['conciliado', 'forcado'])
+const RESOLVIVEL = new Set<Situacao>(['pendente', 'parcial'])
+
 // Sem ícone: a situação vem escrita e numa borda à esquerda.
-const ROTULO: Record<Situacao, string> = {
-  pendente: 'Pendente', parcial: 'Parcial', carregando: 'Conferindo…', forcado: 'Forçado', conciliado: 'Conciliado', livre: 'Não precisa conciliar',
+const SITUACAO: Record<Situacao, { rotulo: string; cor: string; borda: string }> = {
+  pendente:   { rotulo: 'Pendente',              cor: 'text-destructive',      borda: 'border-l-destructive' },
+  parcial:    { rotulo: 'Parcial',               cor: 'text-warning',          borda: 'border-l-warning' },
+  carregando: { rotulo: 'Conferindo…',           cor: 'text-muted-foreground', borda: 'border-l-border' },
+  forcado:    { rotulo: 'Forçado',               cor: 'text-warning',          borda: 'border-l-warning' },
+  conciliado: { rotulo: 'Conciliado',            cor: 'text-primary-text',     borda: 'border-l-primary' },
+  livre:      { rotulo: 'Não precisa conciliar', cor: 'text-muted-foreground', borda: 'border-l-border' },
 }
-const COR_ROTULO: Record<Situacao, string> = {
-  pendente: 'text-destructive', parcial: 'text-warning', carregando: 'text-muted-foreground', forcado: 'text-warning', conciliado: 'text-primary-text', livre: 'text-muted-foreground',
+
+// Forçado vem antes do carregamento: é dado do próprio pagamento, não depende dos lançamentos.
+function situacaoDe(s: { precisa: boolean; loading: boolean; forcado: boolean; conciliado: boolean; parcial: boolean }): Situacao {
+  if (!s.precisa) return 'livre'
+  if (s.forcado) return 'forcado'
+  if (s.loading) return 'carregando'
+  if (s.conciliado) return 'conciliado'
+  return s.parcial ? 'parcial' : 'pendente'
 }
-const BORDA: Record<Situacao, string> = {
-  pendente: 'border-l-destructive', parcial: 'border-l-warning', carregando: 'border-l-border', forcado: 'border-l-warning', conciliado: 'border-l-primary', livre: 'border-l-border',
+
+// Textos da busca: PIX e cartão moram em tabelas diferentes.
+const MODO = {
+  pix: {
+    nome: 'PIX', procurar: 'Procurar outro PIX', nada: 'Nenhum PIX encontrado.',
+    placeholder: 'Pagador, descrição, data (AAAA-MM-DD) ou valor',
+    vazio: 'Nenhum PIX livre com esse valor por enquanto. Sincronize o Open Finance em /pix-mcp, ou procure por outro valor ou data:',
+  },
+  cartao: {
+    nome: 'Transações', procurar: 'Procurar outra transação', nada: 'Nenhuma transação encontrada.',
+    placeholder: 'Autorização, NSU, data (AAAA-MM-DD) ou valor',
+    vazio: 'Nenhuma transação com esse valor. Importe o relatório da operadora em /conciliacao, ou procure por outro valor ou data:',
+  },
 }
