@@ -1,9 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, Clock, Search, Loader2, Zap, Undo2, Link2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ChevronDown, Loader2, Search, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { matchPagamentos, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import {
   buscarConciliacoesDoAlvo,
@@ -178,12 +177,15 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
 
   async function forcar() {
     if (forcandoIdx === null) return
+    const idx = forcandoIdx
     setSalvando(true)
     try {
-      await forcarConciliacaoAction(alvo, forcandoIdx, motivo)
+      await forcarConciliacaoAction(alvo, idx, motivo)
       setForcandoIdx(null)
       setMotivo('')
-      toast.success('Conciliação forçada')
+      setBuscandoIdx(null)
+      // Desfazer no próprio aviso: um toque errado não vira retrabalho.
+      toast.success('Pagamento marcado como recebido', { action: { label: 'Desfazer', onClick: () => desfazer(idx) } })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao forçar conciliação')
     } finally {
@@ -203,296 +205,269 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
     }
   }
 
+  function abrirOuFechar(i: number, p: PgtoOS) {
+    if (buscandoIdx === i || forcandoIdx === i) { setBuscandoIdx(null); setForcandoIdx(null); return }
+    setForcandoIdx(null)
+    // Financiamento não tem o que buscar: o banco deposita e nada no sistema registra.
+    if (podeBuscar && p.tipo !== 'financiamento') abrirBusca(i, p.valor, p.tipo === 'pix')
+    else setBuscandoIdx(i)
+  }
+
   function renderCandidato(c: Candidato) {
     const raw = c.rawData as { bandeira?: string; portador?: string } | null
+    const titulo = `${OPERADORA_LABEL[c.operadora] ?? c.operadora}${raw?.bandeira ? ` · ${raw.bandeira}` : ''} · ${c.tipo === 'debito' ? 'Débito' : 'Crédito'}`
+    const data = c.dataTransacao ? new Date(c.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
     return (
-      <button
+      <Sugestao
         key={c.id}
-        onClick={() => vincular(c.id)}
-        disabled={vinculando}
-        className="w-full text-left rounded px-2.5 py-2 bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs disabled:opacity-50"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 space-y-0.5">
-            <p className="font-medium text-slate-800">
-              {OPERADORA_LABEL[c.operadora] ?? c.operadora}
-              {raw?.bandeira ? ` · ${raw.bandeira}` : ''}
-              {c.tipo === 'debito' ? ' (Débito)' : ' (Crédito)'}
-            </p>
-            {raw?.portador && (
-              <p className="text-slate-700 font-medium">
-                Portador: <span className="font-normal">{raw.portador}</span>
-              </p>
-            )}
-            <p className="text-slate-400 font-mono">
-              {c.autorizacao ? `Aut: #${c.autorizacao}` : 'Sem autorização'}
-              {' · '}
-              {c.dataTransacao ? new Date(c.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-blue-600 shrink-0 mt-0.5">
-            {vinculando ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
-            <span className="font-semibold">{fmt(c.valorBruto)}</span>
-          </div>
-        </div>
-      </button>
+        titulo={titulo}
+        linhas={[raw?.portador ? `Portador: ${raw.portador}` : '', `${c.autorizacao ? `Aut. #${c.autorizacao}` : 'Sem autorização'} · ${data} · ${fmt(c.valorBruto)}`]}
+        valor={c.valorBruto}
+        onVincular={() => vincular(c.id)}
+        vinculando={vinculando}
+        rotulo={`Vincular ${titulo}, ${data}, ${fmt(c.valorBruto)}`}
+      />
     )
   }
 
   function renderCandidatoPix(p: PixLivre) {
+    const quando = new Date(p.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+    const quem = p.pagadorNome ?? 'Pagador não informado'
     return (
-      <button
+      <Sugestao
         key={p.id}
-        onClick={() => vincularPix(p.id)}
-        disabled={vinculando}
-        className="w-full text-left rounded px-2.5 py-2 bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors text-xs disabled:opacity-50"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 space-y-0.5">
-            <p className="font-medium text-slate-800 truncate">{p.pagadorNome ?? 'Pagador não informado'}</p>
-            {p.descricao && <p className="text-slate-500 truncate">{p.descricao}</p>}
-            <p className="text-slate-400">
-              {new Date(p.data).toLocaleString('pt-BR', {
-                day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
-              })}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-blue-600 shrink-0 mt-0.5">
-            {vinculando ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
-            <span className="font-semibold">{fmt(p.valor)}</span>
-          </div>
-        </div>
-      </button>
+        titulo={quem}
+        linhas={[[p.descricao, quando, fmt(p.valor)].filter(Boolean).join(' · ')]}
+        valor={p.valor}
+        onVincular={() => vincularPix(p.id)}
+        vinculando={vinculando}
+        rotulo={`Vincular PIX de ${quem}, ${quando}, ${fmt(p.valor)}`}
+      />
     )
   }
 
+  // Situação de cada pagamento, já na ordem em que aparece: pendentes primeiro.
+  const linhas = pagamentos.map((p, i) => {
+    const precisa    = precisaConciliar(p.tipo)
+    const cobertura  = conciliados[i]
+    const forcado    = Boolean(p.conciliadoManual)
+    const conciliado = precisa && cobertura.conciliado
+    const pendente   = precisa && !loading && !cobertura.conciliado
+    // Achou dinheiro, mas menos do que foi lançado: nem verde nem vermelho.
+    const parcial    = pendente && cobertura.coberto > 0.005
+    const situacao: Situacao = !precisa ? 'livre' : loading ? 'carregando' : forcado ? 'forcado' : conciliado ? 'conciliado' : parcial ? 'parcial' : 'pendente'
+    return { p, i, situacao, coberto: cobertura.coberto }
+  }).filter(l => !somenteConciliaveis || l.situacao !== 'livre')
+  const ordem: Record<Situacao, number> = { pendente: 0, parcial: 1, carregando: 2, forcado: 3, conciliado: 4, livre: 5 }
+  linhas.sort((x, y) => ordem[x.situacao] - ordem[y.situacao] || x.i - y.i)
+
+  const conciliaveis = linhas.filter(l => l.situacao !== 'livre')
+  const totalConc   = conciliaveis.reduce((a, l) => a + l.p.valor, 0)
+  const totalOk     = conciliaveis.reduce((a, l) => a + (l.situacao === 'conciliado' || l.situacao === 'forcado' ? l.p.valor : Math.min(l.coberto, l.p.valor)), 0)
+  const nPendentes  = linhas.filter(l => l.situacao === 'pendente' || l.situacao === 'parcial').length
+
   return (
-    <div className="space-y-1.5">
-      {pagamentos.map((p, i) => {
-        const precisa = precisaConciliar(p.tipo)
-        if (somenteConciliaveis && !precisa) return null
+    <div className="space-y-3">
+      {totalConc > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Conciliado</span>
+            <span><b className="tabular-nums">{fmt(totalOk)}</b> <span className="text-muted-foreground">de {fmt(totalConc)}</span></span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (totalOk / totalConc) * 100)}%` }} />
+          </div>
+          {!loading && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {nPendentes > 0 ? `${nPendentes} de ${conciliaveis.length} pagamento${conciliaveis.length > 1 ? 's' : ''} pendente${nPendentes > 1 ? 's' : ''}` : 'Todos os pagamentos estão conciliados'}
+            </p>
+          )}
+        </div>
+      )}
 
-        const cobertura  = conciliados[i]
-        const forcado    = Boolean(p.conciliadoManual)
-        const conciliado = precisa && cobertura.conciliado
-        const pendente   = precisa && !loading && !cobertura.conciliado
-        const falta      = precisa ? p.valor - cobertura.coberto : 0
-        // Achou dinheiro, mas menos do que foi lançado: nem verde nem vermelho.
-        const parcial    = pendente && cobertura.coberto > 0.005
-        const aberto     = buscandoIdx === i
-
-        return (
-          <div key={i} className="space-y-1">
-            <div
-              className={`flex justify-between items-center rounded px-3 py-2 ${
-                conciliado ? 'bg-green-50 border border-green-200' :
-                parcial    ? 'bg-amber-50 border border-amber-200' :
-                pendente   ? 'bg-red-50 border border-red-200' :
-                             'bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                {precisa && (
-                  loading
-                    ? <Clock size={13} className="text-slate-300 animate-pulse shrink-0" />
-                    : conciliado
-                      ? <CheckCircle2 size={13} className="text-green-600 shrink-0" />
-                      : <Clock size={13} className={parcial ? 'text-amber-500 shrink-0' : 'text-red-400 shrink-0'} />
-                )}
-                <span className={`truncate ${conciliado ? 'text-green-800' : parcial ? 'text-amber-800' : pendente ? 'text-red-700' : 'text-slate-600'}`}>
-                  {TIPO_LABEL[p.tipo] ?? p.tipo}
-                  {p.operadora ? ` (${p.operadora})` : ''}
-                  {p.parcelas  ? ` ${p.parcelas}x`  : ''}
-                  {p.autorizacao
-                    ? <span className="ml-1 font-mono text-xs opacity-60">#{p.autorizacao}</span>
-                    : null}
-                </span>
-                {forcado && (
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5">
-                    forçado
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className={`font-medium tabular-nums ${conciliado ? 'text-green-700' : ''}`}>
-                  {fmt(p.valor)}
-                </span>
-
-                {/* Financiamento não tem o que buscar: o banco deposita e nada
-                    no sistema registra. A confirmação é sempre na mão. */}
-                {podeBuscar && pendente && precisa && p.tipo !== 'financiamento' && (
-                  <button
-                    onClick={() => abrirBusca(i, p.valor, p.tipo === 'pix')}
-                    title={p.tipo === 'pix' ? 'Buscar recebimento PIX para conciliar' : 'Buscar transação para conciliar'}
-                    className={`p-1 rounded transition-colors ${
-                      aberto ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                    }`}
-                  >
-                    <Search size={13} />
-                  </button>
-                )}
-
-                {podeForcar && pendente && !forcado && (
-                  <button
-                    onClick={() => { setForcandoIdx(i); setMotivo('') }}
-                    title={p.tipo === 'financiamento'
-                      ? 'Confirmar que o financiamento caiu na conta'
-                      : 'Forçar conciliação deste pagamento'}
-                    className="p-1 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
-                  >
-                    <Zap size={13} />
-                  </button>
-                )}
-
-                {podeForcar && forcado && (
-                  <button
-                    onClick={() => desfazer(i)}
-                    disabled={salvando}
-                    title="Desfazer conciliação forçada"
-                    className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    {salvando ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {parcial && !loading && (
-              <p className="text-xs text-amber-700 ml-3">
-                Entrou {fmt(cobertura.coberto)} — <span className="font-semibold">faltam {fmt(falta)}</span>
-              </p>
-            )}
-
-            {forcado && p.conciliadoManual && (
-              <p className="text-xs text-amber-700 ml-3">
-                Conciliado na mão por {p.conciliadoManual.porNome} em{' '}
-                {new Date(p.conciliadoManual.em).toLocaleDateString('pt-BR')} — {p.conciliadoManual.motivo}
-              </p>
-            )}
-
-            {aberto && (
-              <div className="ml-4 border border-blue-100 rounded-lg bg-blue-50 p-2 space-y-1">
-                <p className="text-xs font-medium text-blue-700 mb-1.5 flex items-center gap-1">
-                  <Search size={11} />
-                  {buscandoPix
-                    ? 'Recebimentos PIX com valor próximo, ainda não vinculados'
-                    : 'Transações com valor próximo não vinculadas'}
-                </p>
-
-                {buscaLoading && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 py-1">
-                    <Loader2 size={12} className="animate-spin" />
-                    Buscando…
-                  </div>
-                )}
-
-                {!buscaLoading && (buscandoPix ? candidatosPix.length === 0 : candidatos.length === 0) && (
-                  <p className="text-xs text-slate-500 py-1">
-                    {buscandoPix
-                      ? 'Nenhum PIX livre com este valor. Sincronize o Open Finance em /pix-mcp ou procure abaixo.'
-                      : 'Nenhuma transação com este valor. Importe o relatório da operadora em /conciliação ou procure abaixo.'}
+      <ul className="space-y-2">
+        {linhas.map(({ p, i, situacao, coberto }) => {
+          const resolvivel = situacao === 'pendente' || situacao === 'parcial'
+          const aberto = resolvivel && (buscandoIdx === i || forcandoIdx === i)
+          const detalhe = [p.operadora, p.parcelas ? `${p.parcelas}x` : '', p.autorizacao ? `#${p.autorizacao}` : ''].filter(Boolean).join(' · ')
+          const sub =
+            situacao === 'forcado' && p.conciliadoManual
+              ? `${p.conciliadoManual.porNome} · ${new Date(p.conciliadoManual.em).toLocaleDateString('pt-BR')} · ${p.conciliadoManual.motivo}`
+              : situacao === 'parcial'
+                ? `Entrou ${fmt(coberto)} · faltam ${fmt(p.valor - coberto)}`
+                : detalhe
+          return (
+            <li key={i} className={cn('overflow-hidden rounded-xl border border-l-4 border-border', BORDA[situacao], aberto && 'shadow-sm')}>
+              <button
+                type="button"
+                disabled={!resolvivel || (!podeBuscar && !podeForcar)}
+                aria-expanded={resolvivel ? aberto : undefined}
+                onClick={() => abrirOuFechar(i, p)}
+                className="flex min-h-14 w-full items-center gap-3 p-3 text-left disabled:cursor-default"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{TIPO_LABEL[p.tipo] ?? p.tipo}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    <span className={cn('font-medium', COR_ROTULO[situacao])}>{ROTULO[situacao]}</span>
+                    {sub ? ` · ${sub}` : ''}
                   </p>
+                </div>
+                <span className="text-sm font-semibold tabular-nums">{fmt(p.valor)}</span>
+                {resolvivel && (podeBuscar || podeForcar) && (
+                  <ChevronDown aria-hidden className={cn('size-4 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
                 )}
+              </button>
 
-                {!buscaLoading && (buscandoPix ? candidatosPix.map(renderCandidatoPix) : candidatos.map(renderCandidato))}
+              {situacao === 'forcado' && podeForcar && (
+                <div className="flex justify-end border-t border-border px-3">
+                  <button type="button" onClick={() => desfazer(i)} disabled={salvando} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">
+                    {salvando && <Loader2 className="size-4 animate-spin" />} Desfazer forçado
+                  </button>
+                </div>
+              )}
 
-                {/* Busca livre — quando o valor não bate com nada */}
-                <div className="border-t border-blue-100 pt-2 mt-2">
-                  <p className="text-xs font-medium text-blue-700 mb-1.5">
-                    {buscandoPix ? 'Procurar outro PIX' : 'Procurar outra transação'}
-                  </p>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      value={buscaLivre}
-                      onChange={e => { setBuscaLivre(e.target.value); setBuscouLivre(false) }}
-                      onKeyDown={e => e.key === 'Enter' && buscarLivre()}
-                      placeholder={buscandoPix
-                        ? 'Pagador, descrição, data (AAAA-MM-DD) ou valor'
-                        : 'Autorização, NSU, data (AAAA-MM-DD) ou valor'}
-                      className="flex-1 border border-blue-200 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={buscarLivre}
-                      disabled={livreLoading || buscaLivre.trim().length < 2}
-                      className="h-7 px-2"
-                    >
-                      {livreLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                    </Button>
-                  </div>
-
-                  {buscouLivre && (buscandoPix ? livresPix.length === 0 : livres.length === 0) && (
-                    <p className="text-xs text-slate-500 mt-1.5">
-                      {buscandoPix ? 'Nenhum PIX encontrado.' : 'Nenhuma transação encontrada.'}
-                    </p>
-                  )}
-
-                  {(buscandoPix ? livresPix.length > 0 : livres.length > 0) && (
-                    <div className="mt-1.5 space-y-1">
-                      {buscandoPix ? livresPix.map(renderCandidatoPix) : livres.map(renderCandidato)}
+              {aberto && (
+                <div className="space-y-3 border-t border-border p-3">
+                  {forcandoIdx === i ? (
+                    <div className="space-y-2 rounded-lg bg-warning/10 p-3">
+                      <p className="text-sm font-medium text-warning">Marcar como recebido sem extrato</p>
+                      <p className="text-xs text-warning">
+                        {p.tipo === 'financiamento'
+                          ? 'Use quando o banco já depositou o financiamento. '
+                          : 'Use quando o dinheiro entrou de verdade, mas o lançamento não existe aqui. '}
+                        Fica registrado com seu nome e o motivo, e pode ser desfeito.
+                      </p>
+                      <textarea
+                        value={motivo}
+                        onChange={e => setMotivo(e.target.value)}
+                        placeholder="Por que está marcando? Ex.: PIX caiu na conta pessoal"
+                        aria-label="Motivo"
+                        rows={2}
+                        autoFocus
+                        className="w-full rounded-md border border-input bg-card p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setForcandoIdx(null)} disabled={salvando} className="h-11 flex-1 rounded-lg border border-input bg-card text-sm font-medium">Voltar</button>
+                        <button
+                          type="button"
+                          onClick={forcar}
+                          disabled={salvando || motivo.trim().length < 3}
+                          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-foreground text-sm font-medium text-background disabled:opacity-40"
+                        >
+                          {salvando && <Loader2 className="size-4 animate-spin" />} Marcar como recebido
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      {buscandoIdx === i && p.tipo !== 'financiamento' && podeBuscar && (
+                        <>
+                          {buscaLoading ? (
+                            <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Procurando recebimentos…</p>
+                          ) : (buscandoPix ? candidatosPix.length : candidatos.length) > 0 ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground">
+                                {buscandoPix ? 'PIX' : 'Transações'} de valor próximo a <b className="text-foreground">{fmt(p.valor)}</b> ainda sem vínculo:
+                              </p>
+                              {buscandoPix ? candidatosPix.map(renderCandidatoPix) : candidatos.map(renderCandidato)}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              {buscandoPix
+                                ? 'Nenhum PIX livre com esse valor por enquanto. Sincronize o Open Finance em /pix-mcp, ou procure por outro valor ou data:'
+                                : 'Nenhuma transação com esse valor. Importe o relatório da operadora em /conciliacao, ou procure por outro valor ou data:'}
+                            </p>
+                          )}
+
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                              type="search"
+                              value={buscaLivre}
+                              onChange={e => { setBuscaLivre(e.target.value); setBuscouLivre(false) }}
+                              onKeyDown={e => e.key === 'Enter' && buscarLivre()}
+                              aria-label={buscandoPix ? 'Procurar outro PIX' : 'Procurar outra transação'}
+                              placeholder={buscandoPix ? 'Pagador, descrição, data (AAAA-MM-DD) ou valor' : 'Autorização, NSU, data (AAAA-MM-DD) ou valor'}
+                              className="h-11 w-full rounded-lg border border-input bg-card pr-20 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            />
+                            <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center">
+                              {buscaLivre && (
+                                <button type="button" onClick={() => { setBuscaLivre(''); setBuscouLivre(false); setLivres([]); setLivresPix([]) }} aria-label="Limpar busca" className="grid size-9 place-items-center text-muted-foreground hover:text-foreground">
+                                  <X className="size-4" />
+                                </button>
+                              )}
+                              <button type="button" onClick={buscarLivre} disabled={livreLoading || buscaLivre.trim().length < 2} className="h-9 rounded-md px-2.5 text-sm font-medium text-primary-text disabled:text-muted-foreground">
+                                {livreLoading ? <Loader2 className="size-4 animate-spin" /> : 'Buscar'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {buscouLivre && (buscandoPix ? livresPix.length === 0 : livres.length === 0) && (
+                            <p className="text-sm text-muted-foreground">{buscandoPix ? 'Nenhum PIX encontrado.' : 'Nenhuma transação encontrada.'}</p>
+                          )}
+                          {(buscandoPix ? livresPix.length > 0 : livres.length > 0) && (
+                            <div className="space-y-2">{buscandoPix ? livresPix.map(renderCandidatoPix) : livres.map(renderCandidato)}</div>
+                          )}
+                        </>
+                      )}
+
+                      {podeForcar && (
+                        <div className={cn('flex items-center gap-3', buscandoIdx === i && p.tipo !== 'financiamento' && podeBuscar && 'border-t border-border pt-3')}>
+                          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                            {p.tipo === 'financiamento'
+                              ? 'O banco já depositou? Marque como recebido.'
+                              : 'Não achou? Se o dinheiro entrou por outro caminho, marque como recebido.'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { setForcandoIdx(i); setMotivo('') }}
+                            className="inline-flex h-11 shrink-0 items-center rounded-lg border border-warning/40 bg-warning/10 px-4 text-sm font-medium text-warning hover:bg-warning/20"
+                          >
+                            Forçar
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      {/* Dialog de forçar */}
-      <Dialog open={forcandoIdx !== null} onOpenChange={o => { if (!o) setForcandoIdx(null) }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Forçar conciliação</DialogTitle>
-            <p className="text-sm text-slate-500">
-              {forcandoIdx !== null && pagamentos[forcandoIdx] && (
-                <>
-                  {TIPO_LABEL[pagamentos[forcandoIdx].tipo] ?? pagamentos[forcandoIdx].tipo}
-                  {' — '}
-                  <span className="font-semibold">{fmt(pagamentos[forcandoIdx].valor)}</span>
-                </>
               )}
-            </p>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600">
-              Marca este pagamento como conciliado sem transação correspondente no sistema.
-              Use quando o dinheiro entrou de verdade mas o lançamento não existe aqui.
-            </p>
-            <div>
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                Motivo
-              </label>
-              <input
-                type="text"
-                value={motivo}
-                onChange={e => setMotivo(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && motivo.trim().length >= 3 && forcar()}
-                placeholder="Ex.: PIX caiu na conta pessoal"
-                autoFocus
-                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setForcandoIdx(null)} disabled={salvando}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={forcar}
-                disabled={salvando || motivo.trim().length < 3}
-                className="bg-amber-600 hover:bg-amber-700"
-              >
-                {salvando ? <Loader2 size={13} className="animate-spin mr-1.5" /> : <Zap size={13} className="mr-1.5" />}
-                Forçar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
+}
+
+function Sugestao({ titulo, linhas, valor, onVincular, rotulo, vinculando }: { titulo: string; linhas: string[]; valor: string | number; onVincular: () => void; rotulo: string; vinculando: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{titulo}</p>
+        {linhas.filter(Boolean).map(l => <p key={l} className="truncate text-xs text-muted-foreground">{l}</p>)}
+      </div>
+      <span className="hidden text-sm tabular-nums sm:block">{fmt(valor)}</span>
+      <button
+        type="button"
+        onClick={onVincular}
+        disabled={vinculando}
+        aria-label={rotulo}
+        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+      >
+        {vinculando && <Loader2 className="size-4 animate-spin" />} Vincular
+      </button>
+    </div>
+  )
+}
+
+type Situacao = 'pendente' | 'parcial' | 'carregando' | 'forcado' | 'conciliado' | 'livre'
+// Sem ícone: a situação vem escrita e numa borda à esquerda.
+const ROTULO: Record<Situacao, string> = {
+  pendente: 'Pendente', parcial: 'Parcial', carregando: 'Conferindo…', forcado: 'Forçado', conciliado: 'Conciliado', livre: 'Não precisa conciliar',
+}
+const COR_ROTULO: Record<Situacao, string> = {
+  pendente: 'text-destructive', parcial: 'text-warning', carregando: 'text-muted-foreground', forcado: 'text-warning', conciliado: 'text-primary-text', livre: 'text-muted-foreground',
+}
+const BORDA: Record<Situacao, string> = {
+  pendente: 'border-l-destructive', parcial: 'border-l-warning', carregando: 'border-l-border', forcado: 'border-l-warning', conciliado: 'border-l-primary', livre: 'border-l-border',
 }
