@@ -252,12 +252,12 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
             <p>{r.produto.descricao}</p>
             <p className="text-muted-foreground">
               NCM {r.produto.ncm} · CEST {r.produto.cest} · CFOP {r.produto.cfop} · CST {r.produto.cst}
-              {previa.ficha && cestEdicao == null && (
-                <button type="button" className="ml-2 text-primary-text underline" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
-                  Editar CEST
-                </button>
-              )}
             </p>
+            {previa.ficha && cestEdicao == null && (
+              <Button type="button" size="sm" variant="outline" className="mt-2 h-10" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
+                Editar CEST
+              </Button>
+            )}
             {cestEdicao != null && (
               <div className="flex items-end gap-2 pt-1">
                 <div className="space-y-1">
