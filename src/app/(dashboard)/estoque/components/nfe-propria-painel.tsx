@@ -259,7 +259,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
               {r.interestadual && ' · venda para fora do estado'}
             </p>
             {previa.ficha && cestEdicao == null && (
-              <Button type="button" size="sm" variant="outline" className="mt-2 h-10" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
+              <Button type="button" size="sm" variant="outline" className="mt-2 h-11" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
                 Editar CEST
               </Button>
             )}
@@ -269,8 +269,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
                   <Label htmlFor="cest-edicao" className="text-xs">CEST (7 dígitos)</Label>
                   <Input id="cest-edicao" inputMode="numeric" className="w-36" value={cestEdicao} onChange={e => setCestEdicao(e.target.value)} placeholder="2600100" />
                 </div>
-                <Button size="sm" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
-                <Button size="sm" variant="outline" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
+                <Button size="sm" className="h-11" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
+                <Button size="sm" variant="outline" className="h-11" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
               </div>
             )}
             {cestEdicao != null && !cestEdicao.trim() && (
