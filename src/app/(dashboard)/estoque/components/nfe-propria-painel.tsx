@@ -257,9 +257,10 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
                   <Input id="cest-edicao" inputMode="numeric" className="w-36" value={cestEdicao} onChange={e => setCestEdicao(e.target.value)} placeholder="2600100" />
                 </div>
                 <Button size="sm" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
-                <Button size="sm" variant="outline" onClick={() => setCestEdicao(null)} disabled={pending}>Cancelar</Button>
+                <Button size="sm" variant="outline" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
               </div>
             )}
+            {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
             <p className="text-slate-600">
               Origem {r.produto.origemSaida}
               {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
@@ -286,7 +287,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
 
       {previa.notas.length > 0 && <Historico notas={previa.notas} pending={pending} onReconsultar={reconsultar} />}
 
-      {erro && <p className="whitespace-pre-line text-sm text-red-600">{erro}</p>}
+      {erro && cestEdicao == null && <p className="whitespace-pre-line text-sm text-red-600">{erro}</p>}
 
       {r && !bloqueadaProducao && (
         <label className="flex items-start gap-2 text-sm text-slate-700">
