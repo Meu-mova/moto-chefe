@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
+  previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
 } from '../../vendas/nfe-propria-actions'
 
@@ -48,6 +48,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
   const [resultado, setResultado] = useState<{ nota: NotaResumo; erro?: string } | null>(null)
   const [conferido, setConferido] = useState(false)
   const [ficha, setFicha] = useState<FichaMoto | null>(null)
+  const [cestEdicao, setCestEdicao] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
 
@@ -73,6 +74,19 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
       if (!p.ok) { setErro(p.error); return }
       setPrevia(p)
       setFicha(p.ficha ? null : p.sugestao)
+    })
+  }
+
+  function salvarCest() {
+    if (cestEdicao == null) return
+    setErro('')
+    startTransition(async () => {
+      const r = await salvarCestMotoAction(motoId, cestEdicao)
+      if (!r.ok) { setErro(r.error); return }
+      const p = await previsualizarNfePropriaAction(motoId)
+      if (!p.ok) { setErro(p.error); return }
+      setPrevia(p)
+      setCestEdicao(null)
     })
   }
 
@@ -230,7 +244,28 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
             <p className="font-medium">{r.produto.descricao}</p>
             <p className="text-slate-600">
               NCM {r.produto.ncm} · CEST {r.produto.cest} · CFOP {r.produto.cfop} · CST {r.produto.cst}
+              {previa.ficha && cestEdicao == null && (
+                <button type="button" className="ml-2 text-primary-text underline" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
+                  Editar CEST
+                </button>
+              )}
             </p>
+            {cestEdicao != null && (
+              <div className="flex items-end gap-2 pt-1">
+                <div className="space-y-1">
+                  <Label htmlFor="cest-edicao" className="text-xs">CEST (7 dígitos)</Label>
+                  <Input id="cest-edicao" inputMode="numeric" className="w-36" value={cestEdicao} onChange={e => setCestEdicao(e.target.value)} placeholder="2600100" />
+                </div>
+                <Button size="sm" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
+                <Button size="sm" variant="outline" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
+              </div>
+            )}
+            {cestEdicao != null && !cestEdicao.trim() && (
+              <p className="text-xs text-muted-foreground">
+                CEST vazio: venda com ICMS-ST (CST 60) é recusada pela SEFAZ (erro 806). Dá para salvar assim mesmo.
+              </p>
+            )}
+            {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
             <p className="text-slate-600">
               Origem {r.produto.origemSaida}
               {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
@@ -257,7 +292,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
 
       {previa.notas.length > 0 && <Historico notas={previa.notas} pending={pending} onReconsultar={reconsultar} />}
 
-      {erro && <p className="whitespace-pre-line text-sm text-red-600">{erro}</p>}
+      {erro && cestEdicao == null && <p className="whitespace-pre-line text-sm text-destructive">{erro}</p>}
 
       {r && !bloqueadaProducao && (
         <label className="flex items-start gap-2 text-sm text-slate-700">
