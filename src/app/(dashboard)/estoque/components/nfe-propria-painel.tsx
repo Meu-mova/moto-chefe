@@ -253,6 +253,11 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
             <p className="text-muted-foreground">
               NCM {r.produto.ncm} · CEST {r.produto.cest} · CFOP {r.produto.cfop} · CST {r.produto.cst}
             </p>
+            <p className="text-muted-foreground">
+              Origem {r.produto.origemSaida}
+              {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
+              {r.interestadual && ' · venda para fora do estado'}
+            </p>
             {previa.ficha && cestEdicao == null && (
               <Button type="button" size="sm" variant="outline" className="mt-2 h-10" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
                 Editar CEST
@@ -274,11 +279,6 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
               </p>
             )}
             {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
-            <p className="text-muted-foreground">
-              Origem {r.produto.origemSaida}
-              {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
-              {r.interestadual && ' · venda para fora do estado'}
-            </p>
           </Bloco>
           <Bloco titulo="Valor" resumo={brl(r.valor)}>
             {r.pagamentos.map((p, i) => (
