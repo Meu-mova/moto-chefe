@@ -261,3 +261,13 @@ export function acharFichaDoModelo(
   )
   return candidatas.length === 1 ? candidatas[0] : null
 }
+
+/**
+ * CEST digitado na emissão: 7 dígitos ou vazio. Vazio grava nulo; o payload
+ * então não manda o campo, e a SEFAZ decide se o NCM/CST exige (rejeição 806).
+ */
+export function normalizarCest(bruto: string): { ok: true; cest: string | null } | { ok: false; error: string } {
+  const cest = bruto.replace(/\D/g, '')
+  if (cest && cest.length !== 7) return { ok: false, error: 'CEST precisa ter 7 dígitos (ou ficar vazio)' }
+  return { ok: true, cest: cest || null }
+}
