@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import {
-  previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction,
+  previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
 } from '../../vendas/nfe-propria-actions'
 
@@ -56,6 +56,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [resultado, setResultado] = useState<{ nota: NotaResumo; erro?: string } | null>(null)
   const [conferido, setConferido] = useState(false)
   const [ficha, setFicha] = useState<FichaMoto | null>(null)
+  const [cestEdicao, setCestEdicao] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
 
@@ -81,6 +82,19 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
       if (!p.ok) { setErro(p.error); return }
       setPrevia(p)
       setFicha(p.ficha ? null : p.sugestao)
+    })
+  }
+
+  function salvarCest() {
+    if (cestEdicao == null) return
+    setErro('')
+    startTransition(async () => {
+      const r = await salvarCestMotoAction(motoId, cestEdicao)
+      if (!r.ok) { setErro(r.error); return }
+      const p = await previsualizarNfePropriaAction(motoId)
+      if (!p.ok) { setErro(p.error); return }
+      setPrevia(p)
+      setCestEdicao(null)
     })
   }
 
@@ -244,6 +258,27 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
               {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
               {r.interestadual && ' · venda para fora do estado'}
             </p>
+            {previa.ficha && cestEdicao == null && (
+              <Button type="button" size="sm" variant="outline" className="mt-2 h-11" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
+                Editar CEST
+              </Button>
+            )}
+            {cestEdicao != null && (
+              <div className="flex items-end gap-2 pt-1">
+                <div className="space-y-1">
+                  <Label htmlFor="cest-edicao" className="text-xs">CEST (7 dígitos)</Label>
+                  <Input id="cest-edicao" inputMode="numeric" className="w-36" value={cestEdicao} onChange={e => setCestEdicao(e.target.value)} placeholder="2600100" />
+                </div>
+                <Button size="sm" className="h-11" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
+                <Button size="sm" variant="outline" className="h-11" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
+              </div>
+            )}
+            {cestEdicao != null && !cestEdicao.trim() && (
+              <p className="text-xs text-muted-foreground">
+                CEST vazio: venda com ICMS-ST (CST 60) é recusada pela SEFAZ (erro 806). Dá para salvar assim mesmo.
+              </p>
+            )}
+            {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
           </Bloco>
           <Bloco titulo="Valor" resumo={brl(r.valor)}>
             {r.pagamentos.map((p, i) => (
@@ -260,7 +295,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
         </div>
       )}
 
-      {erro && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
+      {erro && cestEdicao == null && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
 
       {r && !bloqueadaProducao && (
         <label className="flex cursor-pointer items-start gap-3 py-1">

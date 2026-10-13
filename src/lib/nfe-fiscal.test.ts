@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe } from './nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, normalizarCest } from './nfe-fiscal'
 
 // <det> reais, copiados de notas que o Radar Fiscal já baixou da SEFAZ.
 // O primeiro é a moto GIGA da Q.P.A (a fábrica): ICMS-ST já recolhido por ela,
@@ -75,4 +75,15 @@ test('extrai o emitente: e o CNPJ que explica duas fichas para o mesmo modelo', 
 
 test('emitente ausente devolve campos vazios em vez de quebrar', () => {
   assert.equal(extrairEmitenteDaNfe('<nfeProc></nfeProc>').cnpj, '')
+})
+
+test('normalizarCest aceita 7 dígitos, com ou sem máscara, e vazio vira nulo', () => {
+  assert.deepEqual(normalizarCest('2600100'), { ok: true, cest: '2600100' })
+  assert.deepEqual(normalizarCest('26.001.00'), { ok: true, cest: '2600100' })
+  assert.deepEqual(normalizarCest('  '), { ok: true, cest: null })
+})
+
+test('normalizarCest recusa quantidade de dígitos diferente de 7', () => {
+  assert.equal(normalizarCest('26001').ok, false)
+  assert.equal(normalizarCest('260010012').ok, false)
 })
