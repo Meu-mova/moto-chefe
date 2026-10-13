@@ -7,6 +7,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
+import { normalizarCest } from '@/lib/nfe-fiscal'
 import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
@@ -287,21 +288,38 @@ export async function salvarFichaMotoAction(motoId: string, f: FichaMoto): Promi
     await exigirPapel()
     const ncm = f.ncm.replace(/\D/g, '')
     if (ncm.length !== 8) return { ok: false, error: 'NCM precisa ter 8 dígitos' }
-    const cest = f.cest.replace(/\D/g, '')
-    if (cest && cest.length !== 7) return { ok: false, error: 'CEST precisa ter 7 dígitos (ou ficar vazio)' }
+    const c = normalizarCest(f.cest)
+    if (!c.ok) return c
     if (!f.xProd.trim()) return { ok: false, error: 'Informe a descrição fiscal do produto' }
     if (!/^[0-8]$/.test(f.origem)) return { ok: false, error: 'Origem inválida' }
 
     const valores = {
       xProd: f.xProd.trim().toUpperCase(),
       ncm,
-      cest: cest || null,
+      cest: c.cest,
       unidade: f.unidade.trim().toUpperCase() || 'UN',
       origem: f.origem,
     }
     await db.insert(motosFiscal)
       .values({ motoId, emitenteCnpj: 'MANUAL', ...valores })
       .onConflictDoUpdate({ target: motosFiscal.motoId, set: valores })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * Corrige só o CEST da ficha na hora de emitir: a nota de entrada de algumas
+ * motos vem sem ele e a SEFAZ recusa a saída com ICMS-ST (806).
+ */
+export async function salvarCestMotoAction(motoId: string, cestBruto: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await exigirPapel()
+    const c = normalizarCest(cestBruto)
+    if (!c.ok) return c
+    const atualizadas = await db.update(motosFiscal).set({ cest: c.cest }).where(eq(motosFiscal.motoId, motoId)).returning({ id: motosFiscal.motoId })
+    if (!atualizadas.length) return { ok: false, error: 'Moto sem ficha fiscal' }
     return { ok: true }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
