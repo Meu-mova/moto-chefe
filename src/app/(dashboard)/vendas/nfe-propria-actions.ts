@@ -1,17 +1,20 @@
 'use server'
 import { db } from '@/lib/db'
-import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida } from '@/lib/db/schema'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida, usuarios } from '@/lib/db/schema'
+import { and, desc, eq, notInArray, sql, type SQL } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
 import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
-import { configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
+import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
+import { podeOperarNfSaida } from './papeis-nf-saida'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
+import { diaEHoraBrt } from '@/lib/data-venda'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -24,11 +27,9 @@ import { configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, NfeRecusada, t
  * serve para conferir a nota sem valor fiscal.
  */
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
-
-async function exigirPapel() {
+async function exigirPapel(acao = 'emitir') {
   const u = await getUsuarioLogado()
-  if (!PAPEIS.includes(u.papel)) throw new Error('Sem permissão para emitir NF de saída')
+  if (!podeOperarNfSaida(u.papel)) throw new Error(`Sem permissão para ${acao} NF de saída`)
   return u
 }
 
@@ -42,6 +43,9 @@ export type NotaResumo = {
   linkDanfe: string | null
   linkXml: string | null
   criadoEm: string
+  dataAutorizacao: string | null
+  /** O último pedido de cancelamento, ou o descarte da tentativa: nosso motivo, quem pediu e quando. */
+  cancelamento: { motivo: string; por: string | null; em: string } | null
 }
 
 export type FichaMoto = { xProd: string; ncm: string; cest: string; unidade: string; origem: string }
@@ -192,16 +196,24 @@ function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosV
   }
 }
 
-async function notasDaVenda(vendaId: string): Promise<NotaResumo[]> {
-  const rows = await db.select().from(notasFiscaisSaida)
-    .where(eq(notasFiscaisSaida.vendaId, vendaId))
+async function resumos(filtro: SQL): Promise<NotaResumo[]> {
+  const rows = await db.select({ r: notasFiscaisSaida, pedidoPor: usuarios.nome })
+    .from(notasFiscaisSaida)
+    .leftJoin(usuarios, eq(usuarios.id, notasFiscaisSaida.cancelamentoPor))
+    .where(filtro)
     .orderBy(desc(notasFiscaisSaida.criadoEm))
-  return rows.map(r => ({
+  return rows.map(({ r, pedidoPor }) => ({
     id: r.id, ambiente: r.ambiente, status: r.status, motivoStatus: r.motivoStatus,
     numero: r.numero, serie: r.serie, linkDanfe: r.linkDanfe, linkXml: r.linkXml,
     criadoEm: r.criadoEm.toISOString(),
+    dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null,
+    cancelamento: r.cancelamentoEm
+      ? { motivo: r.cancelamentoMotivo ?? '', por: pedidoPor, em: r.cancelamentoEm.toISOString() }
+      : null,
   }))
 }
+
+const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, vendaId))
 
 export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
   try {
@@ -315,36 +327,61 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
 }
 
 const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
-const FINAIS = ['Autorizada', 'Negada', 'Cancelada', 'Denegada']
 
-/** Grava o retorno da API e, se for nota de PRODUÇÃO autorizada, fatura a venda. */
+/**
+ * Grava o retorno da API. Em PRODUÇÃO, nota autorizada fatura a venda e nota
+ * cancelada na SEFAZ desfaz o faturamento, na mesma transação: a nota nunca
+ * fica num status final com a venda pela metade.
+ */
 async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string, vendaId: string, motoId: string) {
-  await db.update(notasFiscaisSaida).set({
-    status: n.status,
-    motivoStatus: n.motivoStatus ?? (n.status === 'Autorizada' ? null : n.statusSefaz),
-    numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
-    linkDanfe: n.linkDanfe, linkXml: n.linkXml,
-    atualizadoEm: sql`now()` as unknown as Date,
-  }).where(eq(notasFiscaisSaida.id, notaId))
+  const mexeuNaVenda = await db.transaction(async tx => {
+    const [antes] = await tx.select({ status: notasFiscaisSaida.status, numero: notasFiscaisSaida.numero, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
+      .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
 
-  if (n.status === 'Autorizada' && ambiente === 'Producao' && n.numero) {
-    // O mesmo efeito do "Confirmar NF" manual: número na venda, moto vendida.
-    await db.transaction(async tx => {
+    await tx.update(notasFiscaisSaida).set({
+      status: n.status,
+      motivoStatus: motivoDoStatus(n),
+      numero: n.numero, serie: n.serie, chave: n.chave, protocolo: n.protocolo,
+      linkDanfe: n.linkDanfe, linkXml: n.linkXml,
+      // Resposta sem data não apaga a que já está gravada.
+      ...(n.dataAutorizacao ? { dataAutorizacao: new Date(n.dataAutorizacao) } : {}),
+      atualizadoEm: sql`now()` as unknown as Date,
+    }).where(eq(notasFiscaisSaida.id, notaId))
+
+    const dataAutorizacao = n.dataAutorizacao ?? antes?.dataAutorizacao?.toISOString() ?? null
+    const efeito = efeitoNaVenda(antes?.status ?? null, { status: n.status, ambiente, dataAutorizacao })
+    if (efeito === 'faturar' && n.numero) {
+      // O mesmo efeito do "Confirmar NF" manual: número na venda, moto vendida.
       await tx.update(vendas).set({ notaFiscalSaida: n.numero }).where(eq(vendas.id, vendaId))
       await tx.update(motos).set({ disponibilidade: 'vendida' as any }).where(eq(motos.id, motoId))
-    })
+      return true
+    }
+
+    const numero = n.numero ?? antes?.numero
+    if (efeito !== 'desfazer' || !numero) return false
+    // O "Confirmar NF" ao contrário, só se a venda ainda tem o número desta
+    // nota: uma nota nova já pode ter faturado a venda de novo.
+    const venda = await tx.update(vendas).set({ notaFiscalSaida: null })
+      .where(and(eq(vendas.id, vendaId), eq(vendas.notaFiscalSaida, numero)))
+      .returning({ id: vendas.id })
+    if (!venda.length) return false
+    await tx.update(motos).set({ disponibilidade: null })
+      .where(and(eq(motos.id, motoId), eq(motos.disponibilidade, 'vendida')))
+    return true
+  })
+  if (mexeuNaVenda) {
     revalidatePath('/vendas')
     revalidatePath('/estoque')
   }
 }
 
 /** Consulta até a SEFAZ responder ou o tempo acabar — o que sobrar, a tela reconsulta. */
-async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas = 8) {
+async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas = 8, terminou: (n: NfeConsultada) => boolean = n => ehFinal(n.status)) {
   let ultima: NfeConsultada | null = null
   for (let i = 0; i < tentativas; i++) {
     await espera(i === 0 ? 2500 : 2000)
     ultima = await consultarNfe(cfg, idExterno)
-    if (ultima && FINAIS.includes(ultima.status)) break
+    if (ultima && terminou(ultima)) break
   }
   return ultima
 }
@@ -352,12 +389,8 @@ async function acompanhar(cfg: ConfigNotaGateway, idExterno: string, tentativas 
 export type ResultadoTransmissao = { ok: true; nota: NotaResumo } | { ok: false; error: string; nota?: NotaResumo }
 
 async function resumoDaNota(id: string): Promise<NotaResumo> {
-  const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, id)).limit(1)
-  return {
-    id: r.id, ambiente: r.ambiente, status: r.status, motivoStatus: r.motivoStatus,
-    numero: r.numero, serie: r.serie, linkDanfe: r.linkDanfe, linkXml: r.linkXml,
-    criadoEm: r.criadoEm.toISOString(),
-  }
+  const [nota] = await resumos(eq(notasFiscaisSaida.id, id))
+  return nota
 }
 
 export async function transmitirNfePropriaAction(motoId: string): Promise<ResultadoTransmissao> {
@@ -378,12 +411,25 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       const [viva] = await db.select().from(notasFiscaisSaida).where(and(
         eq(notasFiscaisSaida.vendaId, e.venda.id),
         eq(notasFiscaisSaida.ambiente, 'Producao'),
-        inArray(notasFiscaisSaida.status, ['Enviando', 'Processando', 'Autorizada']),
+        notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
       )).limit(1)
       if (viva) {
         const n = await acompanhar(e.cfg, viva.idExterno, 3)
         if (n) await aplicarRetorno(viva.id, n, viva.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(viva.id) }
+      }
+      // Tentativa descartada que aparece depois na Nota Gateway volta a valer
+      // (#88): emitir outra seria a segunda NF da venda.
+      const descartadas = await db.select().from(notasFiscaisSaida).where(and(
+        eq(notasFiscaisSaida.vendaId, e.venda.id),
+        eq(notasFiscaisSaida.ambiente, 'Producao'),
+        eq(notasFiscaisSaida.status, 'Descartada'),
+      ))
+      for (const d of descartadas) {
+        const n = await consultarNfe(e.cfg, d.idExterno)
+        if (!n) continue
+        await aplicarRetorno(d.id, n, d.ambiente, e.venda.id, motoId)
+        return { ok: true, nota: await resumoDaNota(d.id) }
       }
     }
 
@@ -431,7 +477,7 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
     if (n) await aplicarRetorno(notaId, n, e.cfg.ambiente, e.venda.id, motoId)
 
     const nota = await resumoDaNota(notaId)
-    if (nota.status === 'Negada' || nota.status === 'Denegada') {
+    if (ehRecusada(nota.status)) {
       return { ok: false, error: `A SEFAZ não autorizou: ${nota.motivoStatus ?? 'sem motivo informado'}`, nota }
     }
     return { ok: true, nota }
@@ -441,17 +487,190 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
   }
 }
 
+type Usuario = Awaited<ReturnType<typeof exigirPapel>>
+
+/** O grupo é o do CNPJ do registro; o grupo ativo da sessão não conta. */
+async function exigirGrupo(usuario: Usuario, grupoId: string) {
+  if (!(await podeUsuarioVerGrupo(usuario, grupoId))) throw new Error('Sem permissão para NF de saída deste grupo')
+}
+
+/** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
+async function carregarNota(notaId: string, usuario: Usuario) {
+  const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
+  if (!r) throw new Error('Nota não encontrada')
+  await exigirGrupo(usuario, r.grupoId)
+  const cfg = await configNotaGateway(r.grupoId)
+  if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
+  const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1)
+  return { r, cfg, motoId: v.motoId }
+}
+
+type NotaCarregada = Awaited<ReturnType<typeof carregarNota>>
+
+/** Consulta a API e grava o que ela disser. */
+async function reconsultar({ r, cfg, motoId }: NotaCarregada, opcoes: { estrito?: boolean } = {}) {
+  const n = await consultarNfe(cfg, r.idExterno, opcoes)
+  if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, motoId)
+  return n
+}
+
 /** Reconsulta uma nota que ficou em processamento. */
 export async function consultarNfePropriaAction(notaId: string): Promise<ResultadoTransmissao> {
   try {
-    await exigirPapel()
-    const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
-    if (!r) return { ok: false, error: 'Nota não encontrada' }
-    const cfg = await configNotaGateway(r.grupoId)
-    if (!cfg) return { ok: false, error: 'Emissão pelo MOVA não configurada para este grupo' }
-    const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1)
-    const n = await consultarNfe(cfg, r.idExterno)
-    if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, v.motoId)
+    const nota = await carregarNota(notaId, await exigirPapel('consultar'))
+    await reconsultar(nota)
+    return { ok: true, nota: await resumoDaNota(nota.r.id) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** A permissão é no grupo da loja da venda. */
+async function exigirGrupoDaVenda(vendaId: string, usuario: Usuario) {
+  const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  if (!venda) throw new Error('Venda não encontrada')
+  await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+}
+
+/** As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. */
+export async function notasDaVendaAction(vendaId: string): Promise<{ ok: true; notas: NotaResumo[] } | { ok: false; error: string }> {
+  try {
+    await exigirGrupoDaVenda(vendaId, await exigirPapel('consultar'))
+    return { ok: true, notas: await notasDaVenda(vendaId) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+const prazo = (n: NotaResumo) => (n.dataAutorizacao ? diaEHoraBrt(limiteCancelamento(n.dataAutorizacao).toISOString()) : 'o fim do prazo')
+
+const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => string> = {
+  emissao_em_andamento: () => `Há uma NF de saída em emissão para esta venda. Consulte pelo botão "NF Saída"; se ela estiver parada em "Enviando" há ${MINUTOS_PARA_DESCARTAR} minutos ou mais, dá para descartar a tentativa por lá. Depois, cancele a venda.`,
+  cancelar_nf: n => `A NF ${n.numero} está autorizada na SEFAZ. Cancele a NF antes, até ${prazo(n)}, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
+  cancelamento_em_andamento: n => `O cancelamento da NF ${n.numero} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
+  tentar_de_novo: n => `A SEFAZ recusou o cancelamento da NF ${n.numero}${n.motivoStatus ? ` (${n.motivoStatus})` : ''}, e a nota continua valendo. Peça de novo pelo número da NF, até ${prazo(n)}; com a nota cancelada, a venda fica livre.`,
+  fora_do_prazo: n => `A NF ${n.numero} passou do prazo de 24h para cancelar: o caminho é a NF de devolução ou o cancelamento extemporâneo na SEFAZ, combinado com o contador. Enquanto a NF valer, esta venda não pode ser cancelada aqui.`,
+  sem_data: n => `Não deu para confirmar o prazo de cancelamento da NF ${n.numero}. Abra a NF pelo número dela, consulte e tente de novo.`,
+}
+
+/** A orientação da trava do "Cancelar venda" (ADR-0014), ou null se a venda pode ser cancelada. */
+export async function travaDoCancelamentoDaVendaAction(vendaId: string): Promise<{ ok: true; trava: string | null } | { ok: false; error: string }> {
+  try {
+    const usuario = await exigirPapel('consultar')
+    await exigirGrupoDaVenda(vendaId, usuario)
+    let r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
+    if (r?.trava === 'sem_data') {
+      // Sem a data de autorização, o prazo não se calcula: a consulta traz e grava.
+      await carregarNota(r.nota.id, usuario).then(reconsultar).catch(() => null)
+      r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
+    }
+    return { ok: true, trava: r && ORIENTACAO_CANCELAR_VENDA[r.trava](r.nota) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+const SEM_CANCELAMENTO: Record<Exclude<SituacaoCancelamento, 'disponivel'>, string> = {
+  fora_do_prazo: 'Passou o prazo de 24h para cancelar esta nota',
+  em_andamento: 'O cancelamento desta nota já está em andamento — consulte em instantes',
+  indisponivel: 'Só nota autorizada pode ser cancelada',
+  sem_data: 'Não deu para confirmar a data de autorização desta nota — consulte e tente de novo',
+}
+
+const NOME_AMBIENTE: Record<string, string> = { Producao: 'produção', Homologacao: 'homologação' }
+
+/**
+ * Pede o cancelamento de uma NF autorizada. O motivo fica só no nosso registro:
+ * a Nota Gateway manda à SEFAZ sempre "Pedido cancelado". A recusa da SEFAZ volta
+ * com ok, porque o bloco da nota mostra o motivo; o erro fica para o que ele não
+ * mostra (pedido não aceito, prazo, falta de resposta).
+ */
+export async function cancelarNfePropriaAction(notaId: string, motivo: string): Promise<ResultadoTransmissao> {
+  try {
+    const usuario = await exigirPapel('cancelar')
+    const texto = motivo.trim()
+    if (!texto) return { ok: false, error: 'Informe o motivo do cancelamento' }
+
+    const carregada = await carregarNota(notaId, usuario)
+    const { r, cfg } = carregada
+    if (cfg.ambiente !== r.ambiente) {
+      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para cancelá-la` }
+    }
+
+    let nota = { status: r.status, dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null }
+    if (!nota.dataAutorizacao) {
+      // Nota de antes de a data ser gravada: a consulta traz e grava.
+      const n = await reconsultar(carregada)
+      if (n) nota = { status: n.status, dataAutorizacao: n.dataAutorizacao }
+    }
+    const situacao = situacaoCancelamento(nota, new Date())
+    if (situacao !== 'disponivel') return { ok: false, error: SEM_CANCELAMENTO[situacao], nota: await resumoDaNota(r.id) }
+
+    await db.update(notasFiscaisSaida).set({
+      cancelamentoMotivo: texto,
+      cancelamentoPor: usuario.id,
+      cancelamentoEm: sql`now()` as unknown as Date,
+      atualizadoEm: sql`now()` as unknown as Date,
+    }).where(eq(notasFiscaisSaida.id, r.id))
+
+    const pedido = { statusAntes: nota.status, em: new Date() }
+    try {
+      await cancelarNfe(cfg, r.idExterno)
+    } catch (err) {
+      // Pedido recusado ou sem resposta: a consulta diz em que pé a nota ficou
+      // (a nota que já estava cancelada, por exemplo, volta como Cancelada).
+      await reconsultar(carregada).catch(() => null)
+      const atual = await resumoDaNota(r.id)
+      if (atual.status === 'Cancelada' || emCancelamento(atual.status)) return { ok: true, nota: atual }
+      const msg = err instanceof CancelamentoRecusado
+        ? `A Nota Gateway não aceitou o pedido: ${err.message}`
+        : `Não deu para confirmar o pedido de cancelamento (${(err as Error).message}) — consulte e, se a nota continuar autorizada, peça de novo`
+      return { ok: false, error: msg, nota: atual }
+    }
+
+    const n = await acompanhar(cfg, r.idExterno, 8, c => cancelamentoConcluido(c, pedido))
+    if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
+    const atual = await resumoDaNota(r.id)
+    if (atual.status === 'Autorizada') {
+      return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
+    }
+    return { ok: true, nota: atual }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * Descarta a tentativa presa em Enviando (#88) só depois de a Nota Gateway
+ * confirmar que não conhece a nota. Se ela tiver a nota, vale o status dela, e
+ * nada é descartado: emitir de novo duplicaria a NF.
+ */
+export async function descartarTentativaAction(notaId: string): Promise<ResultadoTransmissao> {
+  try {
+    const usuario = await exigirPapel('descartar')
+    const carregada = await carregarNota(notaId, usuario)
+    const { r, cfg } = carregada
+    if (!podeDescartarTentativa({ status: r.status, criadoEm: r.criadoEm.toISOString() }, new Date())) {
+      return { ok: false, error: `Só a tentativa parada em "Enviando" há ${MINUTOS_PARA_DESCARTAR} minutos ou mais pode ser descartada`, nota: await resumoDaNota(r.id) }
+    }
+    // Consultar com a configuração de outro ambiente pode dar um "não encontrada" falso.
+    if (cfg.ambiente !== r.ambiente) {
+      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para descartá-la`, nota: await resumoDaNota(r.id) }
+    }
+    if (await reconsultar(carregada, { estrito: true })) {
+      return { ok: false, error: 'A Nota Gateway tem esta nota: nada foi descartado, e o status foi atualizado', nota: await resumoDaNota(r.id) }
+    }
+    const descartada = await db.update(notasFiscaisSaida).set({
+      status: 'Descartada',
+      cancelamentoMotivo: 'Tentativa descartada: não chegou à Nota Gateway',
+      cancelamentoPor: usuario.id,
+      cancelamentoEm: sql`now()` as unknown as Date,
+      atualizadoEm: sql`now()` as unknown as Date,
+    }).where(and(eq(notasFiscaisSaida.id, r.id), eq(notasFiscaisSaida.status, r.status)))
+      .returning({ id: notasFiscaisSaida.id })
+    if (!descartada.length) {
+      return { ok: false, error: 'A nota mudou de status enquanto era conferida — consulte de novo', nota: await resumoDaNota(r.id) }
+    }
     return { ok: true, nota: await resumoDaNota(r.id) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }

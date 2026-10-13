@@ -1,9 +1,12 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, CheckCircle2, ExternalLink, FileDown, Loader2, RefreshCw, Send, XCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
+import { NfSaidaCard } from './nf-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
@@ -31,7 +34,12 @@ const ORIGENS: [string, string][] = [
   ['8', '8 — Nacional, conteúdo importado acima de 70%'],
 ]
 
-type Props = { motoId: string; onVoltar: () => void }
+type Props = {
+  motoId: string
+  onVoltar: () => void
+  /** Outros caminhos (Bling, nota já emitida), mostrados abaixo da conferência. */
+  outrasFormas?: React.ReactNode
+}
 
 type Previa = Extract<PreviaNfe, { ok: true }>
 
@@ -42,7 +50,7 @@ type Previa = Extract<PreviaNfe, { ok: true }>
  * painel (o botão só existe para venda sem NF). Por isso o DANFE, o checklist
  * e o certificado abrem logo que a action volta — antes do desmonte.
  */
-export function NfePropriaPainel({ motoId, onVoltar }: Props) {
+export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [previa, setPrevia] = useState<Previa | null>(null)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState<{ nota: NotaResumo; erro?: string } | null>(null)
@@ -120,6 +128,10 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
     })
   }
 
+  function atualizarNota(nota: NotaResumo) {
+    setPrevia(p => p && { ...p, notas: p.notas.map(n => (n.id === nota.id ? nota : n)) })
+  }
+
   function tentarDeNovo() {
     setResultado(null)
     setConferido(false)
@@ -127,19 +139,17 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
   }
 
   if (!previa) {
-    return (
-      <div className="space-y-3 py-2">
-        {erro ? (
-          <>
-            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</p>
-            <div className="flex justify-end"><Button variant="outline" onClick={onVoltar}>Voltar</Button></div>
-          </>
-        ) : (
-          <p className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
-            <Loader2 size={16} className="animate-spin" /> Montando a nota…
-          </p>
-        )}
+    return erro ? (
+      <div className="space-y-4 py-2">
+        <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>
+        {/* A emissão pelo MOVA falhou: o Bling e a nota já emitida continuam à mão. */}
+        {outrasFormas}
+        <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Voltar</Button>
       </div>
+    ) : (
+      <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Montando a nota…
+      </p>
     )
   }
 
@@ -147,117 +157,120 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
 
   if (transmitindo) {
     return (
-      <div className="flex flex-col items-center gap-2 py-10 text-center">
-        <Loader2 size={24} className="animate-spin text-teal-600" />
-        <p className="text-sm font-medium text-slate-700">Enviando à SEFAZ…</p>
-        <p className="text-xs text-slate-500">Costuma levar poucos segundos. Não feche esta janela.</p>
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <Loader2 className="size-6 animate-spin text-primary-text" />
+        <p className="font-medium">Enviando à SEFAZ…</p>
+        <p className="text-sm text-muted-foreground">Costuma levar poucos segundos. Não feche esta tela.</p>
       </div>
     )
   }
 
-  if (resultado) return <Resultado r={resultado} teste={teste} pending={pending} onReconsultar={reconsultar} onTentarDeNovo={tentarDeNovo} onVoltar={onVoltar} />
+  if (resultado) return <Resultado r={resultado} teste={teste} pending={pending} onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo} onVoltar={onVoltar} />
 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
 
   return (
-    <div className="space-y-3 py-1">
+    <div className="space-y-4">
       {teste && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <span>
-            <b>Ambiente de teste (homologação).</b> A nota vai para a SEFAZ de teste, sai sem valor fiscal e a
-            venda <b>não</b> é faturada. Para valer, troque o ambiente em Admin → Notas fiscais.
-          </span>
+        <div className="border-l-2 border-l-warning pl-3 text-sm">
+          <p className="font-medium">Ambiente de teste (homologação)</p>
+          <p className="text-muted-foreground">
+            A nota vai para a SEFAZ de teste, sai sem valor fiscal e a venda <b>não</b> é faturada. Para valer,
+            troque o ambiente em Admin → Notas fiscais.
+          </p>
         </div>
       )}
 
       {bloqueadaProducao && (
-        <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          Esta venda já tem a NF <b>{previa.jaFaturada}</b>.
-        </p>
+        <p className="border-l-2 border-l-border pl-3 text-sm">Esta venda já tem a NF <b>{previa.jaFaturada}</b>.</p>
       )}
 
       {previa.pendencias.length > 0 && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3">
-          <p className="mb-1 text-sm font-medium text-red-800">Corrija antes de emitir:</p>
-          <ul className="list-disc space-y-0.5 pl-5 text-sm text-red-700">
+        <div className="border-l-2 border-l-destructive pl-3 text-sm">
+          <p className="font-medium text-destructive">Corrija antes de emitir</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
             {previa.pendencias.map(p => <li key={p}>{p}</li>)}
           </ul>
         </div>
       )}
 
       {ficha && (
-        <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50/60 p-3">
+        <div className="space-y-3 rounded-lg border border-border p-4">
           <div>
-            <p className="text-sm font-medium text-amber-900">Esta moto está sem ficha fiscal</p>
-            <p className="text-xs text-amber-800">
+            <p className="font-medium">Esta moto está sem ficha fiscal</p>
+            <p className="text-sm text-muted-foreground">
               A nota de entrada dela não foi importada. Preencha com os dados da nota do fornecedor — ficam
               gravados na moto.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs">Descrição fiscal (como na nota de entrada)</Label>
-              <Input value={ficha.xProd} onChange={e => setFicha({ ...ficha, xProd: e.target.value })} />
+              <Label htmlFor="ficha-xprod">Descrição fiscal (como na nota de entrada)</Label>
+              <Input id="ficha-xprod" value={ficha.xProd} onChange={e => setFicha({ ...ficha, xProd: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">NCM</Label>
-              <Input value={ficha.ncm} onChange={e => setFicha({ ...ficha, ncm: e.target.value })} placeholder="87116000" />
+              <Label htmlFor="ficha-ncm">NCM</Label>
+              <Input id="ficha-ncm" inputMode="numeric" value={ficha.ncm} onChange={e => setFicha({ ...ficha, ncm: e.target.value })} placeholder="87116000" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">CEST</Label>
-              <Input value={ficha.cest} onChange={e => setFicha({ ...ficha, cest: e.target.value })} placeholder="2600100" />
+              <Label htmlFor="ficha-cest">CEST</Label>
+              <Input id="ficha-cest" inputMode="numeric" value={ficha.cest} onChange={e => setFicha({ ...ficha, cest: e.target.value })} placeholder="2600100" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Unidade</Label>
-              <Input value={ficha.unidade} onChange={e => setFicha({ ...ficha, unidade: e.target.value })} placeholder="UN" />
+              <Label htmlFor="ficha-un">Unidade</Label>
+              <Input id="ficha-un" value={ficha.unidade} onChange={e => setFicha({ ...ficha, unidade: e.target.value })} placeholder="UN" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Origem na nota de entrada</Label>
+              <Label htmlFor="ficha-origem">Origem na nota de entrada</Label>
               <select
+                id="ficha-origem"
                 value={ficha.origem}
                 onChange={e => setFicha({ ...ficha, origem: e.target.value })}
-                className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
               >
                 {ORIGENS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
           </div>
-          <div className="flex justify-end">
-            <Button size="sm" onClick={salvarFicha} disabled={pending}>
-              {pending ? 'Salvando…' : 'Salvar ficha e continuar'}
-            </Button>
-          </div>
+          <Button onClick={salvarFicha} disabled={pending} className="h-11 w-full">
+            {pending ? 'Salvando…' : 'Salvar ficha e continuar'}
+          </Button>
         </div>
       )}
 
       {r && (
-        <div className="divide-y rounded-md border text-sm">
-          <Linha titulo="Destinatário">
-            <p className="font-medium">{r.cliente.nome}</p>
-            <p className="text-slate-600">{r.cliente.documento}</p>
-            <p className="text-slate-600">{r.cliente.endereco}</p>
-            {r.cliente.email && !teste && <p className="text-slate-500">DANFE por e-mail para {r.cliente.email}</p>}
-          </Linha>
-          <Linha titulo="Produto">
-            <p className="font-medium">{r.produto.descricao}</p>
-            <p className="text-slate-600">
+        <div>
+          <p className="text-sm text-muted-foreground">Confira antes de enviar. Toque num bloco para ver tudo.</p>
+          <Bloco titulo="Cliente" resumo={r.cliente.nome}>
+            <p>{r.cliente.nome}</p>
+            <p className="text-muted-foreground">{r.cliente.documento}</p>
+            <p className="text-muted-foreground">{r.cliente.endereco}</p>
+            {r.cliente.email && !teste && <p className="text-muted-foreground">DANFE vai para {r.cliente.email}</p>}
+          </Bloco>
+          <Bloco titulo="Moto" resumo={r.produto.descricao}>
+            <p>{r.produto.descricao}</p>
+            <p className="text-muted-foreground">
               NCM {r.produto.ncm} · CEST {r.produto.cest} · CFOP {r.produto.cfop} · CST {r.produto.cst}
-              {previa.ficha && cestEdicao == null && (
-                <button type="button" className="ml-2 text-primary-text underline" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
-                  Editar CEST
-                </button>
-              )}
             </p>
+            <p className="text-muted-foreground">
+              Origem {r.produto.origemSaida}
+              {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
+              {r.interestadual && ' · venda para fora do estado'}
+            </p>
+            {previa.ficha && cestEdicao == null && (
+              <Button type="button" size="sm" variant="outline" className="mt-2 h-11" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
+                Editar CEST
+              </Button>
+            )}
             {cestEdicao != null && (
               <div className="flex items-end gap-2 pt-1">
                 <div className="space-y-1">
                   <Label htmlFor="cest-edicao" className="text-xs">CEST (7 dígitos)</Label>
                   <Input id="cest-edicao" inputMode="numeric" className="w-36" value={cestEdicao} onChange={e => setCestEdicao(e.target.value)} placeholder="2600100" />
                 </div>
-                <Button size="sm" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
-                <Button size="sm" variant="outline" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
+                <Button size="sm" className="h-11" onClick={salvarCest} disabled={pending}>{pending ? 'Salvando…' : 'Salvar CEST'}</Button>
+                <Button size="sm" variant="outline" className="h-11" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
               </div>
             )}
             {cestEdicao != null && !cestEdicao.trim() && (
@@ -266,46 +279,42 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
               </p>
             )}
             {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
-            <p className="text-slate-600">
-              Origem {r.produto.origemSaida}
-              {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
-              {r.interestadual && ' · venda para fora do estado'}
-            </p>
-          </Linha>
-          <Linha titulo="Valor">
-            <p className="font-semibold">{brl(r.valor)}</p>
+          </Bloco>
+          <Bloco titulo="Valor" resumo={brl(r.valor)}>
             {r.pagamentos.map((p, i) => (
-              <p key={i} className="text-slate-600">{ROTULO_PAGAMENTO[p.tipo] ?? p.tipo}: {brl(p.valor)}</p>
+              <p key={i} className="flex justify-between text-muted-foreground">
+                <span>{ROTULO_PAGAMENTO[p.tipo] ?? p.tipo}</span><span className="tabular-nums">{brl(p.valor)}</span>
+              </p>
             ))}
-          </Linha>
-          <Linha titulo="Tributos">
-            <p className="text-slate-600">PIS {r.tributos.pis} · COFINS {r.tributos.cofins}</p>
-            {r.tributos.aproximado != null && (
-              <p className="text-slate-600">Aprox. (IBPT): {brl(r.tributos.aproximado)}</p>
-            )}
-          </Linha>
-          <Linha titulo="Observação">
-            <p className="whitespace-pre-line text-xs text-slate-600">{r.observacao}</p>
-          </Linha>
+          </Bloco>
+          <Bloco titulo="Tributos" resumo="e observação da nota">
+            <p className="text-muted-foreground">PIS {r.tributos.pis} · COFINS {r.tributos.cofins}</p>
+            {r.tributos.aproximado != null && <p className="text-muted-foreground">Aprox. (IBPT): {brl(r.tributos.aproximado)}</p>}
+            <p className="whitespace-pre-line pt-1 text-xs text-muted-foreground">{r.observacao}</p>
+          </Bloco>
         </div>
       )}
 
-      {previa.notas.length > 0 && <Historico notas={previa.notas} pending={pending} onReconsultar={reconsultar} />}
-
-      {erro && cestEdicao == null && <p className="whitespace-pre-line text-sm text-destructive">{erro}</p>}
+      {erro && cestEdicao == null && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
 
       {r && !bloqueadaProducao && (
-        <label className="flex items-start gap-2 text-sm text-slate-700">
-          <input type="checkbox" className="mt-1" checked={conferido} onChange={e => setConferido(e.target.checked)} />
-          Conferi cliente, produto, valor e pagamentos.
+        <label className="flex cursor-pointer items-start gap-3 py-1">
+          <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-primary" checked={conferido} onChange={e => setConferido(e.target.checked)} />
+          Conferi cliente, moto, valor e pagamentos.
         </label>
       )}
 
-      <div className="flex justify-between gap-2">
-        <Button variant="outline" onClick={onVoltar} disabled={pending}>Voltar</Button>
-        {r && !bloqueadaProducao && (
-          <Button onClick={transmitir} disabled={pending || !conferido} className="gap-1.5">
-            <Send size={14} /> {teste ? 'Transmitir teste' : 'Transmitir NF-e'}
+      {outrasFormas}
+
+      {previa.notas.length > 0 && <Historico notas={previa.notas} onAtualizada={atualizarNota} />}
+
+      {/* Fica preso no rodapé: com os blocos abertos a conferência passa da tela no celular. */}
+      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3">
+        {!r || bloqueadaProducao ? (
+          <Button variant="outline" onClick={onVoltar} disabled={pending} className="h-11 flex-1">Voltar</Button>
+        ) : (
+          <Button onClick={transmitir} disabled={pending || !conferido} className="h-12 flex-1 gap-2 text-base">
+            <Send className="size-4" /> {teste ? 'Transmitir teste' : 'Emitir pelo MOVA'} · {brl(r.valor)}
           </Button>
         )}
       </div>
@@ -313,121 +322,119 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
   )
 }
 
-function Linha({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/** Bloco da conferência: fechado mostra só o resumo, para a nota caber na tela. */
+function Bloco({ titulo, resumo, children }: { titulo: string; resumo?: string; children: React.ReactNode }) {
+  const [aberto, setAberto] = useState(false)
   return (
-    <div className="grid gap-1 p-3 sm:grid-cols-[110px_1fr]">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{titulo}</p>
-      <div className="space-y-0.5">{children}</div>
+    <div className="border-b border-border">
+      <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex w-full items-center gap-3 py-3 text-left">
+        <span className="w-20 shrink-0 font-medium">{titulo}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{aberto ? '' : resumo}</span>
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+      </button>
+      {aberto && <div className="space-y-0.5 pb-3 text-sm">{children}</div>}
     </div>
   )
 }
 
 function Links({ nota }: { nota: NotaResumo }) {
   return (
-    <div className="flex flex-wrap gap-3 text-sm">
+    <div className="space-y-2">
       {nota.linkDanfe && (
-        <a href={nota.linkDanfe} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-          <ExternalLink size={13} /> DANFE
+        <a href={nota.linkDanfe} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants(), 'h-11 w-full gap-2')}>
+          <ExternalLink className="size-4" /> Abrir DANFE
         </a>
       )}
       {nota.linkXml && (
-        <a href={nota.linkXml} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-          <FileDown size={13} /> XML
+        <a href={nota.linkXml} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full gap-2')}>
+          <FileDown className="size-4" /> Baixar XML
         </a>
       )}
     </div>
   )
 }
 
-function Historico({ notas, pending, onReconsultar }: { notas: NotaResumo[]; pending: boolean; onReconsultar: (id: string) => void }) {
+/** Recolhido: a conferência da nota nova vem antes das tentativas antigas. */
+function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada: (nota: NotaResumo) => void }) {
+  const [aberto, setAberto] = useState(false)
   return (
-    <div className="rounded-md border p-3">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Tentativas anteriores</p>
-      <ul className="space-y-2 text-sm">
-        {notas.map(n => (
-          <li key={n.id} className="space-y-0.5">
-            <p>
-              <span className={n.status === 'Autorizada' ? 'text-green-700' : n.status === 'Negada' ? 'text-red-700' : 'text-slate-700'}>
-                {n.status}
-              </span>
-              {n.numero && <> · NF {n.numero} série {n.serie}</>}
-              <span className="text-slate-400"> · {n.ambiente === 'Producao' ? 'produção' : 'teste'} · {new Date(n.criadoEm).toLocaleString('pt-BR')}</span>
-            </p>
-            {n.motivoStatus && n.status !== 'Autorizada' && <p className="text-xs text-red-600">{n.motivoStatus}</p>}
-            <div className="flex items-center gap-3">
-              <Links nota={n} />
-              {(n.status === 'Enviando' || n.status === 'Processando') && (
-                <button onClick={() => onReconsultar(n.id)} disabled={pending} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
-                  <RefreshCw size={12} /> Consultar
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+    <div className="border-t border-border">
+      <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex w-full items-center justify-between py-3 text-sm text-muted-foreground">
+        Tentativas anteriores ({notas.length})
+        <ChevronDown className={cn('size-4 transition-transform', !aberto && '-rotate-90')} />
+      </button>
+      {aberto && <div className="space-y-2 pb-3">{notas.map(n => <NfSaidaCard key={n.id} nota={n} onAtualizada={onAtualizada} />)}</div>}
     </div>
   )
 }
 
-function Resultado({ r, teste, pending, onReconsultar, onTentarDeNovo, onVoltar }: {
+function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeNovo, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   pending: boolean
   onReconsultar: (id: string) => void
+  onAtualizada: (nota: NotaResumo) => void
   onTentarDeNovo: () => void
   onVoltar: () => void
 }) {
   const { nota } = r
   if (nota.status === 'Autorizada') {
     return (
-      <div className="space-y-3 py-2">
-        <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-3">
-          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-green-600" />
-          <div className="text-sm text-green-800">
-            <p className="font-medium">NF-e {nota.numero} (série {nota.serie}) autorizada pela SEFAZ</p>
-            <p>{teste ? 'Nota de teste — sem valor fiscal, a venda não foi faturada.' : 'A venda foi faturada e a moto marcada como vendida.'}</p>
-          </div>
+      <div className="space-y-4 py-2">
+        <div className="border-l-4 border-l-primary pl-3">
+          <p className="text-lg font-semibold">NF-e {nota.numero} (série {nota.serie}) autorizada</p>
+          <p className="text-sm text-muted-foreground">
+            {teste ? 'Nota de teste — sem valor fiscal, a venda não foi faturada.' : 'A venda foi faturada e a moto marcada como vendida.'}
+          </p>
         </div>
         <Links nota={nota} />
-        <div className="flex justify-end"><Button variant="outline" onClick={onVoltar}>Fechar</Button></div>
+        <Button variant="ghost" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
       </div>
     )
   }
 
-  if (nota.status === 'Enviando' || nota.status === 'Processando') {
+  if (!ehFinal(nota.status) && !emCancelamento(nota.status) && !podeDescartarTentativa(nota, new Date())) {
     return (
-      <div className="space-y-3 py-2">
-        <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-          A SEFAZ ainda não respondeu. A nota está em processamento — consulte de novo em instantes.
-          Não transmita outra: a nota pode já ter sido recebida.
-        </p>
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={onVoltar}>Fechar</Button>
-          <Button onClick={() => onReconsultar(nota.id)} disabled={pending} className="gap-1.5">
-            <RefreshCw size={14} className={pending ? 'animate-spin' : ''} /> Consultar agora
-          </Button>
+      <div className="space-y-4 py-2">
+        <div className="border-l-4 border-l-warning pl-3">
+          <p className="text-lg font-semibold">A SEFAZ ainda não respondeu</p>
+          <p className="text-sm text-muted-foreground">
+            A nota está em processamento — consulte de novo em instantes. Não transmita outra: a nota pode já
+            ter sido recebida.
+          </p>
         </div>
+        <Button onClick={() => onReconsultar(nota.id)} disabled={pending} className="h-11 w-full gap-2">
+          <RefreshCw className={cn('size-4', pending && 'animate-spin')} /> Consultar agora
+        </Button>
+        <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
+      </div>
+    )
+  }
+
+  if (!ehRecusada(nota.status)) {
+    // Cancelada, com cancelamento recusado ou em andamento, parada em Enviando ou já
+    // descartada: o card mostra o que dá para fazer.
+    return (
+      <div className="space-y-4 py-2">
+        <NfSaidaCard nota={nota} onAtualizada={onAtualizada} />
+        {nota.status === 'Descartada' && <Button onClick={onTentarDeNovo} className="h-11 w-full">Tentar de novo</Button>}
+        <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3 py-2">
-      <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3">
-        <XCircle size={18} className="mt-0.5 shrink-0 text-red-600" />
-        <div className="text-sm text-red-800">
-          <p className="font-medium">A nota não foi autorizada</p>
-          <p className="whitespace-pre-line">{nota.motivoStatus ?? r.erro ?? 'Sem motivo informado.'}</p>
-        </div>
+    <div className="space-y-4 py-2">
+      <div className="border-l-4 border-l-destructive pl-3">
+        <p className="text-lg font-semibold">A SEFAZ recusou a nota</p>
+        <p className="whitespace-pre-line text-sm text-muted-foreground">{nota.motivoStatus ?? r.erro ?? 'Sem motivo informado.'}</p>
       </div>
-      <p className="text-xs text-slate-500">
-        Corrija o que a SEFAZ apontou (em geral, dados do cliente na venda) e tente de novo — a nova
-        tentativa usa um número de controle novo.
+      <p className="text-sm">
+        Nada foi faturado. Corrija o que a SEFAZ apontou (em geral, dados do cliente na venda) e tente de novo —
+        a nova tentativa usa um número de controle novo.
       </p>
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onVoltar}>Fechar</Button>
-        <Button onClick={onTentarDeNovo}>Tentar de novo</Button>
-      </div>
+      <Button onClick={onTentarDeNovo} className="h-11 w-full">Tentar de novo</Button>
+      <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
     </div>
   )
 }

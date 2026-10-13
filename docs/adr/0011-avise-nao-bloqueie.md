@@ -14,6 +14,13 @@ incidente real; o incidente desta não está registrado.
 Nas palavras do `AGENTS.md`: "validação que discorda do usuário vira aviso e deixa gravar; só o
 efeito derivado (preencher um valor sozinho) é que não acontece."
 
+Exceções:
+
+- Venda com NF de saída autorizada em produção não se cancela
+  ([ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md)).
+- CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda
+  ([ADR-0015](0015-documento-invalido-do-comprador-bloqueia.md)).
+
 ## Por quê
 
 Não registrado.

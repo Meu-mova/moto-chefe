@@ -198,14 +198,15 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // usado em toda chamada seguinte. Ver src/lib/notagateway/.
 // ─── notas_fiscais_saida (NF-e própria emitida pela Nota Gateway) ───────────
 // Uma linha por tentativa (id externo). Homologação não fatura a venda; em
-// produção um índice parcial garante uma nota viva por venda (migração 0109).
+// produção um índice parcial garante uma nota viva por venda (a migração mais
+// recente que cria notas_fiscais_saida_uma_viva_idx).
 export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   id:           uuid('id').primaryKey().defaultRandom(),
   vendaId:      uuid('venda_id').notNull(),
   grupoId:      uuid('grupo_id').notNull(),
   idExterno:    text('id_externo').notNull().unique(),
   ambiente:     text('ambiente').notNull(),
-  /** Enviando (nosso) → Processando / Autorizada / Negada / Cancelada (da API). */
+  /** Enviando, Processando e Descartada são nossos; o resto vem da API. Classifique por notagateway/status.ts. */
   status:       text('status').notNull().default('Enviando'),
   motivoStatus: text('motivo_status'),
   numero:       text('numero'),
@@ -216,6 +217,11 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   linkXml:      text('link_xml'),
   payload:      jsonb('payload').notNull(),
   emitidaPor:   uuid('emitida_por'),
+  /** Da consulta à API; o prazo de cancelamento conta daqui. */
+  dataAutorizacao:    timestamp('data_autorizacao', { withTimezone: true }),
+  cancelamentoMotivo: text('cancelamento_motivo'),
+  cancelamentoPor:    uuid('cancelamento_por'),
+  cancelamentoEm:     timestamp('cancelamento_em', { withTimezone: true }),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -374,6 +380,9 @@ export const vendas = pgTable('vendas', {
   clienteBairro: text('cliente_bairro'),
   clienteCidade: text('cliente_cidade'),
   clienteEstado: text('cliente_estado'),
+  /** Quem assina pela empresa na venda para pessoa jurídica. Opcional. */
+  representanteNome: text('representante_nome'),
+  representanteCpf: text('representante_cpf'),
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   formaPagamento: text('forma_pagamento').notNull(),
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),

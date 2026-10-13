@@ -21,8 +21,6 @@ import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -77,9 +75,6 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4">
-        <Link href="/estoque" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-          <ArrowLeft size={16} /> Voltar
-        </Link>
         <div>
           <h1 className="text-2xl font-bold">{moto.marca} {moto.modelo}</h1>
         </div>

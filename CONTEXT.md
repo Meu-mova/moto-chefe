@@ -50,6 +50,10 @@ do usuário que faz login.
 Quem compra (pessoa física ou jurídica). O cadastro é único no sistema inteiro, por CPF ou CNPJ,
 e não pertence a um grupo.
 
+**Representante legal**:
+A pessoa que assina o contrato de venda em nome de um cliente pessoa jurídica. É da venda, não do
+cliente: a mesma empresa pode mandar pessoas diferentes em cada compra.
+
 ## Estoque de motos
 
 **Modelo**:
@@ -113,7 +117,7 @@ O registro definitivo da venda de uma moto: cliente, valor, formas de pagamento,
 e NF de saída. A tela chama o ato de "finalizar" ou "registrar" venda.
 
 **Venda faturada**:
-Venda cuja NF de saída já foi emitida em produção.
+Venda cuja NF de saída foi autorizada em produção e não foi cancelada.
 _Evitar_: faturada, para moto (status legado)
 
 **Pedido de venda**:
@@ -244,6 +248,22 @@ NF de saída.
 **NF de saída**:
 Nota fiscal que o grupo emite ao vender a moto, pela Nota Gateway.
 _Evitar_: nota, nota fiscal (sozinhos), quando houver dúvida entre entrada e saída
+
+**Cancelamento da NF de saída**:
+Anulação de uma NF de saída autorizada junto à SEFAZ, possível só dentro do prazo legal (24h,
+na regra geral da SEFAZ). Em produção, a venda continua e volta a aguardar NF de saída.
+_Evitar_: cancelar a venda (é outra coisa: desfaz a venda inteira); excluir a nota
+
+**Tentativa descartada**:
+Tentativa de emissão de NF de saída que ficou parada em "Enviando" porque o envio não chegou à
+Nota Gateway, descartada depois que a consulta confirmou que a nota não existe lá. Nunca valeu na
+SEFAZ e libera nova emissão para a venda.
+_Evitar_: cancelada (cancelamento é de nota que valeu na SEFAZ)
+
+**NF de devolução**:
+Nota que registra o retorno da moto vendida, referenciando a NF de saída original. Depois do
+prazo de cancelamento, é a saída usual; a outra é o cancelamento extemporâneo, pedido à SEFAZ.
+_Evitar_: nota de estorno
 
 **Homologação**:
 Ambiente de teste da emissão fiscal: a nota não vale e não fatura a venda.

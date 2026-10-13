@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
-import { Sidebar } from '@/components/layout/sidebar'
-import { Header } from '@/components/layout/header'
+import { cookies } from 'next/headers'
+import { Sidebar, MenuMobile } from '@/components/layout/sidebar'
+import { COOKIE_SIDEBAR_RECOLHIDA } from '@/components/layout/sidebar-cookie'
+import { BotaoVoltar } from '@/components/layout/botao-voltar'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -43,17 +45,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // de pendurar. É a consulta que estava travando o layout inteiro.
   const comunicadosNaoLidos = await withTimeout(buscarComunicadosNaoLidosAction(), 8000).catch(() => [])
 
+  const recolhida = (await cookies()).get(COOKIE_SIDEBAR_RECOLHIDA)?.value === '1'
+  const itensIds = itensDoUsuario(usuario).map(i => i.id)
+  const usuarioMenu = { nome: usuario.nome, email: usuario.email, papel: usuario.papel }
+
   return (
     <Providers>
-      <div className="flex min-h-screen">
-        <Sidebar
-          itensIds={itensDoUsuario(usuario).map(i => i.id)}
-          conecta={usuario.conecta}
-        />
-        <div className="flex-1 flex flex-col">
-          <Header />
+      <div className="flex min-h-screen bg-background">
+        <Sidebar itensIds={itensIds} conecta={usuario.conecta} usuario={usuarioMenu} recolhidaInicial={recolhida} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MenuMobile itensIds={itensIds} conecta={usuario.conecta} usuario={usuarioMenu} />
           <GroupSelector usuario={usuario} />
-          <main className="flex-1 p-6 bg-slate-50">
+          <main className="min-w-0 flex-1 p-4 lg:p-6">
+            <BotaoVoltar />
             {children}
           </main>
         </div>

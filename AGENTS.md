@@ -158,6 +158,10 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   nunca `{ ...value, ...patch }` — a resposta async desfaz a última tecla.
 - **Avise, não bloqueie**: validação que discorda do usuário vira aviso e deixa
   gravar; só o efeito derivado (preencher um valor sozinho) é que não acontece.
+  Exceções: venda com NF de saída do MOVA viva em produção (autorizada, em
+  emissão ou em cancelamento) não se cancela; o "Cancelar venda" recusa e orienta
+  a cancelar a NF antes (ADR-0014). E
+  CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
 
 ## Fiscal — cuidado redobrado
 
@@ -165,6 +169,10 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   `/admin/notas-fiscais`). Ambiente por grupo; **homologação nunca fatura a venda
   nem manda e-mail ao cliente**. Não apague linhas de `notas_fiscais_saida`
   (o número da próxima tentativa sai do histórico).
+- **Status da NF de saída**: para saber se a nota trava a venda, se ainda está em
+  andamento ou se foi recusada, use `src/lib/notagateway/status.ts`. A API tem
+  status intermediários que uma lista de nomes escrita à mão deixa escapar (#80:
+  podia liberar uma segunda nota para a mesma venda).
 - O **nome fiscal do produto na NF de saída é SEMPRE o literal da nota de
   entrada** (`motos_fiscal.x_prod`) — decisão firme do Cesar; não "padronize".
 - Origem na saída: entrada 1 sai 2; 0, 2 e 4 saem iguais (regra do contador).

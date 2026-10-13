@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Search, UserCheck, UserX, Loader2 } from 'lucide-react'
 import { buscarClientePorCpfAction } from '../../vendas/actions'
+import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { DocumentoClienteInput, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 export type ClienteForm = {
   clienteNome: string
@@ -26,24 +28,8 @@ export const CLIENTE_VAZIO: ClienteForm = {
   clienteBairro: '', clienteCidade: '', clienteEstado: '',
 }
 
-export function validarCpf(cpf: string): boolean {
-  const d = cpf.replace(/\D/g, '')
-  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
-  let sum = 0
-  for (let i = 0; i < 9; i++) sum += +d[i] * (10 - i)
-  let r = sum % 11
-  const dig1 = r < 2 ? 0 : 11 - r
-  if (dig1 !== +d[9]) return false
-  sum = 0
-  for (let i = 0; i < 10; i++) sum += +d[i] * (11 - i)
-  r = sum % 11
-  const dig2 = r < 2 ? 0 : 11 - r
-  return dig2 === +d[10]
-}
-
 export function clienteCompleto(v: ClienteForm): boolean {
-  const cpf = v.clienteCpf.replace(/\D/g, '')
-  return !!(v.clienteNome.trim() && cpf.length === 11 && validarCpf(cpf) && v.clienteCelular.trim())
+  return !!(v.clienteNome.trim() && lerDocumentoCliente(v.clienteCpf).ok && v.clienteCelular.trim())
 }
 
 export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChange: React.Dispatch<React.SetStateAction<ClienteForm>> }) {
@@ -57,15 +43,10 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
   // estado anterior — o CPF perdia o último dígito e o botão nunca habilitava.
   const set = (patch: Partial<ClienteForm>) => onChange(prev => ({ ...prev, ...patch }))
 
-  function handleCpf(v: string) {
-    const d = v.replace(/\D/g, '').slice(0, 11)
-    const formatado = d
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d{1})/, '$1.$2.$3-$4')
-    set({ clienteCpf: formatado })
+  function handleDocumento(mascarado: string) {
+    set({ clienteCpf: mascarado })
     setStatus(null)
-    if (d.length === 11) buscarClientePorCpf(d)
+    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(soDigitosDoc(mascarado))
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {
@@ -127,9 +108,7 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
     }
   }
 
-  const cpfDigits = value.clienteCpf.replace(/\D/g, '')
-  const cpfCompleto = cpfDigits.length === 11
-  const cpfValido = cpfCompleto && validarCpf(cpfDigits)
+  const juridica = tipoPessoaSeCompleto(value.clienteCpf) === 'juridica'
 
   return (
     <div className="space-y-3">
@@ -145,26 +124,21 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
             <UserX size={11} /> Novo cliente — preencha os dados abaixo
           </span>
         )}
+        <TipoPessoaEtiqueta documento={value.clienteCpf} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>CPF <span className="text-red-500">*</span></Label>
-          <Input
-            value={value.clienteCpf}
-            onChange={e => handleCpf(e.target.value)}
-            placeholder="000.000.000-00"
-            className={cpfCompleto && !cpfValido ? 'border-red-400 focus-visible:ring-red-400' : ''}
-          />
-          {cpfCompleto && !cpfValido && <p className="text-xs text-red-500">CPF inválido</p>}
+          <Label>CPF/CNPJ <span className="text-red-500">*</span></Label>
+          <DocumentoClienteInput value={value.clienteCpf} onChange={handleDocumento} ocultarValido={buscandoCliente} />
         </div>
         <div className="space-y-1">
           <Label>Celular <span className="text-red-500">*</span></Label>
           <Input value={value.clienteCelular} onChange={e => handleCelular(e.target.value)} placeholder="(00) 00000-0000" />
         </div>
         <div className="sm:col-span-2 space-y-1">
-          <Label>Nome completo <span className="text-red-500">*</span></Label>
-          <Input value={value.clienteNome} onChange={e => set({ clienteNome: e.target.value })} placeholder="Nome completo do cliente" />
+          <Label>{juridica ? 'Razão social' : 'Nome completo'} <span className="text-red-500">*</span></Label>
+          <Input value={value.clienteNome} onChange={e => set({ clienteNome: e.target.value })} placeholder={juridica ? 'Razão social da empresa' : 'Nome completo do cliente'} />
         </div>
         <div className="sm:col-span-2 space-y-1">
           <Label>E-mail</Label>

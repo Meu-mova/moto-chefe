@@ -2,10 +2,12 @@ import { db } from '@/lib/db'
 import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
+import { ambienteLiberado } from './ambiente'
 
 /**
- * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO — cada CNPJ
- * tem a sua, e o MOVA vai ser vendido para outros lojistas.
+ * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
+ * vai ser vendido para outros lojistas; hoje os nossos grupos usam a chave da
+ * mesma conta.
  *
  * A emissão é assíncrona: o POST devolve 200 sem corpo útil e a SEFAZ responde
  * segundos depois, lida pelo GET com o NOSSO id.
@@ -29,13 +31,17 @@ export async function configNotaGateway(grupoId: string): Promise<ConfigNotaGate
   }
 }
 
-async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST', caminho: string, corpo?: unknown) {
+async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown) {
+  if (!ambienteLiberado(cfg.ambiente, process.env.VERCEL_ENV)) {
+    throw new Error('Fora da produção, a Nota Gateway só roda em homologação — troque o ambiente do grupo em Admin → Notas fiscais')
+  }
   const res = await fetch(`${API}${caminho}`, {
     method,
     headers: {
       Authorization: `Basic ${cfg.token}`,
       Accept: 'application/json',
-      ...(corpo ? { 'Content-Type': 'application/json' } : {}),
+      // A doc do cancelamento (DELETE) pede Content-Type mesmo sem corpo.
+      ...(corpo || method === 'DELETE' ? { 'Content-Type': 'application/json' } : {}),
     },
     body: corpo ? JSON.stringify(corpo) : undefined,
     cache: 'no-store',
@@ -65,6 +71,20 @@ export async function enviarNfe(cfg: ConfigNotaGateway, payload: unknown): Promi
   if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
 }
 
+/** 4xx no pedido de cancelamento: a API não aceitou. A consulta diz em que pé a nota ficou. */
+export class CancelamentoRecusado extends Error {}
+
+/**
+ * Pede o cancelamento. Assíncrono como a emissão: 200 só diz que o pedido
+ * entrou; Cancelada ou CancelamentoNegado chegam pela consulta. Pode ser
+ * reenviado depois de recusa ou timeout (resposta da Nota Gateway, #66).
+ */
+export async function cancelarNfe(cfg: ConfigNotaGateway, idExterno: string): Promise<void> {
+  const r = await chamar(cfg, 'DELETE', `/empresas/${cfg.empresaId}/nf-e/${encodeURIComponent(idExterno)}`)
+  if (r.status >= 400 && r.status < 500) throw new CancelamentoRecusado(mensagensDeErro(r.json, r.texto))
+  if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
+}
+
 export type NfeConsultada = {
   status: string
   motivoStatus: string | null
@@ -75,14 +95,27 @@ export type NfeConsultada = {
   protocolo: string | null
   linkDanfe: string | null
   linkXml: string | null
+  /** ISO; vazio na nota negada, inclusive depois do cancelamento lógico. */
+  dataAutorizacao: string | null
+  dataUltimaAlteracao: string | null
 }
 
-/** null = a API ainda não conhece esse id (acabou de ser enviado). */
-export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string): Promise<NfeConsultada | null> {
+// A doc traz ISO com Z; formato que não vira data conta como ausente, para não
+// derrubar a gravação do resto do retorno.
+function dataIso(valor: unknown): string | null {
+  return typeof valor === 'string' && !Number.isNaN(Date.parse(valor)) ? valor : null
+}
+
+/**
+ * null = a API ainda não conhece esse id (acabou de ser enviado). No modo
+ * estrito, só o "não encontrada" da Nota Gateway conta: para descartar uma
+ * tentativa (#88), um 404 sem o código não prova que a nota não existe.
+ */
+export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string, { estrito = false }: { estrito?: boolean } = {}): Promise<NfeConsultada | null> {
   const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/${encodeURIComponent(idExterno)}`)
   // "Não encontrada" vem como 400 com o código NFe0001, não como 404.
   const naoEncontrada = Array.isArray(r.json) && r.json.some((e: { codigo?: string }) => e?.codigo === 'NFe0001')
-  if (r.status === 404 || naoEncontrada) return null
+  if (naoEncontrada || (r.status === 404 && !estrito)) return null
   if (r.status >= 400) throw new Error(`Falha ao consultar a nota: ${mensagensDeErro(r.json, r.texto)}`)
   const n = r.json as Record<string, any>
   return {
@@ -95,6 +128,8 @@ export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string): P
     protocolo: n?.protocolo?.numero ?? null,
     linkDanfe: n?.linkDanfe || null,
     linkXml: n?.linkDownloadXml || null,
+    dataAutorizacao: dataIso(n?.dataAutorizacao),
+    dataUltimaAlteracao: dataIso(n?.dataUltimaAlteracao),
   }
 }
 

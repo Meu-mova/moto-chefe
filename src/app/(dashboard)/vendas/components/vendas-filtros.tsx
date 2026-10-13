@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MultiSelectFiltro } from '../../estoque/components/multi-select-filtro'
-import { Search, FileText, CalendarRange, X } from 'lucide-react'
+import { Search, FileText, CalendarRange, Filter, X } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 type Loja      = { id: string; nome: string }
 type Modelo    = { id: string; modelo: string }
@@ -55,6 +56,7 @@ export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chass
   const [nf,         setNf]         = useState(nfInicial)
   const [dataInicio, setDataInicio] = useState(dataInicioInicial)
   const [dataFim,    setDataFim]    = useState(dataFimInicial)
+  const [gaveta,     setGaveta]     = useState(false)
 
   useDebounce('q',  chassi, searchParams, router, pathname)
   useDebounce('nf', nf,     searchParams, router, pathname)
@@ -87,95 +89,147 @@ export function VendasFiltros({ lojas, modelos, vendedores, lojaIdDefault, chass
 
   const temFiltro = searchParams.toString() !== ''
 
+  // Conta o que a pessoa escolheu; o período padrão (últimos 30 dias) não conta.
+  const ativos = [modelosSel, vendedoresSel, lojaParam !== null ? lojasSel : [], concSel].filter(l => l.length > 0).length
+    + (nf ? 1 : 0) + (searchParams.get('de') || searchParams.get('ate') ? 1 : 0)
+
+  const filtroModelo = (
+    <MultiSelectFiltro
+      placeholder="Modelo"
+      opcoes={modelos.map(m => ({ value: m.id, label: m.modelo }))}
+      selecionados={modelosSel}
+      onChange={v => atualizar('modelo', v)}
+      className="w-full lg:w-auto lg:min-w-[12rem]"
+      comBusca
+    />
+  )
+  const filtroVendedor = (
+    <MultiSelectFiltro
+      placeholder="Vendedor"
+      opcoes={vendedores.map(v => ({ value: v.id, label: v.nome }))}
+      selecionados={vendedoresSel}
+      onChange={v => atualizar('vendedor', v)}
+      className="w-full lg:w-auto lg:min-w-[11rem]"
+      comBusca
+    />
+  )
+  const filtroLoja = lojas.length > 0 && (
+    <MultiSelectFiltro
+      placeholder="Loja"
+      opcoes={lojas.map(l => ({ value: l.id, label: l.nome }))}
+      selecionados={lojasSel}
+      onChange={v => atualizar('loja', v)}
+      className="w-full lg:w-auto lg:min-w-[11rem]"
+    />
+  )
+  const filtroConc = podeConciliacao && (
+    <MultiSelectFiltro
+      placeholder="Conciliação"
+      opcoes={CONC_OPCOES}
+      selecionados={concSel}
+      onChange={v => atualizar('conc', v)}
+      className="w-full lg:w-auto lg:min-w-[10rem]"
+    />
+  )
+  const buscaChassi = (largura: string) => (
+    <div className={`relative ${largura}`}>
+      <Search size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        placeholder="Buscar chassi..."
+        aria-label="Buscar chassi"
+        value={chassi}
+        onChange={e => setChassi(e.target.value)}
+        className="h-10 pr-9 pl-8 md:text-base lg:h-9 lg:text-sm"
+      />
+      {chassi && (
+        <button type="button" onClick={() => setChassi('')} aria-label="Limpar busca"
+          className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+          <X className="size-4" />
+        </button>
+      )}
+    </div>
+  )
+  const buscaNf = (largura: string) => (
+    <div className={`relative ${largura}`}>
+      <FileText size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        placeholder="Buscar NF..."
+        aria-label="Buscar NF"
+        value={nf}
+        onChange={e => setNf(e.target.value)}
+        className="h-10 pl-8 md:text-base lg:h-9 lg:text-sm"
+      />
+    </div>
+  )
+  const periodo = (
+    <div className="flex items-center gap-1.5">
+      <CalendarRange size={15} className="shrink-0 text-muted-foreground" />
+      <Input
+        type="date"
+        aria-label="De"
+        value={dataInicio}
+        onChange={e => { setDataInicio(e.target.value); atualizarData('de', e.target.value) }}
+        className="h-10 min-w-0 flex-1 md:text-base lg:h-9 lg:w-36 lg:flex-none lg:text-sm"
+      />
+      <span className="text-xs text-muted-foreground">até</span>
+      <Input
+        type="date"
+        aria-label="Até"
+        value={dataFim}
+        onChange={e => { setDataFim(e.target.value); atualizarData('ate', e.target.value) }}
+        className="h-10 min-w-0 flex-1 md:text-base lg:h-9 lg:w-36 lg:flex-none lg:text-sm"
+      />
+    </div>
+  )
+
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
-      {/* Linha 1 — filtros por seleção */}
-      <div className="flex flex-wrap items-center gap-2">
-        <MultiSelectFiltro
-          placeholder="Modelo"
-          opcoes={modelos.map(m => ({ value: m.id, label: m.modelo }))}
-          selecionados={modelosSel}
-          onChange={v => atualizar('modelo', v)}
-          className="min-w-[12rem]"
-          comBusca
-        />
+    <>
+      {/* Celular/tablet: busca à vista e um botão "Filtros" com o resto numa gaveta. */}
+      <div className="flex gap-2 lg:hidden">
+        {buscaChassi('min-w-0 flex-1')}
+        <Button type="button" variant="outline" onClick={() => setGaveta(true)} className="h-10 gap-1.5">
+          <Filter className="size-4" /> Filtros
+          {ativos > 0 && <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground">{ativos}</span>}
+        </Button>
+      </div>
 
-        <MultiSelectFiltro
-          placeholder="Vendedor"
-          opcoes={vendedores.map(v => ({ value: v.id, label: v.nome }))}
-          selecionados={vendedoresSel}
-          onChange={v => atualizar('vendedor', v)}
-          className="min-w-[11rem]"
-          comBusca
-        />
+      <Sheet open={gaveta} onOpenChange={setGaveta}>
+        <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto rounded-t-2xl p-4 pb-8">
+          <SheetTitle className="mb-3 text-base">Filtros</SheetTitle>
+          <div className="space-y-3">
+            {filtroModelo}
+            {filtroVendedor}
+            {filtroLoja}
+            {filtroConc}
+            {buscaNf('w-full')}
+            <div>
+              <p className="mb-1 text-sm font-medium">Período</p>
+              {periodo}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={limpar} className="h-11 flex-1 border-input">Limpar</Button>
+              <Button type="button" onClick={() => setGaveta(false)} className="h-11 flex-1">Ver vendas</Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        {lojas.length > 0 && (
-          <MultiSelectFiltro
-            placeholder="Loja"
-            opcoes={lojas.map(l => ({ value: l.id, label: l.nome }))}
-            selecionados={lojasSel}
-            onChange={v => atualizar('loja', v)}
-            className="min-w-[11rem]"
-          />
-        )}
-
-        {podeConciliacao && (
-          <MultiSelectFiltro
-            placeholder="Conciliação"
-            opcoes={CONC_OPCOES}
-            selecionados={concSel}
-            onChange={v => atualizar('conc', v)}
-            className="min-w-[10rem]"
-          />
-        )}
-
+      {/* Desktop: uma linha só — busca, filtros e o período à direita. */}
+      <div className="hidden flex-wrap items-center gap-2 lg:flex">
+        {buscaChassi('w-64')}
+        {buscaNf('w-40')}
+        {filtroModelo}
+        {filtroVendedor}
+        {filtroLoja}
+        {filtroConc}
         {temFiltro && (
-          <Button variant="ghost" size="sm" onClick={limpar} className="ml-auto text-slate-500 hover:text-slate-800 gap-1.5">
+          <Button variant="ghost" size="sm" onClick={limpar} className="gap-1.5 text-muted-foreground hover:text-foreground">
             <X size={13} />
             Limpar filtros
           </Button>
         )}
+        <div className="ml-auto">{periodo}</div>
       </div>
-
-      {/* Linha 2 — busca por texto e período */}
-      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <Input
-            placeholder="Buscar chassi..."
-            value={chassi}
-            onChange={e => setChassi(e.target.value)}
-            className="h-9 w-44 pl-8"
-          />
-        </div>
-
-        <div className="relative">
-          <FileText size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <Input
-            placeholder="Buscar NF..."
-            value={nf}
-            onChange={e => setNf(e.target.value)}
-            className="h-9 w-36 pl-8"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <CalendarRange size={15} className="text-slate-400 shrink-0" />
-          <Input
-            type="date"
-            value={dataInicio}
-            onChange={e => { setDataInicio(e.target.value); atualizarData('de', e.target.value) }}
-            className="h-9 w-36"
-          />
-          <span className="text-xs text-slate-400">até</span>
-          <Input
-            type="date"
-            value={dataFim}
-            onChange={e => { setDataFim(e.target.value); atualizarData('ate', e.target.value) }}
-            className="h-9 w-36"
-          />
-        </div>
-      </div>
-    </div>
+    </>
   )
 }

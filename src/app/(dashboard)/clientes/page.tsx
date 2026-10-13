@@ -1,20 +1,16 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { userAgent } from 'next/server'
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarClientesAction, listarCidadesAction } from './actions'
 import { ClientesTable } from './components/clientes-table'
 import { ClienteForm } from './components/cliente-form'
-import { Input } from '@/components/ui/input'
+import { Plus } from 'lucide-react'
+import { ClientesFiltros } from './components/clientes-filtros'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 function buildUrl(params: Record<string, string | undefined>, overrides: Record<string, string>) {
   const p = new URLSearchParams()
@@ -34,6 +30,9 @@ export default async function ClientesPage({
   if (!usuarioPodeAcessar(usuario, '/clientes')) redirect('/dashboard')
 
   const isAdmin = usuario.papel === 'admin_geral'
+  // Celular/tablet mostra cartões: 20 por página para o "Próxima" não ficar tão longe.
+  const { device } = userAgent({ headers: await headers() })
+  const celularOuTablet = device.type === 'mobile' || device.type === 'tablet'
   const pagina = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
 
   const [resultado, cidades] = await Promise.all([
@@ -43,6 +42,7 @@ export default async function ClientesPage({
       sexo: params.sexo,
       cidade: params.cidade,
       page: pagina,
+      porPagina: celularOuTablet ? 20 : 50,
     }),
     listarCidadesAction(),
   ])
@@ -53,83 +53,30 @@ export default async function ClientesPage({
   const fim = Math.min(pagina * pageSize, total)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 lg:pb-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-slate-500 text-sm">Cadastro e histórico de clientes</p>
+          <p className="text-sm text-muted-foreground">Cadastro e histórico de clientes</p>
         </div>
-        <ClienteForm trigger={<Button>Novo Cliente</Button>} />
+        <ClienteForm trigger={<Button className="hidden lg:inline-flex">Novo Cliente</Button>} />
       </div>
+      {/* Celular e tablet: "novo" suspenso no canto, ao alcance do polegar. */}
+      <ClienteForm
+        trigger={
+          <Button aria-label="Novo cliente" className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 size-14 rounded-full shadow-lg lg:hidden">
+            <Plus className="size-6" />
+          </Button>
+        }
+      />
+
+      <ClientesFiltros
+        valores={{ busca: params.busca, tipoPessoa: params.tipoPessoa, sexo: params.sexo, cidade: params.cidade }}
+        cidades={cidades}
+      />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form method="GET" className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Busca</label>
-              <Input
-                name="busca"
-                placeholder="Nome, CPF/CNPJ ou celular..."
-                defaultValue={params.busca ?? ''}
-              />
-            </div>
-
-            <div className="w-44">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Tipo</label>
-              <Select name="tipoPessoa" defaultValue={params.tipoPessoa ?? 'todos'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="fisica">Pessoa Física</SelectItem>
-                  <SelectItem value="juridica">Pessoa Jurídica</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-44">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Sexo</label>
-              <Select name="sexo" defaultValue={params.sexo ?? 'todos'}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="masculino">Masculino</SelectItem>
-                  <SelectItem value="feminino">Feminino</SelectItem>
-                  <SelectItem value="nao_identificado">Não identificado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {cidades.length > 0 && (
-              <div className="w-44">
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Cidade</label>
-                <Select name="cidade" defaultValue={params.cidade ?? 'todos'}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todas</SelectItem>
-                    {cidades.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Button type="submit">Filtrar</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">
             {total === 0
               ? 'Nenhum cliente encontrado'
@@ -142,7 +89,7 @@ export default async function ClientesPage({
               ) : (
                 <Link href={buildUrl(params, { page: String(pagina - 1) })} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Anterior</Link>
               )}
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-muted-foreground">
                 Página {pagina} de {totalPaginas}
               </span>
               {pagina >= totalPaginas ? (

@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, FileSearch, FileSignature, Mail, Printer, RefreshCw, ShieldAlert, Upload, X, Check } from 'lucide-react'
+import { Copy, FileSearch, Mail, MoreHorizontal, Printer, RefreshCw, Upload, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { toast } from 'sonner'
 import {
   listarDocumentosDaVendaAction, enviarDocumentoAssinaturaAction,
@@ -19,19 +21,44 @@ function estaVivo(d: DocumentoResumo): boolean {
   return d.status === 'pendente' || d.status === 'visualizado'
 }
 
-function Badge({ status, expirado }: { status: string; expirado: boolean }) {
-  if (status === 'assinado') {
-    return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><Check size={11} /> Assinado</span>
-  }
-  if (expirado) {
-    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">Expirado</span>
-  }
-  if (status === 'pendente' || status === 'visualizado') {
-    return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-      {status === 'visualizado' ? 'Cliente abriu o link' : 'Aguardando assinatura'}
-    </span>
-  }
-  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Não enviado</span>
+type Situacao = 'nada' | 'cancelado' | 'aguardando' | 'abriu' | 'expirado' | 'assinado'
+
+// Uma tabela só para texto, cor e borda de cada situação do documento.
+const SITUACAO: Record<Situacao, { rotulo: string; cor: string; borda: string }> = {
+  nada:       { rotulo: 'Não enviado',          cor: 'text-muted-foreground', borda: 'border-l-border' },
+  cancelado:  { rotulo: 'Envio cancelado',      cor: 'text-muted-foreground', borda: 'border-l-border' },
+  aguardando: { rotulo: 'Aguardando o cliente', cor: 'text-warning',          borda: 'border-l-warning' },
+  abriu:      { rotulo: 'Cliente abriu o link', cor: 'text-warning',          borda: 'border-l-warning' },
+  expirado:   { rotulo: 'Link expirado',        cor: 'text-destructive',      borda: 'border-l-destructive' },
+  assinado:   { rotulo: 'Assinado',             cor: 'text-primary-text',     borda: 'border-l-primary' },
+}
+
+function situacaoDe(doc: DocumentoResumo | null, expirado: boolean): Situacao {
+  if (doc?.status === 'assinado') return 'assinado'
+  if (expirado) return 'expirado'
+  if (doc?.status === 'visualizado') return 'abriu'
+  if (doc?.status === 'pendente') return 'aguardando'
+  if (doc?.status === 'cancelado') return 'cancelado'
+  return 'nada'
+}
+
+const dataHora = (d: string | Date) =>
+  new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
+
+const botaoPrincipal = 'inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50'
+const botaoSecundario = 'inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50'
+const itemMenu = 'flex w-full items-start gap-3 border-t border-border px-4 py-3 text-left hover:bg-muted disabled:opacity-50'
+
+function ItemMenu({ icone, titulo, descricao, perigo }: { icone?: React.ReactNode; titulo: string; descricao: string; perigo?: boolean }) {
+  return (
+    <>
+      <span className="mt-0.5 text-muted-foreground">{icone}</span>
+      <span>
+        <span className={cn('block text-sm font-medium', perigo ? 'text-destructive' : 'text-foreground')}>{titulo}</span>
+        <span className="block text-xs text-muted-foreground">{descricao}</span>
+      </span>
+    </>
+  )
 }
 
 export function PainelAssinatura(
@@ -48,6 +75,7 @@ export function PainelAssinatura(
   const [autorizando, setAutorizando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [pending, startTransition] = useTransition()
+  const [menu, setMenu] = useState<TipoDocumento | null>(null)
 
   useEffect(() => {
     if (!aberto) return
@@ -70,6 +98,14 @@ export function PainelAssinatura(
       setMotivo('')
       recarregar()
     })
+  }
+
+  // O mais recente do tipo: assinado manda, senão o vivo, senão o último.
+  function docDoTipo(tipo: TipoDocumento) {
+    const daVez = (docs ?? []).filter(d => d.tipo === tipo)
+    const doc = daVez.find(d => d.status === 'assinado') ?? daVez.find(estaVivo) ?? daVez[0] ?? null
+    const expirado = !!doc && estaVivo(doc) && new Date(doc.expiraEm) < new Date()
+    return { doc, expirado }
   }
 
   // Contrato assinado (por qualquer caminho) dispensa autorização.
@@ -153,209 +189,183 @@ export function PainelAssinatura(
     })
   }
 
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
-        <FileSignature size={13} /> Assinatura digital
-      </p>
+  const menuDoc = TIPOS.find(t => t.tipo === menu)
 
-      {docs === null && <p className="text-xs text-slate-400">Carregando…</p>}
+  return (
+    <div className="space-y-3">
+      {docs === null && <p className="py-6 text-center text-muted-foreground">Carregando documentos…</p>}
 
       {docs !== null && TIPOS.map(({ tipo, label }) => {
-        // O mais recente do tipo: assinado manda, senão o vivo, senão o último.
-        const daVez = docs.filter(d => d.tipo === tipo)
-        const doc = daVez.find(d => d.status === 'assinado') ?? daVez.find(estaVivo) ?? daVez[0] ?? null
-        const expirado = !!doc && estaVivo(doc) && new Date(doc.expiraEm) < new Date()
-
+        const { doc, expirado } = docDoTipo(tipo)
+        const sit = situacaoDe(doc, expirado)
+        const vivo = !!doc && estaVivo(doc) && !expirado
+        // Uma ação principal por situação; o resto fica no "Mais opções".
+        const principal =
+          sit === 'nada' || sit === 'expirado' || sit === 'cancelado'
+            ? { texto: sit === 'expirado' ? 'Enviar de novo por e-mail' : 'Enviar por e-mail ao cliente', acao: () => enviarPorEmail(tipo) }
+            : null
         return (
-          <div key={tipo} className="rounded-lg border bg-white px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-700">{label}</span>
-              <Badge status={doc?.status ?? 'nao_enviado'} expirado={expirado} />
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {(!doc || doc.status === 'cancelado' || expirado) && doc?.status !== 'assinado' && (
-                <>
-                  <button
-                    onClick={() => enviarPorEmail(tipo)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                    title="Cria o documento e envia o link por e-mail ao cliente"
-                  >
-                    <Mail size={12} /> Enviar por e-mail
-                  </button>
-                  <button
-                    onClick={() => gerarLink(tipo)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                    title="Cria o documento e copia o link, sem enviar e-mail — para mandar por outro canal"
-                  >
-                    <Copy size={12} /> Copiar link
-                  </button>
-                </>
-              )}
-
-              {doc && estaVivo(doc) && !expirado && (
-                <>
-                  <button
-                    onClick={() => reenviar(doc.id)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                    title="Renova o prazo do link (+7 dias) e copia — não envia nada"
-                  >
-                    <RefreshCw size={12} /> Renovar link
-                  </button>
-                  <button
-                    onClick={() => cancelar(doc.id)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    <X size={12} /> Cancelar
-                  </button>
-                </>
-              )}
-
-              {doc && (
-                <button
-                  onClick={() => copiar(doc.token)}
-                  className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                  title="Copiar o link para enviar por outro canal"
-                >
-                  <Copy size={12} /> Copiar link
-                </button>
-              )}
-
-              {/* Cliente sem acesso digital: imprime, assina à caneta na loja,
-                  e a via digitalizada volta pelo botão ao lado. */}
-              {doc?.status !== 'assinado' && (
-                <>
-                  <a
-                    href={`/vendas/${vendaId}/documento/${tipo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                    title="Via em papel, para o cliente assinar à caneta na loja"
-                  >
-                    <Printer size={12} /> Imprimir
-                  </a>
-                  <label
-                    className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 ${pending ? 'opacity-50' : ''}`}
-                    title="Anexar a foto ou o PDF do documento já assinado no papel"
-                  >
-                    <Upload size={12} /> Registrar assinatura em papel
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      className="hidden"
-                      disabled={pending}
-                      onChange={e => {
-                        const f = e.target.files?.[0]
-                        e.target.value = ''
-                        if (f) registrarPapel(tipo, f)
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-
-              {doc?.status === 'assinado' && podeVerDossie && (
-                <a
-                  href={`/assinaturas/${doc.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100"
-                  title="Documento assinado, foto do cliente, hash e trilha de eventos — é o que se leva a uma contestação"
-                >
-                  <FileSearch size={12} /> Ver dossiê
-                </a>
-              )}
-            </div>
-
-            {/* O link à vista, não só atrás do botão: quando o WhatsApp falha, o
-                vendedor precisa enxergar e mandar por outro canal na hora. */}
-            {doc && doc.status !== 'cancelado' && base && (
-              <p className="mt-2 select-all break-all rounded bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-500">
-                {base}/assinar/{doc.token}
+          <section key={tipo} className={cn('rounded-lg border border-l-4 border-border bg-card p-4', SITUACAO[sit].borda)}>
+            <h3 className="font-semibold">{label}</h3>
+            <p className={cn('text-sm font-medium', SITUACAO[sit].cor)}>{SITUACAO[sit].rotulo}</p>
+            {doc && (sit === 'aguardando' || sit === 'abriu' || sit === 'expirado') && (
+              <p className="text-xs text-muted-foreground">
+                {sit === 'expirado' ? 'Expirou em' : 'Expira em'} {dataHora(doc.expiraEm)}
               </p>
             )}
 
             {/* O Resend avisou por webhook que o e-mail voltou (bounce/spam):
                 o cliente NÃO recebeu, mesmo o painel tendo dito "enviado". */}
-            {doc?.emailVoltou && (
-              <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
-                ⚠️ O e-mail voltou (o endereço rejeitou) — o cliente não recebeu. Confira o e-mail no cadastro da venda e reenvie.
+            {doc?.emailVoltou && sit !== 'assinado' && (
+              <p className="mt-3 border-l-2 border-l-destructive pl-3 text-sm text-destructive">
+                O e-mail voltou: o cliente não recebeu. Confira o e-mail no cadastro da venda e envie de novo, ou copie o link.
               </p>
             )}
-          </div>
+
+            {/* O link à vista, não só atrás do botão: quando o WhatsApp falha, o
+                vendedor precisa enxergar e mandar por outro canal na hora. */}
+            {vivo && base && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted py-1 pr-1 pl-3">
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground select-all">{base}/assinar/{doc.token}</span>
+                <button type="button" onClick={() => copiar(doc.token)} className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-foreground hover:bg-background">
+                  <Copy className="size-4" /> Copiar
+                </button>
+              </div>
+            )}
+
+            <div className="mt-3 flex gap-2">
+              {principal && (
+                <button type="button" onClick={principal.acao} disabled={pending} className={botaoPrincipal}>
+                  <Mail className="size-4" /> {principal.texto}
+                </button>
+              )}
+              {sit === 'assinado' && podeVerDossie && doc && (
+                <a
+                  href={`/assinaturas/${doc.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(botaoSecundario, 'flex-1')}
+                  title="Documento assinado, foto do cliente, hash e trilha de eventos — é o que se leva a uma contestação"
+                >
+                  <FileSearch className="size-4" /> Ver dossiê
+                </a>
+              )}
+              {(sit !== 'assinado' || doc) && (
+                <button type="button" onClick={() => setMenu(tipo)} className={cn(botaoSecundario, !principal && 'flex-1')} aria-label={`Mais opções: ${label}`}>
+                  <MoreHorizontal className="size-5" />{!principal && 'Mais opções'}
+                </button>
+              )}
+            </div>
+          </section>
         )
       })}
 
+      <Sheet open={!!menuDoc} onOpenChange={o => !o && setMenu(null)}>
+        <SheetContent side="bottom" className="gap-0 rounded-t-2xl p-0 pb-6 sm:mx-auto sm:max-w-md">
+          {menuDoc && (() => {
+            const { tipo, label } = menuDoc
+            const { doc, expirado } = docDoTipo(tipo)
+            const vivo = !!doc && estaVivo(doc) && !expirado
+            const fechar = () => setMenu(null)
+            return (
+              <>
+                <SheetTitle className="px-4 py-4 text-base">{label}</SheetTitle>
+                {!vivo && doc?.status !== 'assinado' && (
+                  <button type="button" disabled={pending} onClick={() => { fechar(); gerarLink(tipo) }} className={itemMenu}>
+                    <ItemMenu icone={<Copy className="size-4" />} titulo="Criar link sem enviar e-mail" descricao="Copia o link para mandar por WhatsApp ou outro canal" />
+                  </button>
+                )}
+                {vivo && (
+                  <button type="button" disabled={pending} onClick={() => { fechar(); reenviar(doc.id) }} className={itemMenu}>
+                    <ItemMenu icone={<RefreshCw className="size-4" />} titulo="Renovar prazo do link" descricao="Mais 7 dias e copia o link. Não envia nada ao cliente" />
+                  </button>
+                )}
+                {doc && !vivo && doc.status !== 'cancelado' && (
+                  <button type="button" onClick={() => { fechar(); copiar(doc.token) }} className={itemMenu}>
+                    <ItemMenu icone={<Copy className="size-4" />} titulo="Copiar link do documento" descricao={doc.status === 'assinado' ? 'O cliente vê o documento já assinado' : 'O link expirou: o cliente não consegue mais assinar por ele'} />
+                  </button>
+                )}
+                {/* Cliente sem acesso digital: imprime, assina à caneta na loja,
+                    e a via digitalizada volta pelo item de baixo. */}
+                {doc?.status !== 'assinado' && (<>
+                <a href={`/vendas/${vendaId}/documento/${tipo}`} target="_blank" rel="noopener noreferrer" onClick={fechar} className={itemMenu}>
+                  <ItemMenu icone={<Printer className="size-4" />} titulo="Imprimir para assinar à caneta" descricao="Para o cliente sem celular ou sem e-mail" />
+                </a>
+                <label className={cn(itemMenu, 'cursor-pointer', pending && 'opacity-50')}>
+                  <ItemMenu icone={<Upload className="size-4" />} titulo="Anexar via assinada em papel" descricao="Foto ou PDF. O documento passa a constar como assinado" />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    disabled={pending}
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (f) { fechar(); registrarPapel(tipo, f) }
+                    }}
+                  />
+                </label>
+                </>)}
+                {vivo && (
+                  <button type="button" disabled={pending} onClick={() => { fechar(); cancelar(doc.id) }} className={itemMenu}>
+                    <ItemMenu icone={<X className="size-4 text-destructive" />} titulo="Cancelar envio" descricao="O link para de funcionar" perigo />
+                  </button>
+                )}
+              </>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
+
       {/* A exceção mora aqui, ao lado do status, e não escondida no dialog de
           emissão da NF: quem autoriza é o gestor, e ele olha esta tela. */}
-      {docs !== null && (
-        contratoAssinado ? null : liberacao?.liberadaEm ? (
-          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
-            <p className="text-xs font-medium text-sky-800">
-              NF autorizada sem assinatura do contrato
+      {docs !== null && !contratoAssinado && (
+        liberacao?.liberadaEm ? (
+          <div className="border-l-2 border-l-primary pl-3 text-sm">
+            <p className="font-medium">NF liberada sem o contrato assinado</p>
+            <p className="text-muted-foreground">
+              {liberacao.por ? `${liberacao.por} · ` : ''}{dataHora(liberacao.liberadaEm)}
             </p>
-            <p className="text-[11px] text-sky-700 mt-0.5">
-              {liberacao.por ? `${liberacao.por} · ` : ''}
-              {new Date(liberacao.liberadaEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-            </p>
-            {liberacao.motivo && (
-              <p className="text-[11px] text-sky-900 mt-1 italic">“{liberacao.motivo}”</p>
-            )}
+            {liberacao.motivo && <p className="mt-1 text-muted-foreground">“{liberacao.motivo}”</p>}
           </div>
-        ) : podeAutorizar ? (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-slate-600">
-              A emissão da NF está bloqueada até o contrato ser assinado.
-            </p>
-            {!autorizando ? (
-              <button
-                onClick={() => setAutorizando(true)}
-                className="mt-1.5 inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-              >
-                <ShieldAlert size={12} /> Autorizar emissão sem assinatura
+        ) : (
+          <div className="rounded-lg border border-border p-4 text-sm">
+            <p className="font-medium">A NF de saída só sai depois do contrato assinado</p>
+            {!podeAutorizar && <p className="mt-1 text-muted-foreground">Se o cliente não puder assinar, peça a um sócio para liberar.</p>}
+            {podeAutorizar && !autorizando && (
+              <button type="button" onClick={() => setAutorizando(true)} className={cn(botaoSecundario, 'mt-3 w-full')}>
+                Liberar NF sem assinatura
               </button>
-            ) : (
-              <div className="mt-2 space-y-1.5">
+            )}
+            {podeAutorizar && autorizando && (
+              <div className="mt-3 space-y-2">
+                <label htmlFor="motivo-liberacao" className="block text-muted-foreground">Por que liberar? Fica registrado com seu nome e a data.</label>
                 <textarea
+                  id="motivo-liberacao"
                   rows={3}
                   value={motivo}
                   onChange={e => setMotivo(e.target.value)}
-                  placeholder="Ex: cliente sem celular; contrato assinado em papel e arquivado na loja"
-                  className="w-full rounded-md border px-2 py-1.5 text-xs"
+                  placeholder="Ex.: cliente sem celular; assinou em papel, arquivado na loja"
+                  className="w-full rounded-lg border border-input bg-background p-2 text-base sm:text-sm"
                 />
-                <p className="text-[11px] text-slate-400">
-                  Fica registrado com o seu nome e a data. Mínimo de 10 caracteres.
-                </p>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => { setAutorizando(false); setMotivo('') }}
-                    disabled={pending}
-                    className="rounded border px-2 py-1 text-xs text-slate-600"
-                  >
-                    Cancelar
+                <p className="text-xs text-muted-foreground">Mínimo de 10 caracteres.</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setAutorizando(false); setMotivo('') }} disabled={pending} className={cn(botaoSecundario, 'flex-1')}>
+                    Voltar
                   </button>
-                  <button
-                    onClick={autorizar}
-                    disabled={pending || motivo.trim().length < 10}
-                    className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:bg-slate-300"
-                  >
-                    {pending ? 'Autorizando…' : 'Confirmar autorização'}
+                  <button type="button" onClick={autorizar} disabled={pending || motivo.trim().length < 10} className={botaoPrincipal}>
+                    {pending ? 'Liberando…' : 'Liberar NF'}
                   </button>
                 </div>
               </div>
             )}
           </div>
-        ) : null
+        )
       )}
 
-      <p className="text-[11px] text-slate-400">
-        O link vai por e-mail ao cliente (ou copie e mande por outro canal). O código de 6
-        dígitos também vai por e-mail quando ele abrir — é o que garante que foi ele quem assinou.
+      <p className="text-xs text-muted-foreground">
+        O cliente recebe o link por e-mail (ou você copia e manda por outro canal). Ao abrir, ele recebe
+        um código de 6 dígitos por e-mail: é o que garante que foi ele quem assinou.
       </p>
     </div>
   )
