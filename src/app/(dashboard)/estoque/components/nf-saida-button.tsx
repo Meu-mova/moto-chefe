@@ -1,8 +1,9 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { FileCheck, ExternalLink, ClipboardCheck, FileText, RefreshCw, Lock, Send } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink, FileCheck, RefreshCw, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { criarRascunhoBlingAction, confirmarNFSaidaAction, atualizarRascunhoBlingAction } from '../../vendas/actions'
@@ -33,6 +34,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   const [podeLiberar, setPodeLiberar] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [propria, setPropria] = useState<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }>({ disponivel: false, ambiente: null })
+  const [outras, setOutras] = useState(false)
   const [pending, startTransition] = useTransition()
 
   // A trava é consultada ao abrir, não na listagem: seria uma consulta por
@@ -41,6 +43,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   function abrir() {
     setErro('')
     setNf('')
+    setOutras(false)
     setAberto(true)
     // 'verificando' até saber da trava — senão o vendedor veria por um instante
     // a tela normal e clicaria num caminho que a action vai recusar.
@@ -61,7 +64,9 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
         setEtapa('aguardando')
       } else {
         setBlingUrl('')
-        setEtapa('inicial')
+        // Quase toda nota sai pelo MOVA: abre direto na conferência; Bling e nota
+        // já emitida ficam em "Emitir de outro jeito".
+        setEtapa(np.disponivel ? 'propria' : 'inicial')
       }
     })
   }
@@ -74,7 +79,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
       if (!r.ok) { setErro(r.error); return }
       setBloqueio(null)
       setMotivo('')
-      setEtapa(blingNfeId ? 'aguardando' : 'inicial')
+      setEtapa(blingNfeId ? 'aguardando' : propria.disponivel ? 'propria' : 'inicial')
       if (blingNfeId) setBlingUrl(urlExistente)
     })
   }
@@ -141,222 +146,188 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
       )}
 
       <Dialog open={aberto} onOpenChange={fechar}>
-        <DialogContent className={etapa === 'propria' ? 'sm:max-w-2xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-sm'}>
-          <DialogHeader>
-            <DialogTitle>NF-e de Saída</DialogTitle>
-            <p className="text-sm text-slate-500">{descricao}</p>
-          </DialogHeader>
+        <DialogContent
+          showCloseButton={false}
+          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
+        >
+          <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
+            <button type="button" onClick={fechar} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
+              <ArrowLeft className="size-5" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-semibold">NF de saída</DialogTitle>
+              <DialogDescription className="truncate text-xs">{descricao}</DialogDescription>
+            </div>
+            <button type="button" onClick={fechar} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
+              <X className="size-5" />
+            </button>
+          </div>
 
+          <div className="flex-1 overflow-y-auto px-4 pt-4">
           {etapa === 'verificando' && (
-            <p className="py-6 text-center text-sm text-slate-500">Verificando o contrato desta venda…</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">Verificando o contrato desta venda…</p>
           )}
 
           {etapa === 'bloqueado' && (
-            <div className="space-y-3 py-1">
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <Lock size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                <p className="text-sm text-amber-800">{bloqueio}</p>
-              </div>
+            <div className="space-y-4 pb-4">
+              <p className="border-l-2 border-l-warning pl-3">{bloqueio}</p>
 
               {podeLiberar ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="motivo-liberacao" className="text-xs">
-                    Liberar mesmo assim — descreva o motivo
-                  </Label>
+                <div className="space-y-2 border-t border-border pt-4">
+                  <Label htmlFor="motivo-liberacao">Liberar sem assinatura: por que?</Label>
                   <textarea
                     id="motivo-liberacao"
                     value={motivo}
                     onChange={e => setMotivo(e.target.value)}
                     rows={3}
-                    placeholder="Ex: cliente sem WhatsApp, contrato assinado em papel e arquivado na loja"
-                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    placeholder="Ex.: cliente sem WhatsApp, contrato assinado em papel e arquivado na loja"
+                    className="w-full rounded-lg border border-input bg-background p-2 text-base sm:text-sm"
                   />
-                  <p className="text-[11px] text-slate-400">
-                    Fica registrado com seu nome e a data. Mínimo de 10 caracteres.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Fica registrado com seu nome e a data. Mínimo de 10 caracteres.</p>
+                  {erro && <p className="text-sm text-destructive">{erro}</p>}
+                  <Button onClick={liberar} disabled={pending || motivo.trim().length < 10} className="h-11 w-full">
+                    {pending ? 'Liberando…' : 'Liberar e continuar'}
+                  </Button>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500">
-                  Só admin geral ou sócio pode liberar a emissão sem contrato assinado.
-                </p>
+                <p className="text-sm text-muted-foreground">Se o cliente não puder assinar, peça a um sócio para liberar.</p>
               )}
-
-              {erro && <p className="text-sm text-red-600">{erro}</p>}
-
-              <DialogFooter>
-                <Button variant="outline" onClick={fechar} disabled={pending}>Fechar</Button>
-                {podeLiberar && (
-                  <Button onClick={liberar} disabled={pending || motivo.trim().length < 10}>
-                    {pending ? 'Liberando…' : 'Liberar emissão'}
-                  </Button>
-                )}
-              </DialogFooter>
             </div>
           )}
 
           {etapa === 'inicial' && (
-            <div className="space-y-3 py-1">
-              <p className="text-sm text-slate-600">Como deseja registrar a NF-e?</p>
-
+            <div className="space-y-2 pb-4">
+              <p className="mb-3 font-medium">Como registrar esta nota?</p>
               {propria.disponivel && (
-                <button
-                  onClick={() => { setErro(''); setEtapa('propria') }}
-                  disabled={pending}
-                  className="w-full flex items-start gap-3 rounded-lg border border-teal-300 bg-teal-50 p-3 text-left hover:bg-teal-100 disabled:opacity-50 transition-colors"
-                >
-                  <Send size={18} className="mt-0.5 text-teal-700 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-teal-900">
-                      Emitir pelo MOVA{propria.ambiente === 'Homologacao' ? ' (teste)' : ''}
-                    </p>
-                    <p className="text-xs text-teal-700 mt-0.5">
-                      Confere a nota aqui e transmite direto para a SEFAZ
-                    </p>
-                  </div>
-                </button>
+                <Opcao titulo={`Emitir pelo MOVA${propria.ambiente === 'Homologacao' ? ' (teste)' : ''}`} descricao="Confere a nota aqui e transmite direto para a SEFAZ" onClick={() => { setErro(''); setEtapa('propria') }} disabled={pending} />
               )}
-
-              <button
-                onClick={criarNoBling}
-                disabled={pending}
-                className="w-full flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-left hover:bg-blue-100 disabled:opacity-50 transition-colors"
-              >
-                <FileText size={18} className="mt-0.5 text-blue-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-blue-800">
-                    {pending ? 'Criando no Bling…' : 'Gerar rascunho no Bling'}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-0.5">
-                    MOVA cria a NF no Bling para você revisar e transmitir
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setEtapa('manual')}
-                disabled={pending}
-                className="w-full flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:bg-slate-100 disabled:opacity-50 transition-colors"
-              >
-                <ClipboardCheck size={18} className="mt-0.5 text-slate-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Nota já emitida</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    NF gerada fora do MOVA — informe o número para registrar
-                  </p>
-                </div>
-              </button>
-
-              {erro && <p className="text-sm text-red-600">{erro}</p>}
-              <DialogFooter>
-                <Button variant="outline" onClick={fechar} disabled={pending}>Cancelar</Button>
-              </DialogFooter>
+              <Opcao titulo={pending ? 'Criando no Bling…' : 'Gerar rascunho no Bling'} descricao="O MOVA cria a NF no Bling para você revisar e transmitir" onClick={criarNoBling} disabled={pending} />
+              <Opcao titulo="Nota já emitida" descricao="NF gerada fora do MOVA: informe o número para registrar" onClick={() => setEtapa('manual')} disabled={pending} />
+              {erro && <p className="text-sm text-destructive">{erro}</p>}
             </div>
           )}
 
           {etapa === 'aguardando' && (
-            <>
-              <div className="space-y-3 py-2">
-                {blingNfeId && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm text-amber-800">
-                    Rascunho já criado anteriormente. Confirme o número após transmitir no Bling.
-                  </div>
-                )}
-                {!blingNfeId && (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-3 text-sm text-green-800">
-                    Rascunho criado! Confira no Bling, transmita a nota e volte aqui para confirmar o número.
-                  </div>
-                )}
-                {/* Venda que ficou com rascunho no Bling antes da virada também
-                    pode sair pelo MOVA — desde que o rascunho NÃO tenha sido
-                    transmitido, senão são duas notas para a mesma moto. */}
-                {propria.disponivel && (
-                  <button
-                    onClick={() => { setErro(''); setEtapa('propria') }}
-                    disabled={pending}
-                    className="w-full flex items-start gap-3 rounded-lg border border-teal-300 bg-teal-50 p-3 text-left hover:bg-teal-100 disabled:opacity-50 transition-colors"
-                  >
-                    <Send size={18} className="mt-0.5 text-teal-700 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-teal-900">
-                        Emitir pelo MOVA em vez do Bling{propria.ambiente === 'Homologacao' ? ' (teste)' : ''}
-                      </p>
-                      <p className="text-xs text-teal-700 mt-0.5">
-                        Só se o rascunho do Bling NÃO foi transmitido — senão a moto fica com duas notas
-                      </p>
-                    </div>
-                  </button>
-                )}
-                <div className="flex items-center gap-2">
-                  <a href={blingUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
-                    <ExternalLink size={14} /> Abrir no Bling
-                  </a>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    onClick={atualizarNoBling}
-                    disabled={pending}
-                    className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50"
-                    title="Reenviar dados do MOVA para o rascunho no Bling"
-                  >
-                    <RefreshCw size={13} className={pending ? 'animate-spin' : ''} />
-                    {pending ? 'Atualizando…' : 'Atualizar dados no Bling'}
-                  </button>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="nf-bling-input">Número da NF emitida</Label>
-                  <Input
-                    id="nf-bling-input"
-                    value={nf}
-                    onChange={e => setNf(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && confirmar()}
-                    placeholder="Ex: 001234"
-                    autoFocus
-                  />
-                </div>
-                {erro && <p className="text-sm text-red-600">{erro}</p>}
+            <div className="space-y-4 pb-4">
+              <p className="border-l-2 border-l-warning pl-3 text-sm">
+                {blingNfeId
+                  ? 'Rascunho já criado antes. Confirme o número depois de transmitir no Bling.'
+                  : 'Rascunho criado. Confira no Bling, transmita a nota e volte aqui com o número.'}
+              </p>
+              <a href={blingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: 'outline' }), 'h-11 w-full gap-2')}>
+                <ExternalLink className="size-4" /> Abrir no Bling
+              </a>
+              <button
+                type="button"
+                onClick={atualizarNoBling}
+                disabled={pending}
+                className="flex w-full items-center justify-center gap-1.5 text-sm text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+                title="Reenviar dados do MOVA para o rascunho no Bling"
+              >
+                <RefreshCw className={cn('size-3.5', pending && 'animate-spin')} />
+                {pending ? 'Atualizando…' : 'Mandar os dados do MOVA de novo ao rascunho'}
+              </button>
+              <div className="space-y-1.5">
+                <Label htmlFor="nf-bling-input">Número da NF emitida no Bling</Label>
+                <Input
+                  id="nf-bling-input"
+                  inputMode="numeric"
+                  value={nf}
+                  onChange={e => setNf(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && confirmar()}
+                  placeholder="Ex: 001234"
+                  className="h-11"
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={fechar} disabled={pending}>Cancelar</Button>
-                <Button onClick={confirmar} disabled={pending || !nf.trim()}>
-                  {pending ? 'Confirmando…' : 'Confirmar NF'}
-                </Button>
-              </DialogFooter>
-            </>
+              {erro && <p className="text-sm text-destructive">{erro}</p>}
+              <Button onClick={confirmar} disabled={pending || !nf.trim()} className="h-11 w-full">
+                {pending ? 'Confirmando…' : 'Confirmar NF'}
+              </Button>
+              {/* Venda que ficou com rascunho no Bling antes da virada também
+                  pode sair pelo MOVA — desde que o rascunho NÃO tenha sido
+                  transmitido, senão são duas notas para a mesma moto. */}
+              {propria.disponivel && (
+                <Opcao
+                  titulo={`Emitir pelo MOVA em vez do Bling${propria.ambiente === 'Homologacao' ? ' (teste)' : ''}`}
+                  descricao="Só se o rascunho do Bling NÃO foi transmitido — senão a moto fica com duas notas"
+                  onClick={() => { setErro(''); setEtapa('propria') }}
+                  disabled={pending}
+                />
+              )}
+            </div>
           )}
 
           {etapa === 'propria' && (
-            <NfePropriaPainel motoId={motoId} onVoltar={() => setEtapa(blingUrl ? 'aguardando' : 'inicial')} />
+            <NfePropriaPainel
+              motoId={motoId}
+              onVoltar={() => (blingUrl ? setEtapa('aguardando') : fechar())}
+              outrasFormas={!blingUrl && (
+                <div className="border-t border-border">
+                  <button type="button" onClick={() => setOutras(!outras)} aria-expanded={outras} className="flex w-full items-center justify-between py-3 text-sm text-muted-foreground">
+                    Emitir de outro jeito (Bling ou nota já emitida)
+                    <ChevronDown className={cn('size-4 transition-transform', !outras && '-rotate-90')} />
+                  </button>
+                  {outras && (
+                    <div className="grid grid-cols-2 gap-2 pb-3">
+                      <Button variant="outline" onClick={criarNoBling} disabled={pending} className="h-11">
+                        {pending ? 'Criando…' : 'Rascunho no Bling'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setEtapa('manual')} disabled={pending} className="h-11">Nota já emitida</Button>
+                    </div>
+                  )}
+                  {erro && <p className="pb-3 text-sm text-destructive">{erro}</p>}
+                </div>
+              )}
+            />
           )}
 
           {etapa === 'manual' && (
-            <>
-              <div className="space-y-3 py-2">
-                <p className="text-sm text-slate-600">
-                  Informe o número da NF já emitida para vincular a esta venda.
-                </p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="nf-manual-input">Número da NF</Label>
-                  <Input
-                    id="nf-manual-input"
-                    value={nf}
-                    onChange={e => setNf(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && confirmar()}
-                    placeholder="Ex: 001234"
-                    autoFocus
-                  />
-                </div>
-                {erro && <p className="text-sm text-red-600">{erro}</p>}
+            <div className="space-y-4 pb-4">
+              <p className="text-sm text-muted-foreground">
+                Para nota emitida fora do MOVA. Ela fica só registrada: o MOVA não acompanha o status nem cancela.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="nf-manual-input">Número da NF</Label>
+                <Input
+                  id="nf-manual-input"
+                  inputMode="numeric"
+                  value={nf}
+                  onChange={e => setNf(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && confirmar()}
+                  placeholder="Ex: 001234"
+                  className="h-11"
+                  autoFocus
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setEtapa('inicial')} disabled={pending}>Voltar</Button>
-                <Button onClick={confirmar} disabled={pending || !nf.trim()}>
-                  {pending ? 'Salvando…' : 'Registrar NF'}
-                </Button>
-              </DialogFooter>
-            </>
+              {erro && <p className="text-sm text-destructive">{erro}</p>}
+              <Button onClick={confirmar} disabled={pending || !nf.trim()} className="h-11 w-full">
+                {pending ? 'Salvando…' : 'Registrar NF'}
+              </Button>
+              <Button variant="outline" onClick={() => setEtapa(propria.disponivel ? 'propria' : 'inicial')} disabled={pending} className="h-11 w-full">
+                Voltar
+              </Button>
+            </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function Opcao({ titulo, descricao, onClick, disabled }: { titulo: string; descricao: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-full items-center gap-3 rounded-lg border border-border p-4 text-left hover:bg-muted disabled:opacity-50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">{titulo}</span>
+        <span className="block text-sm text-muted-foreground">{descricao}</span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+    </button>
   )
 }
