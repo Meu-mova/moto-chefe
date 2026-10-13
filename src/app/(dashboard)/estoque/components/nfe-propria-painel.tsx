@@ -260,6 +260,11 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
                 <Button size="sm" variant="outline" onClick={() => { setCestEdicao(null); setErro('') }} disabled={pending}>Cancelar</Button>
               </div>
             )}
+            {cestEdicao != null && !cestEdicao.trim() && (
+              <p className="text-xs text-muted-foreground">
+                CEST vazio: venda com ICMS-ST (CST 60) é recusada pela SEFAZ (erro 806). Dá para salvar assim mesmo.
+              </p>
+            )}
             {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
             <p className="text-slate-600">
               Origem {r.produto.origemSaida}
@@ -287,7 +292,7 @@ export function NfePropriaPainel({ motoId, onVoltar }: Props) {
 
       {previa.notas.length > 0 && <Historico notas={previa.notas} pending={pending} onReconsultar={reconsultar} />}
 
-      {erro && cestEdicao == null && <p className="whitespace-pre-line text-sm text-red-600">{erro}</p>}
+      {erro && cestEdicao == null && <p className="whitespace-pre-line text-sm text-destructive">{erro}</p>}
 
       {r && !bloqueadaProducao && (
         <label className="flex items-start gap-2 text-sm text-slate-700">
