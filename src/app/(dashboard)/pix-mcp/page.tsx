@@ -47,10 +47,16 @@ export default async function PixMcpPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; sync?: string }>
 }) {
+  const tPagina = performance.now()
+  // Diagnóstico de lentidão (#126): um log por fase, assim que ela termina (ver logTempo em @/lib/mcpai).
+  const tempo = (etapa: string, desde: number, extra = '') =>
+    console.log('[pix-tempo]', `etapa=${etapa} ms=${Math.round(performance.now() - desde)}${extra ? ' ' + extra : ''}`)
+
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/pix-mcp')) redirect('/dashboard')
 
   const grupo = await getGrupoAtivo(usuario)
+  tempo('sessao_e_grupo', tPagina)
 
   const params = await searchParams
   const hoje = new Date()
@@ -69,17 +75,21 @@ export default async function PixMcpPage({
   const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
+  console.log('[pix-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync}`)
 
   if (!cacheValido) {
     // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
     // mcp.ai — ver nota em buscarPixRecebidos), então usamos uma janela bem
     // ampla aqui pra não perder PIX antigos na primeira sincronização.
     const desde = new Date('2025-01-01T00:00:00.000Z')
+    const tBusca = performance.now()
     const resultado = await buscarPixRecebidos(desde, hoje, grupo.cnpj)
+    tempo('buscar_pix_mcpai', tBusca, `ok=${resultado.ok}${resultado.ok ? ` transacoes=${resultado.transacoes.length}` : ''}`)
 
     if (!resultado.ok) {
       erroSync = resultado.erro
     } else {
+      const tGrava = performance.now()
       if (resultado.transacoes.length > 0) {
         await db.insert(pixRecebimentosMcp)
           .values(resultado.transacoes.map(tx => ({
@@ -113,11 +123,13 @@ export default async function PixMcpPage({
       await db.insert(pixMcpSyncStatus)
         .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
         .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+      tempo('gravar_no_banco', tGrava)
     }
   }
 
   const [syncStatusAtual] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
 
+  const tLinhas = performance.now()
   const linhas = await db
     .select()
     .from(pixRecebimentosMcp)
@@ -127,6 +139,8 @@ export default async function PixMcpPage({
       lte(pixRecebimentosMcp.data, toDate),
     ))
     .orderBy(desc(pixRecebimentosMcp.data))
+
+  tempo('consultar_linhas', tLinhas, `linhas=${linhas.length}`)
 
   const vendaIds = linhas.map(l => l.vendaId).filter((id): id is string => !!id)
   const osIds = linhas.map(l => l.osId).filter((id): id is string => !!id)
@@ -151,6 +165,7 @@ export default async function PixMcpPage({
       ? db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(inArray(usuarios.id, lancadoPorIds))
       : Promise.resolve([] as { id: string; nome: string }[]),
   ])
+  tempo('total_ate_montar_dados', tPagina)
   const vendaNfById = new Map(vendasDb.map(v => [v.id, v.notaFiscalSaida]))
   const osNumeroById = new Map(osDb.map(o => [o.id, o.numero]))
   const pedidoNumeroById = new Map(pedidosDb.map(p => [p.id, p.numero]))

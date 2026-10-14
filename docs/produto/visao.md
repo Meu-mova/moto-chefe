@@ -55,7 +55,7 @@ O que cada papel acessa está em `src/lib/navegacao.ts`; quem aprova o quê se c
 
 **Quem usa sem login:**
 - o **cliente**, que assina contrato e checklist pelo celular (`/assinar`);
-- o **lojista visitante** da convenção da MotoChefe, que pede uma demonstração (`/convencao`).
+- o **lojista interessado**, que envia os dados da loja para aderir ao MOVA (`/adesao`).
 
 ## Módulos
 

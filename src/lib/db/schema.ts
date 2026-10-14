@@ -226,6 +226,22 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
+// 0116). O botão DANFE de venda antiga lê daqui, não do Bling.
+export const nfeBlingArquivo = pgTable('nfe_bling_arquivo', {
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  blingNfeId:  text('bling_nfe_id').notNull(),
+  numero:      text('numero').notNull(),
+  serie:       text('serie'),
+  chave:       text('chave'),
+  documento:   text('documento'),
+  dataEmissao: date('data_emissao'),
+  situacao:    text('situacao').notNull(),
+  xmlPath:     text('xml_path'),
+  pdfPath:     text('pdf_path'),
+  criadoEm:    timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ pk: primaryKey({ columns: [t.grupoId, t.blingNfeId] }) }))
+
 export const notagatewayConfig = pgTable('notagateway_config', {
   grupoId:              uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
   token:                text('token').notNull(),
@@ -1538,12 +1554,31 @@ export const nfeDfeSync = pgTable('nfe_dfe_sync', {
   atualizadoEm:      timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// ─── leads_convencao (captação da landing pública /convencao) ─────────────────
+// ─── leads_convencao (captação da antiga landing /convencao, removida) ────────
+// Sem uso no código; a tabela fica só pelo histórico dos leads já captados.
 export const leadsConvencao = pgTable('leads_convencao', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   email: text('email').notNull(),
   whatsapp: text('whatsapp').notNull(),
   unidade: text('unidade').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── adesoes_mova (pedidos de adesão da página pública /adesao) ───────────────
+// cert_arquivo, cert_senha e store_senha são pacotes cifrados (src/lib/cripto.ts), nunca o cru.
+// cnpj_arquivo_path é o caminho no bucket privado 'adesoes'.
+export const adesoesMova = pgTable('adesoes_mova', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  loja: text('loja').notNull(),
+  responsavel: text('responsavel').notNull(),
+  celular: text('celular').notNull(),
+  cnpjArquivoPath: text('cnpj_arquivo_path').notNull(),
+  certArquivo: text('cert_arquivo').notNull(),
+  certSenha: text('cert_senha').notNull(),
+  storeLogin: text('store_login').notNull(),
+  storeSenha: text('store_senha').notNull(),
+  usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
+  status: text('status').notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
