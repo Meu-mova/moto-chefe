@@ -89,7 +89,7 @@ async function main() {
   }
   console.log(`${grupoNome}: ${notas.length} notas de saída no Bling`)
 
-  const linhas = [['numero', 'serie', 'data_emissao', 'situacao', 'cliente', 'documento', 'valor', 'chave', 'xml', 'danfe'].join(';')]
+  const linhas = [['numero', 'serie', 'data_emissao', 'situacao', 'cliente', 'documento', 'valor', 'chave', 'xml', 'danfe', 'bling_id'].join(';')]
   let novos = 0, jaTinha = 0, falhas = 0
 
   notas.sort((a, b) => String(a.dataEmissao).localeCompare(String(b.dataEmissao)))
@@ -131,7 +131,7 @@ async function main() {
     linhas.push([
       csv(n.numero), csv(serie), csv(data), csv(situacao), csv(n.contato?.nome),
       csv(n.contato?.numeroDocumento), csv(String(valor).replace('.', ',')), csv(chave),
-      csv(xmlArq ? xmlArq.slice(pastaGrupo.length + 1) : ''), csv(pdfArq ? pdfArq.slice(pastaGrupo.length + 1) : ''),
+      csv(xmlArq ? xmlArq.slice(pastaGrupo.length + 1) : ''), csv(pdfArq ? pdfArq.slice(pastaGrupo.length + 1) : ''), csv(n.id),
     ].join(';'))
 
     if ((i + 1) % 100 === 0) console.log(`  ${i + 1}/${notas.length} (novos ${novos}, já tinha ${jaTinha}, falhas ${falhas})`)

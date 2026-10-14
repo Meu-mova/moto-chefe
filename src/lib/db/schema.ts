@@ -226,6 +226,22 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
+// 0116). O botão DANFE de venda antiga lê daqui, não do Bling.
+export const nfeBlingArquivo = pgTable('nfe_bling_arquivo', {
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  blingNfeId:  text('bling_nfe_id').notNull(),
+  numero:      text('numero').notNull(),
+  serie:       text('serie'),
+  chave:       text('chave'),
+  documento:   text('documento'),
+  dataEmissao: date('data_emissao'),
+  situacao:    text('situacao').notNull(),
+  xmlPath:     text('xml_path'),
+  pdfPath:     text('pdf_path'),
+  criadoEm:    timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ pk: primaryKey({ columns: [t.grupoId, t.blingNfeId] }) }))
+
 export const notagatewayConfig = pgTable('notagateway_config', {
   grupoId:              uuid('grupo_id').primaryKey().references(() => grupos.id, { onDelete: 'cascade' }),
   token:                text('token').notNull(),
