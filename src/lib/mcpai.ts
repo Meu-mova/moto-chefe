@@ -436,7 +436,7 @@ type TransacaoPix = {
 }
 
 type ResultadoPix =
-  | { ok: true; transacoes: TransacaoPix[] }
+  | { ok: true; transacoes: TransacaoPix[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 // Créditos que entram na conciliação de /pix-mcp. TED entrou em 29/08/2026 a
@@ -481,7 +481,8 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
         : TIPO_TRANSFERENCIA_CONTAS,
     }))
 
-  return { ok: true, transacoes }
+  // Só interessa a conta pulada que a PIX usaria: banco fora do filtro não muda o que ela mostra.
+  return { ok: true, transacoes, contasPuladas: bruto.contasPuladas.filter(b => bancoEntraNoPix(b, cnpjGrupo)) }
 }
 
 export type TransacaoSaida = {
