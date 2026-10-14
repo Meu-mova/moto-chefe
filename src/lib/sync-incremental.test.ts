@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { desdeDoSync, selecionarSumidas, dividirEmLotes } from './sync-incremental'
+import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, urlDespesasSemSync } from './sync-incremental'
 
 const PADRAO = new Date('2025-01-01T00:00:00.000Z')
 
@@ -42,6 +42,47 @@ test('selecionarSumidas: a própria borda entra', () => {
   const desde = new Date('2026-09-14T00:00:00.000Z')
   const naBorda = linha('borda', 'tb', '2026-09-14T00:00:00Z')
   assert.deepEqual(selecionarSumidas([naBorda], new Set(), new Set(), desde).map(s => s.id), ['borda'])
+})
+
+test('dataAposSync: sem conta pulada grava a data do sync; com qualquer conta pulada não grava', () => {
+  const agora = new Date('2026-10-14T12:00:00.000Z')
+  assert.equal(dataAposSync(agora, []), agora)
+  assert.equal(dataAposSync(agora, ['Stone']), null)
+  assert.equal(dataAposSync(agora, ['Stone', 'Sicoob']), null)
+})
+
+test('conta pulada num sync não perde a lacuna mesmo se o próximo sync vier depois da margem', () => {
+  // Cenário: último sync bom em 01/08. Em 20/09 (50 dias depois) a Stone não responde. Uma saída da Stone
+  // de 10/08 (41 dias antes de 20/09) nunca foi lida por ninguém. O sync seguinte, em 21/09, precisa pedi-la.
+  const padrao = new Date('2025-01-01T00:00:00.000Z')
+  const ultimoBom = new Date('2026-08-01T12:00:00.000Z')
+  const quandoFalhou = new Date('2026-09-20T12:00:00.000Z')
+  const saidaPerdida = new Date('2026-08-10T12:00:00.000Z')
+
+  const gravada = dataAposSync(quandoFalhou, ['Stone']) ?? ultimoBom // null = continua a data antiga
+  assert.ok(desdeDoSync(gravada, 30, padrao) <= saidaPerdida, 'o próximo sync deve alcançar a saída perdida')
+
+  // Contraste: se a data tivesse avançado (sync sem conta pulada), a saída ficaria para trás da margem.
+  const seTivesseAvancado = dataAposSync(quandoFalhou, []) as Date
+  assert.ok(desdeDoSync(seTivesseAvancado, 30, padrao) > saidaPerdida)
+})
+
+test('urlDespesasSemSync: tira só o sync e mantém os outros filtros', () => {
+  assert.equal(
+    urlDespesasSemSync({ sync: 'completo', mes: '2026-10', sfrom: '2026-10-01', sto: '2026-10-14' }),
+    '/despesas?mes=2026-10&sfrom=2026-10-01&sto=2026-10-14',
+  )
+})
+
+test('urlDespesasSemSync: sem outros parâmetros volta para /despesas puro; parâmetro indefinido some', () => {
+  assert.equal(urlDespesasSemSync({ sync: 'completo' }), '/despesas')
+  assert.equal(urlDespesasSemSync({ sync: 'completo', mes: undefined }), '/despesas')
+})
+
+test('urlDespesasSemSync: valor com caracteres especiais volta igual ao ler a URL', () => {
+  const url = urlDespesasSemSync({ sync: 'completo', q: 'a b&c=d' })
+  assert.equal(new URL(url, 'http://x').searchParams.get('q'), 'a b&c=d')
+  assert.equal(new URL(url, 'http://x').searchParams.has('sync'), false)
 })
 
 test('dividirEmLotes: vazio, 1 item, exatamente 1 lote, lote + 1', () => {

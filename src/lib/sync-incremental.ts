@@ -30,6 +30,25 @@ export function selecionarSumidas<T extends { id: string; transacaoId: string; d
   )
 }
 
+/**
+ * Data a gravar como "último sync" depois de uma leitura. Com conta pulada devolve `null` (não grava):
+ * a data fica onde estava e o próximo sync relê a janela que a conta perdeu. Avançar a data nesse caso
+ * deixaria a lacuna fora da margem do próximo `desdeDoSync` assim que passasse dela.
+ */
+export function dataAposSync(agora: Date, contasPuladas: string[]): Date | null {
+  return contasPuladas.length === 0 ? agora : null
+}
+
+/** URL de /despesas sem o parâmetro `sync`, mantendo os demais (mes, sfrom, sto...). */
+export function urlDespesasSemSync(params: Record<string, string | undefined>): string {
+  const resto = new URLSearchParams()
+  for (const [chave, valor] of Object.entries(params)) {
+    if (chave !== 'sync' && valor !== undefined) resto.set(chave, valor)
+  }
+  const query = resto.toString()
+  return query ? `/despesas?${query}` : '/despesas'
+}
+
 /** Divide em lotes de até `tamanho`. O Postgres aceita no máximo 65.535 parâmetros por instrução. */
 export function dividirEmLotes<T>(itens: T[], tamanho: number): T[][] {
   if (tamanho < 1) throw new Error('tamanho do lote deve ser >= 1')

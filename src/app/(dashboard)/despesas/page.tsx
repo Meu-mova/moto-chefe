@@ -16,6 +16,7 @@ import { SaidasFiltros } from './components/saidas-filtros'
 import { SaidasTable } from './components/saidas-table'
 import type { DespesaRow } from './types'
 import { sincronizarEBuscarSaidas, type ModoSync } from './open-finance'
+import { urlDespesasSemSync } from '@/lib/sync-incremental'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -64,11 +65,7 @@ export default async function DespesasPage({
   // Sync completo concluído sem falha: volta para a URL sem o parâmetro, senão cada F5 refaria o histórico
   // inteiro. Com erro ou conta pulada fica na página, para o aviso aparecer.
   if (modoSync === 'completo' && !erroSync && contasPuladas.length === 0) {
-    const resto = new URLSearchParams()
-    for (const [chave, valor] of Object.entries(params)) {
-      if (chave !== 'sync' && valor !== undefined) resto.set(chave, valor)
-    }
-    redirect(resto.size > 0 ? `/despesas?${resto}` : '/despesas')
+    redirect(urlDespesasSemSync(params))
   }
 
   medir('sync_de_saidas')

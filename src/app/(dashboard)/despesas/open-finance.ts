@@ -5,7 +5,7 @@ import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
 import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 import { criarMedidor } from '@/lib/db-diag'
-import { desdeDoSync, selecionarSumidas, dividirEmLotes } from '@/lib/sync-incremental'
+import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync } from '@/lib/sync-incremental'
 
 // Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
 // com marcador de staleness próprio (despesas_of_sync_status), separado do
@@ -188,10 +188,11 @@ export async function sincronizarEBuscarSaidas(
       // Conta pulada = o que ela trouxe de novo ficou de fora. Não avança a data do sync (o próximo
       // sync relê a mesma janela e recupera a lacuna) e também não vale o cache de 10 min: sem a data
       // nova, a próxima visita sincroniza de novo até a conta voltar. A tela avisa (contasPuladas).
-      if (contasPuladas.length === 0) {
+      const novaData = dataAposSync(new Date(), contasPuladas)
+      if (novaData) {
         await db.insert(despesasOfSyncStatus)
-          .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
-          .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+          .values({ grupoId: grupo.id, ultimaSincronizacao: novaData })
+          .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: novaData } })
       }
       medir('gravar_no_banco', tGrava)
     }
