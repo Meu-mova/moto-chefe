@@ -1538,7 +1538,8 @@ export const nfeDfeSync = pgTable('nfe_dfe_sync', {
   atualizadoEm:      timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// ─── leads_convencao (captação da landing pública /convencao) ─────────────────
+// ─── leads_convencao (captação da antiga landing /convencao, removida) ────────
+// Sem uso no código; a tabela fica só pelo histórico dos leads já captados.
 export const leadsConvencao = pgTable('leads_convencao', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),

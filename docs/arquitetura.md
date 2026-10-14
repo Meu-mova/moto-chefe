@@ -53,7 +53,7 @@ fora. Roda no Fluid Compute da Vercel, na região `gru1` (`vercel.json`).
   confere o JWT localmente; só vai ao servidor de Auth para renovar o token.
 - Ficam fora do middleware:
   - `/assinar` (o cliente entra com o token do link);
-  - `/convencao` (landing de captação de lead);
+  - `/adesao` (formulário público de adesão de loja ao MOVA);
   - **todas as rotas `/api/*`**, e cada uma se autentica sozinha: `CRON_SECRET` (cron e
     conciliação), `JARVIS_API_TOKEN`, assinatura do webhook do Resend ou usuário logado (DANFE,
     XML, relatório contábil).
@@ -81,7 +81,7 @@ fora. Roda no Fluid Compute da Vercel, na região `gru1` (`vercel.json`).
 | mcp.ai (Open Finance) | PIX recebidos, despesas, saldos e faturas das contas do grupo | app → serviço | endpoint por grupo, no banco, cifrado (fallback em env) | `src/lib/mcpai*.ts` |
 | mcp.ai (WhatsApp) | Avisos de venda e de pedidos da fábrica | app → serviço | **env global** (`MCPAI_WHATSAPP_URL`, `WHATSAPP_ALERTA_NUMERO`) | `src/lib/whatsapp/` |
 | Kommo | Leads, atividade e funis para Atendimento e Marketing | app → Kommo (OAuth ou token de longa duração) | **uma conexão global**, no banco, sem cifra | `src/lib/kommo.ts`, `/api/kommo/*` |
-| Resend | E-mail (contrato e códigos de assinatura, leads da convenção) e webhook de status | app ↔ serviço | env (`RESEND_API_KEY`, `EMAIL_FROM`, `RESEND_WEBHOOK_SECRET`) | `src/lib/email.ts`, `/api/webhooks/resend` |
+| Resend | E-mail (contrato e códigos de assinatura, aviso de nova adesão) e webhook de status | app ↔ serviço | env (`RESEND_API_KEY`, `EMAIL_FROM`, `RESEND_WEBHOOK_SECRET`) | `src/lib/email.ts`, `/api/webhooks/resend` |
 | Portal da fábrica | Pedidos de peças, pedidos aguardando pagamento e garantias (leitura do portal com login por loja) | app → portal | por loja, no banco, sem cifra | `src/lib/fabrica-scraper.ts`, `src/lib/fabrica-por-loja.ts` |
 | Operadoras de cartão (Stone, PagueVeloz, InfinitePay) | Importar vendas de cartão para a conciliação | agente no PC da loja → operadora → app | sessão do navegador no PC da loja | `scripts/conciliacao/`, `/api/conciliacao/*` |
 | Bling | ERP antigo, ainda em convivência e a ser desligado | app → Bling (OAuth) | por grupo, no banco, sem cifra | `src/lib/bling.ts`, `/api/bling/*` |
