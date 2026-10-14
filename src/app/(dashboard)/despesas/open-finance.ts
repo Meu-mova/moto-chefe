@@ -135,13 +135,14 @@ export async function sincronizarEBuscarSaidas(
   toDate: Date,
   modoSync: ModoSync,
   usuarioId: string,
-): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
+): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; contasPuladas: string[]; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
   // Diagnóstico de lentidão (#129): um log por etapa, assim que ela termina. Sem valores, nomes nem ids.
   const medir = criarMedidor('despesas-tempo')
   const [syncStatus] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
   const cacheValido = modoSync === 'normal' && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
+  let contasPuladas: string[] = []
   const desde = modoSync === 'completo' ? HISTORICO_DESDE : desdeDoSync(syncStatus?.ultimaSincronizacao ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
   console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} modo_sync=${modoSync} desde=${desde.toISOString().slice(0, 10)}`)
 
@@ -183,9 +184,15 @@ export async function sincronizarEBuscarSaidas(
         await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)), desde)
         medir('absorver_reemissoes', tReemissoes)
       }
-      await db.insert(despesasOfSyncStatus)
-        .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
-        .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+      contasPuladas = resultado.contasPuladas
+      // Conta pulada = o que ela trouxe de novo ficou de fora. Não avança a data do sync (o próximo
+      // sync relê a mesma janela e recupera a lacuna) e também não vale o cache de 10 min: sem a data
+      // nova, a próxima visita sincroniza de novo até a conta voltar. A tela avisa (contasPuladas).
+      if (contasPuladas.length === 0) {
+        await db.insert(despesasOfSyncStatus)
+          .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
+          .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+      }
       medir('gravar_no_banco', tGrava)
     }
   }
@@ -237,5 +244,5 @@ export async function sincronizarEBuscarSaidas(
   }))
 
   medir('total_sync_e_busca')
-  return { linhas, erroSync, syncStatusAtual: syncStatusAtual ?? null }
+  return { linhas, erroSync, contasPuladas, syncStatusAtual: syncStatusAtual ?? null }
 }

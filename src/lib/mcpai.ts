@@ -206,7 +206,7 @@ const MAX_PAGINAS = 60
 const dataIso = (d: Date, dias = 0) => new Date(d.getTime() + dias * 86_400_000).toISOString().slice(0, 10)
 
 type ResultadoTransacoesBrutas =
-  | { ok: true; transacoes: TransacaoBruta[] }
+  | { ok: true; transacoes: TransacaoBruta[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 // Busca TODAS as transações (crédito e débito) das contas do grupo no
@@ -271,6 +271,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     const inicioMs = dataInicio.getTime()
     const fimMs = dataFim.getTime()
     const transacoes: TransacaoBruta[] = []
+    // Contas que o mcp.ai não respondeu na página 1. O chamador decide o que fazer: o sync de Despesas
+    // não avança a data do último sync e avisa na tela, para a lacuna não virar perda silenciosa.
+    const contasPuladas: string[] = []
 
     logTempo({ origem, etapa: 'contas_do_grupo', contas: contas.length })
     // Contas em paralelo: o tempo do sync passa a ser o da conta mais lenta, não a soma. Cada conta faz
@@ -323,6 +326,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         throw new Error(leitura.erro)
       }
       if (leitura.ignorada) {
+        contasPuladas.push(conta.bank)
         logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
         return []
       }
@@ -361,8 +365,8 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       transacoes.push(...r.value)
     }
 
-    logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length })
-    return { ok: true, transacoes }
+    logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length, contas_puladas: contasPuladas.length })
+    return { ok: true, transacoes, contasPuladas }
   } catch (e) {
     logTempo({ origem, etapa: 'falhou', total_ms: decorrido(t0), erro: e instanceof Error ? e.message.slice(0, 120) : 'desconhecido' })
     return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
@@ -492,7 +496,7 @@ export type TransacaoSaida = {
 }
 
 type ResultadoSaidas =
-  | { ok: true; transacoes: TransacaoSaida[] }
+  | { ok: true; transacoes: TransacaoSaida[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoSaidas> {
@@ -512,7 +516,7 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
       tipoOperacao: t.operationType,
     }))
 
-  return { ok: true, transacoes }
+  return { ok: true, transacoes, contasPuladas: bruto.contasPuladas }
 }
 
 /**
