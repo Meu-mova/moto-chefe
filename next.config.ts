@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // A landing /convencao foi aposentada; o QR e os links antigos levam ao formulário de adesão.
+  // Redirect de config roda antes do middleware, então não cai no login.
+  async redirects() {
+    return [{ source: '/convencao', destination: '/adesao', permanent: true }]
+  },
   // unpdf carrega o pdf.js inteiro para ler o holerite (@/lib/holerite-pdf). Ele
   // só roda no servidor, dentro de um import dinâmico, e empacotá-lo levou o
   // build local a estourar a memória na geração das páginas. Fora do bundle, é
