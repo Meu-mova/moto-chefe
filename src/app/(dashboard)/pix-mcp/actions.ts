@@ -103,7 +103,7 @@ export async function sincronizarPixAction(forcar: boolean): Promise<ResultadoSy
   const grupo = await getGrupoAtivo(usuario)
 
   // Reconfere aqui: outra aba pode ter acabado de sincronizar.
-  if (!forcar && cachePixValido(await ultimaSincronizacaoPix(grupo.id))) return { ok: true }
+  if (!forcar && cachePixValido(await ultimaSincronizacaoPix(grupo.id))) return { ok: true, contasPuladas: [] }
 
   const r = await sincronizarPix(grupo)
   if (r.ok) revalidatePath('/pix-mcp')

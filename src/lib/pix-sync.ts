@@ -14,7 +14,7 @@ export function cachePixValido(ultimaSincronizacao: Date | undefined, agora = Da
 const tempo = (etapa: string, desde: number, extra = '') =>
   console.log('[pix-tempo]', `etapa=${etapa} ms=${Math.round(performance.now() - desde)}${extra ? ' ' + extra : ''}`)
 
-export type ResultadoSyncPix = { ok: true } | { ok: false; erro: string }
+export type ResultadoSyncPix = { ok: true; contasPuladas: string[] } | { ok: false; erro: string }
 
 export async function sincronizarPix(grupo: { id: string; cnpj: string }): Promise<ResultadoSyncPix> {
   // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
@@ -57,11 +57,13 @@ export async function sincronizarPix(grupo: { id: string; cnpj: string }): Promi
         },
       })
   }
-  await db.insert(pixMcpSyncStatus)
+  // Conta pulada = leitura incompleta. Grava o que veio, mas não avança a data: senão o
+  // cache de 10 min esconderia a conta que faltou, como se o sync tivesse completado.
+  if (resultado.contasPuladas.length === 0) await db.insert(pixMcpSyncStatus)
     .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
     .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
   tempo('gravar_no_banco', tGrava)
-  return { ok: true }
+  return { ok: true, contasPuladas: resultado.contasPuladas }
 }
 
 export async function ultimaSincronizacaoPix(grupoId: string) {

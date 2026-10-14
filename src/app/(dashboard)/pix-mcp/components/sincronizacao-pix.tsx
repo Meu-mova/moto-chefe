@@ -18,6 +18,7 @@ export function SincronizacaoPix({ rotuloSync, sincronizarAoAbrir }: { rotuloSyn
       try {
         const r = await sincronizarPixAction(forcar)
         if (!r.ok) setErro(r.erro)
+        else if (r.contasPuladas.length > 0) setErro(`conta não lida: ${r.contasPuladas.join(', ')}`)
       } catch {
         setErro('falha ao falar com o servidor')
       }
