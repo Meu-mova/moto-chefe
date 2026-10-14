@@ -1,5 +1,6 @@
 import { agruparEmFaturas, type Fatura, type FaturaBruta, type LancamentoBruto } from './cartao-fatura'
 import { endpointMcpDoGrupo } from './mcpai-credencial'
+import { lerTodasAsPaginas, type BuscaPagina } from './paginacao-mcpai'
 
 type ContaBancaria = {
   id: string
@@ -187,6 +188,23 @@ type TransacaoBruta = {
   paymentData?: { payer?: string; recipient?: string }
 }
 
+type TxMcp = {
+  id: string
+  date: string
+  amount: string
+  type: string
+  operationType: string
+  description: string
+  paymentData?: { payer?: string; recipient?: string }
+}
+
+const PAGE_SIZE = 500 // máximo aceito pelo mcp.ai (tools/list, 14/10/2026)
+// 60 páginas = 30 mil linhas, ~1 min nas medições (~1 s por página); acima disso o sync falha em vez de arriscar os 300 s.
+const MAX_PAGINAS = 60
+// O fuso e a inclusividade de from/to não estão documentados: abro um dia para cada lado e deixo o
+// filtro por data exata (mais abaixo) fazer o corte certo.
+const dataIso = (d: Date, dias = 0) => new Date(d.getTime() + dias * 86_400_000).toISOString().slice(0, 10)
+
 type ResultadoTransacoesBrutas =
   | { ok: true; transacoes: TransacaoBruta[] }
   | { ok: false; erro: string }
@@ -271,44 +289,40 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       const forceMs = decorrido(tForce)
 
       const tLista = agora()
-      const txChamada = await chamarMcp(url, init.sessionId, {
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/call',
-        params: {
-          name: 'openfinance_list_transactions',
-          arguments: { account_id: conta.id },
-        },
-      })
+      let bytesTotais = 0
+      // Paginação manual (page_size 500): sem ela o mcp.ai corta em 5000 e perde os mais antigos em
+      // silêncio (a Sicoob tem 5689). Ver paginacao-mcpai.ts.
+      const buscarPagina: BuscaPagina<TxMcp> = async pagina => {
+        const chamada = await chamarMcp(url, init.sessionId, {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: {
+            name: 'openfinance_list_transactions',
+            arguments: { account_id: conta.id, from: dataIso(dataInicio, -1), to: dataIso(dataFim, 1), page_size: PAGE_SIZE, page: pagina },
+          },
+        })
+        bytesTotais += chamada.bytes
+        if (chamada.json.error) return 'erro'
+        const resultado = chamada.json.result as { content?: { text?: string }[] } | undefined
+        const conteudo = resultado?.content?.[0]?.text
+        if (!conteudo) return 'erro'
+        const payload = JSON.parse(conteudo) as { total?: number; totalPages?: number; results?: TxMcp[] }
+        return { linhas: payload.results ?? [], total: payload.total ?? 0, totalPages: payload.totalPages ?? 1 }
+      }
+      const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, { maxPaginas: MAX_PAGINAS, maxTentativas: 3 })
       const listaMs = decorrido(tLista)
-      if (txChamada.json.error) {
-        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: txChamada.bytes, erro: true })
+      if (!leitura.ok) {
+        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
+        return { ok: false, erro: leitura.erro }
+      }
+      if (leitura.ignorada) {
+        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
         continue
       }
 
-      const txResult = txChamada.json.result as { content?: { text?: string }[] } | undefined
-      const txConteudo = txResult?.content?.[0]?.text
-      if (!txConteudo) continue
-
-      const txPayload = JSON.parse(txConteudo) as {
-        // Sem page/page_size o mcp.ai devolve tudo numa página, com teto de 5000: acima disso vem
-        // truncated:true + warning e os mais antigos ficam de fora (tools/list, 14/10/2026).
-        truncated?: boolean
-        total?: number
-        warning?: string
-        results?: Array<{
-          id: string
-          date: string
-          amount: string
-          type: string
-          operationType: string
-          description: string
-          paymentData?: { payer?: string; recipient?: string }
-        }>
-      }
-
       const totalAntes = transacoes.length
-      for (const tx of txPayload.results ?? []) {
+      for (const tx of leitura.linhas) {
         const dataMs = new Date(tx.date).getTime()
         if (dataMs < inicioMs || dataMs > fimMs) continue
 
@@ -326,9 +340,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       }
       logTempo({
         origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs,
-        bytes: txChamada.bytes, baixadas: txPayload.results?.length ?? 0, no_periodo: transacoes.length - totalAntes,
-        truncada: txPayload.truncated === true, total_informado: txPayload.total ?? 'n/d', aviso: Boolean(txPayload.warning),
-        mais_antiga: (txPayload.results ?? []).reduce((min, t) => (t.date < min ? t.date : min), '9999').slice(0, 10),
+        bytes: bytesTotais, paginas: leitura.paginas, tentativas: leitura.tentativas, total_informado: leitura.total,
+        baixadas: leitura.linhas.length, no_periodo: transacoes.length - totalAntes,
+        mais_antiga: leitura.linhas.reduce((min, t) => (t.date < min ? t.date : min), '9999').slice(0, 10),
       })
     }
 
