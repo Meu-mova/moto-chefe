@@ -273,7 +273,10 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     const transacoes: TransacaoBruta[] = []
 
     logTempo({ origem, etapa: 'contas_do_grupo', contas: contas.length })
-    for (const conta of contas) {
+    // Contas em paralelo: o tempo do sync passa a ser o da conta mais lenta, não a soma. Cada conta faz
+    // force_sync + leitura em sequência (a leitura precisa do sync anterior). Falha em qualquer conta
+    // depois da página 1 derruba o sync inteiro (ver lerTodasAsPaginas). O resultado volta na ordem das contas.
+    const processarConta = async (conta: (typeof contas)[number]): Promise<TransacaoBruta[]> => {
       const tForce = agora()
       // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
       // sync, transações recebidas/enviadas nas últimas horas não aparecem ainda.
@@ -314,19 +317,19 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       const listaMs = decorrido(tLista)
       if (!leitura.ok) {
         logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
-        return { ok: false, erro: leitura.erro }
+        throw new Error(leitura.erro)
       }
       if (leitura.ignorada) {
         logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
-        continue
+        return []
       }
 
-      const totalAntes = transacoes.length
+      const daConta: TransacaoBruta[] = []
       for (const tx of leitura.linhas) {
         const dataMs = new Date(tx.date).getTime()
         if (dataMs < inicioMs || dataMs > fimMs) continue
 
-        transacoes.push({
+        daConta.push({
           contaId: conta.id,
           banco: conta.bank,
           transacaoId: tx.id,
@@ -341,10 +344,14 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       logTempo({
         origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs,
         bytes: bytesTotais, paginas: leitura.paginas, tentativas: leitura.tentativas, total_informado: leitura.total,
-        baixadas: leitura.linhas.length, no_periodo: transacoes.length - totalAntes,
+        baixadas: leitura.linhas.length, no_periodo: daConta.length,
         mais_antiga: leitura.linhas.reduce((min, t) => (t.date < min ? t.date : min), '9999').slice(0, 10),
       })
+      return daConta
     }
+
+    const porConta = await Promise.all(contas.map(processarConta))
+    transacoes.push(...porConta.flat())
 
     logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length })
     return { ok: true, transacoes }
