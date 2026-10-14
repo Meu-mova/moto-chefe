@@ -1547,3 +1547,21 @@ export const leadsConvencao = pgTable('leads_convencao', {
   unidade: text('unidade').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── adesoes_mova (pedidos de adesão da página pública /adesao) ───────────────
+// cert_arquivo, cert_senha e store_senha são pacotes cifrados (src/lib/cripto.ts), nunca o cru.
+// cnpj_arquivo_path é o caminho no bucket privado 'adesoes'.
+export const adesoesMova = pgTable('adesoes_mova', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  loja: text('loja').notNull(),
+  responsavel: text('responsavel').notNull(),
+  celular: text('celular').notNull(),
+  cnpjArquivoPath: text('cnpj_arquivo_path').notNull(),
+  certArquivo: text('cert_arquivo').notNull(),
+  certSenha: text('cert_senha').notNull(),
+  storeLogin: text('store_login').notNull(),
+  storeSenha: text('store_senha').notNull(),
+  usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
+  status: text('status').notNull().default('pendente'),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
