@@ -1,14 +1,14 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirDespesaAction } from '../actions'
-import { EditarDespesaButton } from './despesa-dialog'
+import { DespesaDialog } from './despesa-dialog'
+import { ListaDetalhe } from './lista-detalhe'
 import type { Loja, DespesaRow } from '../types'
 
 type Props = {
@@ -33,6 +33,7 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroLoja, setFiltroLoja]           = useState('')
   const [filtroBusca, setFiltroBusca]         = useState('')
+  const [editando, setEditando]               = useState<DespesaRow | null>(null)
 
   const categoriasFiltro = useMemo(() =>
     [...new Set(despesas.map(d => d.categoria))].sort(),
@@ -72,125 +73,115 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
   }
 
   if (despesas.length === 0) {
-    return <p className="text-sm text-slate-400 py-8 text-center">Nenhuma despesa encontrada.</p>
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma despesa encontrada.</p>
   }
 
+  const campo = 'h-11 text-base md:h-8 md:text-xs'
   return (
     <div className="space-y-3">
-      {/* Filtros inline */}
-      <div className="flex gap-2 flex-wrap">
-        <Select value={filtroCategoria || '__todas'} onValueChange={v => setFiltroCategoria(v == null || v === '__todas' ? '' : v)}>
-          <SelectTrigger className="h-8 w-44 text-xs">
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__todas">Todas as categorias</SelectItem>
-            {categoriasFiltro.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        <Select value={filtroLoja || '__todas'} onValueChange={v => setFiltroLoja(v == null || v === '__todas' ? '' : v)}>
-          <SelectTrigger className="h-8 w-44 text-xs">
-            <SelectValue placeholder="Loja" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__todas">Todas as lojas</SelectItem>
-            <SelectItem value="__geral">Geral (empresa)</SelectItem>
-            {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
+      {/* Busca primeiro: no celular é o filtro que mais se usa; categoria e loja ficam logo abaixo. */}
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
         <Input
-          className="h-8 text-xs w-48"
+          className={`${campo} md:order-last md:w-64`}
           placeholder="Buscar descrição / categoria / banco..."
           value={filtroBusca}
           onChange={e => setFiltroBusca(e.target.value)}
         />
+        <div className="grid grid-cols-2 gap-2 md:flex">
+          <Select value={filtroCategoria || '__todas'} onValueChange={v => setFiltroCategoria(v == null || v === '__todas' ? '' : v)}>
+            <SelectTrigger className={`${campo} w-full md:w-44`}>
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__todas">Todas as categorias</SelectItem>
+              {categoriasFiltro.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filtroLoja || '__todas'} onValueChange={v => setFiltroLoja(v == null || v === '__todas' ? '' : v)}>
+            <SelectTrigger className={`${campo} w-full md:w-44`}>
+              <SelectValue placeholder="Loja" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__todas">Todas as lojas</SelectItem>
+              <SelectItem value="__geral">Geral (empresa)</SelectItem>
+              {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Data</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead>Descrição</TableHead>
-            <TableHead>Loja</TableHead>
-            <TableHead>Pgto</TableHead>
-            <TableHead>Banco</TableHead>
-            <TableHead className="text-right">Valor</TableHead>
-            <TableHead className="w-16" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {dados.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-sm text-slate-400">
-                Nenhuma despesa para os filtros aplicados.
-              </TableCell>
-            </TableRow>
-          )}
-          {dados.map(d => (
-            <TableRow key={`${d.origem}-${d.id}`}>
-              <TableCell className="whitespace-nowrap text-sm">{fmtData(d.data)}</TableCell>
-              <TableCell className="text-sm">
-                {d.categoria}
-                {d.origem === 'caixa' && (
-                  <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-amber-100 text-amber-700 rounded px-1 py-0.5">
-                    caixa
-                  </span>
-                )}
-                {/* O nome vem embaixo da categoria, e não em coluna nova: só
-                    retirada e pró-labore têm, e uma coluna vazia em todo o resto
-                    custaria mais espaço do que informa. */}
-                {d.beneficiario && (
-                  <span className="block text-xs font-medium text-violet-700">{d.beneficiario}</span>
-                )}
-              </TableCell>
-              <TableCell className="text-sm text-slate-500 max-w-[180px] truncate">{d.descricao ?? '—'}</TableCell>
-              <TableCell className="text-sm">
-                {d.lojaNome ?? <span className="text-slate-400 text-xs italic">Geral</span>}
-              </TableCell>
-              <TableCell className="text-sm">{d.formaPagamento}</TableCell>
-              <TableCell className="text-sm">{d.banco}</TableCell>
-              <TableCell className="text-right font-mono text-sm text-red-600">
-                -{fmt(d.valor)}
-              </TableCell>
-              <TableCell>
-                {/* Lançamento de caixa se edita no /caixa, onde ele nasceu e onde passa
-                    pela aprovação — aqui ele só compõe o resultado. */}
-                {d.origem === 'caixa' ? (
-                  <span className="text-xs text-slate-400">no /caixa</span>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <EditarDespesaButton
-                      lojas={lojas} despesa={d} categorias={categorias}
-                      categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-red-400 hover:text-red-600"
-                      onClick={() => handleExcluir(d.id)}
-                      disabled={excluindo === d.id}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-          {dados.length > 0 && (
-            <TableRow className="bg-slate-50 font-semibold">
-              <TableCell colSpan={6} className="text-sm text-slate-600">Total filtrado</TableCell>
-              <TableCell className="text-right font-mono text-sm text-red-700">
-                -{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </TableCell>
-              <TableCell />
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      <ListaDetalhe
+        itens={dados}
+        idDe={d => `${d.origem}-${d.id}`}
+        borda={d => (d.origem === 'caixa' ? 'border-l-warning' : 'border-l-transparent')}
+        linha={d => (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{d.beneficiario ?? d.descricao ?? d.categoria}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {fmtData(d.data)} · {d.categoria} · {d.lojaNome ?? 'Geral'}
+              </span>
+            </span>
+            <span className="font-semibold tabular-nums text-destructive">-{fmt(d.valor)}</span>
+          </>
+        )}
+        tituloDetalhe="Despesa"
+        descricaoDetalhe={d => `${d.categoria} · ${fmtData(d.data)}`}
+        detalhe={d => (
+          <>
+            <p className="text-2xl font-bold tabular-nums text-destructive">-{fmt(d.valor)}</p>
+            <dl className="space-y-2 text-sm">
+              {[
+                ['Categoria', d.categoria],
+                ...(d.beneficiario ? [['A quem se destinou', d.beneficiario]] : []),
+                ['Descrição', d.descricao ?? '—'],
+                ['Loja', d.lojaNome ?? 'Geral'],
+                ['Data', fmtData(d.data)],
+                ['Pagamento', d.formaPagamento],
+                ['Banco', d.banco],
+                ['Lançada por', d.usuarioNome],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 border-b border-border pb-2">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {/* Lançamento de caixa se edita no /caixa, onde ele nasceu e onde passa
+                pela aprovação — aqui ele só compõe o resultado. */}
+            {d.origem === 'caixa' ? (
+              <p className="border-l-2 border-warning pl-3 text-sm text-warning">Saída do caixa da loja. Para editar, use o /caixa.</p>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="outline" className="h-11 flex-1 md:h-9" onClick={() => setEditando(d)}>
+                  <Pencil size={14} /> Editar
+                </Button>
+                <Button variant="outline" className="h-11 flex-1 text-destructive hover:text-destructive md:h-9" onClick={() => handleExcluir(d.id)} disabled={excluindo === d.id}>
+                  <Trash2 size={14} /> Excluir
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+        vazio={<p className="py-8 text-center text-sm text-muted-foreground">Nenhuma despesa para os filtros aplicados.</p>}
+      />
+
+      {dados.length > 0 && (
+        <p className="flex justify-between border-t border-border pt-3 text-sm font-semibold">
+          <span className="text-muted-foreground">Total filtrado</span>
+          <span className="tabular-nums text-destructive">-{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+        </p>
+      )}
+
+      {editando && (
+        <DespesaDialog
+          key={`${editando.id}-${editando.valor}-${editando.data}`}
+          lojas={lojas} categorias={categorias}
+          categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+          modo="editar" inicial={editando} open onOpenChange={o => { if (!o) setEditando(null) }}
+        />
+      )}
     </div>
   )
 }
