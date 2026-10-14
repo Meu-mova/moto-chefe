@@ -32,6 +32,16 @@ function mesmoCnpj(a: string | null | undefined, b: string | null | undefined): 
 type RespostaMcp = {
   json: { result?: unknown; error?: { message?: string } }
   sessionId: string | null
+  bytes: number
+}
+
+// Diagnóstico de lentidão (#126): uma linha de log por etapa, escrita assim que a etapa termina.
+// Tem de ser por etapa, não um resumo no fim: se a função estoura o limite da Vercel (300 s) o fim
+// nunca roda, e o log parcial é justamente o que mostra onde travou. Sem valores, nomes nem ids.
+const agora = () => performance.now()
+const decorrido = (desde: number) => Math.round(agora() - desde)
+function logTempo(campos: Record<string, string | number | boolean>) {
+  console.log('[mcpai-tempo]', Object.entries(campos).map(([k, v]) => `${k}=${v}`).join(' '))
 }
 
 function parseSse(texto: string): RespostaMcp['json'] {
@@ -55,7 +65,7 @@ async function chamarMcp(url: string, sessionId: string | null, body: Record<str
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
   const texto = await res.text()
   const json = parseSse(texto)
-  return { json, sessionId: res.headers.get('mcp-session-id') }
+  return { json, sessionId: res.headers.get('mcp-session-id'), bytes: texto.length }
 }
 
 async function forcarSyncContas(url: string, sessionId: string, ids: string[]): Promise<void> {
@@ -185,9 +195,12 @@ type ResultadoTransacoesBrutas =
 // período — usada tanto por buscarPixRecebidos (filtra crédito/PIX) quanto
 // por buscarSaidasOpenFinance (filtra débito), pra não bater duas vezes na
 // API do mcp.ai pra cada sincronização.
-async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoTransacoesBrutas> {
+async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo: string, origem: 'pix' | 'despesas'): Promise<ResultadoTransacoesBrutas> {
+  const t0 = agora()
+  logTempo({ origem, etapa: 'inicio' })
   try {
     const url = await endpointMcpDoGrupo(cnpjGrupo)
+    const tInit = agora()
     const init = await chamarMcp(url, null, {
       jsonrpc: '2.0',
       id: 1,
@@ -198,6 +211,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         clientInfo: { name: 'moto-chefe', version: '1.0' },
       },
     })
+    logTempo({ origem, etapa: 'initialize', ms: decorrido(tInit) })
     if (init.json.error) {
       return { ok: false, erro: init.json.error.message ?? 'Erro ao iniciar sessão com mcp.ai' }
     }
@@ -205,6 +219,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       return { ok: false, erro: 'mcp.ai não retornou identificador de sessão' }
     }
 
+    const tContas = agora()
     const contasChamada = await chamarMcp(url, init.sessionId, {
       jsonrpc: '2.0',
       id: 2,
@@ -214,6 +229,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         arguments: { type: 'BANK' },
       },
     })
+    logTempo({ origem, etapa: 'listar_contas', ms: decorrido(tContas), bytes: contasChamada.bytes })
     if (contasChamada.json.error) {
       return { ok: false, erro: contasChamada.json.error.message ?? 'Erro ao buscar contas no mcp.ai' }
     }
@@ -238,7 +254,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     const fimMs = dataFim.getTime()
     const transacoes: TransacaoBruta[] = []
 
+    logTempo({ origem, etapa: 'contas_do_grupo', contas: contas.length })
     for (const conta of contas) {
+      const tForce = agora()
       // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
       // sync, transações recebidas/enviadas nas últimas horas não aparecem ainda.
       await chamarMcp(url, init.sessionId, {
@@ -250,7 +268,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
           arguments: { account_id: conta.id },
         },
       }).catch(() => {})
+      const forceMs = decorrido(tForce)
 
+      const tLista = agora()
       const txChamada = await chamarMcp(url, init.sessionId, {
         jsonrpc: '2.0',
         id: 3,
@@ -260,7 +280,11 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
           arguments: { account_id: conta.id },
         },
       })
-      if (txChamada.json.error) continue
+      const listaMs = decorrido(tLista)
+      if (txChamada.json.error) {
+        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: txChamada.bytes, erro: true })
+        continue
+      }
 
       const txResult = txChamada.json.result as { content?: { text?: string }[] } | undefined
       const txConteudo = txResult?.content?.[0]?.text
@@ -278,6 +302,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         }>
       }
 
+      const totalAntes = transacoes.length
       for (const tx of txPayload.results ?? []) {
         const dataMs = new Date(tx.date).getTime()
         if (dataMs < inicioMs || dataMs > fimMs) continue
@@ -294,10 +319,16 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
           paymentData: tx.paymentData,
         })
       }
+      logTempo({
+        origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs,
+        bytes: txChamada.bytes, baixadas: txPayload.results?.length ?? 0, no_periodo: transacoes.length - totalAntes,
+      })
     }
 
+    logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length })
     return { ok: true, transacoes }
   } catch (e) {
+    logTempo({ origem, etapa: 'falhou', total_ms: decorrido(t0), erro: e instanceof Error ? e.message.slice(0, 120) : 'desconhecido' })
     return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
   }
 }
@@ -390,7 +421,7 @@ export function ehTransferenciaEntreContas(descricao: string | null | undefined)
 const TIPO_TRANSFERENCIA_CONTAS = 'TRANSF'
 
 export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
-  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
+  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo, 'pix')
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
@@ -429,7 +460,7 @@ type ResultadoSaidas =
   | { ok: false; erro: string }
 
 export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoSaidas> {
-  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo)
+  const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo, 'despesas')
   if (!bruto.ok) return bruto
 
   const transacoes = bruto.transacoes
