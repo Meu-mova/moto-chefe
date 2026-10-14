@@ -2,23 +2,21 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
-import { buscarPixRecebidos } from '@/lib/mcpai'
+import { cachePixValido, ultimaSincronizacaoPix } from '@/lib/pix-sync'
 import { db } from '@/lib/db'
-import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
-import { inArray, and, eq, gte, lte, desc, sql } from 'drizzle-orm'
+import { pixRecebimentosMcp, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
+import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TrendingUp, RefreshCw, Building2 } from 'lucide-react'
+import { TrendingUp, Building2 } from 'lucide-react'
 import { PixFiltros } from './components/pix-filtros'
+import { SincronizacaoPix } from './components/sincronizacao-pix'
 import { CorrespondenciaForm } from './components/correspondencia-form'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
-import Link from 'next/link'
 
-// Enquanto a última sincronização com o mcp.ai for mais recente que isso, a
-// página lê só do nosso banco — evita bater no mcp.ai (lento, baixa o
-// histórico inteiro da conta) a cada carregamento.
-const JANELA_CACHE_MS = 10 * 60 * 1000
+// A sincronização (server action) pode passar de 1 min; a página é o teto dela.
+export const maxDuration = 300
 
 function formatValor(v: string) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
@@ -45,7 +43,7 @@ function toInputDate(d: Date) {
 export default async function PixMcpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; sync?: string }>
+  searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const tPagina = performance.now()
   // Diagnóstico de lentidão (#126): um log por fase, assim que ela termina (ver logTempo em @/lib/mcpai).
@@ -69,65 +67,12 @@ export default async function PixMcpPage({
   // mostrar (só histórico importado) — ver INICIO_CONCILIACAO.
   const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
-  const forcarSync = params.sync === '1'
 
-  const [syncStatus] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
-  const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
-
-  let erroSync: string | null = null
-  console.log('[pix-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync}`)
-
-  if (!cacheValido) {
-    // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
-    // mcp.ai — ver nota em buscarPixRecebidos), então usamos uma janela bem
-    // ampla aqui pra não perder PIX antigos na primeira sincronização.
-    const desde = new Date('2025-01-01T00:00:00.000Z')
-    const tBusca = performance.now()
-    const resultado = await buscarPixRecebidos(desde, hoje, grupo.cnpj)
-    tempo('buscar_pix_mcpai', tBusca, `ok=${resultado.ok}${resultado.ok ? ` transacoes=${resultado.transacoes.length}` : ''}`)
-
-    if (!resultado.ok) {
-      erroSync = resultado.erro
-    } else {
-      const tGrava = performance.now()
-      if (resultado.transacoes.length > 0) {
-        await db.insert(pixRecebimentosMcp)
-          .values(resultado.transacoes.map(tx => ({
-            grupoId: grupo.id,
-            contaId: tx.contaId,
-            banco: tx.banco,
-            transacaoId: tx.transacaoId,
-            data: new Date(tx.data),
-            valor: tx.valor,
-            pagadorNome: tx.pagadorNome,
-            descricao: tx.descricao,
-            tipoOperacao: tx.tipoOperacao,
-          })))
-          // Upsert, não DoNothing: a linha que já entrou precisa poder se
-          // corrigir. Foi assim que 50 recebimentos ficaram com o pagador
-          // gravado como "Transferência Pix" mesmo depois de a leitura da
-          // descrição ser consertada. Só os campos descritivos são
-          // reescritos — venda_id/os_id/pedido_id/peca_venda_id/lancado_* NÃO
-          // são tocados, então nada que já foi conciliado se perde. E o
-          // coalesce impede que um sync que venha sem remetente apague um
-          // nome que já temos.
-          .onConflictDoUpdate({
-            target: pixRecebimentosMcp.transacaoId,
-            set: {
-              pagadorNome: sql`coalesce(excluded.pagador_nome, ${pixRecebimentosMcp.pagadorNome})`,
-              descricao: sql`coalesce(excluded.descricao, ${pixRecebimentosMcp.descricao})`,
-              tipoOperacao: sql`coalesce(excluded.tipo_operacao, ${pixRecebimentosMcp.tipoOperacao})`,
-            },
-          })
-      }
-      await db.insert(pixMcpSyncStatus)
-        .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
-        .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
-      tempo('gravar_no_banco', tGrava)
-    }
-  }
-
-  const [syncStatusAtual] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
+  const ultimaSync = await ultimaSincronizacaoPix(grupo.id)
+  // Sem sincronizar aqui: a página mostra o que está no banco e o cliente dispara
+  // a sincronização (ver SincronizacaoPix), para não prender a tela atrás do mcp.ai.
+  const sincronizarAoAbrir = !cachePixValido(ultimaSync)
+  console.log('[pix-tempo]', `etapa=cache valido=${!sincronizarAoAbrir}`)
 
   const tLinhas = performance.now()
   const linhas = await db
@@ -189,8 +134,6 @@ export default async function PixMcpPage({
   const totalSemCorrespondencia = total - totalVinculado - totalInterno
   const qtdSemCorrespondencia = linhasVisiveis.filter(l => !l.tipoCorrespondencia && !ehInterna(l)).length
 
-  const hrefAtualizar = `/pix-mcp?from=${toInputDate(fromDate)}&to=${toInputDate(toDate)}&sync=1`
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -199,23 +142,13 @@ export default async function PixMcpPage({
           <p className="text-slate-500 text-sm">
             Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai (Open Finance). Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
           </p>
-          <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-            {syncStatusAtual
-              ? <>Sincronizado {formatAtras(syncStatusAtual.ultimaSincronizacao)}</>
-              : 'Ainda não sincronizado'}
-            <Link href={hrefAtualizar} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 underline">
-              <RefreshCw size={11} /> Atualizar agora
-            </Link>
-          </p>
+          <SincronizacaoPix
+            rotuloSync={ultimaSync ? `Sincronizado ${formatAtras(ultimaSync)}` : 'Ainda não sincronizado'}
+            sincronizarAoAbrir={sincronizarAoAbrir}
+          />
         </div>
         <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} min={INICIO_CONCILIACAO} />
       </div>
-
-      {erroSync && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Não foi possível sincronizar com o mcp.ai agora ({erroSync}) — mostrando os dados já salvos.
-        </div>
-      )}
 
       <div className={`grid grid-cols-2 gap-4 ${ehSocio ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <Card>
