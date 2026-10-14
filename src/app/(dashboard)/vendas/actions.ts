@@ -1576,7 +1576,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   await getUsuarioLogado()
 
   const [venda] = await db
-    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf })
+    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
@@ -1614,17 +1614,23 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     pdfPath = arquivada?.pdfPath ?? null
   }
   // Sem o id (NF registrada à mão) ou com o id de um rascunho que nunca foi
-  // transmitido: cai no número digitado na venda — mas só com o CPF/CNPJ do
-  // cliente batendo e uma única nota, porque o número se repete entre séries.
-  if (!pdfPath && venda.notaFiscalSaida && venda.clienteCpf) {
+  // transmitido: cai no número digitado na venda, que se repete entre séries.
+  // Só vale uma única nota e confirmada pelo CPF/CNPJ do cliente — ou, nas
+  // vendas importadas sem cliente (CPF 000.000.000-00), pela data: emitida até
+  // 15 dias da venda.
+  if (!pdfPath && venda.notaFiscalSaida) {
+    const cpf = (venda.clienteCpf ?? '').replace(/\D/g, '')
+    const confirma = /^0*$/.test(cpf)
+      ? sql`abs(${nfeBlingArquivo.dataEmissao} - ${venda.dataVenda.toISOString().slice(0, 10)}::date) <= 15`
+      : eq(nfeBlingArquivo.documento, cpf)
     const porNumero = await db
       .select({ pdfPath: nfeBlingArquivo.pdfPath })
       .from(nfeBlingArquivo)
       .where(and(
         eq(nfeBlingArquivo.grupoId, grupoId),
-        eq(nfeBlingArquivo.documento, venda.clienteCpf.replace(/\D/g, '')),
         sql`ltrim(${nfeBlingArquivo.numero}, '0') = ltrim(${venda.notaFiscalSaida.trim()}, '0')`,
         isNotNull(nfeBlingArquivo.pdfPath),
+        confirma,
       ))
       .limit(2)
     if (porNumero.length === 1) pdfPath = porNumero[0].pdfPath
