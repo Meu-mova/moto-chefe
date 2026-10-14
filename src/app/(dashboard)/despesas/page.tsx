@@ -15,7 +15,8 @@ import { MesSelector } from './components/mes-selector'
 import { SaidasFiltros } from './components/saidas-filtros'
 import { SaidasTable } from './components/saidas-table'
 import type { DespesaRow } from './types'
-import { sincronizarEBuscarSaidas } from './open-finance'
+import { sincronizarEBuscarSaidas, type ModoSync } from './open-finance'
+import { urlDespesasSemSync } from '@/lib/sync-incremental'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -47,15 +48,25 @@ export default async function DespesasPage({
   const inicioMesAtualDate = new Date(hojeDate.getFullYear(), hojeDate.getMonth(), 1)
   const sfrom = params.sfrom ? new Date(params.sfrom + 'T00:00:00.000Z') : new Date(inicioMesAtualDate.toISOString().split('T')[0] + 'T00:00:00.000Z')
   const sto = params.sto ? new Date(params.sto + 'T23:59:59.999Z') : hojeDate
-  const forcarSyncSaidas = params.sync === '1'
+  // ?sync=completo refaz o histórico inteiro (paginado) e é o sync mais pesado, então só vale para quem
+  // pode categorizar; para os demais o parâmetro é ignorado (vale o cache, como numa visita comum).
+  const modoSync: ModoSync = params.sync === 'completo' && podeCategorizar ? 'completo'
+    : params.sync === '1' ? 'forcado'
+    : 'normal'
 
-  const { linhas: saidas, erroSync, syncStatusAtual } = await sincronizarEBuscarSaidas(
+  const { linhas: saidas, erroSync, contasPuladas, syncStatusAtual } = await sincronizarEBuscarSaidas(
     { id: grupo.id, cnpj: grupo.cnpj },
     sfrom,
     sto,
-    forcarSyncSaidas,
+    modoSync,
     usuario.id,
   )
+
+  // Sync completo concluído sem falha: volta para a URL sem o parâmetro, senão cada F5 refaria o histórico
+  // inteiro. Com erro ou conta pulada fica na página, para o aviso aparecer.
+  if (modoSync === 'completo' && !erroSync && contasPuladas.length === 0) {
+    redirect(urlDespesasSemSync(params))
+  }
 
   medir('sync_de_saidas')
   const tConsultas = performance.now()
@@ -341,6 +352,13 @@ export default async function DespesasPage({
           {erroSync && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Não foi possível sincronizar com o mcp.ai agora ({erroSync}) — mostrando os dados já salvos.
+            </div>
+          )}
+
+          {contasPuladas.length > 0 && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              O mcp.ai não respondeu para: {contasPuladas.join(', ')}. As saídas recentes dessas contas podem estar faltando.
+              O sistema mantém a data do último sync e tenta de novo nas próximas visitas.
             </div>
           )}
 
