@@ -4,6 +4,7 @@ import { buscarSaidasOpenFinance } from '@/lib/mcpai'
 import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
 import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
+import { criarMedidor } from '@/lib/db-diag'
 
 // Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
 // com marcador de staleness próprio (despesas_of_sync_status), separado do
@@ -122,18 +123,24 @@ export async function sincronizarEBuscarSaidas(
   forcarSync: boolean,
   usuarioId: string,
 ): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
+  // Diagnóstico de lentidão (#129): um log por etapa, assim que ela termina. Sem valores, nomes nem ids.
+  const medir = criarMedidor('despesas-tempo')
   const [syncStatus] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
   const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
+  console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync}`)
 
   if (!cacheValido) {
     const desde = new Date('2025-01-01T00:00:00.000Z')
+    const tBusca = performance.now()
     const resultado = await buscarSaidasOpenFinance(desde, new Date(), grupo.cnpj)
+    medir('buscar_mcpai', tBusca)
 
     if (!resultado.ok) {
       erroSync = resultado.erro
     } else {
+      const tGrava = performance.now()
       if (resultado.transacoes.length > 0) {
         const inseridas = await db.insert(despesasOpenFinance)
           .values(resultado.transacoes.map(tx => ({
@@ -149,20 +156,27 @@ export async function sincronizarEBuscarSaidas(
           })))
           .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
           .returning()
+        medir('inserir_saidas', tGrava)
+        const tReemissoes = performance.now()
         await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)))
+        medir('absorver_reemissoes', tReemissoes)
       }
       await db.insert(despesasOfSyncStatus)
         .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
         .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
+      medir('gravar_no_banco', tGrava)
     }
   }
 
   // Roda em toda visita à página (não só quando sincroniza de fato) pra também
   // pegar saídas que já estavam pendentes antes dessa regra existir.
+  const tPedagio = performance.now()
   await autoCategorizarPedagioSicoob(grupo.id, usuarioId)
+  medir('auto_pedagio', tPedagio)
 
   const [syncStatusAtual] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
 
+  const tLinhas = performance.now()
   const linhasRaw = await db
     .select()
     .from(despesasOpenFinance)
@@ -172,6 +186,7 @@ export async function sincronizarEBuscarSaidas(
       lte(despesasOpenFinance.data, toDate),
     ))
     .orderBy(desc(despesasOpenFinance.data))
+  medir('consultar_linhas', tLinhas)
 
   const lojaIds = linhasRaw.map(l => l.lojaId).filter((id): id is string => !!id)
   const lancadoPorIds = linhasRaw.map(l => l.lancadoPorId).filter((id): id is string => !!id)
@@ -199,5 +214,6 @@ export async function sincronizarEBuscarSaidas(
     beneficiario: l.despesaId ? beneficiarioPorDespesa.get(l.despesaId) ?? null : null,
   }))
 
+  medir('total_sync_e_busca')
   return { linhas, erroSync, syncStatusAtual: syncStatusAtual ?? null }
 }

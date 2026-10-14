@@ -291,6 +291,11 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       if (!txConteudo) continue
 
       const txPayload = JSON.parse(txConteudo) as {
+        // Sem page/page_size o mcp.ai devolve tudo numa página, com teto de 5000: acima disso vem
+        // truncated:true + warning e os mais antigos ficam de fora (tools/list, 14/10/2026).
+        truncated?: boolean
+        total?: number
+        warning?: string
         results?: Array<{
           id: string
           date: string
@@ -322,6 +327,8 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       logTempo({
         origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs,
         bytes: txChamada.bytes, baixadas: txPayload.results?.length ?? 0, no_periodo: transacoes.length - totalAntes,
+        truncada: txPayload.truncated === true, total_informado: txPayload.total ?? 'n/d', aviso: Boolean(txPayload.warning),
+        mais_antiga: (txPayload.results ?? []).reduce((min, t) => (t.date < min ? t.date : min), '9999').slice(0, 10),
       })
     }
 
