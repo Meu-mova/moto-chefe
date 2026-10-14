@@ -85,3 +85,26 @@ test('total que nunca estabiliza falha depois das tentativas', async () => {
   const r = await lerTodasAsPaginas(buscar, chave, { maxPaginas: 60, maxTentativas: 2 })
   assert.equal(r.ok, false)
 })
+
+test('entrada e saída que se compensam: o total não muda, mas uma linha foi pulada, então relê', async () => {
+  // 1ª rodada: depois da página 1 entra uma linha nova no topo e a linha 6 some. O total continua 10,
+  // mas a página 2 vem deslocada e a linha 6 deixa de ser lida (9 únicas contra total 10).
+  const antes = Array.from({ length: 10 }, (_, i) => i)
+  const depois = ['nova', ...antes.filter(i => i !== 6)] // 10 linhas; tudo abaixo da nova sobe/desce
+  let rodada = 0
+  const buscar: BuscaPagina<number | string> = async p => {
+    if (p === 1) rodada++
+    const lista = rodada === 1 && p === 1 ? antes : rodada === 1 ? depois : antes
+    return { linhas: lista.slice((p - 1) * 5, p * 5), total: 10, totalPages: 2 }
+  }
+  const r = await lerTodasAsPaginas(buscar, String, OPTS)
+  assert.ok(r.ok)
+  assert.equal(r.tentativas, 2)
+  assert.equal(r.linhas.length, 10)
+})
+
+test('linhas únicas abaixo do total que nunca se corrigem falham depois das tentativas', async () => {
+  const buscar: BuscaPagina<number> = async p => ({ linhas: p === 1 ? [0, 1, 2, 3, 4] : [5, 6, 7, 8], total: 10, totalPages: 2 })
+  const r = await lerTodasAsPaginas(buscar, chave, { maxPaginas: 60, maxTentativas: 2 })
+  assert.equal(r.ok, false)
+})

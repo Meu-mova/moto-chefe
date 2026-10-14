@@ -15,9 +15,12 @@ export type ResultadoLeitura<T> =
 
 /**
  * Lê todas as páginas. As páginas são lidas em momentos diferentes: se uma linha some no meio
- * (reemissão), as seguintes sobem uma posição e uma linha é pulada sem aviso. O `total` informado
- * muda nesse caso, então comparo o da primeira e o da última página e releio se divergirem.
- * Linha repetida (entrou uma nova no topo) é descartada por `chave`.
+ * (reemissão), as seguintes sobem uma posição e uma linha é pulada sem aviso. Duas conferências, com
+ * releitura se qualquer uma falhar: o `total` da primeira e da última página devem ser iguais, e o
+ * número de linhas únicas lidas deve ser igual ao `total`. A segunda pega o caso em que uma entrada e
+ * uma saída se compensam (o total final não muda, mas uma linha foi pulada). Ela vale porque os IDs
+ * são únicos no mcp.ai: na Sicoob, 5689 linhas lidas, 5689 IDs únicos (14/10/2026). Linha repetida
+ * (entrou uma nova no topo) é descartada por `chave`.
  */
 export async function lerTodasAsPaginas<T>(
   buscar: BuscaPagina<T>,
@@ -43,7 +46,7 @@ export async function lerTodasAsPaginas<T>(
       totalNaUltima = p.total
     }
 
-    if (totalNaUltima === primeira.total) {
+    if (totalNaUltima === primeira.total && vistas.size === primeira.total) {
       return { ok: true, linhas: [...vistas.values()], paginas: primeira.totalPages, total: primeira.total, ignorada: false, tentativas: tentativa }
     }
   }
