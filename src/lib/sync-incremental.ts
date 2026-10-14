@@ -1,0 +1,39 @@
+// Regras puras do sync incremental de saídas do banco (Despesas), testáveis sem banco nem mcp.ai.
+
+const DIA_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Data a partir da qual pedir o extrato ao mcp.ai. Sem sync anterior (grupo novo), ou com sync
+ * completo forçado, usa `padrao`. A margem cobre o atraso com que o banco posta e reemite
+ * lançamentos: em produção o maior atraso medido até aparecer no banco foi de 12,8 dias (14/10).
+ */
+export function desdeDoSync(ultimaSincronizacao: Date | null, margemDias: number, padrao: Date): Date {
+  if (!ultimaSincronizacao) return padrao
+  const desde = new Date(ultimaSincronizacao.getTime() - margemDias * DIA_MS)
+  return desde < padrao ? padrao : desde
+}
+
+/**
+ * Linhas do banco que o extrato deixou de trazer ("sumidas"), candidatas a ser a versão antiga de
+ * uma reemissão. Com o `from` do sync incremental, o extrato não traz nada anterior a `desde`: sem
+ * este corte, uma linha válida e antiga pareceria "sumida" e poderia ser pareada e apagada por
+ * engano (ex.: pedágio de mesmo valor, dia e descrição).
+ */
+export function selecionarSumidas<T extends { id: string; transacaoId: string; data: Date }>(
+  vizinhas: T[],
+  idsInseridas: Set<string>,
+  idsTransacaoNoExtrato: Set<string>,
+  desde: Date,
+): T[] {
+  return vizinhas.filter(
+    v => !idsInseridas.has(v.id) && !idsTransacaoNoExtrato.has(v.transacaoId) && v.data >= desde,
+  )
+}
+
+/** Divide em lotes de até `tamanho`. O Postgres aceita no máximo 65.535 parâmetros por instrução. */
+export function dividirEmLotes<T>(itens: T[], tamanho: number): T[][] {
+  if (tamanho < 1) throw new Error('tamanho do lote deve ser >= 1')
+  const lotes: T[][] = []
+  for (let i = 0; i < itens.length; i += tamanho) lotes.push(itens.slice(i, i + tamanho))
+  return lotes
+}
