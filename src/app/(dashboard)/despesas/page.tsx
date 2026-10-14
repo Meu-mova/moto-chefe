@@ -3,6 +3,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
+import { criarMedidor } from '@/lib/db-diag'
 import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa, beneficiariosDespesa } from '@/lib/db/schema'
 import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
@@ -24,6 +25,7 @@ export default async function DespesasPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>
 }) {
+  const medir = criarMedidor('despesas-pagina-tempo')
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/despesas')) redirect('/dashboard')
 
@@ -33,6 +35,7 @@ export default async function DespesasPage({
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  medir('sessao_e_grupo')
 
   const params = await searchParams
   const mesParam = params.mes ?? mesBrt()
@@ -54,6 +57,8 @@ export default async function DespesasPage({
     usuario.id,
   )
 
+  medir('sync_de_saidas')
+  const tConsultas = performance.now()
   const [
     rowsManuais, lojasOpts, categoriasAtivas, categoriasComBeneficiario, beneficiarios,
     categoriasNaoOperacionais, saidasCaixa, categoriasCaixaNaoOperacionais,
@@ -152,6 +157,7 @@ export default async function DespesasPage({
       .where(eq(categoriasCaixa.contaComoDespesa, false))
       .then(rows => new Set(rows.map(r => r.nome))),
   ])
+  medir('consultas_em_paralelo', tConsultas)
 
   // A aba Lançamentos passou a ser a soma de duas origens: o que foi lançado à mão
   // aqui e o dinheiro que saiu do caixa das lojas. O que veio do banco fica na aba

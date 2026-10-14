@@ -62,7 +62,8 @@ async function chamarMcp(url: string, sessionId: string | null, body: Record<str
   }
   if (sessionId) headers['Mcp-Session-Id'] = sessionId
 
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
+  // Sem teto, uma resposta pendurada do mcp.ai segurava a página até os 300 s da função.
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(60_000) })
   const texto = await res.text()
   const json = parseSse(texto)
   return { json, sessionId: res.headers.get('mcp-session-id'), bytes: texto.length }
