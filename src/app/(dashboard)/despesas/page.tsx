@@ -47,7 +47,10 @@ export default async function DespesasPage({
   const inicioMesAtualDate = new Date(hojeDate.getFullYear(), hojeDate.getMonth(), 1)
   const sfrom = params.sfrom ? new Date(params.sfrom + 'T00:00:00.000Z') : new Date(inicioMesAtualDate.toISOString().split('T')[0] + 'T00:00:00.000Z')
   const sto = params.sto ? new Date(params.sto + 'T23:59:59.999Z') : hojeDate
-  const forcarSyncSaidas = params.sync === '1'
+  // ?sync=completo refaz o histórico inteiro (paginado); fica restrito a quem pode categorizar porque é
+  // o sync mais pesado. Para os demais cai no "Atualizar" comum.
+  const syncCompleto = params.sync === 'completo' && podeCategorizar
+  const forcarSyncSaidas = params.sync === '1' || syncCompleto
 
   const { linhas: saidas, erroSync, syncStatusAtual } = await sincronizarEBuscarSaidas(
     { id: grupo.id, cnpj: grupo.cnpj },
@@ -55,6 +58,7 @@ export default async function DespesasPage({
     sto,
     forcarSyncSaidas,
     usuario.id,
+    syncCompleto,
   )
 
   medir('sync_de_saidas')

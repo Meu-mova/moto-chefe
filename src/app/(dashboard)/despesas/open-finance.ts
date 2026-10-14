@@ -5,12 +5,21 @@ import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
 import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 import { criarMedidor } from '@/lib/db-diag'
+import { desdeDoSync, selecionarSumidas, dividirEmLotes } from '@/lib/sync-incremental'
 
 // Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
 // com marcador de staleness próprio (despesas_of_sync_status), separado do
 // pix_mcp_sync_status — as duas sincronizações escrevem em tabelas diferentes
 // e não podem compartilhar o mesmo controle de cache.
 const JANELA_CACHE_MS = 10 * 60 * 1000
+
+// Sync incremental: pede ao mcp.ai só o que veio depois do último sync, com folga para o atraso com
+// que o banco posta e reemite lançamentos (maior atraso medido até aparecer no banco: 12,8 dias).
+// O histórico inteiro só vem no primeiro sync do grupo ou com ?sync=completo.
+const MARGEM_SYNC_DIAS = 30
+const HISTORICO_DESDE = new Date('2025-01-01T00:00:00.000Z')
+// 9 parâmetros por linha: 1000 linhas ficam bem abaixo do limite de 65.535 do Postgres.
+const LOTE_INSERT = 1000
 
 // ─── Regra automática: pedágio Sicoob TAG → categoria "Pedágio", sem loja ────────────
 // O pedágio é da operação toda (motos rodando entre as lojas), não do Galpão. Ele
@@ -78,6 +87,7 @@ async function absorverReemissoes(
   grupoId: string,
   inseridas: (typeof despesasOpenFinance.$inferSelect)[],
   idsNoBanco: Set<string>,
+  desde: Date,
 ) {
   if (inseridas.length === 0) return
 
@@ -90,7 +100,7 @@ async function absorverReemissoes(
     gte(despesasOpenFinance.data, new Date(Math.min(...tempos) - UM_DIA_MS)),
     lte(despesasOpenFinance.data, new Date(Math.max(...tempos) + UM_DIA_MS)),
   ))
-  const sumidas = vizinhas.filter(v => !idsInseridas.has(v.id) && !idsNoBanco.has(v.transacaoId))
+  const sumidas = selecionarSumidas(vizinhas, idsInseridas, idsNoBanco, desde)
 
   const porId = new Map(inseridas.map(i => [i.id, i]))
   for (const { nova, antiga } of parearReemissoes(inseridas, sumidas)) {
@@ -122,6 +132,7 @@ export async function sincronizarEBuscarSaidas(
   toDate: Date,
   forcarSync: boolean,
   usuarioId: string,
+  syncCompleto = false,
 ): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
   // Diagnóstico de lentidão (#129): um log por etapa, assim que ela termina. Sem valores, nomes nem ids.
   const medir = criarMedidor('despesas-tempo')
@@ -129,10 +140,10 @@ export async function sincronizarEBuscarSaidas(
   const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
-  console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync}`)
+  const desde = syncCompleto ? HISTORICO_DESDE : desdeDoSync(syncStatus?.ultimaSincronizacao ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
+  console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync} modo=${desde.getTime() === HISTORICO_DESDE.getTime() ? 'completo' : 'incremental'} desde=${desde.toISOString().slice(0, 10)}`)
 
   if (!cacheValido) {
-    const desde = new Date('2025-01-01T00:00:00.000Z')
     const tBusca = performance.now()
     const resultado = await buscarSaidasOpenFinance(desde, new Date(), grupo.cnpj)
     medir('buscar_mcpai', tBusca)
@@ -142,23 +153,27 @@ export async function sincronizarEBuscarSaidas(
     } else {
       const tGrava = performance.now()
       if (resultado.transacoes.length > 0) {
-        const inseridas = await db.insert(despesasOpenFinance)
-          .values(resultado.transacoes.map(tx => ({
-            grupoId: grupo.id,
-            contaId: tx.contaId,
-            banco: tx.banco,
-            transacaoId: tx.transacaoId,
-            data: new Date(tx.data),
-            valor: tx.valor,
-            favorecidoNome: tx.favorecidoNome,
-            descricao: tx.descricao,
-            tipoOperacao: tx.tipoOperacao,
-          })))
-          .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
-          .returning()
+        const linhasParaGravar = resultado.transacoes.map(tx => ({
+          grupoId: grupo.id,
+          contaId: tx.contaId,
+          banco: tx.banco,
+          transacaoId: tx.transacaoId,
+          data: new Date(tx.data),
+          valor: tx.valor,
+          favorecidoNome: tx.favorecidoNome,
+          descricao: tx.descricao,
+          tipoOperacao: tx.tipoOperacao,
+        }))
+        const inseridas: (typeof despesasOpenFinance.$inferSelect)[] = []
+        for (const lote of dividirEmLotes(linhasParaGravar, LOTE_INSERT)) {
+          inseridas.push(...await db.insert(despesasOpenFinance)
+            .values(lote)
+            .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
+            .returning())
+        }
         medir('inserir_saidas', tGrava)
         const tReemissoes = performance.now()
-        await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)))
+        await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)), desde)
         medir('absorver_reemissoes', tReemissoes)
       }
       await db.insert(despesasOfSyncStatus)
