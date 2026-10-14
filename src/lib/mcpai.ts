@@ -353,8 +353,13 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       return daConta
     }
 
-    const porConta = await Promise.all(contas.map(processarConta))
-    transacoes.push(...porConta.flat())
+    // allSettled, não all: com all, a primeira falha encerra a função enquanto as outras contas seguem em
+    // segundo plano, e a instância pode ser suspensa com chamadas ao mcp.ai ainda em voo.
+    const porConta = await Promise.allSettled(contas.map(processarConta))
+    for (const r of porConta) {
+      if (r.status === 'rejected') throw r.reason
+      transacoes.push(...r.value)
+    }
 
     logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length })
     return { ok: true, transacoes }
