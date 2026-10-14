@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
 import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -13,7 +13,7 @@ import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/act
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
-import { parseDataInput } from '@/lib/data-venda'
+import { parseDataInput, hojeBrt } from '@/lib/data-venda'
 import { motivoBloqueioCancelarReserva, motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
@@ -1576,7 +1576,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   await getUsuarioLogado()
 
   const [venda] = await db
-    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId })
+    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
@@ -1599,10 +1599,52 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     if (propria?.linkDanfe) return { linkDanfe: propria.linkDanfe, linkPDF: propria.linkDanfe }
   }
 
-  if (!venda?.blingNfeId) throw new Error('Esta NF foi registrada à mão, fora do MOVA — o DANFE não está disponível aqui.')
+  if (!venda) throw new Error('Esta moto não tem venda registrada.')
+
+  // Nota do Bling: abre a cópia arquivada no Storage, que continua valendo
+  // depois que a conta do Bling for encerrada.
+  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+  let pdfPath: string | null = null
+  if (venda.blingNfeId) {
+    const [arquivada] = await db
+      .select({ pdfPath: nfeBlingArquivo.pdfPath })
+      .from(nfeBlingArquivo)
+      .where(and(eq(nfeBlingArquivo.grupoId, grupoId), eq(nfeBlingArquivo.blingNfeId, venda.blingNfeId)))
+      .limit(1)
+    pdfPath = arquivada?.pdfPath ?? null
+  }
+  // Sem o id (NF registrada à mão) ou com o id de um rascunho que nunca foi
+  // transmitido: cai no número digitado na venda, que se repete entre séries.
+  // Só vale uma única nota e confirmada pelo CPF/CNPJ do cliente — ou, nas
+  // vendas importadas sem cliente (CPF 000.000.000-00), pela data: emitida até
+  // 15 dias da venda.
+  if (!pdfPath && venda.notaFiscalSaida) {
+    const cpf = (venda.clienteCpf ?? '').replace(/\D/g, '')
+    const confirma = /^0*$/.test(cpf)
+      ? sql`abs(${nfeBlingArquivo.dataEmissao} - ${hojeBrt(venda.dataVenda)}::date) <= 15`
+      : eq(nfeBlingArquivo.documento, cpf)
+    const porNumero = await db
+      .select({ pdfPath: nfeBlingArquivo.pdfPath })
+      .from(nfeBlingArquivo)
+      .where(and(
+        eq(nfeBlingArquivo.grupoId, grupoId),
+        sql`ltrim(${nfeBlingArquivo.numero}, '0') = ltrim(${venda.notaFiscalSaida.trim()}, '0')`,
+        isNotNull(nfeBlingArquivo.pdfPath),
+        confirma,
+      ))
+      .limit(2)
+    if (porNumero.length === 1) pdfPath = porNumero[0].pdfPath
+  }
+  if (pdfPath) {
+    const { createClient } = await import('@supabase/supabase-js')
+    const { data } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      .storage.from('nfe-bling').createSignedUrl(pdfPath, 600)
+    if (data?.signedUrl) return { linkDanfe: data.signedUrl, linkPDF: data.signedUrl }
+  }
+
+  if (!venda.blingNfeId) throw new Error('Esta NF foi registrada à mão, fora do MOVA — o DANFE não está disponível aqui.')
 
   const { buscarLinksDanfe } = await import('@/lib/bling')
-  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   const links = await buscarLinksDanfe(grupoId, venda.blingNfeId)
 
   if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
