@@ -186,8 +186,9 @@ export async function sincronizarEBuscarSaidas(
       }
       contasPuladas = resultado.contasPuladas
       // Conta pulada = o que ela trouxe de novo ficou de fora. Não avança a data do sync (o próximo
-      // sync relê a mesma janela e recupera a lacuna) e também não vale o cache de 10 min: sem a data
-      // nova, a próxima visita sincroniza de novo até a conta voltar. A tela avisa (contasPuladas).
+      // sync relê a mesma janela e recupera a lacuna). Passados 10 min do último sync bom, o cache deixa
+      // de valer e toda visita tenta de novo até a conta voltar. Dentro desses 10 min a visita comum
+      // não sincroniza e, por isso, não mostra o aviso (contasPuladas só existe quando o sync roda).
       const novaData = dataAposSync(new Date(), contasPuladas)
       if (novaData) {
         await db.insert(despesasOfSyncStatus)

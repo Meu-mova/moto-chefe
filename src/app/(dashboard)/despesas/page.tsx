@@ -358,7 +358,7 @@ export default async function DespesasPage({
           {contasPuladas.length > 0 && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               O mcp.ai não respondeu para: {contasPuladas.join(', ')}. As saídas recentes dessas contas podem estar faltando.
-              Enquanto isso o sistema tenta de novo a cada visita e mantém a data do último sync.
+              O sistema mantém a data do último sync e tenta de novo nas próximas visitas.
             </div>
           )}
 
