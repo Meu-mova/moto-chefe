@@ -311,7 +311,10 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         const conteudo = resultado?.content?.[0]?.text
         if (!conteudo) return 'erro'
         const payload = JSON.parse(conteudo) as { total?: number; totalPages?: number; results?: TxMcp[] }
-        return { linhas: payload.results ?? [], total: payload.total ?? 0, totalPages: payload.totalPages ?? 1 }
+        // Resposta sem total/totalPages (ex.: bloco de incidente do provedor) não vale como "0 linhas":
+        // seria gravada como sync feito sem ter lido nada.
+        if (typeof payload.total !== 'number' || typeof payload.totalPages !== 'number' || !Array.isArray(payload.results)) return 'erro'
+        return { linhas: payload.results, total: payload.total, totalPages: payload.totalPages }
       }
       const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, { maxPaginas: MAX_PAGINAS, maxTentativas: 3 })
       const listaMs = decorrido(tLista)

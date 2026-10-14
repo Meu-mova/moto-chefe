@@ -126,22 +126,24 @@ export type SaidaComDetalhes = typeof despesasOpenFinance.$inferSelect & {
   beneficiario: string | null
 }
 
+/** normal: respeita o cache de 10 min; forcado: ignora o cache (incremental); completo: histórico inteiro. */
+export type ModoSync = 'normal' | 'forcado' | 'completo'
+
 export async function sincronizarEBuscarSaidas(
   grupo: { id: string; cnpj: string },
   fromDate: Date,
   toDate: Date,
-  forcarSync: boolean,
+  modoSync: ModoSync,
   usuarioId: string,
-  syncCompleto = false,
 ): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
   // Diagnóstico de lentidão (#129): um log por etapa, assim que ela termina. Sem valores, nomes nem ids.
   const medir = criarMedidor('despesas-tempo')
   const [syncStatus] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
-  const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
+  const cacheValido = modoSync === 'normal' && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
 
   let erroSync: string | null = null
-  const desde = syncCompleto ? HISTORICO_DESDE : desdeDoSync(syncStatus?.ultimaSincronizacao ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
-  console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync} modo=${desde.getTime() === HISTORICO_DESDE.getTime() ? 'completo' : 'incremental'} desde=${desde.toISOString().slice(0, 10)}`)
+  const desde = modoSync === 'completo' ? HISTORICO_DESDE : desdeDoSync(syncStatus?.ultimaSincronizacao ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
+  console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} modo_sync=${modoSync} desde=${desde.toISOString().slice(0, 10)}`)
 
   if (!cacheValido) {
     const tBusca = performance.now()
@@ -164,13 +166,18 @@ export async function sincronizarEBuscarSaidas(
           descricao: tx.descricao,
           tipoOperacao: tx.tipoOperacao,
         }))
-        const inseridas: (typeof despesasOpenFinance.$inferSelect)[] = []
-        for (const lote of dividirEmLotes(linhasParaGravar, LOTE_INSERT)) {
-          inseridas.push(...await db.insert(despesasOpenFinance)
-            .values(lote)
-            .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
-            .returning())
-        }
+        // Numa transação: se um lote falha, nenhum fica gravado. Sem isso o retry não devolveria as linhas
+        // dos lotes que já entraram (onConflictDoNothing), e o absorverReemissoes nunca olharia para elas.
+        const inseridas = await db.transaction(async (tx) => {
+          const gravadas: (typeof despesasOpenFinance.$inferSelect)[] = []
+          for (const lote of dividirEmLotes(linhasParaGravar, LOTE_INSERT)) {
+            gravadas.push(...await tx.insert(despesasOpenFinance)
+              .values(lote)
+              .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
+              .returning())
+          }
+          return gravadas
+        })
         medir('inserir_saidas', tGrava)
         const tReemissoes = performance.now()
         await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)), desde)

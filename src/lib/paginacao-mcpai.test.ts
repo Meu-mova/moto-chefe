@@ -35,7 +35,7 @@ test('erro na página 1 pula a conta, como o sync sempre fez', async () => {
   assert.equal(r.ignorada, true)
 })
 
-test('erro depois da página 1 falha a leitura (não deixa gravar extrato pela metade)', async () => {
+test('erro depois da página 1 devolve ok: false', async () => {
   const base = fonte(Array.from({ length: 10 }, (_, i) => i), 5)
   const r = await lerTodasAsPaginas(async p => (p === 2 ? 'erro' : base(p)), chave, OPTS)
   assert.equal(r.ok, false)

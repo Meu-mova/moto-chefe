@@ -15,7 +15,7 @@ import { MesSelector } from './components/mes-selector'
 import { SaidasFiltros } from './components/saidas-filtros'
 import { SaidasTable } from './components/saidas-table'
 import type { DespesaRow } from './types'
-import { sincronizarEBuscarSaidas } from './open-finance'
+import { sincronizarEBuscarSaidas, type ModoSync } from './open-finance'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -47,18 +47,18 @@ export default async function DespesasPage({
   const inicioMesAtualDate = new Date(hojeDate.getFullYear(), hojeDate.getMonth(), 1)
   const sfrom = params.sfrom ? new Date(params.sfrom + 'T00:00:00.000Z') : new Date(inicioMesAtualDate.toISOString().split('T')[0] + 'T00:00:00.000Z')
   const sto = params.sto ? new Date(params.sto + 'T23:59:59.999Z') : hojeDate
-  // ?sync=completo refaz o histórico inteiro (paginado); fica restrito a quem pode categorizar porque é
-  // o sync mais pesado. Para os demais cai no "Atualizar" comum.
-  const syncCompleto = params.sync === 'completo' && podeCategorizar
-  const forcarSyncSaidas = params.sync === '1' || syncCompleto
+  // ?sync=completo refaz o histórico inteiro (paginado) e é o sync mais pesado, então só vale para quem
+  // pode categorizar; para os demais o parâmetro é ignorado (vale o cache, como numa visita comum).
+  const modoSync: ModoSync = params.sync === 'completo' && podeCategorizar ? 'completo'
+    : params.sync === '1' ? 'forcado'
+    : 'normal'
 
   const { linhas: saidas, erroSync, syncStatusAtual } = await sincronizarEBuscarSaidas(
     { id: grupo.id, cnpj: grupo.cnpj },
     sfrom,
     sto,
-    forcarSyncSaidas,
+    modoSync,
     usuario.id,
-    syncCompleto,
   )
 
   medir('sync_de_saidas')
