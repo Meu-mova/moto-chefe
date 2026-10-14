@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS nfe_bling_arquivo (
 
 CREATE INDEX IF NOT EXISTS nfe_bling_arquivo_numero_idx ON nfe_bling_arquivo (grupo_id, documento);
 
+-- Sem policy: o acesso é só pelo servidor (Drizzle/service role), nunca pela chave anon. A tabela
+-- já nasceu com RLS ligado na produção; declarar aqui mantém o staging igual a ela.
+ALTER TABLE nfe_bling_arquivo ENABLE ROW LEVEL SECURITY;
+
 -- Bucket privado: acesso só por service role e URL assinada, como holerites.
 INSERT INTO storage.buckets (id, name, public) VALUES ('nfe-bling', 'nfe-bling', false)
 ON CONFLICT (id) DO NOTHING;
