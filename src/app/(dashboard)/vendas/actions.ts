@@ -13,7 +13,7 @@ import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/act
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
-import { parseDataInput } from '@/lib/data-venda'
+import { parseDataInput, hojeBrt } from '@/lib/data-venda'
 import { motivoBloqueioCancelarReserva, motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
@@ -1621,7 +1621,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
   if (!pdfPath && venda.notaFiscalSaida) {
     const cpf = (venda.clienteCpf ?? '').replace(/\D/g, '')
     const confirma = /^0*$/.test(cpf)
-      ? sql`abs(${nfeBlingArquivo.dataEmissao} - ${venda.dataVenda.toISOString().slice(0, 10)}::date) <= 15`
+      ? sql`abs(${nfeBlingArquivo.dataEmissao} - ${hojeBrt(venda.dataVenda)}::date) <= 15`
       : eq(nfeBlingArquivo.documento, cpf)
     const porNumero = await db
       .select({ pdfPath: nfeBlingArquivo.pdfPath })
