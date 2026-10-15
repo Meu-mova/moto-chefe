@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ResumoFaixa, type ItemResumo } from '@/components/resumo-faixa'
 import { PeriodoAtalhos } from '@/components/periodo-atalhos'
+import { BotaoAtualizar } from '@/components/botao-atualizar'
 import { sincronizarPixAction } from '../actions'
 
 type Props = {
@@ -48,16 +49,7 @@ export function PixTopo({ itens, from, to, hoje, min, rotuloSync, sincronizarAoA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const botaoMobile = (
-    <button
-      type="button"
-      onClick={() => sincronizar(true)}
-      disabled={pendente}
-      className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground disabled:opacity-60"
-    >
-      <RefreshCw className={cn('size-3', pendente && 'animate-spin')} /> {pendente ? 'Sincronizando…' : 'Atualizar'}
-    </button>
-  )
+  const botaoMobile = <BotaoAtualizar onClick={() => sincronizar(true)} pendente={pendente} />
 
   const linha = (
     <p className="flex items-center gap-3 text-xs text-muted-foreground">

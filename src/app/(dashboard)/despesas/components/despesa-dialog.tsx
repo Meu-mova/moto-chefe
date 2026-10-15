@@ -241,7 +241,7 @@ export function NovaDespesaButton({ lojas, categorias, categoriasComBeneficiario
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
+      <Button onClick={() => setOpen(true)} size="sm" className="h-11 gap-1.5 text-base md:h-8 md:text-sm">
         <Plus size={15} /> Nova Despesa
       </Button>
       <DespesaDialog

@@ -9,6 +9,7 @@ import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { ResumoFaixa } from '@/components/resumo-faixa'
 import { PeriodoAtalhos } from '@/components/periodo-atalhos'
+import { BotaoAtualizar } from '@/components/botao-atualizar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DespesasTable } from './components/despesas-table'
 import { NovaDespesaButton } from './components/despesa-dialog'
@@ -270,12 +271,13 @@ export default async function DespesasPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Despesas Operacionais</h1>
           <p className="text-sm text-muted-foreground mt-0.5 capitalize">{mesExibicao}</p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Celular: mês e botão dividem a linha inteira (mês estica, botão no tamanho do texto). */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:flex md:items-center md:gap-3">
           <Suspense fallback={null}><MesSelector mesAtual={mesParam} /></Suspense>
           <NovaDespesaButton
             lojas={lojasOpts} categorias={categoriasAtivas}
@@ -333,18 +335,6 @@ export default async function DespesasPage({
             </div>
           )}
 
-          {/* Celular: a linha de sincronização fica no topo; do tablet para cima vai à direita do período. */}
-          <div className="md:hidden">
-            <p className="flex items-center gap-x-3 text-xs text-muted-foreground">
-              {syncStatusAtual
-                ? `Sincronizado com o banco em ${syncStatusAtual.ultimaSincronizacao.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : 'Ainda não sincronizado'}
-              <Link href={hrefAtualizarSaidas} className="inline-flex h-11 items-center gap-1 underline hover:text-foreground md:h-8">
-                <RefreshCw size={11} /> Atualizar agora
-              </Link>
-            </p>
-          </div>
-
           <ResumoFaixa itens={[
             { rotulo: 'Total em saídas', valor: fmt(totalSaidas), nota: 'só operacional', tom: 'text-destructive' },
             { rotulo: 'Pendentes de categorização', valor: fmt(totalSaidasPendentes), nota: `${fmt(totalSaidasLancadas)} já lançadas`, tom: 'text-warning' },
@@ -352,7 +342,7 @@ export default async function DespesasPage({
               rotulo: 'Não operacional', valor: fmt(totalSaidasNaoOperacionais), tom: 'text-muted-foreground',
               nota: saidasNaoOperacionais.length > 0 ? `${saidasNaoOperacionais.length} saída(s), fora do total` : 'nada no período',
             },
-          ]} />
+          ]} acaoMobile={<BotaoAtualizar href={hrefAtualizarSaidas} />} />
 
           <PeriodoAtalhos
             from={sfrom.toISOString().split('T')[0]}

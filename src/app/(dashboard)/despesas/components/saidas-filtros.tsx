@@ -44,28 +44,22 @@ export function SaidasFiltros({
     router.push(`${pathname}?${p.toString()}`)
   }
 
+  const campo = 'block h-11 w-full rounded-md border border-input bg-card px-2 text-base md:h-9 md:text-sm'
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap">
+      {/* Celular: um campo por linha. Tablet para cima: os três campos dividem a linha e os botões ficam à direita. */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(3,minmax(0,1fr))_auto] md:items-end">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Categoria</Label>
           {/* <select> nativo: o value da loja é UUID e não bate com o label exibido */}
-          <select
-            value={categoria}
-            onChange={e => setCategoria(e.target.value)}
-            className="block h-11 w-full rounded-md border border-input bg-card px-2 text-base md:h-8 md:w-48 md:text-sm"
-          >
+          <select value={categoria} onChange={e => setCategoria(e.target.value)} className={campo}>
             <option value="">Todas</option>
             {categorias.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Loja</Label>
-          <select
-            value={lojaId}
-            onChange={e => setLojaId(e.target.value)}
-            className="block h-11 w-full rounded-md border border-input bg-card px-2 text-base md:h-8 md:w-44 md:text-sm"
-          >
+          <select value={lojaId} onChange={e => setLojaId(e.target.value)} className={campo}>
             <option value="">Todas</option>
             {/* Saída sem loja atribuída = despesa geral da empresa. Mesma convenção
                 "__geral" que a tabela de lançamentos já usa. */}
@@ -75,30 +69,28 @@ export function SaidasFiltros({
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Tipo de saída</Label>
-          <select
-            value={tipo}
-            onChange={e => setTipo(e.target.value)}
-            className="block h-11 w-full rounded-md border border-input bg-card px-2 text-base md:h-8 md:w-44 md:text-sm"
-          >
+          <select value={tipo} onChange={e => setTipo(e.target.value)} className={campo}>
             <option value="">Todas</option>
             <option value="operacional">Operacional</option>
             <option value="nao_operacional">Não operacional</option>
           </select>
         </div>
-        <Button variant="outline" onClick={aplicar} className="col-span-2 h-11 gap-2 md:col-span-1 md:h-8 md:text-sm">
-          <RefreshCw size={14} />
-          Aplicar filtros
-        </Button>
-        {temFiltro && (
-          <Button variant="ghost" onClick={limpar} className="col-span-2 h-11 gap-1 text-muted-foreground md:col-span-1 md:h-8 md:text-sm">
-            <X size={14} />
-            Limpar
+        <div className="flex gap-2 [&>*]:flex-1 md:[&>*]:flex-none">
+          <Button variant="outline" onClick={aplicar} className="h-11 gap-2 md:h-9 md:text-sm">
+            <RefreshCw size={14} />
+            Aplicar
           </Button>
-        )}
+          {temFiltro && (
+            <Button variant="ghost" onClick={limpar} className="h-11 gap-1 text-muted-foreground md:h-9 md:text-sm">
+              <X size={14} />
+              Limpar
+            </Button>
+          )}
+        </div>
       </div>
       {(!!categoria || !!lojaId) && (
         <p className="text-xs text-warning">
-          Filtro ativo — as saídas ainda não categorizadas não aparecem nesta lista.
+          Filtro ativo. As saídas ainda não categorizadas não aparecem nesta lista.
         </p>
       )}
     </div>
