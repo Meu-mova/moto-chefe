@@ -9,8 +9,6 @@ import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lanc
 import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { ResumoFaixa } from '@/components/resumo-faixa'
-import { PeriodoAtalhos } from '@/components/periodo-atalhos'
-import { BotaoAtualizar } from '@/components/botao-atualizar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DespesasTable } from './components/despesas-table'
 import { NovaDespesaButton } from './components/despesa-dialog'
@@ -18,11 +16,10 @@ import { MesSelector } from './components/mes-selector'
 import { SaidasFiltros } from './components/saidas-filtros'
 import { SaidasTable } from './components/saidas-table'
 import type { DespesaRow } from './types'
-import { sincronizarEBuscarSaidas, type ModoSync } from './open-finance'
-import { urlDespesasSemSync } from '@/lib/sync-incremental'
+import { buscarSaidasDoBanco, type ModoSync } from './open-finance'
+import { SaidasTopo } from './components/saidas-topo'
+import { urlDespesasSemSync, cacheSaidasValido } from '@/lib/sync-incremental'
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { RefreshCw } from 'lucide-react'
 
 export default async function DespesasPage({
   searchParams,
@@ -57,21 +54,11 @@ export default async function DespesasPage({
     : params.sync === '1' ? 'forcado'
     : 'normal'
 
-  const { linhas: saidas, erroSync, contasPuladas, syncStatusAtual } = await sincronizarEBuscarSaidas(
-    { id: grupo.id, cnpj: grupo.cnpj },
-    sfrom,
-    sto,
-    modoSync,
-    usuario.id,
-  )
+  // A tela só lê o que já está no banco; o sync com o mcp.ai roda no navegador (SaidasTopo), sem prender a página.
+  const { linhas: saidas, syncStatusAtual } = await buscarSaidasDoBanco({ id: grupo.id }, sfrom, sto, usuario.id)
+  const sincronizarAoAbrir = modoSync !== 'normal' || !cacheSaidasValido(syncStatusAtual?.ultimaSincronizacao)
 
-  // Sync completo concluído sem falha: volta para a URL sem o parâmetro, senão cada F5 refaria o histórico
-  // inteiro. Com erro ou conta pulada fica na página, para o aviso aparecer.
-  if (modoSync === 'completo' && !erroSync && contasPuladas.length === 0) {
-    redirect(urlDespesasSemSync(params))
-  }
-
-  medir('sync_de_saidas')
+  medir('saidas_do_banco')
   const tConsultas = performance.now()
   const [
     rowsManuais, lojasOpts, categoriasAtivas, categoriasComBeneficiario, beneficiarios,
@@ -268,8 +255,6 @@ export default async function DespesasPage({
 
   const mesExibicao = new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
-  const hrefAtualizarSaidas = `/despesas?sfrom=${sfrom.toISOString().split('T')[0]}&sto=${sto.toISOString().split('T')[0]}&sync=1`
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -322,45 +307,22 @@ export default async function DespesasPage({
         </TabsContent>
 
         <TabsContent value="banco" className="mt-4 space-y-6">
-          {erroSync && (
-            // Aviso discreto: o motivo técnico fica no tooltip para não poluir a tela.
-            <p className="text-xs text-muted-foreground" title={erroSync}>
-              Não foi possível sincronizar agora. Mostrando os dados já salvos.
-            </p>
-          )}
-
-          {contasPuladas.length > 0 && (
-            <div className="border-l-2 border-destructive py-1 pl-3 text-sm text-destructive">
-              O mcp.ai não respondeu para: {contasPuladas.join(', ')}. As saídas recentes dessas contas podem estar faltando.
-              O sistema mantém a data do último sync e tenta de novo nas próximas visitas.
-            </div>
-          )}
-
-          <ResumoFaixa itens={[
-            { rotulo: 'Total em saídas', valor: fmt(totalSaidas), nota: 'só operacional', tom: 'text-destructive' },
-            { rotulo: 'Pendentes de categorização', valor: fmt(totalSaidasPendentes), nota: `${fmt(totalSaidasLancadas)} já lançadas`, tom: 'text-warning' },
-            {
-              rotulo: 'Não operacional', valor: fmt(totalSaidasNaoOperacionais), tom: 'text-muted-foreground',
-              nota: saidasNaoOperacionais.length > 0 ? `${saidasNaoOperacionais.length} saída(s), fora do total` : 'nada no período',
-            },
-          ]} acaoMobile={<BotaoAtualizar href={hrefAtualizarSaidas} />} />
-
-          <PeriodoAtalhos
+          <SaidasTopo
+            itens={[
+              { rotulo: 'Total em saídas', valor: fmt(totalSaidas), nota: 'só operacional', tom: 'text-destructive' },
+              { rotulo: 'Pendentes de categorização', valor: fmt(totalSaidasPendentes), nota: `${fmt(totalSaidasLancadas)} já lançadas`, tom: 'text-warning' },
+              {
+                rotulo: 'Não operacional', valor: fmt(totalSaidasNaoOperacionais), tom: 'text-muted-foreground',
+                nota: saidasNaoOperacionais.length > 0 ? `${saidasNaoOperacionais.length} saída(s), fora do total` : 'nada no período',
+              },
+            ]}
             from={params.sfrom ?? `${hojeBrt().slice(0, 8)}01`}
             to={params.sto ?? hojeBrt()}
             hoje={hojeBrt()}
-            chaveDe="sfrom"
-            chaveAte="sto"
-            direita={
-              <p className="flex items-center gap-x-3 text-xs text-muted-foreground">
-                {syncStatusAtual
-                  ? rotuloSyncBrt(syncStatusAtual.ultimaSincronizacao)
-                  : 'Ainda não sincronizado'}
-                <Link href={hrefAtualizarSaidas} className="inline-flex h-11 items-center gap-1 underline hover:text-foreground md:h-8">
-                  <RefreshCw size={11} /> Atualizar agora
-                </Link>
-              </p>
-            }
+            rotuloSync={syncStatusAtual ? rotuloSyncBrt(syncStatusAtual.ultimaSincronizacao) : 'Ainda não sincronizado'}
+            modoInicial={modoSync}
+            sincronizarAoAbrir={sincronizarAoAbrir}
+            urlSemSync={urlDespesasSemSync(params)}
           />
 
           <SaidasFiltros

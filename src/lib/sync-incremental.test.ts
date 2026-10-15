@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, urlDespesasSemSync } from './sync-incremental'
+import { cacheSaidasValido, desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, urlDespesasSemSync } from './sync-incremental'
 
 const PADRAO = new Date('2025-01-01T00:00:00.000Z')
 
@@ -94,4 +94,12 @@ test('dividirEmLotes: vazio, 1 item, exatamente 1 lote, lote + 1', () => {
 
 test('dividirEmLotes: tamanho inválido lança erro', () => {
   assert.throws(() => dividirEmLotes([1], 0))
+})
+
+test('cacheSaidasValido: sync de 9 min atrás vale, de 10 min não, e sem sync não vale', () => {
+  const agora = new Date('2026-10-15T12:00:00.000Z').getTime()
+  assert.equal(cacheSaidasValido(new Date(agora - 9 * 60_000), agora), true)
+  assert.equal(cacheSaidasValido(new Date(agora - 10 * 60_000), agora), false)
+  assert.equal(cacheSaidasValido(undefined, agora), false)
+  assert.equal(cacheSaidasValido(null, agora), false)
 })
