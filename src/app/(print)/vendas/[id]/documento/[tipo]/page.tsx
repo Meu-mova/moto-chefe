@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { vendas, lojas, grupos } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { buscarVenda } from '@/lib/queries/vendas'
+import { rotuloDocumento } from '@/lib/documento'
 import {
   montarHtmlDocumento, dadosVendedoraCompletos, LABEL_TIPO,
   type TipoDocumento, type PagamentoVenda,
@@ -60,6 +61,8 @@ export default async function DocumentoImpressoPage({
     vendaId: id,
     clienteNome: venda.clienteNome ?? '',
     clienteCpf: venda.clienteCpf ?? '',
+    representanteNome: venda.representanteNome,
+    representanteCpf: venda.representanteCpf,
     clienteEmail: extra.email ?? 'não informado',
     clienteEndereco: [
       venda.clienteLogradouro,
@@ -129,7 +132,7 @@ export default async function DocumentoImpressoPage({
           <div>
             <div className="linha">
               {dados.clienteNome || 'Comprador(a)'}<br />
-              CPF: {dados.clienteCpf || '________________'}
+              {rotuloDocumento(dados.clienteCpf)}: {dados.clienteCpf || '________________'}
             </div>
           </div>
           <div>

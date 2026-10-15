@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { buscarVenda } from '@/lib/queries/vendas'
 import { getUsuarioLogado } from '@/lib/auth'
 import { PrintTrigger } from './print-trigger'
+import { rotuloDocumento } from '@/lib/documento'
 
 export default async function CertificadoBateriaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -61,7 +62,7 @@ export default async function CertificadoBateriaPage({ params }: { params: Promi
         <h2>Dados do Assegurado</h2>
         <div className="grid3">
           <div className="f"><span className="fl">Nome completo</span><span className="fv">{venda.clienteNome}</span></div>
-          <div className="f"><span className="fl">CPF</span><span className="fv">{venda.clienteCpf}</span></div>
+          <div className="f"><span className="fl">{rotuloDocumento(venda.clienteCpf)}</span><span className="fv">{venda.clienteCpf}</span></div>
           <div className="f"><span className="fl">Nº da Nota Fiscal</span><span className="fv">{venda.notaFiscalSaida ?? '—'}</span></div>
           <div className="f"><span className="fl">Modelo do Veículo</span><span className="fv">{venda.marca} {venda.modelo}</span></div>
           <div className="f"><span className="fl">Chassi</span><span className="fv" style={{ fontFamily: 'monospace' }}>{venda.chassi}</span></div>

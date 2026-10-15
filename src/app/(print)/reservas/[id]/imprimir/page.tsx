@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
 import { normalizarPagamentos } from '@/lib/pagamentos-entrada'
+import { rotuloDocumento } from '@/lib/documento'
 
 const fmtR = (v: string | null) =>
   v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
@@ -107,7 +108,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
         <div className="card">
           <h2>Cliente</h2>
           <div className="f"><span className="fl">Nome</span><span className="fv">{reserva.clienteNome}</span></div>
-          <div className="f"><span className="fl">CPF</span><span className="fv">{reserva.clienteCpf}</span></div>
+          <div className="f"><span className="fl">{rotuloDocumento(reserva.clienteCpf)}</span><span className="fv">{reserva.clienteCpf}</span></div>
           <div className="f"><span className="fl">Celular</span><span className="fv">{reserva.clienteCelular}</span></div>
           {reserva.clienteEmail && (
             <div className="f"><span className="fl">E-mail</span><span className="fv">{reserva.clienteEmail}</span></div>

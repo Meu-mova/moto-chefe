@@ -203,6 +203,8 @@ export async function buscarVenda(id: string) {
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
       clienteNome: vendas.clienteNome,
       clienteCpf: vendas.clienteCpf,
+      representanteNome: vendas.representanteNome,
+      representanteCpf: vendas.representanteCpf,
       clienteLogradouro: vendas.clienteLogradouro,
       clienteNumero: vendas.clienteNumero,
       clienteComplemento: vendas.clienteComplemento,

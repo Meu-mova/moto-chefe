@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import {
   montarHtmlDocumento, CLAUSULA_ACEITE, LABEL_TIPO, ITENS_CARTILHA_BATERIA,
   dadosVendedoraCompletos, checklistCompleto, descreverPagamentos, ITENS_CHECKLIST,
@@ -210,4 +211,58 @@ test('grupo sem qualificação cadastrada não pode emitir contrato', () => {
 test('rótulos existem para os dois tipos', () => {
   assert.equal(LABEL_TIPO.contrato_venda, 'contrato de venda')
   assert.equal(LABEL_TIPO.checklist_entrega, 'checklist de entrega')
+})
+
+// Hashes capturados em 15/10/2026, antes de o contrato aceitar comprador pessoa
+// jurídica (#65): o documento de pessoa física tem de sair igual byte a byte.
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+const RESPOSTAS_MISTAS = {
+  itens: Object.fromEntries(ITENS_CHECKLIST.map((i, n) => [i, (['ok', 'nao', 'na'] as const)[n % 3]])),
+  observacoes: 'Riscado no para-lama',
+}
+
+test('comprador pessoa física: contrato e checklist idênticos aos de antes da #65', () => {
+  assert.equal(sha256(montarHtmlDocumento('contrato_venda', DADOS)),
+    '2156dff20ce516989acc5c909bdf65a2b318c3db0084469fbadea4ef480443f3')
+  assert.equal(sha256(montarHtmlDocumento('checklist_entrega', DADOS)),
+    '3a2efe857cff9b4e5b17d673e368ffda24229587d3516225019d5d77b153b386')
+  assert.equal(sha256(montarHtmlDocumento('checklist_entrega', DADOS, RESPOSTAS_MISTAS)),
+    '42ba45c3f5c0df1fbba44c7ea677f13d6301d31cc04507cb8d76a8af6f152529')
+})
+
+const DADOS_PJ: DadosDocumento = {
+  ...DADOS,
+  clienteNome: 'Locadora Teste Ltda',
+  clienteCpf: '11.222.333/0001-81',
+  clienteEmail: 'compras@locadora.com',
+  clienteEndereco: 'Av. Brasil, nº 500, Centro, Pouso Alegre/MG, CEP 37550-000',
+  representanteNome: 'Maria Souza',
+  representanteCpf: '529.982.247-25',
+}
+
+test('comprador pessoa jurídica: o contrato qualifica a empresa e quem a representa', () => {
+  const html = montarHtmlDocumento('contrato_venda', DADOS_PJ)
+  assert.ok(html.includes(
+    'Locadora Teste Ltda, pessoa jurídica, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede ' +
+    'na Av. Brasil, nº 500, Centro, Pouso Alegre/MG, CEP 37550-000, endereço eletrônico: ' +
+    'compras@locadora.com, neste ato representada por Maria Souza, CPF 529.982.247-25.'))
+  assert.ok(!html.includes('brasileiro(a)'))
+  assert.ok(!html.includes('inscrito no CPF'))
+})
+
+test('pessoa jurídica sem representante: nome e CPF saem em linha em branco, para completar à mão', () => {
+  const html = montarHtmlDocumento('contrato_venda', { ...DADOS_PJ, representanteNome: null, representanteCpf: '' })
+  assert.ok(html.includes(
+    'neste ato representada por ______________________________, CPF ________________.'))
+})
+
+test('checklist de pessoa jurídica identifica o comprador pelo CNPJ', () => {
+  const html = montarHtmlDocumento('checklist_entrega', DADOS_PJ)
+  assert.ok(html.includes('<td>Locadora Teste Ltda — CNPJ 11.222.333/0001-81</td>'))
+})
+
+test('nome do representante com < ou & não quebra o HTML', () => {
+  const html = montarHtmlDocumento('contrato_venda', { ...DADOS_PJ, representanteNome: 'Ana & <b>Bia</b>' })
+  assert.ok(html.includes('representada por Ana &amp; &lt;b&gt;Bia&lt;/b&gt;, CPF'))
+  assert.ok(!html.includes('<b>Bia</b>'))
 })
