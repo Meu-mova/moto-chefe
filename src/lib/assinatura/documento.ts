@@ -1,4 +1,4 @@
-import { rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
+import { formatarCpfCnpj, rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
 
 export type TipoDocumento = 'contrato_venda' | 'checklist_entrega'
 
@@ -167,10 +167,10 @@ const ESTILO = `
 // é opcional na venda: sem ele, a linha sai em branco para a loja completar à mão.
 function qualificacaoComprador(d: DadosDocumento): string {
   if (tipoPessoaDoDocumento(d.clienteCpf) === 'juridica') {
-    return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, pessoa jurídica, inscrita no CNPJ sob o nº ${esc(d.clienteCpf)}, com sede na ${esc(d.clienteEndereco)}, endereço eletrônico: ${esc(d.clienteEmail)}, neste ato representada por ${esc(d.representanteNome?.trim() || '______________________________')}, CPF ${esc(d.representanteCpf?.trim() || '________________')}.</p>`
+    return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, pessoa jurídica, inscrita no CNPJ sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, com sede na ${esc(d.clienteEndereco)}, endereço eletrônico: ${esc(d.clienteEmail)}, neste ato representada por ${esc(d.representanteNome?.trim() || '______________________________')}, CPF ${esc(formatarCpfCnpj(d.representanteCpf?.trim()) || '________________')}.</p>`
   }
   return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, brasileiro(a), inscrito no CPF
-    sob o nº ${esc(d.clienteCpf)}, residente e domiciliado na ${esc(d.clienteEndereco)}, endereço
+    sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, residente e domiciliado na ${esc(d.clienteEndereco)}, endereço
     eletrônico: ${esc(d.clienteEmail)}.</p>`
 }
 
@@ -184,7 +184,7 @@ function contrato(d: DadosDocumento): string {
     <h1>CONTRATO DE COMPRA E VENDA DE EQUIPAMENTO DE MOBILIDADE INDIVIDUAL AUTOPROPELIDO</h1>
 
     <p>Na qualidade de <b>VENDEDORA</b>: ${esc(d.vendedoraRazaoSocial)}, pessoa jurídica, inscrita
-    no CNPJ sob o nº ${esc(d.vendedoraCnpj)}, com endereço à ${esc(d.vendedoraEndereco)}, neste ato
+    no CNPJ sob o nº ${esc(formatarCpfCnpj(d.vendedoraCnpj))}, com endereço à ${esc(d.vendedoraEndereco)}, neste ato
     representada por quem de direito.</p>
 
     ${qualificacaoComprador(d)}
@@ -378,7 +378,7 @@ function checklist(d: DadosDocumento, r?: RespostasChecklist | null): string {
     <h1>CHECKLIST DE ENTREGA</h1>
     <table>
       <tr><th>Vendedora</th><td>${esc(d.lojaNome)} — ${esc(d.lojaCidade)}</td></tr>
-      <tr><th>Comprador</th><td>${esc(d.clienteNome)} — ${rotuloDocumento(d.clienteCpf)} ${esc(d.clienteCpf)}</td></tr>
+      <tr><th>Comprador</th><td>${esc(d.clienteNome)} — ${rotuloDocumento(d.clienteCpf)} ${esc(formatarCpfCnpj(d.clienteCpf))}</td></tr>
       <tr><th>Veículo</th><td>${esc(d.marca)} ${esc(d.modelo)}, cor ${esc(d.cor)}, chassi ${esc(d.chassi)}, motor ${esc(d.motor)}</td></tr>
     </table>
     <h2>Itens conferidos na entrega</h2>

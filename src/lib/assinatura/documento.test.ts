@@ -268,3 +268,15 @@ test('nome do representante com < ou & não quebra o HTML', () => {
   assert.ok(html.includes('representada por Ana &amp; &lt;b&gt;Bia&lt;/b&gt;, CPF'))
   assert.ok(!html.includes('<b>Bia</b>'))
 })
+
+test('CPF e CNPJ gravados só com números saem formatados no contrato', () => {
+  const html = montarHtmlDocumento('contrato_venda', {
+    ...DADOS_PJ,
+    vendedoraCnpj: '11111111000191',
+    clienteCpf: '11222333000181',
+    representanteCpf: '52998224725',
+  })
+  assert.ok(html.includes('inscrita\n    no CNPJ sob o nº 11.111.111/0001-91'))
+  assert.ok(html.includes('inscrita no CNPJ sob o nº 11.222.333/0001-81'))
+  assert.ok(html.includes('CPF 529.982.247-25.'))
+})
