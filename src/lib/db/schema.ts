@@ -399,6 +399,9 @@ export const vendas = pgTable('vendas', {
   /** Quem assina pela empresa na venda para pessoa jurídica. Opcional. */
   representanteNome: text('representante_nome'),
   representanteCpf: text('representante_cpf'),
+  /** Contribuinte de ICMS do comprador CNPJ ('contribuinte' | 'isento' | 'nao_contribuinte'); vazio = não contribuinte. */
+  clienteIndicadorIe: text('cliente_indicador_ie'),
+  clienteInscricaoEstadual: text('cliente_inscricao_estadual'),
   valor: numeric('valor', { precision: 12, scale: 2 }).notNull(),
   formaPagamento: text('forma_pagamento').notNull(),
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
@@ -1044,6 +1047,8 @@ export const clientes = pgTable('clientes', {
   cep: text('cep'),
   cidade: text('cidade'),
   uf: text('uf'),
+  indicadorIe: text('indicador_ie'),
+  inscricaoEstadual: text('inscricao_estadual'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })

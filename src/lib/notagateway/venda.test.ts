@@ -61,3 +61,12 @@ test('próxima tentativa ignora outro ambiente e outra venda com prefixo parecid
   assert.equal(proximaTentativa(ids, 31578, 'Homologacao'), 2)
   assert.equal(proximaTentativa(ids, 31578, 'Producao'), 5)
 })
+
+test('comprador contribuinte de ICMS sem inscrição estadual é pendência; isento e não contribuinte não', () => {
+  const pj = { ...OK, clienteCpf: '11.222.333/0001-81' }
+  assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'contribuinte', clienteInscricaoEstadual: null }),
+    ['Inscrição estadual do comprador (contribuinte de ICMS) — edite a venda'])
+  assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'contribuinte', clienteInscricaoEstadual: '0623079040081' }), [])
+  assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null }), [])
+  assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: null, clienteInscricaoEstadual: null }), [])
+})

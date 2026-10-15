@@ -124,3 +124,27 @@ export function mascararCpfCnpj(texto: string): string {
     .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d{1})/, '$1.$2.$3-$4')
 }
+
+/** indIEDest da NF-e: 1 contribuinte (com IE), 2 contribuinte isento de inscrição,
+ *  9 não contribuinte. Vem do cadastro da empresa, não da finalidade da compra
+ *  (resposta da contabilidade na #65, 14/10/2026). */
+export type IndicadorIe = 'contribuinte' | 'isento' | 'nao_contribuinte'
+
+export function isIndicadorIe(v: string): v is IndicadorIe {
+  return v === 'contribuinte' || v === 'isento' || v === 'nao_contribuinte'
+}
+
+/** Lê o que a tela mandou sobre ICMS. Só comprador CNPJ tem indicador; sem
+ *  escolha é não contribuinte, o caso mais comum. */
+export function lerContribuinteIcms(
+  documento: string | null | undefined,
+  indicador: string | null | undefined,
+  inscricaoEstadual: string | null | undefined,
+): { indicadorIe: IndicadorIe | null; inscricaoEstadual: string | null } {
+  if (tipoPessoaDoDocumento(documento) !== 'juridica') return { indicadorIe: null, inscricaoEstadual: null }
+  const ind = indicador || 'nao_contribuinte'
+  if (!isIndicadorIe(ind)) throw new Error('Escolha se a empresa é contribuinte de ICMS, isenta ou não contribuinte.')
+  // A NF-e leva a IE só com dígitos; a máscara muda de estado para estado.
+  const ie = ind === 'contribuinte' ? soDigitosDoc(inscricaoEstadual) || null : null
+  return { indicadorIe: ind, inscricaoEstadual: ie }
+}

@@ -46,6 +46,9 @@ export type ConferenciaVenda = {
   clienteCidade: string | null
   clienteEstado: string | null
   clienteCep: string | null
+  /** Só comprador CNPJ. Venda anterior à coluna vem sem os dois campos. */
+  clienteIndicadorIe?: string | null
+  clienteInscricaoEstadual?: string | null
   valor: number
   pagamentos: PagamentoMova[]
   temFicha: boolean
@@ -65,6 +68,11 @@ export function pendenciasDaVenda(v: ConferenciaVenda): string[] {
   if (vazio(v.clienteNome)) falta.push('Nome do cliente — edite a venda')
   const doc = (v.clienteCpf ?? '').replace(/\D/g, '')
   if (doc.length !== 11 && doc.length !== 14) falta.push('CPF/CNPJ do cliente inválido — edite a venda')
+  // A venda grava sem a IE (avise, não bloqueie; ADR-0011), mas a SEFAZ recusa
+  // destinatário contribuinte sem inscrição.
+  if (v.clienteIndicadorIe === 'contribuinte' && vazio(v.clienteInscricaoEstadual ?? null)) {
+    falta.push('Inscrição estadual do comprador (contribuinte de ICMS) — edite a venda')
+  }
 
   // NF-e modelo 55 exige o endereço do destinatário inteiro.
   const endereco: [string, string | null][] = [
