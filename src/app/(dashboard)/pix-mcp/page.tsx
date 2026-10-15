@@ -2,23 +2,18 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
-import { buscarPixRecebidos } from '@/lib/mcpai'
+import { cachePixValido, ultimaSincronizacaoPix } from '@/lib/pix-sync'
 import { db } from '@/lib/db'
-import { pixRecebimentosMcp, pixMcpSyncStatus, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
-import { inArray, and, eq, gte, lte, desc, sql } from 'drizzle-orm'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TrendingUp, RefreshCw, Building2 } from 'lucide-react'
-import { PixFiltros } from './components/pix-filtros'
-import { CorrespondenciaForm } from './components/correspondencia-form'
+import { pixRecebimentosMcp, vendas, ordensServico, usuarios, pedidosVenda, vendasPecas } from '@/lib/db/schema'
+import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
+import { PixTopo } from './components/pix-topo'
+import { PixLista, type LinhaPix } from './components/pix-lista'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
+import { hojeBrt } from '@/lib/data-venda'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
-import Link from 'next/link'
 
-// Enquanto a última sincronização com o mcp.ai for mais recente que isso, a
-// página lê só do nosso banco — evita bater no mcp.ai (lento, baixa o
-// histórico inteiro da conta) a cada carregamento.
-const JANELA_CACHE_MS = 10 * 60 * 1000
+// A sincronização (server action) pode passar de 1 min; a página é o teto dela.
+export const maxDuration = 300
 
 function formatValor(v: string) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
@@ -45,7 +40,7 @@ function toInputDate(d: Date) {
 export default async function PixMcpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; sync?: string }>
+  searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const tPagina = performance.now()
   // Diagnóstico de lentidão (#126): um log por fase, assim que ela termina (ver logTempo em @/lib/mcpai).
@@ -69,65 +64,14 @@ export default async function PixMcpPage({
   // mostrar (só histórico importado) — ver INICIO_CONCILIACAO.
   const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
-  const forcarSync = params.sync === '1'
 
-  const [syncStatus] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
-  const cacheValido = !forcarSync && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
-
-  let erroSync: string | null = null
-  console.log('[pix-tempo]', `etapa=cache valido=${Boolean(cacheValido)} forcado=${forcarSync}`)
-
-  if (!cacheValido) {
-    // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
-    // mcp.ai — ver nota em buscarPixRecebidos), então usamos uma janela bem
-    // ampla aqui pra não perder PIX antigos na primeira sincronização.
-    const desde = new Date('2025-01-01T00:00:00.000Z')
-    const tBusca = performance.now()
-    const resultado = await buscarPixRecebidos(desde, hoje, grupo.cnpj)
-    tempo('buscar_pix_mcpai', tBusca, `ok=${resultado.ok}${resultado.ok ? ` transacoes=${resultado.transacoes.length}` : ''}`)
-
-    if (!resultado.ok) {
-      erroSync = resultado.erro
-    } else {
-      const tGrava = performance.now()
-      if (resultado.transacoes.length > 0) {
-        await db.insert(pixRecebimentosMcp)
-          .values(resultado.transacoes.map(tx => ({
-            grupoId: grupo.id,
-            contaId: tx.contaId,
-            banco: tx.banco,
-            transacaoId: tx.transacaoId,
-            data: new Date(tx.data),
-            valor: tx.valor,
-            pagadorNome: tx.pagadorNome,
-            descricao: tx.descricao,
-            tipoOperacao: tx.tipoOperacao,
-          })))
-          // Upsert, não DoNothing: a linha que já entrou precisa poder se
-          // corrigir. Foi assim que 50 recebimentos ficaram com o pagador
-          // gravado como "Transferência Pix" mesmo depois de a leitura da
-          // descrição ser consertada. Só os campos descritivos são
-          // reescritos — venda_id/os_id/pedido_id/peca_venda_id/lancado_* NÃO
-          // são tocados, então nada que já foi conciliado se perde. E o
-          // coalesce impede que um sync que venha sem remetente apague um
-          // nome que já temos.
-          .onConflictDoUpdate({
-            target: pixRecebimentosMcp.transacaoId,
-            set: {
-              pagadorNome: sql`coalesce(excluded.pagador_nome, ${pixRecebimentosMcp.pagadorNome})`,
-              descricao: sql`coalesce(excluded.descricao, ${pixRecebimentosMcp.descricao})`,
-              tipoOperacao: sql`coalesce(excluded.tipo_operacao, ${pixRecebimentosMcp.tipoOperacao})`,
-            },
-          })
-      }
-      await db.insert(pixMcpSyncStatus)
-        .values({ grupoId: grupo.id, ultimaSincronizacao: new Date() })
-        .onConflictDoUpdate({ target: pixMcpSyncStatus.grupoId, set: { ultimaSincronizacao: new Date() } })
-      tempo('gravar_no_banco', tGrava)
-    }
-  }
-
-  const [syncStatusAtual] = await db.select().from(pixMcpSyncStatus).where(eq(pixMcpSyncStatus.grupoId, grupo.id)).limit(1)
+  // Datas exibidas no seletor de período: em Brasília, para o atalho "Mês" casar com o padrão após as 21h.
+  const primeiroDoMes = `${hojeBrt().slice(0, 8)}01`
+  const ultimaSync = await ultimaSincronizacaoPix(grupo.id)
+  // Sem sincronizar aqui: a página mostra o que está no banco e o cliente dispara
+  // a sincronização (ver SincronizacaoPix), para não prender a tela atrás do mcp.ai.
+  const sincronizarAoAbrir = !cachePixValido(ultimaSync)
+  console.log('[pix-tempo]', `etapa=cache valido=${!sincronizarAoAbrir}`)
 
   const tLinhas = performance.now()
   const linhas = await db
@@ -189,141 +133,51 @@ export default async function PixMcpPage({
   const totalSemCorrespondencia = total - totalVinculado - totalInterno
   const qtdSemCorrespondencia = linhasVisiveis.filter(l => !l.tipoCorrespondencia && !ehInterna(l)).length
 
-  const hrefAtualizar = `/pix-mcp?from=${toInputDate(fromDate)}&to=${toInputDate(toDate)}&sync=1`
+  const itens = [
+    { rotulo: 'Total recebido', valor: formatValor(String(total)), nota: `${linhasVisiveis.length} transações` },
+    { rotulo: 'Vinculados', valor: formatValor(String(totalVinculado)), nota: `${linhasVisiveis.filter(l => l.tipoCorrespondencia).length} transações`, tom: 'text-primary-text' },
+    { rotulo: 'Sem correspondência', valor: formatValor(String(totalSemCorrespondencia)), nota: `${qtdSemCorrespondencia} transações`, tom: 'text-warning' },
+    ...(ehSocio ? [{ rotulo: 'Transferências internas', valor: formatValor(String(totalInterno)), nota: `${linhasInternas.length} transações · conta própria`, tom: 'text-muted-foreground' }] : []),
+  ]
+
+  // Só o necessário para a lista cruza para o cliente: texto já formatado, sem Date.
+  const linhasLista: LinhaPix[] = linhasVisiveis.map(l => ({
+    id: l.id,
+    data: formatData(l.data),
+    tipo: l.tipoOperacao ?? 'PIX',
+    pagador: l.pagadorNome || null,
+    descricao: l.descricao ?? null,
+    valor: formatValor(l.valor),
+    interna: ehInterna(l),
+    correspondencia: {
+      tipo: l.tipoCorrespondencia,
+      vendaNf: l.vendaId ? vendaNfById.get(l.vendaId) ?? null : null,
+      osNumero: l.osId ? osNumeroById.get(l.osId) ?? null : null,
+      pedidoNumero: l.pedidoId ? pedidoNumeroById.get(l.pedidoId) ?? null : null,
+      pecaNumero: l.pecaVendaId ? pecaNumeroById.get(l.pecaVendaId) ?? null : null,
+      lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
+      lancadoEm: l.lancadoEm ? l.lancadoEm.toISOString() : null,
+    },
+  }))
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">PIX Recebidos</h1>
-          <p className="text-slate-500 text-sm">
-            Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai (Open Finance). Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
-          </p>
-          <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
-            {syncStatusAtual
-              ? <>Sincronizado {formatAtras(syncStatusAtual.ultimaSincronizacao)}</>
-              : 'Ainda não sincronizado'}
-            <Link href={hrefAtualizar} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 underline">
-              <RefreshCw size={11} /> Atualizar agora
-            </Link>
-          </p>
-        </div>
-        <PixFiltros defaultFrom={toInputDate(fromDate)} defaultTo={toInputDate(toDate)} min={INICIO_CONCILIACAO} />
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold">PIX Recebidos</h1>
+        <p className="hidden text-sm text-muted-foreground md:block">
+          Contas do grupo <strong>{grupo.nome}</strong>, direto via mcp.ai (Open Finance). Inclui PIX (de outros bancos e entre contas do mesmo banco) e TED recebida. Correspondência lançada manualmente.
+        </p>
       </div>
-
-      {erroSync && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Não foi possível sincronizar com o mcp.ai agora ({erroSync}) — mostrando os dados já salvos.
-        </div>
-      )}
-
-      <div className={`grid grid-cols-2 gap-4 ${ehSocio ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Total Recebido</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">{formatValor(String(total))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{linhasVisiveis.length} transações</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Vinculados</p>
-            <p className="text-xl font-bold text-green-700 mt-1">{formatValor(String(totalVinculado))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{linhasVisiveis.filter(l => l.tipoCorrespondencia).length} transações</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Sem Correspondência</p>
-            <p className="text-xl font-bold text-amber-600 mt-1">{formatValor(String(totalSemCorrespondencia))}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{qtdSemCorrespondencia} transações</p>
-          </CardContent>
-        </Card>
-        {ehSocio && (
-          <Card>
-            <CardContent className="pt-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Transferências Internas</p>
-              <p className="text-xl font-bold text-slate-400 mt-1">{formatValor(String(totalInterno))}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{linhasInternas.length} transações · maquininha/conta própria</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Pagador</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="pr-4">Correspondência</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {linhasVisiveis.map(l => {
-                const interna = ehInterna(l)
-                return (
-                  <TableRow key={l.id}>
-                    <TableCell className="pl-4 text-sm text-slate-500 whitespace-nowrap">
-                      {formatData(l.data)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                        l.tipoOperacao === 'TED'
-                          ? 'bg-violet-50 text-violet-700'
-                          : l.tipoOperacao === 'TRANSF'
-                            ? 'bg-amber-50 text-amber-700'
-                            : 'bg-sky-50 text-sky-700'
-                      }`}>
-                        {l.tipoOperacao ?? 'PIX'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium text-sm" title={l.descricao ?? ''}>
-                        {l.pagadorNome || <span className="text-slate-400 font-normal" title="O banco não informou o remetente nesta transação">— sem remetente</span>}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums text-slate-900">
-                      {formatValor(l.valor)}
-                    </TableCell>
-                    <TableCell className="pr-4">
-                      {interna ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 rounded px-2 py-1">
-                          <Building2 size={12} /> Transferência interna
-                        </span>
-                      ) : (
-                        <CorrespondenciaForm
-                          id={l.id}
-                          correspondencia={{
-                            tipo: l.tipoCorrespondencia,
-                            vendaNf: l.vendaId ? vendaNfById.get(l.vendaId) ?? null : null,
-                            osNumero: l.osId ? osNumeroById.get(l.osId) ?? null : null,
-                            pedidoNumero: l.pedidoId ? pedidoNumeroById.get(l.pedidoId) ?? null : null,
-                            pecaNumero: l.pecaVendaId ? pecaNumeroById.get(l.pecaVendaId) ?? null : null,
-                            lancadoPorNome: l.lancadoPorId ? usuarioNomeById.get(l.lancadoPorId) ?? null : null,
-                            lancadoEm: l.lancadoEm ? l.lancadoEm.toISOString() : null,
-                          }}
-                        />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              {linhasVisiveis.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-slate-400 py-12">
-                    <TrendingUp size={32} className="mx-auto mb-2 opacity-20" />
-                    Nenhum recebimento no período
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <PixTopo
+        itens={itens}
+        from={params.from ? toInputDate(fromDate) : primeiroDoMes < INICIO_CONCILIACAO ? INICIO_CONCILIACAO : primeiroDoMes}
+        to={params.to ?? hojeBrt()}
+        hoje={hojeBrt()}
+        min={INICIO_CONCILIACAO}
+        rotuloSync={ultimaSync ? `Sincronizado ${formatAtras(ultimaSync)}` : 'Ainda não sincronizado'}
+        sincronizarAoAbrir={sincronizarAoAbrir}
+      />
+      <PixLista linhas={linhasLista} />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { agruparEmFaturas, type Fatura, type FaturaBruta, type LancamentoBruto } from './cartao-fatura'
 import { endpointMcpDoGrupo } from './mcpai-credencial'
+import { lerTodasAsPaginas, type BuscaPagina } from './paginacao-mcpai'
 
 type ContaBancaria = {
   id: string
@@ -187,8 +188,25 @@ type TransacaoBruta = {
   paymentData?: { payer?: string; recipient?: string }
 }
 
+type TxMcp = {
+  id: string
+  date: string
+  amount: string
+  type: string
+  operationType: string
+  description: string
+  paymentData?: { payer?: string; recipient?: string }
+}
+
+const PAGE_SIZE = 500 // máximo aceito pelo mcp.ai (tools/list, 14/10/2026)
+// 60 páginas = 30 mil linhas, ~1 min nas medições (~1 s por página); acima disso o sync falha em vez de arriscar os 300 s.
+const MAX_PAGINAS = 60
+// O fuso e a inclusividade de from/to não estão documentados: abro um dia para cada lado e deixo o
+// filtro por data exata (mais abaixo) fazer o corte certo.
+const dataIso = (d: Date, dias = 0) => new Date(d.getTime() + dias * 86_400_000).toISOString().slice(0, 10)
+
 type ResultadoTransacoesBrutas =
-  | { ok: true; transacoes: TransacaoBruta[] }
+  | { ok: true; transacoes: TransacaoBruta[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 // Busca TODAS as transações (crédito e débito) das contas do grupo no
@@ -253,9 +271,15 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     const inicioMs = dataInicio.getTime()
     const fimMs = dataFim.getTime()
     const transacoes: TransacaoBruta[] = []
+    // Contas que o mcp.ai não respondeu na página 1. O chamador decide o que fazer: o sync de Despesas
+    // não avança a data do último sync e avisa na tela, para a lacuna não virar perda silenciosa.
+    const contasPuladas: string[] = []
 
     logTempo({ origem, etapa: 'contas_do_grupo', contas: contas.length })
-    for (const conta of contas) {
+    // Contas em paralelo: o tempo do sync passa a ser o da conta mais lenta, não a soma. Cada conta faz
+    // force_sync + leitura em sequência (a leitura precisa do sync anterior). Falha em qualquer conta
+    // depois da página 1 derruba o sync inteiro (ver lerTodasAsPaginas). O resultado volta na ordem das contas.
+    const processarConta = async (conta: (typeof contas)[number]): Promise<TransacaoBruta[]> => {
       const tForce = agora()
       // O mcp.ai não atualiza a conta em tempo real sozinho — sem forçar o
       // sync, transações recebidas/enviadas nas últimas horas não aparecem ainda.
@@ -271,43 +295,48 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       const forceMs = decorrido(tForce)
 
       const tLista = agora()
-      const txChamada = await chamarMcp(url, init.sessionId, {
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/call',
-        params: {
-          name: 'openfinance_list_transactions',
-          arguments: { account_id: conta.id },
-        },
-      })
+      let bytesTotais = 0
+      // Paginação manual (page_size 500): sem ela o mcp.ai corta em 5000 e perde os mais antigos em
+      // silêncio (a Sicoob tem 5689). Ver paginacao-mcpai.ts.
+      const buscarPagina: BuscaPagina<TxMcp> = async pagina => {
+        const chamada = await chamarMcp(url, init.sessionId, {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: {
+            name: 'openfinance_list_transactions',
+            arguments: { account_id: conta.id, from: dataIso(dataInicio, -1), to: dataIso(dataFim, 1), page_size: PAGE_SIZE, page: pagina },
+          },
+        })
+        bytesTotais += chamada.bytes
+        if (chamada.json.error) return 'erro'
+        const resultado = chamada.json.result as { content?: { text?: string }[] } | undefined
+        const conteudo = resultado?.content?.[0]?.text
+        if (!conteudo) return 'erro'
+        const payload = JSON.parse(conteudo) as { total?: number; totalPages?: number; results?: TxMcp[] }
+        // Resposta sem total/totalPages (ex.: bloco de incidente do provedor) não vale como "0 linhas":
+        // seria gravada como sync feito sem ter lido nada.
+        if (typeof payload.total !== 'number' || typeof payload.totalPages !== 'number' || !Array.isArray(payload.results)) return 'erro'
+        return { linhas: payload.results, total: payload.total, totalPages: payload.totalPages }
+      }
+      const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, { maxPaginas: MAX_PAGINAS, maxTentativas: 3 })
       const listaMs = decorrido(tLista)
-      if (txChamada.json.error) {
-        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: txChamada.bytes, erro: true })
-        continue
+      if (!leitura.ok) {
+        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
+        throw new Error(leitura.erro)
+      }
+      if (leitura.ignorada) {
+        contasPuladas.push(conta.bank)
+        logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })
+        return []
       }
 
-      const txResult = txChamada.json.result as { content?: { text?: string }[] } | undefined
-      const txConteudo = txResult?.content?.[0]?.text
-      if (!txConteudo) continue
-
-      const txPayload = JSON.parse(txConteudo) as {
-        results?: Array<{
-          id: string
-          date: string
-          amount: string
-          type: string
-          operationType: string
-          description: string
-          paymentData?: { payer?: string; recipient?: string }
-        }>
-      }
-
-      const totalAntes = transacoes.length
-      for (const tx of txPayload.results ?? []) {
+      const daConta: TransacaoBruta[] = []
+      for (const tx of leitura.linhas) {
         const dataMs = new Date(tx.date).getTime()
         if (dataMs < inicioMs || dataMs > fimMs) continue
 
-        transacoes.push({
+        daConta.push({
           contaId: conta.id,
           banco: conta.bank,
           transacaoId: tx.id,
@@ -321,12 +350,23 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
       }
       logTempo({
         origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs,
-        bytes: txChamada.bytes, baixadas: txPayload.results?.length ?? 0, no_periodo: transacoes.length - totalAntes,
+        bytes: bytesTotais, paginas: leitura.paginas, tentativas: leitura.tentativas, total_informado: leitura.total,
+        baixadas: leitura.linhas.length, no_periodo: daConta.length,
+        mais_antiga: leitura.linhas.reduce((min, t) => (t.date < min ? t.date : min), '9999').slice(0, 10),
       })
+      return daConta
     }
 
-    logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length })
-    return { ok: true, transacoes }
+    // allSettled, não all: com all, a primeira falha encerra a função enquanto as outras contas seguem em
+    // segundo plano, e a instância pode ser suspensa com chamadas ao mcp.ai ainda em voo.
+    const porConta = await Promise.allSettled(contas.map(processarConta))
+    for (const r of porConta) {
+      if (r.status === 'rejected') throw r.reason
+      transacoes.push(...r.value)
+    }
+
+    logTempo({ origem, etapa: 'fim', total_ms: decorrido(t0), transacoes: transacoes.length, contas_puladas: contasPuladas.length })
+    return { ok: true, transacoes, contasPuladas }
   } catch (e) {
     logTempo({ origem, etapa: 'falhou', total_ms: decorrido(t0), erro: e instanceof Error ? e.message.slice(0, 120) : 'desconhecido' })
     return { ok: false, erro: e instanceof Error ? e.message : 'Erro ao conectar com o mcp.ai' }
@@ -396,7 +436,7 @@ type TransacaoPix = {
 }
 
 type ResultadoPix =
-  | { ok: true; transacoes: TransacaoPix[] }
+  | { ok: true; transacoes: TransacaoPix[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 // Créditos que entram na conciliação de /pix-mcp. TED entrou em 29/08/2026 a
@@ -441,7 +481,8 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
         : TIPO_TRANSFERENCIA_CONTAS,
     }))
 
-  return { ok: true, transacoes }
+  // Só interessa a conta pulada que a PIX usaria: banco fora do filtro não muda o que ela mostra.
+  return { ok: true, transacoes, contasPuladas: bruto.contasPuladas.filter(b => bancoEntraNoPix(b, cnpjGrupo)) }
 }
 
 export type TransacaoSaida = {
@@ -456,7 +497,7 @@ export type TransacaoSaida = {
 }
 
 type ResultadoSaidas =
-  | { ok: true; transacoes: TransacaoSaida[] }
+  | { ok: true; transacoes: TransacaoSaida[]; contasPuladas: string[] }
   | { ok: false; erro: string }
 
 export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoSaidas> {
@@ -476,7 +517,7 @@ export async function buscarSaidasOpenFinance(dataInicio: Date, dataFim: Date, c
       tipoOperacao: t.operationType,
     }))
 
-  return { ok: true, transacoes }
+  return { ok: true, transacoes, contasPuladas: bruto.contasPuladas }
 }
 
 /**

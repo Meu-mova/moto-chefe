@@ -96,11 +96,11 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
     return (
       <div className="flex items-center gap-1">
         <div className="text-xs">
-          <span className="font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+          <span className="font-medium text-primary-text border-l-2 border-primary pl-2">
             Lançada — {jaLancado.categoria ?? '—'}{jaLancado.beneficiario ? ` (${jaLancado.beneficiario})` : ''} · {jaLancado.lojaNome ?? 'Geral'}
           </span>
           {(jaLancado.lancadoPorNome || quando) && (
-            <p className="text-slate-400 mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
+            <p className="text-muted-foreground mt-0.5">{jaLancado.lancadoPorNome ?? 'Automático'}{quando ? ` · ${quando}` : ''}</p>
           )}
         </div>
         {podeCategorizar && (
@@ -109,7 +109,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
               onClick={() => setEditando(true)}
               disabled={pending}
               title="Editar categorização"
-              className="text-slate-400 hover:text-blue-600 p-1 disabled:opacity-50"
+              className="text-muted-foreground hover:text-primary-text p-1 disabled:opacity-50"
             >
               <Pencil size={13} />
             </button>
@@ -117,7 +117,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
               onClick={cancelarCategorizacao}
               disabled={pending}
               title="Cancelar categorização"
-              className="text-slate-400 hover:text-red-600 p-1 disabled:opacity-50"
+              className="text-muted-foreground hover:text-destructive p-1 disabled:opacity-50"
             >
               <X size={13} />
             </button>
@@ -130,18 +130,18 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
   // Quem não categoriza vê a saída e o status, só não tem os controles.
   if (!podeCategorizar) {
     return (
-      <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+      <span className="text-xs font-medium text-warning border-l-2 border-warning pl-2">
         Pendente de categorização
       </span>
     )
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-col gap-2">
       <select
         value={categoria}
         onChange={e => setCategoria(e.target.value)}
-        className="h-8 rounded-md border border-input bg-transparent px-2 text-xs outline-none"
+        className="h-11 w-full rounded-md border border-input bg-transparent px-2 text-base outline-none md:h-9 md:text-sm"
       >
         <option value="">Categoria...</option>
         {categorias.map(c => <option key={c} value={c}>{c}</option>)}
@@ -152,7 +152,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
         <select
           value={beneficiario}
           onChange={e => setBeneficiario(e.target.value)}
-          className="h-8 rounded-md border border-input bg-transparent px-2 text-xs outline-none"
+          className="h-11 w-full rounded-md border border-input bg-transparent px-2 text-base outline-none md:h-9 md:text-sm"
         >
           <option value="">Para quem...</option>
           {beneficiarios.map(b => <option key={b} value={b}>{b}</option>)}
@@ -161,7 +161,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
       <select
         value={lojaId}
         onChange={e => { setLojaId(e.target.value); setLojaEscolhida(true) }}
-        className="h-8 rounded-md border border-input bg-transparent px-2 text-xs outline-none"
+        className="h-11 w-full rounded-md border border-input bg-transparent px-2 text-base outline-none md:h-9 md:text-sm"
       >
         <option value="" disabled={!lojaEscolhida}>Loja...</option>
         <option value="">Geral — empresa</option>
@@ -169,7 +169,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
       </select>
       <Button
         size="sm"
-        className="h-8 text-xs"
+        className="h-11 text-base md:h-9 md:text-sm"
         disabled={pending || !categoria || !lojaEscolhida || (exigeBeneficiario && !beneficiario)}
         onClick={jaLancado ? salvarEdicao : lancar}
       >
@@ -179,7 +179,7 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
         <Button
           size="sm"
           variant="outline"
-          className="h-8 text-xs"
+          className="h-11 text-base md:h-9 md:text-sm"
           disabled={pending}
           onClick={() => setEditando(false)}
         >
