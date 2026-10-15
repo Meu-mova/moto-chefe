@@ -1586,4 +1586,17 @@ export const adesoesMova = pgTable('adesoes_mova', {
   usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
   status: text('status').notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Dados do contrato de adesão (#165), completados pelo operador da MOVA em
+  // /admin/adesoes. Validação em @/lib/adesao-contrato.
+  razaoSocial: text('razao_social'),
+  cnpj: text('cnpj'),
+  enderecoSede: text('endereco_sede'),
+  email: text('email'),
+  responsavelCpf: text('responsavel_cpf'),
+  valorMensal: numeric('valor_mensal', { precision: 12, scale: 2 }),
+  diaVencimento: integer('dia_vencimento'),
+  motivoRecusa: text('motivo_recusa'),
+  recusadaEm: timestamp('recusada_em', { withTimezone: true }),
+  atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
 })
