@@ -471,7 +471,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       selCartao,
       selDebito,
       selLink,
-      selFinanciamento,
+      MOSTRAR_FINANCIAMENTO ? selFinanciamento : new Set<number>(),
       freteResultado?.ok ? freteResultado : null,
     )
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
