@@ -7,10 +7,6 @@ import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 import { criarMedidor } from '@/lib/db-diag'
 import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, cacheSaidasValido, MARGEM_SYNC_DIAS, HISTORICO_DESDE } from '@/lib/sync-incremental'
 
-// Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
-// com marcador de staleness próprio (despesas_of_sync_status), separado do
-// pix_mcp_sync_status — as duas sincronizações escrevem em tabelas diferentes
-// e não podem compartilhar o mesmo controle de cache.
 // 9 parâmetros por linha: 1000 linhas ficam bem abaixo do limite de 65.535 do Postgres.
 const LOTE_INSERT = 1000
 

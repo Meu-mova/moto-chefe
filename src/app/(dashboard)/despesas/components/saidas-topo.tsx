@@ -33,7 +33,7 @@ export function SaidasTopo({ itens, from, to, hoje, rotuloSync, modoInicial, sin
   async function sincronizar(modo: ModoSync) {
     setAviso(null)
     setPendente(true)
-    let limpa = true
+    let semAviso = true
     try {
       const resp = await fetch('/api/despesas/sincronizar', {
         method: 'POST',
@@ -41,17 +41,18 @@ export function SaidasTopo({ itens, from, to, hoje, rotuloSync, modoInicial, sin
         body: JSON.stringify({ modo }),
       })
       const r = (await resp.json()) as ResultadoSyncSaidas | { error: string }
-      if ('error' in r) { setAviso({ tipo: 'falha', detalhe: r.error }); limpa = false }
-      else if (!r.ok) { setAviso({ tipo: 'falha', detalhe: r.erro }); limpa = false }
-      else if (r.contasPuladas.length > 0) { setAviso({ tipo: 'parcial', detalhe: r.contasPuladas.join(', ') }); limpa = false }
+      if ('error' in r) { setAviso({ tipo: 'falha', detalhe: r.error }); semAviso = false }
+      else if (!r.ok) { setAviso({ tipo: 'falha', detalhe: r.erro }); semAviso = false }
+      else if (r.contasPuladas.length > 0) { setAviso({ tipo: 'parcial', detalhe: r.contasPuladas.join(', ') }); semAviso = false }
     } catch {
       setAviso({ tipo: 'falha', detalhe: 'falha ao falar com o servidor' })
-      limpa = false
+      semAviso = false
     } finally {
       setPendente(false)
-      // Sync pedido pela URL e concluído sem falha: tira o parâmetro (como o redirect do servidor fazia).
+      // URL com ?sync= e um sync concluído sem falha (o da abertura ou o do botão, o modo não importa): tira o
+      // parâmetro, senão o F5 repetiria o sync pedido por ele (como o redirect do servidor fazia).
       // Com falha ou conta pulada fica na página, para o aviso continuar aparecendo.
-      if (limpa && modoInicial !== 'normal' && modo === modoInicial) router.replace(urlSemSync)
+      if (semAviso && modoInicial !== 'normal') router.replace(urlSemSync)
       else router.refresh()
     }
   }
