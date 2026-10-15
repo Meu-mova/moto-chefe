@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -77,6 +76,7 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
   }
 
   const campo = 'h-11 text-base md:h-8 md:text-xs'
+  const selectNativo = 'w-full min-w-0 rounded-md border border-input bg-card px-2'
   return (
     <div className="space-y-3">
       {/* Busca primeiro: no celular é o filtro que mais se usa; categoria e loja ficam logo abaixo. */}
@@ -88,26 +88,16 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
           onChange={e => setFiltroBusca(e.target.value)}
         />
         <div className="grid grid-cols-2 gap-2 md:flex">
-          <Select value={filtroCategoria || '__todas'} onValueChange={v => setFiltroCategoria(v == null || v === '__todas' ? '' : v)}>
-            <SelectTrigger className={`${campo} w-full md:w-44`}>
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__todas">Todas as categorias</SelectItem>
-              {categoriasFiltro.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          <Select value={filtroLoja || '__todas'} onValueChange={v => setFiltroLoja(v == null || v === '__todas' ? '' : v)}>
-            <SelectTrigger className={`${campo} w-full md:w-44`}>
-              <SelectValue placeholder="Loja" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__todas">Todas as lojas</SelectItem>
-              <SelectItem value="__geral">Geral (empresa)</SelectItem>
-              {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {/* <select> nativo: o <Select> do design system mostrava o value cru ("__todas") no gatilho. */}
+          <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)} aria-label="Categoria" className={`${campo} ${selectNativo} md:w-44`}>
+            <option value="">Todas as categorias</option>
+            {categoriasFiltro.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={filtroLoja} onChange={e => setFiltroLoja(e.target.value)} aria-label="Loja" className={`${campo} ${selectNativo} md:w-44`}>
+            <option value="">Todas as lojas</option>
+            <option value="__geral">Geral (empresa)</option>
+            {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
         </div>
       </div>
 
