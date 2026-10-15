@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lerDadosContrato, statusDaAdesao, camposFaltando, mensagemRecusa } from './adesao-contrato'
+import { lerDadosContrato, statusDaAdesao, mensagemRecusa } from './adesao-contrato'
+import { camposFaltando } from './adesao-campos'
 
 const completo = {
   razaoSocial: 'ECOMOTO LAVRAS COMERCIO LTDA',

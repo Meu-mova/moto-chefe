@@ -8,9 +8,9 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { enviarWhatsappPara } from '@/lib/whatsapp/client'
 import { normalizarCelular } from '@/lib/assinatura/mensagens'
 import {
-  lerDadosContrato, statusDaAdesao, mensagemRecusa,
-  type EntradaContrato, type CampoContrato, type StatusAdesao,
+  lerDadosContrato, statusDaAdesao, mensagemRecusa, type EntradaContrato,
 } from '@/lib/adesao-contrato'
+import type { CampoContrato, StatusAdesao } from '@/lib/adesao-campos'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -42,6 +42,7 @@ export async function listarAdesoesAction() {
     diaVencimento: adesoesMova.diaVencimento,
     motivoRecusa: adesoesMova.motivoRecusa,
     recusadaEm: adesoesMova.recusadaEm,
+    avisoRecusa: adesoesMova.avisoRecusa,
   }).from(adesoesMova).orderBy(desc(adesoesMova.criadoEm))
 }
 
@@ -57,7 +58,7 @@ export async function salvarDadosContratoAction(
 
   const [atual] = await db.select({ status: adesoesMova.status }).from(adesoesMova).where(eq(adesoesMova.id, id))
   if (!atual) return { ok: false, erro: 'Adesão não encontrada' }
-  if (atual.status === 'recusada') return { ok: false, erro: 'Adesão recusada não pode ser alterada' }
+  if (atual.status === 'recusada' || atual.status === 'processada') return { ok: false, erro: 'Adesão recusada ou processada não pode ser alterada' }
 
   const status = statusDaAdesao(lido.dados)
   await db.update(adesoesMova)
@@ -82,13 +83,14 @@ export async function recusarAdesaoAction(
   const [atual] = await db.select({ status: adesoesMova.status, loja: adesoesMova.loja, celular: adesoesMova.celular })
     .from(adesoesMova).where(eq(adesoesMova.id, id))
   if (!atual) return { ok: false, erro: 'Adesão não encontrada' }
-  if (atual.status === 'recusada') return { ok: false, erro: 'Adesão já recusada' }
+  if (atual.status === 'recusada' || atual.status === 'processada') return { ok: false, erro: 'Adesão já recusada ou processada' }
 
   await db.update(adesoesMova)
     .set({ status: 'recusada', motivoRecusa: m, recusadaEm: new Date(), atualizadoPor: u.id, atualizadoEm: new Date() })
     .where(eq(adesoesMova.id, id))
 
   const whatsapp = await enviarWhatsappPara(normalizarCelular(atual.celular) ?? '', mensagemRecusa(atual.loja, m))
+  await db.update(adesoesMova).set({ avisoRecusa: whatsapp }).where(eq(adesoesMova.id, id))
   if (whatsapp !== 'enviado') console.error('recusarAdesaoAction: aviso de recusa não saiu', { id, whatsapp })
 
   revalidatePath('/admin/adesoes')

@@ -3,9 +3,6 @@ import { emailValido } from '@/lib/email'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { camposFaltando, type CampoContrato, type StatusAdesao } from '@/lib/adesao-campos'
 
-export { CAMPOS_CONTRATO, ROTULO_STATUS_ADESAO, camposFaltando } from '@/lib/adesao-campos'
-export type { CampoContrato, StatusAdesao } from '@/lib/adesao-campos'
-
 // Dados do contrato de adesão que o /adesao não coleta (#165): o operador da
 // MOVA completa na tela interna, lendo o cartão CNPJ enviado. Salvar parcial é
 // permitido; o contrato (PR 2) só sai com todos preenchidos.
@@ -34,7 +31,7 @@ export function lerDadosContrato(
 
   const cnpjBruto = texto('cnpj')
   const cnpj = cnpjBruto ? soDigitosDoc(cnpjBruto) : null
-  if (cnpj && (cnpj.length !== 14 || !cnpjValido(cnpj))) erros.cnpj = 'CNPJ inválido'
+  if (cnpj && !cnpjValido(cnpj)) erros.cnpj = 'CNPJ inválido'
 
   const cpfBruto = texto('responsavelCpf')
   const responsavelCpf = cpfBruto ? soDigitosDoc(cpfBruto) : null
@@ -69,7 +66,7 @@ export function lerDadosContrato(
 }
 
 /** Status depois de salvar os dados. A recusa sai por outro caminho e não passa por aqui. */
-export function statusDaAdesao(dados: DadosContrato): Exclude<StatusAdesao, 'recusada'> {
+export function statusDaAdesao(dados: DadosContrato): Extract<StatusAdesao, 'pendente' | 'dados_completos'> {
   return camposFaltando(dados).length ? 'pendente' : 'dados_completos'
 }
 

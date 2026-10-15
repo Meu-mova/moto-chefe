@@ -22,17 +22,17 @@ const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
   dados_completos: 'border-primary text-primary-text',
   recusada: 'border-destructive text-destructive',
+  processada: 'border-border text-muted-foreground',
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = status as StatusAdesao
-  return <Badge variant="outline" className={CLASSE_STATUS[s]}>{ROTULO_STATUS_ADESAO[s] ?? status}</Badge>
+function StatusBadge({ status }: { status: StatusAdesao }) {
+  return <Badge variant="outline" className={CLASSE_STATUS[status]}>{ROTULO_STATUS_ADESAO[status]}</Badge>
 }
 
 const data = (d: Date | string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 function resumoContrato(a: AdesaoLinha): string {
-  if (a.status === 'recusada') return '—'
+  if (a.status === 'recusada' || a.status === 'processada') return '—'
   const faltam = camposFaltando(a).length
   return faltam ? `faltam ${faltam}` : 'completo'
 }
@@ -132,7 +132,8 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
   const [recusando, setRecusando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [pendente, iniciar] = useTransition()
-  const recusada = a.status === 'recusada'
+  // Recusada ou processada não se edita mais por esta tela.
+  const travada = a.status === 'recusada' || a.status === 'processada'
   const faltam = camposFaltando(valores)
 
   function salvar() {
@@ -203,14 +204,14 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
         <h3 className="font-medium">Dados do contrato</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CAMPOS_CONTRATO.map(c => (
-            <div key={c.chave} className={c.chave === 'razaoSocial' || c.chave === 'enderecoSede' ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
+            <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
               <Label htmlFor={`${a.id}-${c.chave}`}>{c.rotulo}</Label>
               <Input
                 id={`${a.id}-${c.chave}`}
                 value={valores[c.chave]}
-                disabled={recusada || pendente}
-                inputMode={c.chave === 'diaVencimento' || c.chave === 'cnpj' || c.chave === 'responsavelCpf' ? 'numeric' : c.chave === 'valorMensal' ? 'decimal' : undefined}
-                placeholder={c.chave === 'diaVencimento' ? '1 a 28' : undefined}
+                disabled={travada || pendente}
+                inputMode={'inputMode' in c ? c.inputMode : undefined}
+                placeholder={'placeholder' in c ? c.placeholder : undefined}
                 aria-invalid={!!erros[c.chave]}
                 onChange={e => {
                   const v = e.target.value
@@ -223,9 +224,16 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
         </div>
       </div>
 
-      {recusada ? (
+      {a.status === 'processada' ? (
+        <p className="text-sm text-muted-foreground">Adesão já processada.</p>
+      ) : a.status === 'recusada' ? (
         <p className="text-sm text-destructive">
           Recusada em {a.recusadaEm ? data(a.recusadaEm) : '—'}: {a.motivoRecusa}
+          {a.avisoRecusa !== 'enviado' && (
+            <span className="block text-warning">
+              O aviso por WhatsApp não saiu: avise {a.responsavel} por outro meio ({a.celular}).
+            </span>
+          )}
         </p>
       ) : recusando ? (
         <div className="space-y-2">

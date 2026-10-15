@@ -81,7 +81,9 @@ export function cpfValido(valor: string): boolean {
   return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10])
 }
 
-export function cnpjValido(cnpj: string): boolean {
+export function cnpjValido(valor: string): boolean {
+  const cnpj = soDigitosDoc(valor)
+  if (cnpj.length !== 14) return false
   // 00.000.000/0000-00 e afins passam na conta do dígito verificador mas não existem.
   if (/^(\d)\1{13}$/.test(cnpj)) return false
   const digito = (ate: number): number => {
