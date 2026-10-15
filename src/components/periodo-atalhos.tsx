@@ -75,7 +75,8 @@ export function PeriodoAtalhos({ from, to, hoje, min, chaveDe = 'from', chaveAte
     ir(novoDe, novoAte)
   }
 
-  const campo = 'mt-1 block h-11 w-full min-w-0 rounded-lg border border-input bg-card px-2 text-base text-foreground md:h-9 md:w-40 md:rounded-md md:text-sm'
+  // appearance-none: o Safari/Chrome do iPhone ignoram a largura do <input type=date> sem isso e o campo vaza sobre o vizinho.
+  const campo = 'mt-1 block h-11 w-full min-w-0 max-w-full appearance-none text-left rounded-lg border border-input bg-card px-2 text-base text-foreground md:h-9 md:w-40 md:rounded-md md:text-sm'
   return (
     <div className={cn('flex flex-col items-stretch gap-3 md:flex-row md:flex-wrap md:items-end', className)}>
       <div role="group" aria-label="Período" className="flex rounded-lg bg-muted p-0.5 md:inline-flex">
