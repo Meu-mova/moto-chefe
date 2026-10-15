@@ -79,3 +79,18 @@ export async function lerTodasAsPaginas<T>(
       : 'O extrato mudou durante a leitura e não estabilizou; tente de novo.',
   }
 }
+
+/** Acima disso, uma página de 0 linhas não é um extrato vazio: um extrato vazio cabe em algumas centenas de bytes. */
+export const BYTES_MAX_PAGINA_VAZIA = 1000
+
+/**
+ * Resposta de `total: 0` que não parece um extrato vazio de verdade: traz `warning` ou um corpo grande demais
+ * para zero linhas. Em 15/10/2026 o mcp.ai devolveu 1534 bytes com total 0 para o Sicredi (20 linhas reais) e
+ * antes para o Sicoob; o sync foi gravado como completo sem essas contas. Tratada como erro, a conta é pulada
+ * e o sync não avança a data. `total` ≠ 0 nunca é suspeita.
+ */
+export function vaziaSuspeita(payload: { total?: unknown; warning?: unknown }, bytes: number): boolean {
+  if (payload.total !== 0) return false
+  if (typeof payload.warning === 'string' && payload.warning.trim() !== '') return true
+  return bytes > BYTES_MAX_PAGINA_VAZIA
+}

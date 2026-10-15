@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lerTodasAsPaginas, type BuscaPagina } from './paginacao-mcpai'
+import { lerTodasAsPaginas, vaziaSuspeita, BYTES_MAX_PAGINA_VAZIA, type BuscaPagina } from './paginacao-mcpai'
 
 const chave = (n: number) => String(n)
 const OPTS = { maxPaginas: 60, maxTentativas: 3 }
@@ -145,4 +145,23 @@ test('relê e aceita quando a segunda tentativa estabiliza, avisando o motivo da
   assert.ok(r.ok)
   assert.equal(r.tentativas, 2)
   assert.deepEqual(motivos, ['ids_diferentes:5'])
+})
+
+test('vaziaSuspeita: total 0 com corpo grande demais para zero linhas é suspeito (os 1534 bytes de 15/10)', () => {
+  assert.equal(vaziaSuspeita({ total: 0 }, 1534), true)
+})
+
+test('vaziaSuspeita: total 0 com warning é suspeito, mesmo com corpo pequeno', () => {
+  assert.equal(vaziaSuspeita({ total: 0, warning: 'provider incident' }, 200), true)
+  assert.equal(vaziaSuspeita({ total: 0, warning: '   ' }, 200), false)
+})
+
+test('vaziaSuspeita: extrato vazio de verdade (total 0, corpo pequeno) vale', () => {
+  assert.equal(vaziaSuspeita({ total: 0 }, 300), false)
+  assert.equal(vaziaSuspeita({ total: 0 }, BYTES_MAX_PAGINA_VAZIA), false)
+})
+
+test('vaziaSuspeita: total diferente de 0 nunca é suspeito, por maior que seja o corpo', () => {
+  assert.equal(vaziaSuspeita({ total: 20 }, 50_000), false)
+  assert.equal(vaziaSuspeita({ total: 20, warning: 'x' }, 50_000), false)
 })
