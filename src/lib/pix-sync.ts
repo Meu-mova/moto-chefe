@@ -2,9 +2,10 @@ import { db } from '@/lib/db'
 import { pixRecebimentosMcp, pixMcpSyncStatus } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { buscarPixRecebidos } from '@/lib/mcpai'
+import { desdeDoSync, HISTORICO_DESDE, MARGEM_SYNC_DIAS } from '@/lib/sync-incremental'
 
 // Enquanto a última sincronização com o mcp.ai for mais recente que isso, não
-// vale sincronizar de novo: o mcp.ai é lento e baixa o histórico inteiro da conta.
+// vale sincronizar de novo: o mcp.ai é lento (o force_sync de cada conta leva de 3 a 55 s).
 export const JANELA_CACHE_PIX_MS = 10 * 60 * 1000
 
 export function cachePixValido(ultimaSincronizacao: Date | undefined, agora = Date.now()) {
@@ -17,13 +18,13 @@ const tempo = (etapa: string, desde: number, extra = '') =>
 export type ResultadoSyncPix = { ok: true; contasPuladas: string[] } | { ok: false; erro: string }
 
 export async function sincronizarPix(grupo: { id: string; cnpj: string }): Promise<ResultadoSyncPix> {
-  // Sincroniza o histórico inteiro (não dá pra pedir só um período ao
-  // mcp.ai — ver nota em buscarPixRecebidos), então usamos uma janela bem
-  // ampla aqui pra não perder PIX antigos na primeira sincronização.
-  const desde = new Date('2025-01-01T00:00:00.000Z')
+  // Incremental, como a Despesas: só o que veio depois do último sync completo (a data não avança com
+  // conta pulada), com folga para o atraso do banco. Sem sync anterior lê o histórico inteiro: foram
+  // 12 páginas e 65 a 75 s só no Sicoob a cada "Atualizar agora".
+  const desde = desdeDoSync(await ultimaSincronizacaoPix(grupo.id) ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
   const tBusca = performance.now()
   const resultado = await buscarPixRecebidos(desde, new Date(), grupo.cnpj)
-  tempo('buscar_pix_mcpai', tBusca, `ok=${resultado.ok}${resultado.ok ? ` transacoes=${resultado.transacoes.length}` : ''}`)
+  tempo('buscar_pix_mcpai', tBusca, `desde=${desde.toISOString().slice(0, 10)} ok=${resultado.ok}${resultado.ok ? ` transacoes=${resultado.transacoes.length}` : ''}`)
   if (!resultado.ok) return { ok: false, erro: resultado.erro }
 
   const tGrava = performance.now()

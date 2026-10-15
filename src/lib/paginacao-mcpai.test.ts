@@ -108,3 +108,41 @@ test('linhas únicas abaixo do total que nunca se corrigem falham depois das ten
   const r = await lerTodasAsPaginas(buscar, chave, { maxPaginas: 60, maxTentativas: 2 })
   assert.equal(r.ok, false)
 })
+
+test('total 0 depois de uma tentativa que viu linhas não é aceito: falha em vez de gravar a conta vazia', async () => {
+  // 1ª tentativa: total muda entre a primeira e a última página (rejeitada). Demais: lista vazia, formato válido.
+  let chamadas = 0
+  const base = fonte(Array.from({ length: 10 }, (_, i) => i), 5)
+  const busca: BuscaPagina<number> = async pagina => {
+    chamadas++
+    if (chamadas <= 2) return pagina === 1 ? base(1) : { ...(await base(2) as { linhas: number[]; totalPages: number }), total: 11 }
+    return { linhas: [], total: 0, totalPages: 0 }
+  }
+  const rejeicoes: string[] = []
+  const r = await lerTodasAsPaginas(busca, chave, { ...OPTS, aoRejeitar: x => rejeicoes.push(x.motivo) })
+  assert.equal(r.ok, false)
+  assert.deepEqual(rejeicoes, ['total_mudou', 'vazia_apos_dados', 'vazia_apos_dados'])
+})
+
+test('total 0 logo na primeira tentativa continua valendo (conta nova ou janela sem movimento)', async () => {
+  const r = await lerTodasAsPaginas(async () => ({ linhas: [], total: 0, totalPages: 0 }), chave, OPTS)
+  assert.ok(r.ok)
+  assert.equal(r.tentativas, 1)
+  assert.equal(r.linhas.length, 0)
+})
+
+test('relê e aceita quando a segunda tentativa estabiliza, avisando o motivo da primeira', async () => {
+  let rodada = 0
+  const base = fonte(Array.from({ length: 10 }, (_, i) => i), 5)
+  const busca: BuscaPagina<number> = async pagina => {
+    if (pagina === 1) rodada++
+    // 1ª rodada: a última página repete linhas da primeira (ids únicos < total).
+    if (rodada === 1 && pagina === 2) return { linhas: [0, 1, 2, 3, 4], total: 10, totalPages: 2 }
+    return base(pagina)
+  }
+  const motivos: string[] = []
+  const r = await lerTodasAsPaginas(busca, chave, { ...OPTS, aoRejeitar: x => motivos.push(`${x.motivo}:${x.unicas}`) })
+  assert.ok(r.ok)
+  assert.equal(r.tentativas, 2)
+  assert.deepEqual(motivos, ['ids_diferentes:5'])
+})
