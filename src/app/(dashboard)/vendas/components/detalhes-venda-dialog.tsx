@@ -12,7 +12,7 @@ import { DanfeButton } from '../../estoque/[id]/components/danfe-button'
 import { TIPOS_CARTAO, type PgtoOS } from '@/lib/conciliacao-status'
 import { PagamentosConciliacao, useConciliacaoAlvo } from '@/components/pagamentos-conciliacao'
 import { PainelAssinatura } from './painel-assinatura'
-import { rotuloDocumento } from '@/lib/documento'
+import { rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
 import { NfSaidaButton } from '../../estoque/components/nf-saida-button'
 import { podeOperarNfSaida } from '../papeis-nf-saida'
 
@@ -219,6 +219,13 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
                       {(v.representanteNome || v.representanteCpf) && (
                         <Par rotulo="Representante">
                           {[v.representanteNome, v.representanteCpf && `CPF ${v.representanteCpf}`].filter(Boolean).join(' — ')}
+                        </Par>
+                      )}
+                      {tipoPessoaDoDocumento(v.clienteCpf) === 'juridica' && (
+                        <Par rotulo="ICMS">
+                          {v.clienteIndicadorIe === 'contribuinte'
+                            ? `Contribuinte — IE ${v.clienteInscricaoEstadual || 'não informada'}`
+                            : v.clienteIndicadorIe === 'isento' ? 'Isenta de inscrição estadual' : 'Não contribuinte'}
                         </Par>
                       )}
                       {endereco && <Par rotulo="Endereço">{endereco}</Par>}

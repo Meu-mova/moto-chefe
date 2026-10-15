@@ -39,6 +39,8 @@ export async function listarVendas(filtros?: {
       clienteEstado:    vendas.clienteEstado,
       representanteNome: vendas.representanteNome,
       representanteCpf:  vendas.representanteCpf,
+      clienteIndicadorIe:       vendas.clienteIndicadorIe,
+      clienteInscricaoEstadual: vendas.clienteInscricaoEstadual,
       notaFiscalSaida:     vendas.notaFiscalSaida,
       blingNfeId:          vendas.blingNfeId,
       statusConciliacao:   vendas.statusConciliacao,

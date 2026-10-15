@@ -180,3 +180,20 @@ test('nota de homologação nunca manda e-mail ao cliente; produção manda', ()
   assert.equal(montarNfeVendaMoto({ ...VENDA, ambiente: 'Homologacao' }, REGRA).enviarPorEmail, false)
   assert.equal(montarNfeVendaMoto({ ...VENDA, ambiente: 'Producao' }, REGRA).enviarPorEmail, true)
 })
+
+const CLIENTE_PJ = { ...VENDA.cliente, tipoPessoa: 'J' as const, nome: 'LOCADORA TESTE LTDA', cpfCnpj: '11222333000181' }
+
+test('comprador PJ: o indicador de contribuinte do ICMS sai do cadastro, com a IE quando contribuinte', () => {
+  const contrib = montarNfeVendaMoto({ ...VENDA, cliente: { ...CLIENTE_PJ, indicadorIe: 'contribuinte', inscricaoEstadual: '0623079040081' } }, REGRA)
+  assert.equal(contrib.cliente.indicadorContribuinteICMS, 'Contribuinte')
+  assert.equal(contrib.cliente.inscricaoEstadual, '0623079040081')
+
+  const isento = montarNfeVendaMoto({ ...VENDA, cliente: { ...CLIENTE_PJ, indicadorIe: 'isento' } }, REGRA)
+  // Conferido em homologação (NF 408, 15/10/2026): 'Isento' sai no XML como indIEDest 2.
+  assert.equal(isento.cliente.indicadorContribuinteICMS, 'Isento')
+  assert.equal('inscricaoEstadual' in isento.cliente, false)
+
+  const nao = montarNfeVendaMoto({ ...VENDA, cliente: { ...CLIENTE_PJ, indicadorIe: 'nao_contribuinte' } }, REGRA)
+  assert.equal(nao.cliente.indicadorContribuinteICMS, 'NaoContribuinte')
+  assert.equal('inscricaoEstadual' in nao.cliente, false)
+})

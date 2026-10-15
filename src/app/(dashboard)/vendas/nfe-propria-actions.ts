@@ -15,6 +15,7 @@ import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, C
 import { podeOperarNfSaida } from './papeis-nf-saida'
 import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
+import { isIndicadorIe } from '@/lib/documento'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -109,6 +110,7 @@ async function montarEmissao(motoId: string) {
     clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
     clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
     clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
+    clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
     valor, pagamentos: pagamentosMova, temFicha: !!ficha,
   })
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
@@ -172,6 +174,8 @@ function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosV
       cpfCnpj: v.clienteCpf,
       email: v.clienteEmail?.trim() || undefined,
       telefone: v.clienteCelular?.trim() || undefined,
+      indicadorIe: v.clienteIndicadorIe && isIndicadorIe(v.clienteIndicadorIe) ? v.clienteIndicadorIe : null,
+      inscricaoEstadual: v.clienteInscricaoEstadual?.trim() || undefined,
       endereco: {
         uf: (v.clienteEstado ?? '').trim().toUpperCase(),
         cidade: (v.clienteCidade ?? '').trim(),
