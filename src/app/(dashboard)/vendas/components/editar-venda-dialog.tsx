@@ -12,7 +12,7 @@ import { editarVendaAction } from '../actions'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
-import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
+import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 import { tipoPessoaSeCompleto } from '@/lib/documento'
 import { buscarEnderecoPorCep, mascaraCelular, mascaraCep } from '@/lib/mascaras'
 
@@ -104,6 +104,8 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
   const [estado,      setEstado]      = useState(v.clienteEstado ?? '')
   const [representanteNome, setRepresentanteNome] = useState(v.representanteNome ?? '')
   const [representanteCpf,  setRepresentanteCpf]  = useState(v.representanteCpf ?? '')
+  const [indicadorIe,       setIndicadorIe]       = useState(v.clienteIndicadorIe ?? 'nao_contribuinte')
+  const [inscricaoEstadual, setInscricaoEstadual] = useState(v.clienteInscricaoEstadual ?? '')
   const juridica = tipoPessoaSeCompleto(clienteCpf) === 'juridica'
 
   const [pending, startTransition] = useTransition()
@@ -179,7 +181,10 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
           clienteCidade:      cidade.trim() || null,
           clienteEstado:      estado.trim() || null,
           // Pessoa física não manda: o servidor limpa o representante sozinho.
-          ...(juridica ? { representanteNome, representanteCpf } : {}),
+          ...(juridica ? {
+            representanteNome, representanteCpf,
+            clienteIndicadorIe: indicadorIe, clienteInscricaoEstadual: inscricaoEstadual,
+          } : {}),
           ...(origemId ? { origemId, origemDetalhe: origemDetalhe.trim() || null } : {}),
         })
         toast.success('Venda atualizada')
@@ -385,6 +390,14 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
                     cpf={representanteCpf}
                     onNomeChange={setRepresentanteNome}
                     onCpfChange={setRepresentanteCpf}
+                  />
+                )}
+                {juridica && (
+                  <ContribuinteIcmsCampos
+                    indicador={indicadorIe}
+                    inscricaoEstadual={inscricaoEstadual}
+                    onIndicadorChange={setIndicadorIe}
+                    onInscricaoEstadualChange={setInscricaoEstadual}
                   />
                 )}
                 <div className="space-y-1.5">

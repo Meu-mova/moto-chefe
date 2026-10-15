@@ -1,3 +1,5 @@
+import { formatarCpfCnpj, rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
+
 export type TipoDocumento = 'contrato_venda' | 'checklist_entrega'
 
 export const LABEL_TIPO: Record<TipoDocumento, string> = {
@@ -10,7 +12,12 @@ export type DadosDocumento = {
   // Comprador — sem estado civil, profissão e RG: o sistema não tem esses dados
   // e coletá-los travaria o balcão (decisão registrada no spec).
   clienteNome: string
+  /** CPF ou CNPJ: o tamanho decide o tipo de pessoa. O nome ficou de quando só
+   *  havia CPF; snapshot antigo no banco usa a mesma chave. */
   clienteCpf: string
+  /** Quem assina pela empresa (#65). Só faz sentido com CNPJ, e é opcional. */
+  representanteNome?: string | null
+  representanteCpf?: string | null
   clienteEmail: string
   clienteEndereco: string
   // Vendedora — vem do grupo, não fixa no texto: BH e Vale são outras empresas.
@@ -156,6 +163,17 @@ const ESTILO = `
   .doc .clausula { font-size: 11px; color: #475569; }
 `
 
+// Texto de pessoa jurídica aprovado pelo advogado (#65, 15/10/2026). Representante
+// é opcional na venda: sem ele, a linha sai em branco para a loja completar à mão.
+function qualificacaoComprador(d: DadosDocumento): string {
+  if (tipoPessoaDoDocumento(d.clienteCpf) === 'juridica') {
+    return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, pessoa jurídica, inscrita no CNPJ sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, com sede na ${esc(d.clienteEndereco)}, endereço eletrônico: ${esc(d.clienteEmail)}, neste ato representada por ${esc(d.representanteNome?.trim() || '______________________________')}, CPF ${esc(formatarCpfCnpj(d.representanteCpf?.trim()) || '________________')}.</p>`
+  }
+  return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, brasileiro(a), inscrito no CPF
+    sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, residente e domiciliado na ${esc(d.clienteEndereco)}, endereço
+    eletrônico: ${esc(d.clienteEmail)}.</p>`
+}
+
 // ATENÇÃO: transcrito do modelo "Compra e Venda Motochefe.docx". Os desvios em
 // relação ao original são três, todos decididos com o Cesar e registrados no
 // spec: qualificação do comprador sem estado civil/profissão/RG, sem
@@ -166,12 +184,10 @@ function contrato(d: DadosDocumento): string {
     <h1>CONTRATO DE COMPRA E VENDA DE EQUIPAMENTO DE MOBILIDADE INDIVIDUAL AUTOPROPELIDO</h1>
 
     <p>Na qualidade de <b>VENDEDORA</b>: ${esc(d.vendedoraRazaoSocial)}, pessoa jurídica, inscrita
-    no CNPJ sob o nº ${esc(d.vendedoraCnpj)}, com endereço à ${esc(d.vendedoraEndereco)}, neste ato
+    no CNPJ sob o nº ${esc(formatarCpfCnpj(d.vendedoraCnpj))}, com endereço à ${esc(d.vendedoraEndereco)}, neste ato
     representada por quem de direito.</p>
 
-    <p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, brasileiro(a), inscrito no CPF
-    sob o nº ${esc(d.clienteCpf)}, residente e domiciliado na ${esc(d.clienteEndereco)}, endereço
-    eletrônico: ${esc(d.clienteEmail)}.</p>
+    ${qualificacaoComprador(d)}
 
     <p>Doravante denominadas, em conjunto, Partes, têm entre si, justo e acertado o presente
     Contrato de Compra e Venda de Equipamento de Mobilidade Individual Autopropelido, que se regerá
@@ -362,7 +378,7 @@ function checklist(d: DadosDocumento, r?: RespostasChecklist | null): string {
     <h1>CHECKLIST DE ENTREGA</h1>
     <table>
       <tr><th>Vendedora</th><td>${esc(d.lojaNome)} — ${esc(d.lojaCidade)}</td></tr>
-      <tr><th>Comprador</th><td>${esc(d.clienteNome)} — CPF ${esc(d.clienteCpf)}</td></tr>
+      <tr><th>Comprador</th><td>${esc(d.clienteNome)} — ${rotuloDocumento(d.clienteCpf)} ${esc(formatarCpfCnpj(d.clienteCpf))}</td></tr>
       <tr><th>Veículo</th><td>${esc(d.marca)} ${esc(d.modelo)}, cor ${esc(d.cor)}, chassi ${esc(d.chassi)}, motor ${esc(d.motor)}</td></tr>
     </table>
     <h2>Itens conferidos na entrega</h2>

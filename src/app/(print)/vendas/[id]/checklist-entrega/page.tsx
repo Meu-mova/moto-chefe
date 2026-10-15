@@ -8,6 +8,7 @@ import { PrintTrigger } from './print-trigger'
 // Fonte única: a mesma lista alimenta o checklist assinável em
 // @/lib/assinatura/documento. Duas cópias divergiriam com o tempo.
 import { ITENS_CHECKLIST as ITENS } from '@/lib/assinatura/documento'
+import { rotuloDocumento } from '@/lib/documento'
 
 export default async function ChecklistEntregaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -83,7 +84,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
         <div className="card">
           <h2>Cliente</h2>
           <div className="f"><span className="fl">Nome</span><span className="fv">{venda.clienteNome}</span></div>
-          <div className="f"><span className="fl">CPF</span><span className="fv">{venda.clienteCpf}</span></div>
+          <div className="f"><span className="fl">{rotuloDocumento(venda.clienteCpf)}</span><span className="fv">{venda.clienteCpf}</span></div>
         </div>
       </div>
 
@@ -122,7 +123,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
         <div className="card">
           <h2>Dados do Proprietário</h2>
           <div className="f"><span className="fl">Nome</span><span className="fv">{venda.clienteNome}</span></div>
-          <div className="f"><span className="fl">CPF</span><span className="fv">{venda.clienteCpf}</span></div>
+          <div className="f"><span className="fl">{rotuloDocumento(venda.clienteCpf)}</span><span className="fv">{venda.clienteCpf}</span></div>
           <div className="f"><span className="fl">Endereço</span><span className="fv">{endereco || '—'}{cidadeEstado && ` — ${cidadeEstado}`}</span></div>
         </div>
         <div className="card">

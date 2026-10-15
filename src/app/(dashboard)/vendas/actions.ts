@@ -19,7 +19,7 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
-import { formatarCpfCnpj, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 
@@ -104,11 +104,14 @@ function conferirComprador(
 
 function comCompradorConferido(data: DadosVendaCompleta): DadosVendaCompleta {
   const comprador = conferirComprador(data.clienteCpf, { nome: data.representanteNome, cpf: data.representanteCpf })
+  const icms = lerContribuinteIcms(comprador.clienteCpf, data.clienteIndicadorIe, data.clienteInscricaoEstadual)
   return {
     ...data,
     clienteCpf: comprador.clienteCpf,
     representanteNome: comprador.representanteNome,
     representanteCpf: comprador.representanteCpf,
+    clienteIndicadorIe: icms.indicadorIe,
+    clienteInscricaoEstadual: icms.inscricaoEstadual,
   }
 }
 
@@ -266,6 +269,9 @@ type DadosVendaCompleta = {
   /** Só na venda para pessoa jurídica; opcionais. */
   representanteNome?: string | null
   representanteCpf?: string | null
+  /** Contribuinte de ICMS do comprador CNPJ ('contribuinte' | 'isento' | 'nao_contribuinte'). */
+  clienteIndicadorIe?: string | null
+  clienteInscricaoEstadual?: string | null
   valorTotal: string
   dataVenda?: string
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
@@ -307,6 +313,9 @@ async function criarVendaTx(
     dataAtualizacao: dataVendaFinal,
   }).returning({ id: pedidosVenda.id })
 
+  // Pedido de aprovação gravado antes da IE chega sem os campos: vira não contribuinte.
+  const icms = lerContribuinteIcms(data.clienteCpf, data.clienteIndicadorIe, data.clienteInscricaoEstadual)
+
   // Upsert cliente por CPF/CNPJ — cria se não existir, atualiza se existir
   const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
   let clienteVinculadoId: string | null = null
@@ -326,6 +335,8 @@ async function criarVendaTx(
         cep:         data.clienteCep           || null,
         cidade:      data.clienteCidade        || null,
         uf:          data.clienteEstado        || null,
+        indicadorIe:       icms.indicadorIe,
+        inscricaoEstadual: icms.inscricaoEstadual,
       })
       .onConflictDoUpdate({
         target: clientes.cpfCnpj,
@@ -341,6 +352,12 @@ async function criarVendaTx(
           cep:         sql`excluded.cep`,
           cidade:      sql`excluded.cidade`,
           uf:          sql`excluded.uf`,
+          // "Não contribuinte" é também o padrão da tela e do pedido de aprovação
+          // antigo: não apaga a IE de um cadastro que já a tem. Rebaixar é pela edição.
+          ...(icms.indicadorIe === 'contribuinte' || icms.indicadorIe === 'isento' ? {
+            indicadorIe:       sql`excluded.indicador_ie`,
+            inscricaoEstadual: sql`excluded.inscricao_estadual`,
+          } : {}),
           atualizadoEm: sql`now()`,
         },
       })
@@ -359,6 +376,8 @@ async function criarVendaTx(
     clienteCpf: data.clienteCpf,
     representanteNome: data.representanteNome ?? null,
     representanteCpf: data.representanteCpf ?? null,
+    clienteIndicadorIe: icms.indicadorIe,
+    clienteInscricaoEstadual: icms.inscricaoEstadual,
     clienteCelular: data.clienteCelular,
     clienteEmail: data.clienteEmail,
     clienteCep: data.clienteCep,
@@ -1372,6 +1391,9 @@ export async function editarVendaAction(vendaId: string, dados: {
   /** Ausentes (`undefined`) = não mexe no representante gravado. */
   representanteNome?: string | null
   representanteCpf?:  string | null
+  /** Ausente (`undefined`) = não mexe no contribuinte de ICMS gravado. */
+  clienteIndicadorIe?:       string | null
+  clienteInscricaoEstadual?: string | null
   origemId?:          string | null
   origemDetalhe?:     string | null
 }) {
@@ -1408,6 +1430,8 @@ export async function editarVendaAction(vendaId: string, dados: {
   // Venda que virou pessoa física não guarda representante, mesmo sem os campos no payload.
   const gravaRepresentante = comprador.tipoPessoa === 'fisica'
     || dados.representanteNome !== undefined || dados.representanteCpf !== undefined
+  const gravaIcms = comprador.tipoPessoa === 'fisica' || dados.clienteIndicadorIe !== undefined
+  const icms = lerContribuinteIcms(comprador.clienteCpf, dados.clienteIndicadorIe, dados.clienteInscricaoEstadual)
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
@@ -1448,6 +1472,10 @@ export async function editarVendaAction(vendaId: string, dados: {
           representanteNome: comprador.representanteNome,
           representanteCpf:  comprador.representanteCpf,
         } : {}),
+        ...(gravaIcms ? {
+          clienteIndicadorIe:       icms.indicadorIe,
+          clienteInscricaoEstadual: icms.inscricaoEstadual,
+        } : {}),
         clienteCelular:     dados.clienteCelular || null,
         clienteEmail:       dados.clienteEmail || null,
         clienteCep:         dados.clienteCep || null,
@@ -1463,6 +1491,13 @@ export async function editarVendaAction(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+
+    // A IE é da empresa: a correção vale também para a próxima venda a ela.
+    if (gravaIcms && icms.indicadorIe) {
+      await tx.update(clientes)
+        .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
+        .where(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)))
+    }
 
     // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria
     await tx.delete(lancamentosCaixa)
@@ -1507,6 +1542,8 @@ export async function buscarClientePorCpfAction(cpf: string) {
       bairro: clientes.bairro,
       cidade: clientes.cidade,
       estado: clientes.uf,
+      indicadorIe: clientes.indicadorIe,
+      inscricaoEstadual: clientes.inscricaoEstadual,
     })
     .from(clientes)
     .where(eq(clientes.cpfCnpj, cpfLimpo))
@@ -1527,6 +1564,8 @@ export async function buscarClientePorCpfAction(cpf: string) {
       bairro: vendas.clienteBairro,
       cidade: vendas.clienteCidade,
       estado: vendas.clienteEstado,
+      indicadorIe: vendas.clienteIndicadorIe,
+      inscricaoEstadual: vendas.clienteInscricaoEstadual,
     })
     .from(vendas)
     // A venda grava o documento formatado; compara só os dígitos.

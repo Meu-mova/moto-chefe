@@ -98,6 +98,8 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
       vendaId,
       clienteNome: venda.clienteNome ?? '',
       clienteCpf: venda.clienteCpf ?? '',
+      representanteNome: venda.representanteNome,
+      representanteCpf: venda.representanteCpf,
       clienteEmail: extra.email ?? 'não informado',
       clienteEndereco: endereco,
       vendedoraRazaoSocial: extra.razaoSocial ?? '',
