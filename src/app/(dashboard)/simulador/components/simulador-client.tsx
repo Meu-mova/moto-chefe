@@ -8,6 +8,10 @@ import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'luci
 import { FreteSimulador } from './frete-simulador'
 import type { ResultadoFrete } from '../actions'
 
+// Financiamento oculto no simulador e no PDF, para todos, a pedido do Luis (#161,
+// 15/10/2026). É temporário: para voltar, troque para true. As taxas seguem na Precificação.
+const MOSTRAR_FINANCIAMENTO = false
+
 type Modelo = {
   id: string
   nome: string
@@ -312,7 +316,7 @@ function gerarHtmlPrint(
 
   ${blocoFrete}
 
-  <div class="footer">MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio · Financiamento sujeito a aprovação de crédito</div>
+  <div class="footer">MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio${MOSTRAR_FINANCIAMENTO ? ' · Financiamento sujeito a aprovação de crédito' : ''}</div>
 </body>
 </html>`
 }
@@ -641,6 +645,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 </div>
 
                 {/* Financiamento — colapsável com checkboxes */}
+                {MOSTRAR_FINANCIAMENTO && (
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('financiamento')}
@@ -669,6 +674,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                     />
                   )}
                 </div>
+                )}
 
                 {(() => {
                   const total = selCartao.size + selDebito.size + selLink.size + selFinanciamento.size
