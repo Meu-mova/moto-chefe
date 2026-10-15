@@ -24,18 +24,19 @@ type Props = {
 export function PixTopo({ itens, from, to, hoje, min, rotuloSync, sincronizarAoAbrir }: Props) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
-  const [erro, setErro] = useState<string | null>(null)
+  // falha = nada sincronizou; parcial = alguma conta não foi lida (aviso com a conta, visível também no celular).
+  const [aviso, setAviso] = useState<{ tipo: 'falha' | 'parcial'; detalhe: string } | null>(null)
   const disparou = useRef(false)
 
   function sincronizar(forcar: boolean) {
-    setErro(null)
+    setAviso(null)
     iniciar(async () => {
       try {
         const r = await sincronizarPixAction(forcar)
-        if (!r.ok) setErro(r.erro)
-        else if (r.contasPuladas.length > 0) setErro(`conta não lida: ${r.contasPuladas.join(', ')}`)
+        if (!r.ok) setAviso({ tipo: 'falha', detalhe: r.erro })
+        else if (r.contasPuladas.length > 0) setAviso({ tipo: 'parcial', detalhe: r.contasPuladas.join(', ') })
       } catch {
-        setErro('falha ao falar com o servidor')
+        setAviso({ tipo: 'falha', detalhe: 'falha ao falar com o servidor' })
       }
       router.refresh()
     })
@@ -69,10 +70,11 @@ export function PixTopo({ itens, from, to, hoje, min, rotuloSync, sincronizarAoA
     <div className="space-y-4">
       <ResumoFaixa itens={itens} acaoMobile={botaoMobile} />
       <PeriodoAtalhos from={from} to={to} hoje={hoje} min={min} direita={linha} />
-      {/* Aviso discreto: o motivo técnico fica no tooltip para não poluir a tela. */}
-      {erro && (
-        <p className="text-xs text-muted-foreground" title={erro}>
-          Não foi possível sincronizar agora. Mostrando os dados já salvos.
+      {aviso && (
+        <p className="text-xs text-muted-foreground" title={aviso.tipo === 'falha' ? aviso.detalhe : undefined}>
+          {aviso.tipo === 'falha'
+            ? 'Não foi possível sincronizar agora. Mostrando os dados já salvos.'
+            : `Conta não lida: ${aviso.detalhe}. Os dados dela podem estar desatualizados.`}
         </p>
       )}
     </div>

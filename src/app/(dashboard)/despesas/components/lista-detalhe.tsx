@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -27,10 +27,16 @@ export function ListaDetalhe<T>({ itens, idDe, linha, borda, detalhe, tituloDeta
   const [selId, setSelId] = useState<string | null>(null)
   const [aberto, setAberto] = useState(false)
 
+  const selecionado = itens.find(i => idDe(i) === selId)
+  // Excluiu ou saiu do filtro: fecha o detalhe em vez de mostrar, em tela cheia, outro item.
+  useEffect(() => {
+    if (aberto && !selecionado) setAberto(false)
+  }, [aberto, selecionado])
+
   if (itens.length === 0) return <div className="rounded-lg border border-border">{vazio}</div>
 
   // No tablet/desktop o painel nunca fica vazio: sem escolha (ou se a escolhida saiu do filtro) vale o primeiro.
-  const atual = itens.find(i => idDe(i) === selId) ?? itens[0]
+  const atual = selecionado ?? itens[0]
 
   function escolher(item: T) {
     setSelId(idDe(item))
@@ -63,20 +69,20 @@ export function ListaDetalhe<T>({ itens, idDe, linha, borda, detalhe, tituloDeta
         </aside>
       </div>
 
-      <Dialog open={mobile && aberto} onOpenChange={setAberto}>
+      <Dialog open={mobile && aberto && !!selecionado} onOpenChange={setAberto}>
         <DialogContent
           showCloseButton={false}
-          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
+          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:max-w-lg max-md:inset-0 max-md:top-0 max-md:left-0 max-md:h-dvh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:ring-0"
         >
-          <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
-            <button type="button" onClick={() => setAberto(false)} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
+          <div className="flex items-center gap-2 border-b border-border px-2 py-2 md:px-4">
+            <button type="button" onClick={() => setAberto(false)} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted md:hidden">
               <ArrowLeft className="size-5" />
             </button>
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-base font-semibold">{tituloDetalhe}</DialogTitle>
               <DialogDescription className="truncate text-xs">{descricaoDetalhe(atual)}</DialogDescription>
             </div>
-            <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
+            <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted md:block">
               <X className="size-5" />
             </button>
           </div>

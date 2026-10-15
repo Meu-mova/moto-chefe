@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
@@ -48,12 +48,20 @@ export function PeriodoAtalhos({ from, to, hoje, min, chaveDe = 'from', chaveAte
   const [abertoPersonalizado, setAbertoPersonalizado] = useState(false)
   const [de, setDe] = useState(from)
   const [ate, setAte] = useState(to)
+  // A URL manda: ao mudar o período (atalho, Aplicar, voltar do navegador) os campos acompanham.
+  useEffect(() => {
+    setDe(from)
+    setAte(to)
+    setAbertoPersonalizado(false)
+  }, [from, to])
   const mostrarDatas = abertoPersonalizado || atual === 'Personalizado'
 
   function ir(novoDe: string, novoAte: string) {
     const p = new URLSearchParams(params.toString())
     p.set(chaveDe, min && novoDe < min ? min : novoDe)
     p.set(chaveAte, novoAte)
+    // Sem isto o ?sync=1 ficaria na URL e cada troca de período refaria a sincronização forçada.
+    p.delete('sync')
     router.push(`${pathname}?${p.toString()}`)
   }
 
@@ -86,7 +94,7 @@ export function PeriodoAtalhos({ from, to, hoje, min, chaveDe = 'from', chaveAte
         <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-end md:gap-3">
           <label className="min-w-0 text-xs text-muted-foreground">De<input type="date" value={de} min={min} onChange={e => setDe(e.target.value)} className={campo} /></label>
           <label className="min-w-0 text-xs text-muted-foreground">Até<input type="date" value={ate} min={min} onChange={e => setAte(e.target.value)} className={campo} /></label>
-          <button type="button" onClick={() => ir(de, ate)} disabled={!de || !ate}
+          <button type="button" onClick={() => ir(de, ate)} disabled={!de || !ate || ate < de}
             className="col-span-2 h-11 rounded-lg bg-primary px-4 text-base font-medium text-primary-foreground disabled:opacity-50 md:col-span-1 md:h-9 md:rounded-md md:text-sm">
             Aplicar
           </button>

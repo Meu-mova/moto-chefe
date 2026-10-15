@@ -9,6 +9,7 @@ import { inArray, and, eq, gte, lte, desc } from 'drizzle-orm'
 import { PixTopo } from './components/pix-topo'
 import { PixLista, type LinhaPix } from './components/pix-lista'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
+import { hojeBrt } from '@/lib/data-venda'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 
 // A sincronização (server action) pode passar de 1 min; a página é o teto dela.
@@ -64,6 +65,8 @@ export default async function PixMcpPage({
   const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
+  // Datas exibidas no seletor de período: em Brasília, para o atalho "Mês" casar com o padrão após as 21h.
+  const primeiroDoMes = `${hojeBrt().slice(0, 8)}01`
   const ultimaSync = await ultimaSincronizacaoPix(grupo.id)
   // Sem sincronizar aqui: a página mostra o que está no banco e o cliente dispara
   // a sincronização (ver SincronizacaoPix), para não prender a tela atrás do mcp.ai.
@@ -167,9 +170,9 @@ export default async function PixMcpPage({
       </div>
       <PixTopo
         itens={itens}
-        from={toInputDate(fromDate)}
-        to={toInputDate(toDate)}
-        hoje={toInputDate(hoje)}
+        from={params.from ? toInputDate(fromDate) : primeiroDoMes < INICIO_CONCILIACAO ? INICIO_CONCILIACAO : primeiroDoMes}
+        to={params.to ?? hojeBrt()}
+        hoje={hojeBrt()}
         min={INICIO_CONCILIACAO}
         rotuloSync={ultimaSync ? `Sincronizado ${formatAtras(ultimaSync)}` : 'Ainda não sincronizado'}
         sincronizarAoAbrir={sincronizarAoAbrir}

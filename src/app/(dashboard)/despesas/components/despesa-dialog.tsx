@@ -14,7 +14,7 @@ import { criarDespesaAction, editarDespesaAction } from '../actions'
 import type { Loja, DespesaRow } from '../types'
 
 // Campos >=16px no celular (iOS dá zoom abaixo disso) e compactos do sm para cima.
-const CAMPO = 'h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none sm:h-9 sm:text-sm'
+const CAMPO = 'h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none md:h-9 md:text-sm'
 
 const FORMAS_PAGAMENTO = ['PIX', 'Transferência', 'Boleto', 'Dinheiro', 'Cartão']
 
@@ -109,14 +109,14 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
       {/* Tela cheia no celular (mesmo padrão do cancelar venda); modal a partir de sm. */}
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
+        className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-none md:max-w-lg max-md:inset-0 max-md:top-0 max-md:left-0 max-md:h-dvh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:ring-0"
       >
-        <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
-          <button type="button" onClick={() => onOpenChange?.(false)} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
+        <div className="flex items-center gap-2 border-b border-border px-2 py-2 md:px-4">
+          <button type="button" onClick={() => onOpenChange?.(false)} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted md:hidden">
             <ArrowLeft className="size-5" />
           </button>
           <DialogTitle className="min-w-0 flex-1 text-base font-semibold">{modo === 'criar' ? 'Nova Despesa' : 'Editar Despesa'}</DialogTitle>
-          <button type="button" onClick={() => onOpenChange?.(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
+          <button type="button" onClick={() => onOpenChange?.(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted md:block">
             <X className="size-5" />
           </button>
         </div>
@@ -124,7 +124,7 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {/* Loja */}
           <div className="space-y-1.5">
-            <Label className="text-sm sm:text-xs">Loja</Label>
+            <Label className="text-sm md:text-xs">Loja</Label>
             <select
               value={lojaId}
               onChange={e => setLojaId(e.target.value)}
@@ -139,7 +139,7 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
 
           {/* Categoria */}
           <div className="space-y-1.5">
-            <Label className="text-sm sm:text-xs">Categoria *</Label>
+            <Label className="text-sm md:text-xs">Categoria *</Label>
             <select
               value={categoria}
               onChange={e => setCategoria(e.target.value)}
@@ -155,7 +155,7 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
           {/* A quem se destinou — só nas categorias marcadas (retirada, pró-labore). */}
           {exigeBeneficiario && (
             <div className="space-y-1.5">
-              <Label className="text-sm sm:text-xs">A quem se destinou *</Label>
+              <Label className="text-sm md:text-xs">A quem se destinou *</Label>
               <select
                 value={beneficiario}
                 onChange={e => setBeneficiario(e.target.value)}
@@ -172,19 +172,19 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
           {/* Valor + Data */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm sm:text-xs">Valor (R$) *</Label>
-              <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" className="h-11 text-base sm:h-9 sm:text-sm" />
+              <Label className="text-sm md:text-xs">Valor (R$) *</Label>
+              <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" className="h-11 text-base md:h-9 md:text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm sm:text-xs">Data *</Label>
-              <Input type="date" value={data} onChange={e => setData(e.target.value)} className="h-11 text-base sm:h-9 sm:text-sm" />
+              <Label className="text-sm md:text-xs">Data *</Label>
+              <Input type="date" value={data} onChange={e => setData(e.target.value)} className="h-11 text-base md:h-9 md:text-sm" />
             </div>
           </div>
 
           {/* Forma de pagamento + Banco */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm sm:text-xs">Forma de pagamento *</Label>
+              <Label className="text-sm md:text-xs">Forma de pagamento *</Label>
               <select
                 value={formaPagamento}
                 onChange={e => setFormaPagamento(e.target.value)}
@@ -197,7 +197,7 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm sm:text-xs">Banco *</Label>
+              <Label className="text-sm md:text-xs">Banco *</Label>
               <select
                 value={banco}
                 onChange={e => setBanco(e.target.value)}
@@ -213,20 +213,20 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
 
           {/* Descrição */}
           <div className="space-y-1.5">
-            <Label className="text-sm sm:text-xs">Descrição <span className="text-muted-foreground">(opcional)</span></Label>
+            <Label className="text-sm md:text-xs">Descrição <span className="text-muted-foreground">(opcional)</span></Label>
             <Textarea
               value={descricao}
               onChange={e => setDescricao(e.target.value)}
               placeholder="Detalhes do pagamento..."
               rows={3}
-              className="resize-none text-base sm:text-sm"
+              className="resize-none text-base md:text-sm"
             />
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 sm:flex-row sm:justify-end">
-          <Button variant="outline" className="h-11 sm:h-8" onClick={() => onOpenChange?.(false)}>Cancelar</Button>
-          <Button className="h-11 sm:h-8" onClick={handleSalvar} disabled={loading}>
+        <div className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 md:flex-row md:justify-end">
+          <Button variant="outline" className="h-11 md:h-8" onClick={() => onOpenChange?.(false)}>Cancelar</Button>
+          <Button className="h-11 md:h-8" onClick={handleSalvar} disabled={loading}>
             {loading ? 'Salvando...' : modo === 'criar' ? 'Registrar' : 'Salvar'}
           </Button>
         </div>

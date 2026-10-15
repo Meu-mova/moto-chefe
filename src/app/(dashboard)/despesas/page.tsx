@@ -1,6 +1,6 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { mesBrt } from '@/lib/data-venda'
+import { hojeBrt, mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { criarMedidor } from '@/lib/db-diag'
@@ -345,9 +345,9 @@ export default async function DespesasPage({
           ]} acaoMobile={<BotaoAtualizar href={hrefAtualizarSaidas} />} />
 
           <PeriodoAtalhos
-            from={sfrom.toISOString().split('T')[0]}
-            to={sto.toISOString().split('T')[0]}
-            hoje={hojeDate.toISOString().split('T')[0]}
+            from={params.sfrom ?? `${hojeBrt().slice(0, 8)}01`}
+            to={params.sto ?? hojeBrt()}
+            hoje={hojeBrt()}
             chaveDe="sfrom"
             chaveAte="sto"
             direita={
