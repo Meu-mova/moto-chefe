@@ -16,7 +16,7 @@ export function MesSelector({ mesAtual }: { mesAtual: string }) {
       type="month"
       defaultValue={mesAtual}
       onChange={handleChange}
-      className="h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-base outline-none md:h-9 md:w-auto md:text-sm"
+      className="h-11 w-full min-w-0 max-w-full appearance-none text-left rounded-md border border-input bg-transparent px-3 text-base outline-none md:h-9 md:w-auto md:text-sm"
     />
   )
 }

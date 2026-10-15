@@ -1,3 +1,4 @@
+import { rotuloSyncBrt } from '@/lib/rotulo-sync'
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
@@ -23,14 +24,6 @@ function formatData(d: Date) {
   // O Sicoob não informa horário real via Open Finance (sempre 00:00) —
   // mostrar só a data evita passar uma precisão que os dados não têm.
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
-}
-
-function formatAtras(d: Date) {
-  const minutos = Math.round((Date.now() - d.getTime()) / 60000)
-  if (minutos < 1) return 'agora mesmo'
-  if (minutos < 60) return `há ${minutos} min`
-  const horas = Math.round(minutos / 60)
-  return `há ${horas}h`
 }
 
 function toInputDate(d: Date) {
@@ -174,7 +167,7 @@ export default async function PixMcpPage({
         to={params.to ?? hojeBrt()}
         hoje={hojeBrt()}
         min={INICIO_CONCILIACAO}
-        rotuloSync={ultimaSync ? `Sincronizado ${formatAtras(ultimaSync)}` : 'Ainda não sincronizado'}
+        rotuloSync={ultimaSync ? rotuloSyncBrt(ultimaSync) : 'Ainda não sincronizado'}
         sincronizarAoAbrir={sincronizarAoAbrir}
       />
       <PixLista linhas={linhasLista} />

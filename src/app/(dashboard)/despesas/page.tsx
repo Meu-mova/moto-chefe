@@ -1,3 +1,4 @@
+import { rotuloSyncBrt } from '@/lib/rotulo-sync'
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { hojeBrt, mesBrt } from '@/lib/data-venda'
@@ -353,7 +354,7 @@ export default async function DespesasPage({
             direita={
               <p className="flex items-center gap-x-3 text-xs text-muted-foreground">
                 {syncStatusAtual
-                  ? `Sincronizado com o banco em ${syncStatusAtual.ultimaSincronizacao.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                  ? rotuloSyncBrt(syncStatusAtual.ultimaSincronizacao)
                   : 'Ainda não sincronizado'}
                 <Link href={hrefAtualizarSaidas} className="inline-flex h-11 items-center gap-1 underline hover:text-foreground md:h-8">
                   <RefreshCw size={11} /> Atualizar agora
