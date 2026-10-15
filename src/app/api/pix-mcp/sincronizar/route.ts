@@ -21,13 +21,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
   }
 
-  const { forcar } = (await req.json().catch(() => ({}))) as { forcar?: boolean }
-  const grupo = await getGrupoAtivo(usuario)
+  const corpo = (await req.json().catch(() => null)) as { forcar?: unknown } | null
+  const forcar = corpo?.forcar === true
 
-  // Reconfere aqui: outra aba pode ter acabado de sincronizar.
-  if (!forcar && cachePixValido(await ultimaSincronizacaoPix(grupo.id))) {
-    return NextResponse.json({ ok: true, contasPuladas: [] } satisfies ResultadoSyncPix)
+  try {
+    const grupo = await getGrupoAtivo(usuario)
+
+    // Reconfere aqui: outra aba pode ter acabado de sincronizar.
+    if (!forcar && cachePixValido(await ultimaSincronizacaoPix(grupo.id))) {
+      return NextResponse.json({ ok: true, contasPuladas: [] } satisfies ResultadoSyncPix)
+    }
+
+    return NextResponse.json(await sincronizarPix(grupo) satisfies ResultadoSyncPix)
+  } catch (e) {
+    // Sem a mensagem: pode trazer detalhe de conexão. O cliente só precisa saber que falhou.
+    console.error('[pix-sync] falhou', e instanceof Error ? e.name : 'desconhecido')
+    return NextResponse.json({ ok: false, erro: 'erro ao sincronizar' } satisfies ResultadoSyncPix, { status: 500 })
   }
-
-  return NextResponse.json(await sincronizarPix(grupo) satisfies ResultadoSyncPix)
 }

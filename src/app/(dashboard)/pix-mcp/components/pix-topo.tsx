@@ -45,9 +45,10 @@ export function PixTopo({ itens, from, to, hoje, min, rotuloSync, sincronizarAoA
       else if (r.contasPuladas.length > 0) setAviso({ tipo: 'parcial', detalhe: r.contasPuladas.join(', ') })
     } catch {
       setAviso({ tipo: 'falha', detalhe: 'falha ao falar com o servidor' })
+    } finally {
+      setPendente(false)
+      router.refresh()
     }
-    setPendente(false)
-    router.refresh()
   }
 
   useEffect(() => {
