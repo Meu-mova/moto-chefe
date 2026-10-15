@@ -1,6 +1,6 @@
 import { agruparEmFaturas, type Fatura, type FaturaBruta, type LancamentoBruto } from './cartao-fatura'
 import { endpointMcpDoGrupo } from './mcpai-credencial'
-import { lerTodasAsPaginas, type BuscaPagina } from './paginacao-mcpai'
+import { lerTodasAsPaginas, vaziaSuspeita, type BuscaPagina } from './paginacao-mcpai'
 
 type ContaBancaria = {
   id: string
@@ -313,10 +313,17 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         const resultado = chamada.json.result as { content?: { text?: string }[] } | undefined
         const conteudo = resultado?.content?.[0]?.text
         if (!conteudo) return 'erro'
-        const payload = JSON.parse(conteudo) as { total?: number; totalPages?: number; results?: TxMcp[] }
+        const payload = JSON.parse(conteudo) as { total?: number; totalPages?: number; results?: TxMcp[]; warning?: unknown }
         // Resposta sem total/totalPages (ex.: bloco de incidente do provedor) não vale como "0 linhas":
         // seria gravada como sync feito sem ter lido nada.
         if (typeof payload.total !== 'number' || typeof payload.totalPages !== 'number' || !Array.isArray(payload.results)) return 'erro'
+        if (vaziaSuspeita(payload, chamada.bytes)) {
+          // Só os nomes dos campos, nunca os valores: mostra o que o mcp.ai manda nesse caso.
+          logTempo({ origem, etapa: 'resposta_vazia_suspeita', banco: conta.bank, pagina, bytes: chamada.bytes, chaves: Object.keys(payload).join(',') })
+          // Só a página 1 vira conta pulada. Nas seguintes o total 0 segue para as conferências de
+          // lerTodasAsPaginas, que relê (até 3 vezes) antes de desistir.
+          if (pagina === 1) return 'erro'
+        }
         return { linhas: payload.results, total: payload.total, totalPages: payload.totalPages }
       }
       const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, {
