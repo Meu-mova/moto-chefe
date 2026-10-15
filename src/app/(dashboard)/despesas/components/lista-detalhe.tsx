@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIsDesktop } from '@/hooks/use-is-desktop'
@@ -34,6 +34,15 @@ export function ListaDetalhe<T>({ itens, idDe, linha, borda, detalhe, tituloDeta
   useEffect(() => {
     if (aberto && !selecionado) setAberto(false)
   }, [aberto, selecionado])
+
+  // Lançar ou excluir tira o item da lista: no desktop o painel passa para o item que ocupou o lugar
+  // (triagem em sequência), em vez de fechar. Só vale com o painel aberto.
+  const posicao = useRef(0)
+  useEffect(() => {
+    const i = itens.findIndex(x => idDe(x) === selId)
+    if (i >= 0) posicao.current = i
+    else if (selId && desktop && itens.length > 0) setSelId(idDe(itens[Math.min(posicao.current, itens.length - 1)]))
+  }, [itens, selId, desktop, idDe])
 
   if (itens.length === 0) return <div className="rounded-lg border border-border">{vazio}</div>
 
