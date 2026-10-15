@@ -17,7 +17,7 @@ import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimo
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
-import { DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
+import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
 function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
@@ -128,6 +128,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [clienteEstado, setClienteEstado] = useState('')
   const [representanteNome, setRepresentanteNome] = useState('')
   const [representanteCpf, setRepresentanteCpf] = useState('')
+  const [indicadorIe, setIndicadorIe] = useState('nao_contribuinte')
+  const [inscricaoEstadual, setInscricaoEstadual] = useState('')
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [buscandoCliente, setBuscandoCliente] = useState(false)
   const [clienteStatus, setClienteStatus] = useState<'encontrado' | 'nao-encontrado' | null>(null)
@@ -177,6 +179,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   function resetForm(tipoInicial: 'venda' | 'reserva') {
     setReservaCriadaId(null)
     setRepresentanteNome(''); setRepresentanteCpf('')
+    setIndicadorIe('nao_contribuinte'); setInscricaoEstadual('')
     setDemandaVinculadaId(null)
     setTipo(reservaAtiva ? 'venda' : tipoInicial)
     if (reservaAtiva) {
@@ -264,6 +267,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         setClienteBairro(resultado.bairro ?? '')
         setClienteCidade(resultado.cidade ?? '')
         setClienteEstado(resultado.estado ?? '')
+        setIndicadorIe(resultado.indicadorIe ?? 'nao_contribuinte')
+        setInscricaoEstadual(resultado.inscricaoEstadual ?? '')
         setClienteStatus('encontrado')
         // Se o cadastro tem CEP mas não tem cidade, busca automaticamente
         if (cepDigits.length === 8 && !resultado.cidade) {
@@ -395,7 +400,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       if (tipo === 'venda') {
         const payload = {
           motoId, ...clienteBase, valorTotal: valorVenda,
-          ...(tipoPessoa === 'juridica' ? { representanteNome, representanteCpf } : {}),
+          ...(tipoPessoa === 'juridica' ? {
+            representanteNome, representanteCpf,
+            clienteIndicadorIe: indicadorIe, clienteInscricaoEstadual: inscricaoEstadual,
+          } : {}),
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
           origemId,
@@ -654,6 +662,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     cpf={representanteCpf}
                     onNomeChange={setRepresentanteNome}
                     onCpfChange={setRepresentanteCpf}
+                  />
+                )}
+                {tipo === 'venda' && tipoPessoa === 'juridica' && (
+                  <ContribuinteIcmsCampos
+                    indicador={indicadorIe}
+                    inscricaoEstadual={inscricaoEstadual}
+                    onIndicadorChange={setIndicadorIe}
+                    onInscricaoEstadualChange={setInscricaoEstadual}
                   />
                 )}
               </div>

@@ -5,13 +5,7 @@ import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
 import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 import { criarMedidor } from '@/lib/db-diag'
-import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, MARGEM_SYNC_DIAS, HISTORICO_DESDE } from '@/lib/sync-incremental'
-
-// Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
-// com marcador de staleness próprio (despesas_of_sync_status), separado do
-// pix_mcp_sync_status — as duas sincronizações escrevem em tabelas diferentes
-// e não podem compartilhar o mesmo controle de cache.
-const JANELA_CACHE_MS = 10 * 60 * 1000
+import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, cacheSaidasValido, MARGEM_SYNC_DIAS, HISTORICO_DESDE } from '@/lib/sync-incremental'
 
 // 9 parâmetros por linha: 1000 linhas ficam bem abaixo do limite de 65.535 do Postgres.
 const LOTE_INSERT = 1000
@@ -124,78 +118,88 @@ export type SaidaComDetalhes = typeof despesasOpenFinance.$inferSelect & {
 /** normal: respeita o cache de 10 min; forcado: ignora o cache (incremental); completo: histórico inteiro. */
 export type ModoSync = 'normal' | 'forcado' | 'completo'
 
-export async function sincronizarEBuscarSaidas(
+export type ResultadoSyncSaidas = { ok: true; contasPuladas: string[] } | { ok: false; erro: string }
+
+/**
+ * Lê o extrato no mcp.ai e grava no banco. Não roda no render da página (chamada de minutos): quem chama é o
+ * Route Handler /api/despesas/sincronizar, a partir do navegador, depois que a tela já abriu com o que está
+ * salvo. Com o cache de 10 min válido (modo normal) não faz nada.
+ */
+export async function sincronizarSaidas(
   grupo: { id: string; cnpj: string },
-  fromDate: Date,
-  toDate: Date,
   modoSync: ModoSync,
-  usuarioId: string,
-): Promise<{ linhas: SaidaComDetalhes[]; erroSync: string | null; contasPuladas: string[]; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
+): Promise<ResultadoSyncSaidas> {
   // Diagnóstico de lentidão (#129): um log por etapa, assim que ela termina. Sem valores, nomes nem ids.
   const medir = criarMedidor('despesas-tempo')
   const [syncStatus] = await db.select().from(despesasOfSyncStatus).where(eq(despesasOfSyncStatus.grupoId, grupo.id)).limit(1)
-  const cacheValido = modoSync === 'normal' && syncStatus && (Date.now() - syncStatus.ultimaSincronizacao.getTime()) < JANELA_CACHE_MS
+  const cacheValido = modoSync === 'normal' && cacheSaidasValido(syncStatus?.ultimaSincronizacao)
 
-  let erroSync: string | null = null
   let contasPuladas: string[] = []
   const desde = modoSync === 'completo' ? HISTORICO_DESDE : desdeDoSync(syncStatus?.ultimaSincronizacao ?? null, MARGEM_SYNC_DIAS, HISTORICO_DESDE)
   console.log('[despesas-tempo]', `etapa=cache valido=${Boolean(cacheValido)} modo_sync=${modoSync} desde=${desde.toISOString().slice(0, 10)}`)
+  if (cacheValido) return { ok: true, contasPuladas }
 
-  if (!cacheValido) {
-    const tBusca = performance.now()
-    const resultado = await buscarSaidasOpenFinance(desde, new Date(), grupo.cnpj)
-    medir('buscar_mcpai', tBusca)
+  const tBusca = performance.now()
+  const resultado = await buscarSaidasOpenFinance(desde, new Date(), grupo.cnpj)
+  medir('buscar_mcpai', tBusca)
+  if (!resultado.ok) return { ok: false, erro: resultado.erro }
 
-    if (!resultado.ok) {
-      erroSync = resultado.erro
-    } else {
-      const tGrava = performance.now()
-      if (resultado.transacoes.length > 0) {
-        const linhasParaGravar = resultado.transacoes.map(tx => ({
-          grupoId: grupo.id,
-          contaId: tx.contaId,
-          banco: tx.banco,
-          transacaoId: tx.transacaoId,
-          data: new Date(tx.data),
-          valor: tx.valor,
-          favorecidoNome: tx.favorecidoNome,
-          descricao: tx.descricao,
-          tipoOperacao: tx.tipoOperacao,
-        }))
-        // Numa transação: se um lote falha, nenhum fica gravado. Sem isso o retry não devolveria as linhas
-        // dos lotes que já entraram (onConflictDoNothing), e o absorverReemissoes nunca olharia para elas.
-        const inseridas = await db.transaction(async (tx) => {
-          const gravadas: (typeof despesasOpenFinance.$inferSelect)[] = []
-          for (const lote of dividirEmLotes(linhasParaGravar, LOTE_INSERT)) {
-            gravadas.push(...await tx.insert(despesasOpenFinance)
-              .values(lote)
-              .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
-              .returning())
-          }
-          return gravadas
-        })
-        medir('inserir_saidas', tGrava)
-        const tReemissoes = performance.now()
-        await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)), desde)
-        medir('absorver_reemissoes', tReemissoes)
+  const tGrava = performance.now()
+  if (resultado.transacoes.length > 0) {
+    const linhasParaGravar = resultado.transacoes.map(tx => ({
+      grupoId: grupo.id,
+      contaId: tx.contaId,
+      banco: tx.banco,
+      transacaoId: tx.transacaoId,
+      data: new Date(tx.data),
+      valor: tx.valor,
+      favorecidoNome: tx.favorecidoNome,
+      descricao: tx.descricao,
+      tipoOperacao: tx.tipoOperacao,
+    }))
+    // Numa transação: se um lote falha, nenhum fica gravado. Sem isso o retry não devolveria as linhas
+    // dos lotes que já entraram (onConflictDoNothing), e o absorverReemissoes nunca olharia para elas.
+    const inseridas = await db.transaction(async (tx) => {
+      const gravadas: (typeof despesasOpenFinance.$inferSelect)[] = []
+      for (const lote of dividirEmLotes(linhasParaGravar, LOTE_INSERT)) {
+        gravadas.push(...await tx.insert(despesasOpenFinance)
+          .values(lote)
+          .onConflictDoNothing({ target: despesasOpenFinance.transacaoId })
+          .returning())
       }
-      contasPuladas = resultado.contasPuladas
-      // Conta pulada = o que ela trouxe de novo ficou de fora. Não avança a data do sync (o próximo
-      // sync relê a mesma janela e recupera a lacuna). Passados 10 min do último sync bom, o cache deixa
-      // de valer e toda visita tenta de novo até a conta voltar. Dentro desses 10 min a visita comum
-      // não sincroniza e, por isso, não mostra o aviso (contasPuladas só existe quando o sync roda).
-      const novaData = dataAposSync(new Date(), contasPuladas)
-      if (novaData) {
-        await db.insert(despesasOfSyncStatus)
-          .values({ grupoId: grupo.id, ultimaSincronizacao: novaData })
-          .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: novaData } })
-      }
-      medir('gravar_no_banco', tGrava)
-    }
+      return gravadas
+    })
+    medir('inserir_saidas', tGrava)
+    const tReemissoes = performance.now()
+    await absorverReemissoes(grupo.id, inseridas, new Set(resultado.transacoes.map(t => t.transacaoId)), desde)
+    medir('absorver_reemissoes', tReemissoes)
   }
+  contasPuladas = resultado.contasPuladas
+  // Conta pulada = o que ela trouxe de novo ficou de fora. Não avança a data do sync (o próximo
+  // sync relê a mesma janela e recupera a lacuna). Passados 10 min do último sync bom, o cache deixa
+  // de valer e toda visita tenta de novo até a conta voltar. Dentro desses 10 min a visita comum
+  // não sincroniza e, por isso, não mostra o aviso (contasPuladas só existe quando o sync roda).
+  const novaData = dataAposSync(new Date(), contasPuladas)
+  if (novaData) {
+    await db.insert(despesasOfSyncStatus)
+      .values({ grupoId: grupo.id, ultimaSincronizacao: novaData })
+      .onConflictDoUpdate({ target: despesasOfSyncStatus.grupoId, set: { ultimaSincronizacao: novaData } })
+  }
+  medir('gravar_no_banco', tGrava)
+  return { ok: true, contasPuladas }
+}
 
-  // Roda em toda visita à página (não só quando sincroniza de fato) pra também
-  // pegar saídas que já estavam pendentes antes dessa regra existir.
+/**
+ * O que a tela mostra: só consultas ao nosso banco (milissegundos), sem esperar o mcp.ai. A regra do pedágio roda
+ * em toda visita para também pegar saídas que já estavam pendentes antes dela existir.
+ */
+export async function buscarSaidasDoBanco(
+  grupo: { id: string },
+  fromDate: Date,
+  toDate: Date,
+  usuarioId: string,
+): Promise<{ linhas: SaidaComDetalhes[]; syncStatusAtual: { ultimaSincronizacao: Date } | null }> {
+  const medir = criarMedidor('despesas-tempo')
   const tPedagio = performance.now()
   await autoCategorizarPedagioSicoob(grupo.id, usuarioId)
   medir('auto_pedagio', tPedagio)
@@ -240,6 +244,5 @@ export async function sincronizarEBuscarSaidas(
     beneficiario: l.despesaId ? beneficiarioPorDespesa.get(l.despesaId) ?? null : null,
   }))
 
-  medir('total_sync_e_busca')
-  return { linhas, erroSync, contasPuladas, syncStatusAtual: syncStatusAtual ?? null }
+  return { linhas, syncStatusAtual: syncStatusAtual ?? null }
 }

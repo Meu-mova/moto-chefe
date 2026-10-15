@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
+import { Unlink } from 'lucide-react'
 import { lancarCorrespondenciaAction, removerCorrespondenciaAction } from '../actions'
 
 type Correspondencia = {
@@ -46,9 +46,9 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
       start(async () => {
         try {
           await removerCorrespondenciaAction(id)
-          toast.success('Correspondência removida')
+          toast.success('Correspondência desvinculada')
         } catch (e: any) {
-          toast.error(e.message ?? 'Erro ao remover')
+          toast.error(e.message ?? 'Erro ao desvincular')
         }
       })
     }
@@ -58,16 +58,26 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
       : null
 
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-3">
         <div>
           <span className="text-xs font-medium text-primary-text border-l-2 border-primary pl-2">
             {label}
           </span>
           {quemQuando && <p className="text-[11px] text-muted-foreground mt-0.5">{quemQuando}</p>}
         </div>
-        <button onClick={remover} disabled={pending} title="Remover correspondência" aria-label="Remover correspondência" className="grid size-11 place-items-center text-muted-foreground hover:text-destructive disabled:opacity-50 md:size-6">
-          <X size={14} />
-        </button>
+        {/* Botão com texto, não um X: no painel já existe um X no canto que fecha o card, e os dois se confundiam. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={remover}
+          disabled={pending}
+          aria-label={`Desvincular ${label}`}
+          className="ml-auto h-11 gap-1.5 border-destructive/30 text-base text-destructive hover:bg-destructive/10 hover:text-destructive md:h-8 md:text-xs"
+        >
+          <Unlink size={14} />
+          {pending ? 'Desvinculando…' : 'Desvincular'}
+        </Button>
       </div>
     )
   }

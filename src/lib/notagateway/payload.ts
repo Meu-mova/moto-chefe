@@ -21,6 +21,7 @@
  */
 
 import { ehCartao, type FormaPagamentoNfe } from './venda'
+import type { IndicadorIe } from '../documento'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -76,6 +77,8 @@ export type DadosVendaMoto = {
     email?: string
     telefone?: string
     inscricaoEstadual?: string
+    /** Só comprador CNPJ; vazio conta como não contribuinte. */
+    indicadorIe?: IndicadorIe | null
     endereco: EnderecoCliente
   }
   moto: {
@@ -128,6 +131,14 @@ export type ItemNfe = {
   unidadeMedida: string
   valorUnitario: number
   impostos: ImpostosItem
+}
+
+// Nomes da API v2, conferidos em homologação em 15/10/2026: 'ContribuinteIsento' é
+// aceito sem erro, mas sai como não contribuinte (indIEDest 9); 'Isento' sai como 2.
+const INDICADOR_NOTA_GATEWAY: Record<IndicadorIe, string> = {
+  contribuinte: 'Contribuinte',
+  isento: 'Isento',
+  nao_contribuinte: 'NaoContribuinte',
 }
 
 const num = (v: string | null | undefined): number | undefined => {
@@ -255,12 +266,12 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     },
     cliente: {
       tipoPessoa: cliente.tipoPessoa,
-      indicadorContribuinteICMS: cliente.inscricaoEstadual ? 'Contribuinte' : 'NaoContribuinte',
+      indicadorContribuinteICMS: INDICADOR_NOTA_GATEWAY[cliente.indicadorIe ?? 'nao_contribuinte'],
       nome: cliente.nome,
       cpfCnpj: cliente.cpfCnpj.replace(/\D/g, ''),
       ...(cliente.email ? { email: cliente.email } : {}),
       ...(cliente.telefone ? { telefone: cliente.telefone.replace(/\D/g, '') } : {}),
-      ...(cliente.inscricaoEstadual ? { inscricaoEstadual: cliente.inscricaoEstadual } : {}),
+      ...(cliente.indicadorIe === 'contribuinte' && cliente.inscricaoEstadual ? { inscricaoEstadual: cliente.inscricaoEstadual } : {}),
       endereco: {
         uf: cliente.endereco.uf,
         cidade: cliente.endereco.cidade,

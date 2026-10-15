@@ -80,3 +80,52 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
     </div>
   )
 }
+
+/**
+ * Contribuinte de ICMS do comprador CNPJ: vai na nota fiscal (indIEDest). Sem
+ * escolha é não contribuinte, o caso mais comum. Contribuinte sem a IE só avisa:
+ * a venda grava, e a emissão da nota mostra a pendência.
+ */
+export function ContribuinteIcmsCampos({ indicador, inscricaoEstadual, onIndicadorChange, onInscricaoEstadualChange }: {
+  indicador: string
+  inscricaoEstadual: string
+  onIndicadorChange: (v: string) => void
+  onInscricaoEstadualChange: (v: string) => void
+}) {
+  return (
+    <div className="col-span-2 rounded-md border border-border bg-muted p-3 grid grid-cols-2 gap-3">
+      <p className="col-span-2 text-sm font-medium text-foreground">Contribuinte de ICMS</p>
+      <p className="col-span-2 text-xs text-muted-foreground">
+        Vai na nota fiscal. Na dúvida, pergunte à empresa ou consulte o CNPJ no Sintegra.
+      </p>
+      <div className="col-span-2 space-y-1">
+        <Label htmlFor="indicador-ie">A empresa é</Label>
+        <select
+          id="indicador-ie"
+          value={indicador || 'nao_contribuinte'}
+          onChange={e => onIndicadorChange(e.target.value)}
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground"
+        >
+          <option value="nao_contribuinte">Não contribuinte (sem inscrição estadual)</option>
+          <option value="contribuinte">Contribuinte, com inscrição estadual</option>
+          <option value="isento">Isenta de inscrição estadual</option>
+        </select>
+      </div>
+      {indicador === 'contribuinte' && (
+        <div className="col-span-2 space-y-1">
+          <Label htmlFor="inscricao-estadual">Inscrição estadual</Label>
+          <Input
+            id="inscricao-estadual"
+            value={inscricaoEstadual}
+            onChange={e => onInscricaoEstadualChange(e.target.value)}
+            placeholder="Só os números"
+            inputMode="numeric"
+          />
+          {!soDigitosDoc(inscricaoEstadual) && (
+            <p className="text-xs text-warning">Sem a inscrição estadual a nota fiscal não sai. Dá para salvar e completar depois.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

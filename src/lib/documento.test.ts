@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatarCpfCnpj, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaDoDocumento, tipoPessoaSeCompleto, validarDocumento } from './documento'
+import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaDoDocumento, tipoPessoaSeCompleto, validarDocumento } from './documento'
 
 test('formata CPF e CNPJ pelo comprimento', () => {
   assert.equal(formatarCpfCnpj('12345678901'), '123.456.789-01')
@@ -101,4 +101,26 @@ test('rótulo do documento: CNPJ para 14 dígitos, CPF para o resto', () => {
   assert.equal(rotuloDocumento('529.982.247-25'), 'CPF')
   assert.equal(rotuloDocumento('11.222.333/0001'), 'CPF')
   assert.equal(rotuloDocumento(null), 'CPF')
+})
+
+test('contribuinte de ICMS: comprador CNPJ sem escolha é não contribuinte; pessoa física não tem indicador', () => {
+  assert.deepEqual(lerContribuinteIcms('11.222.333/0001-81', undefined, undefined),
+    { indicadorIe: 'nao_contribuinte', inscricaoEstadual: null })
+  assert.deepEqual(lerContribuinteIcms('529.982.247-25', 'contribuinte', '0623079040081'),
+    { indicadorIe: null, inscricaoEstadual: null })
+})
+
+test('contribuinte guarda a IE só com dígitos; isento e não contribuinte não guardam IE', () => {
+  assert.deepEqual(lerContribuinteIcms('11222333000181', 'contribuinte', ' 062.307.904/0081 '),
+    { indicadorIe: 'contribuinte', inscricaoEstadual: '0623079040081' })
+  assert.deepEqual(lerContribuinteIcms('11222333000181', 'contribuinte', '   '),
+    { indicadorIe: 'contribuinte', inscricaoEstadual: null })
+  assert.deepEqual(lerContribuinteIcms('11222333000181', 'isento', '0623079040081'),
+    { indicadorIe: 'isento', inscricaoEstadual: null })
+  assert.deepEqual(lerContribuinteIcms('11222333000181', 'nao_contribuinte', '0623079040081'),
+    { indicadorIe: 'nao_contribuinte', inscricaoEstadual: null })
+})
+
+test('indicador de ICMS desconhecido é recusado, para não virar dado errado na NF', () => {
+  assert.throws(() => lerContribuinteIcms('11222333000181', 'revenda', ''), /contribuinte de ICMS/i)
 })

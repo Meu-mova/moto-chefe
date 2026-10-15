@@ -96,7 +96,7 @@ function ListaComPainel({ linhas }: { linhas: LinhaPix[] }) {
             {atual.descricao && <p className="mt-1 break-words text-xs text-muted-foreground">{atual.descricao}</p>}
           </div>
           <div className={cn('border-l-2 pl-3', atual.correspondencia.tipo ? 'border-primary' : atual.interna ? 'border-border' : 'border-warning')}>
-            {/* Vinculada: o rótulo (NF, OS...) e o X de remover já aparecem no formulário abaixo. */}
+            {/* Vinculada: o rótulo (NF, OS...) e o botão "Desvincular" já aparecem no formulário abaixo. */}
             {atual.correspondencia.tipo ? <span className="text-xs font-medium text-primary-text">Vinculado</span> : <EstadoTexto l={atual} />}
           </div>
           {!atual.interna && (
