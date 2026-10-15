@@ -28,7 +28,7 @@ export type ResultadoLeitura<T> =
  * (entrou uma nova no topo) é descartada por `chave`.
  *
  * Terceira conferência: `total` 0 depois de uma tentativa que viu linhas não vale. Foi o que a PIX
- * recebeu do Sicoob em 15/10/2026: a 1ª tentativa leu 2,5 MB e foi rejeitada, a 2ª veio com total 0 (formato
+ * recebeu do Sicoob em 14/10/2026: a 1ª tentativa leu 2,5 MB e foi rejeitada, a 2ª veio com total 0 (formato
  * válido) e o sync foi gravado como completo sem nenhuma transação da conta. Um total 0 logo na 1ª
  * tentativa continua valendo: conta nova ou janela incremental sem movimento é legítima.
  */
@@ -78,4 +78,21 @@ export async function lerTodasAsPaginas<T>(
       ? 'O mcp.ai devolveu o extrato vazio depois de ter devolvido linhas; tente de novo.'
       : 'O extrato mudou durante a leitura e não estabilizou; tente de novo.',
   }
+}
+
+/**
+ * Acima disso, uma página de 0 linhas não é um extrato vazio. Medido em caracteres do texto da resposta
+ * HTTP (envelope JSON-RPC incluso), a mesma medida do campo `bytes` do log. O corte é estimativa: o caso
+ * observado foi 1534; o tamanho de um vazio legítimo não foi medido (ver o log `resposta_vazia_suspeita`).
+ */
+export const TAMANHO_MAX_PAGINA_VAZIA = 1000
+
+/**
+ * Resposta de `total: 0` que não parece um extrato vazio de verdade: traz `warning` ou é grande demais para
+ * zero linhas (incidente de 14/10/2026 na issue #126). `total` ≠ 0 nunca é suspeita.
+ */
+export function vaziaSuspeita(payload: { total?: unknown; warning?: unknown }, tamanho: number): boolean {
+  if (payload.total !== 0) return false
+  if (typeof payload.warning === 'string' && payload.warning.trim() !== '') return true
+  return tamanho > TAMANHO_MAX_PAGINA_VAZIA
 }
