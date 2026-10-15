@@ -5,10 +5,8 @@ import { pixRecebimentosMcp, vendas, ordensServico, pedidosVenda, vendasPecas } 
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
-import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
-import { cachePixValido, sincronizarPix, ultimaSincronizacaoPix, type ResultadoSyncPix } from '@/lib/pix-sync'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
@@ -95,17 +93,4 @@ export async function removerCorrespondenciaAction(id: string) {
   if (atualizadas.length === 0) throw new Error('PIX não encontrado no grupo ativo')
 
   revalidatePath('/pix-mcp')
-}
-
-export async function sincronizarPixAction(forcar: boolean): Promise<ResultadoSyncPix> {
-  const usuario = await getUsuarioLogado()
-  if (!usuarioPodeAcessar(usuario, '/pix-mcp')) throw new Error('Sem permissão')
-  const grupo = await getGrupoAtivo(usuario)
-
-  // Reconfere aqui: outra aba pode ter acabado de sincronizar.
-  if (!forcar && cachePixValido(await ultimaSincronizacaoPix(grupo.id))) return { ok: true, contasPuladas: [] }
-
-  const r = await sincronizarPix(grupo)
-  if (r.ok) revalidatePath('/pix-mcp')
-  return r
 }
