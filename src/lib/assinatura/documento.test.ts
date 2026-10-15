@@ -215,6 +215,8 @@ test('rótulos existem para os dois tipos', () => {
 
 // Hashes capturados em 15/10/2026, antes de o contrato aceitar comprador pessoa
 // jurídica (#65): o documento de pessoa física tem de sair igual byte a byte.
+// Se o texto de pessoa física mudar de propósito, recalcule com
+// sha256(montarHtmlDocumento(...)) e troque os valores abaixo.
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 const RESPOSTAS_MISTAS = {
   itens: Object.fromEntries(ITENS_CHECKLIST.map((i, n) => [i, (['ok', 'nao', 'na'] as const)[n % 3]])),

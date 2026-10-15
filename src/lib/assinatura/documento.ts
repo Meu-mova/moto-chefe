@@ -1,4 +1,4 @@
-import { rotuloDocumento, tipoPessoaDoDocumento } from '../documento'
+import { rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
 
 export type TipoDocumento = 'contrato_venda' | 'checklist_entrega'
 
@@ -163,10 +163,6 @@ const ESTILO = `
   .doc .clausula { font-size: 11px; color: #475569; }
 `
 
-// ATENÇÃO: transcrito do modelo "Compra e Venda Motochefe.docx". Os desvios em
-// relação ao original são três, todos decididos com o Cesar e registrados no
-// spec: qualificação do comprador sem estado civil/profissão/RG, sem
-// testemunhas, e vendedora + comarca vindas do grupo.
 // Texto de pessoa jurídica aprovado pelo advogado (#65, 15/10/2026). Representante
 // é opcional na venda: sem ele, a linha sai em branco para a loja completar à mão.
 function qualificacaoComprador(d: DadosDocumento): string {
@@ -178,6 +174,10 @@ function qualificacaoComprador(d: DadosDocumento): string {
     eletrônico: ${esc(d.clienteEmail)}.</p>`
 }
 
+// ATENÇÃO: transcrito do modelo "Compra e Venda Motochefe.docx". Os desvios em
+// relação ao original são três, todos decididos com o Cesar e registrados no
+// spec: qualificação do comprador sem estado civil/profissão/RG, sem
+// testemunhas, e vendedora + comarca vindas do grupo.
 function contrato(d: DadosDocumento): string {
   const cartilha = ITENS_CARTILHA_BATERIA.map(i => `<li>${esc(i)}</li>`).join('')
   return `
