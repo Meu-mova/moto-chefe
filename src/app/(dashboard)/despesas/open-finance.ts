@@ -5,7 +5,7 @@ import { LOJA_GALPAO_MATRIZ_ID } from '@/lib/loja-galpao'
 import { parearReemissoes } from '@/lib/reemissao-saida'
 import { eq, and, gte, lte, desc, inArray, isNull } from 'drizzle-orm'
 import { criarMedidor } from '@/lib/db-diag'
-import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync } from '@/lib/sync-incremental'
+import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync, MARGEM_SYNC_DIAS, HISTORICO_DESDE } from '@/lib/sync-incremental'
 
 // Mesma janela de cache do PIX (teste) — é a mesma conexão com o mcp.ai, mas
 // com marcador de staleness próprio (despesas_of_sync_status), separado do
@@ -13,11 +13,6 @@ import { desdeDoSync, selecionarSumidas, dividirEmLotes, dataAposSync } from '@/
 // e não podem compartilhar o mesmo controle de cache.
 const JANELA_CACHE_MS = 10 * 60 * 1000
 
-// Sync incremental: pede ao mcp.ai só o que veio depois do último sync, com folga para o atraso com
-// que o banco posta e reemite lançamentos (maior atraso medido até aparecer no banco: 12,8 dias).
-// O histórico inteiro só vem no primeiro sync do grupo ou com ?sync=completo.
-const MARGEM_SYNC_DIAS = 30
-const HISTORICO_DESDE = new Date('2025-01-01T00:00:00.000Z')
 // 9 parâmetros por linha: 1000 linhas ficam bem abaixo do limite de 65.535 do Postgres.
 const LOTE_INSERT = 1000
 
