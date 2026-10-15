@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { excluirDespesaAction } from '../actions'
+import { moedaDeSaida } from '@/lib/moeda-saida'
 import { DespesaDialog } from './despesa-dialog'
 import { ListaDetalhe } from './lista-detalhe'
 import type { Loja, DespesaRow } from '../types'
@@ -16,10 +17,6 @@ type Props = {
   categorias: string[]
   categoriasComBeneficiario: string[]
   beneficiarios: string[]
-}
-
-function fmt(v: string) {
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function fmtData(d: string) {
@@ -113,14 +110,14 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
                 {fmtData(d.data)} · {d.categoria} · {d.lojaNome ?? 'Geral'}
               </span>
             </span>
-            <span className="font-semibold tabular-nums text-destructive">-{fmt(d.valor)}</span>
+            <span className="font-semibold tabular-nums text-destructive">{moedaDeSaida(d.valor)}</span>
           </>
         )}
         tituloDetalhe="Despesa"
         descricaoDetalhe={d => `${d.categoria} · ${fmtData(d.data)}`}
         detalhe={d => (
           <>
-            <p className="text-2xl font-bold tabular-nums text-destructive">-{fmt(d.valor)}</p>
+            <p className="text-2xl font-bold tabular-nums text-destructive">{moedaDeSaida(d.valor)}</p>
             <dl className="space-y-2 text-sm">
               {[
                 ['Categoria', d.categoria],
@@ -160,7 +157,7 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
       {dados.length > 0 && (
         <p className="flex justify-between border-t border-border pt-3 text-sm font-semibold">
           <span className="text-muted-foreground">Total filtrado</span>
-          <span className="tabular-nums text-destructive">-{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+          <span className="tabular-nums text-destructive">{moedaDeSaida(total)}</span>
         </p>
       )}
 
