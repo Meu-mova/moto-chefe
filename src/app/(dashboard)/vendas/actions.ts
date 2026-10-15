@@ -352,7 +352,9 @@ async function criarVendaTx(
           cep:         sql`excluded.cep`,
           cidade:      sql`excluded.cidade`,
           uf:          sql`excluded.uf`,
-          ...(icms.indicadorIe ? {
+          // "Não contribuinte" é também o padrão da tela e do pedido de aprovação
+          // antigo: não apaga a IE de um cadastro que já a tem. Rebaixar é pela edição.
+          ...(icms.indicadorIe === 'contribuinte' || icms.indicadorIe === 'isento' ? {
             indicadorIe:       sql`excluded.indicador_ie`,
             inscricaoEstadual: sql`excluded.inscricao_estadual`,
           } : {}),
