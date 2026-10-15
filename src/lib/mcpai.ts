@@ -319,7 +319,11 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         if (typeof payload.total !== 'number' || typeof payload.totalPages !== 'number' || !Array.isArray(payload.results)) return 'erro'
         return { linhas: payload.results, total: payload.total, totalPages: payload.totalPages }
       }
-      const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, { maxPaginas: MAX_PAGINAS, maxTentativas: 3 })
+      const leitura = await lerTodasAsPaginas(buscarPagina, tx => tx.id, {
+        maxPaginas: MAX_PAGINAS,
+        maxTentativas: 3,
+        aoRejeitar: r => logTempo({ origem, etapa: 'leitura_rejeitada', banco: conta.bank, ...r }),
+      })
       const listaMs = decorrido(tLista)
       if (!leitura.ok) {
         logTempo({ origem, etapa: 'conta', banco: conta.bank, force_sync_ms: forceMs, lista_ms: listaMs, bytes: bytesTotais, erro: true })

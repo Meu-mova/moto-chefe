@@ -2,6 +2,12 @@
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
+// Sync incremental: pede ao mcp.ai só o que veio depois do último sync, com folga para o atraso com
+// que o banco posta e reemite lançamentos (maior atraso medido até aparecer no banco: 12,8 dias).
+// O histórico inteiro só vem no primeiro sync do grupo (PIX e Despesas) ou com ?sync=completo (Despesas).
+export const MARGEM_SYNC_DIAS = 30
+export const HISTORICO_DESDE = new Date('2025-01-01T00:00:00.000Z')
+
 /**
  * Data a partir da qual pedir o extrato ao mcp.ai. Sem sync anterior (grupo novo), ou com sync
  * completo forçado, usa `padrao`. A margem cobre o atraso com que o banco posta e reemite
