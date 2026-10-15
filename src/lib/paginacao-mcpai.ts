@@ -28,7 +28,7 @@ export type ResultadoLeitura<T> =
  * (entrou uma nova no topo) é descartada por `chave`.
  *
  * Terceira conferência: `total` 0 depois de uma tentativa que viu linhas não vale. Foi o que a PIX
- * recebeu do Sicoob em 15/10/2026: a 1ª tentativa leu 2,5 MB e foi rejeitada, a 2ª veio com total 0 (formato
+ * recebeu do Sicoob em 14/10/2026: a 1ª tentativa leu 2,5 MB e foi rejeitada, a 2ª veio com total 0 (formato
  * válido) e o sync foi gravado como completo sem nenhuma transação da conta. Um total 0 logo na 1ª
  * tentativa continua valendo: conta nova ou janela incremental sem movimento é legítima.
  */
@@ -80,17 +80,19 @@ export async function lerTodasAsPaginas<T>(
   }
 }
 
-/** Acima disso, uma página de 0 linhas não é um extrato vazio: um extrato vazio cabe em algumas centenas de bytes. */
-export const BYTES_MAX_PAGINA_VAZIA = 1000
+/**
+ * Acima disso, uma página de 0 linhas não é um extrato vazio. Medido em caracteres do texto da resposta
+ * HTTP (envelope JSON-RPC incluso), a mesma medida do campo `bytes` do log. O corte é estimativa: o caso
+ * observado foi 1534; o tamanho de um vazio legítimo não foi medido (ver o log `resposta_vazia_suspeita`).
+ */
+export const TAMANHO_MAX_PAGINA_VAZIA = 1000
 
 /**
- * Resposta de `total: 0` que não parece um extrato vazio de verdade: traz `warning` ou um corpo grande demais
- * para zero linhas. Em 15/10/2026 o mcp.ai devolveu 1534 bytes com total 0 para o Sicredi (20 linhas reais) e
- * antes para o Sicoob; o sync foi gravado como completo sem essas contas. Tratada como erro, a conta é pulada
- * e o sync não avança a data. `total` ≠ 0 nunca é suspeita.
+ * Resposta de `total: 0` que não parece um extrato vazio de verdade: traz `warning` ou é grande demais para
+ * zero linhas (incidente de 14/10/2026 na issue #126). `total` ≠ 0 nunca é suspeita.
  */
-export function vaziaSuspeita(payload: { total?: unknown; warning?: unknown }, bytes: number): boolean {
+export function vaziaSuspeita(payload: { total?: unknown; warning?: unknown }, tamanho: number): boolean {
   if (payload.total !== 0) return false
   if (typeof payload.warning === 'string' && payload.warning.trim() !== '') return true
-  return bytes > BYTES_MAX_PAGINA_VAZIA
+  return tamanho > TAMANHO_MAX_PAGINA_VAZIA
 }

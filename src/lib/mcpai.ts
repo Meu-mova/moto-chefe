@@ -320,7 +320,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
         if (vaziaSuspeita(payload, chamada.bytes)) {
           // Só os nomes dos campos, nunca os valores: mostra o que o mcp.ai manda nesse caso.
           logTempo({ origem, etapa: 'resposta_vazia_suspeita', banco: conta.bank, pagina, bytes: chamada.bytes, chaves: Object.keys(payload).join(',') })
-          return 'erro'
+          // Só a página 1 vira conta pulada. Nas seguintes o total 0 segue para as conferências de
+          // lerTodasAsPaginas, que relê (até 3 vezes) antes de desistir.
+          if (pagina === 1) return 'erro'
         }
         return { linhas: payload.results, total: payload.total, totalPages: payload.totalPages }
       }
