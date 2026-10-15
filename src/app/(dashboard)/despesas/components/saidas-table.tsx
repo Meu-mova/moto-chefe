@@ -1,6 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { LancarDespesaForm } from './lancar-despesa-form'
+import { ListaDetalhe } from './lista-detalhe'
 import type { Loja } from '../types'
 
 export type SaidaRow = {
@@ -51,77 +53,79 @@ export function SaidasTable({ saidas, lojas, categorias, categoriasComBeneficiar
 
   return (
     <div className="space-y-3">
-      <div className="inline-flex rounded-lg border bg-slate-50 p-0.5 gap-0.5">
+      <div className="flex max-w-full overflow-x-auto rounded-lg border bg-muted p-0.5 gap-0.5 md:inline-flex">
         {opcoes.map(o => (
           <button
             key={o.value}
             onClick={() => setStatus(o.value)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              status === o.value ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-800'
-            }`}
+            className={cn(
+              'h-10 flex-1 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors md:h-8 md:flex-none md:text-xs',
+              status === o.value ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
           >
             {o.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Data</th>
-              <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Banco</th>
-              <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Favorecido / Descrição</th>
-              <th className="text-right px-4 py-2 text-xs text-slate-500 font-medium">Valor</th>
-              <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium">Categoria / Loja</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filtradas.map(s => (
-              <tr key={s.id} className="hover:bg-slate-50/50">
-                <td className="px-4 py-2 text-slate-500 whitespace-nowrap">
-                  {new Date(s.data).toLocaleDateString('pt-BR')}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap">
-                  <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600" title={s.banco}>
-                    {nomeCurtoBanco(s.banco)}
-                  </span>
-                </td>
-                <td className="px-4 py-2">
-                  <p className="font-medium">{s.favorecidoNome || '—'}</p>
-                  {s.descricao && <p className="text-xs text-slate-400 truncate max-w-xs" title={s.descricao}>{s.descricao}</p>}
-                </td>
-                <td className="px-4 py-2 text-right font-medium text-red-600">{fmt(Number(s.valor))}</td>
-                <td className="px-4 py-2">
-                  <LancarDespesaForm
-                    id={s.id}
-                    lojas={lojas}
-                    categorias={categorias}
-                    categoriasComBeneficiario={categoriasComBeneficiario}
-                    beneficiarios={beneficiarios}
-                    podeCategorizar={podeCategorizar}
-                    jaLancado={s.despesaId ? {
-                      categoria: s.categoria,
-                      beneficiario: s.beneficiario,
-                      lojaId: s.lojaId,
-                      lojaNome: s.lojaNome,
-                      lancadoPorNome: s.lancadoPorNome,
-                      lancadoEm: s.lancadoEm,
-                    } : null}
-                  />
-                </td>
-              </tr>
-            ))}
-            {filtradas.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-slate-400 py-8">
-                  {saidas.length === 0 ? 'Nenhuma saída no período.' : 'Nenhuma saída para o filtro selecionado.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ListaDetalhe
+        itens={filtradas}
+        idDe={s => s.id}
+        borda={s => (s.despesaId ? 'border-l-transparent' : 'border-l-warning')}
+        linha={s => (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{s.favorecidoNome || '—'}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {new Date(s.data).toLocaleDateString('pt-BR')} · {nomeCurtoBanco(s.banco)}
+                {s.despesaId ? ` · ${s.categoria ?? 'Lançada'}` : ' · pendente'}
+              </span>
+            </span>
+            <span className="font-semibold tabular-nums text-destructive">{fmt(Number(s.valor))}</span>
+          </>
+        )}
+        tituloDetalhe="Saída do banco"
+        descricaoDetalhe={s => `${new Date(s.data).toLocaleDateString('pt-BR')} · ${nomeCurtoBanco(s.banco)}`}
+        detalhe={s => (
+          <>
+            <p className="text-2xl font-bold tabular-nums text-destructive">{fmt(Number(s.valor))}</p>
+            <dl className="space-y-2 text-sm">
+              {[
+                ['Favorecido', s.favorecidoNome || '—'],
+                ['Descrição', s.descricao || '—'],
+                ['Banco', nomeCurtoBanco(s.banco)],
+                ['Data', new Date(s.data).toLocaleDateString('pt-BR')],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 border-b border-border pb-2">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <LancarDespesaForm
+              id={s.id}
+              lojas={lojas}
+              categorias={categorias}
+              categoriasComBeneficiario={categoriasComBeneficiario}
+              beneficiarios={beneficiarios}
+              podeCategorizar={podeCategorizar}
+              jaLancado={s.despesaId ? {
+                categoria: s.categoria,
+                beneficiario: s.beneficiario,
+                lojaId: s.lojaId,
+                lojaNome: s.lojaNome,
+                lancadoPorNome: s.lancadoPorNome,
+                lancadoEm: s.lancadoEm,
+              } : null}
+            />
+          </>
+        )}
+        vazio={
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {saidas.length === 0 ? 'Nenhuma saída no período.' : 'Nenhuma saída para o filtro selecionado.'}
+          </p>
+        }
+      />
     </div>
   )
 }

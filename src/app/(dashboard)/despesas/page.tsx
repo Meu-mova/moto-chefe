@@ -1,13 +1,15 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { mesBrt } from '@/lib/data-venda'
+import { hojeBrt, mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { criarMedidor } from '@/lib/db-diag'
 import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa, beneficiariosDespesa } from '@/lib/db/schema'
 import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ResumoFaixa } from '@/components/resumo-faixa'
+import { PeriodoAtalhos } from '@/components/periodo-atalhos'
+import { BotaoAtualizar } from '@/components/botao-atualizar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DespesasTable } from './components/despesas-table'
 import { NovaDespesaButton } from './components/despesa-dialog'
@@ -269,12 +271,13 @@ export default async function DespesasPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Despesas Operacionais</h1>
-          <p className="text-sm text-slate-500 mt-0.5 capitalize">{mesExibicao}</p>
+          <p className="text-sm text-muted-foreground mt-0.5 capitalize">{mesExibicao}</p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Celular: mês e botão dividem a linha inteira (mês estica, botão no tamanho do texto). */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:flex md:items-center md:gap-3">
           <Suspense fallback={null}><MesSelector mesAtual={mesParam} /></Suspense>
           <NovaDespesaButton
             lojas={lojasOpts} categorias={categoriasAtivas}
@@ -289,127 +292,83 @@ export default async function DespesasPage({
           <TabsTrigger value="banco">
             Importar do Banco
             {qtdSaidasPendentes > 0 && (
-              <span className="ml-1.5 text-xs bg-amber-100 text-amber-700 rounded-full px-1.5">{qtdSaidasPendentes}</span>
+              <span className="ml-1.5 text-xs font-medium text-warning">{qtdSaidasPendentes}</span>
             )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lancamentos" className="mt-4 space-y-6">
           {/* Cards de resumo */}
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Despesas lançadas à mão + o dinheiro que saiu do caixa das lojas. O que veio do extrato
             está na aba <span className="font-medium">Importar do Banco</span>.
           </p>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total do Período</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-red-600">-{fmt(totalGeral)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">só operacional</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Caixa das Lojas</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-amber-600">-{fmt(totalCaixa)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">pago em dinheiro</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Por Loja</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-orange-600">-{fmt(totalLojas)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Geral (Empresa)</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-orange-600">-{fmt(totalEmpresa)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Não Operacional</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-slate-500">-{fmt(totalNaoOperacional)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {rowsNaoOperacionais.length > 0
-                    ? 'depósito, transferência, compra de moto'
-                    : 'nada no período'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Por Loja e Geral (Empresa) saíram do resumo: a lista já filtra por loja e mostra "Geral" em cada linha. */}
+          <ResumoFaixa itens={[
+            { rotulo: 'Total do período', valor: `-${fmt(totalGeral)}`, nota: 'só operacional', tom: 'text-destructive' },
+            { rotulo: 'Caixa das lojas', valor: `-${fmt(totalCaixa)}`, nota: 'pago em dinheiro', tom: 'text-warning' },
+            {
+              rotulo: 'Não operacional', valor: `-${fmt(totalNaoOperacional)}`, tom: 'text-muted-foreground',
+              nota: rowsNaoOperacionais.length > 0 ? 'depósito, transferência, compra de moto' : 'nada no período',
+            },
+          ]} />
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Lançamentos</CardTitle></CardHeader>
-            <CardContent>
-              <DespesasTable
-                despesas={rows} lojas={lojasOpts} categorias={categoriasAtivas}
-                categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
-              />
-            </CardContent>
-          </Card>
+          <DespesasTable
+            despesas={rows} lojas={lojasOpts} categorias={categoriasAtivas}
+            categoriasComBeneficiario={categoriasComBeneficiario} beneficiarios={beneficiarios}
+          />
         </TabsContent>
 
         <TabsContent value="banco" className="mt-4 space-y-6">
           {erroSync && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Não foi possível sincronizar com o mcp.ai agora ({erroSync}) — mostrando os dados já salvos.
-            </div>
+            // Aviso discreto: o motivo técnico fica no tooltip para não poluir a tela.
+            <p className="text-xs text-muted-foreground" title={erroSync}>
+              Não foi possível sincronizar agora. Mostrando os dados já salvos.
+            </p>
           )}
 
           {contasPuladas.length > 0 && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="border-l-2 border-destructive py-1 pl-3 text-sm text-destructive">
               O mcp.ai não respondeu para: {contasPuladas.join(', ')}. As saídas recentes dessas contas podem estar faltando.
               O sistema mantém a data do último sync e tenta de novo nas próximas visitas.
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <p className="text-xs text-slate-400 flex items-center gap-2">
-              {syncStatusAtual
-                ? `Sincronizado com o banco em ${syncStatusAtual.ultimaSincronizacao.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : 'Ainda não sincronizado'}
-              <Link href={hrefAtualizarSaidas} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 underline">
-                <RefreshCw size={11} /> Atualizar agora
-              </Link>
-            </p>
-            <SaidasFiltros
-              defaultFrom={sfrom.toISOString().split('T')[0]}
-              defaultTo={sto.toISOString().split('T')[0]}
-              categorias={categoriasAtivas}
-              lojas={lojasOpts}
-              categoriaAtual={scat}
-              lojaAtual={slojaId}
-              tipoAtual={stipo}
-            />
-          </div>
+          <ResumoFaixa itens={[
+            { rotulo: 'Total em saídas', valor: fmt(totalSaidas), nota: 'só operacional', tom: 'text-destructive' },
+            { rotulo: 'Pendentes de categorização', valor: fmt(totalSaidasPendentes), nota: `${fmt(totalSaidasLancadas)} já lançadas`, tom: 'text-warning' },
+            {
+              rotulo: 'Não operacional', valor: fmt(totalSaidasNaoOperacionais), tom: 'text-muted-foreground',
+              nota: saidasNaoOperacionais.length > 0 ? `${saidasNaoOperacionais.length} saída(s), fora do total` : 'nada no período',
+            },
+          ]} acaoMobile={<BotaoAtualizar href={hrefAtualizarSaidas} />} />
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total em Saídas</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-red-600">{fmt(totalSaidas)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">só operacional</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Já Lançadas</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-emerald-600">{fmt(totalSaidasLancadas)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Pendentes de Categorização</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-amber-600">{fmt(totalSaidasPendentes)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Não Operacional</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-slate-500">{fmt(totalSaidasNaoOperacionais)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {saidasNaoOperacionais.length > 0
-                    ? `${saidasNaoOperacionais.length} saída(s), fora do total`
-                    : 'nada no período'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <PeriodoAtalhos
+            from={params.sfrom ?? `${hojeBrt().slice(0, 8)}01`}
+            to={params.sto ?? hojeBrt()}
+            hoje={hojeBrt()}
+            chaveDe="sfrom"
+            chaveAte="sto"
+            direita={
+              <p className="flex items-center gap-x-3 text-xs text-muted-foreground">
+                {syncStatusAtual
+                  ? `Sincronizado com o banco em ${syncStatusAtual.ultimaSincronizacao.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                  : 'Ainda não sincronizado'}
+                <Link href={hrefAtualizarSaidas} className="inline-flex h-11 items-center gap-1 underline hover:text-foreground md:h-8">
+                  <RefreshCw size={11} /> Atualizar agora
+                </Link>
+              </p>
+            }
+          />
+
+          <SaidasFiltros
+            categorias={categoriasAtivas}
+            lojas={lojasOpts}
+            categoriaAtual={scat}
+            lojaAtual={slojaId}
+            tipoAtual={stipo}
+          />
 
           <SaidasTable
             categoriasComBeneficiario={categoriasComBeneficiario}

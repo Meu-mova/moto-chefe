@@ -27,6 +27,13 @@ const labelPorTipo = {
   peca: (c: Correspondencia) => `PA #${c.pecaNumero}`,
 }
 
+/** Texto da correspondência já lançada (NF 123, OS #4...). */
+export function rotuloCorrespondencia(c: Correspondencia) {
+  return c.tipo ? labelPorTipo[c.tipo](c) : null
+}
+
+export type { Correspondencia }
+
 export function CorrespondenciaForm({ id, correspondencia }: Props) {
   const [pending, start] = useTransition()
   const [tipo, setTipo] = useState<'venda' | 'os' | 'pedido' | 'peca'>('venda')
@@ -53,12 +60,12 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
     return (
       <div className="flex items-center gap-1.5">
         <div>
-          <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+          <span className="text-xs font-medium text-primary-text border-l-2 border-primary pl-2">
             {label}
           </span>
-          {quemQuando && <p className="text-[11px] text-slate-400 mt-0.5">{quemQuando}</p>}
+          {quemQuando && <p className="text-[11px] text-muted-foreground mt-0.5">{quemQuando}</p>}
         </div>
-        <button onClick={remover} disabled={pending} title="Remover correspondência" className="text-slate-400 hover:text-red-600">
+        <button onClick={remover} disabled={pending} title="Remover correspondência" aria-label="Remover correspondência" className="grid size-11 place-items-center text-muted-foreground hover:text-destructive disabled:opacity-50 md:size-6">
           <X size={14} />
         </button>
       </div>
@@ -81,7 +88,7 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
   return (
     <div className="flex items-center gap-1.5">
       <Select value={tipo} onValueChange={v => setTipo(v as 'venda' | 'os' | 'pedido' | 'peca')}>
-        <SelectTrigger className="h-8 w-20 text-xs">
+        <SelectTrigger className="h-11 w-24 text-base md:h-8 md:w-20 md:text-xs">
           <span>{{ venda: 'NF', os: 'OS', pedido: 'Pedido', peca: 'PA' }[tipo]}</span>
         </SelectTrigger>
         <SelectContent>
@@ -95,10 +102,10 @@ export function CorrespondenciaForm({ id, correspondencia }: Props) {
         value={numero}
         onChange={e => setNumero(e.target.value)}
         placeholder="Nº"
-        className="h-8 w-16 text-xs"
+        className="h-11 w-20 text-base md:h-8 md:w-16 md:text-xs"
         inputMode="numeric"
       />
-      <Button size="sm" className="h-8 text-xs" disabled={pending || !numero.trim()} onClick={salvar}>
+      <Button size="sm" className="h-11 text-base md:h-8 md:text-xs" disabled={pending || !numero.trim()} onClick={salvar}>
         {pending ? 'Salvando…' : 'Salvar'}
       </Button>
     </div>
