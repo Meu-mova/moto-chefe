@@ -6,6 +6,13 @@ const DIA_MS = 24 * 60 * 60 * 1000
 // que o banco posta e reemite lançamentos (maior atraso medido até aparecer no banco: 12,8 dias).
 // O histórico inteiro só vem no primeiro sync do grupo (PIX e Despesas) ou com ?sync=completo (Despesas).
 export const MARGEM_SYNC_DIAS = 30
+
+const JANELA_CACHE_MS = 10 * 60 * 1000
+
+/** Sync de menos de 10 min atrás: não vale sincronizar de novo (o force_sync de cada conta leva de 4 s a minutos). */
+export function cacheSaidasValido(ultimaSincronizacao: Date | null | undefined, agora = Date.now()): boolean {
+  return !!ultimaSincronizacao && agora - ultimaSincronizacao.getTime() < JANELA_CACHE_MS
+}
 export const HISTORICO_DESDE = new Date('2025-01-01T00:00:00.000Z')
 
 /**
