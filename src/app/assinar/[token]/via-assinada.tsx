@@ -6,6 +6,7 @@ type Props = {
   docHash: string | null
   assinadoEm: string | null
   ipAssinatura: string | null
+  conferencia: string
 }
 
 function dataHora(iso: string | null): string {
@@ -14,7 +15,7 @@ function dataHora(iso: string | null): string {
   return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 }
 
-export function ViaAssinada({ html, docHash, assinadoEm, ipAssinatura }: Props) {
+export function ViaAssinada({ html, docHash, assinadoEm, ipAssinatura, conferencia }: Props) {
   return (
     <div className="mx-auto max-w-3xl px-3 py-4">
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 mb-4 flex items-start gap-2">
@@ -63,7 +64,7 @@ export function ViaAssinada({ html, docHash, assinadoEm, ipAssinatura }: Props) 
           </div>
         </dl>
         <p className="text-[11px] text-slate-500 mt-3">
-          A autenticidade deste documento pode ser conferida junto à loja emissora, pelo código acima.
+          {conferencia}
         </p>
       </div>
 

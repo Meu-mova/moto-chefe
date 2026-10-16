@@ -144,3 +144,23 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p><i>Seguem, gerados pelo sistema, os registros do aceite eletrônico do CLIENTE: data e hora, endereço IP, confirmação do código e código de verificação do documento.</i></p>`
   return envolverDocumento(corpo)
 }
+
+export const DIAS_VALIDADE_CONTRATO = 7
+
+/** Por que o contrato não pode ser enviado agora; null quando pode. */
+export function motivoBloqueioEnvio(p: {
+  statusAdesao: string
+  dados: DadosContratoAdesao
+  jaAssinado: boolean
+  producao: boolean
+  termosConfirmados: boolean
+}): string | null {
+  if (p.statusAdesao !== 'dados_completos' || !dadosContratoCompletos(p.dados)) {
+    return 'Complete e salve os dados do contrato antes de enviar'
+  }
+  if (p.jaAssinado) return 'Esta adesão já tem contrato assinado'
+  if (p.producao && !p.termosConfirmados) {
+    return 'Envio travado na produção até os termos do contrato serem confirmados'
+  }
+  return null
+}
