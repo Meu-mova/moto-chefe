@@ -2,7 +2,7 @@
 import { randomBytes } from 'node:crypto'
 import { db } from '@/lib/db'
 import { adesoesMova, contratosAdesao, contratosAdesaoEventos } from '@/lib/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -56,13 +56,24 @@ export async function listarAdesoesAction() {
   // Só o contrato mais recente de cada adesão importa para a lista. Token e HTML
   // ficam de fora: esta lista vai para o navegador.
   const contratos = await db.selectDistinctOn([contratosAdesao.adesaoId], {
+    id: contratosAdesao.id,
     adesaoId: contratosAdesao.adesaoId,
     status: contratosAdesao.status,
     expiraEm: contratosAdesao.expiraEm,
     criadoEm: contratosAdesao.criadoEm,
     assinadoEm: contratosAdesao.assinadoEm,
   }).from(contratosAdesao).orderBy(contratosAdesao.adesaoId, desc(contratosAdesao.criadoEm))
-  const porAdesao = new Map(contratos.map(c => [c.adesaoId, c]))
+  // Resultado do último convite de cada contrato: e-mail que falhou não pode
+  // aparecer como "Contrato enviado" (#183).
+  const ids = contratos.map(c => c.id)
+  const envios = ids.length === 0 ? [] : await db.selectDistinctOn([contratosAdesaoEventos.contratoId], {
+    contratoId: contratosAdesaoEventos.contratoId,
+    envio: sql<string | null>`${contratosAdesaoEventos.detalhe}->>'envio'`,
+  }).from(contratosAdesaoEventos)
+    .where(and(inArray(contratosAdesaoEventos.contratoId, ids), inArray(contratosAdesaoEventos.tipo, ['enviado', 'reenviado'])))
+    .orderBy(contratosAdesaoEventos.contratoId, desc(contratosAdesaoEventos.criadoEm))
+  const envioPorContrato = new Map(envios.map(e => [e.contratoId, e.envio]))
+  const porAdesao = new Map(contratos.map(c => [c.adesaoId, { ...c, ultimoEnvio: envioPorContrato.get(c.id) ?? null }]))
   return linhas.map(a => ({ ...a, contrato: porAdesao.get(a.id) ?? null }))
 }
 
