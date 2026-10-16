@@ -1,7 +1,7 @@
 'use server'
 import { headers } from 'next/headers'
-import { solicitarCodigo, conferirCodigo, selarAssinatura, type RespostaCodigo, type Contexto } from '@/lib/assinatura/fluxo'
-import { repositorioVenda, infraPadrao } from '@/lib/assinatura/repositorio-venda'
+import { solicitarCodigo, conferirCodigo, selarAssinatura, type RespostaCodigo, type Contexto, type Geo } from '@/lib/assinatura/fluxo'
+import { repositorioVenda, infraVenda } from '@/lib/assinatura/repositorio-venda'
 import type { RespostasChecklist } from '@/lib/assinatura/documento'
 
 // As regras da assinatura moram em @/lib/assinatura/fluxo; aqui só se liga o
@@ -20,19 +20,19 @@ async function contextoRequisicao(): Promise<Contexto> {
 }
 
 export async function solicitarCodigoAction(token: string, forcarNovo = false): Promise<RespostaCodigo> {
-  return solicitarCodigo(repositorioVenda, infraPadrao, await contextoRequisicao(), token, forcarNovo)
+  return solicitarCodigo(repositorioVenda, infraVenda, await contextoRequisicao(), token, forcarNovo)
 }
 
 export async function conferirCodigoAction(token: string, digitado: string): Promise<{ ok: boolean; error?: string }> {
-  return conferirCodigo(repositorioVenda, infraPadrao, await contextoRequisicao(), token, digitado)
+  return conferirCodigo(repositorioVenda, infraVenda, await contextoRequisicao(), token, digitado)
 }
 
 export async function selarAssinaturaAction(
   token: string,
   selfieDataUrl: string,
   tracoDataUrl: string,
-  geo: { lat: number; lon: number; precisao: number } | null,
+  geo: Geo | null,
   respostas?: RespostasChecklist | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  return selarAssinatura(repositorioVenda, infraPadrao, await contextoRequisicao(), token, selfieDataUrl, tracoDataUrl, geo, respostas)
+  return selarAssinatura(repositorioVenda, infraVenda, await contextoRequisicao(), token, selfieDataUrl, tracoDataUrl, geo, respostas)
 }

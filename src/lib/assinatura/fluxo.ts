@@ -24,6 +24,9 @@ export type CodigoGravado = EstadoCodigo & { id: string }
 
 export type Contexto = { ip: string; userAgent: string }
 
+export type Geo = { lat: number; lon: number; precisao: number }
+
+/** O que entra nas evidências, comum a todo documento. Cada repositório acrescenta os seus vínculos. */
 export type EvidenciasBase = {
   documentoId: string
   snapshotHash: string
@@ -35,30 +38,28 @@ export type EvidenciasBase = {
   assinadoEm: string
 }
 
-export type Selagem = {
+export type Selagem<R> = {
   html: string
-  snapshotHash: string
-  respostas: unknown
+  respostas: R | null
   selfiePath: string
-  selfieHash: string
   assinaturaPath: string
-  assinaturaHash: string
-  ip: string
-  userAgent: string
-  geo: { lat: number; lon: number; precisao: number } | null
+  geo: Geo | null
   assinadoEm: Date
-  evidenciasBase: EvidenciasBase
+  evidencias: EvidenciasBase
 }
 
 /** Textos que mudam de quem emite o documento (a loja ou a MOVA). */
 export type Mensagens = {
   linkExpirado: string
+  /** Na selagem o texto é outro: quem chega aqui já passou pelo código. */
+  linkExpiradoAoSelar: string
   codigosEsgotados: string
   semEmail: string
   canceladoNoMeio: string
 }
 
-export type Repositorio<D extends DocumentoAssinavel> = {
+/** `R`: respostas que o signatário preenche antes de assinar (o checklist da venda); `null` quando não há. */
+export type Repositorio<D extends DocumentoAssinavel, R = null> = {
   mensagens: Mensagens
   buscar(token: string): Promise<D | null>
   historicoEnvios(documentoId: string): Promise<HistoricoEnvio>
@@ -66,15 +67,16 @@ export type Repositorio<D extends DocumentoAssinavel> = {
   gravarCodigo(documentoId: string, codigoHash: string, expiraEm: Date): Promise<void>
   registrarTentativa(codigoId: string, tentativas: number): Promise<void>
   marcarCodigoUsado(codigoId: string, usadoEm: Date): Promise<void>
-  registrarEvento(documentoId: string, tipo: string, ctx: Contexto, detalhe?: unknown): Promise<void>
+  /** Os eventos de uma chamada vão juntos, num insert só (trilha append-only). */
+  registrarEventos(documentoId: string, ctx: Contexto, eventos: { tipo: string; detalhe?: unknown }[]): Promise<void>
   /**
    * HTML que o signatário assina. Normalmente o congelado no envio; o checklist
    * da venda é remontado com as marcações. Devolve erro para recusar a selagem.
    */
-  htmlFinal(doc: D, respostas: unknown): { ok: true; html: string } | { ok: false; error: string }
-  /** Pasta no bucket `assinaturas` onde vão selfie e traço. */
+  htmlFinal(doc: D, respostas: R | null): { ok: true; html: string } | { ok: false; error: string }
+  /** Pasta, dentro do bucket da Infra, onde vão selfie e traço. */
   pastaArquivos(doc: D): string
-  selar(doc: D, s: Selagem): Promise<void>
+  selar(doc: D, s: Selagem<R>): Promise<void>
   /** E-mail com o link da via assinada. Falhar aqui não desfaz a assinatura. */
   avisarAssinado(doc: D, token: string): Promise<void>
 }
@@ -94,8 +96,8 @@ export type RespostaCodigo = Resposta & {
   esperarSegundos?: number
 }
 
-export async function solicitarCodigo<D extends DocumentoAssinavel>(
-  repo: Repositorio<D>, infra: Infra, ctx: Contexto, token: string, forcarNovo = false,
+export async function solicitarCodigo<D extends DocumentoAssinavel, R>(
+  repo: Repositorio<D, R>, infra: Infra, ctx: Contexto, token: string, forcarNovo = false,
 ): Promise<RespostaCodigo> {
   const doc = await repo.buscar(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
@@ -140,7 +142,7 @@ export async function solicitarCodigo<D extends DocumentoAssinavel>(
   // nunca o código.
   const { assunto, texto, html } = infra.emailCodigo(codigo, doc.remetente)
   const envio = await infra.enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html })
-  await repo.registrarEvento(doc.id, 'codigo_enviado', ctx, { envio: envio.status, canal: 'email', resendId: envio.id })
+  await repo.registrarEventos(doc.id, ctx, [{ tipo: 'codigo_enviado', detalhe: { envio: envio.status, canal: 'email', resendId: envio.id } }])
 
   // O código NUNCA volta na resposta — nem em erro, nem em log.
   if (envio.status === 'sem_email') return { ok: false, error: repo.mensagens.semEmail }
@@ -165,8 +167,8 @@ const MENSAGENS_CODIGO: Record<string, string> = {
   excedeu: 'Muitas tentativas. Peça um novo código.',
 }
 
-export async function conferirCodigo<D extends DocumentoAssinavel>(
-  repo: Repositorio<D>, infra: Infra, ctx: Contexto, token: string, digitado: string,
+export async function conferirCodigo<D extends DocumentoAssinavel, R>(
+  repo: Repositorio<D, R>, infra: Infra, ctx: Contexto, token: string, digitado: string,
 ): Promise<Resposta> {
   const doc = await repo.buscar(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
@@ -178,12 +180,12 @@ export async function conferirCodigo<D extends DocumentoAssinavel>(
   const resultado = validarCodigo(codigo, digitado.trim(), doc.id, infra.agora())
   if (resultado !== 'ok') {
     await repo.registrarTentativa(codigo.id, codigo.tentativas + 1)
-    await repo.registrarEvento(doc.id, 'codigo_errado', ctx, { resultado })
+    await repo.registrarEventos(doc.id, ctx, [{ tipo: 'codigo_errado', detalhe: { resultado } }])
     return { ok: false, error: MENSAGENS_CODIGO[resultado] ?? 'Código inválido' }
   }
 
   await repo.marcarCodigoUsado(codigo.id, infra.agora())
-  await repo.registrarEvento(doc.id, 'codigo_ok', ctx)
+  await repo.registrarEventos(doc.id, ctx, [{ tipo: 'codigo_ok' }])
   return { ok: true }
 }
 
@@ -193,12 +195,12 @@ function bufferDeDataUrl(dataUrl: string): { buffer: Buffer; contentType: string
   return { buffer: Buffer.from(m[2], 'base64'), contentType: m[1] }
 }
 
-export async function selarAssinatura<D extends DocumentoAssinavel>(
-  repo: Repositorio<D>, infra: Infra, ctx: Contexto, token: string,
+export async function selarAssinatura<D extends DocumentoAssinavel, R>(
+  repo: Repositorio<D, R>, infra: Infra, ctx: Contexto, token: string,
   selfieDataUrl: string,
   tracoDataUrl: string,
-  geo: { lat: number; lon: number; precisao: number } | null,
-  respostas?: unknown,
+  geo: Geo | null,
+  respostas?: R | null,
 ): Promise<Resposta> {
   const doc = await repo.buscar(token)
   if (!doc) return { ok: false, error: 'Documento não encontrado' }
@@ -208,7 +210,7 @@ export async function selarAssinatura<D extends DocumentoAssinavel>(
   // está na tela da selfie, com o código já validado. Sem esta checagem ele
   // selaria um documento já invalidado.
   if (doc.status === 'cancelado') return { ok: false, error: repo.mensagens.canceladoNoMeio }
-  if (infra.agora() > doc.expiraEm) return { ok: false, error: 'Link expirado' }
+  if (infra.agora() > doc.expiraEm) return { ok: false, error: repo.mensagens.linkExpiradoAoSelar }
 
   // O código precisa ter sido validado antes — selfie sozinha não sela.
   const codigo = await repo.ultimoCodigo(doc.id)
@@ -233,30 +235,25 @@ export async function selarAssinatura<D extends DocumentoAssinavel>(
   if (!up2.ok) return { ok: false, error: 'Falha ao gravar a assinatura. Tente novamente.' }
 
   const assinadoEm = infra.agora()
-  const selfieHash = sha256(selfie.buffer)
-  const assinaturaHash = sha256(traco.buffer)
   await repo.selar(doc, {
     html: final.html,
-    snapshotHash,
     respostas: respostas ?? null,
-    selfiePath, selfieHash,
-    assinaturaPath, assinaturaHash,
-    ip: ctx.ip, userAgent: ctx.userAgent,
+    selfiePath,
+    assinaturaPath,
     geo,
     assinadoEm,
-    evidenciasBase: {
+    evidencias: {
       documentoId: doc.id,
       snapshotHash,
-      selfieHash,
-      assinaturaHash,
+      selfieHash: sha256(selfie.buffer),
+      assinaturaHash: sha256(traco.buffer),
       ipAssinatura: ctx.ip,
       userAgent: ctx.userAgent,
       codigoVerificadoEm: codigo.usadoEm.toISOString(),
       assinadoEm: assinadoEm.toISOString(),
     },
   })
-  await repo.registrarEvento(doc.id, 'selfie_enviada', ctx)
-  await repo.registrarEvento(doc.id, 'assinado', ctx)
+  await repo.registrarEventos(doc.id, ctx, [{ tipo: 'selfie_enviada' }, { tipo: 'assinado' }])
 
   await repo.avisarAssinado(doc, token)
   return { ok: true }

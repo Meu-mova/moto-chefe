@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { solicitarCodigo, conferirCodigo, selarAssinatura, type Repositorio, type Infra, type DocumentoAssinavel, type CodigoGravado, type Selagem } from './fluxo'
-import { hashCodigo, MAX_CODIGOS } from './codigo'
+import { hashCodigo, MAX_CODIGOS, VALIDADE_MINUTOS } from './codigo'
 
 const ctx = { ip: '1.2.3.4', userAgent: 'teste' }
 const PNG = 'data:image/png;base64,iVBORw0KGgo='
@@ -19,11 +19,12 @@ function montar(opcoes: { status?: string; expiraEm?: Date; email?: string | nul
   const eventos: { tipo: string; detalhe?: unknown; em: Date }[] = []
   const emails: { para: string; texto: string }[] = []
   const uploads: string[] = []
-  const selagens: Selagem[] = []
+  const selagens: Selagem<null>[] = []
+  const lotes: string[][] = []
   let ultimoCodigoEmClaro = ''
 
-  const repo: Repositorio<DocumentoAssinavel> = {
-    mensagens: { linkExpirado: 'expirou', codigosEsgotados: 'esgotou', semEmail: 'sem e-mail', canceladoNoMeio: 'cancelado no meio' },
+  const repo: Repositorio<DocumentoAssinavel, null> = {
+    mensagens: { linkExpirado: 'expirou', linkExpiradoAoSelar: 'expirou ao selar', codigosEsgotados: 'esgotou', semEmail: 'sem e-mail', canceladoNoMeio: 'cancelado no meio' },
     async buscar(token) { return token === 'tok' ? doc : null },
     async historicoEnvios() {
       const ok = eventos.filter(e => e.tipo === 'codigo_enviado' && (e.detalhe as { envio: string }).envio === 'enviado')
@@ -35,7 +36,10 @@ function montar(opcoes: { status?: string; expiraEm?: Date; email?: string | nul
     },
     async registrarTentativa(id, tentativas) { codigos.find(c => c.id === id)!.tentativas = tentativas },
     async marcarCodigoUsado(id, usadoEm) { codigos.find(c => c.id === id)!.usadoEm = usadoEm },
-    async registrarEvento(_id, tipo, _ctx, detalhe) { eventos.push({ tipo, detalhe, em: agora }) },
+    async registrarEventos(_id, _ctx, novos) {
+      lotes.push(novos.map(e => e.tipo))
+      for (const e of novos) eventos.push({ tipo: e.tipo, detalhe: e.detalhe, em: agora })
+    },
     htmlFinal() { return { ok: true, html: '<p>contrato</p>' } },
     pastaArquivos() { return 'grupo/doc-1' },
     async selar(_d, s) { selagens.push(s); doc.status = 'assinado' },
@@ -52,7 +56,7 @@ function montar(opcoes: { status?: string; expiraEm?: Date; email?: string | nul
     agora: () => agora,
   }
   return {
-    repo, infra, doc, codigos, eventos, emails, uploads, selagens,
+    repo, infra, doc, codigos, eventos, emails, uploads, selagens, lotes,
     codigo: () => ultimoCodigoEmClaro,
     avancar: (segundos: number) => { agora = new Date(agora.getTime() + segundos * 1000) },
   }
@@ -129,9 +133,10 @@ test('selarAssinatura sela uma vez, sobe selfie e traço e avisa; duplo clique n
   assert.deepEqual(await selarAssinatura(t.repo, t.infra, ctx, 'tok', PNG, PNG, null), { ok: true })
   assert.equal(t.selagens.length, 1)
   assert.deepEqual(t.uploads, ['grupo/doc-1/selfie.jpg', 'grupo/doc-1/assinatura.png'])
-  assert.equal(t.selagens[0].evidenciasBase.documentoId, 'doc-1')
-  assert.equal(t.selagens[0].evidenciasBase.ipAssinatura, '1.2.3.4')
-  assert.ok(t.eventos.some(e => e.tipo === 'assinado'))
+  assert.equal(t.selagens[0].evidencias.documentoId, 'doc-1')
+  assert.equal(t.selagens[0].evidencias.ipAssinatura, '1.2.3.4')
+  // selfie_enviada e assinado saem juntos, num lote só.
+  assert.deepEqual(t.lotes.at(-1), ['selfie_enviada', 'assinado'])
   assert.equal(t.emails.at(-1)?.texto, 'assinado')
 })
 
@@ -143,4 +148,20 @@ test('selarAssinatura recusa imagem inválida e documento cancelado no meio', as
   t.doc.status = 'cancelado'
   assert.equal((await selarAssinatura(t.repo, t.infra, ctx, 'tok', PNG, PNG, null)).error, 'cancelado no meio')
   assert.equal(t.selagens.length, 0)
+})
+
+test('conferirCodigo recusa código vencido (passados os minutos de validade)', async () => {
+  const t = montar()
+  await solicitarCodigo(t.repo, t.infra, ctx, 'tok')
+  t.avancar(VALIDADE_MINUTOS * 60 + 1)
+  assert.deepEqual(await conferirCodigo(t.repo, t.infra, ctx, 'tok', t.codigo()), { ok: false, error: 'Código expirado. Peça um novo.' })
+  assert.equal(t.codigos[0].usadoEm, null)
+})
+
+test('selarAssinatura com link vencido usa a mensagem do repositório', async () => {
+  const t = montar()
+  await solicitarCodigo(t.repo, t.infra, ctx, 'tok')
+  await conferirCodigo(t.repo, t.infra, ctx, 'tok', t.codigo())
+  t.avancar(5 * 24 * 3600)
+  assert.equal((await selarAssinatura(t.repo, t.infra, ctx, 'tok', PNG, PNG, null)).error, 'expirou ao selar')
 })

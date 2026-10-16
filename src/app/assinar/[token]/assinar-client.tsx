@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Check, FileText, RefreshCw, ShieldCheck, X } from 'lucide-react'
-import type { RespostaCodigo } from '@/lib/assinatura/fluxo'
+import type { RespostaCodigo, Geo } from '@/lib/assinatura/fluxo'
 import {
   ITENS_CHECKLIST, LABEL_RESPOSTA, checklistCompleto,
   type RespostaItem, type RespostasChecklist,
@@ -20,7 +20,7 @@ export type AcoesAssinatura = {
   conferir: (token: string, digitado: string) => Promise<{ ok: boolean; error?: string }>
   selar: (
     token: string, selfieDataUrl: string, tracoDataUrl: string,
-    geo: { lat: number; lon: number; precisao: number } | null,
+    geo: Geo | null,
     respostas?: RespostasChecklist | null,
   ) => Promise<{ ok: boolean; error?: string }>
 }
@@ -494,7 +494,7 @@ function Traco({
   }
 
   // Geolocalização é bônus: se o cliente negar ou demorar, a assinatura segue.
-  function pegarGeo(): Promise<{ lat: number; lon: number; precisao: number } | null> {
+  function pegarGeo(): Promise<Geo | null> {
     return new Promise(resolve => {
       if (!navigator.geolocation) return resolve(null)
       const timer = setTimeout(() => resolve(null), 5000)

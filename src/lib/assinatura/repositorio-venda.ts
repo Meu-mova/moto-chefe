@@ -1,8 +1,7 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { and, count, desc, eq, max, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaCodigos, assinaturaEventos, vendas } from '@/lib/db/schema'
-import { emailCodigo, msgAssinado } from '@/lib/assinatura/mensagens'
+import { msgAssinado } from '@/lib/assinatura/mensagens'
 import {
   LABEL_TIPO, montarHtmlDocumento, checklistCompleto,
   type TipoDocumento, type DadosDocumento, type RespostasChecklist,
@@ -11,7 +10,8 @@ import { docHash, type Evidencias } from '@/lib/assinatura/hash'
 import { MAX_CODIGOS } from '@/lib/assinatura/codigo'
 import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
-import type { Repositorio, Infra, DocumentoAssinavel } from '@/lib/assinatura/fluxo'
+import { criarInfra } from '@/lib/assinatura/infra'
+import type { Repositorio, DocumentoAssinavel } from '@/lib/assinatura/fluxo'
 
 // Documentos de venda (contrato, checklist, certificado): tabelas
 // documentos_assinatura / assinatura_codigos / assinatura_eventos.
@@ -19,9 +19,10 @@ import type { Repositorio, Infra, DocumentoAssinavel } from '@/lib/assinatura/fl
 type LinhaDoc = typeof documentosAssinatura.$inferSelect
 export type DocVenda = DocumentoAssinavel & { linha: LinhaDoc }
 
-export const repositorioVenda: Repositorio<DocVenda> = {
+export const repositorioVenda: Repositorio<DocVenda, RespostasChecklist> = {
   mensagens: {
     linkExpirado: 'Link expirado. Peça um novo à loja.',
+    linkExpiradoAoSelar: 'Link expirado',
     codigosEsgotados: `Este documento já enviou ${MAX_CODIGOS} códigos e nenhum funcionou. Fale com a loja para receber um link novo.`,
     semEmail: 'Não há e-mail cadastrado para este cliente. A loja precisa completar o e-mail no cadastro da venda.',
     canceladoNoMeio: 'Documento cancelado pela loja',
@@ -77,10 +78,11 @@ export const repositorioVenda: Repositorio<DocVenda> = {
     await db.update(assinaturaCodigos).set({ usadoEm }).where(eq(assinaturaCodigos.id, codigoId))
   },
 
-  async registrarEvento(documentoId, tipo, ctx, detalhe) {
-    await db.insert(assinaturaEventos).values({
-      documentoId, tipo, ip: ctx.ip, userAgent: ctx.userAgent, ...(detalhe === undefined ? {} : { detalhe }),
-    })
+  async registrarEventos(documentoId, ctx, eventos) {
+    await db.insert(assinaturaEventos).values(eventos.map(e => ({
+      documentoId, tipo: e.tipo, ip: ctx.ip, userAgent: ctx.userAgent,
+      ...(e.detalhe === undefined ? {} : { detalhe: e.detalhe }),
+    })))
   },
 
   // Checklist: o documento definitivo é remontado AQUI, com as marcações do
@@ -88,15 +90,14 @@ export const repositorioVenda: Repositorio<DocVenda> = {
   // o HTML congelado no envio é só o formulário em branco.
   htmlFinal(doc, respostas) {
     if (doc.linha.tipo !== 'checklist_entrega') return { ok: true, html: doc.linha.htmlSnapshot }
-    const r = respostas as RespostasChecklist | null
-    if (!checklistCompleto(r)) {
+    if (!checklistCompleto(respostas)) {
       return { ok: false, error: 'Marque OK, NÃO ou NA em todos os itens antes de assinar' }
     }
     const dados = doc.linha.dadosJson as DadosDocumento | null
     if (!dados) {
       return { ok: false, error: 'Este checklist é anterior à conferência por item. Peça um novo à loja.' }
     }
-    return { ok: true, html: montarHtmlDocumento('checklist_entrega', dados, r) }
+    return { ok: true, html: montarHtmlDocumento('checklist_entrega', dados, respostas) }
   },
 
   pastaArquivos(doc) {
@@ -104,29 +105,30 @@ export const repositorioVenda: Repositorio<DocVenda> = {
   },
 
   async selar(doc, s) {
+    const e = s.evidencias
     const evidencias: Evidencias = {
-      documentoId: s.evidenciasBase.documentoId,
+      documentoId: e.documentoId,
       vendaId: doc.linha.vendaId,
       tipo: doc.linha.tipo,
-      snapshotHash: s.evidenciasBase.snapshotHash,
-      selfieHash: s.evidenciasBase.selfieHash,
-      assinaturaHash: s.evidenciasBase.assinaturaHash,
+      snapshotHash: e.snapshotHash,
+      selfieHash: e.selfieHash,
+      assinaturaHash: e.assinaturaHash,
       celularDestino: doc.linha.celularDestino,
-      ipAssinatura: s.evidenciasBase.ipAssinatura,
-      userAgent: s.evidenciasBase.userAgent,
-      codigoVerificadoEm: s.evidenciasBase.codigoVerificadoEm,
-      assinadoEm: s.evidenciasBase.assinadoEm,
+      ipAssinatura: e.ipAssinatura,
+      userAgent: e.userAgent,
+      codigoVerificadoEm: e.codigoVerificadoEm,
+      assinadoEm: e.assinadoEm,
     }
     await db.update(documentosAssinatura).set({
       status: 'assinado',
       assinadoEm: s.assinadoEm,
       // Para o checklist, html/hash mudam aqui: passam a ser a versão preenchida.
       htmlSnapshot: s.html,
-      snapshotHash: s.snapshotHash,
-      respostasJson: (s.respostas as RespostasChecklist | null) ?? null,
-      selfiePath: s.selfiePath, selfieHash: s.selfieHash,
-      assinaturaPath: s.assinaturaPath, assinaturaHash: s.assinaturaHash,
-      ipAssinatura: s.ip, userAgent: s.userAgent,
+      snapshotHash: e.snapshotHash,
+      respostasJson: s.respostas,
+      selfiePath: s.selfiePath, selfieHash: e.selfieHash,
+      assinaturaPath: s.assinaturaPath, assinaturaHash: e.assinaturaHash,
+      ipAssinatura: e.ipAssinatura, userAgent: e.userAgent,
       geoLat: s.geo ? String(s.geo.lat) : null,
       geoLon: s.geo ? String(s.geo.lon) : null,
       geoPrecisao: s.geo ? String(s.geo.precisao) : null,
@@ -146,13 +148,4 @@ export const repositorioVenda: Repositorio<DocVenda> = {
   },
 }
 
-export const infraPadrao: Infra = {
-  enviarEmail,
-  emailCodigo,
-  async upload(caminho, conteudo, contentType) {
-    const admin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-    const r = await admin.storage.from('assinaturas').upload(caminho, conteudo, { contentType, upsert: true })
-    return { ok: !r.error }
-  },
-  agora: () => new Date(),
-}
+export const infraVenda = criarInfra('assinaturas')
