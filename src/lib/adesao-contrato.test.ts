@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lerDadosContrato, statusDaAdesao, mensagemRecusa } from './adesao-contrato'
+import { lerDadosContrato, statusDaAdesao } from './adesao-contrato'
+import { mensagemRecusa } from './adesao-recusa'
 import { camposFaltando } from './adesao-campos'
 
 const completo = {
@@ -9,8 +10,8 @@ const completo = {
   enderecoSede: 'Rua A, 100, Centro, Lavras/MG',
   email: 'contato@ecomoto.com.br',
   responsavelCpf: '529.982.247-25',
-  valorMensal: '490,00',
-  diaVencimento: '10',
+  taxaImplantacao: '999,00',
+  valorMensal: '499,00',
 }
 
 test('lerDadosContrato aceita dados completos e grava documentos só com dígitos', () => {
@@ -19,8 +20,9 @@ test('lerDadosContrato aceita dados completos e grava documentos só com dígito
   if (!r.ok) return
   assert.equal(r.dados.cnpj, '11222333000181')
   assert.equal(r.dados.responsavelCpf, '52998224725')
-  assert.equal(r.dados.valorMensal, '490.00')
-  assert.equal(r.dados.diaVencimento, 10)
+  assert.equal(r.dados.valorMensal, '499.00')
+  assert.equal(r.dados.taxaImplantacao, '999.00')
+  assert.equal(r.dados.franqueadoMotochefe, false)
 })
 
 test('lerDadosContrato aceita salvar parcial: campo vazio vira null', () => {
@@ -29,7 +31,7 @@ test('lerDadosContrato aceita salvar parcial: campo vazio vira null', () => {
   if (!r.ok) return
   assert.equal(r.dados.razaoSocial, 'VOLT MOTOS LTDA')
   assert.equal(r.dados.cnpj, null)
-  assert.equal(r.dados.diaVencimento, null)
+  assert.equal(r.dados.taxaImplantacao, null)
 })
 
 test('lerDadosContrato recusa CNPJ e CPF com dígito verificador errado', () => {
@@ -40,8 +42,8 @@ test('lerDadosContrato recusa CNPJ e CPF com dígito verificador errado', () => 
   assert.ok(r.erros.responsavelCpf)
 })
 
-test('lerDadosContrato recusa e-mail inválido, valor zero e dia fora de 1 a 28', () => {
-  for (const [campo, valor] of [['email', 'sem-arroba'], ['valorMensal', '0'], ['diaVencimento', '29'], ['diaVencimento', '0']] as const) {
+test('lerDadosContrato recusa e-mail inválido e valores zerados', () => {
+  for (const [campo, valor] of [['email', 'sem-arroba'], ['valorMensal', '0'], ['taxaImplantacao', '0']] as const) {
     const r = lerDadosContrato({ ...completo, [campo]: valor })
     assert.equal(r.ok, false, `${campo}=${valor}`)
     if (!r.ok) assert.ok(r.erros[campo], campo)
@@ -51,6 +53,11 @@ test('lerDadosContrato recusa e-mail inválido, valor zero e dia fora de 1 a 28'
 test('camposFaltando lista os rótulos do que falta para o contrato', () => {
   assert.deepEqual(camposFaltando({ razaoSocial: 'X' }).length, 6)
   assert.deepEqual(camposFaltando(lerOk(completo)), [])
+})
+
+test('lerDadosContrato guarda a marcação de franqueado', () => {
+  const r = lerDadosContrato({ ...completo, franqueadoMotochefe: true })
+  assert.equal(r.ok && r.dados.franqueadoMotochefe, true)
 })
 
 test('statusDaAdesao: completo vira dados_completos, incompleto volta a pendente', () => {

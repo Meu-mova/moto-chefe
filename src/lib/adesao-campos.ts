@@ -18,7 +18,6 @@ type MetaCampo = {
   /** Ocupa a linha inteira no formulário. */
   largo?: true
   inputMode?: 'numeric' | 'decimal' | 'email'
-  placeholder?: string
 }
 
 export const CAMPOS_CONTRATO = [
@@ -27,8 +26,8 @@ export const CAMPOS_CONTRATO = [
   { chave: 'enderecoSede', rotulo: 'Endereço da sede', largo: true },
   { chave: 'email', rotulo: 'E-mail', inputMode: 'email' },
   { chave: 'responsavelCpf', rotulo: 'CPF do responsável', inputMode: 'numeric' },
+  { chave: 'taxaImplantacao', rotulo: 'Implantação (R$)', inputMode: 'decimal' },
   { chave: 'valorMensal', rotulo: 'Mensalidade (R$)', inputMode: 'decimal' },
-  { chave: 'diaVencimento', rotulo: 'Dia de vencimento', inputMode: 'numeric', placeholder: '1 a 28' },
 ] as const satisfies readonly MetaCampo[]
 
 export type CampoContrato = typeof CAMPOS_CONTRATO[number]['chave']
