@@ -4,6 +4,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaEventos, assinaturaCodigos } from '@/lib/db/schema'
 import { AssinarClient } from './assinar-client'
+import { solicitarCodigoAction, conferirCodigoAction, selarAssinaturaAction } from './actions'
 
 export default async function AssinarPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -47,6 +48,7 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
 
   return (
     <AssinarClient
+      acoes={{ solicitar: solicitarCodigoAction, conferir: conferirCodigoAction, selar: selarAssinaturaAction }}
       passoInicial={passoInicial}
       token={token}
       html={doc.htmlSnapshot}
