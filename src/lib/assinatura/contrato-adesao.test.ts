@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { montarContratoAdesao, dadosContratoCompletos, TERMOS, TERMOS_CONFIRMADOS, type DadosContratoAdesao } from './contrato-adesao'
+import { montarContratoAdesao, dadosContratoCompletos, motivoBloqueioEnvio, TERMOS, TERMOS_CONFIRMADOS, type DadosContratoAdesao } from './contrato-adesao'
 
 const DADOS: DadosContratoAdesao = {
   razaoSocial: 'ECOMOTO LAVRAS COMERCIO LTDA',
@@ -56,4 +56,24 @@ test('com os termos confirmados, nenhum valor pendente sobra no contrato', () =>
   const pendentes = Object.entries(TERMOS).filter(([, v]) => String(v).includes('[a confirmar'))
   if (TERMOS_CONFIRMADOS) assert.deepEqual(pendentes, [])
   else assert.ok(pendentes.length > 0, 'com valores pendentes, TERMOS_CONFIRMADOS tem de ficar false')
+})
+
+const ENVIO = { statusAdesao: 'dados_completos' as const, dados: DADOS, jaAssinado: false, producao: true, termosConfirmados: true }
+
+test('envio liberado com dados completos e termos confirmados', () => {
+  assert.equal(motivoBloqueioEnvio(ENVIO), null)
+})
+
+test('envio recusado sem dados completos', () => {
+  assert.match(motivoBloqueioEnvio({ ...ENVIO, statusAdesao: 'pendente' })!, /dados do contrato/)
+  assert.match(motivoBloqueioEnvio({ ...ENVIO, dados: { ...DADOS, email: null } })!, /dados do contrato/)
+})
+
+test('envio recusado quando a adesão já tem contrato assinado', () => {
+  assert.match(motivoBloqueioEnvio({ ...ENVIO, jaAssinado: true })!, /já tem contrato assinado/)
+})
+
+test('termos não confirmados travam o envio só na produção', () => {
+  assert.match(motivoBloqueioEnvio({ ...ENVIO, termosConfirmados: false })!, /travado na produção/)
+  assert.equal(motivoBloqueioEnvio({ ...ENVIO, termosConfirmados: false, producao: false }), null)
 })

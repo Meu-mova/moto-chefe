@@ -2,6 +2,7 @@ import { CONTRATADA } from '@/lib/mova-empresa'
 import { formatarCpfCnpj } from '@/lib/documento'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { esc, envolverDocumento } from '@/lib/assinatura/documento'
+import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
@@ -143,4 +144,29 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>${esc(c.cidadeFecho)}, na data do aceite eletrônico.</p>
     <p><i>Seguem, gerados pelo sistema, os registros do aceite eletrônico do CLIENTE: data e hora, endereço IP, confirmação do código e código de verificação do documento.</i></p>`
   return envolverDocumento(corpo)
+}
+
+export const DIAS_VALIDADE_CONTRATO = 7
+
+/** Por que o contrato não pode ser enviado agora; null quando pode. */
+export function motivoBloqueioEnvio(p: {
+  statusAdesao: StatusAdesao
+  dados: DadosContratoAdesao
+  jaAssinado: boolean
+  producao: boolean
+  termosConfirmados: boolean
+}): string | null {
+  if (p.statusAdesao !== 'dados_completos' || !dadosContratoCompletos(p.dados)) {
+    return 'Complete e salve os dados do contrato antes de enviar'
+  }
+  if (p.jaAssinado) return 'Esta adesão já tem contrato assinado'
+  if (p.producao && !p.termosConfirmados) {
+    return 'Envio travado na produção até os termos do contrato serem confirmados'
+  }
+  return null
+}
+
+/** Só a trava da produção, para a tela avisar antes do clique. */
+export function envioTravadoNaProducao(): boolean {
+  return process.env.VERCEL_ENV === 'production' && !TERMOS_CONFIRMADOS
 }

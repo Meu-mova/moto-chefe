@@ -13,11 +13,11 @@ import { formatarNumeroBR } from '@/lib/numero-br'
 import { precoSugerido } from '@/lib/mova-empresa'
 import { mensagemRecusa } from '@/lib/adesao-recusa'
 import {
-  CAMPOS_CONTRATO, ROTULO_STATUS_ADESAO, camposFaltando,
-  type CampoContrato, type StatusAdesao,
+  CAMPOS_CONTRATO, ROTULO_STATUS_ADESAO, ROTULO_SITUACAO_CONTRATO, camposFaltando, situacaoContrato,
+  type CampoContrato, type StatusAdesao, type SituacaoContrato,
 } from '@/lib/adesao-campos'
 import {
-  salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, type AdesaoLinha,
+  salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, enviarContratoAction, type AdesaoLinha,
 } from '../actions'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
@@ -27,8 +27,18 @@ const CLASSE_STATUS: Record<StatusAdesao, string> = {
   processada: 'border-border text-muted-foreground',
 }
 
-function StatusBadge({ status }: { status: StatusAdesao }) {
-  return <Badge variant="outline" className={CLASSE_STATUS[status]}>{ROTULO_STATUS_ADESAO[status]}</Badge>
+const CLASSE_SITUACAO: Record<SituacaoContrato, string> = {
+  enviado: 'border-primary text-primary-text',
+  visualizado: 'border-primary text-primary-text',
+  assinado: 'border-primary bg-primary-soft text-primary-text',
+  expirado: 'border-warning text-warning',
+}
+
+/** Com contrato enviado, a situação dele diz mais que "Dados completos". */
+function StatusBadge({ adesao: a }: { adesao: AdesaoLinha }) {
+  const situacao = a.status === 'dados_completos' ? situacaoContrato(a.contrato, new Date()) : null
+  if (situacao) return <Badge variant="outline" className={CLASSE_SITUACAO[situacao]}>{ROTULO_SITUACAO_CONTRATO[situacao]}</Badge>
+  return <Badge variant="outline" className={CLASSE_STATUS[a.status]}>{ROTULO_STATUS_ADESAO[a.status]}</Badge>
 }
 
 const data = (d: Date | string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -39,7 +49,7 @@ function resumoContrato(a: AdesaoLinha): string {
   return faltam ? `faltam ${faltam}` : 'completo'
 }
 
-export function AdesoesPainel({ adesoes }: { adesoes: AdesaoLinha[] }) {
+export function AdesoesPainel({ adesoes, envioTravado }: { adesoes: AdesaoLinha[]; envioTravado: boolean }) {
   const [selId, setSelId] = useState<string | null>(null)
   const sel = adesoes.find(a => a.id === selId) ?? null
 
@@ -57,7 +67,7 @@ export function AdesoesPainel({ adesoes }: { adesoes: AdesaoLinha[] }) {
             : <Lista adesoes={adesoes} selId={selId} onAbrir={setSelId} />}
         </div>
         {/* key: trocar de adesão remonta o painel e zera o formulário. */}
-        {sel && <Detalhe key={sel.id} adesao={sel} onFechar={() => setSelId(null)} />}
+        {sel && <Detalhe key={sel.id} adesao={sel} envioTravado={envioTravado} onFechar={() => setSelId(null)} />}
       </div>
     </div>
   )
@@ -76,7 +86,7 @@ function Lista({ adesoes, selId, onAbrir }: { adesoes: AdesaoLinha[]; selId: str
           >
             <div className="flex justify-between gap-2">
               <span className="font-medium text-sm">{a.loja}</span>
-              <StatusBadge status={a.status} />
+              <StatusBadge adesao={a} />
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               {a.responsavel} · {data(a.criadoEm)} · {resumoContrato(a)}
@@ -106,7 +116,7 @@ function Lista({ adesoes, selId, onAbrir }: { adesoes: AdesaoLinha[]; selId: str
                 <TableCell>{a.responsavel}</TableCell>
                 <TableCell>{data(a.criadoEm)}</TableCell>
                 <TableCell className="text-muted-foreground">{resumoContrato(a)}</TableCell>
-                <TableCell><StatusBadge status={a.status} /></TableCell>
+                <TableCell><StatusBadge adesao={a} /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -134,7 +144,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () => void }) {
+function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
@@ -144,6 +154,10 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
   // Recusada ou processada não se edita mais por esta tela.
   const travada = a.status === 'recusada' || a.status === 'processada'
   const faltam = camposFaltando(valores)
+  const situacao = situacaoContrato(a.contrato, new Date())
+  // O contrato sai do que está gravado: com edição não salva, o lojista
+  // receberia valores diferentes dos que estão na tela.
+  const alterado = JSON.stringify(valores) !== JSON.stringify(valoresIniciais(a)) || franqueado !== a.franqueadoMotochefe
 
   function salvar() {
     iniciar(async () => {
@@ -167,6 +181,21 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
     })
   }
 
+  function enviarContrato() {
+    if (situacao === 'enviado' || situacao === 'visualizado') {
+      if (!window.confirm('Já existe um contrato enviado. Reenviar cancela o link anterior. Continuar?')) return
+    }
+    iniciar(async () => {
+      const r = await enviarContratoAction(a.id)
+      if (r.ok) { toast.success(`Contrato enviado para ${a.email}`); return }
+      if (r.url) {
+        toast.error(r.erro, { action: { label: 'Copiar link', onClick: () => { void navigator.clipboard.writeText(r.url!) } } })
+        return
+      }
+      toast.error(r.erro)
+    })
+  }
+
   function abrirCartao() {
     iniciar(async () => {
       const r = await linkCartaoCnpjAction(a.id)
@@ -183,7 +212,7 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h2 className="font-semibold">{a.loja}</h2>
-          <StatusBadge status={a.status} />
+          <StatusBadge adesao={a} />
         </div>
         <button type="button" onClick={onFechar} className="hidden lg:block text-muted-foreground" aria-label="Fechar">
           <X className="h-5 w-5" />
@@ -275,9 +304,25 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
           <Button variant="outline" className="border-destructive text-destructive" onClick={() => setRecusando(true)} disabled={pendente}>
             Recusar…
           </Button>
+          {a.status === 'dados_completos' && situacao !== 'assinado' && (
+            <Button variant="outline" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
+              {situacao ? 'Reenviar contrato' : 'Enviar contrato'}
+            </Button>
+          )}
           <span className="text-xs text-muted-foreground">
-            {faltam.length ? `Faltam ${faltam.length} campo(s) para o contrato` : 'Pronto para o contrato'}
+            {envioTravado && a.status === 'dados_completos'
+              ? 'Envio travado até os termos do contrato serem confirmados'
+              : alterado && a.status === 'dados_completos'
+              ? 'Salve os dados antes de enviar o contrato'
+              : faltam.length ? `Faltam ${faltam.length} campo(s) para o contrato` : 'Pronto para o contrato'}
           </span>
+          {a.contrato && situacao && (
+            <p className="w-full text-xs text-muted-foreground">
+              {situacao === 'assinado' && a.contrato.assinadoEm
+                ? `Assinado em ${data(a.contrato.assinadoEm)}`
+                : `Enviado em ${data(a.contrato.criadoEm)} para ${a.email}`}
+            </p>
+          )}
         </div>
       )}
     </section>

@@ -37,3 +37,26 @@ export function camposFaltando(dados: Partial<Record<CampoContrato, unknown>>): 
     .filter(c => dados[c.chave] === null || dados[c.chave] === undefined || dados[c.chave] === '')
     .map(c => c.rotulo)
 }
+
+/**
+ * Situação do contrato mais recente da adesão, calculada na hora: `adesoes_mova.status`
+ * não muda com o envio. Expirado não depende de job: vem do `expira_em`.
+ */
+export type SituacaoContrato = 'enviado' | 'visualizado' | 'assinado' | 'expirado'
+
+export const ROTULO_SITUACAO_CONTRATO: Record<SituacaoContrato, string> = {
+  enviado: 'Contrato enviado',
+  visualizado: 'Visualizado',
+  assinado: 'Assinado',
+  expirado: 'Link expirado',
+}
+
+export function situacaoContrato(
+  c: { status: string; expiraEm: Date | string } | null,
+  agora: Date,
+): SituacaoContrato | null {
+  if (!c || c.status === 'cancelado') return null
+  if (c.status === 'assinado') return 'assinado'
+  if (c.status === 'expirado' || new Date(c.expiraEm) < agora) return 'expirado'
+  return c.status === 'visualizado' ? 'visualizado' : 'enviado'
+}

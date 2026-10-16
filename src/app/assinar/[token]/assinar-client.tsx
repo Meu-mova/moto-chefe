@@ -7,6 +7,7 @@ import {
   ITENS_CHECKLIST, LABEL_RESPOSTA, checklistCompleto,
   type RespostaItem, type RespostasChecklist,
 } from '@/lib/assinatura/documento'
+import type { TextosEmissor } from '@/lib/assinatura/textos-emissor'
 import { ViaAssinada } from './via-assinada'
 
 type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
@@ -27,6 +28,7 @@ export type AcoesAssinatura = {
 
 type Props = {
   acoes: AcoesAssinatura
+  textos: TextosEmissor
   token: string
   html: string
   tipo: string
@@ -44,7 +46,7 @@ type Props = {
 const AVISO_LGPD =
   'Vamos pedir uma foto sua para comprovar quem está assinando. A imagem fica guardada ' +
   'em ambiente restrito, é usada apenas como prova da assinatura deste documento e não ' +
-  'é publicada em lugar nenhum. Você pode desistir e assinar presencialmente na loja.'
+  'é publicada em lugar nenhum.'
 
 export function AssinarClient(props: Props) {
   const router = useRouter()
@@ -64,12 +66,13 @@ export function AssinarClient(props: Props) {
         docHash={props.docHash}
         assinadoEm={props.assinadoEm}
         ipAssinatura={props.ipAssinatura}
+        conferencia={props.textos.conferencia}
       />
     )
   }
 
-  if (props.cancelado) return <Aviso titulo="Documento cancelado" texto="Este documento foi cancelado pela loja. Fale com a loja para receber um novo link." />
-  if (props.expirado) return <Aviso titulo="Link expirado" texto="Este link de assinatura expirou. Peça um novo à loja." />
+  if (props.cancelado) return <Aviso titulo="Documento cancelado" texto={props.textos.cancelado} />
+  if (props.expirado) return <Aviso titulo="Link expirado" texto={props.textos.expirado} />
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-4">
@@ -84,8 +87,8 @@ export function AssinarClient(props: Props) {
             />
           : <Leitura html={props.html} onOk={() => setPasso('codigo')} />
       )}
-      {passo === 'codigo' && <Codigo acoes={props.acoes} token={props.token} onOk={() => setPasso('selfie')} />}
-      {passo === 'selfie' && <Selfie onOk={() => setPasso('traco')} onFoto={f => (fotoRef.current = f)} />}
+      {passo === 'codigo' && <Codigo acoes={props.acoes} token={props.token} esgotados={props.textos.codigosEsgotados} onOk={() => setPasso('selfie')} />}
+      {passo === 'selfie' && <Selfie alternativa={props.textos.alternativa} onOk={() => setPasso('traco')} onFoto={f => (fotoRef.current = f)} />}
       {passo === 'traco' && (
         <Traco
           acoes={props.acoes}
@@ -261,7 +264,7 @@ function PreencherChecklist({
   )
 }
 
-function Codigo({ acoes, token, onOk }: { acoes: AcoesAssinatura; token: string; onOk: () => void }) {
+function Codigo({ acoes, token, esgotados, onOk }: { acoes: AcoesAssinatura; token: string; esgotados: string; onOk: () => void }) {
   const [codigo, setCodigo] = useState('')
   const [erro, setErro] = useState('')
   const [enviado, setEnviado] = useState(false)
@@ -355,10 +358,10 @@ function Codigo({ acoes, token, onOk }: { acoes: AcoesAssinatura; token: string;
         {pending ? 'Verificando…' : 'Confirmar'}
       </button>
       {restantes === 0 ? (
-        // Sem reenvio sobrando. A saída é pela loja: reenviar o documento
+        // Sem reenvio sobrando. A saída é por quem emitiu: reenviar o documento
         // cancela este e cria outro, com link e cota novos.
         <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-          Você já pediu o código o máximo de vezes. Fale com a loja para receber um link novo.
+          {esgotados}
         </p>
       ) : (
         <button
@@ -374,7 +377,7 @@ function Codigo({ acoes, token, onOk }: { acoes: AcoesAssinatura; token: string;
   )
 }
 
-function Selfie({ onOk, onFoto }: { onOk: () => void; onFoto: (f: string) => void }) {
+function Selfie({ alternativa, onOk, onFoto }: { alternativa: string; onOk: () => void; onFoto: (f: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [erro, setErro] = useState('')
@@ -414,7 +417,7 @@ function Selfie({ onOk, onFoto }: { onOk: () => void; onFoto: (f: string) => voi
     <div className="rounded-lg border bg-white p-5">
       <Camera size={22} className="text-slate-500 mb-2" />
       <h1 className="text-base font-semibold text-slate-800">Foto do signatário</h1>
-      <p className="text-xs text-slate-500 mt-2 mb-4 leading-relaxed">{AVISO_LGPD}</p>
+      <p className="text-xs text-muted-foreground mt-2 mb-4 leading-relaxed">{AVISO_LGPD} {alternativa}</p>
 
       {!stream && (
         <button onClick={abrirCamera} className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white">
