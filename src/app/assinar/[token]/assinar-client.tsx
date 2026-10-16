@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Check, FileText, RefreshCw, ShieldCheck, X } from 'lucide-react'
-import { solicitarCodigoAction, conferirCodigoAction, selarAssinaturaAction } from './actions'
+import type { RespostaCodigo } from '@/lib/assinatura/fluxo'
 import {
   ITENS_CHECKLIST, LABEL_RESPOSTA, checklistCompleto,
   type RespostaItem, type RespostasChecklist,
@@ -11,7 +11,22 @@ import { ViaAssinada } from './via-assinada'
 
 type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
 
+/**
+ * Server Actions do fluxo, recebidas por propriedade: a mesma tela serve aos
+ * documentos de venda e ao contrato de adesão (#165), cada um com as suas.
+ */
+export type AcoesAssinatura = {
+  solicitar: (token: string, forcarNovo?: boolean) => Promise<RespostaCodigo>
+  conferir: (token: string, digitado: string) => Promise<{ ok: boolean; error?: string }>
+  selar: (
+    token: string, selfieDataUrl: string, tracoDataUrl: string,
+    geo: { lat: number; lon: number; precisao: number } | null,
+    respostas?: RespostasChecklist | null,
+  ) => Promise<{ ok: boolean; error?: string }>
+}
+
 type Props = {
+  acoes: AcoesAssinatura
   token: string
   html: string
   tipo: string
@@ -69,10 +84,11 @@ export function AssinarClient(props: Props) {
             />
           : <Leitura html={props.html} onOk={() => setPasso('codigo')} />
       )}
-      {passo === 'codigo' && <Codigo token={props.token} onOk={() => setPasso('selfie')} />}
+      {passo === 'codigo' && <Codigo acoes={props.acoes} token={props.token} onOk={() => setPasso('selfie')} />}
       {passo === 'selfie' && <Selfie onOk={() => setPasso('traco')} onFoto={f => (fotoRef.current = f)} />}
       {passo === 'traco' && (
         <Traco
+          acoes={props.acoes}
           token={props.token}
           getFoto={() => fotoRef.current}
           respostas={props.tipo === 'checklist_entrega' ? respostas : null}
@@ -245,7 +261,7 @@ function PreencherChecklist({
   )
 }
 
-function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
+function Codigo({ acoes, token, onOk }: { acoes: AcoesAssinatura; token: string; onOk: () => void }) {
   const [codigo, setCodigo] = useState('')
   const [erro, setErro] = useState('')
   const [enviado, setEnviado] = useState(false)
@@ -275,7 +291,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
     if (pediu.current) return
     pediu.current = true
     startTransition(async () => {
-      const r = await solicitarCodigoAction(token)
+      const r = await acoes.solicitar(token)
       aplicarCota(r)
       if (r.ok) setEnviado(true)
       else setErro(r.error ?? 'Falha ao enviar o código')
@@ -287,7 +303,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
   function reenviar() {
     setErro('')
     startTransition(async () => {
-      const r = await solicitarCodigoAction(token, true)
+      const r = await acoes.solicitar(token, true)
       aplicarCota(r)
       if (r.ok) { setEnviado(true); setCodigo('') }
       else setErro(r.error ?? 'Falha ao enviar o código')
@@ -298,7 +314,7 @@ function Codigo({ token, onOk }: { token: string; onOk: () => void }) {
     if (codigo.trim().length !== 6) { setErro('Digite os 6 dígitos'); return }
     setErro('')
     startTransition(async () => {
-      const r = await conferirCodigoAction(token, codigo)
+      const r = await acoes.conferir(token, codigo)
       if (r.ok) onOk()
       else setErro(r.error ?? 'Código inválido')
     })
@@ -426,8 +442,9 @@ function Selfie({ onOk, onFoto }: { onOk: () => void; onFoto: (f: string) => voi
 }
 
 function Traco({
-  token, getFoto, respostas, onAssinado, onVoltarSelfie, onVoltarChecklist,
+  acoes, token, getFoto, respostas, onAssinado, onVoltarSelfie, onVoltarChecklist,
 }: {
+  acoes: AcoesAssinatura
   token: string
   getFoto: () => string | null
   respostas: RespostasChecklist | null
@@ -497,7 +514,7 @@ function Traco({
     setErro('')
     startTransition(async () => {
       const geo = await pegarGeo()
-      const r = await selarAssinaturaAction(token, foto, traco, geo, respostas)
+      const r = await acoes.selar(token, foto, traco, geo, respostas)
       if (r.ok) { onAssinado(); return }
       setErro(r.error ?? 'Não foi possível assinar')
       // Item do checklist em branco: manda de volta para a conferência, senão
