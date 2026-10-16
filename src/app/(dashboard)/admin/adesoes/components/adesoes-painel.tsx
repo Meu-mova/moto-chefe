@@ -116,6 +116,11 @@ function Lista({ adesoes, selId, onAbrir }: { adesoes: AdesaoLinha[]; selId: str
   )
 }
 
+function precoFormatado(franqueado: boolean) {
+  const p = precoSugerido(franqueado)
+  return { taxaImplantacao: formatarNumeroBR(p.implantacao), valorMensal: formatarNumeroBR(p.mensalidade) }
+}
+
 function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   return {
     razaoSocial: a.razaoSocial ?? '',
@@ -124,8 +129,8 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
     email: a.email ?? '',
     responsavelCpf: formatarCpfCnpj(a.responsavelCpf),
     // Adesão sem valor gravado já abre com o preço da tabela, editável.
-    taxaImplantacao: formatarNumeroBR(a.taxaImplantacao ?? precoSugerido(a.franqueadoMotochefe).implantacao),
-    valorMensal: formatarNumeroBR(a.valorMensal ?? precoSugerido(a.franqueadoMotochefe).mensalidade),
+    taxaImplantacao: a.taxaImplantacao ? formatarNumeroBR(a.taxaImplantacao) : precoFormatado(a.franqueadoMotochefe).taxaImplantacao,
+    valorMensal: a.valorMensal ? formatarNumeroBR(a.valorMensal) : precoFormatado(a.franqueadoMotochefe).valorMensal,
   }
 }
 
@@ -212,10 +217,16 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
             disabled={travada || pendente}
             onChange={e => {
               const marcado = e.target.checked
-              const p = precoSugerido(marcado)
+              const antes = precoFormatado(!marcado)
+              const depois = precoFormatado(marcado)
               setFranqueado(marcado)
-              // Trocar a marcação aplica o preço da tabela; depois disso o valor continua editável.
-              setValores(prev => ({ ...prev, taxaImplantacao: formatarNumeroBR(p.implantacao), valorMensal: formatarNumeroBR(p.mensalidade) }))
+              // Só troca o valor que ainda é o da tabela anterior: um valor negociado
+              // à mão não some calado ao mexer na marcação.
+              setValores(prev => ({
+                ...prev,
+                taxaImplantacao: prev.taxaImplantacao === antes.taxaImplantacao ? depois.taxaImplantacao : prev.taxaImplantacao,
+                valorMensal: prev.valorMensal === antes.valorMensal ? depois.valorMensal : prev.valorMensal,
+              }))
             }}
           />
           Franqueado MotoChefe (desconto na implantação e na mensalidade)
@@ -246,6 +257,7 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
       ) : a.status === 'recusada' ? (
         <p className="text-sm text-destructive">
           Recusada em {a.recusadaEm ? data(a.recusadaEm) : '—'}: {a.motivoRecusa}
+          {/* 'enviado' só existe em recusas antigas, do tempo do aviso por WhatsApp. */}
           {a.avisoRecusa !== 'enviado' && <AvisoManual adesao={a} />}
         </p>
       ) : recusando ? (
@@ -280,7 +292,10 @@ function AvisoManual({ adesao: a }: { adesao: AdesaoLinha }) {
       <button
         type="button"
         className="underline"
-        onClick={() => navigator.clipboard.writeText(texto).then(() => toast.success('Mensagem copiada'))}
+        onClick={() => navigator.clipboard.writeText(texto).then(
+          () => toast.success('Mensagem copiada'),
+          () => toast.error('Não deu para copiar. Selecione o texto do motivo e copie à mão.'),
+        )}
       >
         Copiar mensagem
       </button>
