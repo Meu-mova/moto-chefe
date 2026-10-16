@@ -36,3 +36,27 @@ export function sha256(dado: string | Buffer): string {
 export function docHash(ev: Evidencias): string {
   return sha256(canonizar(ev))
 }
+
+// Contrato de adesão ao MOVA (#165): mesma ideia, com os vínculos dele. Tipo e
+// ordem próprios para não tocar no hash dos documentos de venda já assinados.
+export type EvidenciasAdesao = {
+  contratoId: string
+  adesaoId: string
+  snapshotHash: string
+  selfieHash: string
+  assinaturaHash: string
+  emailDestino: string
+  ipAssinatura: string
+  userAgent: string
+  codigoVerificadoEm: string
+  assinadoEm: string
+}
+
+const ORDEM_ADESAO: (keyof EvidenciasAdesao)[] = [
+  'contratoId', 'adesaoId', 'snapshotHash', 'selfieHash', 'assinaturaHash',
+  'emailDestino', 'ipAssinatura', 'userAgent', 'codigoVerificadoEm', 'assinadoEm',
+]
+
+export function docHashAdesao(ev: EvidenciasAdesao): string {
+  return sha256(JSON.stringify(Object.fromEntries(ORDEM_ADESAO.map(k => [k, ev[k]]))))
+}

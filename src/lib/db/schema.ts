@@ -1607,3 +1607,52 @@ export const adesoesMova = pgTable('adesoes_mova', {
   franqueadoMotochefe: boolean('franqueado_motochefe').notNull().default(false),
   taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
 })
+
+// ─── contratos_adesao ────────────────────────────────────────────────────────
+// Contrato de adesão ao MOVA assinado pelo lojista (#165, migração 0121). Mesma
+// assinatura por link da venda, em tabelas próprias: é documento da plataforma,
+// não de um grupo (ADR-0017). Regras em @/lib/assinatura/fluxo.
+export const contratosAdesao = pgTable('contratos_adesao', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  adesaoId:       uuid('adesao_id').notNull().references(() => adesoesMova.id),
+  token:          text('token').notNull().unique(),
+  status:         text('status').notNull().default('pendente'),
+  htmlSnapshot:   text('html_snapshot').notNull(),
+  snapshotHash:   text('snapshot_hash').notNull(),
+  emailDestino:   text('email_destino').notNull(),
+  selfiePath:     text('selfie_path'),
+  selfieHash:     text('selfie_hash'),
+  assinaturaPath: text('assinatura_path'),
+  assinaturaHash: text('assinatura_hash'),
+  ipAssinatura:   text('ip_assinatura'),
+  userAgent:      text('user_agent'),
+  geoLat:         numeric('geo_lat', { precision: 10, scale: 7 }),
+  geoLon:         numeric('geo_lon', { precision: 10, scale: 7 }),
+  geoPrecisao:    numeric('geo_precisao', { precision: 10, scale: 2 }),
+  evidenciasJson: jsonb('evidencias_json'),
+  docHash:        text('doc_hash'),
+  criadoPor:      uuid('criado_por').references(() => usuarios.id),
+  criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  expiraEm:       timestamp('expira_em', { withTimezone: true }).notNull(),
+  assinadoEm:     timestamp('assinado_em', { withTimezone: true }),
+})
+
+export const contratosAdesaoEventos = pgTable('contratos_adesao_eventos', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  contratoId: uuid('contrato_id').notNull().references(() => contratosAdesao.id, { onDelete: 'cascade' }),
+  tipo:       text('tipo').notNull(),
+  ip:         text('ip'),
+  userAgent:  text('user_agent'),
+  detalhe:    jsonb('detalhe'),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const contratosAdesaoCodigos = pgTable('contratos_adesao_codigos', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  contratoId: uuid('contrato_id').notNull().references(() => contratosAdesao.id, { onDelete: 'cascade' }),
+  codigoHash: text('codigo_hash').notNull(),
+  expiraEm:   timestamp('expira_em', { withTimezone: true }).notNull(),
+  tentativas: integer('tentativas').notNull().default(0),
+  usadoEm:    timestamp('usado_em', { withTimezone: true }),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
