@@ -417,7 +417,7 @@ function Selfie({ alternativa, onOk, onFoto }: { alternativa: string; onOk: () =
     <div className="rounded-lg border bg-white p-5">
       <Camera size={22} className="text-slate-500 mb-2" />
       <h1 className="text-base font-semibold text-slate-800">Foto do signatário</h1>
-      <p className="text-xs text-slate-500 mt-2 mb-4 leading-relaxed">{AVISO_LGPD} {alternativa}</p>
+      <p className="text-xs text-muted-foreground mt-2 mb-4 leading-relaxed">{AVISO_LGPD} {alternativa}</p>
 
       {!stream && (
         <button onClick={abrirCamera} className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white">

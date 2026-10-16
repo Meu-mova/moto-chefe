@@ -58,7 +58,7 @@ test('com os termos confirmados, nenhum valor pendente sobra no contrato', () =>
   else assert.ok(pendentes.length > 0, 'com valores pendentes, TERMOS_CONFIRMADOS tem de ficar false')
 })
 
-const ENVIO = { statusAdesao: 'dados_completos', dados: DADOS, jaAssinado: false, producao: true, termosConfirmados: true }
+const ENVIO = { statusAdesao: 'dados_completos' as const, dados: DADOS, jaAssinado: false, producao: true, termosConfirmados: true }
 
 test('envio liberado com dados completos e termos confirmados', () => {
   assert.equal(motivoBloqueioEnvio(ENVIO), null)

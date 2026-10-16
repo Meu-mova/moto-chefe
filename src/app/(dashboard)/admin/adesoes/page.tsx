@@ -1,6 +1,7 @@
 import { SuperAdminGuard } from '../components/admin-guard'
 import { listarAdesoesAction } from './actions'
 import { AdesoesPainel } from './components/adesoes-painel'
+import { envioTravadoNaProducao } from '@/lib/assinatura/contrato-adesao'
 
 export default function AdesoesPage() {
   return (
@@ -14,5 +15,5 @@ export default function AdesoesPage() {
 // é redirecionado em vez de ver o erro da action.
 async function Conteudo() {
   const lista = await listarAdesoesAction()
-  return <AdesoesPainel adesoes={lista} />
+  return <AdesoesPainel adesoes={lista} envioTravado={envioTravadoNaProducao()} />
 }

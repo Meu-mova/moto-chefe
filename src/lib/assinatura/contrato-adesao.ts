@@ -2,6 +2,7 @@ import { CONTRATADA } from '@/lib/mova-empresa'
 import { formatarCpfCnpj } from '@/lib/documento'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { esc, envolverDocumento } from '@/lib/assinatura/documento'
+import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
@@ -149,7 +150,7 @@ export const DIAS_VALIDADE_CONTRATO = 7
 
 /** Por que o contrato não pode ser enviado agora; null quando pode. */
 export function motivoBloqueioEnvio(p: {
-  statusAdesao: string
+  statusAdesao: StatusAdesao
   dados: DadosContratoAdesao
   jaAssinado: boolean
   producao: boolean
@@ -163,4 +164,9 @@ export function motivoBloqueioEnvio(p: {
     return 'Envio travado na produção até os termos do contrato serem confirmados'
   }
   return null
+}
+
+/** Só a trava da produção, para a tela avisar antes do clique. */
+export function envioTravadoNaProducao(): boolean {
+  return process.env.VERCEL_ENV === 'production' && !TERMOS_CONFIRMADOS
 }

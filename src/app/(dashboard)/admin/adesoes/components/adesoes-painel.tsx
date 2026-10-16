@@ -49,7 +49,7 @@ function resumoContrato(a: AdesaoLinha): string {
   return faltam ? `faltam ${faltam}` : 'completo'
 }
 
-export function AdesoesPainel({ adesoes }: { adesoes: AdesaoLinha[] }) {
+export function AdesoesPainel({ adesoes, envioTravado }: { adesoes: AdesaoLinha[]; envioTravado: boolean }) {
   const [selId, setSelId] = useState<string | null>(null)
   const sel = adesoes.find(a => a.id === selId) ?? null
 
@@ -67,7 +67,7 @@ export function AdesoesPainel({ adesoes }: { adesoes: AdesaoLinha[] }) {
             : <Lista adesoes={adesoes} selId={selId} onAbrir={setSelId} />}
         </div>
         {/* key: trocar de adesão remonta o painel e zera o formulário. */}
-        {sel && <Detalhe key={sel.id} adesao={sel} onFechar={() => setSelId(null)} />}
+        {sel && <Detalhe key={sel.id} adesao={sel} envioTravado={envioTravado} onFechar={() => setSelId(null)} />}
       </div>
     </div>
   )
@@ -144,7 +144,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () => void }) {
+function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
@@ -305,12 +305,14 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
             Recusar…
           </Button>
           {a.status === 'dados_completos' && situacao !== 'assinado' && (
-            <Button variant="outline" onClick={enviarContrato} disabled={pendente || alterado}>
+            <Button variant="outline" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
               {situacao ? 'Reenviar contrato' : 'Enviar contrato'}
             </Button>
           )}
           <span className="text-xs text-muted-foreground">
-            {alterado && a.status === 'dados_completos'
+            {envioTravado && a.status === 'dados_completos'
+              ? 'Envio travado até os termos do contrato serem confirmados'
+              : alterado && a.status === 'dados_completos'
               ? 'Salve os dados antes de enviar o contrato'
               : faltam.length ? `Faltam ${faltam.length} campo(s) para o contrato` : 'Pronto para o contrato'}
           </span>
