@@ -224,6 +224,8 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   cancelamentoEm:     timestamp('cancelamento_em', { withTimezone: true }),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  /** Cancelamento extemporâneo (fora das 24h), feito pelo contador: a nota não aceita mais a consulta. */
+  cancelamentoProtocolo: text('cancelamento_protocolo'),
 })
 
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração

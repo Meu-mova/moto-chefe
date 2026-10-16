@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeRegistrarCancelamentoExtemporaneo, normalizarProtocoloExtemporaneo, consultaAtualizaNota, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -222,4 +222,40 @@ test('Processando, EmProcessoDeAutorizacao, Autorizada, Negada e Descartada não
   for (const status of ['Processando', 'EmProcessoDeAutorizacao', 'Autorizada', 'Negada', 'Descartada']) {
     assert.equal(podeDescartarTentativa({ status, criadoEm: criadaHa(90) }, AGORA), false, status)
   }
+})
+
+const VENCIDO = new Date('2026-10-09T15:40:00.000Z')
+
+test('nota de produção autorizada ou com cancelamento negado, depois das 24h, aceita cancelamento extemporâneo', () => {
+  for (const status of ['Autorizada', 'CancelamentoNegado']) {
+    assert.equal(podeRegistrarCancelamentoExtemporaneo({ status, ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM }, VENCIDO), true, status)
+  }
+})
+
+test('nota no prazo, de homologação, sem data, já cancelada ou com cancelamento em andamento não aceita cancelamento extemporâneo', () => {
+  const casos = [
+    { status: 'Autorizada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM, agora: new Date('2026-10-09T15:39:59.000Z') },
+    { status: 'Autorizada', ambiente: 'Homologacao', dataAutorizacao: AUTORIZADA_EM, agora: VENCIDO },
+    { status: 'Autorizada', ambiente: 'Producao', dataAutorizacao: null, agora: VENCIDO },
+    { status: 'Cancelada', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM, agora: VENCIDO },
+    { status: 'EmProcessoDeCancelamento', ambiente: 'Producao', dataAutorizacao: AUTORIZADA_EM, agora: VENCIDO },
+  ]
+  for (const { agora, ...nota } of casos) {
+    assert.equal(podeRegistrarCancelamentoExtemporaneo(nota, agora), false, JSON.stringify(nota))
+  }
+})
+
+test('o protocolo do contador é guardado como foi digitado, sem os espaços das pontas', () => {
+  assert.deepEqual(normalizarProtocoloExtemporaneo('  202.611.206.752-2 '), { ok: true, protocolo: '202.611.206.752-2' })
+})
+
+test('protocolo vazio ou sem nenhum dígito é recusado', () => {
+  for (const bruto of ['', '   ', 'pedido feito', '-./']) {
+    assert.equal(normalizarProtocoloExtemporaneo(bruto).ok, false, JSON.stringify(bruto))
+  }
+})
+
+test('nota cancelada com protocolo extemporâneo não aceita o retorno da consulta; as outras aceitam', () => {
+  assert.equal(consultaAtualizaNota({ cancelamentoProtocolo: '202.611.206.752-2' }), false)
+  assert.equal(consultaAtualizaNota({ cancelamentoProtocolo: null }), true)
 })
