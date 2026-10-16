@@ -29,6 +29,7 @@ const CLASSE_STATUS: Record<StatusAdesao, string> = {
 
 const CLASSE_SITUACAO: Record<SituacaoContrato, string> = {
   enviado: 'border-primary text-primary-text',
+  nao_entregue: 'border-destructive text-destructive',
   visualizado: 'border-primary text-primary-text',
   assinado: 'border-primary bg-primary-soft text-primary-text',
   expirado: 'border-warning text-warning',
@@ -182,7 +183,7 @@ function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; e
   }
 
   function enviarContrato() {
-    if (situacao === 'enviado' || situacao === 'visualizado') {
+    if (situacao === 'enviado' || situacao === 'nao_entregue' || situacao === 'visualizado') {
       if (!window.confirm('Já existe um contrato enviado. Reenviar cancela o link anterior. Continuar?')) return
     }
     iniciar(async () => {
@@ -320,7 +321,9 @@ function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; e
             <p className="w-full text-xs text-muted-foreground">
               {situacao === 'assinado' && a.contrato.assinadoEm
                 ? `Assinado em ${data(a.contrato.assinadoEm)}`
-                : `Enviado em ${data(a.contrato.criadoEm)} para ${a.email}`}
+                : situacao === 'nao_entregue'
+                  ? `O e-mail para ${a.email} falhou em ${data(a.contrato.criadoEm)}. Confira o e-mail, salve e reenvie.`
+                  : `Enviado em ${data(a.contrato.criadoEm)} para ${a.email}`}
             </p>
           )}
         </div>

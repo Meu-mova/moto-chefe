@@ -42,21 +42,25 @@ export function camposFaltando(dados: Partial<Record<CampoContrato, unknown>>): 
  * Situação do contrato mais recente da adesão, calculada na hora: `adesoes_mova.status`
  * não muda com o envio. Expirado não depende de job: vem do `expira_em`.
  */
-export type SituacaoContrato = 'enviado' | 'visualizado' | 'assinado' | 'expirado'
+export type SituacaoContrato = 'enviado' | 'nao_entregue' | 'visualizado' | 'assinado' | 'expirado'
 
 export const ROTULO_SITUACAO_CONTRATO: Record<SituacaoContrato, string> = {
   enviado: 'Contrato enviado',
+  nao_entregue: 'E-mail não entregue',
   visualizado: 'Visualizado',
   assinado: 'Assinado',
   expirado: 'Link expirado',
 }
 
 export function situacaoContrato(
-  c: { status: string; expiraEm: Date | string } | null,
+  /** `ultimoEnvio`: resultado do e-mail do convite mais recente ('enviado', 'erro'...). */
+  c: { status: string; expiraEm: Date | string; ultimoEnvio: string | null } | null,
   agora: Date,
 ): SituacaoContrato | null {
   if (!c || c.status === 'cancelado') return null
   if (c.status === 'assinado') return 'assinado'
   if (c.status === 'expirado' || new Date(c.expiraEm) < agora) return 'expirado'
-  return c.status === 'visualizado' ? 'visualizado' : 'enviado'
+  // Link aberto prova que chegou, mesmo com o e-mail falho (link copiado à mão).
+  if (c.status === 'visualizado') return 'visualizado'
+  return c.ultimoEnvio === 'enviado' ? 'enviado' : 'nao_entregue'
 }
