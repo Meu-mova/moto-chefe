@@ -15,13 +15,11 @@ export type DadosContrato = {
   responsavelCpf: string | null
   /** Decimal com ponto, como o `numeric` do banco recebe. */
   valorMensal: string | null
-  diaVencimento: number | null
+  taxaImplantacao: string | null
+  franqueadoMotochefe: boolean
 }
 
-export type EntradaContrato = Partial<Record<CampoContrato, string | null | undefined>>
-
-// Até 28 para todo mês ter o dia: vencimento no 31 cairia em data inexistente.
-const DIA_MAXIMO = 28
+export type EntradaContrato = Partial<Record<CampoContrato, string | null | undefined>> & { franqueadoMotochefe?: boolean }
 
 export function lerDadosContrato(
   entrada: EntradaContrato,
@@ -40,15 +38,10 @@ export function lerDadosContrato(
   const email = texto('email')
   if (email && !emailValido(email)) erros.email = 'E-mail inválido'
 
-  const valorBruto = texto('valorMensal')
-  const valor = valorBruto ? parseNumeroBR(valorBruto) : null
-  if (valorBruto && (valor === null || valor <= 0)) erros.valorMensal = 'Informe um valor maior que zero'
-
-  const diaBruto = texto('diaVencimento')
-  const dia = diaBruto ? Number(diaBruto) : null
-  if (diaBruto && (!Number.isInteger(dia) || dia! < 1 || dia! > DIA_MAXIMO)) {
-    erros.diaVencimento = `Dia de 1 a ${DIA_MAXIMO}`
-  }
+  const valor = lerValor(texto('valorMensal'))
+  if (valor === 'invalido') erros.valorMensal = 'Informe um valor maior que zero'
+  const taxa = lerValor(texto('taxaImplantacao'))
+  if (taxa === 'invalido') erros.taxaImplantacao = 'Informe um valor maior que zero'
 
   if (Object.keys(erros).length) return { ok: false, erros }
   return {
@@ -59,23 +52,21 @@ export function lerDadosContrato(
       enderecoSede: texto('enderecoSede'),
       email,
       responsavelCpf,
-      valorMensal: valor === null ? null : valor.toFixed(2),
-      diaVencimento: dia,
+      valorMensal: valor === null || valor === 'invalido' ? null : valor,
+      taxaImplantacao: taxa === null || taxa === 'invalido' ? null : taxa,
+      franqueadoMotochefe: entrada.franqueadoMotochefe === true,
     },
   }
+}
+
+/** Valor em reais digitado no formato brasileiro → decimal com ponto. Vazio = null. */
+function lerValor(bruto: string | null): string | null | 'invalido' {
+  if (!bruto) return null
+  const v = parseNumeroBR(bruto)
+  return v === null || v <= 0 ? 'invalido' : v.toFixed(2)
 }
 
 /** Status depois de salvar os dados. A recusa sai por outro caminho e não passa por aqui. */
 export function statusDaAdesao(dados: DadosContrato): Extract<StatusAdesao, 'pendente' | 'dados_completos'> {
   return camposFaltando(dados).length ? 'pendente' : 'dados_completos'
-}
-
-export function mensagemRecusa(loja: string, motivo: string): string {
-  return [
-    `Olá! Aqui é da equipe MOVA, sobre a adesão da ${loja}.`,
-    '',
-    `Neste momento não conseguimos seguir com a adesão. Motivo: ${motivo}`,
-    '',
-    'Se quiser conversar ou corrigir algo, é só responder esta mensagem.',
-  ].join('\n')
 }

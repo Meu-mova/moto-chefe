@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatarCpfCnpj } from '@/lib/documento'
 import { formatarNumeroBR } from '@/lib/numero-br'
+import { precoSugerido } from '@/lib/mova-empresa'
+import { mensagemRecusa } from '@/lib/adesao-recusa'
 import {
   CAMPOS_CONTRATO, ROTULO_STATUS_ADESAO, camposFaltando,
   type CampoContrato, type StatusAdesao,
@@ -121,13 +123,15 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
     enderecoSede: a.enderecoSede ?? '',
     email: a.email ?? '',
     responsavelCpf: formatarCpfCnpj(a.responsavelCpf),
-    valorMensal: a.valorMensal ? formatarNumeroBR(a.valorMensal) : '',
-    diaVencimento: a.diaVencimento ? String(a.diaVencimento) : '',
+    // Adesão sem valor gravado já abre com o preço da tabela, editável.
+    taxaImplantacao: formatarNumeroBR(a.taxaImplantacao ?? precoSugerido(a.franqueadoMotochefe).implantacao),
+    valorMensal: formatarNumeroBR(a.valorMensal ?? precoSugerido(a.franqueadoMotochefe).mensalidade),
   }
 }
 
 function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
+  const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
   const [recusando, setRecusando] = useState(false)
   const [motivo, setMotivo] = useState('')
@@ -138,7 +142,7 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
 
   function salvar() {
     iniciar(async () => {
-      const r = await salvarDadosContratoAction(a.id, valores)
+      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado })
       if (!r.ok) {
         setErros(r.erros ?? {})
         toast.error(r.erro ?? 'Corrija os campos marcados')
@@ -153,8 +157,7 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
     iniciar(async () => {
       const r = await recusarAdesaoAction(a.id, motivo)
       if (!r.ok) { toast.error(r.erro); return }
-      if (r.whatsapp === 'enviado') toast.success('Adesão recusada e lojista avisado por WhatsApp')
-      else toast.warning(`Adesão recusada, mas o WhatsApp não saiu. Avise ${a.responsavel} por outro meio: ${a.celular}`)
+      toast.success(`Recusa registrada. Avise ${a.responsavel}: ${a.celular}`)
       setRecusando(false)
     })
   }
@@ -202,6 +205,21 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
 
       <div className="border-t pt-4 space-y-3">
         <h3 className="font-medium">Dados do contrato</h3>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={franqueado}
+            disabled={travada || pendente}
+            onChange={e => {
+              const marcado = e.target.checked
+              const p = precoSugerido(marcado)
+              setFranqueado(marcado)
+              // Trocar a marcação aplica o preço da tabela; depois disso o valor continua editável.
+              setValores(prev => ({ ...prev, taxaImplantacao: formatarNumeroBR(p.implantacao), valorMensal: formatarNumeroBR(p.mensalidade) }))
+            }}
+          />
+          Franqueado MotoChefe (desconto na implantação e na mensalidade)
+        </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CAMPOS_CONTRATO.map(c => (
             <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
@@ -211,7 +229,6 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
                 value={valores[c.chave]}
                 disabled={travada || pendente}
                 inputMode={'inputMode' in c ? c.inputMode : undefined}
-                placeholder={'placeholder' in c ? c.placeholder : undefined}
                 aria-invalid={!!erros[c.chave]}
                 onChange={e => {
                   const v = e.target.value
@@ -229,18 +246,14 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
       ) : a.status === 'recusada' ? (
         <p className="text-sm text-destructive">
           Recusada em {a.recusadaEm ? data(a.recusadaEm) : '—'}: {a.motivoRecusa}
-          {a.avisoRecusa !== 'enviado' && (
-            <span className="block text-warning">
-              O aviso por WhatsApp não saiu: avise {a.responsavel} por outro meio ({a.celular}).
-            </span>
-          )}
+          {a.avisoRecusa !== 'enviado' && <AvisoManual adesao={a} />}
         </p>
       ) : recusando ? (
         <div className="space-y-2">
-          <Label htmlFor={`${a.id}-motivo`}>Motivo da recusa (vai por WhatsApp para {a.celular})</Label>
+          <Label htmlFor={`${a.id}-motivo`}>Motivo da recusa (o aviso ao lojista é feito por vocês)</Label>
           <Textarea id={`${a.id}-motivo`} value={motivo} onChange={e => setMotivo(e.target.value)} rows={3} />
           <div className="flex flex-wrap gap-2">
-            <Button variant="destructive" onClick={recusar} disabled={pendente || motivo.trim().length < 3}>Recusar e avisar</Button>
+            <Button variant="destructive" onClick={recusar} disabled={pendente || motivo.trim().length < 3}>Registrar recusa</Button>
             <Button variant="outline" onClick={() => setRecusando(false)} disabled={pendente}>Voltar</Button>
           </div>
         </div>
@@ -256,5 +269,21 @@ function Detalhe({ adesao: a, onFechar }: { adesao: AdesaoLinha; onFechar: () =>
         </div>
       )}
     </section>
+  )
+}
+
+function AvisoManual({ adesao: a }: { adesao: AdesaoLinha }) {
+  const texto = mensagemRecusa(a.loja, a.motivoRecusa ?? '')
+  return (
+    <span className="block text-warning mt-1">
+      Avise {a.responsavel} ({a.celular}).{' '}
+      <button
+        type="button"
+        className="underline"
+        onClick={() => navigator.clipboard.writeText(texto).then(() => toast.success('Mensagem copiada'))}
+      >
+        Copiar mensagem
+      </button>
+    </span>
   )
 }

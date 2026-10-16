@@ -1595,10 +1595,13 @@ export const adesoesMova = pgTable('adesoes_mova', {
   email: text('email'),
   responsavelCpf: text('responsavel_cpf'),
   valorMensal: numeric('valor_mensal', { precision: 12, scale: 2 }),
+  // Sem uso desde a 0119: o vencimento sai do primeiro acesso (#165).
   diaVencimento: integer('dia_vencimento'),
   motivoRecusa: text('motivo_recusa'),
   recusadaEm: timestamp('recusada_em', { withTimezone: true }),
   avisoRecusa: text('aviso_recusa').$type<'enviado' | 'sem_numero' | 'erro'>(),
   atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
+  franqueadoMotochefe: boolean('franqueado_motochefe').notNull().default(false),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
 })
