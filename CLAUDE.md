@@ -12,6 +12,11 @@ mais se erra:
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.
 - **Toda promoção `dev → main` é uma release SemVer.** Nunca promova sem seguir o passo da
   release.
+- **Antes do merge `dev → main`, aplique na produção todas as migrações pendentes da `dev`,
+  não só as do PR que motivou a release.** Rode `migrate.ts --status --prod` a partir de um
+  checkout exato da `origin/dev` e aplique tudo o que aparecer. Na v1.4.0 (16/10/2026) só a
+  `0120` foi aplicada; a `0118` e a `0119`, já na `dev`, ficaram de fora e a tela de adesões
+  subiu lendo colunas que não existiam.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
 ## Cores: nenhuma cor hardcoded
