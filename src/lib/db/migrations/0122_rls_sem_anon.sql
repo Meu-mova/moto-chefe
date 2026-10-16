@@ -36,3 +36,22 @@ BEGIN
     REVOKE ALL ON public.vendas_seguras FROM anon, authenticated;
   END IF;
 END $$;
+
+-- #52 (parte sem login): as funções SECURITY DEFINER do public (ignoram o RLS)
+-- vinham com EXECUTE para anon, então qualquer um chamava, pela API, rpc como
+-- efetivar_venda ou mudar_status_moto. O app só chama rpc com usuário logado.
+-- O resto da #52 (a função confiar no usuário/papel que recebe) fica para ela.
+DO $$
+DECLARE f regprocedure;
+BEGIN
+  FOR f IN
+    SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.prosecdef
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);
+  END LOOP;
+END $$;
+
+-- Função nova criada por este papel não nasce executável pelo anon.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
