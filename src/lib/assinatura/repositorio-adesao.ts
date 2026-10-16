@@ -109,7 +109,7 @@ export const repositorioAdesao: Repositorio<DocAdesao, null> = {
   async avisarAssinado(doc, token) {
     const url = `${urlBase()}/assinar/adesao/${token}`
     await enviarEmail({
-      para: doc.emailDestino ?? '',
+      para: doc.linha.emailDestino,
       assunto: 'MOVA — contrato de licença assinado',
       texto: `Seu contrato de licença de uso do MOVA foi assinado com sucesso.\n\nGuarde este link — é a sua via do contrato:\n${url}`,
     })

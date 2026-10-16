@@ -25,8 +25,12 @@ const ORDEM: (keyof Evidencias)[] = [
   'celularDestino', 'ipAssinatura', 'userAgent', 'codigoVerificadoEm', 'assinadoEm',
 ]
 
+function canonizarCom<T>(ordem: (keyof T)[], ev: T): string {
+  return JSON.stringify(Object.fromEntries(ordem.map(k => [k, ev[k]])))
+}
+
 export function canonizar(ev: Evidencias): string {
-  return JSON.stringify(Object.fromEntries(ORDEM.map(k => [k, ev[k]])))
+  return canonizarCom(ORDEM, ev)
 }
 
 export function sha256(dado: string | Buffer): string {
@@ -58,5 +62,5 @@ const ORDEM_ADESAO: (keyof EvidenciasAdesao)[] = [
 ]
 
 export function docHashAdesao(ev: EvidenciasAdesao): string {
-  return sha256(JSON.stringify(Object.fromEntries(ORDEM_ADESAO.map(k => [k, ev[k]]))))
+  return sha256(canonizarCom(ORDEM_ADESAO, ev))
 }

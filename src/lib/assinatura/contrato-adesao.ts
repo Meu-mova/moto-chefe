@@ -1,7 +1,7 @@
 import { CONTRATADA } from '@/lib/mova-empresa'
 import { formatarCpfCnpj } from '@/lib/documento'
 import { formatarNumeroBR } from '@/lib/numero-br'
-import { esc, envolverDocumento, CLAUSULA_ACEITE } from '@/lib/assinatura/documento'
+import { esc, envolverDocumento } from '@/lib/assinatura/documento'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
@@ -25,13 +25,13 @@ export const TERMOS = {
   mesesLimiteResponsabilidade: 12,
   mesesVigencia: 12,
   diasAvisoRescisao: 30,
-  multaRescisao: 'Não há multa por rescisão.',
+  multaRescisao: '[a confirmar: sem multa por rescisão, ou multa se cancelar antes de 6 meses]',
   diasCorrecaoDescumprimento: 10,
   diasExportacaoDados: 15,
   diasGuardaDados: 60,
   emailContato: 'contato@meumova.com',
   diasAvisoMudancaFuncao: 30,
-  horasOrientacao: '[a definir]',
+  horasOrientacao: '[a confirmar: quantidade]',
   diasUteisImplantacao: 15,
 } as const
 
@@ -61,6 +61,7 @@ const reais = (v: string) => `R$ ${formatarNumeroBR(v)}`
 
 export function montarContratoAdesao(d: DadosContratoAdesao): string {
   if (!dadosContratoCompletos(d)) throw new Error('Dados do contrato incompletos')
+  // Abreviações só para o texto longo abaixo caber em linhas legíveis.
   const t = TERMOS
   const c = CONTRATADA
   const corpo = `
@@ -80,7 +81,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
 
     <h2>3. Implantação</h2>
     <p>3.1. Os dados do CLIENTE ficam separados dos dados dos demais clientes do MOVA, e somente o CLIENTE e os usuários que ele cadastrar têm acesso a eles. Nenhum outro cliente do MOVA acessa os dados do CLIENTE.</p>
-    <p>3.2. A implantação inclui: cadastro da empresa, das lojas e do usuário administrador, configuração inicial das regras fiscais com base nas informações do contador do CLIENTE e ${esc(String(t.horasOrientacao))} horas de orientação remota.</p>
+    <p>3.2. A implantação inclui: cadastro da empresa, das lojas e do usuário administrador, configuração inicial das regras fiscais com base nas informações do contador do CLIENTE e ${esc(t.horasOrientacao)} horas de orientação remota.</p>
     <p>3.3. O prazo de implantação é de até ${t.diasUteisImplantacao} dias úteis, contados do recebimento das informações e documentos solicitados pelo MOVA. Atraso no envio dessas informações pelo CLIENTE prorroga o prazo na mesma medida. Ao fim da implantação, o MOVA libera o acesso do CLIENTE ao sistema.</p>
     <p>3.4. Taxa de implantação: ${reais(d.taxaImplantacao!)}, paga junto com a primeira mensalidade.</p>
 
@@ -136,9 +137,10 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>11.1. Comunicações entre as partes valem por e-mail: MOVA em ${esc(t.emailContato)}; CLIENTE no e-mail informado na Cláusula 1.</p>
     <p>11.2. O MOVA pode alterar funcionalidades do sistema para melhorá-lo, desde que não retire do CLIENTE uma função essencial contratada sem aviso de ${t.diasAvisoMudancaFuncao} dias.</p>
     <p>11.3. Este Contrato não cria vínculo societário, trabalhista ou de representação entre as partes. Tolerância com um descumprimento não significa renunciar ao direito.</p>
-    <p>11.4. O CLIENTE aceita este Contrato por meio eletrônico, pelo link enviado pelo MOVA, com confirmação de código enviado ao e-mail do responsável, registro fotográfico e assinatura desenhada. ${CLAUSULA_ACEITE} O MOVA manifesta sua concordância ao enviar o Contrato para aceite.</p>
+    <p>11.4. Assinatura eletrônica: o CLIENTE aceita este Contrato por meio eletrônico, pelo link enviado pelo MOVA, com confirmação de código enviado ao e-mail do responsável, registro fotográfico e assinatura desenhada, e as partes reconhecem esse aceite como válido, com o mesmo efeito de uma via assinada fisicamente, ainda que feito por plataforma não credenciada pela ICP-Brasil e sem certificado digital. O MOVA manifesta sua concordância ao enviar o Contrato para aceite.</p>
     <p>11.5. Fica eleito o foro da comarca de ${esc(c.comarcaForo)} para resolver questões deste Contrato.</p>
 
-    <p>${esc(c.cidadeFecho)}, na data registrada no aceite eletrônico.</p>`
+    <p>${esc(c.cidadeFecho)}, na data do aceite eletrônico.</p>
+    <p><i>Seguem, gerados pelo sistema, os registros do aceite eletrônico do CLIENTE: data e hora, endereço IP, confirmação do código e código de verificação do documento.</i></p>`
   return envolverDocumento(corpo)
 }

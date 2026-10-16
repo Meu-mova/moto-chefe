@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { montarContratoAdesao, dadosContratoCompletos, type DadosContratoAdesao } from './contrato-adesao'
+import { montarContratoAdesao, dadosContratoCompletos, TERMOS, TERMOS_CONFIRMADOS, type DadosContratoAdesao } from './contrato-adesao'
 
 const DADOS: DadosContratoAdesao = {
   razaoSocial: 'ECOMOTO LAVRAS COMERCIO LTDA',
@@ -44,4 +44,16 @@ test('dadosContratoCompletos exige todos os campos e valores', () => {
 
 test('montarContratoAdesao recusa dados incompletos', () => {
   assert.throws(() => montarContratoAdesao({ ...DADOS, email: '' }))
+})
+
+test('franqueado MotoChefe: contrato sai com os valores gravados na adesão (799/399)', () => {
+  const html = montarContratoAdesao({ ...DADOS, taxaImplantacao: '799.00', valorMensal: '399.00' })
+  assert.match(html, /Taxa de implantação: R\$ 799,00/)
+  assert.match(html, /mensalidade de R\$ 399,00 por CNPJ/)
+})
+
+test('com os termos confirmados, nenhum valor pendente sobra no contrato', () => {
+  const pendentes = Object.entries(TERMOS).filter(([, v]) => String(v).includes('[a confirmar'))
+  if (TERMOS_CONFIRMADOS) assert.deepEqual(pendentes, [])
+  else assert.ok(pendentes.length > 0, 'com valores pendentes, TERMOS_CONFIRMADOS tem de ficar false')
 })
