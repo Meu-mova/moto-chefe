@@ -6,7 +6,7 @@ import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
-// eletrônico só do lojista. Revisão do advogado pendente.
+// eletrônico só do lojista. Revisado pelo advogado.
 
 /**
  * Valores fechados com o Cesar na call de 16/10/2026. O que ainda falta fica
@@ -77,7 +77,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>2.1. O MOVA concede ao CLIENTE licença de uso não exclusiva, intransferível e temporária do sistema MOVA, acessado pela internet, enquanto este Contrato estiver vigente e as mensalidades em dia.</p>
     <p>2.2. A licença cobre um CNPJ e todas as lojas (filiais) desse CNPJ, sem limite de usuários. Outro CNPJ, ainda que do mesmo grupo econômico, exige contratação própria.</p>
     <p>2.3. Estão incluídos os módulos disponíveis na data da contratação — estoque, vendas, ordens de serviço, peças, financeiro, folha e fiscal — e as atualizações que o MOVA lançar durante a vigência.</p>
-    <p>2.4. Não estão incluídos: serviços de terceiros contratados pelo CLIENTE (Cláusula 7), desenvolvimento sob encomenda, treinamento presencial e migração de dados de outros sistemas além do previsto na Cláusula 3, que podem ser orçados à parte.</p>
+    <p>2.4. Não estão incluídos: serviços de terceiros contratados pelo CLIENTE (Cláusula 7), desenvolvimento sob encomenda, treinamento presencial e migração de dados de outros sistemas além do previsto na Cláusula 3, que podem ser orçados à parte. Treinamento presencial pedido pelo CLIENTE tem valor por hora combinado entre as partes antes da visita, e as despesas de passagem, hospedagem e alimentação ficam por conta do CLIENTE.</p>
     <p>2.5. Esta licença não transfere ao CLIENTE a propriedade do software, do código-fonte ou da marca MOVA.</p>
 
     <h2>3. Implantação</h2>
