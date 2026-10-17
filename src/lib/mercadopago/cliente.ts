@@ -47,6 +47,8 @@ export function criarPreferencia(p: {
     body: JSON.stringify({
       items: [{ title: p.titulo, quantity: 1, unit_price: p.valor, currency_id: 'BRL' }],
       external_reference: p.mensalidadeId,
+      // Cartão só à vista: o parcelamento "sem acréscimo" sai da Infinity (Cesar, 17/10/2026).
+      payment_methods: { installments: 1 },
       notification_url: p.urlNotificacao,
       ...(p.emailPagador ? { payer: { email: p.emailPagador } } : {}),
     }),
