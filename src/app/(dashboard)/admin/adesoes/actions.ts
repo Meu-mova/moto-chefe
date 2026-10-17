@@ -1,7 +1,7 @@
 'use server'
 import { randomBytes } from 'node:crypto'
 import { db } from '@/lib/db'
-import { adesoesMova, contratosAdesao, contratosAdesaoEventos } from '@/lib/db/schema'
+import { adesoesMova, contratosAdesao, contratosAdesaoEventos, grupos } from '@/lib/db/schema'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
@@ -18,6 +18,7 @@ import { sha256 } from '@/lib/assinatura/hash'
 import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
+import { avisoCnpjDoGrupo } from '@/lib/adesao-grupo'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -51,6 +52,7 @@ export async function listarAdesoesAction() {
     motivoRecusa: adesoesMova.motivoRecusa,
     recusadaEm: adesoesMova.recusadaEm,
     avisoRecusa: adesoesMova.avisoRecusa,
+    grupoId: adesoesMova.grupoId,
   }).from(adesoesMova).orderBy(desc(adesoesMova.criadoEm))
 
   // Só o contrato mais recente de cada adesão importa para a lista. Token e HTML
@@ -199,4 +201,37 @@ export async function enviarContratoAction(id: string): Promise<{ ok: true } | {
   // equipe mandar por outro canal.
   if (envio.status !== 'enviado') return { ok: false, erro: 'Contrato criado, mas o e-mail falhou. Copie o link e envie por outro canal.', url }
   return { ok: true }
+}
+
+export async function listarGruposAction() {
+  await assertAdmin()
+  return db.select({ id: grupos.id, nome: grupos.nome, cnpj: grupos.cnpj }).from(grupos).orderBy(grupos.nome)
+}
+
+export type GrupoOpcao = Awaited<ReturnType<typeof listarGruposAction>>[number]
+
+/** Liga a adesão ao grupo que ela gerou (ou desliga, com null). CNPJ diferente só avisa. */
+export async function vincularGrupoAction(
+  id: string,
+  grupoId: string | null,
+): Promise<{ ok: true; aviso: string | null } | { ok: false; erro: string }> {
+  const u = await assertAdmin()
+  const [a] = await db.select({ cnpj: adesoesMova.cnpj }).from(adesoesMova).where(eq(adesoesMova.id, id))
+  if (!a) return { ok: false, erro: 'Adesão não encontrada' }
+
+  let aviso: string | null = null
+  if (grupoId) {
+    const [g] = await db.select({ cnpj: grupos.cnpj }).from(grupos).where(eq(grupos.id, grupoId))
+    if (!g) return { ok: false, erro: 'Grupo não encontrado' }
+    const [outra] = await db.select({ loja: adesoesMova.loja }).from(adesoesMova)
+      .where(and(eq(adesoesMova.grupoId, grupoId), sql`${adesoesMova.id} <> ${id}`)).limit(1)
+    if (outra) return { ok: false, erro: `Este grupo já está ligado à adesão de ${outra.loja}` }
+    aviso = avisoCnpjDoGrupo(a.cnpj, g.cnpj)
+  }
+
+  await db.update(adesoesMova)
+    .set({ grupoId, atualizadoPor: u.id, atualizadoEm: new Date() })
+    .where(eq(adesoesMova.id, id))
+  revalidatePath('/admin/adesoes')
+  return { ok: true, aviso }
 }

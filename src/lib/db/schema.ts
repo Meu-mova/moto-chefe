@@ -1631,6 +1631,9 @@ export const adesoesMova = pgTable('adesoes_mova', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
   franqueadoMotochefe: boolean('franqueado_motochefe').notNull().default(false),
   taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
+  // Grupo que esta adesão gerou: a mensalidade dele sai daqui (#207). Um grupo,
+  // uma adesão (índice único parcial na 0127).
+  grupoId: uuid('grupo_id').references(() => grupos.id),
 })
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────
