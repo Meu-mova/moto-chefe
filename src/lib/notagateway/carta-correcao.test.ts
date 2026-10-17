@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
+import { podeDescartarCarta, proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
 
 test('texto da carta: aceita de 15 a 1000 caracteres, contados sem os espaços das pontas', () => {
   assert.equal(validarTextoCarta('Chassi correto: X').ok, true)
@@ -37,4 +37,11 @@ test('número da carta: depois da 20ª autorizada não há mais carta', () => {
 test('status da carta: só "Autorizada" encerra; o resto segue pendente até a consulta', () => {
   assert.equal(situacaoCarta('Autorizada'), 'autorizada')
   assert.equal(situacaoCarta('Processando'), 'pendente')
+})
+
+test('descartar carta: só pendente há 15 minutos ou mais', () => {
+  const agora = new Date('2026-10-16T12:00:00Z')
+  assert.equal(podeDescartarCarta({ situacao: 'pendente', criadoEm: '2026-10-16T11:45:00Z' }, agora), true)
+  assert.equal(podeDescartarCarta({ situacao: 'pendente', criadoEm: '2026-10-16T11:46:00Z' }, agora), false)
+  assert.equal(podeDescartarCarta({ situacao: 'autorizada', criadoEm: '2026-10-16T10:00:00Z' }, agora), false)
 })

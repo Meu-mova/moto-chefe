@@ -5,8 +5,10 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { configNotaGateway, consultarCartaCorrecao, enviarCartaCorrecao, CartaRecusada, type ConfigNotaGateway } from '@/lib/notagateway/client'
-import { proximoNumeroCarta, situacaoCarta, validarTextoCarta, type SituacaoCarta } from '@/lib/notagateway/carta-correcao'
+import { podeDescartarCarta, proximoNumeroCarta, situacaoCarta, validarTextoCarta, type SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import { podeOperarNfSaida } from './papeis-nf-saida'
+import { espera } from '@/lib/espera'
+import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 
 /**
  * Carta de correção da NF de saída (#187). Mesma permissão do cancelamento, no
@@ -28,9 +30,8 @@ export type CartaResumo = {
 
 export type ResultadoCartas = { ok: true; cartas: CartaResumo[] } | { ok: false; error: string; cartas?: CartaResumo[] }
 
-const NOME_AMBIENTE: Record<string, string> = { Producao: 'produção', Homologacao: 'homologação' }
-
-async function carregar(notaId: string, acao: string) {
+/** A nota e a configuração do grupo dela, com a permissão no grupo da nota. */
+async function carregarNotaDaCarta(notaId: string, acao: string) {
   const u = await getUsuarioLogado()
   if (!podeOperarNfSaida(u.papel)) throw new Error(`Sem permissão para ${acao} carta de correção`)
   const [nota] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
@@ -48,13 +49,11 @@ async function cartasDaNota(notaId: string): Promise<CartaResumo[]> {
     .where(eq(notasFiscaisSaidaCartas.notaId, notaId))
     .orderBy(asc(notasFiscaisSaidaCartas.criadoEm))
   return linhas.map(({ c, por }) => ({
-    id: c.id, numero: c.numero, correcao: c.correcao, situacao: c.situacao as SituacaoCarta,
+    id: c.id, numero: c.numero, correcao: c.correcao, situacao: c.situacao,
     motivoStatus: c.motivoStatus, protocolo: c.protocolo, ambiente: c.ambiente, por,
     criadoEm: c.criadoEm.toISOString(),
   }))
 }
-
-const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 /** Consulta a API e grava; devolve a situação gravada. */
 async function reconsultarCarta(cfg: ConfigNotaGateway, carta: { id: string; idExterno: string }) {
@@ -70,7 +69,7 @@ async function reconsultarCarta(cfg: ConfigNotaGateway, carta: { id: string; idE
 
 export async function cartasDaNotaAction(notaId: string): Promise<ResultadoCartas> {
   try {
-    await carregar(notaId, 'consultar')
+    await carregarNotaDaCarta(notaId, 'consultar')
     return { ok: true, cartas: await cartasDaNota(notaId) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -79,13 +78,12 @@ export async function cartasDaNotaAction(notaId: string): Promise<ResultadoCarta
 
 export async function emitirCartaCorrecaoAction(notaId: string, textoBruto: string): Promise<ResultadoCartas> {
   try {
-    const { u, nota, cfg } = await carregar(notaId, 'emitir')
+    const { u, nota, cfg } = await carregarNotaDaCarta(notaId, 'emitir')
     const texto = validarTextoCarta(textoBruto)
     if (!texto.ok) return { ok: false, error: texto.erro }
     if (nota.status !== 'Autorizada' || !nota.chave) return { ok: false, error: 'Só nota autorizada recebe carta de correção' }
-    if (cfg.ambiente !== nota.ambiente) {
-      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[nota.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para corrigi-la` }
-    }
+    const divergencia = divergenciaDeAmbiente(nota.ambiente, cfg.ambiente, 'corrigi-la')
+    if (divergencia) return { ok: false, error: divergencia }
 
     const existentes = await cartasDaNota(notaId)
     const proximo = proximoNumeroCarta(existentes)
@@ -100,8 +98,9 @@ export async function emitirCartaCorrecaoAction(notaId: string, textoBruto: stri
         correcao: texto.texto, emitidaPor: u.id,
       }).returning({ id: notasFiscaisSaidaCartas.id })
       cartaId = nova.id
-    } catch {
-      // Outra aba enviou a mesma carta ao mesmo tempo: o índice único barrou esta.
+    } catch (err) {
+      // 23505: outra aba enviou a mesma carta ao mesmo tempo e o índice único barrou esta.
+      if ((err as { code?: string }).code !== '23505') throw err
       return { ok: false, error: 'Outra carta de correção acabou de ser enviada para esta nota — confira e tente de novo', cartas: await cartasDaNota(notaId) }
     }
 
@@ -118,9 +117,14 @@ export async function emitirCartaCorrecaoAction(notaId: string, textoBruto: stri
       return { ok: false, error: `Não deu para confirmar o envio (${(err as Error).message}) — reconsulte a carta em instantes`, cartas: await cartasDaNota(notaId) }
     }
 
-    for (let i = 0; i < 8; i++) {
-      await espera(i === 0 ? 2500 : 2000)
-      if ((await reconsultarCarta(cfg, { id: cartaId, idExterno })) !== 'pendente') break
+    try {
+      for (let i = 0; i < 8; i++) {
+        await espera(i === 0 ? 2500 : 2000)
+        if ((await reconsultarCarta(cfg, { id: cartaId, idExterno })) !== 'pendente') break
+      }
+    } catch (err) {
+      // A carta foi enviada: a falha é só da consulta, e a tela reconsulta.
+      return { ok: false, error: `Carta enviada, mas a consulta falhou (${(err as Error).message}) — reconsulte em instantes`, cartas: await cartasDaNota(notaId) }
     }
     return { ok: true, cartas: await cartasDaNota(notaId) }
   } catch (err) {
@@ -131,11 +135,43 @@ export async function emitirCartaCorrecaoAction(notaId: string, textoBruto: stri
 /** Reconsulta as cartas pendentes da nota. */
 export async function reconsultarCartasAction(notaId: string): Promise<ResultadoCartas> {
   try {
-    const { cfg } = await carregar(notaId, 'consultar')
+    const { nota, cfg } = await carregarNotaDaCarta(notaId, 'consultar')
+    const divergencia = divergenciaDeAmbiente(nota.ambiente, cfg.ambiente, 'consultar as cartas')
+    if (divergencia) return { ok: false, error: divergencia }
     const pendentes = await db.select({ id: notasFiscaisSaidaCartas.id, idExterno: notasFiscaisSaidaCartas.idExterno })
       .from(notasFiscaisSaidaCartas)
       .where(and(eq(notasFiscaisSaidaCartas.notaId, notaId), eq(notasFiscaisSaidaCartas.situacao, 'pendente')))
     for (const p of pendentes) await reconsultarCarta(cfg, p)
+    return { ok: true, cartas: await cartasDaNota(notaId) }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * Descarta a carta pendente que não chegou à Nota Gateway: só depois do prazo e
+ * se a consulta confirmar que ela não existe lá. Fica como recusada, o que libera
+ * o número para a próxima tentativa.
+ */
+export async function descartarCartaAction(notaId: string, cartaId: string): Promise<ResultadoCartas> {
+  try {
+    const { nota, cfg } = await carregarNotaDaCarta(notaId, 'descartar')
+    const divergencia = divergenciaDeAmbiente(nota.ambiente, cfg.ambiente, 'descartar a carta')
+    if (divergencia) return { ok: false, error: divergencia }
+    const [carta] = await db.select().from(notasFiscaisSaidaCartas)
+      .where(and(eq(notasFiscaisSaidaCartas.id, cartaId), eq(notasFiscaisSaidaCartas.notaId, notaId))).limit(1)
+    if (!carta) return { ok: false, error: 'Carta não encontrada' }
+    if (!podeDescartarCarta({ situacao: carta.situacao, criadoEm: carta.criadoEm.toISOString() }, new Date())) {
+      return { ok: false, error: 'Só carta pendente há algum tempo pode ser descartada', cartas: await cartasDaNota(notaId) }
+    }
+    if (await consultarCartaCorrecao(cfg, carta.idExterno)) {
+      await reconsultarCarta(cfg, carta)
+      return { ok: false, error: 'A carta existe na Nota Gateway: não dá para descartar. Reconsulte para ver o status', cartas: await cartasDaNota(notaId) }
+    }
+    await db.update(notasFiscaisSaidaCartas).set({
+      situacao: 'recusada', status: 'Descartada', motivoStatus: 'Descartada: o envio não chegou à Nota Gateway',
+      atualizadoEm: sql`now()` as unknown as Date,
+    }).where(eq(notasFiscaisSaidaCartas.id, cartaId))
     return { ok: true, cartas: await cartasDaNota(notaId) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }

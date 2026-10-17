@@ -15,6 +15,8 @@ import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, C
 import { podeOperarNfSaida } from './papeis-nf-saida'
 import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, normalizarContador, podeCancelarExtemporaneo, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
+import { espera } from '@/lib/espera'
+import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { isIndicadorIe } from '@/lib/documento'
 
 /**
@@ -346,7 +348,6 @@ async function desfazerFaturamento(tx: Tx, vendaId: string, motoId: string, nume
   return true
 }
 
-const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 /**
  * Grava o retorno da API. Em PRODUÇÃO, nota autorizada fatura a venda e nota
@@ -589,8 +590,6 @@ const SEM_CANCELAMENTO: Record<Exclude<SituacaoCancelamento, 'disponivel'>, stri
   sem_data: 'Não deu para confirmar a data de autorização desta nota — consulte e tente de novo',
 }
 
-const NOME_AMBIENTE: Record<string, string> = { Producao: 'produção', Homologacao: 'homologação' }
-
 /**
  * Pede o cancelamento de uma NF autorizada. O motivo fica só no nosso registro:
  * a Nota Gateway manda à SEFAZ sempre "Pedido cancelado". A recusa da SEFAZ volta
@@ -605,9 +604,8 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
 
     const carregada = await carregarNota(notaId, usuario)
     const { r, cfg } = carregada
-    if (cfg.ambiente !== r.ambiente) {
-      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para cancelá-la` }
-    }
+    const divergencia = divergenciaDeAmbiente(r.ambiente, cfg.ambiente, 'cancelá-la')
+    if (divergencia) return { ok: false, error: divergencia }
 
     let nota = { status: r.status, dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null }
     if (!nota.dataAutorizacao) {
@@ -680,9 +678,8 @@ export async function cancelarNfeExtemporaneaAction(notaId: string, motivo: stri
 
     const carregada = await carregarNota(notaId, usuario)
     const { r, cfg } = carregada
-    if (cfg.ambiente !== r.ambiente) {
-      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para cancelá-la` }
-    }
+    const divergencia = divergenciaDeAmbiente(r.ambiente, cfg.ambiente, 'cancelá-la')
+    if (divergencia) return { ok: false, error: divergencia }
     const nota = { status: r.status, ambiente: r.ambiente, dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null }
     if (!podeCancelarExtemporaneo(nota, new Date())) {
       return { ok: false, error: 'Só nota de produção autorizada, depois do prazo de 24h, cancela por pedido extemporâneo', nota: await resumoDaNota(r.id) }
@@ -707,9 +704,8 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
       return { ok: false, error: `Só a tentativa parada em "Enviando" há ${MINUTOS_PARA_DESCARTAR} minutos ou mais pode ser descartada`, nota: await resumoDaNota(r.id) }
     }
     // Consultar com a configuração de outro ambiente pode dar um "não encontrada" falso.
-    if (cfg.ambiente !== r.ambiente) {
-      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para descartá-la`, nota: await resumoDaNota(r.id) }
-    }
+    const divergencia = divergenciaDeAmbiente(r.ambiente, cfg.ambiente, 'descartá-la')
+    if (divergencia) return { ok: false, error: divergencia, nota: await resumoDaNota(r.id) }
     if (await reconsultar(carregada, { estrito: true })) {
       return { ok: false, error: 'A Nota Gateway tem esta nota: nada foi descartado, e o status foi atualizado', nota: await resumoDaNota(r.id) }
     }

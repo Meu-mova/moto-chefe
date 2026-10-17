@@ -4,6 +4,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
   numero:       integer('numero').notNull(),
   correcao:     text('correcao').notNull(),
   /** pendente | autorizada | recusada: nossa leitura do status da API (notagateway/carta-correcao.ts). */
-  situacao:     text('situacao').notNull().default('pendente'),
+  situacao:     text('situacao').$type<SituacaoCarta>().notNull().default('pendente'),
   status:       text('status').notNull().default('Enviando'),
   motivoStatus: text('motivo_status'),
   protocolo:    text('protocolo'),
