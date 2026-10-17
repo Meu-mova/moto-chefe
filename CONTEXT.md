@@ -6,8 +6,19 @@ conceito, como o negócio fala. Decisões de arquitetura ficam em `docs/adr/`.
 
 ## Organização
 
+**Conta**:
+Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário tem uma
+Conta de origem; ver grupo de outra Conta só por autorização de acesso (ADR-0018). Hoje: a Conta
+dos grupos do Cesar.
+_Evitar_: cliente (é o comprador), tenant, assinante
+
+**Autorização de acesso**:
+Permissão que o administrador de uma Conta dá a um usuário de outra Conta para ver um grupo com um
+papel. Vale até ser revogada.
+_Evitar_: termo (sozinho), compartilhamento
+
 **Grupo**:
-Um CNPJ com suas lojas, contas e integrações próprias. Hoje: Sul de Minas, BH e Vale. Os dados
+Um CNPJ com suas lojas, contas e integrações próprias. Pertence a uma Conta. Hoje: Sul de Minas, BH e Vale. Os dados
 de um grupo não aparecem para outro.
 _Evitar_: bandeira (no sentido de grupo; "bandeira" do cartão é outra coisa), tenant
 
