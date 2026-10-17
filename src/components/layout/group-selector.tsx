@@ -1,4 +1,4 @@
-import { getGrupoAtivo, grupoAtivoDaRequisicao, listarGruposVisiveis } from '@/lib/grupo'
+import { getGrupoAtivo, grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao, listarGruposVisiveis } from '@/lib/grupo'
 import { GroupSwitcher } from './group-switcher'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
@@ -21,7 +21,7 @@ export async function GroupSelector({ usuario }: Props) {
   let grupoAtivo: Awaited<ReturnType<typeof getGrupoAtivo>>
   try {
     [gruposList, grupoAtivo] = await withTimeout(
-      Promise.all([listarGruposVisiveis(usuario), grupoAtivoDaRequisicao(usuario)]),
+      Promise.all([gruposVisiveisDaRequisicao(usuario), grupoAtivoDaRequisicao(usuario)]),
       6000,
     )
   } catch {

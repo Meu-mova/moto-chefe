@@ -6,7 +6,7 @@ import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarPreferencia } from '@/lib/mercadopago/cliente'
 import { acrescimoAtraso, cobrancasDevidas, valorBase } from './regras'
-import { emailCobranca } from './mensagens'
+import { emailCobranca, emailVencimento } from './mensagens'
 
 type GrupoCobravel = {
   grupo_id: string
@@ -103,4 +103,30 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
     resultados.push(r)
   }
   return resultados
+}
+
+/**
+ * E-mail no dia do vencimento para cada mensalidade ainda aberta. Marca o envio
+ * antes de mandar: se o cron rodar de novo no mesmo dia, ninguém recebe dois.
+ */
+export async function avisarVencimentos(agora: Date = new Date()): Promise<number> {
+  const hoje = hojeBrt(agora)
+  const marcadas = await execRows(sql`
+    update mensalidades m set aviso_vencimento_em = now()
+    from grupos g
+    left join adesoes_mova a on a.grupo_id = g.id
+    left join mensalidade_config c on c.grupo_id = g.id
+    where g.id = m.grupo_id and m.status = 'aberta' and m.vencimento = ${hoje}
+      and m.aviso_vencimento_em is null and not coalesce(c.isento, false)
+    returning m.valor::text as valor, m.acrescimo::text as acrescimo, m.vencimento::text as vencimento,
+              g.nome as grupo, a.email, a.responsavel
+  `) as { valor: string; acrescimo: string; vencimento: string; grupo: string; email: string | null; responsavel: string | null }[]
+  let enviados = 0
+  for (const m of marcadas) {
+    if (!m.email) continue
+    const e = emailVencimento({ responsavel: m.responsavel, grupo: m.grupo, valor: Number(m.valor) + Number(m.acrescimo), vencimento: m.vencimento })
+    const r = await enviarEmail({ para: m.email, assunto: e.assunto, texto: e.texto, html: e.html })
+    if (r.status === 'enviado') enviados++
+  }
+  return enviados
 }

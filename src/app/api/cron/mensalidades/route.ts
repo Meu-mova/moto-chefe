@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { gerarCobrancas } from '@/lib/mensalidade/gerar'
+import { gerarCobrancas, avisarVencimentos } from '@/lib/mensalidade/gerar'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -16,5 +16,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const resultados = await gerarCobrancas()
-  return NextResponse.json({ ok: true, resultados })
+  const avisosVencimento = await avisarVencimentos()
+  return NextResponse.json({ ok: true, resultados, avisosVencimento })
 }

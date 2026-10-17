@@ -15,11 +15,11 @@ type Db = typeof import('@/lib/db')
 type Bloqueio = typeof import('@/lib/mensalidade/bloqueio')
 let db: Db['db']
 let abertasCobraveis: Bloqueio['abertasCobraveis']
-let grupoBloqueado: Bloqueio['grupoBloqueado']
+let situacaoMensalidade: Bloqueio['situacaoMensalidade']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ abertasCobraveis, grupoBloqueado } = await import('@/lib/mensalidade/bloqueio'))
+  ;({ abertasCobraveis, situacaoMensalidade } = await import('@/lib/mensalidade/bloqueio'))
 })
 
 after(async () => {
@@ -41,8 +41,9 @@ test('grupo isento com mensalidade vencida não aparece nem bloqueia; o pagante 
     const abertas = await abertasCobraveis({ grupoIds: [isento.id, pagante.id] }, tx)
     assert.deepEqual(abertas.map(a => a.grupoNome), ['Pagante'])
     const agora = new Date('2026-03-01T12:00:00Z')
-    assert.equal(await grupoBloqueado(isento.id, agora, tx), false)
-    assert.equal(await grupoBloqueado(pagante.id, agora, tx), true)
+    assert.equal((await situacaoMensalidade(isento.id, [], agora, tx)).bloqueado, false)
+    assert.equal((await situacaoMensalidade(pagante.id, [], agora, tx)).bloqueado, true)
+    assert.deepEqual((await situacaoMensalidade(pagante.id, [isento.id], agora, tx)).outros, [])
     throw new Desfazer()
   }), Desfazer)
 })
