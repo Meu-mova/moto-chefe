@@ -22,6 +22,7 @@ import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
+import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -944,8 +945,8 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
 
 export async function cancelarVendaCompletaAction(vendaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
-    throw new Error('Apenas administradores e sócios podem cancelar vendas')
+  if (!PAPEIS_QUE_CANCELAM_VENDA.has(usuario.papel)) {
+    throw new Error('Apenas administradores, sócios e auxiliares administrativos podem cancelar vendas')
   }
 
   if (!motivo.trim()) {
@@ -986,7 +987,9 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     // Uma emissão na mesma hora gravaria a nota e iria à SEFAZ, e o DELETE da
     // venda a apagaria junto (CASCADE). Com a linha da venda travada, a emissão
     // espera e falha na chave; a que chegou antes aparece na conferência abaixo.
-    await tx.select({ id: vendas.id }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
+    const [travada] = await tx.select({ notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
+    // Um "Confirmar NF" entre a conferência e aqui também trava o aux_adm (#191).
+    if (travada && travaDoPapel(usuario.papel, travada.notaFiscalSaida)) return true
     const [viva] = await tx.select({ id: notasFiscaisSaida.id }).from(notasFiscaisSaida)
       .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.ambiente, 'Producao'), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
       .limit(1)

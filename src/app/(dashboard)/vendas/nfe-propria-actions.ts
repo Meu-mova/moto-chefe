@@ -17,6 +17,7 @@ import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusad
 import { diaEHoraBrt } from '@/lib/data-venda'
 import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
+import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
 
 /**
@@ -540,9 +541,10 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 
 /** A permissão é no grupo da loja da venda. */
 async function exigirGrupoDaVenda(vendaId: string, usuario: Usuario) {
-  const [venda] = await db.select({ lojaId: vendas.lojaId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  const [venda] = await db.select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
   if (!venda) throw new Error('Venda não encontrada')
   await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
+  return venda
 }
 
 /** As notas do MOVA de uma venda, para o diálogo aberto pelo número da NF. */
@@ -566,18 +568,20 @@ const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => 
   sem_data: n => `Não deu para confirmar o prazo de cancelamento da NF ${n.numero}. Abra a NF pelo número dela, consulte e tente de novo.`,
 }
 
-/** A orientação da trava do "Cancelar venda" (ADR-0014), ou null se a venda pode ser cancelada. */
+/** A orientação da trava do "Cancelar venda" (ADR-0014 e, para o aux_adm, #191), ou null se a venda pode ser cancelada. */
 export async function travaDoCancelamentoDaVendaAction(vendaId: string): Promise<{ ok: true; trava: string | null } | { ok: false; error: string }> {
   try {
     const usuario = await exigirPapel('consultar')
-    await exigirGrupoDaVenda(vendaId, usuario)
+    const venda = await exigirGrupoDaVenda(vendaId, usuario)
     let r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
     if (r?.trava === 'sem_data') {
       // Sem a data de autorização, o prazo não se calcula: a consulta traz e grava.
       await carregarNota(r.nota.id, usuario).then(reconsultar).catch(() => null)
       r = travaDoCancelamentoDaVenda(await notasDaVenda(vendaId), new Date())
     }
-    return { ok: true, trava: r && ORIENTACAO_CANCELAR_VENDA[r.trava](r.nota) }
+    // A NF do MOVA autorizada também preenche notaFiscalSaida; a orientação dela
+    // (cancelar a NF) vem antes da recusa pelo papel.
+    return { ok: true, trava: r ? ORIENTACAO_CANCELAR_VENDA[r.trava](r.nota) : travaDoPapel(usuario.papel, venda.notaFiscalSaida) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }

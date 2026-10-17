@@ -16,9 +16,9 @@ import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { calcStatusMultiPagamento, type StatusConc } from '@/lib/conciliacao-status'
 import type { DescontoDaVenda } from '@/lib/queries/descontos'
+import { PAPEIS_QUE_CANCELAM_VENDA } from '@/lib/cancelar-venda'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
-const podeCancelar = new Set(['admin_geral', 'admin_socio'])
 const podeEditar   = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 
@@ -66,7 +66,7 @@ const botaoGrade = 'flex h-16 w-full flex-col items-center justify-center gap-1 
 function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }: Omit<Props, 'vendas'> & { v: VendaComDetalhes }) {
   const podeEditarVenda = podeEditar.has(papel) && (!lojaIdUsuario || v.lojaId === lojaIdUsuario)
   const podeEmitirNf    = !v.notaFiscalSaida && podeOperarNfSaida(papel)
-  const blocos = 1 + (podeEditarVenda ? 1 : 0) + (podeGarantia.has(papel) ? 1 : 0) + (podeCancelar.has(papel) ? 1 : 0)
+  const blocos = 1 + (podeEditarVenda ? 1 : 0) + (podeGarantia.has(papel) ? 1 : 0) + (PAPEIS_QUE_CANCELAM_VENDA.has(papel) ? 1 : 0)
   return (
     <div className="space-y-2">
       {podeEmitirNf && (
@@ -103,7 +103,7 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
             gatilho={abrir => <button type="button" onClick={abrir} className={botaoGrade}><ShieldAlert className="size-4 text-muted-foreground" /> Garantia</button>}
           />
         )}
-        {podeCancelar.has(papel) && (
+        {PAPEIS_QUE_CANCELAM_VENDA.has(papel) && (
           <CancelarVendaButton
             vendaId={v.id}
             descricao={`${descricaoMoto(v)} — ${v.clienteNome}`}
