@@ -1,6 +1,6 @@
 # 0007. Multi-tenant por CNPJ (`grupo_id`)
 
-- **Status:** Aceita
+- **Status:** Aceita; revisada por [0018](0018-conta-acima-do-grupo.md) (nível Conta acima do grupo)
 - **Data da decisão:** 2026-07-01
 - **Fontes:** `docs/superpowers/specs/2026-07-01-multi-grupo-design.md`,
   `docs/superpowers/specs/2026-07-01-integracoes-por-grupo-pix-conciliacao-design.md`,
