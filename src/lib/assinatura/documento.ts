@@ -147,7 +147,7 @@ export const ITENS_CHECKLIST = [
   'Abertura do banco / compartimento da bateria',
 ]
 
-function esc(v: string): string {
+export function esc(v: string): string {
   return (v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
@@ -412,5 +412,10 @@ export function montarHtmlDocumento(
   respostas?: RespostasChecklist | null,
 ): string {
   const corpo = tipo === 'contrato_venda' ? contrato(d) : checklist(d, respostas)
+  return envolverDocumento(corpo)
+}
+
+/** Mesmo estilo de impressão para todo documento assinável (venda e adesão). */
+export function envolverDocumento(corpo: string): string {
   return `<style>${ESTILO}</style><article class="doc">${corpo}</article>`
 }

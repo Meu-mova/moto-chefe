@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { canonizar, docHash, sha256, type Evidencias } from './hash'
+import { canonizar, docHash, docHashAdesao, sha256, type Evidencias, type EvidenciasAdesao } from './hash'
 
 const EV: Evidencias = {
   documentoId: 'd1', vendaId: 'v1', tipo: 'contrato_venda',
@@ -35,4 +35,18 @@ test('canonizar não deixa campo de fora — se o tipo cresce, o hash acompanha'
 test('sha256 devolve hex de 64 caracteres', () => {
   assert.match(sha256('mova'), /^[0-9a-f]{64}$/)
   assert.equal(sha256('mova'), sha256(Buffer.from('mova')))
+})
+
+const EV_ADESAO: EvidenciasAdesao = {
+  contratoId: 'c1', adesaoId: 'a1', snapshotHash: 'aaa', selfieHash: 'bbb', assinaturaHash: 'ccc',
+  emailDestino: 'loja@teste.com', ipAssinatura: '187.1.2.3', userAgent: 'Mozilla/5.0',
+  codigoVerificadoEm: '2026-10-16T14:30:00.000Z', assinadoEm: '2026-10-16T14:32:00.000Z',
+}
+
+test('adesão: hash estável, independe da ordem das chaves e muda com qualquer evidência', () => {
+  const invertido = Object.fromEntries(Object.entries(EV_ADESAO).reverse()) as EvidenciasAdesao
+  assert.equal(docHashAdesao(invertido), docHashAdesao(EV_ADESAO))
+  for (const campo of Object.keys(EV_ADESAO) as (keyof EvidenciasAdesao)[]) {
+    assert.notEqual(docHashAdesao({ ...EV_ADESAO, [campo]: `${EV_ADESAO[campo]}-x` }), docHashAdesao(EV_ADESAO), campo)
+  }
 })

@@ -3,6 +3,8 @@ import {
   timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -228,6 +230,25 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   cancelamentoProtocolo: text('cancelamento_protocolo'),
   /** Contador que pediu à SEFAZ a liberação do cancelamento extemporâneo (#176). */
   cancelamentoContador: text('cancelamento_contador'),
+})
+
+// Cartas de correção da NF de saída (#187). Recusada fica como histórico e libera o número.
+export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  notaId:       uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
+  idExterno:    text('id_externo').notNull().unique(),
+  ambiente:     text('ambiente').notNull(),
+  numero:       integer('numero').notNull(),
+  correcao:     text('correcao').notNull(),
+  /** pendente | autorizada | recusada: nossa leitura do status da API (notagateway/carta-correcao.ts). */
+  situacao:     text('situacao').$type<SituacaoCarta>().notNull().default('pendente'),
+  status:       text('status').notNull().default('Enviando'),
+  motivoStatus: text('motivo_status'),
+  protocolo:    text('protocolo'),
+  emitidaPor:   uuid('emitida_por').references(() => usuarios.id),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
@@ -1588,6 +1609,72 @@ export const adesoesMova = pgTable('adesoes_mova', {
   storeLogin: text('store_login').notNull(),
   storeSenha: text('store_senha').notNull(),
   usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
-  status: text('status').notNull().default('pendente'),
+  status: text('status').$type<StatusAdesao>().notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Dados do contrato de adesão (#165), completados pelo operador da MOVA em
+  // /admin/adesoes. Validação em @/lib/adesao-contrato.
+  razaoSocial: text('razao_social'),
+  cnpj: text('cnpj'),
+  enderecoSede: text('endereco_sede'),
+  email: text('email'),
+  responsavelCpf: text('responsavel_cpf'),
+  valorMensal: numeric('valor_mensal', { precision: 12, scale: 2 }),
+  // Sem uso desde a 0119: o vencimento sai do primeiro acesso (#165).
+  diaVencimento: integer('dia_vencimento'),
+  motivoRecusa: text('motivo_recusa'),
+  recusadaEm: timestamp('recusada_em', { withTimezone: true }),
+  avisoRecusa: text('aviso_recusa').$type<'enviado' | 'sem_numero' | 'erro'>(),
+  atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
+  franqueadoMotochefe: boolean('franqueado_motochefe').notNull().default(false),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
+})
+
+// ─── contratos_adesao ────────────────────────────────────────────────────────
+// Contrato de adesão ao MOVA assinado pelo lojista (#165, migração 0121). Mesma
+// assinatura por link da venda, em tabelas próprias: é documento da plataforma,
+// não de um grupo (ADR-0017). Regras em @/lib/assinatura/fluxo.
+export const contratosAdesao = pgTable('contratos_adesao', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  adesaoId:       uuid('adesao_id').notNull().references(() => adesoesMova.id),
+  token:          text('token').notNull().unique(),
+  status:         text('status').notNull().default('pendente'),
+  htmlSnapshot:   text('html_snapshot').notNull(),
+  snapshotHash:   text('snapshot_hash').notNull(),
+  emailDestino:   text('email_destino').notNull(),
+  selfiePath:     text('selfie_path'),
+  selfieHash:     text('selfie_hash'),
+  assinaturaPath: text('assinatura_path'),
+  assinaturaHash: text('assinatura_hash'),
+  ipAssinatura:   text('ip_assinatura'),
+  userAgent:      text('user_agent'),
+  geoLat:         numeric('geo_lat', { precision: 10, scale: 7 }),
+  geoLon:         numeric('geo_lon', { precision: 10, scale: 7 }),
+  geoPrecisao:    numeric('geo_precisao', { precision: 10, scale: 2 }),
+  evidenciasJson: jsonb('evidencias_json'),
+  docHash:        text('doc_hash'),
+  criadoPor:      uuid('criado_por').references(() => usuarios.id),
+  criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  expiraEm:       timestamp('expira_em', { withTimezone: true }).notNull(),
+  assinadoEm:     timestamp('assinado_em', { withTimezone: true }),
+})
+
+export const contratosAdesaoEventos = pgTable('contratos_adesao_eventos', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  contratoId: uuid('contrato_id').notNull().references(() => contratosAdesao.id, { onDelete: 'cascade' }),
+  tipo:       text('tipo').notNull(),
+  ip:         text('ip'),
+  userAgent:  text('user_agent'),
+  detalhe:    jsonb('detalhe'),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const contratosAdesaoCodigos = pgTable('contratos_adesao_codigos', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  contratoId: uuid('contrato_id').notNull().references(() => contratosAdesao.id, { onDelete: 'cascade' }),
+  codigoHash: text('codigo_hash').notNull(),
+  expiraEm:   timestamp('expira_em', { withTimezone: true }).notNull(),
+  tentativas: integer('tentativas').notNull().default(0),
+  usadoEm:    timestamp('usado_em', { withTimezone: true }),
+  criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

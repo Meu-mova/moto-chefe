@@ -1,6 +1,6 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { CheckCircle2, Clock, ExternalLink, FileDown, FileX, Loader2, RefreshCw, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, ExternalLink, FileDown, FilePen, FileX, Loader2, RefreshCw, Trash2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { diaEHoraBrt } from '@/lib/data-venda'
 import { MINUTOS_PARA_DESCARTAR, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, normalizarContador, podeDescartarTentativa, situacaoCancelamento } from '@/lib/notagateway/status'
 import { cancelarNfePropriaAction, consultarNfePropriaAction, cancelarNfeExtemporaneaAction, descartarTentativaAction, type NotaResumo, type ResultadoTransmissao } from '../../vendas/nfe-propria-actions'
+import { NfSaidaCartas } from './nf-saida-cartas'
 
 type Props = { nota: NotaResumo; onAtualizada: (nota: NotaResumo) => void }
 type Acao = 'cancelar' | 'consultar' | 'descartar' | 'extemporaneo'
@@ -39,6 +40,14 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState('')
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  const [cartaAberta, setCartaAberta] = useState(false)
+  // A nota saiu de Autorizada (ex.: cancelada no próprio card): o link some, e o formulário
+  // fecha de vez, para não reabrir sozinho se o status voltar.
+  const [statusVisto, setStatusVisto] = useState(nota.status)
+  if (nota.status !== statusVisto) {
+    setStatusVisto(nota.status)
+    if (nota.status !== 'Autorizada') setCartaAberta(false)
+  }
   const [acao, setAcao] = useState<Acao | null>(null)
   const [, startTransition] = useTransition()
 
@@ -286,8 +295,16 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
             <FileDown size={12} /> XML
           </a>
         )}
+        {nota.status === 'Autorizada' && (
+          <button type="button" onClick={() => setCartaAberta(true)} className="flex items-center gap-1 text-primary-text hover:underline">
+            <FilePen size={12} /> Carta de correção
+          </button>
+        )}
         <span className="font-mono text-[10px] text-slate-400" title="Status como a Nota Gateway devolve">{nota.status}</span>
       </div>
+      {(nota.status === 'Autorizada' || nota.status === 'Cancelada') && (
+        <NfSaidaCartas nota={nota} formAberto={cartaAberta} onFecharForm={() => setCartaAberta(false)} />
+      )}
       {corpo}
       {erro && <p className="whitespace-pre-line text-xs text-red-600">{erro}</p>}
     </div>
