@@ -26,8 +26,8 @@ vale esta seção.
   mais um aviso no topo do sistema com o botão de pagar.
 - **Atraso** (contrato 4.4): numa cobrança vencida, o link é refeito com multa de 2% e juros de
   1% ao mês, pro rata dia. A preferência antiga é cancelada.
-- **Pagamento**: PIX, boleto e cartão de crédito ou débito no link do Mercado Pago. O MOVA nunca
-  guarda dado de cartão.
+- **Pagamento**: só PIX e boleto no link do Mercado Pago (Cesar, 17/10): cartões excluídos. O
+  saldo da conta Mercado Pago não dá para excluir. Boleto vence em 3 dias, o padrão deles.
 - **Quem paga no sistema**: o `admin_socio` da Conta vê e paga as cobranças de todos os grupos
   dela. Os demais usuários de um grupo bloqueado veem "fale com o responsável".
 - **Bloqueio** (contrato 4.5): 5 dias corridos após o vencimento, como na seção 6. Quem entra
