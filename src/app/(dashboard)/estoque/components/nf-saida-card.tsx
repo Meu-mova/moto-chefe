@@ -6,15 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { diaEHoraBrt } from '@/lib/data-venda'
-import { MINUTOS_PARA_DESCARTAR, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, normalizarProtocoloExtemporaneo, podeDescartarTentativa, situacaoCancelamento } from '@/lib/notagateway/status'
-import { cancelarNfePropriaAction, consultarNfePropriaAction, descartarTentativaAction, registrarCancelamentoExtemporaneoAction, type NotaResumo, type ResultadoTransmissao } from '../../vendas/nfe-propria-actions'
+import { MINUTOS_PARA_DESCARTAR, deveDesfazerFaturamento, ehFinal, ehRecusada, limiteCancelamento, normalizarContador, podeDescartarTentativa, situacaoCancelamento } from '@/lib/notagateway/status'
+import { cancelarNfePropriaAction, consultarNfePropriaAction, cancelarNfeExtemporaneaAction, descartarTentativaAction, type NotaResumo, type ResultadoTransmissao } from '../../vendas/nfe-propria-actions'
 
 type Props = { nota: NotaResumo; onAtualizada: (nota: NotaResumo) => void }
 type Acao = 'cancelar' | 'consultar' | 'descartar' | 'extemporaneo'
 
-const ACOES: Record<Acao, (notaId: string, motivo: string, protocolo: string) => Promise<ResultadoTransmissao>> = {
+const ACOES: Record<Acao, (notaId: string, motivo: string, contador: string) => Promise<ResultadoTransmissao>> = {
   cancelar: cancelarNfePropriaAction,
-  extemporaneo: registrarCancelamentoExtemporaneoAction,
+  extemporaneo: cancelarNfeExtemporaneaAction,
   consultar: id => consultarNfePropriaAction(id),
   descartar: id => descartarTentativaAction(id),
 }
@@ -23,7 +23,7 @@ const ANDAMENTO: Record<Acao, string> = {
   cancelar: 'Pedindo o cancelamento à SEFAZ…',
   consultar: 'Consultando a Nota Gateway…',
   descartar: 'Conferindo com a Nota Gateway…',
-  extemporaneo: 'Registrando o cancelamento…',
+  extemporaneo: 'Pedindo o cancelamento à SEFAZ…',
 }
 
 function falta(ate: Date) {
@@ -35,7 +35,7 @@ function falta(ate: Date) {
 export function NfSaidaCard({ nota, onAtualizada }: Props) {
   const [formAberto, setFormAberto] = useState(false)
   const [extAberto, setExtAberto] = useState(false)
-  const [protocolo, setProtocolo] = useState('')
+  const [contador, setContador] = useState('')
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState('')
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
@@ -50,7 +50,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
     setErro('')
     setAcao(tipo)
     startTransition(async () => {
-      const r = await ACOES[tipo](nota.id, motivo, protocolo)
+      const r = await ACOES[tipo](nota.id, motivo, contador)
       setAcao(null)
       if (r.nota) {
         onAtualizada(r.nota)
@@ -65,7 +65,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   function abrirExtemporaneo() {
     setErro('')
     setMotivo('')
-    setProtocolo('')
+    setContador('')
     setExtAberto(true)
   }
 
@@ -85,8 +85,9 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
     : ['Em processamento', 'border-slate-200 bg-slate-50 text-slate-700']
 
   const registro = nota.cancelamento && (
-    <p className="text-xs text-slate-600">
+    <p className="text-xs text-muted-foreground">
       Motivo: <b>{nota.cancelamento.motivo}</b> · pedido por {nota.cancelamento.por ?? '—'} em {diaEHoraBrt(nota.cancelamento.em)}
+      {nota.cancelamento.contador && <> · liberação pedida à SEFAZ por {nota.cancelamento.contador}</>}
     </p>
   )
 
@@ -146,20 +147,20 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
     corpo = (
       <div className="space-y-3 rounded-md border border-border p-3">
         <div className="space-y-1">
-          <Label htmlFor={`protocolo-${nota.id}`}>Protocolo do pedido na SEFAZ <span className="text-destructive">*</span></Label>
-          <Input id={`protocolo-${nota.id}`} inputMode="numeric" value={protocolo} onChange={e => setProtocolo(e.target.value)} placeholder="Ex.: 202.611.206.752-2" />
+          <Label htmlFor={`contador-${nota.id}`}>Contador que fez o pedido <span className="text-destructive">*</span></Label>
+          <Input id={`contador-${nota.id}`} value={contador} onChange={e => setContador(e.target.value)} placeholder="Ex.: Pablo / Escritório Contábil X" />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`motivo-ext-${nota.id}`}>Motivo <span className="text-destructive">*</span></Label>
           <Textarea id={`motivo-ext-${nota.id}`} value={motivo} onChange={e => setMotivo(e.target.value)} rows={2} placeholder="Ex.: venda desfeita, cliente desistiu" />
         </div>
         <p className="text-xs text-muted-foreground">
-          Fica registrado com o seu nome. Use só depois que a contabilidade confirmar o pedido. A venda fica sem número
-          de NF e a moto volta a &quot;Ag. NF Saída&quot;.
+          Use só depois que o contador confirmar que a SEFAZ liberou. Fica registrado com o seu nome. Com a nota
+          cancelada, a venda fica sem número de NF e a moto volta a &quot;Ag. NF Saída&quot;.
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={() => { setExtAberto(false); setErro('') }}>Voltar</Button>
-          <Button variant="destructive" size="sm" onClick={() => executar('extemporaneo')} disabled={!normalizarProtocoloExtemporaneo(protocolo).ok || !motivo.trim()} className="gap-1">
+          <Button variant="destructive" size="sm" onClick={() => executar('extemporaneo')} disabled={!normalizarContador(contador).ok || !motivo.trim()} className="gap-1">
             <FileX size={13} /> Cancelar NF {nota.numero}
           </Button>
         </div>
@@ -193,13 +194,9 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
     )
   } else if (nota.status === 'Cancelada') {
     corpo = (
-      <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-3">
-        <p className="flex items-center gap-1.5 font-medium text-foreground"><CheckCircle2 size={15} className="text-muted-foreground" /> NF {nota.numero} {nota.cancelamento?.protocolo ? 'cancelada por pedido extemporâneo' : 'cancelada na SEFAZ'}</p>
-        {nota.cancelamento?.protocolo ? (
-          <p className="text-xs text-muted-foreground">
-            Cancelamento extemporâneo, protocolo <b>{nota.cancelamento.protocolo}</b> · motivo: {nota.cancelamento.motivo} · registrado por {nota.cancelamento.por ?? '—'} em {diaEHoraBrt(nota.cancelamento.em)}
-          </p>
-        ) : registro}
+      <div className="space-y-1 rounded-md border border-border bg-muted p-3">
+        <p className="flex items-center gap-1.5 font-medium text-foreground"><CheckCircle2 size={15} className="text-muted-foreground" /> NF {nota.numero} cancelada na SEFAZ</p>
+        {registro}
         {deveDesfazerFaturamento(nota) && (
           <p className="text-xs text-slate-700">
             A venda ficou sem NF e a moto voltou a <b>&quot;Ag. NF Saída&quot;</b>: a nota nova sai pelo botão <b>NF Saída</b> da venda.
@@ -307,12 +304,12 @@ function AvisoForaDoPrazo({ producao, limite, onRegistrar }: { producao: boolean
       {producao ? (
         <div className="space-y-2 px-3 py-2.5">
           <p className="text-xs text-muted-foreground">
-            A partir de agora, o cancelamento desta NF depende de pedido extemporâneo à SEFAZ, feito pela contabilidade.
-            Informe abaixo o número de protocolo recebido.
+            Depois das 24h, o contador pede à SEFAZ que libere o cancelamento. Quando ele confirmar que a SEFAZ
+            liberou, cancele por aqui: o pedido segue como no prazo normal.
           </p>
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={onRegistrar} className="gap-1">
-              <FileX size={13} /> Registrar cancelamento extemporâneo
+              <FileX size={13} /> Cancelar NF liberada pela SEFAZ
             </Button>
           </div>
         </div>
