@@ -31,19 +31,40 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
   const [erro, setErro] = useState('')
   const [andamento, setAndamento] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+  // Sem a lista, não dá para saber o número nem o texto que vale hoje: o formulário espera.
+  const [carga, setCarga] = useState<{ estado: 'carregando' | 'ok' } | { estado: 'erro'; erro: string }>({ estado: 'carregando' })
+  const [agora, setAgora] = useState(() => new Date())
 
+  function carregar() {
+    setCarga({ estado: 'carregando' })
+    cartasDaNotaAction(nota.id)
+      .then(r => {
+        if (r.ok) { setCartas(r.cartas); setCarga({ estado: 'ok' }) }
+        else setCarga({ estado: 'erro', erro: r.error })
+      })
+      .catch((err: Error) => setCarga({ estado: 'erro', erro: err.message }))
+  }
+
+  useEffect(carregar, [nota.id])
+
+  const temPendente = cartas.some(c => c.situacao === 'pendente')
+  // O botão Descartar depende do tempo: sem relógio, ele só apareceria depois de outra ação.
   useEffect(() => {
-    cartasDaNotaAction(nota.id).then(r => { if (r.ok) setCartas(r.cartas) })
-  }, [nota.id])
+    if (!temPendente) return
+    const id = setInterval(() => setAgora(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [temPendente])
 
   const ultimaAutorizada = [...cartas].reverse().find(c => c.situacao === 'autorizada')
   const proximo = proximoNumeroCarta(cartas)
   const validacao = validarTextoCarta(texto)
 
   // Cada carta substitui a anterior na SEFAZ: o campo já abre com o que vale hoje.
+  // Roda de novo quando a lista chega, para o caso de o formulário abrir antes dela.
+  const listaPronta = carga.estado === 'ok'
   useEffect(() => {
-    if (formAberto) { setTexto(ultimaAutorizada?.correcao ?? ''); setErro('') }
-  }, [formAberto])
+    if (formAberto && listaPronta) { setTexto(ultimaAutorizada?.correcao ?? ''); setErro('') }
+  }, [formAberto, listaPronta])
 
   function executar(mensagem: string, chamada: () => Promise<ResultadoCartas>, fecharForm = false) {
     setErro('')
@@ -71,7 +92,17 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
 
       {formAberto && !andamento && (
         <div className="space-y-2 rounded-md border border-border p-3">
-          {proximo.ok ? (
+          {carga.estado === 'carregando' ? (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 size={14} className="animate-spin" /> Carregando as cartas desta nota…</p>
+          ) : carga.estado === 'erro' ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-destructive">Não deu para carregar as cartas ({carga.erro}).</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={carregar}>Tentar de novo</Button>
+                <Button variant="outline" size="sm" onClick={onFecharForm}>Voltar</Button>
+              </div>
+            </div>
+          ) : proximo.ok ? (
             <>
               <Label htmlFor={`carta-${nota.id}`}>Carta de correção nº {proximo.numero}</Label>
               {ultimaAutorizada && (
@@ -146,13 +177,13 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
                   <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
                     <span>A SEFAZ ainda não respondeu.</span>
                     <div className="flex gap-2">
-                      {podeDescartarCarta(c, new Date()) && (
-                        <Button variant="outline" size="sm" className="gap-1"
+                      {podeDescartarCarta(c, agora) && (
+                        <Button variant="outline" size="sm" className="gap-1" disabled={!!andamento}
                           onClick={() => executar('Conferindo com a Nota Gateway…', () => descartarCartaAction(nota.id, c.id))}>
                           <Trash2 size={13} /> Descartar
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="gap-1"
+                      <Button variant="outline" size="sm" className="gap-1" disabled={!!andamento}
                         onClick={() => executar('Consultando a Nota Gateway…', () => reconsultarCartasAction(nota.id))}>
                         <RefreshCw size={13} /> Reconsultar
                       </Button>
