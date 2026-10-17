@@ -32,7 +32,7 @@ export function proximoNumeroCarta(cartas: { numero: number; situacao: SituacaoC
 }
 
 // A doc da Nota Gateway só cita "Autorizada"; os demais nomes aguardam o suporte (#187).
-// Até lá, todo outro status conta como pendente: a recusa só vem do 4xx do envio.
+// Até lá, todo outro status conta como pendente; a recusa vem do 4xx do envio ou do descarte (recusaNaGateway).
 export function situacaoCarta(status: string): SituacaoCarta {
   return status === 'Autorizada' ? 'autorizada' : 'pendente'
 }
@@ -44,4 +44,15 @@ export function situacaoCarta(status: string): SituacaoCarta {
  */
 export function podeDescartarCarta(carta: { situacao: SituacaoCarta; criadoEm: string }, agora: Date): boolean {
   return carta.situacao === 'pendente' && agora.getTime() - Date.parse(carta.criadoEm) >= MINUTOS_PARA_DESCARTAR * 60_000
+}
+
+/**
+ * Rejeição da SEFAZ que só aparece na consulta: a carta existe na Nota Gateway,
+ * mas com status que não sabemos nomear. Sem isso ela ficaria pendente para
+ * sempre e travaria a nota. Status diferente de Autorizada/Processando, com
+ * motivo, conta como recusa; devolve o motivo, ou null se não for o caso.
+ */
+export function recusaNaGateway(c: { status: string; motivoStatus: string | null }): string | null {
+  if (c.status === 'Autorizada' || c.status === 'Processando') return null
+  return c.motivoStatus?.trim() || null
 }

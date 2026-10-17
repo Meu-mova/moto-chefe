@@ -5,7 +5,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { configNotaGateway, consultarCartaCorrecao, enviarCartaCorrecao, CartaRecusada, type ConfigNotaGateway } from '@/lib/notagateway/client'
-import { podeDescartarCarta, proximoNumeroCarta, situacaoCarta, validarTextoCarta, type SituacaoCarta } from '@/lib/notagateway/carta-correcao'
+import { podeDescartarCarta, proximoNumeroCarta, recusaNaGateway, situacaoCarta, validarTextoCarta, type SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import { podeOperarNfSaida } from './papeis-nf-saida'
 import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
@@ -26,6 +26,12 @@ export type CartaResumo = {
   ambiente: string
   por: string | null
   criadoEm: string
+}
+
+// Só sai de pendente uma vez: sem isso, descarte e reconsulta simultâneos se
+// sobrescrevem, e uma autorizada virar recusada libera um número já registrado na SEFAZ.
+function aindaPendente(cartaId: string) {
+  return and(eq(notasFiscaisSaidaCartas.id, cartaId), eq(notasFiscaisSaidaCartas.situacao, 'pendente'))
 }
 
 export type ResultadoCartas = { ok: true; cartas: CartaResumo[] } | { ok: false; error: string; cartas?: CartaResumo[] }
@@ -63,7 +69,7 @@ async function reconsultarCarta(cfg: ConfigNotaGateway, carta: { id: string; idE
   await db.update(notasFiscaisSaidaCartas).set({
     status: c.status, situacao, motivoStatus: c.motivoStatus, protocolo: c.protocolo,
     atualizadoEm: sql`now()` as unknown as Date,
-  }).where(eq(notasFiscaisSaidaCartas.id, carta.id))
+  }).where(aindaPendente(carta.id))
   return situacao
 }
 
@@ -110,7 +116,7 @@ export async function emitirCartaCorrecaoAction(notaId: string, textoBruto: stri
       if (err instanceof CartaRecusada) {
         await db.update(notasFiscaisSaidaCartas).set({
           situacao: 'recusada', status: 'Recusada', motivoStatus: err.message, atualizadoEm: sql`now()` as unknown as Date,
-        }).where(eq(notasFiscaisSaidaCartas.id, cartaId))
+        }).where(aindaPendente(cartaId))
         return { ok: true, cartas: await cartasDaNota(notaId) }
       }
       // Sem resposta clara: a carta fica pendente e a tela reconsulta.
@@ -149,8 +155,8 @@ export async function reconsultarCartasAction(notaId: string): Promise<Resultado
 }
 
 /**
- * Descarta a carta pendente que não chegou à Nota Gateway: só depois do prazo e
- * se a consulta confirmar que ela não existe lá. Fica como recusada, o que libera
+ * Descarta a carta pendente que não chegou à Nota Gateway, ou que chegou e a
+ * SEFAZ rejeitou: só depois do prazo e se a consulta confirmar um dos dois. Fica como recusada, o que libera
  * o número para a próxima tentativa.
  */
 export async function descartarCartaAction(notaId: string, cartaId: string): Promise<ResultadoCartas> {
@@ -164,14 +170,17 @@ export async function descartarCartaAction(notaId: string, cartaId: string): Pro
     if (!podeDescartarCarta({ situacao: carta.situacao, criadoEm: carta.criadoEm.toISOString() }, new Date())) {
       return { ok: false, error: 'Só carta pendente há algum tempo pode ser descartada', cartas: await cartasDaNota(notaId) }
     }
-    if (await consultarCartaCorrecao(cfg, carta.idExterno)) {
+    const naGateway = await consultarCartaCorrecao(cfg, carta.idExterno)
+    const recusa = naGateway && recusaNaGateway(naGateway)
+    if (naGateway && !recusa) {
       await reconsultarCarta(cfg, carta)
       return { ok: false, error: 'A carta existe na Nota Gateway: não dá para descartar. Reconsulte para ver o status', cartas: await cartasDaNota(notaId) }
     }
     await db.update(notasFiscaisSaidaCartas).set({
-      situacao: 'recusada', status: 'Descartada', motivoStatus: 'Descartada: o envio não chegou à Nota Gateway',
+      situacao: 'recusada', status: naGateway ? naGateway.status : 'Descartada',
+      motivoStatus: recusa || 'Descartada: o envio não chegou à Nota Gateway',
       atualizadoEm: sql`now()` as unknown as Date,
-    }).where(eq(notasFiscaisSaidaCartas.id, cartaId))
+    }).where(aindaPendente(cartaId))
     return { ok: true, cartas: await cartasDaNota(notaId) }
   } catch (err) {
     return { ok: false, error: (err as Error).message }

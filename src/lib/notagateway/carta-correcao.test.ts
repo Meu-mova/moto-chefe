@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { podeDescartarCarta, proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
+import { podeDescartarCarta, recusaNaGateway, proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
 
 test('texto da carta: aceita de 15 a 1000 caracteres, contados sem os espaços das pontas', () => {
   assert.equal(validarTextoCarta('Chassi correto: X').ok, true)
@@ -44,4 +44,12 @@ test('descartar carta: só pendente há 15 minutos ou mais', () => {
   assert.equal(podeDescartarCarta({ situacao: 'pendente', criadoEm: '2026-10-16T11:45:00Z' }, agora), true)
   assert.equal(podeDescartarCarta({ situacao: 'pendente', criadoEm: '2026-10-16T11:46:00Z' }, agora), false)
   assert.equal(podeDescartarCarta({ situacao: 'autorizada', criadoEm: '2026-10-16T10:00:00Z' }, agora), false)
+})
+
+test('recusa na Nota Gateway: status fora de Autorizada/Processando com motivo libera o descarte, com o motivo da SEFAZ', () => {
+  assert.equal(recusaNaGateway({ status: 'Rejeitada', motivoStatus: 'Rejeição 594: limite de cartas' }), 'Rejeição 594: limite de cartas')
+  assert.equal(recusaNaGateway({ status: 'Processando', motivoStatus: 'Lote em processamento' }), null)
+  assert.equal(recusaNaGateway({ status: 'Autorizada', motivoStatus: 'Evento registrado' }), null)
+  assert.equal(recusaNaGateway({ status: 'Rejeitada', motivoStatus: null }), null)
+  assert.equal(recusaNaGateway({ status: 'Rejeitada', motivoStatus: '  ' }), null)
 })
