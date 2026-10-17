@@ -196,7 +196,9 @@ export function VendasTable(props: Props) {
         </div>
         {selecionada && (
           <aside className="sticky top-4 max-h-[calc(100dvh-2rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-lg" aria-label={`Venda #${selecionada.venda.numero}`}>
+            {/* key: sem ela, trocar de venda reaproveita o "Editar" com o formulário da anterior (#205). */}
             <PainelVenda
+              key={selecionada.venda.id}
               item={selecionada}
               acoes={acoes(selecionada.venda)}
               onAbrirNf={onAbrirNf}

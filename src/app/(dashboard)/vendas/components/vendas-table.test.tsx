@@ -53,9 +53,18 @@ const BOTOES_DA_LINHA: [string, string][] = [
   ['../../estoque/components/nf-saida-button', 'NfSaidaButton'],
   ['./cancelar-venda-button', 'CancelarVendaButton'],
   ['./detalhes-venda-dialog', 'DetalhesVendaDialog'],
-  ['./editar-venda-dialog', 'EditarVendaDialog'],
 ]
 for (const [caminho, nome] of BOTOES_DA_LINHA) mock.module(caminho, { namedExports: { [nome]: () => null } })
+// Como o diálogo real, guarda a venda no useState da primeira montagem.
+mock.module('./editar-venda-dialog', {
+  namedExports: {
+    EditarVendaDialog: function EditarVendaDialog({ venda }: { venda: VendaComDetalhes }) {
+      const React = require('react') as typeof import('react')
+      const [cliente] = React.useState(venda.clienteNome)
+      return React.createElement('output', { 'data-editar': '' }, cliente)
+    },
+  },
+})
 
 const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 // Fechado, o Dialog do base-ui só sai do DOM depois da animação de saída.
@@ -83,8 +92,11 @@ async function montarTabela(papel: string) {
     await act(async () => { botaoDaNf()!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })) })
     await act(async () => { await esperar(50) })
   }
+  const clicarLinha = (i: number) => act(async () => {
+    document.querySelectorAll('tbody tr')[i]!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  })
   const desmontar = () => act(async () => { root.unmount() })
-  return { desenhar, abrirVenda, abrirNf, desmontar, act }
+  return { desenhar, abrirVenda, abrirNf, clicarLinha, desmontar, act }
 }
 
 test('o diálogo aberto pelo número da NF continua na tela quando a venda perde o número', async () => {
@@ -147,5 +159,17 @@ test('falha ao carregar as notas aparece no diálogo', async () => {
   await t.desenhar([VENDA])
   await t.abrirNf()
   assert.ok(textoDaTela().includes('Não deu para carregar a nota'))
+  await t.desmontar()
+})
+
+test('trocar de venda no painel abre o Editar com os dados da venda nova (#205)', async () => {
+  const outra = { ...VENDA, id: 'venda-2', numero: 31602, clienteNome: 'Paulo Souza' } as VendaComDetalhes
+  const t = await montarTabela('aux_adm')
+  await t.desenhar([VENDA, outra])
+  const editar = () => document.querySelector('aside [data-editar]')?.textContent
+  await t.clicarLinha(0)
+  assert.equal(editar(), 'Mariana Alves')
+  await t.clicarLinha(1)
+  assert.equal(editar(), 'Paulo Souza')
   await t.desmontar()
 })
