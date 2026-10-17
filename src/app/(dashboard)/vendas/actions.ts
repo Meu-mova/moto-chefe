@@ -8,7 +8,7 @@ import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
@@ -219,6 +219,16 @@ export async function efetivarVendaAction(
     .where(eq(pedidosVenda.id, pedidoId))
     .limit(1)
   if (!pedido) throw new Error('Pedido não encontrado')
+  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
+    throw new Error('Sem permissão para efetivar venda deste grupo')
+  }
+
+  // Confere o cliente antes da rpc: depois dela a venda já existe, e um
+  // clienteId inválido deixaria a venda criada sem vínculo.
+  if (clienteId) {
+    const [cliente] = await db.select({ id: clientes.id }).from(clientes).where(eq(clientes.id, clienteId)).limit(1)
+    if (!cliente) throw new Error('Cliente não encontrado')
+  }
 
   if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
     throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
@@ -240,11 +250,16 @@ export async function efetivarVendaAction(
   })
   if (error) throw new Error(error.message)
   if (clienteId && vendaId) {
-    const { error: updateError } = await supabase
-      .from('vendas')
-      .update({ cliente_id: clienteId })
-      .eq('id', vendaId as string)
-    if (updateError) throw new Error(updateError.message)
+    // Pelo Drizzle, não pela sessão: a RLS de escrita em vendas só aceita
+    // admin_geral, e para sócio e aux_adm o UPDATE afetava 0 linhas sem erro (#181).
+    const vinculadas = await db
+      .update(vendas)
+      .set({ clienteId })
+      .where(eq(vendas.id, vendaId as string))
+      .returning({ id: vendas.id })
+    if (vinculadas.length !== 1) {
+      throw new Error('Venda efetivada, mas o cliente não foi vinculado — vincule pela edição da venda')
+    }
   }
   revalidatePath('/vendas')
   revalidatePath('/estoque')
