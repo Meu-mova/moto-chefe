@@ -5,7 +5,9 @@ alter table notas_fiscais_saida add column cancelamento_contador text;
 -- na SEFAZ ela segue autorizada. Volta a Autorizada e refatura a venda, se a venda
 -- ainda não tem outra NF (em produção, só a NF 1015 da venda 31716).
 with voltou as (
-  update notas_fiscais_saida set status = 'Autorizada', atualizado_em = now()
+  -- O protocolo fica como histórico; motivo, autor e data saem para o card não mostrar um pedido que não houve.
+  update notas_fiscais_saida set status = 'Autorizada', cancelamento_motivo = null, cancelamento_por = null,
+    cancelamento_em = null, atualizado_em = now()
   where cancelamento_protocolo is not null and status = 'Cancelada' and ambiente = 'Producao'
   returning venda_id, numero
 ), refaturada as (
