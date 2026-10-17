@@ -41,6 +41,13 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   const [erro, setErro] = useState('')
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   const [cartaAberta, setCartaAberta] = useState(false)
+  // A nota saiu de Autorizada (ex.: cancelada no próprio card): o link some, e o formulário
+  // fecha de vez, para não reabrir sozinho se o status voltar.
+  const [statusVisto, setStatusVisto] = useState(nota.status)
+  if (nota.status !== statusVisto) {
+    setStatusVisto(nota.status)
+    if (nota.status !== 'Autorizada') setCartaAberta(false)
+  }
   const [acao, setAcao] = useState<Acao | null>(null)
   const [, startTransition] = useTransition()
 
@@ -296,8 +303,7 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
         <span className="font-mono text-[10px] text-slate-400" title="Status como a Nota Gateway devolve">{nota.status}</span>
       </div>
       {(nota.status === 'Autorizada' || nota.status === 'Cancelada') && (
-        // Nota cancelada com o formulário aberto: o link some, e o formulário vai junto.
-        <NfSaidaCartas nota={nota} formAberto={cartaAberta && nota.status === 'Autorizada'} onFecharForm={() => setCartaAberta(false)} />
+        <NfSaidaCartas nota={nota} formAberto={cartaAberta} onFecharForm={() => setCartaAberta(false)} />
       )}
       {corpo}
       {erro && <p className="whitespace-pre-line text-xs text-red-600">{erro}</p>}
