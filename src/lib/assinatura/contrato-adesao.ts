@@ -88,7 +88,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
 
     <h2>4. Preço, cobrança e bloqueio</h2>
     <p>4.1. O CLIENTE paga mensalidade de ${reais(d.valorMensal!)} por CNPJ. A primeira mensalidade vence 30 (trinta) dias após o primeiro acesso do CLIENTE ao sistema, e as seguintes no mesmo dia dos meses subsequentes. Quando esse dia for 29, 30 ou 31, o vencimento passa a ser o dia 28.</p>
-    <p>4.2. A cobrança é enviada pelo MOVA por link de pagamento (Mercado Pago), para pagamento por PIX, boleto ou cartão de crédito ou débito. O pagamento só se considera feito quando confirmado pela instituição de pagamento.</p>
+    <p>4.2. A cobrança é enviada pelo MOVA por link de pagamento (Mercado Pago), para pagamento por PIX ou boleto. O pagamento só se considera feito quando confirmado pela instituição de pagamento.</p>
     <p>4.3. O valor será reajustado todo ano em fevereiro, a partir de fevereiro do ano seguinte ao da assinatura, pelo ${esc(t.indiceReajuste)}, ou pelo índice que o substituir, com aviso ao CLIENTE de pelo menos 30 dias.</p>
     <p>4.4. Atraso gera multa de ${esc(t.multaAtrasoPct)} e juros de 1% ao mês sobre o valor devido, calculados dia a dia.</p>
     <p>4.5. Bloqueio: passados 5 (cinco) dias corridos do vencimento sem pagamento, o acesso ao sistema será suspenso. Durante a suspensão, o responsável do CLIENTE acessa apenas a tela de pagamento. Os dados não são apagados, e o acesso volta automaticamente após a confirmação do pagamento.</p>
