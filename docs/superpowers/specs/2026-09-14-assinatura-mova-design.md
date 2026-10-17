@@ -1,11 +1,48 @@
 # Assinatura do MOVA — cobrança mensal dos lojistas
 
 **Data:** 2026-09-14
-**Status:** Design aprovado em conversa, aguardando revisão da spec
+**Status:** Revisada em 2026-10-17 (#166), à luz do contrato de adesão (#165) e da Conta (#164, ADR-0018)
 **Decisões do Cesar:** cobrança **PIX/boleto mensal** (não recorrência no cartão);
 **bloqueio 5 dias** após o vencimento; preço **por CNPJ (grupo)**; bloqueado **não
 vê nada** além da tela de pagamento; **o dono continua entrando, só para pagar**;
 os grupos do Cesar nascem **isentos**.
+
+### Revisão de 2026-10-17
+
+Decisões da call com o Cesar (16/10) e do grilling da #166 (17/10). Onde o texto abaixo divergir,
+vale esta seção.
+
+- **Nomes**: as tabelas viram `mensalidade_config`, `mensalidades` e
+  `mensalidade_webhook_eventos`. "Assinatura" no código já é a assinatura eletrônica
+  (`src/lib/assinatura/`).
+- **Valores vêm da adesão** (`adesoes_mova.valor_mensal` e `taxa_implantacao`), que passa a
+  apontar para o grupo que gerou. A taxa de implantação vai junto da 1ª mensalidade.
+- **Vencimento** (contrato 4.1): o 1º vence 30 dias após o 1º acesso de um usuário do grupo que
+  não seja `admin_geral` (`grupos.primeiro_acesso_em`). Os seguintes vencem no mesmo dia dos meses
+  seguintes; se esse dia for 29, 30 ou 31, vencem no dia 28. O `dia_vencimento` da adesão sai de uso.
+- **Quando a cobrança nasce**: o cron diário cria a cobrança quando faltam 10 dias ou menos
+  para o vencimento. O link **vale até ser pago**.
+- **Aviso**: e-mail (Resend) ao responsável do contrato quando a cobrança nasce e no vencimento,
+  mais um aviso no topo do sistema com o botão de pagar.
+- **Atraso** (contrato 4.4): numa cobrança vencida, o link é refeito com multa de 2% e juros de
+  1% ao mês, pro rata dia. A preferência antiga é cancelada.
+- **Pagamento**: PIX, boleto e cartão de crédito ou débito no link do Mercado Pago. O MOVA nunca
+  guarda dado de cartão.
+- **Quem paga no sistema**: o `admin_socio` da Conta vê e paga as cobranças de todos os grupos
+  dela. Os demais usuários de um grupo bloqueado veem "fale com o responsável".
+- **Bloqueio** (contrato 4.5): 5 dias corridos após o vencimento, como na seção 6. Quem entra
+  no grupo por autorização de outra Conta também perde o acesso (ADR-0018).
+- **Sem NFS-e da mensalidade**: a cláusula saiu do contrato. Se algum cliente pedir, a gente vê.
+- **Conta do Mercado Pago**: da Infinity Fit (a contratada), que absorve as taxas.
+- **Staging** usa as credenciais **de teste** do Mercado Pago, que não precisam de ativação, e uma
+  URL de webhook própria do modo teste. O handler confere `live_mode`. A aprovação se testa com
+  cartão de teste (titular `APRO`); PIX e boleto em teste ficam em "pendente". Fontes:
+  [credenciais](https://www.mercadopago.com.br/developers/pt/docs/your-integrations/credentials),
+  [compras de teste](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/integration-test/test-purchases),
+  [webhooks](https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks).
+- **Ordem**: o motor (cobrança, webhook, bloqueio) não depende da Conta e se testa no staging.
+  Cobrar cliente de fora espera a #193.
+- **Issues**: #207 (1º acesso e vínculo), #208 (cobrança automática), #209 (bloqueio e tela).
 
 ---
 
@@ -71,19 +108,19 @@ Três defeitos daquele exemplo, registrados para não serem copiados:
 
 ## 3. Modelo de dados
 
-**`assinaturas`** — uma por grupo:
-`grupo_id` (único), `valor_mensal`, `dia_vencimento`, `isento` (bool),
+**`mensalidade_config`** — uma por grupo:
+`grupo_id` (único), `adesao_id`, `valor_mensal`, `taxa_implantacao`, `isento` (bool),
 `status` (`ativa` | `inadimplente` | `bloqueada`), `bloqueia_em` (timestamptz,
 nulo quando em dia), `criado_em`.
 
-**`assinatura_cobrancas`** — uma por mês por grupo:
-`grupo_id`, `competencia` (`AAAA-MM`), `valor`, `vencimento` (date),
+**`mensalidades`** — uma por mês por grupo:
+`grupo_id`, `competencia` (`AAAA-MM`), `valor`, `taxa_implantacao` (só na 1ª), `vencimento` (date),
 `status` (`aberta` | `paga` | `cancelada`), `mp_preference_id`, `mp_payment_id`,
 `link_pagamento`, `pago_em`, `criado_em`.
 **Único em `(grupo_id, competencia)`** — é o que impede cobrar duas vezes o mesmo
 mês quando o cron roda duas vezes.
 
-**`assinatura_webhook_eventos`** — log cru do que o Mercado Pago mandou:
+**`mensalidade_webhook_eventos`** — log cru do que o Mercado Pago mandou:
 `mp_notification_id` (único), `tipo`, `action`, `data_id`, `recebido_em`,
 `processado_em`, `erro`. Existe por dois motivos: **idempotência** (o Mercado Pago
 reenvia a mesma notificação quando não recebe 200 a tempo) e diagnóstico — sem o
@@ -126,7 +163,7 @@ congela ao responder, então o trabalho acontece **antes** do retorno — é rá
 uma consulta à API deles e uma escrita.
 
 **Idempotência**: a mesma notificação chega mais de uma vez. O `mp_notification_id`
-único em `assinatura_webhook_eventos` resolve — evento já processado devolve 200
+único em `mensalidade_webhook_eventos` resolve — evento já processado devolve 200
 sem refazer nada. Pagar duas vezes a mesma cobrança não pode gerar dois créditos.
 
 **Credenciais por ambiente**: `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET` em variável
@@ -167,7 +204,7 @@ de segurança.
 
 ## 7. Isenção
 
-`assinaturas.isento = true` nos três grupos do Cesar (Sul de Minas, BH, Vale).
+`mensalidade_config.isento = true` nos três grupos do Cesar (Sul de Minas, BH, Vale).
 Grupo isento não gera cobrança, não bloqueia e não aparece na lista de
 inadimplentes. Marcável por `admin_geral` na tela de administração.
 
