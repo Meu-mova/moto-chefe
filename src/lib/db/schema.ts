@@ -1684,3 +1684,47 @@ export const contratosAdesaoCodigos = pgTable('contratos_adesao_codigos', {
   usadoEm:    timestamp('usado_em', { withTimezone: true }),
   criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── mensalidade (cobrança do MOVA aos lojistas, #208) ───────────────────────
+// Spec: docs/superpowers/specs/2026-09-14-assinatura-mova-design.md. Regras em
+// @/lib/mensalidade/regras. "Assinatura" no código é a assinatura eletrônica.
+export const mensalidadeConfig = pgTable('mensalidade_config', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  grupoId:         uuid('grupo_id').notNull().unique().references(() => grupos.id),
+  adesaoId:        uuid('adesao_id').references(() => adesoesMova.id),
+  valorMensal:     numeric('valor_mensal', { precision: 12, scale: 2 }),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
+  isento:          boolean('isento').notNull().default(false),
+  status:          text('status').$type<'ativa' | 'inadimplente' | 'bloqueada'>().notNull().default('ativa'),
+  bloqueiaEm:      date('bloqueia_em'),
+  criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const mensalidades = pgTable('mensalidades', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  grupoId:         uuid('grupo_id').notNull().references(() => grupos.id),
+  competencia:     text('competencia').notNull(),
+  valor:           numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }).notNull().default('0'),
+  acrescimo:       numeric('acrescimo', { precision: 12, scale: 2 }).notNull().default('0'),
+  vencimento:      date('vencimento').notNull(),
+  status:          text('status').$type<'aberta' | 'paga' | 'cancelada'>().notNull().default('aberta'),
+  mpPreferenceId:  text('mp_preference_id'),
+  mpPaymentId:     text('mp_payment_id'),
+  linkPagamento:   text('link_pagamento'),
+  pagoEm:          timestamp('pago_em', { withTimezone: true }),
+  criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
+
+// Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
+export const mensalidadeWebhookEventos = pgTable('mensalidade_webhook_eventos', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  mpNotificationId: text('mp_notification_id').notNull().unique(),
+  tipo:             text('tipo'),
+  action:           text('action'),
+  dataId:           text('data_id'),
+  liveMode:         boolean('live_mode'),
+  recebidoEm:       timestamp('recebido_em', { withTimezone: true }).notNull().defaultNow(),
+  processadoEm:     timestamp('processado_em', { withTimezone: true }),
+  erro:             text('erro'),
+})
