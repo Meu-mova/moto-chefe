@@ -11,6 +11,7 @@ import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
 import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
+import { grupoBloqueado } from '@/lib/mensalidade/bloqueio'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
@@ -46,6 +47,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Grupo ativo: o mesmo da barra de grupo (cache da requisição). Sem ele (timeout,
   // usuário sem grupo), a página abre do mesmo jeito.
   const grupoAtivo = await withTimeout(grupoAtivoDaRequisicao(usuario), 3000).catch(() => null)
+
+  // Mensalidade do grupo ativo vencida há mais de 5 dias (contrato 4.5). Fail-open de
+  // propósito: bloquear quem paga porque o banco piscou é pior que deixar entrar quem deve.
+  if (grupoAtivo && usuario.papel !== 'admin_geral') {
+    const bloqueado = await withTimeout(grupoBloqueado(grupoAtivo.id), 3000).catch(() => false)
+    if (bloqueado) redirect('/mensalidade')
+  }
 
   const [comunicadosNaoLidos] = await Promise.all([
     // Comunicados são acessórios: se demorar/falhar, o app abre sem o modal em vez

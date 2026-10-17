@@ -56,3 +56,11 @@ export function criarPreferencia(p: {
 export function consultarPagamento(id: string): Promise<Pagamento> {
   return chamar<Pagamento>(`/v1/payments/${encodeURIComponent(id)}`, { method: 'GET' })
 }
+
+/** Encerra um link antigo: depois de refeito com multa, o valor velho não pode mais ser pago. */
+export async function expirarPreferencia(id: string): Promise<void> {
+  await chamar(`/checkout/preferences/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ expires: true, expiration_date_to: new Date().toISOString() }),
+  })
+}
