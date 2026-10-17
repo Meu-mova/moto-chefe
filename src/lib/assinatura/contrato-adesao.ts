@@ -93,7 +93,6 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>4.4. Atraso gera multa de ${esc(t.multaAtrasoPct)} e juros de 1% ao mês sobre o valor devido, calculados dia a dia.</p>
     <p>4.5. Bloqueio: passados 5 (cinco) dias corridos do vencimento sem pagamento, o acesso ao sistema será suspenso. Durante a suspensão, o responsável do CLIENTE acessa apenas a tela de pagamento. Os dados não são apagados, e o acesso volta automaticamente após a confirmação do pagamento.</p>
     <p>4.6. Atraso superior a ${t.diasAtrasoParaRescisao} dias autoriza o MOVA a rescindir o Contrato, observada a Cláusula 10 quanto à devolução dos dados.</p>
-    <p>4.7. O MOVA emitirá nota fiscal de serviço de cada mensalidade paga.</p>
 
     <h2>5. Obrigações do MOVA</h2>
     <p>5.1. Manter o sistema disponível ${esc(t.disponibilidadePct)} do tempo em cada mês, excluídas manutenções programadas avisadas com 24 horas de antecedência e falhas de fornecedores de infraestrutura fora do controle do MOVA.</p>
