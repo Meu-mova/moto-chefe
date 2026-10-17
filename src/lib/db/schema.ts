@@ -231,6 +231,25 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   cancelamentoContador: text('cancelamento_contador'),
 })
 
+// Cartas de correção da NF de saída (#187). Recusada fica como histórico e libera o número.
+export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  notaId:       uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
+  idExterno:    text('id_externo').notNull().unique(),
+  ambiente:     text('ambiente').notNull(),
+  numero:       integer('numero').notNull(),
+  correcao:     text('correcao').notNull(),
+  /** pendente | autorizada | recusada: nossa leitura do status da API (notagateway/carta-correcao.ts). */
+  situacao:     text('situacao').notNull().default('pendente'),
+  status:       text('status').notNull().default('Enviando'),
+  motivoStatus: text('motivo_status'),
+  protocolo:    text('protocolo'),
+  emitidaPor:   uuid('emitida_por').references(() => usuarios.id),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
 // 0116). O botão DANFE de venda antiga lê daqui, não do Bling.
 export const nfeBlingArquivo = pgTable('nfe_bling_arquivo', {

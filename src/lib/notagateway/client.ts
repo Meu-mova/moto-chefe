@@ -141,3 +141,48 @@ export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
   if (!uf) throw new Error('A empresa na Nota Gateway está sem UF no endereço')
   return String(uf)
 }
+
+/** 4xx no envio da carta de correção: a API não aceitou e a carta não existe lá. */
+export class CartaRecusada extends Error {}
+
+/**
+ * Envia a carta de correção (#187). A doc devolve 200 com `{}`: o resultado da
+ * SEFAZ chega pela consulta, como na emissão. Quem chama garante que o ambiente
+ * do grupo é o da nota.
+ */
+export async function enviarCartaCorrecao(
+  cfg: ConfigNotaGateway,
+  carta: { idExterno: string; numero: number; correcao: string; chaveNfe: string },
+): Promise<void> {
+  const r = await chamar(cfg, 'POST', `/empresas/${cfg.empresaId}/nf-e/cartaCorrecao`, {
+    id: carta.idExterno,
+    ambienteEmissao: cfg.ambiente,
+    numero: carta.numero,
+    correcao: carta.correcao,
+    nfe: { chaveAcesso: carta.chaveNfe },
+  })
+  if (r.status >= 400 && r.status < 500) throw new CartaRecusada(mensagensDeErro(r.json, r.texto))
+  if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
+}
+
+export type CartaConsultada = { status: string; motivoStatus: string | null; protocolo: string | null }
+
+/** null = a API ainda não conhece esse id. */
+export async function consultarCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string): Promise<CartaConsultada | null> {
+  const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/cartaCorrecao/${encodeURIComponent(idExterno)}`)
+  if (r.status === 404) return null
+  if (r.status >= 400) throw new Error(`Falha ao consultar a carta de correção: ${mensagensDeErro(r.json, r.texto)}`)
+  const c = r.json as Record<string, any>
+  return {
+    status: String(c?.status ?? 'Processando'),
+    motivoStatus: c?.motivoStatus ?? null,
+    protocolo: c?.protocoloAutorizacao ?? null,
+  }
+}
+
+/** XML do evento registrado na SEFAZ; a API não dá link público nem PDF da carta. */
+export async function xmlCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string): Promise<string> {
+  const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/cartaCorrecao/${encodeURIComponent(idExterno)}/xml`)
+  if (r.status >= 400) throw new Error(`Falha ao baixar o XML da carta de correção: ${mensagensDeErro(r.json, r.texto)}`)
+  return r.texto
+}
