@@ -6,11 +6,11 @@ import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
-// eletrônico só do lojista. Revisão do advogado pendente.
+// eletrônico só do lojista. Revisado pelo advogado.
 
 /**
- * Valores que vieram como sugestão na minuta e o Cesar ainda não fechou.
- * Ficam num lugar só para a troca ser de uma linha quando ele responder.
+ * Valores fechados com o Cesar na call de 16/10/2026. Os 7 dias de backup são
+ * a retenção do plano Pro do Supabase; arquivos do Storage não têm backup.
  */
 export const TERMOS = {
   indiceReajuste: 'IPCA/IBGE',
@@ -18,21 +18,21 @@ export const TERMOS = {
   diasAtrasoParaRescisao: 60,
   disponibilidadePct: '99%',
   canaisSuporte: 'WhatsApp e e-mail',
-  horarioSuporte: 'de segunda a sexta, das 9h às 18h',
-  horasRespostaSuporte: 4,
+  horarioSuporte: 'de segunda a sexta, das 9h às 12h e das 14h às 17h',
+  horasRespostaSuporte: 2,
   diasBackup: 7,
   horasAvisoIncidente: 48,
-  anosSigilo: 2,
-  mesesLimiteResponsabilidade: 12,
+  anosSigilo: 5,
+  limiteResponsabilidade: 'uma mensalidade',
   mesesVigencia: 12,
   diasAvisoRescisao: 30,
-  multaRescisao: '[a confirmar: sem multa por rescisão, ou multa se cancelar antes de 6 meses]',
+  multaRescisao: 'Se o CLIENTE encerrar o Contrato antes de completar 6 meses de vigência, paga multa de uma mensalidade; depois disso, não há multa.',
   diasCorrecaoDescumprimento: 10,
   diasExportacaoDados: 15,
   diasGuardaDados: 60,
   emailContato: 'contato@meumova.com',
   diasAvisoMudancaFuncao: 30,
-  horasOrientacao: '[a confirmar: quantidade]',
+  horasOrientacao: 2,
   diasUteisImplantacao: 15,
 } as const
 
@@ -40,7 +40,7 @@ export const TERMOS = {
  * Enquanto for false, o envio de contrato real fica travado na produção
  * (decisão de 16/10/2026): o lojista não recebe valores que o Cesar não fechou.
  */
-export const TERMOS_CONFIRMADOS = false
+export const TERMOS_CONFIRMADOS = true
 
 export type DadosContratoAdesao = {
   razaoSocial: string | null
@@ -77,19 +77,19 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>2.1. O MOVA concede ao CLIENTE licença de uso não exclusiva, intransferível e temporária do sistema MOVA, acessado pela internet, enquanto este Contrato estiver vigente e as mensalidades em dia.</p>
     <p>2.2. A licença cobre um CNPJ e todas as lojas (filiais) desse CNPJ, sem limite de usuários. Outro CNPJ, ainda que do mesmo grupo econômico, exige contratação própria.</p>
     <p>2.3. Estão incluídos os módulos disponíveis na data da contratação — estoque, vendas, ordens de serviço, peças, financeiro, folha e fiscal — e as atualizações que o MOVA lançar durante a vigência.</p>
-    <p>2.4. Não estão incluídos: serviços de terceiros contratados pelo CLIENTE (Cláusula 7), desenvolvimento sob encomenda, treinamento presencial e migração de dados de outros sistemas além do previsto na Cláusula 3, que podem ser orçados à parte.</p>
+    <p>2.4. Não estão incluídos: serviços de terceiros contratados pelo CLIENTE (Cláusula 7), desenvolvimento sob encomenda, treinamento presencial e migração de dados de outros sistemas além do previsto na Cláusula 3, que podem ser orçados à parte. Treinamento presencial pedido pelo CLIENTE tem valor por hora combinado entre as partes antes da visita, e as despesas de passagem, hospedagem e alimentação ficam por conta do CLIENTE.</p>
     <p>2.5. Esta licença não transfere ao CLIENTE a propriedade do software, do código-fonte ou da marca MOVA.</p>
 
     <h2>3. Implantação</h2>
     <p>3.1. Os dados do CLIENTE ficam separados dos dados dos demais clientes do MOVA, e somente o CLIENTE e os usuários que ele cadastrar têm acesso a eles. Nenhum outro cliente do MOVA acessa os dados do CLIENTE.</p>
-    <p>3.2. A implantação inclui: cadastro da empresa, das lojas e do usuário administrador, configuração inicial das regras fiscais com base nas informações do contador do CLIENTE e ${esc(t.horasOrientacao)} horas de orientação remota.</p>
+    <p>3.2. A implantação inclui: cadastro da empresa, das lojas e do usuário administrador, configuração inicial das regras fiscais com base nas informações do contador do CLIENTE e ${t.horasOrientacao} horas de orientação guiada, junto com o CLIENTE.</p>
     <p>3.3. O prazo de implantação é de até ${t.diasUteisImplantacao} dias úteis, contados do recebimento das informações e documentos solicitados pelo MOVA. Atraso no envio dessas informações pelo CLIENTE prorroga o prazo na mesma medida. Ao fim da implantação, o MOVA libera o acesso do CLIENTE ao sistema.</p>
     <p>3.4. Taxa de implantação: ${reais(d.taxaImplantacao!)}, paga junto com a primeira mensalidade.</p>
 
     <h2>4. Preço, cobrança e bloqueio</h2>
     <p>4.1. O CLIENTE paga mensalidade de ${reais(d.valorMensal!)} por CNPJ. A primeira mensalidade vence 30 (trinta) dias após o primeiro acesso do CLIENTE ao sistema, e as seguintes no mesmo dia dos meses subsequentes. Quando esse dia for 29, 30 ou 31, o vencimento passa a ser o dia 28.</p>
     <p>4.2. A cobrança é enviada pelo MOVA por link de pagamento (Mercado Pago), para pagamento por PIX, boleto ou cartão de crédito ou débito. O pagamento só se considera feito quando confirmado pela instituição de pagamento.</p>
-    <p>4.3. O valor será reajustado a cada 12 meses pelo ${esc(t.indiceReajuste)}, ou pelo índice que o substituir, com aviso ao CLIENTE de pelo menos 30 dias.</p>
+    <p>4.3. O valor será reajustado todo ano em fevereiro, a partir de fevereiro do ano seguinte ao da assinatura, pelo ${esc(t.indiceReajuste)}, ou pelo índice que o substituir, com aviso ao CLIENTE de pelo menos 30 dias.</p>
     <p>4.4. Atraso gera multa de ${esc(t.multaAtrasoPct)} e juros de 1% ao mês sobre o valor devido, calculados dia a dia.</p>
     <p>4.5. Bloqueio: passados 5 (cinco) dias corridos do vencimento sem pagamento, o acesso ao sistema será suspenso. Durante a suspensão, o responsável do CLIENTE acessa apenas a tela de pagamento. Os dados não são apagados, e o acesso volta automaticamente após a confirmação do pagamento.</p>
     <p>4.6. Atraso superior a ${t.diasAtrasoParaRescisao} dias autoriza o MOVA a rescindir o Contrato, observada a Cláusula 10 quanto à devolução dos dados.</p>
@@ -98,7 +98,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <h2>5. Obrigações do MOVA</h2>
     <p>5.1. Manter o sistema disponível ${esc(t.disponibilidadePct)} do tempo em cada mês, excluídas manutenções programadas avisadas com 24 horas de antecedência e falhas de fornecedores de infraestrutura fora do controle do MOVA.</p>
     <p>5.2. Prestar suporte por ${esc(t.canaisSuporte)}, ${esc(t.horarioSuporte)}, respondendo em até ${t.horasRespostaSuporte} horas úteis. Falha que impeça vender ou emitir nota fiscal tem prioridade.</p>
-    <p>5.3. Fazer cópia de segurança (backup) dos dados do CLIENTE pelo menos uma vez por dia, mantida por no mínimo ${t.diasBackup} dias.</p>
+    <p>5.3. Fazer cópia de segurança (backup) do banco de dados do CLIENTE pelo menos uma vez por dia, mantida por no mínimo ${t.diasBackup} dias.</p>
     <p>5.4. Corrigir defeitos do sistema em prazo compatível com a gravidade e informar o CLIENTE sobre mudanças relevantes.</p>
     <p>5.5. Manter sigilo sobre os dados e informações do CLIENTE, nos termos da Cláusula 8.</p>
 
@@ -125,7 +125,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <h2>9. Propriedade intelectual e responsabilidade</h2>
     <p>9.1. O software MOVA, seu código-fonte, telas, documentação e marca são de propriedade exclusiva do MOVA. Melhorias sugeridas pelo CLIENTE e incorporadas ao sistema também passam a integrá-lo, sem direito a remuneração.</p>
     <p>9.2. O MOVA não responde por: decisões de negócio tomadas com base nos relatórios; dados lançados errado pelo CLIENTE; regras fiscais informadas pelo CLIENTE ou por seu contador; falhas de serviços de terceiros (Cláusula 7); nem por lucros cessantes.</p>
-    <p>9.3. A responsabilidade total do MOVA por danos decorrentes deste Contrato fica limitada ao valor pago pelo CLIENTE nos ${t.mesesLimiteResponsabilidade} meses anteriores ao fato, salvo dolo ou culpa grave.</p>
+    <p>9.3. A responsabilidade total do MOVA por danos decorrentes deste Contrato fica limitada ao valor de ${esc(t.limiteResponsabilidade)} vigente na data do fato, salvo dolo ou culpa grave.</p>
 
     <h2>10. Prazo, rescisão e devolução dos dados</h2>
     <p>10.1. O Contrato vale por ${t.mesesVigencia} meses a partir da assinatura e se renova automaticamente por períodos iguais, salvo aviso em contrário.</p>
