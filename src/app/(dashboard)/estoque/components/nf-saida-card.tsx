@@ -296,7 +296,8 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
         <span className="font-mono text-[10px] text-slate-400" title="Status como a Nota Gateway devolve">{nota.status}</span>
       </div>
       {(nota.status === 'Autorizada' || nota.status === 'Cancelada') && (
-        <NfSaidaCartas nota={nota} formAberto={cartaAberta} onFecharForm={() => setCartaAberta(false)} />
+        // Nota cancelada com o formulário aberto: o link some, e o formulário vai junto.
+        <NfSaidaCartas nota={nota} formAberto={cartaAberta && nota.status === 'Autorizada'} onFecharForm={() => setCartaAberta(false)} />
       )}
       {corpo}
       {erro && <p className="whitespace-pre-line text-xs text-red-600">{erro}</p>}
