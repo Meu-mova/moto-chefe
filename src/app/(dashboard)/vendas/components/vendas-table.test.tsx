@@ -2,6 +2,7 @@
 // a tabela. Aqui a tabela é redesenhada com a venda sem o número (ou fora da
 // lista), e o diálogo aberto pelo número tem de continuar na tela.
 import { JSDOM } from 'jsdom'
+import { createElement, useState } from 'react'
 import test, { afterEach, mock } from 'node:test'
 import assert from 'node:assert'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
@@ -59,9 +60,8 @@ for (const [caminho, nome] of BOTOES_DA_LINHA) mock.module(caminho, { namedExpor
 mock.module('./editar-venda-dialog', {
   namedExports: {
     EditarVendaDialog: function EditarVendaDialog({ venda }: { venda: VendaComDetalhes }) {
-      const React = require('react') as typeof import('react')
-      const [cliente] = React.useState(venda.clienteNome)
-      return React.createElement('output', { 'data-editar': '' }, cliente)
+      const [cliente] = useState(venda.clienteNome)
+      return createElement('output', { 'data-editar': '' }, cliente)
     },
   },
 })
