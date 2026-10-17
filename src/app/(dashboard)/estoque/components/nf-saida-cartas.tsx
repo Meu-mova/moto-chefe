@@ -64,6 +64,8 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
   const listaPronta = carga.estado === 'ok'
   useEffect(() => {
     if (formAberto && listaPronta) { setTexto(ultimaAutorizada?.correcao ?? ''); setErro('') }
+    // Fechou por fora (nota cancelada): o erro da carta não fica pendurado sob a nota.
+    if (!formAberto) setErro('')
   }, [formAberto, listaPronta])
 
   function executar(mensagem: string, chamada: () => Promise<ResultadoCartas>, fecharForm = false) {

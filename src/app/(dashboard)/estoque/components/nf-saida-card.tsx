@@ -41,6 +41,13 @@ export function NfSaidaCard({ nota, onAtualizada }: Props) {
   const [erro, setErro] = useState('')
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   const [cartaAberta, setCartaAberta] = useState(false)
+  // A nota saiu de Autorizada (ex.: cancelada no próprio card): o link some, e o formulário
+  // fecha de vez, para não reabrir sozinho se o status voltar.
+  const [statusVisto, setStatusVisto] = useState(nota.status)
+  if (nota.status !== statusVisto) {
+    setStatusVisto(nota.status)
+    if (nota.status !== 'Autorizada') setCartaAberta(false)
+  }
   const [acao, setAcao] = useState<Acao | null>(null)
   const [, startTransition] = useTransition()
 
