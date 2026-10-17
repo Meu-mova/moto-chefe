@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from './cancelar-venda'
 
-test('aux_adm é recusado em venda com NF registrada à mão ou pelo Bling, com o número na mensagem', () => {
+test('aux_adm é recusado em venda com número de NF preenchido, com o número na mensagem', () => {
   assert.equal(
     travaDoPapel('aux_adm', '1234'),
     'Esta venda tem NF registrada (nº 1234). Cancelar venda com nota fiscal fica com os administradores; fale com o Cesar.',
