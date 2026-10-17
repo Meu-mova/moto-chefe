@@ -222,6 +222,7 @@ export function CartoesVendas({ itens, acoes, onAbrirNf, podeConciliacao, descon
         <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto rounded-t-2xl p-4 pb-8">
           {aberta && (
             <PainelVenda
+              key={aberta.venda.id}
               item={aberta}
               acoes={acoes(aberta.venda)}
               onAbrirNf={onAbrirNf}

@@ -1407,7 +1407,7 @@ export async function editarVendaAction(vendaId: string, dados: {
 
   // Busca venda atual para validações de acesso e sincronização
   const [vendaAtual] = await db
-    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf })
+    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, pedidoVendaId: vendas.pedidoVendaId })
     .from(vendas)
     .where(eq(vendas.id, vendaId))
     .limit(1)
@@ -1494,6 +1494,13 @@ export async function editarVendaAction(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+
+    // Os cards de pedido leem o vendedor do pedido; sem isso, a correção só aparece na venda.
+    if (dados.vendedorId) {
+      await tx.update(pedidosVenda)
+        .set({ vendedorId: dados.vendedorId })
+        .where(eq(pedidosVenda.id, vendaAtual.pedidoVendaId))
+    }
 
     // A IE é da empresa: a correção vale também para a próxima venda a ela.
     if (gravaIcms && icms.indicadorIe) {

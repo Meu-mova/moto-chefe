@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -38,20 +39,15 @@ function pgtoFromSchema(p: { tipo: string; valor: number; operadora?: string; pa
   return {
     id:          gerarId(),
     tipo:        p.tipo,
-    valor:       p.valor.toFixed(2).replace('.', ','),
+    valor:       p.valor.toFixed(2),
     operadora:   p.operadora,
     parcelas:    p.parcelas ? String(p.parcelas) : undefined,
     autorizacao: p.autorizacao,
   }
 }
 
-function parseBRL(v: string): number {
-  if (!v) return 0
-  // Se contém vírgula, está no formato pt-BR (ex: "10.950,00" ou "10950,00")
-  if (v.includes(',')) {
-    return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0
-  }
-  // Caso contrário já está em decimal com ponto (retorno do CurrencyInput via toFixed)
+// O CurrencyInput guarda o valor como decimal com ponto ("8990.00"), não no formato pt-BR.
+function lerValor(v: string): number {
   return parseFloat(v) || 0
 }
 
@@ -76,7 +72,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
   const [open, setOpen] = useState(false)
 
   // Venda
-  const [valor,      setValor]      = useState(Number(v.valor).toFixed(2).replace('.', ','))
+  const [valor,      setValor]      = useState(Number(v.valor).toFixed(2))
   const [dataVenda,  setDataVenda]  = useState(new Date(v.dataVenda).toISOString().split('T')[0])
   const [nf,         setNf]         = useState(v.notaFiscalSaida ?? '')
   const [vendedorId, setVendedorId] = useState(v.vendedorId)
@@ -86,7 +82,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
   // Pagamentos
   const pgtosSrc = (v.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[] | null) ?? []
   const [pgtos, setPgtos] = useState<Pgto[]>(pgtosSrc.length ? pgtosSrc.map(pgtoFromSchema) : [
-    { id: gerarId(), tipo: v.formaPagamento ?? '', valor: Number(v.valor).toFixed(2).replace('.', ',') }
+    { id: gerarId(), tipo: v.formaPagamento ?? '', valor: Number(v.valor).toFixed(2) }
   ])
 
   // Cliente
@@ -158,13 +154,13 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
     startTransition(async () => {
       try {
         await editarVendaAction(v.id, {
-          valor:              parseBRL(valor).toFixed(2),
+          valor:              lerValor(valor).toFixed(2),
           dataVenda,
           notaFiscalSaida:    nf.trim() || null,
           vendedorId,
           pagamentos:         pgtos.map(p => ({
             tipo:        p.tipo,
-            valor:       parseBRL(p.valor),
+            valor:       lerValor(p.valor),
             ...(p.operadora    ? { operadora: p.operadora }     : {}),
             ...(p.parcelas     ? { parcelas: parseInt(p.parcelas, 10) } : {}),
             ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
@@ -223,11 +219,11 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Valor Total (R$)</Label>
-                  <Input
+                  <CurrencyInput
                     value={valor}
-                    onChange={e => {
-                      setValor(e.target.value)
-                      setPgtos(prev => prev.length === 1 ? [{ ...prev[0], valor: e.target.value }] : prev)
+                    onChange={novo => {
+                      setValor(novo)
+                      setPgtos(prev => prev.length === 1 ? [{ ...prev[0], valor: novo }] : prev)
                     }}
                     placeholder="0,00"
                   />
@@ -312,7 +308,7 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Valor (R$)</Label>
-                      <Input value={p.valor} onChange={e => updatePgto(p.id, 'valor', e.target.value)} className="h-8 text-xs" placeholder="0,00" />
+                      <CurrencyInput value={p.valor} onChange={novo => updatePgto(p.id, 'valor', novo)} className="h-8 text-xs" placeholder="0,00" />
                     </div>
                   </div>
 
