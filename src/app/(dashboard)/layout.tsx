@@ -9,6 +9,7 @@ import { BotaoVoltar } from '@/components/layout/botao-voltar'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
+import { registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
@@ -40,6 +41,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ).catch(() => null)
     if (dados && dados.length === 0) redirect('/completar-cadastro')
   }
+
+  // A cobrança depende disto, mas a página não: se falhar, tenta de novo no próximo acesso.
+  await withTimeout(registrarPrimeiroAcesso(usuario), 3000).catch(() => {})
 
   // Comunicados são acessórios: se demorar/falhar, o app abre sem o modal em vez
   // de pendurar. É a consulta que estava travando o layout inteiro.
