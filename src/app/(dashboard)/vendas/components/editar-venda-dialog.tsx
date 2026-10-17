@@ -46,13 +46,8 @@ function pgtoFromSchema(p: { tipo: string; valor: number; operadora?: string; pa
   }
 }
 
-function parseBRL(v: string): number {
-  if (!v) return 0
-  // Se contém vírgula, está no formato pt-BR (ex: "10.950,00" ou "10950,00")
-  if (v.includes(',')) {
-    return parseFloat(v.replace(/\./g, '').replace(',', '.')) || 0
-  }
-  // Caso contrário já está em decimal com ponto (retorno do CurrencyInput via toFixed)
+// O CurrencyInput guarda o valor como decimal com ponto ("8990.00"), não no formato pt-BR.
+function lerValor(v: string): number {
   return parseFloat(v) || 0
 }
 
@@ -159,13 +154,13 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
     startTransition(async () => {
       try {
         await editarVendaAction(v.id, {
-          valor:              parseBRL(valor).toFixed(2),
+          valor:              lerValor(valor).toFixed(2),
           dataVenda,
           notaFiscalSaida:    nf.trim() || null,
           vendedorId,
           pagamentos:         pgtos.map(p => ({
             tipo:        p.tipo,
-            valor:       parseBRL(p.valor),
+            valor:       lerValor(p.valor),
             ...(p.operadora    ? { operadora: p.operadora }     : {}),
             ...(p.parcelas     ? { parcelas: parseInt(p.parcelas, 10) } : {}),
             ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
