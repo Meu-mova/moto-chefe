@@ -160,7 +160,8 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   gravar; só o efeito derivado (preencher um valor sozinho) é que não acontece.
   Exceções: venda com NF de saída do MOVA viva em produção (autorizada, em
   emissão ou em cancelamento) não se cancela; o "Cancelar venda" recusa e orienta
-  a cancelar a NF antes (ADR-0014). E
+  a cancelar a NF antes (ADR-0014). Para o `aux_adm`, também recusa venda com
+  número de NF preenchido (Bling ou "Confirmar NF"; adendo ao ADR-0014, #191). E
   CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
 
 ## Fiscal — cuidado redobrado

@@ -43,6 +43,15 @@ NF do Bling continua só com o aviso de que o cancelamento dela é feito no Blin
 venda fica travada até a NF de devolução existir no MOVA (#75), sem saída manual. Cancelar a
 venda depois de cancelar a NF ainda apaga o histórico de NF dela (#73).
 
+## Adendo de 2026-10-17: aux_adm (#191)
+
+O `aux_adm` passa a ter o "Cancelar venda" (pedido do Cesar em 16/10), no grupo da loja da venda.
+Para ele, a trava é mais larga: além da NF do MOVA viva, recusa também a venda com número de NF
+preenchido (`vendas.nota_fiscal_saida`: NF do Bling ou digitada em "Confirmar NF"), com a orientação
+de falar com o Cesar. Cancelar a NF do MOVA limpa esse número, então a ordem "cancela a NF, depois
+a venda" vale para ele também. Os admins seguem só com a trava deste ADR. A regra fica em
+`src/lib/cancelar-venda.ts`.
+
 ## Quando revisar
 
 Quando a #74 for decidida.
