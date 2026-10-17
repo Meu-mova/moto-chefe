@@ -83,29 +83,20 @@ export function situacaoCancelamento(nota: { status: string; dataAutorizacao: st
 }
 
 /**
- * Depois das 24h, só o contador cancela na SEFAZ (extemporâneo); o MOVA registra
- * o protocolo dele (#172). Homologação nunca valeu na SEFAZ: não precisa.
+ * Depois das 24h, o contador pede à SEFAZ que libere o cancelamento; liberado, o
+ * MOVA pede pela Nota Gateway como no prazo (#176). Homologação nunca valeu na SEFAZ.
  */
-export function podeRegistrarCancelamentoExtemporaneo(
+export function podeCancelarExtemporaneo(
   nota: { status: string; ambiente: string; dataAutorizacao: string | null },
   agora: Date,
 ): boolean {
   return nota.ambiente === 'Producao' && situacaoCancelamento(nota, agora) === 'fora_do_prazo'
 }
 
-/** Sem formato fixo: o número que a SEFAZ estadual dá ao pedido não é o protocolo de 15 dígitos da NF-e. */
-export function normalizarProtocoloExtemporaneo(bruto: string): { ok: true; protocolo: string } | { ok: false; error: string } {
-  const protocolo = bruto.trim()
-  if (!/\d/.test(protocolo)) return { ok: false, error: 'Informe o número de protocolo do pedido de cancelamento' }
-  return { ok: true, protocolo }
-}
-
-/**
- * O cancelamento extemporâneo acontece fora da Nota Gateway, que pode seguir
- * devolvendo "Autorizada": aceitar a consulta faturaria a venda de novo.
- */
-export function consultaAtualizaNota(nota: { cancelamentoProtocolo: string | null }): boolean {
-  return !nota.cancelamentoProtocolo
+export function normalizarContador(bruto: string): { ok: true; contador: string } | { ok: false; error: string } {
+  const contador = bruto.trim()
+  if (!contador) return { ok: false, error: 'Informe o contador que fez o pedido à SEFAZ' }
+  return { ok: true, contador }
 }
 
 export function limiteCancelamento(dataAutorizacao: string): Date {
