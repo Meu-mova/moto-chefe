@@ -13,7 +13,7 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
-import { STATUS_MORTOS, cancelamentoConcluido, consultaAtualizaNota, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, normalizarProtocoloExtemporaneo, podeDescartarTentativa, podeRegistrarCancelamentoExtemporaneo, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, normalizarContador, podeCancelarExtemporaneo, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
 import { isIndicadorIe } from '@/lib/documento'
 
@@ -46,7 +46,7 @@ export type NotaResumo = {
   criadoEm: string
   dataAutorizacao: string | null
   /** O último pedido de cancelamento, ou o descarte da tentativa: nosso motivo, quem pediu e quando. */
-  cancelamento: { motivo: string; por: string | null; em: string; protocolo: string | null } | null
+  cancelamento: { motivo: string; por: string | null; em: string; contador: string | null } | null
 }
 
 export type FichaMoto = { xProd: string; ncm: string; cest: string; unidade: string; origem: string }
@@ -212,7 +212,7 @@ async function resumos(filtro: SQL): Promise<NotaResumo[]> {
     criadoEm: r.criadoEm.toISOString(),
     dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null,
     cancelamento: r.cancelamentoEm
-      ? { motivo: r.cancelamentoMotivo ?? '', por: pedidoPor, em: r.cancelamentoEm.toISOString(), protocolo: r.cancelamentoProtocolo }
+      ? { motivo: r.cancelamentoMotivo ?? '', por: pedidoPor, em: r.cancelamentoEm.toISOString(), contador: r.cancelamentoContador }
       : null,
   }))
 }
@@ -355,9 +355,8 @@ const espera = (ms: number) => new Promise(r => setTimeout(r, ms))
  */
 async function aplicarRetorno(notaId: string, n: NfeConsultada, ambiente: string, vendaId: string, motoId: string) {
   const mexeuNaVenda = await db.transaction(async tx => {
-    const [antes] = await tx.select({ status: notasFiscaisSaida.status, numero: notasFiscaisSaida.numero, dataAutorizacao: notasFiscaisSaida.dataAutorizacao, cancelamentoProtocolo: notasFiscaisSaida.cancelamentoProtocolo })
+    const [antes] = await tx.select({ status: notasFiscaisSaida.status, numero: notasFiscaisSaida.numero, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
       .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
-    if (antes && !consultaAtualizaNota(antes)) return false
 
     await tx.update(notasFiscaisSaida).set({
       status: n.status,
@@ -522,7 +521,6 @@ type NotaCarregada = Awaited<ReturnType<typeof carregarNota>>
 
 /** Consulta a API e grava o que ela disser. */
 async function reconsultar({ r, cfg, motoId }: NotaCarregada, opcoes: { estrito?: boolean } = {}) {
-  if (!consultaAtualizaNota(r)) return null
   const n = await consultarNfe(cfg, r.idExterno, opcoes)
   if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, motoId)
   return n
@@ -563,7 +561,7 @@ const ORIENTACAO_CANCELAR_VENDA: Record<TravaDoCancelamento, (n: NotaResumo) => 
   cancelar_nf: n => `A NF ${n.numero} está autorizada na SEFAZ. Cancele a NF antes, até ${prazo(n)}, pelo número dela na coluna "NF Saída"; depois, cancele a venda.`,
   cancelamento_em_andamento: n => `O cancelamento da NF ${n.numero} está em andamento na SEFAZ. Consulte pelo número da NF e cancele a venda depois que ele terminar.`,
   tentar_de_novo: n => `A SEFAZ recusou o cancelamento da NF ${n.numero}${n.motivoStatus ? ` (${n.motivoStatus})` : ''}, e a nota continua valendo. Peça de novo pelo número da NF, até ${prazo(n)}; com a nota cancelada, a venda fica livre.`,
-  fora_do_prazo: n => `A NF ${n.numero} passou do prazo de 24h para cancelar: o caminho é o cancelamento extemporâneo na SEFAZ, pedido pela contabilidade. Com o protocolo, registre o cancelamento no card da NF; depois disso a venda fica livre.`,
+  fora_do_prazo: n => `A NF ${n.numero} passou do prazo de 24h para cancelar: o caminho é o cancelamento extemporâneo na SEFAZ, pedido pela contabilidade. Quando o contador confirmar que a SEFAZ liberou, cancele a NF pelo card dela; depois disso a venda fica livre.`,
   sem_data: n => `Não deu para confirmar o prazo de cancelamento da NF ${n.numero}. Abra a NF pelo número dela, consulte e tente de novo.`,
 }
 
@@ -620,80 +618,76 @@ export async function cancelarNfePropriaAction(notaId: string, motivo: string): 
     const situacao = situacaoCancelamento(nota, new Date())
     if (situacao !== 'disponivel') return { ok: false, error: SEM_CANCELAMENTO[situacao], nota: await resumoDaNota(r.id) }
 
-    await db.update(notasFiscaisSaida).set({
-      cancelamentoMotivo: texto,
-      cancelamentoPor: usuario.id,
-      cancelamentoEm: sql`now()` as unknown as Date,
-      atualizadoEm: sql`now()` as unknown as Date,
-    }).where(eq(notasFiscaisSaida.id, r.id))
-
-    const pedido = { statusAntes: nota.status, em: new Date() }
-    try {
-      await cancelarNfe(cfg, r.idExterno)
-    } catch (err) {
-      // Pedido recusado ou sem resposta: a consulta diz em que pé a nota ficou
-      // (a nota que já estava cancelada, por exemplo, volta como Cancelada).
-      await reconsultar(carregada).catch(() => null)
-      const atual = await resumoDaNota(r.id)
-      if (atual.status === 'Cancelada' || emCancelamento(atual.status)) return { ok: true, nota: atual }
-      const msg = err instanceof CancelamentoRecusado
-        ? `A Nota Gateway não aceitou o pedido: ${err.message}`
-        : `Não deu para confirmar o pedido de cancelamento (${(err as Error).message}) — consulte e, se a nota continuar autorizada, peça de novo`
-      return { ok: false, error: msg, nota: atual }
-    }
-
-    const n = await acompanhar(cfg, r.idExterno, 8, c => cancelamentoConcluido(c, pedido))
-    if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
-    const atual = await resumoDaNota(r.id)
-    if (atual.status === 'Autorizada') {
-      return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
-    }
-    return { ok: true, nota: atual }
+    return await pedirCancelamento(carregada, nota.status, { motivo: texto, por: usuario.id, contador: null })
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
 }
 
 /**
- * Registra o cancelamento extemporâneo (#172): passadas as 24h, o contador pede
- * à SEFAZ e devolve um protocolo. Nada vai à Nota Gateway; a nota vira Cancelada
- * aqui e deixa de aceitar a consulta, que pode seguir dizendo "Autorizada".
+ * Grava quem pediu e por quê, manda o DELETE e acompanha até a SEFAZ responder.
+ * Recusa da SEFAZ volta com ok: o card da nota mostra o motivo.
  */
-export async function registrarCancelamentoExtemporaneoAction(notaId: string, motivo: string, protocoloBruto: string): Promise<ResultadoTransmissao> {
+async function pedirCancelamento(
+  carregada: NotaCarregada,
+  statusAntes: string,
+  registro: { motivo: string; por: string; contador: string | null },
+): Promise<ResultadoTransmissao> {
+  const { r, cfg } = carregada
+  await db.update(notasFiscaisSaida).set({
+    cancelamentoMotivo: registro.motivo,
+    cancelamentoPor: registro.por,
+    cancelamentoContador: registro.contador,
+    cancelamentoEm: sql`now()` as unknown as Date,
+    atualizadoEm: sql`now()` as unknown as Date,
+  }).where(eq(notasFiscaisSaida.id, r.id))
+
+  const pedido = { statusAntes, em: new Date() }
+  try {
+    await cancelarNfe(cfg, r.idExterno)
+  } catch (err) {
+    // Pedido recusado ou sem resposta: a consulta diz em que pé a nota ficou
+    // (a nota que já estava cancelada, por exemplo, volta como Cancelada).
+    await reconsultar(carregada).catch(() => null)
+    const atual = await resumoDaNota(r.id)
+    if (atual.status === 'Cancelada' || emCancelamento(atual.status)) return { ok: true, nota: atual }
+    const msg = err instanceof CancelamentoRecusado
+      ? `A Nota Gateway não aceitou o pedido: ${err.message}`
+      : `Não deu para confirmar o pedido de cancelamento (${(err as Error).message}) — consulte e, se a nota continuar autorizada, peça de novo`
+    return { ok: false, error: msg, nota: atual }
+  }
+
+  const n = await acompanhar(cfg, r.idExterno, 8, c => cancelamentoConcluido(c, pedido))
+  if (n) await aplicarRetorno(r.id, n, r.ambiente, r.vendaId, carregada.motoId)
+  const atual = await resumoDaNota(r.id)
+  if (atual.status === 'Autorizada') {
+    return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
+  }
+  return { ok: true, nota: atual }
+}
+
+/**
+ * Cancelamento extemporâneo (#176): passadas as 24h, o contador pede à SEFAZ que
+ * libere o cancelamento; liberado, o pedido segue pela Nota Gateway como no prazo.
+ */
+export async function cancelarNfeExtemporaneaAction(notaId: string, motivo: string, contadorBruto: string): Promise<ResultadoTransmissao> {
   try {
     const usuario = await exigirPapel('cancelar')
-    const p = normalizarProtocoloExtemporaneo(protocoloBruto)
-    if (!p.ok) return p
+    const c = normalizarContador(contadorBruto)
+    if (!c.ok) return c
     const texto = motivo.trim()
     if (!texto) return { ok: false, error: 'Informe o motivo do cancelamento' }
 
-    const { r, motoId } = await carregarNota(notaId, usuario)
+    const carregada = await carregarNota(notaId, usuario)
+    const { r, cfg } = carregada
+    if (cfg.ambiente !== r.ambiente) {
+      return { ok: false, error: `Esta nota é de ${NOME_AMBIENTE[r.ambiente]} e o grupo está em ${NOME_AMBIENTE[cfg.ambiente]} — volte o ambiente em Admin → Notas fiscais para cancelá-la` }
+    }
     const nota = { status: r.status, ambiente: r.ambiente, dataAutorizacao: r.dataAutorizacao?.toISOString() ?? null }
-    if (!podeRegistrarCancelamentoExtemporaneo(nota, new Date())) {
-      return { ok: false, error: 'Só nota de produção autorizada, depois do prazo de 24h, aceita cancelamento por protocolo', nota: await resumoDaNota(r.id) }
+    if (!podeCancelarExtemporaneo(nota, new Date())) {
+      return { ok: false, error: 'Só nota de produção autorizada, depois do prazo de 24h, cancela por pedido extemporâneo', nota: await resumoDaNota(r.id) }
     }
-
-    const resultado = await db.transaction(async tx => {
-      const gravada = await tx.update(notasFiscaisSaida).set({
-        status: 'Cancelada',
-        cancelamentoProtocolo: p.protocolo,
-        cancelamentoMotivo: texto,
-        cancelamentoPor: usuario.id,
-        cancelamentoEm: sql`now()` as unknown as Date,
-        atualizadoEm: sql`now()` as unknown as Date,
-      // Só se ninguém mudou a nota desde a leitura (um cancelamento pelo fluxo das 24h, por exemplo).
-      }).where(and(eq(notasFiscaisSaida.id, r.id), eq(notasFiscaisSaida.status, r.status))).returning({ id: notasFiscaisSaida.id })
-      if (!gravada.length) return 'mudou' as const
-      return r.numero && await desfazerFaturamento(tx, r.vendaId, motoId, r.numero) ? 'desfez' as const : 'gravou' as const
-    })
-    if (resultado === 'mudou') {
-      return { ok: false, error: 'A nota mudou enquanto você registrava: confira o status dela e tente de novo', nota: await resumoDaNota(r.id) }
-    }
-    if (resultado === 'desfez') {
-      revalidatePath('/vendas')
-      revalidatePath('/estoque')
-    }
-    return { ok: true, nota: await resumoDaNota(r.id) }
+    return await pedirCancelamento(carregada, r.status, { motivo: texto, por: usuario.id, contador: c.contador })
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
