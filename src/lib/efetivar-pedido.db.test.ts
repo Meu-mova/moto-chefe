@@ -1,6 +1,7 @@
 // Teste de banco: roda contra o Postgres descartável do CI (job `banco` do ci.yml)
-// ou um local montado igual. Cada caso roda numa transação desfeita no fim, e o
-// arquivo recusa banco que não seja loopback. Para rodar local:
+// ou um local montado igual. Os casos que gravam rodam numa transação desfeita no
+// fim; os de rpc só leem. A trava de loopback pega erro de configuração, não um
+// túnel para outro banco em localhost. Para rodar local:
 //   initdb -U postgres -A trust /tmp/mova-pg-teste
 //   pg_ctl -D /tmp/mova-pg-teste -o "-p 55432 -k /tmp" -l /tmp/mova-pg-teste/log start
 //   U=postgresql://postgres@localhost:55432/postgres
@@ -125,7 +126,8 @@ describe('efetivarPedidoTx (#181)', () => {
 })
 
 // O que derrubou a efetivação (#181): a rpc efetivar_venda lia app.encryption_key,
-// configuração que não existe em nenhum banco. Esta guarda cobre a classe toda.
+// configuração que não existe em nenhum banco. A guarda vê só rpc chamada com o
+// nome literal entre aspas simples, e current_setting de app.* no corpo da própria função.
 describe('funções chamadas por supabase.rpc', () => {
   function arquivos(dir: string): string[] {
     return readdirSync(dir).flatMap(n => {

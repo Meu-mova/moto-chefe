@@ -62,8 +62,8 @@ npm test             # testes node:test — lista explícita no package.json
 npm run build        # rode antes de subir: pega erro de fronteira server/client que o tsc não pega
 ```
 
-**Teste novo precisa entrar na lista do script `test` do `package.json`** — não há
-descoberta automática. Testes ficam ao lado do código (`src/lib/x.test.ts`).
+**Teste novo precisa entrar na lista do script `test` do `package.json`** (teste de
+banco, `*.db.test.ts`, vai no `test:db`) — não há descoberta automática. Testes ficam ao lado do código (`src/lib/x.test.ts`).
 
 ## Banco e migrações
 
