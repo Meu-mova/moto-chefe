@@ -254,6 +254,12 @@ Anulação de uma NF de saída autorizada junto à SEFAZ, possível só dentro d
 na regra geral da SEFAZ). Em produção, a venda continua e volta a aguardar NF de saída.
 _Evitar_: cancelar a venda (é outra coisa: desfaz a venda inteira); excluir a nota
 
+**Carta de correção**:
+Correção de um dado de uma NF de saída autorizada, registrada na SEFAZ sem alterar a nota (ex.:
+chassi ou motor errado). Não corrige valores, impostos, a parte nem datas. Cada carta substitui a
+anterior da mesma nota, então repete as correções que ainda valem.
+_Evitar_: CC-e na tela (usar o nome por extenso); nota corrigida
+
 **Tentativa descartada**:
 Tentativa de emissão de NF de saída que ficou parada em "Enviando" porque o envio não chegou à
 Nota Gateway, descartada depois que a consulta confirmou que a nota não existe lá. Nunca valeu na

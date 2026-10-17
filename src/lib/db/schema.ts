@@ -4,6 +4,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -229,6 +230,25 @@ export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   cancelamentoProtocolo: text('cancelamento_protocolo'),
   /** Contador que pediu à SEFAZ a liberação do cancelamento extemporâneo (#176). */
   cancelamentoContador: text('cancelamento_contador'),
+})
+
+// Cartas de correção da NF de saída (#187). Recusada fica como histórico e libera o número.
+export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  notaId:       uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
+  idExterno:    text('id_externo').notNull().unique(),
+  ambiente:     text('ambiente').notNull(),
+  numero:       integer('numero').notNull(),
+  correcao:     text('correcao').notNull(),
+  /** pendente | autorizada | recusada: nossa leitura do status da API (notagateway/carta-correcao.ts). */
+  situacao:     text('situacao').$type<SituacaoCarta>().notNull().default('pendente'),
+  status:       text('status').notNull().default('Enviando'),
+  motivoStatus: text('motivo_status'),
+  protocolo:    text('protocolo'),
+  emitidaPor:   uuid('emitida_por').references(() => usuarios.id),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
