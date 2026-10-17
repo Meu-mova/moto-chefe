@@ -205,16 +205,15 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 - **Domínio:** `dev.meumova.com` → branch `dev`. A zona DNS do `meumova.com` fica na conta
   pessoal do Cesar na Vercel, não no time MOVA; a posse foi provada com o TXT
   `_vercel.meumova.com` criado lá.
-- **Proteção:** Vercel Authentication (Standard Protection) em todos os previews, inclusive o
-  `dev.meumova.com`: quem entra passa pelo login da Vercel, como membro do time MOVA, e depois
-  pelo do MOVA. A D6 previa desligar; **mantida por decisão do Luis em 2026-10-07**. Para
-  testar por linha de comando: `vercel curl <caminho> --deployment <url>`.
+- **Proteção:** Vercel Authentication **desligada nos previews desde 2026-10-17** (decisão do
+  Luis; ficou ligada de 2026-10-07 a 2026-10-17). O `dev.meumova.com` e os `*.vercel.app` de PR
+  abrem direto no login do MOVA; o que segura os dados sintéticos é a `SEED_SENHA`.
 - **Diferenças da §5.5 do plano:** a URL do app não foi fixada em `https://dev.meumova.com` (ver a
   tabela), e `EMAIL_FROM`, `LEADS_EMAIL_TO` e `DEFAULT_USER_PASSWORD` não foram definidas no
   Preview: e-mail fica desligado (D7) e a senha dos usuários sintéticos é a `SEED_SENHA` do seed.
 - **Link de assinatura em preview:** aponta para o host `*.vercel.app` do deployment, que fica
-  atrás da proteção da Vercel; quem não é do time não abre.
-- **Conferir:** `vercel curl /assinar/token-falso --deployment <url>` responde 404 (app e banco
+  público como o resto do preview.
+- **Conferir:** `curl -i <url>/assinar/token-falso` responde 404 (app e banco
   no ar) e `/dashboard` redireciona para `/login`.
 
 ## Smoke
