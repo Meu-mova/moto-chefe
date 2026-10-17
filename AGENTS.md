@@ -181,7 +181,19 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   (AES-256-GCM). Credencial nova: cifre igual.
 - O Bling ainda convive durante a transição e vai ser desligado.
 
+## Teste de banco
+
+A efetivação de pedido de venda falhava na produção (#181, corrigida em outubro de 2026):
+dependia de uma configuração que não existe em nenhum banco, e nenhum teste a exercitava.
+"Zero uso na produção" parecia desuso, e era erro.
+
+- Fluxo que grava venda, pedido, reserva, caixa ou estoque precisa de teste de banco
+  (`npm run test:db`), contra o schema real num Postgres descartável. O CI roda em todo PR.
+- Função SQL não depende de configuração do banco (`current_setting('app.*')`): ela não
+  vem com as migrações e quebra calada onde faltar.
+
 ## Antes de dar por pronto
 
-`npm run type-check` → `npm test` → `npm run build`. Fluxo com diálogo, Server
-Action ou permissão: teste no navegador também.
+`npm run type-check` → `npm test` → `npm run build`. Mexeu em gravação de venda, pedido,
+reserva, caixa ou estoque: `npm run test:db` também (seção acima). Fluxo com diálogo,
+Server Action ou permissão: teste no navegador também.

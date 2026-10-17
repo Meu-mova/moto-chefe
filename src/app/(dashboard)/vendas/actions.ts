@@ -23,6 +23,7 @@ import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
+import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -233,94 +234,19 @@ export async function efetivarVendaAction(
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
   const comprador = conferirComprador(clienteCpf)
 
-  // Tudo numa transação pelo Drizzle, como a criarVendaTx. A rpc efetivar_venda
-  // (0050) não é mais usada: exige app.encryption_key, que não existe em nenhum
-  // banco, e gravaria nome e CPF cifrados, enquanto o resto do sistema lê texto
-  // puro. E o vínculo do cliente pela sessão caía na RLS de vendas, que só
-  // aceita admin_geral (#181).
-  await db.transaction(async (tx) => {
-    const [travado] = await tx
-      .select({ motoId: pedidosVenda.motoId, vendedorId: pedidosVenda.vendedorId, status: pedidosVenda.status })
-      .from(pedidosVenda)
-      .where(eq(pedidosVenda.id, pedidoId))
-      .for('update')
-    if (travado.status !== 'pendente') {
-      throw new Error(`Pedido não está pendente (status: ${travado.status})`)
-    }
-
-    const [moto] = await tx
-      .select({ status: motos.status })
-      .from(motos)
-      .where(eq(motos.id, travado.motoId))
-      .for('update')
-    if (!moto) throw new Error('Moto não encontrada')
-    if (moto.status === 'vendida') throw new Error('Moto já foi vendida')
-
-    if (clienteId) {
-      const [cliente] = await tx.select({ id: clientes.id }).from(clientes).where(eq(clientes.id, clienteId)).limit(1)
-      if (!cliente) throw new Error('Cliente não encontrado')
-    }
-
-    const [reservaAtiva] = await tx
-      .select({ id: reservas.id })
-      .from(reservas)
-      .where(and(eq(reservas.motoId, travado.motoId), eq(reservas.status, 'ativa')))
-      .limit(1)
-
-    const agora = new Date()
-    const [venda] = await tx.insert(vendas).values({
-      pedidoVendaId: pedidoId,
-      motoId: travado.motoId,
-      lojaId: pedido.lojaId,
-      vendedorId: travado.vendedorId,
-      efetivadoPor: usuario.id,
-      clienteId: clienteId || null,
-      clienteNome,
-      clienteCpf: comprador.clienteCpf,
-      valor: valorNum.toFixed(2),
-      formaPagamento,
-      pagamentos: [{ tipo: formaPagamento, valor: valorNum }],
-      reservaId: reservaAtiva?.id ?? null,
-      dataVenda: agora,
-      origemId: origem.origemId,
-      origemDetalhe: origem.origemDetalhe,
-    }).returning({ id: vendas.id })
-
-    if (reservaAtiva) {
-      await tx.update(reservas).set({ status: 'convertida' }).where(eq(reservas.id, reservaAtiva.id))
-    }
-
-    await tx.update(pedidosVenda)
-      .set({ status: 'efetivado', dataAtualizacao: agora })
-      .where(eq(pedidosVenda.id, pedidoId))
-
-    await tx.update(motos)
-      .set({ status: 'vendida' as any, disponibilidade: null })
-      .where(eq(motos.id, travado.motoId))
-
-    await tx.insert(historicoEstoque).values({
-      motoId: travado.motoId,
-      lojaOrigemId: pedido.lojaId,
-      usuarioId: usuario.id,
-      tipo: 'saida',
-      referenciaTipo: 'pedido_venda',
-      referenciaId: pedidoId,
-      observacao: `Venda (pedido efetivado) — Cliente: ${clienteNome} — Total: R$ ${valorNum.toFixed(2)}`,
-    })
-
-    if (formaPagamento === 'dinheiro') {
-      await tx.insert(lancamentosCaixa).values({
-        lojaId: pedido.lojaId,
-        usuarioId: usuario.id,
-        tipo: 'entrada',
-        categoria: 'Venda',
-        descricao: `Venda dinheiro — ${clienteNome}`,
-        valor: valorNum.toFixed(2),
-        data: hojeBrt(),
-        vendaId: venda.id,
-      })
-    }
-  })
+  // Pelo Drizzle, não pela sessão: a RLS de escrita em vendas só aceita
+  // admin_geral, e o vínculo do cliente sumia calado para sócio e aux_adm (#181).
+  await db.transaction(tx => efetivarPedidoTx(tx, {
+    pedidoId,
+    lojaId: pedido.lojaId,
+    efetivadoPor: usuario.id,
+    clienteId: clienteId || null,
+    clienteNome,
+    clienteCpf: comprador.clienteCpf,
+    valor: valorNum,
+    formaPagamento,
+    origem,
+  }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
