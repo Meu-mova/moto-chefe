@@ -97,7 +97,7 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <h2>5. Obrigações do MOVA</h2>
     <p>5.1. Manter o sistema disponível ${esc(t.disponibilidadePct)} do tempo em cada mês, excluídas manutenções programadas avisadas com 24 horas de antecedência e falhas de fornecedores de infraestrutura fora do controle do MOVA.</p>
     <p>5.2. Prestar suporte por ${esc(t.canaisSuporte)}, ${esc(t.horarioSuporte)}, respondendo em até ${t.horasRespostaSuporte} horas úteis. Falha que impeça vender ou emitir nota fiscal tem prioridade.</p>
-    <p>5.3. Fazer cópia de segurança (backup) do banco de dados do CLIENTE pelo menos uma vez por dia, mantida por no mínimo ${t.diasBackup} dias.</p>
+    <p>5.3. Fazer cópia de segurança (backup) do banco de dados do CLIENTE pelo menos uma vez por dia, mantida por no mínimo ${t.diasBackup} dias. Arquivos anexados (documentos, fotos) não fazem parte da cópia de segurança.</p>
     <p>5.4. Corrigir defeitos do sistema em prazo compatível com a gravidade e informar o CLIENTE sobre mudanças relevantes.</p>
     <p>5.5. Manter sigilo sobre os dados e informações do CLIENTE, nos termos da Cláusula 8.</p>
 
