@@ -48,6 +48,47 @@ jobs:
         run: npm audit
         continue-on-error: true
 
+  # Fluxos que gravam venda testados contra o schema real (baseline + migrações),
+  # num Postgres descartável. Nasceu da #181: a efetivação de pedido falhava na
+  # produção (rpc dependia de app.encryption_key) e nenhum teste via.
+  banco:
+    name: teste de banco (Postgres descartável)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # O migrate.ts aceita loopback sem --prod só com CI=true (scripts/lib/alvo-banco.ts).
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: stubs do Supabase + baseline + migrações
+        run: |
+          psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -f supabase/ci-stubs.sql
+          psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/schema-baseline.sql
+          node --import tsx scripts/migrate.ts --baseline-ate 110
+          node --import tsx scripts/migrate.ts --aplicar
+
+      - run: npm run test:db
+
   gitleaks:
     name: segredo no diff
     runs-on: ubuntu-latest

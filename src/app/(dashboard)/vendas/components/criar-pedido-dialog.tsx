@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { criarPedidoVendaAction } from '../actions'
@@ -39,21 +38,25 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
     <>
       <Button onClick={() => setOpen(true)}>Criar Pedido de Venda</Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Novo Pedido de Venda</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Moto Disponível</Label>
-              <Select value={motoId} onValueChange={v => setMotoId(v ?? '')}>
-                <SelectTrigger><SelectValue placeholder="Selecionar moto" /></SelectTrigger>
-                <SelectContent>
-                  {motos.map(m => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.marca} {m.modelo} — {m.chassi} ({m.cor}) — {m.lojaNome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Nativo: o <Select> do design system mostra o UUID quando value ≠ texto,
+                  e a lista dele tem a largura do campo, o que cortava o nome da moto. */}
+              <select
+                value={motoId}
+                onChange={e => setMotoId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Selecionar moto</option>
+                {motos.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.marca} {m.modelo} — {m.chassi} ({m.cor}) — {m.lojaNome}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Observação (opcional)</Label>
