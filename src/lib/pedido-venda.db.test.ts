@@ -27,10 +27,13 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 let execRows: Db['execRows']
 let efetivarPedidoTx: typeof import('@/lib/efetivar-pedido')['efetivarPedidoTx']
+let criarPedidoTx: typeof import('@/lib/pedido-venda')['criarPedidoTx']
+let cancelarPedidoTx: typeof import('@/lib/pedido-venda')['cancelarPedidoTx']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   ;({ efetivarPedidoTx } = await import('@/lib/efetivar-pedido'))
+  ;({ criarPedidoTx, cancelarPedidoTx } = await import('@/lib/pedido-venda'))
 })
 
 after(async () => {
@@ -64,7 +67,7 @@ async function semear(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], o
   const reserva = opts.comReserva
     ? await linha(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao) values (${moto.id}, ${loja.id}, ${vendedor.id}, 500, 'pix', current_date) returning id`)
     : null
-  return { lojaId: loja.id as string, auxId: aux.id as string, motoId: moto.id as string, origemId: origem.id as string, clienteId: cliente.id as string, pedidoId: pedido.id as string, reservaId: reserva?.id as string | undefined }
+  return { tx, linha, modeloId: modelo.id as string, vendedorId: vendedor.id as string, lojaId: loja.id as string, auxId: aux.id as string, motoId: moto.id as string, origemId: origem.id as string, clienteId: cliente.id as string, pedidoId: pedido.id as string, reservaId: reserva?.id as string | undefined }
 }
 
 describe('efetivarPedidoTx (#181)', () => {
@@ -121,6 +124,145 @@ describe('efetivarPedidoTx (#181)', () => {
       }
       await efetivarPedidoTx(tx, dados)
       await assert.rejects(efetivarPedidoTx(tx, dados), /não está pendente/)
+    })
+  })
+})
+
+type Semente = Awaited<ReturnType<typeof semear>>
+
+let chassiSeq = 0
+async function outraMoto(s: Semente, status: string, disponibilidade: string | null): Promise<string> {
+  const m = await s.linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
+    values (${'TESTE181-' + ++chassiSeq}, ${s.modeloId}, ${s.lojaId}, 'CINZA', '1', ${status}, ${disponibilidade}) returning id`)
+  return m.id
+}
+
+async function estado(s: Semente, motoId: string, pedidoId?: string) {
+  const [r] = ((await s.tx.execute(sql`
+    select m.disponibilidade, m.status,
+           (select status from pedidos_venda where id = ${pedidoId ?? null}::uuid) as pedido
+    from motos m where m.id = ${motoId}`)) as unknown as { rows: any[] }).rows
+  return r as { disponibilidade: string | null; status: string; pedido: string | null }
+}
+
+describe('criarPedidoTx (#181)', () => {
+  test('C1/C2: moto montada ou em garantia e disponível vira reservada com pedido pendente', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      for (const status of ['montada', 'em_garantia']) {
+        const motoId = await outraMoto(s, status, 'disponivel')
+        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+        assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'reservada', status, pedido: 'pendente' })
+      }
+    })
+  })
+
+  test('C3–C5: reservada, aguardando aprovação, na caixa ou vendida é recusada', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const casos: [string, string | null, RegExp][] = [
+        ['montada', 'reservada', /não está disponível/],
+        ['montada', 'aguardando_aprovacao', /não está disponível/],
+        ['caixa', null, /não foi montada/],
+        ['vendida', null, /já foi vendida/],
+      ]
+      for (const [status, disp, erro] of casos) {
+        const motoId = await outraMoto(s, status, disp)
+        await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null }), erro)
+      }
+    })
+  })
+
+  test('C6: moto com transferência pendente é recusada', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      await s.linha(sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por)
+        values (${motoId}, ${s.lojaId}, ${s.lojaId}, ${s.auxId}) returning id`)
+      await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null }), /transferência/)
+    })
+  })
+})
+
+describe('cancelarPedidoTx (#181)', () => {
+  test('X1/X2: aux da loja e vendedor que criou cancelam; moto volta a disponível', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const quem = [
+        { id: s.auxId, papel: 'aux_adm', lojaId: s.lojaId },
+        { id: s.vendedorId, papel: 'vendedor', lojaId: s.lojaId },
+      ]
+      for (const usuario of quem) {
+        const motoId = await outraMoto(s, 'montada', 'disponivel')
+        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+        await cancelarPedidoTx(tx, { pedidoId, usuario, observacao: 'desistiu' })
+        assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'disponivel', status: 'montada', pedido: 'cancelado' })
+      }
+    })
+  })
+
+  test('X3: sócio cancela', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      await cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'admin_socio', lojaId: null }, observacao: null })
+      assert.equal((await estado(s, motoId, pedidoId)).pedido, 'cancelado')
+    })
+  })
+
+  test('X4: vendedor que não criou e aux de outra loja são recusados', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      await assert.rejects(
+        cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'vendedor', lojaId: s.lojaId }, observacao: null }),
+        /Sem permissão/,
+      )
+      await assert.rejects(
+        cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'aux_adm', lojaId: null }, observacao: null }),
+        /Sem permissão/,
+      )
+      assert.equal((await estado(s, motoId, pedidoId)).disponibilidade, 'reservada')
+    })
+  })
+
+  test('X5: moto que deixou de estar reservada não é mexida pelo cancelamento', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      await s.linha(sql`update motos set disponibilidade = 'aguardando_aprovacao' where id = ${motoId} returning id`)
+      await cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'aux_adm', lojaId: s.lojaId }, observacao: null })
+      assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'aguardando_aprovacao', status: 'montada', pedido: 'cancelado' })
+    })
+  })
+})
+
+describe('ciclo do pedido (#181)', () => {
+  test('F1: criar → efetivar deixa a moto vendida e o pedido efetivado', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId, lojaId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      await efetivarPedidoTx(tx, {
+        pedidoId, lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 1000, formaPagamento: 'pix',
+        origem: { origemId: s.origemId, origemDetalhe: null },
+      })
+      assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: null, status: 'vendida', pedido: 'efetivado' })
+    })
+  })
+
+  test('F2: criar → cancelar → criar de novo', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const primeiro = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      await cancelarPedidoTx(tx, { pedidoId: primeiro.pedidoId, usuario: { id: s.vendedorId, papel: 'vendedor', lojaId: s.lojaId }, observacao: null })
+      const segundo = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      assert.deepEqual(await estado(s, motoId, segundo.pedidoId), { disponibilidade: 'reservada', status: 'montada', pedido: 'pendente' })
     })
   })
 })

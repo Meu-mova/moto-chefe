@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { EfetivarDialog } from './efetivar-dialog'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { cancelarPedidoAction } from '../actions'
+import { podeCancelarPedido } from '@/lib/pedido-venda-regras'
 import type { PedidoComDetalhes } from '@/lib/queries/vendas'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -38,11 +39,7 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
   const podeEfetivar = p.status === 'pendente' && ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) &&
     (isAdmin || lojaIdUsuario === p.lojaId)
 
-  const podeCancelar = p.status === 'pendente' && (
-    isAdmin ||
-    (papel === 'aux_adm' && lojaIdUsuario === p.lojaId) ||
-    (papel === 'vendedor' && usuarioId === p.vendedorId && lojaIdUsuario === p.lojaId)
-  )
+  const podeCancelar = podeCancelarPedido({ id: usuarioId, papel, lojaId: lojaIdUsuario }, p)
 
   async function handleCancelar() {
     setLoading(true)
