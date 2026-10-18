@@ -82,8 +82,8 @@ export async function cancelarPedidoTx(
     .from(reservas)
     .where(and(eq(reservas.motoId, pedido.motoId), eq(reservas.status, 'ativa')))
     .limit(1)
-  // Só libera a moto se a reserva for deste pedido: se ela mudou por outro caminho
-  // (vendida, reserva de verdade), o cancelamento não mexe nela.
+  // Só libera a moto se ela ainda estiver reservada e sem reserva ativa: se mudou por
+  // outro caminho (vendida, aguardando aprovação, reserva de verdade), não mexe nela.
   if (moto?.disponibilidade === 'reservada' && !reservaAtiva) {
     await tx.update(motos).set({ disponibilidade: 'disponivel' }).where(eq(motos.id, pedido.motoId))
   }
