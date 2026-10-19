@@ -109,7 +109,9 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
  * E-mail no dia do vencimento para cada mensalidade ainda aberta. Marca o envio
  * antes de mandar: se o cron rodar de novo no mesmo dia, ninguém recebe dois.
  */
-export async function avisarVencimentos(agora: Date = new Date()): Promise<number> {
+export type ResultadoAvisos = { enviados: number; falhas: string[] }
+
+export async function avisarVencimentos(agora: Date = new Date()): Promise<ResultadoAvisos> {
   const hoje = hojeBrt(agora)
   const marcadas = await execRows(sql`
     update mensalidades m set aviso_vencimento_em = now()
@@ -119,14 +121,19 @@ export async function avisarVencimentos(agora: Date = new Date()): Promise<numbe
     where g.id = m.grupo_id and m.status = 'aberta' and m.vencimento = ${hoje}
       and m.aviso_vencimento_em is null and not coalesce(c.isento, false)
     returning m.valor::text as valor, m.acrescimo::text as acrescimo, m.vencimento::text as vencimento,
-              g.nome as grupo, a.email, a.responsavel
-  `) as { valor: string; acrescimo: string; vencimento: string; grupo: string; email: string | null; responsavel: string | null }[]
-  let enviados = 0
+              m.competencia, m.link_pagamento, g.nome as grupo, a.email, a.responsavel
+  `) as { valor: string; acrescimo: string; vencimento: string; competencia: string; link_pagamento: string | null; grupo: string; email: string | null; responsavel: string | null }[]
+  // Já marcada, a próxima rodada não reenvia: a falha precisa aparecer na resposta do cron.
+  const r: ResultadoAvisos = { enviados: 0, falhas: [] }
   for (const m of marcadas) {
-    if (!m.email) continue
-    const e = emailVencimento({ responsavel: m.responsavel, grupo: m.grupo, valor: Number(m.valor) + Number(m.acrescimo), vencimento: m.vencimento })
-    const r = await enviarEmail({ para: m.email, assunto: e.assunto, texto: e.texto, html: e.html })
-    if (r.status === 'enviado') enviados++
+    if (!m.email) {
+      r.falhas.push(`${m.grupo} ${m.competencia}: adesão sem e-mail`)
+      continue
+    }
+    const e = emailVencimento({ responsavel: m.responsavel, grupo: m.grupo, valor: Number(m.valor) + Number(m.acrescimo), vencimento: m.vencimento, link: m.link_pagamento })
+    const envio = await enviarEmail({ para: m.email, assunto: e.assunto, texto: e.texto, html: e.html })
+    if (envio.status === 'enviado') r.enviados++
+    else r.falhas.push(`${m.grupo} ${m.competencia}: e-mail ${envio.status}`)
   }
-  return enviados
+  return r
 }
