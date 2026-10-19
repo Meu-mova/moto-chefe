@@ -50,3 +50,13 @@ test('produção só aceita live_mode verdadeiro; staging só falso', () => {
   assert.equal(ambienteConfere(false, false), true)
   assert.equal(ambienteConfere(true, false), false)
 })
+
+test('pagamento aprovado para mensalidade cancelada é erro, não baixa', () => {
+  assert.deepEqual(decidirBaixa(PG, { status: 'cancelada', valorDevido: 1498 }), { acao: 'erro', motivo: 'pagamento aprovado para mensalidade cancelada' })
+})
+
+test('estorno e chargeback viram erro; outros status não aprovados são ignorados', () => {
+  assert.equal(decidirBaixa({ ...PG, status: 'refunded' }, { status: 'paga', valorDevido: 1498 }).acao, 'erro')
+  assert.equal(decidirBaixa({ ...PG, status: 'charged_back' }, { status: 'paga', valorDevido: 1498 }).acao, 'erro')
+  assert.equal(decidirBaixa({ ...PG, status: 'rejected' }, { status: 'aberta', valorDevido: 1498 }).acao, 'ignorar')
+})

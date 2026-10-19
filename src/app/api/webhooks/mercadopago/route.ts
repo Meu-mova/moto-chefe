@@ -7,6 +7,8 @@ import { consultarPagamento, ErroMercadoPago } from '@/lib/mercadopago/cliente'
 
 export const dynamic = 'force-dynamic'
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 type Corpo = { id?: string | number; type?: string; action?: string; live_mode?: boolean; data?: { id?: string | number } }
 
 // O Mercado Pago reenvia se não receber 200 em 22 s. Na Vercel a função congela ao
@@ -17,8 +19,10 @@ export async function POST(req: NextRequest) {
   const dataId = url.searchParams.get('data.id') ?? (corpo.data?.id != null ? String(corpo.data.id) : null)
   const tipo = url.searchParams.get('type') ?? corpo.type ?? null
 
+  const secret = process.env.MP_WEBHOOK_SECRET
+  if (!secret) console.error('[webhook mercadopago] MP_WEBHOOK_SECRET não configurado: toda notificação será recusada')
   const ok = assinaturaValida({
-    secret: process.env.MP_WEBHOOK_SECRET ?? '',
+    secret: secret ?? '',
     xSignature: req.headers.get('x-signature'),
     xRequestId: req.headers.get('x-request-id'),
     dataId,
@@ -46,15 +50,26 @@ export async function POST(req: NextRequest) {
 
   try {
     const pg = await consultarPagamento(dataId)
+    // O pagamento consultado é a fonte confiável do ambiente; o corpo da notificação, não.
+    if (!ambienteConfere(pg.live_mode, process.env.VERCEL_ENV === 'production')) {
+      await fechar('live_mode do pagamento diferente do ambiente')
+      return NextResponse.json({ ok: true, ignorada: 'ambiente' })
+    }
     const ref = pg.external_reference
-    const [m] = ref
-      ? await db.select().from(mensalidades).where(eq(mensalidades.id, ref)).limit(1).catch(() => [])
+    // Referência que não é uuid não acha mensalidade; falha do banco precisa cair no 500.
+    const [m] = ref && UUID.test(ref)
+      ? await db.select().from(mensalidades).where(eq(mensalidades.id, ref)).limit(1)
       : []
     const baixa = decidirBaixa(pg, m ? { status: m.status, valorDevido: Number(m.valor) + Number(m.acrescimo) } : null)
     if (baixa.acao === 'pagar' && m) {
-      await db.update(mensalidades)
+      const baixadas = await db.update(mensalidades)
         .set({ status: 'paga', pagoEm: new Date(), mpPaymentId: String(pg.id) })
         .where(and(eq(mensalidades.id, m.id), eq(mensalidades.status, 'aberta'), isNull(mensalidades.pagoEm)))
+        .returning({ id: mensalidades.id })
+      if (baixadas.length === 0) {
+        await fechar('mensalidade já baixada por outra notificação')
+        return NextResponse.json({ ok: true, acao: 'ignorar' })
+      }
     }
     await fechar(baixa.acao === 'erro' ? baixa.motivo : null)
     return NextResponse.json({ ok: true, acao: baixa.acao })
@@ -66,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
     // Falha passageira (API deles fora): apaga o registro para o reenvio do Mercado
     // Pago, que o 500 provoca, ser processado de novo em vez de cair como repetido.
-    console.error('[webhook mercadopago] falha ao consultar pagamento:', e instanceof Error ? e.message : 'erro desconhecido')
+    console.error('[webhook mercadopago] falha ao processar pagamento:', e instanceof Error ? e.message : 'erro desconhecido')
     await db.delete(mensalidadeWebhookEventos).where(eq(mensalidadeWebhookEventos.id, evento.id))
     return NextResponse.json({ error: 'falha ao consultar o pagamento' }, { status: 500 })
   }

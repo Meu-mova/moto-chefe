@@ -34,9 +34,12 @@ export type Baixa =
 
 /** Decide se o pagamento consultado quita a mensalidade. */
 export function decidirBaixa(pg: Pagamento, m: { status: string; valorDevido: number } | null): Baixa {
+  // Estorno e chargeback não revertem a baixa sozinhos, mas ficam no log para alguém olhar.
+  if (pg.status === 'refunded' || pg.status === 'charged_back') return { acao: 'erro', motivo: `pagamento ${pg.status}` }
   if (pg.status !== 'approved') return { acao: 'ignorar', motivo: `pagamento ${pg.status}` }
   if (!m) return { acao: 'erro', motivo: 'mensalidade da external_reference não encontrada' }
   if (m.status === 'paga') return { acao: 'ignorar', motivo: 'mensalidade já paga' }
+  if (m.status !== 'aberta') return { acao: 'erro', motivo: `pagamento aprovado para mensalidade ${m.status}` }
   // Centavo de tolerância para arredondamento do lado deles.
   if (pg.transaction_amount + 0.01 < m.valorDevido) {
     return { acao: 'erro', motivo: `valor pago ${pg.transaction_amount} menor que o devido ${m.valorDevido}` }
