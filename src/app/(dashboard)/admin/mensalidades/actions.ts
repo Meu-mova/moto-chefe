@@ -5,7 +5,7 @@ import { db, execRows } from '@/lib/db'
 import { grupos, mensalidadeConfig, mensalidades } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { hojeBrt } from '@/lib/data-venda'
-import { buscarPagamentos } from '@/lib/mercadopago/cliente'
+import { buscarPagamentos, consultarPagamento } from '@/lib/mercadopago/cliente'
 import { aplicarBaixa } from '@/lib/mensalidade/baixa'
 import { estaBloqueado, valorAtualizado } from '@/lib/mensalidade/regras'
 
@@ -71,7 +71,10 @@ export async function conferirPagamentoAction(mensalidadeId: string): Promise<{ 
 
   let pagamentos
   try {
-    pagamentos = await buscarPagamentos(m.id)
+    // A busca só serve para achar os ids: nela o live_mode de um pagamento do sandbox
+    // veio true, e na consulta direta (a mesma do webhook) veio false (19/10/2026).
+    const achados = await buscarPagamentos(m.id)
+    pagamentos = await Promise.all(achados.map(p => consultarPagamento(String(p.id))))
   } catch {
     return { ok: false, erro: 'Não deu para consultar o Mercado Pago agora' }
   }
