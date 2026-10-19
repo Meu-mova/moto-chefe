@@ -235,6 +235,11 @@ _Evitar_: caixa, para o status da moto (use "na caixa")
 Saída de dinheiro do grupo, com categoria. Pode ou não contar como custo operacional (compra de
 moto e retirada de sócio não contam).
 
+**Mensalidade**:
+Cobrança mensal que o MOVA faz a cada grupo (CNPJ) contratado, paga por PIX ou boleto num link do
+Mercado Pago. Sem pagamento, o grupo é bloqueado no 6º dia após o vencimento.
+_Evitar_: assinatura (é a assinatura eletrônica de documento), conta a pagar (é despesa do grupo)
+
 **Conta a pagar**:
 Compromisso agendado (único, recorrente ou calculado sobre uma base), que gera uma ocorrência por
 mês. Não é o pagamento em si.
