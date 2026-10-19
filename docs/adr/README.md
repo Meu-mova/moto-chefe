@@ -9,7 +9,7 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 ```markdown
 # NNNN. Título curto no imperativo ou como afirmação
 
-- **Status:** Proposta | Aceita | Substituída por NNNN | Obsoleta
+- **Status:** Proposta | Aceita | Revisada por NNNN | Substituída por NNNN | Obsoleta
 - **Data da decisão:** AAAA-MM-DD (ou "antes de AAAA-MM-DD" quando só se sabe o limite)
 - **Fontes:** documento, commit ou PR de onde a decisão vem
 
@@ -26,6 +26,8 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 
 - Numeração sequencial, nunca reaproveitada. Nome do arquivo: `NNNN-titulo-em-kebab.md`.
 - Decisão mudou? Novo ADR que substitui o antigo; o antigo ganha "Substituída por NNNN" e fica.
+- Decisão ampliada, com o antigo ainda valendo? O ADR novo leva "Revisa: NNNN" no cabeçalho, e o
+  antigo ganha "Revisada por NNNN".
 - Os ADRs 0001–0011 foram **registrados em 2026-10-06, depois de as decisões existirem**. A data
   da decisão vem da fonte citada; o que a fonte não diz fica marcado como não registrado.
 
@@ -39,7 +41,7 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0004](0004-migracoes-versionadas.md) | Migrações SQL à mão, versionadas em `schema_migrations` | Aceita |
 | [0005](0005-zero-dado-real-fora-de-producao.md) | Zero dado real fora de produção | Aceita |
 | [0006](0006-revisao-por-ia-com-assinatura.md) | Revisão por IA no PR, com a assinatura do Claude | Aceita |
-| [0007](0007-multi-tenant-por-cnpj.md) | Multi-tenant por CNPJ (`grupo_id`) | Aceita |
+| [0007](0007-multi-tenant-por-cnpj.md) | Multi-tenant por CNPJ (`grupo_id`) | Revisada por 0018 |
 | [0008](0008-nome-fiscal-literal-da-entrada.md) | Nome do produto na NF de saída = literal da nota de entrada | Aceita |
 | [0009](0009-driver-pg-com-attach-database-pool.md) | Driver `pg` com `attachDatabasePool` | Aceita |
 | [0010](0010-credencial-de-integracao-no-banco-cifrada.md) | Credencial de integração no banco, por grupo, cifrada | Aceita |
@@ -50,3 +52,4 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0015](0015-documento-invalido-do-comprador-bloqueia.md) | CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (exceção ao 0011) | Aceita |
 | [0016](0016-identidade-visual-e-tema-claro-escuro.md) | Identidade visual do MOVA, cores com nome e tema claro/escuro | Aceita |
 | [0017](0017-documento-da-plataforma-fora-das-tabelas-por-grupo.md) | Documento da plataforma fica fora das tabelas por grupo | Aceita |
+| [0018](0018-conta-acima-do-grupo.md) | Conta acima do grupo: isolamento por cliente do MOVA | Aceita |
