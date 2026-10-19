@@ -21,7 +21,8 @@ export type SituacaoCarta = 'pendente' | 'autorizada' | 'recusada'
 
 export type NumeroCarta = { ok: true; numero: number } | { ok: false; erro: string }
 
-// Recusada não fica registrada na SEFAZ, então o número dela volta a ficar livre.
+// Recusada não fica registrada na SEFAZ, então o número dela volta a ficar livre. A sequência
+// não aceita salto (rejeição 594): é sempre a última autorizada + 1 (suporte da Nota Gateway, 19/10/2026).
 export function proximoNumeroCarta(cartas: { numero: number; situacao: SituacaoCarta }[]): NumeroCarta {
   if (cartas.some(c => c.situacao === 'pendente')) {
     return { ok: false, erro: 'Já há uma carta de correção aguardando a SEFAZ: reconsulte antes de enviar outra.' }
