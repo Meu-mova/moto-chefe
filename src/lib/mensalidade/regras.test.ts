@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia } from './regras'
+import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia, estaBloqueado, podePagarMensalidade, valorAtualizado } from './regras'
 
 // 15/03/2027 às 10h em Brasília.
 const ACESSO = new Date('2027-03-15T13:00:00Z')
@@ -58,4 +58,22 @@ test('atraso: multa de 2% mais 1% ao mês pro rata dia', () => {
 
 test('bloqueia no 6º dia após o vencimento', () => {
   assert.equal(bloqueiaEm('2027-04-14'), '2027-04-20')
+})
+
+test('bloqueio: em dia ou até o 5º dia de atraso, não; no 6º, sim', () => {
+  assert.equal(estaBloqueado(['2027-04-14'], '2027-04-19'), false)
+  assert.equal(estaBloqueado(['2027-04-14'], '2027-04-20'), true)
+  assert.equal(estaBloqueado([], '2027-04-20'), false)
+})
+
+test('só admin_socio e admin_geral pagam pelo sistema', () => {
+  assert.equal(podePagarMensalidade('admin_socio'), true)
+  assert.equal(podePagarMensalidade('admin_geral'), true)
+  assert.equal(podePagarMensalidade('aux_adm'), false)
+  assert.equal(podePagarMensalidade('vendedor'), false)
+})
+
+test('valor atualizado soma o acréscimo do atraso', () => {
+  assert.deepEqual(valorAtualizado(499, '2027-04-14', '2027-04-14'), { acrescimo: 0, total: 499 })
+  assert.deepEqual(valorAtualizado(499, '2027-04-14', '2027-05-14'), { acrescimo: 14.97, total: 513.97 })
 })

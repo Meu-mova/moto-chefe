@@ -249,3 +249,6 @@ export async function podeAprovarVendaBaixoValor(
  * getUsuarioLogado (também em cache).
  */
 export const grupoAtivoDaRequisicao = cache(getGrupoAtivo)
+
+/** Os grupos que o usuário enxerga, uma vez por requisição (layout e barra de grupo). */
+export const gruposVisiveisDaRequisicao = cache(listarGruposVisiveis)

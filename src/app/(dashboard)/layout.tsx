@@ -10,7 +10,11 @@ import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
 import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
-import { grupoAtivoDaRequisicao } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao } from '@/lib/grupo'
+import { situacaoMensalidade, SEM_MENSALIDADE } from '@/lib/mensalidade/bloqueio'
+import { podePagarMensalidade } from '@/lib/mensalidade/regras'
+import { hojeBrt } from '@/lib/data-venda'
+import { AvisoMensalidade } from '@/components/layout/aviso-mensalidade'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
@@ -47,6 +51,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // usuário sem grupo), a página abre do mesmo jeito.
   const grupoAtivo = await withTimeout(grupoAtivoDaRequisicao(usuario), 3000).catch(() => null)
 
+  // Mensalidade do grupo ativo vencida há mais de 5 dias (contrato 4.5). Fail-open de
+  // propósito: bloquear quem paga porque o banco piscou é pior que deixar entrar quem deve.
+  // Quem paga vê também os outros grupos que enxerga, na faixa do topo.
+  const paga = podePagarMensalidade(usuario.papel)
+  let mensalidade = SEM_MENSALIDADE
+  if (grupoAtivo && usuario.papel !== 'admin_geral') {
+    mensalidade = await withTimeout((async () => {
+      const visiveis = paga ? (await gruposVisiveisDaRequisicao(usuario)).map(g => g.id) : []
+      return situacaoMensalidade(grupoAtivo.id, visiveis)
+    })(), 3000).catch(() => SEM_MENSALIDADE)
+    if (mensalidade.bloqueado) redirect('/mensalidade')
+  }
+
   const [comunicadosNaoLidos] = await Promise.all([
     // Comunicados são acessórios: se demorar/falhar, o app abre sem o modal em vez
     // de pendurar. É a consulta que estava travando o layout inteiro.
@@ -69,6 +86,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex min-w-0 flex-1 flex-col">
           <MenuMobile itensIds={itensIds} conecta={usuario.conecta} usuario={usuarioMenu} />
           <GroupSelector usuario={usuario} />
+          {paga && grupoAtivo && <AvisoMensalidade situacao={mensalidade} grupoAtivo={grupoAtivo.nome} hoje={hojeBrt()} />}
           <main className="min-w-0 flex-1 p-4 lg:p-6">
             <BotaoVoltar />
             {children}

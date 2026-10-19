@@ -70,3 +70,19 @@ export function acrescimoAtraso(valor: number, venc: string, hoje: string): numb
 export function bloqueiaEm(venc: string): string {
   return somarDias(venc, DIAS_ATE_BLOQUEIO + 1)
 }
+
+/** Grupo bloqueado: alguma mensalidade em aberto já passou da data de bloqueio. */
+export function estaBloqueado(vencimentosEmAberto: string[], hoje: string): boolean {
+  return vencimentosEmAberto.some(v => hoje >= bloqueiaEm(v))
+}
+
+/** Quem vê valor e link e paga (decisão de 17/10/2026, Q5 da #166). Os demais só veem o aviso. */
+export function podePagarMensalidade(papel: string): boolean {
+  return papel === 'admin_socio' || papel === 'admin_geral'
+}
+
+/** Valor a cobrar hoje: o da mensalidade mais o acréscimo do atraso, se houver. */
+export function valorAtualizado(valor: number, venc: string, hoje: string): { acrescimo: number; total: number } {
+  const acrescimo = acrescimoAtraso(valor, venc, hoje)
+  return { acrescimo, total: Math.round((valor + acrescimo) * 100) / 100 }
+}
