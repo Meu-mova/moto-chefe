@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, isNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mensalidades, mensalidadeWebhookEventos } from '@/lib/db/schema'
-import { assinaturaValida, decidirBaixa, ambienteConfere, falhaDefinitiva } from '@/lib/mercadopago/webhook'
+import { assinaturaValida, ambienteConfere, falhaDefinitiva } from '@/lib/mercadopago/webhook'
+import { aplicarBaixa } from '@/lib/mensalidade/baixa'
 import { consultarPagamento, ErroMercadoPago } from '@/lib/mercadopago/cliente'
 
 export const dynamic = 'force-dynamic'
@@ -50,29 +51,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const pg = await consultarPagamento(dataId)
-    // O pagamento consultado é a fonte confiável do ambiente; o corpo da notificação, não.
-    if (!ambienteConfere(pg.live_mode, process.env.VERCEL_ENV === 'production')) {
-      await fechar('live_mode do pagamento diferente do ambiente')
-      return NextResponse.json({ ok: true, ignorada: 'ambiente' })
-    }
     const ref = pg.external_reference
     // Referência que não é uuid não acha mensalidade; falha do banco precisa cair no 500.
     const [m] = ref && UUID.test(ref)
       ? await db.select().from(mensalidades).where(eq(mensalidades.id, ref)).limit(1)
       : []
-    const baixa = decidirBaixa(pg, m ? { status: m.status, valorDevido: Number(m.valor) + Number(m.acrescimo) } : null)
-    if (baixa.acao === 'pagar' && m) {
-      const baixadas = await db.update(mensalidades)
-        .set({ status: 'paga', pagoEm: new Date(), mpPaymentId: String(pg.id) })
-        .where(and(eq(mensalidades.id, m.id), eq(mensalidades.status, 'aberta'), isNull(mensalidades.pagoEm)))
-        .returning({ id: mensalidades.id })
-      if (baixadas.length === 0) {
-        await fechar('mensalidade já baixada por outra notificação')
-        return NextResponse.json({ ok: true, acao: 'ignorar' })
-      }
-    }
-    await fechar(baixa.acao === 'erro' ? baixa.motivo : null)
-    return NextResponse.json({ ok: true, acao: baixa.acao })
+    // O ambiente do pagamento consultado é a fonte confiável; o do corpo, não.
+    const r = await aplicarBaixa(pg, m ?? null, process.env.VERCEL_ENV === 'production')
+    await fechar(r.registro)
+    return NextResponse.json({ ok: true, acao: r.acao })
   } catch (e) {
     // Pagamento inexistente ou de outra conta não melhora com reenvio: fica registrado.
     if (e instanceof ErroMercadoPago && falhaDefinitiva(e.status)) {

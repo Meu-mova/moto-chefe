@@ -64,3 +64,12 @@ export async function expirarPreferencia(id: string): Promise<void> {
     body: JSON.stringify({ expires: true, expiration_date_to: new Date().toISOString() }),
   })
 }
+
+/** Pagamentos de uma mensalidade, pelo external_reference: o "conferir agora" quando o webhook não chegou. */
+export async function buscarPagamentos(externalReference: string): Promise<Pagamento[]> {
+  const r = await chamar<{ results: Pagamento[] }>(
+    `/v1/payments/search?external_reference=${encodeURIComponent(externalReference)}&sort=date_created&criteria=desc`,
+    { method: 'GET' },
+  )
+  return r.results ?? []
+}
