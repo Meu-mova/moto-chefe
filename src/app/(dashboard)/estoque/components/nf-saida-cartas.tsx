@@ -173,7 +173,11 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
                   </div>
                 )}
                 {c.situacao === 'recusada' && c.motivoStatus && (
-                  <p className="text-destructive">{c.motivoStatus}. O número {c.numero} fica livre para a próxima carta.</p>
+                  // O motivo vem como "Código: 215\r\nDescrição: ...": a quebra de linha separa os dois.
+                  <div className="text-destructive">
+                    <p className="whitespace-pre-line">{c.motivoStatus.trim()}</p>
+                    <p>O número {c.numero} fica livre para a próxima carta.</p>
+                  </div>
                 )}
                 {c.situacao === 'pendente' && (
                   <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">

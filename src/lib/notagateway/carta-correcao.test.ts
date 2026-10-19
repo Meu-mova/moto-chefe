@@ -34,8 +34,9 @@ test('número da carta: depois da 20ª autorizada não há mais carta', () => {
   assert.equal(proximoNumeroCarta(vinte).ok, false)
 })
 
-test('status da carta: só "Autorizada" encerra; o resto segue pendente até a consulta', () => {
+test('status da carta: "Autorizada" e "Negada" encerram; o resto segue pendente', () => {
   assert.equal(situacaoCarta('Autorizada'), 'autorizada')
+  assert.equal(situacaoCarta('Negada'), 'recusada')
   assert.equal(situacaoCarta('Processando'), 'pendente')
 })
 

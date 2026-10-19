@@ -31,10 +31,12 @@ export function proximoNumeroCarta(cartas: { numero: number; situacao: SituacaoC
   return { ok: true, numero }
 }
 
-// A doc da Nota Gateway só cita "Autorizada"; os demais nomes aguardam o suporte (#187).
-// Até lá, todo outro status conta como pendente; a recusa vem do 4xx do envio ou do descarte (recusaNaGateway).
+// Status finais confirmados pelo suporte da Nota Gateway em 19/10/2026 (#187): a rejeição da
+// SEFAZ chega como "Negada" na consulta, não como 4xx do envio. Qualquer outro ainda está em andamento.
 export function situacaoCarta(status: string): SituacaoCarta {
-  return status === 'Autorizada' ? 'autorizada' : 'pendente'
+  if (status === 'Autorizada') return 'autorizada'
+  if (status === 'Negada') return 'recusada'
+  return 'pendente'
 }
 
 /**
