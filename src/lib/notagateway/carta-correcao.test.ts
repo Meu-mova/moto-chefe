@@ -25,6 +25,14 @@ test('número da carta: recusada não consome número', () => {
   assert.deepEqual(proximoNumeroCarta([...cartas]), { ok: true, numero: 2 })
 })
 
+test('número da carta: recusada por 573 (número já autorizado na SEFAZ) passa para o seguinte', () => {
+  const cartas = [
+    { numero: 1, situacao: 'autorizada', motivoStatus: null },
+    { numero: 2, situacao: 'recusada', motivoStatus: 'Código: 573\r\nDescrição: Rejeição: Duplicidade de Evento' },
+  ] as const
+  assert.deepEqual(proximoNumeroCarta([...cartas]), { ok: true, numero: 3 })
+})
+
 test('número da carta: carta aguardando a SEFAZ impede outra', () => {
   assert.equal(proximoNumeroCarta([{ numero: 1, situacao: 'pendente' }]).ok, false)
 })
@@ -34,7 +42,7 @@ test('número da carta: depois da 20ª autorizada não há mais carta', () => {
   assert.equal(proximoNumeroCarta(vinte).ok, false)
 })
 
-test('status da carta: "Autorizada" e "Negada" encerram; o resto segue pendente', () => {
+test('status da carta: "Autorizada" e "Negada" encerram; "Processando" segue pendente', () => {
   assert.equal(situacaoCarta('Autorizada'), 'autorizada')
   assert.equal(situacaoCarta('Negada'), 'recusada')
   assert.equal(situacaoCarta('Processando'), 'pendente')
