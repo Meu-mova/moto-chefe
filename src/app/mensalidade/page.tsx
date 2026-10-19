@@ -58,9 +58,9 @@ export default async function MensalidadePage() {
             </p>
           </div>
           {paga && linhas.length > 0 && (
-            <div className="sm:text-right">
+            <div className="flex items-baseline justify-between gap-4 border-t pt-4 sm:block sm:border-t-0 sm:pt-0 sm:text-right">
               <div className="text-sm text-muted-foreground">Total em aberto</div>
-              <div className="whitespace-nowrap text-3xl font-extrabold">R$ {formatarNumeroBR(totalAberto)}</div>
+              <div className="whitespace-nowrap text-2xl font-extrabold sm:text-3xl">R$ {formatarNumeroBR(totalAberto)}</div>
             </div>
           )}
         </div>
