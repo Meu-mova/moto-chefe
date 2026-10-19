@@ -3,7 +3,7 @@
 - **Status:** Aceita
 - **Data da decisão:** 2026-10-17
 - **Fontes:** issue #164; call do Luis com o Cesar em 2026-10-16 ("Contrato e Operação do Mova",
-  Read.ai); grilling da #164 em 2026-10-17; `docs/produto/2026-10-17-decisoes-mova-produto.md`
+  Read.ai); grilling da #164 em 2026-10-17 (decisões nos comentários da issue)
 - **Revisa:** [0007](0007-multi-tenant-por-cnpj.md)
 
 ## Contexto
@@ -60,8 +60,8 @@ Buckets do Storage não foram inventariados nesta rodada.
 - Conta, e não "cliente": "Cliente" já é o comprador no `CONTEXT.md`.
 - Autorização entre Contas, e não juntar CNPJs numa Conta: é o que o Cesar descreveu ("termo de
   autorização", "quem permite é o administrador da empresa").
-- Reaproveitar `admin_socio` evita mexer nas cerca de 250 ocorrências dele em ~130 arquivos de `src/`
-  (contadas em 2026-10-19); muda só o escopo.
+- Reaproveitar `admin_socio` evita mexer nas cerca de 250 ocorrências dele em ~130 arquivos de
+  `src/` (contadas em 2026-10-19); muda só o escopo.
 - Banco único: o app já filtra por grupo em tudo; schema ou projeto por cliente multiplicam
   migrações manuais e custo.
 

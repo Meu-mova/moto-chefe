@@ -19,8 +19,8 @@ papel. Vale até ser revogada.
 _Evitar_: termo (sozinho), compartilhamento
 
 **Grupo**:
-Um CNPJ com suas lojas, contas bancárias e integrações próprias. Pertence a uma Conta. Hoje: Sul de Minas, BH e Vale. Os dados
-de um grupo não aparecem para outro.
+Um CNPJ com suas lojas, contas bancárias e integrações próprias. Pertence a uma Conta. Hoje: Sul
+de Minas, BH e Vale. Os dados de um grupo não aparecem para outro.
 _Evitar_: bandeira (no sentido de grupo; "bandeira" do cartão é outra coisa), tenant
 
 **Loja**:
