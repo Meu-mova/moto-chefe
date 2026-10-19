@@ -17,7 +17,8 @@ import {
   type CampoContrato, type StatusAdesao, type SituacaoContrato,
 } from '@/lib/adesao-campos'
 import {
-  salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, enviarContratoAction, type AdesaoLinha,
+  salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, enviarContratoAction, vincularGrupoAction,
+  type AdesaoLinha, type GrupoOpcao,
 } from '../actions'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
@@ -50,7 +51,7 @@ function resumoContrato(a: AdesaoLinha): string {
   return faltam ? `faltam ${faltam}` : 'completo'
 }
 
-export function AdesoesPainel({ adesoes, envioTravado }: { adesoes: AdesaoLinha[]; envioTravado: boolean }) {
+export function AdesoesPainel({ adesoes, grupos, envioTravado }: { adesoes: AdesaoLinha[]; grupos: GrupoOpcao[]; envioTravado: boolean }) {
   const [selId, setSelId] = useState<string | null>(null)
   const sel = adesoes.find(a => a.id === selId) ?? null
 
@@ -68,7 +69,7 @@ export function AdesoesPainel({ adesoes, envioTravado }: { adesoes: AdesaoLinha[
             : <Lista adesoes={adesoes} selId={selId} onAbrir={setSelId} />}
         </div>
         {/* key: trocar de adesão remonta o painel e zera o formulário. */}
-        {sel && <Detalhe key={sel.id} adesao={sel} envioTravado={envioTravado} onFechar={() => setSelId(null)} />}
+        {sel && <Detalhe key={sel.id} adesao={sel} grupos={grupos} envioTravado={envioTravado} onFechar={() => setSelId(null)} />}
       </div>
     </div>
   )
@@ -145,7 +146,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; envioTravado: boolean; onFechar: () => void }) {
+function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
@@ -282,6 +283,8 @@ function Detalhe({ adesao: a, envioTravado, onFechar }: { adesao: AdesaoLinha; e
         </div>
       </div>
 
+      <GrupoVinculado adesao={a} grupos={grupos} />
+
       {a.status === 'processada' ? (
         <p className="text-sm text-muted-foreground">Adesão já processada.</p>
       ) : a.status === 'recusada' ? (
@@ -348,5 +351,49 @@ function AvisoManual({ adesao: a }: { adesao: AdesaoLinha }) {
         Copiar mensagem
       </button>
     </span>
+  )
+}
+
+function GrupoVinculado({ adesao: a, grupos }: { adesao: AdesaoLinha; grupos: GrupoOpcao[] }) {
+  const [pendente, iniciar] = useTransition()
+
+  const assinado = a.contrato?.status === 'assinado'
+  const recusada = a.status === 'recusada'
+  // Inativo só aparece se já for o grupo ligado, para o select não perder o valor atual.
+  const opcoes = grupos.filter(g => g.ativo || g.id === a.grupoId)
+
+  function vincular(grupoId: string) {
+    if (a.grupoId && grupoId !== a.grupoId
+      && !window.confirm('Trocar ou desligar o grupo muda de onde vêm os valores das próximas mensalidades dele. Continuar?')) return
+    iniciar(async () => {
+      const r = await vincularGrupoAction(a.id, grupoId || null)
+      if (!r.ok) { toast.error(r.erro); return }
+      if (r.aviso) toast.warning(r.aviso)
+      else toast.success(grupoId ? 'Grupo ligado à adesão' : 'Grupo desligado da adesão')
+    })
+  }
+
+  return (
+    <div className="border-t pt-4 space-y-1">
+      <Label htmlFor={`${a.id}-grupo`}>Grupo no MOVA</Label>
+      {/* select nativo: o value é o id do grupo, e o Select do design system mostraria o UUID. */}
+      <select
+        id={`${a.id}-grupo`}
+        value={a.grupoId ?? ''}
+        disabled={pendente || (!a.grupoId && (!assinado || recusada))}
+        onChange={e => vincular(e.target.value)}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="">Ainda não criado</option>
+        {opcoes.map(g => (
+          <option key={g.id} value={g.id}>{g.nome} ({formatarCpfCnpj(g.cnpj)}){g.ativo ? '' : ' — inativo'}</option>
+        ))}
+      </select>
+      <p className="text-xs text-muted-foreground">
+        {recusada ? 'Adesão recusada não define mensalidade.'
+          : !assinado && !a.grupoId ? 'Disponível depois que o contrato for assinado.'
+          : 'A mensalidade deste grupo sai dos valores desta adesão.'}
+      </p>
+    </div>
   )
 }
