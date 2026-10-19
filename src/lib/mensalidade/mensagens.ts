@@ -22,3 +22,20 @@ export function emailCobranca(p: { responsavel: string | null; grupo: string; va
 <p>Equipe MOVA</p>`
   return { assunto, texto, html }
 }
+
+export function emailVencimento(p: { responsavel: string | null; grupo: string; valor: number; vencimento: string; link: string | null }) {
+  const saudacao = p.responsavel ? `Olá, ${p.responsavel}.` : 'Olá.'
+  const valor = `R$ ${formatarNumeroBR(p.valor)}`
+  const assunto = `A mensalidade do MOVA vence hoje (${dataBR(p.vencimento)})`
+  const texto = [
+    saudacao,
+    `A mensalidade do MOVA de ${p.grupo}, de ${valor}, vence hoje. Sem pagamento, o acesso é suspenso no 6º dia após o vencimento.`,
+    // Sem link (o Mercado Pago falhou ao criar), o caminho é a tela do MOVA.
+    p.link ? `Pague neste link: ${p.link}` : 'Para pagar, entre no MOVA e clique em "Pagar" no aviso do topo.',
+    'Equipe MOVA',
+  ].join('\n\n')
+  const html = texto.split('\n\n')
+    .map(t => p.link && t.endsWith(p.link) ? `<p><a href="${esc(p.link)}">Pagar a mensalidade</a></p>` : `<p>${esc(t)}</p>`)
+    .join('\n')
+  return { assunto, texto, html }
+}

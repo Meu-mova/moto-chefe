@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, mensalidades } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
-import { estaBloqueado } from './regras'
+import { estaBloqueado, valorAtualizado } from './regras'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -32,8 +32,39 @@ export async function abertasCobraveis(
     .orderBy(asc(mensalidades.vencimento))
 }
 
-/** O grupo está bloqueado por falta de pagamento? Roda no layout em toda página. */
-export async function grupoBloqueado(grupoId: string, agora: Date = new Date(), exec: Executor = db): Promise<boolean> {
-  const abertas = await abertasCobraveis({ grupoIds: [grupoId] }, exec)
-  return estaBloqueado(abertas.map(a => a.m.vencimento), hojeBrt(agora))
+export type SituacaoMensalidade = {
+  /** O grupo ativo está bloqueado por falta de pagamento. */
+  bloqueado: boolean
+  /** A mensalidade em aberto mais antiga do grupo ativo, para a faixa do topo. */
+  aberta: { vencimento: string; total: number } | null
+  /** Outros grupos que o usuário enxerga com mensalidade em aberto (variante B, 19/10/2026). */
+  outros: { nome: string; bloqueado: boolean }[]
+}
+
+export const SEM_MENSALIDADE: SituacaoMensalidade = { bloqueado: false, aberta: null, outros: [] }
+
+/**
+ * Mensalidades em aberto do grupo ativo e dos outros grupos visíveis, numa consulta só:
+ * roda no layout em toda página.
+ */
+export async function situacaoMensalidade(
+  grupoAtivoId: string, gruposVisiveis: string[], agora: Date = new Date(), exec: Executor = db,
+): Promise<SituacaoMensalidade> {
+  const ids = gruposVisiveis.includes(grupoAtivoId) ? gruposVisiveis : [grupoAtivoId, ...gruposVisiveis]
+  const linhas = await abertasCobraveis({ grupoIds: ids }, exec)
+  const hoje = hojeBrt(agora)
+  const doAtivo = linhas.filter(l => l.m.grupoId === grupoAtivoId)
+  const primeira = doAtivo[0]?.m
+  const outros = new Map<string, { nome: string; vencimentos: string[] }>()
+  for (const l of linhas) {
+    if (l.m.grupoId === grupoAtivoId) continue
+    const o = outros.get(l.m.grupoId) ?? { nome: l.grupoNome, vencimentos: [] }
+    o.vencimentos.push(l.m.vencimento)
+    outros.set(l.m.grupoId, o)
+  }
+  return {
+    bloqueado: estaBloqueado(doAtivo.map(l => l.m.vencimento), hoje),
+    aberta: primeira ? { vencimento: primeira.vencimento, total: valorAtualizado(Number(primeira.valor), primeira.vencimento, hoje).total } : null,
+    outros: [...outros.values()].map(o => ({ nome: o.nome, bloqueado: estaBloqueado(o.vencimentos, hoje) })),
+  }
 }

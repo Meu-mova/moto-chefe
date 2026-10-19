@@ -1711,6 +1711,8 @@ export const mensalidades = pgTable('mensalidades', {
   linkPagamento:   text('link_pagamento'),
   pagoEm:          timestamp('pago_em', { withTimezone: true }),
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // E-mail do dia do vencimento já enviado: o cron não repete.
+  avisoVencimentoEm: timestamp('aviso_vencimento_em', { withTimezone: true }),
 }, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
 
 // Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
