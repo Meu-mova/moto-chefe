@@ -51,3 +51,8 @@ export function decidirBaixa(pg: Pagamento, m: { status: string; valorDevido: nu
 export function ambienteConfere(liveMode: boolean | undefined, producao: boolean): boolean {
   return liveMode === undefined ? true : liveMode === producao
 }
+
+/** 4xx da API não melhora com reenvio, exceto timeout (408) e limite de requisições (429). */
+export function falhaDefinitiva(status: number | undefined): boolean {
+  return !!status && status >= 400 && status < 500 && status !== 408 && status !== 429
+}

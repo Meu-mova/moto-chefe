@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mensalidades, mensalidadeWebhookEventos } from '@/lib/db/schema'
-import { assinaturaValida, decidirBaixa, ambienteConfere } from '@/lib/mercadopago/webhook'
+import { assinaturaValida, decidirBaixa, ambienteConfere, falhaDefinitiva } from '@/lib/mercadopago/webhook'
 import { consultarPagamento, ErroMercadoPago } from '@/lib/mercadopago/cliente'
 
 export const dynamic = 'force-dynamic'
@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
     await fechar(baixa.acao === 'erro' ? baixa.motivo : null)
     return NextResponse.json({ ok: true, acao: baixa.acao })
   } catch (e) {
-    // 4xx não melhora com reenvio (pagamento inexistente, de outra conta): fica registrado.
-    if (e instanceof ErroMercadoPago && e.status && e.status >= 400 && e.status < 500) {
+    // Pagamento inexistente ou de outra conta não melhora com reenvio: fica registrado.
+    if (e instanceof ErroMercadoPago && falhaDefinitiva(e.status)) {
       await fechar(e.message)
       return NextResponse.json({ ok: true, acao: 'erro' })
     }

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
-import { assinaturaValida, decidirBaixa, ambienteConfere } from './webhook'
+import { assinaturaValida, decidirBaixa, ambienteConfere, falhaDefinitiva } from './webhook'
 
 const SECRET = 'segredo-de-teste'
 function assinar(manifesto: string) {
@@ -59,4 +59,13 @@ test('estorno e chargeback viram erro; outros status não aprovados são ignorad
   assert.equal(decidirBaixa({ ...PG, status: 'refunded' }, { status: 'paga', valorDevido: 1498 }).acao, 'erro')
   assert.equal(decidirBaixa({ ...PG, status: 'charged_back' }, { status: 'paga', valorDevido: 1498 }).acao, 'erro')
   assert.equal(decidirBaixa({ ...PG, status: 'rejected' }, { status: 'aberta', valorDevido: 1498 }).acao, 'ignorar')
+})
+
+test('404 e 401 da API são definitivos; 408, 429 e 5xx não', () => {
+  assert.equal(falhaDefinitiva(404), true)
+  assert.equal(falhaDefinitiva(401), true)
+  assert.equal(falhaDefinitiva(408), false)
+  assert.equal(falhaDefinitiva(429), false)
+  assert.equal(falhaDefinitiva(503), false)
+  assert.equal(falhaDefinitiva(undefined), false)
 })
