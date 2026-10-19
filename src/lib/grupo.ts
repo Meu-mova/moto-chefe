@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { grupos, lojas } from '@/lib/db/schema'
@@ -241,3 +242,10 @@ export async function podeAprovarVendaBaixoValor(
   const grupoSocio = await getGrupoIdDaLoja(usuario.lojaId)
   return socioAprovaNoGrupo(usuario, grupoVenda, grupoSocio)
 }
+
+/**
+ * O mesmo grupo ativo para toda a requisição: o layout (1º acesso, mensalidade) e a
+ * barra de grupo leem uma vez só. A chave do cache é o objeto do usuário, que vem do
+ * getUsuarioLogado (também em cache).
+ */
+export const grupoAtivoDaRequisicao = cache(getGrupoAtivo)

@@ -64,6 +64,9 @@ export const grupos = pgTable('grupos', {
   // Não é a cidade da loja que vendeu, nem se deriva da comarca.
   cidadeSede:         text('cidade_sede'),
   comarcaForo:        text('comarca_foro'),
+  // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
+  // no primeiro acesso de quem não é admin_geral: a implantação não conta.
+  primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
