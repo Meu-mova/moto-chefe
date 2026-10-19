@@ -1,13 +1,13 @@
 'use server'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db, execRows } from '@/lib/db'
 import { grupos, mensalidadeConfig, mensalidades } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { hojeBrt } from '@/lib/data-venda'
 import { buscarPagamentos } from '@/lib/mercadopago/cliente'
-import { decidirBaixa } from '@/lib/mercadopago/webhook'
-import { estaBloqueado } from '@/lib/mensalidade/regras'
+import { aplicarBaixa } from '@/lib/mensalidade/baixa'
+import { estaBloqueado, valorAtualizado } from '@/lib/mensalidade/regras'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -34,8 +34,16 @@ export async function listarMensalidadesAction() {
   }).from(mensalidades).where(eq(mensalidades.status, 'aberta')).orderBy(mensalidades.vencimento)
 
   return gruposLinhas.map(g => {
+    // Valor do dia, com multa e juros: o mesmo que o lojista vê em /mensalidade.
     const doGrupo = abertas.filter(m => m.grupoId === g.id)
-    return { ...g, abertas: doGrupo, bloqueado: !g.isento && estaBloqueado(doGrupo.map(m => m.vencimento), hoje) }
+      .map(m => ({ ...m, total: valorAtualizado(Number(m.valor), m.vencimento, hoje).total }))
+    return {
+      ...g,
+      // timestamptz::text vem em UTC; o dia mostrado é o de Brasília.
+      primeiro_acesso_em: g.primeiro_acesso_em ? hojeBrt(new Date(g.primeiro_acesso_em)) : null,
+      abertas: doGrupo,
+      bloqueado: !g.isento && estaBloqueado(doGrupo.map(m => m.vencimento), hoje),
+    }
   })
 }
 
@@ -67,14 +75,24 @@ export async function conferirPagamentoAction(mensalidadeId: string): Promise<{ 
   } catch {
     return { ok: false, erro: 'Não deu para consultar o Mercado Pago agora' }
   }
-  const devido = { status: m.status, valorDevido: Number(m.valor) + Number(m.acrescimo) }
-  const aprovado = pagamentos.find(p => decidirBaixa(p, devido).acao === 'pagar')
+  const producao = process.env.VERCEL_ENV === 'production'
+  const erros: string[] = []
+  for (const pg of pagamentos) {
+    const r = await aplicarBaixa(pg, m, producao)
+    if (r.acao === 'pagar') {
+      revalidatePath('/admin/mensalidades')
+      return { ok: true, paga: true, motivo: 'Pagamento aprovado encontrado; baixa feita' }
+    }
+    // O webhook deu a baixa entre a leitura e a gravação: está paga do mesmo jeito.
+    if (r.acao === 'ignorar' && r.registro) {
+      revalidatePath('/admin/mensalidades')
+      return { ok: true, paga: true, motivo: 'Já tinha sido baixada pelo aviso do Mercado Pago' }
+    }
+    if (r.registro) erros.push(r.registro)
+  }
+  // Achou pagamento, mas não deu baixa (valor menor, estorno, outro ambiente): mostra o porquê.
+  if (erros.length) return { ok: true, paga: false, motivo: erros.join('; ') }
   // A busca do Mercado Pago pode não listar pendentes e recusados (visto no sandbox
   // em 17/10/2026): a resposta fala só do que importa, o aprovado.
-  if (!aprovado) return { ok: true, paga: false, motivo: 'Nenhum pagamento aprovado encontrado no Mercado Pago' }
-  await db.update(mensalidades)
-    .set({ status: 'paga', pagoEm: new Date(), mpPaymentId: String(aprovado.id) })
-    .where(and(eq(mensalidades.id, m.id), eq(mensalidades.status, 'aberta'), isNull(mensalidades.pagoEm)))
-  revalidatePath('/admin/mensalidades')
-  return { ok: true, paga: true, motivo: 'Pagamento aprovado encontrado; baixa feita' }
+  return { ok: true, paga: false, motivo: 'Nenhum pagamento aprovado encontrado no Mercado Pago' }
 }

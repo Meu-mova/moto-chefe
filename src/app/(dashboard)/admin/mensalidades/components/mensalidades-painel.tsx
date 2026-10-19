@@ -21,7 +21,9 @@ export function MensalidadesPainel({ grupos, hoje }: { grupos: GrupoMensalidade[
   const [pendente, iniciar] = useTransition()
 
   function alternarIsencao(g: GrupoMensalidade) {
-    const texto = g.isento ? `Voltar a cobrar ${g.nome}?` : `Isentar ${g.nome}? Ele deixa de ser cobrado e de bloquear.`
+    const texto = g.isento
+      ? `Voltar a cobrar ${g.nome}? Mensalidades que ficaram em aberto voltam a contar, com multa e juros do atraso, e o grupo pode ser bloqueado na hora.`
+      : `Isentar ${g.nome}? Ele deixa de ser cobrado e de bloquear. As mensalidades em aberto continuam abertas e podem ser pagas pelo link.`
     if (!window.confirm(texto)) return
     iniciar(async () => {
       const r = await marcarIsentoAction(g.id, !g.isento)
@@ -76,7 +78,7 @@ export function MensalidadesPainel({ grupos, hoje }: { grupos: GrupoMensalidade[
                 {g.abertas.map(m => (
                   <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
                     <span>
-                      {m.competencia} · R$ {formatarNumeroBR(Number(m.valor) + Number(m.acrescimo))} · vence {dataBR(m.vencimento)}
+                      {m.competencia} · R$ {formatarNumeroBR(m.total)} · vence {dataBR(m.vencimento)}
                       {!m.temLink && <span className="text-warning"> · sem link (o cron tenta de novo)</span>}
                     </span>
                     <Button variant="outline" size="sm" disabled={pendente} onClick={() => conferir(m.id)}>
