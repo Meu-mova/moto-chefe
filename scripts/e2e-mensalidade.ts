@@ -152,7 +152,7 @@ async function main() {
     etapa('4. Aviso no topo')
     const socio = await entrar(navegador, SOCIO)
     let t = await abrir(socio, '/dashboard')
-    confere(t.caminho === '/dashboard' && t.texto.includes('Mensalidade do MOVA de R$ 1.498,00'), 'sócio vê a faixa com R$ 1.498,00', t.caminho)
+    confere(t.caminho === '/dashboard' && t.texto.includes(`Mensalidade do MOVA de ${GRUPO}: R$ 1.498,00`), 'sócio vê a faixa do grupo ativo com R$ 1.498,00', t.caminho)
     t = await abrir(socio, '/mensalidade')
     confere(t.texto.includes('R$ 1.498,00') && t.texto.includes('Pagar'), 'sócio vê a cobrança e o botão Pagar em /mensalidade')
     const vendedor = await entrar(navegador, VENDEDOR)
