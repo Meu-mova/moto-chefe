@@ -5,7 +5,7 @@ import { hojeBrt } from '@/lib/data-venda'
 import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarPreferencia } from '@/lib/mercadopago/cliente'
-import { cobrancasDevidas, valorBase } from './regras'
+import { acrescimoAtraso, cobrancasDevidas, valorBase } from './regras'
 import { emailCobranca } from './mensagens'
 
 type GrupoCobravel = {
@@ -52,6 +52,7 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
 
   for (const g of await gruposCobraveis()) {
     const r: ResultadoGrupo = { grupo: g.grupo_nome, criadas: 0, links: 0 }
+    const falhasEmail: string[] = []
     try {
       const mensal = Number(g.valor_mensal)
       const taxa = Number(g.taxa_implantacao ?? 0)
@@ -70,7 +71,10 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         eq(mensalidades.grupoId, g.grupo_id), eq(mensalidades.status, 'aberta'), isNull(mensalidades.linkPagamento),
       ))
       for (const m of semLink) {
-        const valor = Number(m.valor) + Number(m.acrescimo)
+        // Cobrança que já nasce vencida (cron parado, 1ª rodada com atrasadas) leva
+        // multa e juros no link; senão o webhook aceitaria o valor base como pago.
+        const acrescimo = acrescimoAtraso(Number(m.valor), m.vencimento, hoje)
+        const valor = Number(m.valor) + acrescimo
         const pref = await criarPreferencia({
           mensalidadeId: m.id,
           titulo: `Mensalidade MOVA ${m.competencia} — ${g.grupo_nome}`,
@@ -79,14 +83,19 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
           urlNotificacao: `${urlBase()}/api/webhooks/mercadopago`,
         })
         await db.update(mensalidades)
-          .set({ mpPreferenceId: pref.id, linkPagamento: pref.init_point })
+          .set({ acrescimo: acrescimo.toFixed(2), mpPreferenceId: pref.id, linkPagamento: pref.init_point })
           .where(eq(mensalidades.id, m.id))
         r.links++
-        if (g.email) {
+        // O link já foi gravado e a próxima rodada não reenvia: a falha precisa aparecer.
+        if (!g.email) {
+          falhasEmail.push(`${m.competencia}: adesão sem e-mail`)
+        } else {
           const e = emailCobranca({ responsavel: g.responsavel, grupo: g.grupo_nome, valor, vencimento: m.vencimento, link: pref.init_point })
-          await enviarEmail({ para: g.email, assunto: e.assunto, texto: e.texto, html: e.html })
+          const envio = await enviarEmail({ para: g.email, assunto: e.assunto, texto: e.texto, html: e.html })
+          if (envio.status !== 'enviado') falhasEmail.push(`${m.competencia}: e-mail ${envio.status}`)
         }
       }
+      if (falhasEmail.length) r.erro = falhasEmail.join('; ')
     } catch (e) {
       // Um grupo com problema não para a cobrança dos outros.
       r.erro = e instanceof Error ? e.message : 'erro desconhecido'
