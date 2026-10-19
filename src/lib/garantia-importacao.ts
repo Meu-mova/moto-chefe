@@ -41,3 +41,22 @@ export function escolherMotoPorChassi<T extends MotoCandidata>(
   const porFinal = candidatas.filter(m => limparChassi(m.chassi).endsWith(alvo))
   return porFinal.length === 1 ? porFinal[0] : null
 }
+
+// Situações do portal em que a garantia ainda está andando (filtro "status" de
+// /clientes/trocas, lido em 19/10/2026). Encerradas: Cancelado, Entregue, Garantia
+// concluída e Retirado. Situação nova fica de fora até entrar aqui: importar uma
+// encerrada poria moto vendida de volta em "em garantia".
+const EM_ANDAMENTO = new Set([
+  'aguardando devolucao', 'aguardando postagem reversa', 'aguardando reposicao', 'aguardando separacao',
+  'em auditoria', 'em avaliacao do tecnico', 'em avaliacao sac', 'em conferencia', 'em exigencia',
+  'em separacao', 'pedido enviado', 'separado',
+])
+
+function normalizarSituacao(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** A garantia do portal ainda está andando? Só essas entram na importação. */
+export function garantiaEmAndamento(situacao: string | null | undefined): boolean {
+  return !!situacao && EM_ANDAMENTO.has(normalizarSituacao(situacao))
+}

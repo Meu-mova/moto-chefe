@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { escolherMotoPorChassi, normalizarNumeroPedido } from './garantia-importacao'
+import { escolherMotoPorChassi, normalizarNumeroPedido, garantiaEmAndamento } from './garantia-importacao'
 
 const moto = (id: string, chassi: string) => ({ id, lojaId: 'loja-1', chassi })
 
@@ -37,4 +37,18 @@ test('final curto demais não serve de chave', () => {
 test('sem candidata ou chassi vazio devolve null', () => {
   assert.equal(escolherMotoPorChassi('3024', []), null)
   assert.equal(escolherMotoPorChassi('  ', [moto('a', '3024')]), null)
+})
+
+test('garantiaEmAndamento: as situações em andamento do portal entram, com ou sem acento', () => {
+  for (const s of ['Aguardando devolução', 'Aguardando postagem reversa', 'Aguardando Reposição', 'Aguardando Separação',
+    'Em auditoria', 'Em avaliação do técnico', 'Em avaliação SAC', 'Em conferência', 'Em Exigência', 'Em separação',
+    'Pedido enviado', 'Separado', 'Em avaliacao SAC']) {
+    assert.equal(garantiaEmAndamento(s), true, s)
+  }
+})
+
+test('garantiaEmAndamento: encerrada, desconhecida ou sem situação fica de fora', () => {
+  for (const s of ['Cancelado', 'CANCELADA', 'Entregue', 'Garantia concluída', 'Retirado', 'Resolvido', '', null, undefined]) {
+    assert.equal(garantiaEmAndamento(s), false, String(s))
+  }
 })

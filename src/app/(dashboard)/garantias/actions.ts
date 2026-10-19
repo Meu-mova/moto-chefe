@@ -5,9 +5,9 @@ import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { and, eq, ilike, inArray, isNotNull, or } from 'drizzle-orm'
-import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia, ehStatusFinalizado } from '@/lib/fabrica-scraper'
-import { escolherMotoPorChassi, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
+import { and, eq, ilike, inArray, isNotNull } from 'drizzle-orm'
+import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
+import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
 
@@ -193,10 +193,10 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
       // toda garantia mais antiga que tivesse ficado sem lançar nunca entrava.
       for (const { numeroPedido, dataAbertura, status: statusLista } of lista) {
         if (jaCadastrados.has(normalizarNumeroPedido(numeroPedido))) continue
-        // Só o que ainda está andando na fábrica. Entregue ou cancelada já se
-        // resolveu, e abrir_garantia poria uma moto vendida há meses de volta
-        // em "em garantia".
-        if (ehStatusFinalizado(statusLista)) continue
+        // Só o que ainda está andando na fábrica. Encerrada (ou situação que não
+        // conhecemos) já se resolveu, e abrir_garantia poria uma moto vendida há
+        // meses de volta em "em garantia".
+        if (!garantiaEmAndamento(statusLista)) continue
 
         const { chassi, peca, status } = await buscarDetalhePedidoGarantia(session, numeroPedido)
         if (!chassi) {
@@ -207,16 +207,18 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         // Chassi exato na base toda (moto transferida de grupo cai certo, a loja
         // da garantia sai de moto.loja_id). Final do chassi só dentro do grupo:
         // na base toda, um "3024" casaria com moto de outro CNPJ.
+        // O exato vem numa consulta própria: junto com os do final, um corte de
+        // linhas podia deixá-lo de fora e a garantia cair na moto errada.
         const alvo = chassi.replace(/\s+/g, '').toUpperCase()
-        const candidatas = await db
-          .select({ id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi })
-          .from(motos)
-          .where(
-            /^[A-Z0-9]+$/.test(alvo) && alvo.length >= MIN_DIGITOS_SUFIXO_CHASSI && lojaIdsDoGrupo.length > 0
-              ? or(eq(motos.chassi, chassi), and(inArray(motos.lojaId, lojaIdsDoGrupo), ilike(motos.chassi, `%${alvo}`)))
-              : eq(motos.chassi, chassi),
-          )
-          .limit(20)
+        const colunas = { id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }
+        const exatas = await db.select(colunas).from(motos).where(eq(motos.chassi, chassi)).limit(1)
+        const podeBuscarPeloFinal = /^[A-Z0-9]+$/.test(alvo) && alvo.length >= MIN_DIGITOS_SUFIXO_CHASSI && lojaIdsDoGrupo.length > 0
+        // Duas já bastam para ser ambíguo; o limite só evita trazer o estoque inteiro.
+        const candidatas = exatas.length || !podeBuscarPeloFinal
+          ? exatas
+          : await db.select(colunas).from(motos)
+            .where(and(inArray(motos.lojaId, lojaIdsDoGrupo), ilike(motos.chassi, `%${alvo}`)))
+            .limit(20)
         const moto = escolherMotoPorChassi(chassi, candidatas)
         if (!moto) {
           semChassi++
