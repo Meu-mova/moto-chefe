@@ -208,6 +208,7 @@ PR e a branch `dev` sobem com ele (D6 do plano).
 - **Proteção:** Vercel Authentication **desligada nos previews desde 2026-10-17** (decisão do
   Luis; ficou ligada de 2026-10-07 a 2026-10-17). O `dev.meumova.com` e os `*.vercel.app` de PR
   abrem direto no login do MOVA; o que segura os dados sintéticos é a `SEED_SENHA`.
+  Webhooks de terceiros (Mercado Pago, #208) chegam sem passar pelo login da Vercel.
 - **Diferenças da §5.5 do plano:** a URL do app não foi fixada em `https://dev.meumova.com` (ver a
   tabela), e `EMAIL_FROM`, `LEADS_EMAIL_TO` e `DEFAULT_USER_PASSWORD` não foram definidas no
   Preview: e-mail fica desligado (D7) e a senha dos usuários sintéticos é a `SEED_SENHA` do seed.
@@ -232,7 +233,7 @@ navegador, exceção na página ou resposta 5xx de requisição do próprio app.
 preenche nem confirma formulário. As regras estão em `scripts/lib/smoke.ts`.
 
 - **Secrets:** `SMOKE_SENHA` (a `SEED_SENHA`) e `VERCEL_AUTOMATION_BYPASS_SECRET` (o header
-  `x-vercel-protection-bypass` deixa o robô passar pela proteção, que segue ligada para o resto).
+  `x-vercel-protection-bypass` deixava o robô passar pela proteção; desde 2026-10-17 ela está desligada e o header não faz diferença).
 - **Rodar à mão** contra o app local (`npm run dev:staging`), sem bypass:
   `SMOKE_URL=http://localhost:3000 SMOKE_SENHA=<senha do seed> node --import tsx scripts/smoke.ts`.
 - Se o seed mudar os usuários ou o primeiro acesso deles (`/completar-cadastro`,
