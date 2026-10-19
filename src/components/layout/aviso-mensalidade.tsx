@@ -16,7 +16,8 @@ export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: Sit
       {aberta && (
         <div className={`border-b px-4 py-2 text-sm flex flex-wrap items-center justify-between gap-2 ${aberta.vencimento < hoje ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'}`}>
           <span>
-            Mensalidade do MOVA de {grupoAtivo}: R$ {formatarNumeroBR(aberta.total)}
+            Mensalidade do MOVA de {grupoAtivo}:{' '}
+            <span className="whitespace-nowrap font-medium">R$ {formatarNumeroBR(aberta.total)}</span>
             {aberta.vencimento < hoje ? `, venceu em ${dataBR(aberta.vencimento)}` : `, vence em ${dataBR(aberta.vencimento)}`}.
           </span>
           <Link href="/mensalidade" className="font-medium underline">Pagar</Link>
