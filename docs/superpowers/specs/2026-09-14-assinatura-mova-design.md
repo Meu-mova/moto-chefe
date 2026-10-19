@@ -1,246 +1,242 @@
-# Assinatura do MOVA — cobrança mensal dos lojistas
+# Mensalidade do MOVA: cobrança mensal dos lojistas
 
-**Data:** 2026-09-14
-**Status:** Revisada em 2026-10-17 (#166), à luz do contrato de adesão (#165) e da Conta (#164, ADR-0018)
-**Decisões do Cesar:** cobrança **PIX/boleto mensal** (não recorrência no cartão);
-**bloqueio 5 dias** após o vencimento; preço **por CNPJ (grupo)**; bloqueado **não
-vê nada** além da tela de pagamento; **o dono continua entrando, só para pagar**;
-os grupos do Cesar nascem **isentos**.
+**Data:** 2026-09-14, reescrita em 2026-10-19
+**Status:** implementada nos PRs #211 a #220 (aguardando merge na `dev`)
+**Issues:** #166 (épica), #207 (1º acesso e vínculo), #208 (cobrança), #209 (bloqueio e tela)
+**Fontes:** comentários da #166 (call do Luis com o Cesar em 2026-10-16 e grilling de
+2026-10-17); contrato de adesão, cláusula 4 (`src/lib/assinatura/contrato-adesao.ts`);
+ADR-0018 (Conta acima do grupo).
 
-### Revisão de 2026-10-17
+O nome do arquivo ficou "assinatura" por causa das referências antigas. No código e na
+conversa o nome é **mensalidade**: "assinatura" no MOVA é a assinatura eletrônica de documento
+(`src/lib/assinatura/`).
 
-Decisões da call com o Cesar (16/10) e do grilling da #166 (17/10). Onde o texto abaixo divergir,
-vale esta seção.
+---
 
-- **Nomes**: as tabelas viram `mensalidade_config`, `mensalidades` e
-  `mensalidade_webhook_eventos`. "Assinatura" no código já é a assinatura eletrônica
-  (`src/lib/assinatura/`).
-- **Valores vêm da adesão** (`adesoes_mova.valor_mensal` e `taxa_implantacao`), que passa a
-  apontar para o grupo que gerou. A taxa de implantação vai junto da 1ª mensalidade.
-- **Vencimento** (contrato 4.1): o 1º vence 30 dias após o 1º acesso de um usuário do grupo que
-  não seja `admin_geral` (`grupos.primeiro_acesso_em`). Os seguintes vencem no mesmo dia dos meses
-  seguintes; se esse dia for 29, 30 ou 31, vencem no dia 28. O `dia_vencimento` da adesão sai de uso.
-- **Quando a cobrança nasce**: o cron diário cria a cobrança quando faltam 10 dias ou menos
-  para o vencimento. O link **vale até ser pago**.
-- **Aviso**: e-mail (Resend) ao responsável do contrato quando a cobrança nasce e no vencimento,
-  mais um aviso no topo do sistema com o botão de pagar.
-- **Atraso** (contrato 4.4): numa cobrança vencida, o link é refeito com multa de 2% e juros de
-  1% ao mês, pro rata dia. A preferência antiga é cancelada.
-- **Pagamento**: só PIX e boleto no link do Mercado Pago (Cesar, 17/10): cartões excluídos. O
-  saldo da conta Mercado Pago não dá para excluir. Boleto vence em 3 dias, o padrão deles.
-- **Quem paga no sistema**: o `admin_socio` da Conta vê e paga as cobranças de todos os grupos
-  dela. Os demais usuários de um grupo bloqueado veem "fale com o responsável".
-- **Bloqueio** (contrato 4.5): 5 dias corridos após o vencimento, como na seção 6. Quem entra
-  no grupo por autorização de outra Conta também perde o acesso (ADR-0018).
-- **Sem NFS-e da mensalidade**: a cláusula saiu do contrato. Se algum cliente pedir, a gente vê.
-- **Conta do Mercado Pago**: da Infinity Fit (a contratada), que absorve as taxas.
-- **Staging** usa as credenciais **de teste** do Mercado Pago, que não precisam de ativação, e uma
-  URL de webhook própria do modo teste. O handler confere `live_mode`. A aprovação se testa com
-  cartão de teste (titular `APRO`); PIX e boleto em teste ficam em "pendente". Fontes:
+## 1. Objetivo
+
+O MOVA passa a ser vendido a lojistas de fora (#164). Cada CNPJ (grupo) contratado paga uma
+mensalidade. O mínimo que sustenta isso:
+
+- cobrança mensal criada sozinha, por grupo;
+- pagamento por PIX ou boleto, sem ninguém cadastrar cartão;
+- baixa automática quando o pagamento é aprovado;
+- corte de acesso de quem não paga, e volta automática quando paga.
+
+Cobrar não depende do isolamento entre Contas; vender, sim. Antes do 1º lojista de fora valem os
+pré-requisitos do ADR-0018 (#193, #194, #16).
+
+## 2. Decisões
+
+| Tema | Decisão | Fonte |
+|---|---|---|
+| Meio de pagamento | Só **PIX e boleto**, por link do Mercado Pago (Checkout Pro). Cartões excluídos | Cesar, 17/10; contrato 4.2 |
+| Saldo da conta Mercado Pago | Continua disponível: a API recusa excluir (`account_money cannot be excluded`) | teste de 17/10 |
+| Boleto | Vence em 3 dias, o padrão do Mercado Pago | Luis, 17/10 |
+| Recorrência | Nenhuma. O MOVA cria uma cobrança avulsa por mês | Cesar, 16/10 |
+| Conta recebedora | Mercado Pago da Infinity Fit (a contratada), que absorve as taxas | Cesar, 16/10 |
+| Preço e bloqueio | Por CNPJ (grupo) | Cesar, 16/10 |
+| Valores | Da adesão ligada ao grupo: mensalidade e taxa de implantação (padrão 499/999; franqueado 399/799; editáveis) | #166, 16/10 |
+| 1º vencimento | 30 dias após o 1º acesso de um usuário do grupo que não seja `admin_geral` | contrato 4.1 |
+| Vencimentos seguintes | Mesmo dia dos meses seguintes; dia 29, 30 ou 31 vira 28 | contrato 4.1 |
+| Implantação | Cobrada junto com a 1ª mensalidade | Cesar, 16/10 |
+| Quando a cobrança nasce | Quando faltam 10 dias ou menos para o vencimento | Cesar, 16/10 |
+| Validade do link | Até ser pago | grilling 17/10 |
+| Aviso | E-mail ao responsável da adesão quando a cobrança nasce e no dia do vencimento, mais faixa no topo do sistema | grilling 17/10 |
+| Atraso | Multa de 2% e juros de 1% ao mês, pro rata dia, cobrados ao refazer o link | contrato 4.4 |
+| Bloqueio | No 6º dia após o vencimento sem pagamento; dados não são apagados; volta sozinho ao pagar | contrato 4.5 |
+| Quem paga no sistema | O `admin_socio` (e o `admin_geral`). Os demais veem "fale com o responsável" | grilling 17/10 |
+| Isenção | Os grupos do Cesar | Cesar, 16/10 |
+| NFS-e da mensalidade | Não há. Fora de escopo; reavaliar se um lojista pedir | Cesar, 17/10 |
+
+## 3. Por que link avulso (Checkout Pro)
+
+O produto de assinatura do Mercado Pago (`preapproval`) cobra sozinho, mas exige cartão guardado,
+e o Cesar não quer recorrência: o cartão vence e ninguém fica sabendo. Por isso o MOVA cria uma
+**cobrança avulsa por mês** com `POST /checkout/preferences`. O preço é que a recorrência fica com o
+MOVA: criar a cobrança, acompanhar o vencimento e cortar o acesso.
+
+O link (Checkout Pro) foi escolhido em vez de Bricks ou Checkout Transparente: o lojista paga na
+página do Mercado Pago, nenhum dado de pagamento passa pelo MOVA e não há tela de pagamento para
+construir. O mesmo link vai no e-mail e no aviso, e quem está bloqueado paga por ele.
+
+Do exemplo de Payment Brick que o suporte do Mercado Pago mandou em 14/09/2026, três defeitos ficam
+registrados para não serem copiados:
+
+1. `idempotencyKey: randomUUID()` no handler não protege de nada. A chave tem de derivar do que se
+   paga; aqui, `mensalidade-<id>-<valor>`.
+2. O exemplo é Express. Aqui é Route Handler do Next.
+3. `console.error(error)` cru vaza dado: o erro do SDK carrega o corpo da requisição. Logar o
+   motivo, nunca o objeto inteiro.
+
+## 4. Modelo de dados
+
+| Tabela / coluna | Para quê | Migração |
+|---|---|---|
+| `grupos.primeiro_acesso_em` | Início da contagem do 1º vencimento. Gravado uma vez | 0126 |
+| `adesoes_mova.grupo_id` | Adesão que gerou o grupo; os valores vêm dela. Único por grupo | 0127 |
+| `mensalidade_config` | Uma por grupo: `isento` e, se preciso, `valor_mensal` e `taxa_implantacao`, que valem sobre os da adesão | 0128 |
+| `mensalidades` | Uma por grupo e competência (`AAAA-MM`, único): `valor`, `taxa_implantacao`, `acrescimo`, `vencimento`, `status` (`aberta`, `paga`, `cancelada`), `mp_preference_id`, `mp_payment_id`, `link_pagamento`, `pago_em` | 0128 |
+| `mensalidades.aviso_vencimento_em` | E-mail do dia do vencimento já enviado | 0129 |
+| `mensalidade_webhook_eventos` | Log cru das notificações, com `mp_notification_id` único: idempotência e diagnóstico | 0128 |
+
+`mensalidade_config.status` e `bloqueia_em` existem na 0128 e **não são usados**: o bloqueio é
+calculado na hora a partir das mensalidades abertas, o que faz o pagamento devolver o acesso sem
+nenhum passo a mais. Saem numa migração futura.
+
+As três tabelas têm RLS ligada e nenhuma policy: só o servidor lê e grava.
+
+## 5. Regras
+
+Regras puras, com testes, em `src/lib/mensalidade/regras.ts`:
+
+- `vencimento(primeiroAcesso, n)`: o dia é contado no fuso de Brasília.
+- `cobrancasDevidas(primeiroAcesso, hoje)`: todas as cobranças com vencimento até hoje + 10 dias,
+  inclusive as atrasadas, para um cron que ficou parado recriar o que faltou.
+- `valorBase(n, mensal, implantacao)`: implantação só na 1ª.
+- `acrescimoAtraso(valor, vencimento, hoje)`: 2% + 1% ao mês × dias/30.
+- `estaBloqueado(vencimentosEmAberto, hoje)`: alguma aberta com hoje ≥ vencimento + 6.
+- `podePagarMensalidade(papel)`: `admin_socio` ou `admin_geral`.
+
+Grupo cobrável: ativo, com 1º acesso, não isento e com valor (da configuração ou da adesão). Grupo
+sem linha em `mensalidade_config` não é isento.
+
+## 6. Fluxo
+
+1. **1º acesso:** o layout do painel grava `grupos.primeiro_acesso_em` no primeiro acesso de um
+   usuário de loja que não seja `admin_geral` (um `UPDATE` que não casa nada depois da primeira
+   vez; timeout de 3 s, sem travar a página).
+2. **Cron diário** (`/api/cron/mensalidades`, 08h de Brasília, protegido pelo `CRON_SECRET`):
+   - cria as cobranças devidas (`on conflict do nothing` na unicidade grupo e competência);
+   - para cada cobrança aberta sem link, cria a preferência e grava o link. Se o Mercado Pago
+     falhar, a próxima rodada tenta de novo;
+   - manda o e-mail da cobrança (valor, vencimento, link) ao e-mail da adesão;
+   - manda o e-mail do dia do vencimento, marcando `aviso_vencimento_em` antes de enviar;
+   - um grupo com erro não para os outros.
+3. **Link:** `external_reference` = id da mensalidade; `notification_url` = webhook do próprio
+   deploy (`urlBase()`); cartões em `excluded_payment_types`.
+4. **Aviso no topo:** enquanto houver mensalidade aberta, quem paga vê uma faixa com o valor
+   atualizado, o vencimento e o link para `/mensalidade`.
+5. **Pagamento:** o Mercado Pago chama o webhook (seção 7).
+6. **Sem pagamento:** no 6º dia o grupo bloqueia (seção 8).
+
+## 7. Webhook
+
+`POST /api/webhooks/mercadopago`.
+
+- **Assinatura HMAC obrigatória.** O header `x-signature` traz `ts` e `v1`. O manifesto é
+  `id:<data.id em minúsculas>;request-id:<x-request-id>;ts:<ts>;` (parte ausente sai). `v1` é o
+  HMAC-SHA256 com `MP_WEBHOOK_SECRET`, comparado em tempo constante. Inválida → 401.
+- **Idempotência:** uma linha por notificação. Reenvio → 200 sem refazer nada.
+- **Ambiente:** a produção só aceita `live_mode` verdadeiro; o staging, só falso.
+- **Baixa só depois de consultar a API** (`GET /v1/payments/{id}`). A notificação não traz valor
+  nem status; marcar como paga pelo corpo dela deixaria qualquer um declarar pagamento. A baixa
+  exige status `approved` e valor pago ≥ valor devido (`valor + acrescimo`). Pendente ou
+  recusado não muda nada.
+- **Erros:** 4xx do Mercado Pago (pagamento inexistente) fica registrado e responde 200. Falha
+  passageira responde 500 e apaga o registro, para o reenvio deles ser processado.
+- **Responder em até 22 s**, senão eles reenviam. Na Vercel a função congela ao responder, então o
+  trabalho (uma consulta e uma escrita) acontece antes do retorno.
+
+## 8. Bloqueio e tela `/mensalidade`
+
+**Onde:** no layout do painel (`src/app/(dashboard)/layout.tsx`), na mesma consulta do aviso do
+topo. Bloqueado vai para `/mensalidade`, que fica fora do layout do painel. O nome não é
+`/assinatura` porque o matcher do middleware exclui tudo que começa com `assinar`.
+
+**Quem escapa:** o `admin_geral` (precisa sobrar alguém para corrigir se a trava tiver defeito) e
+os grupos isentos.
+
+**Fail-open:** se a consulta falhar ou passar de 3 s, deixa entrar. Bloquear quem paga porque o
+banco piscou é pior que deixar entrar quem deve.
+
+**O bloqueio cobre as páginas, não as server actions nem as rotas de API.** O bloqueado é um
+lojista, não um invasor; isto não é trava de segurança.
+
+**A tela:**
+- O `admin_socio` vê as mensalidades abertas, com o valor atualizado, e o botão **Pagar**.
+- Os demais veem "Acesso suspenso" e "fale com o responsável da sua empresa".
+- Tem **Sair** e, sem bloqueio, **Voltar ao sistema**.
+
+**Link refeito com multa:** ao clicar em Pagar numa cobrança vencida, o link é recriado com o
+acréscimo do dia e a preferência antiga é encerrada no Mercado Pago. Se encerrar falhar, o webhook
+recusa a baixa do valor antigo, porque ele é menor que o devido.
+
+## 9. Admin: `/admin/mensalidades`
+
+Só `admin_geral`, no menu Configuração.
+
+- **Por grupo:** situação (isento, bloqueado, vencida, em aberto, em dia, sem 1º acesso), valor
+  mensal, data do 1º acesso e as mensalidades abertas.
+- **Inadimplentes:** grupos não isentos com mensalidade vencida, no topo.
+- **Isentar / Voltar a cobrar**, com confirmação.
+- **Conferir agora:** procura no Mercado Pago (`/v1/payments/search` pelo `external_reference`)
+  um pagamento aprovado e dá baixa com a mesma regra do webhook. É a saída quando o lojista pagou e
+  o aviso não chegou. No sandbox a busca não lista pendentes nem recusados (visto em 17/10), por
+  isso a resposta fala só do aprovado.
+
+## 10. Isenção
+
+A 0128 marca como isento **todo grupo que existe na hora em que roda**, partindo de que todos são
+do Cesar. Antes de aplicar na produção, conferir que nenhum grupo é de lojista de fora. Depois,
+isentar ou voltar a cobrar é pela tela do admin.
+
+## 11. Credenciais e ambientes
+
+- `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET` são credenciais do MOVA (conta da Infinity), em variável
+  de ambiente, não por grupo. Nunca logar o corpo das chamadas nem o header de autorização.
+- **Staging:** credenciais de **teste** (não precisam de ativação) no `.env.local` e no Preview da
+  Vercel. Webhook de teste no painel do Mercado Pago, configurado pelo Cesar, apontando para
+  `https://dev.meumova.com/api/webhooks/mercadopago`. A proteção da Vercel nos previews está
+  desligada desde 17/10 para o aviso chegar (`docs/infra/staging.md`).
+- **Produção:** token e webhook de produção, configurados pelo Cesar no painel da Infinity.
+- Doc oficial:
   [credenciais](https://www.mercadopago.com.br/developers/pt/docs/your-integrations/credentials),
   [compras de teste](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/integration-test/test-purchases),
   [webhooks](https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks).
-- **Ordem**: o motor (cobrança, webhook, bloqueio) não depende da Conta e se testa no staging.
-  Cobrar cliente de fora espera a #193.
-- **Issues**: #207 (1º acesso e vínculo), #208 (cobrança automática), #209 (bloqueio e tela).
 
----
-
-## 1. Contexto e objetivo
-
-O MOVA vira produto vendido a lojistas de fora (ver [[project_mova_produto_dominio]]).
-Isso exige cobrar mensalidade — e é a primeira vez que o sistema tem **cliente
-pagante**, não só usuário interno.
-
-O objetivo é o mínimo que sustenta uma venda: cobrança mensal automática por CNPJ,
-pagamento por PIX ou boleto sem ninguém cadastrar cartão, baixa automática quando
-o dinheiro cai, e corte de acesso para quem não paga.
-
-### O que este design NÃO resolve, e precisa ser dito
-
-O MOVA é multi-tenant **no mesmo banco e no mesmo deploy**, com isolamento feito
-na aplicação, página por página. Enquanto os inquilinos eram empresas do próprio
-Cesar, uma falha de isolamento era problema interno. Com lojista de fora pagando,
-é vazamento entre concorrentes.
-
-Existe pelo menos uma brecha **documentada e nunca corrigida** desde julho/2026:
-`/estoque/[id]` não confere se a moto pertence ao grupo do usuário — quem tiver o
-link vê moto de outro CNPJ ([[project_multi_grupo]], pendência 1). A recomendação
-de rodar uma revisão de segurança dedicada está registrada e nunca foi executada.
-
-**Cobrar não depende de consertar isso. Vender, sim.** Fica registrado aqui porque
-esta spec é o documento que marca a virada de sistema interno para produto.
-
----
-
-## 2. Por que não o "Assinaturas" do Mercado Pago
-
-O produto de assinatura deles (`preapproval`) cobra sozinho, mas exige **cartão
-guardado**. A escolha foi PIX/boleto, que vende melhor para lojista pequeno — logo
-o caminho é **cobrança avulsa gerada todo mês**:
-
-`POST /checkout/preferences` cria um link que aceita PIX, boleto e cartão, com
-`external_reference` (nosso id de cobrança), `notification_url` (nosso webhook) e
-`date_of_expiration`. O preço disso é que **a recorrência é nossa**: o MOVA gera a
-cobrança, acompanha o vencimento e corta o acesso. É trabalho que o `preapproval`
-faria sozinho.
-
-### O exemplo que o Mercado Pago forneceu, e o que nele não serve
-
-Em 14/09/2026 o suporte deles mandou um exemplo de **Payment Brick com cartão**
-(checkout transparente, com `token` gerado no frontend). Foi avaliado e **o
-caminho escolhido continua sendo o link de pagamento** (opção A): é o caminho mais
-curto até cobrar, e nenhum dado de cartão passa pelo MOVA. O Brick fica para
-quando a assinatura virar rotina.
-
-Três defeitos daquele exemplo, registrados para não serem copiados:
-
-1. **`idempotencyKey: randomUUID()` dentro do handler não protege de nada.** Uma
-   chave nova a cada requisição significa que clique duplo ou reenvio do navegador
-   criam **dois pagamentos**. A chave tem que derivar do que está sendo pago — o
-   id da cobrança do mês — para a segunda tentativa devolver o mesmo pagamento.
-2. **O exemplo é Express.** Aqui é rota do Next: `export async function POST(req)`,
-   corpo por `await req.json()`, sem `express.json()` e sem `dotenv`.
-3. **`console.error(error)` cru vaza dado.** O erro do SDK deles carrega o corpo da
-   requisição. Logar o motivo, nunca o objeto inteiro.
-
----
-
-## 3. Modelo de dados
-
-**`mensalidade_config`** — uma por grupo:
-`grupo_id` (único), `adesao_id`, `valor_mensal`, `taxa_implantacao`, `isento` (bool),
-`status` (`ativa` | `inadimplente` | `bloqueada`), `bloqueia_em` (timestamptz,
-nulo quando em dia), `criado_em`.
-
-**`mensalidades`** — uma por mês por grupo:
-`grupo_id`, `competencia` (`AAAA-MM`), `valor`, `taxa_implantacao` (só na 1ª), `vencimento` (date),
-`status` (`aberta` | `paga` | `cancelada`), `mp_preference_id`, `mp_payment_id`,
-`link_pagamento`, `pago_em`, `criado_em`.
-**Único em `(grupo_id, competencia)`** — é o que impede cobrar duas vezes o mesmo
-mês quando o cron roda duas vezes.
-
-**`mensalidade_webhook_eventos`** — log cru do que o Mercado Pago mandou:
-`mp_notification_id` (único), `tipo`, `action`, `data_id`, `recebido_em`,
-`processado_em`, `erro`. Existe por dois motivos: **idempotência** (o Mercado Pago
-reenvia a mesma notificação quando não recebe 200 a tempo) e diagnóstico — sem o
-cru guardado, "o cliente diz que pagou e não deu baixa" vira dedução.
-
----
-
-## 4. Fluxo de cobrança
-
-1. **Cron diário** varre grupos com assinatura não isenta e sem cobrança aberta
-   para a competência corrente; cria a cobrança e a preferência no Mercado Pago,
-   guardando `link_pagamento`. Usa `X-Idempotency-Key` na chamada.
-2. **O lojista vê** na própria tela um aviso com vencimento e botão de pagar.
-3. **Ele paga** por PIX, boleto ou cartão, no checkout do Mercado Pago.
-4. **O Mercado Pago chama** `POST https://meumova.com/api/webhooks/mercadopago`.
-5. **O MOVA valida, consulta e dá baixa** (seção 5).
-6. **Sem pagamento**, `bloqueia_em` = vencimento + 5 dias. Passada a data, o grupo
-   entra em `bloqueada` (seção 6).
-
-O corte é por **vencimento + 5 dias corridos**, não por dias úteis — mais simples
-de explicar ao cliente e de conferir.
-
----
-
-## 5. Webhook: o que a segurança exige
-
-A notificação **não traz valor nem status**. Ela diz `{ type, action, data.id }`.
-Quem confirma o pagamento é uma consulta à API do Mercado Pago com aquele `data.id`
-e o access token da nossa aplicação. **Nunca marcar como paga com base no corpo da
-notificação** — sem a consulta, quem descobrir a URL declara qualquer pagamento
-aprovado.
-
-**Validação de assinatura, obrigatória.** O header `x-signature` traz `ts` e `v1`.
-O manifesto é `id:<data.id em minúsculas>;request-id:<x-request-id>;ts:<ts>;` e o
-`v1` é o HMAC-SHA256 desse texto com o segredo do webhook (painel do Mercado Pago).
-Comparação em **tempo constante**. Assinatura inválida → 401, sem processar.
-
-**Responder 200 em até 22 segundos**, senão eles reenviam. Na Vercel a função
-congela ao responder, então o trabalho acontece **antes** do retorno — é rápido:
-uma consulta à API deles e uma escrita.
-
-**Idempotência**: a mesma notificação chega mais de uma vez. O `mp_notification_id`
-único em `mensalidade_webhook_eventos` resolve — evento já processado devolve 200
-sem refazer nada. Pagar duas vezes a mesma cobrança não pode gerar dois créditos.
-
-**Credenciais por ambiente**: `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET` em variável
-de ambiente. Diferente do certificado da SEFAZ, isto é credencial **do MOVA**, não
-de cada grupo — não vai para a tabela de grupos.
-
----
-
-## 6. Bloqueio
-
-**Onde:** no `src/app/(dashboard)/layout.tsx`, que roda em toda página e **já tem
-exatamente este padrão** (a trava que manda para `/completar-cadastro` quem não
-preencheu o cadastro). O bloqueado é redirecionado para `/assinatura`.
-
-**Quem escapa, e por quê:**
-- **`admin_geral`** — mesma válvula que já existe na trava de cadastro: precisa
-  sobrar alguém que consiga entrar e corrigir se a trava tiver defeito.
-- **Grupos isentos** — os do Cesar.
-- **A própria `/assinatura`** e as rotas de pagamento, obviamente.
-
-**O que o bloqueado vê:** nada do sistema. Só `/assinatura`.
-- **O dono da loja** (papel de admin daquele grupo) vê a tela com o valor, o
-  vencimento, o link/QR de pagamento e o histórico das últimas cobranças.
-- **Os demais usuários** veem "o acesso está suspenso, fale com o responsável" —
-  sem valor e sem link. Cobrança da empresa não é assunto de vendedor.
-
-**Fail-open deliberado:** se a consulta do status da assinatura falhar ou estourar
-timeout, **deixa passar**. O layout já segue essa filosofia. Bloquear cliente
-pagante porque o banco piscou é pior do que dar alguns minutos de acesso a um
-inadimplente.
-
-**O bloqueio cobre as páginas, não as server actions nem as rotas de API.** Quem
-souber montar a chamada continua escrevendo. É aceitável porque o bloqueado é um
-cliente, não um invasor — mas está escrito aqui para ninguém confundir com trava
-de segurança.
-
----
-
-## 7. Isenção
-
-`mensalidade_config.isento = true` nos três grupos do Cesar (Sul de Minas, BH, Vale).
-Grupo isento não gera cobrança, não bloqueia e não aparece na lista de
-inadimplentes. Marcável por `admin_geral` na tela de administração.
-
----
-
-## 8. Riscos
+## 12. Riscos
 
 | Risco | Tratamento |
 |---|---|
-| **Marcar como paga sem consultar a API** | Nunca confiar no corpo da notificação. A consulta com o `data.id` é obrigatória |
-| **Webhook reenviado gera baixa dupla** | `mp_notification_id` único + cobrança única por `(grupo, competência)` |
-| **Cron roda duas vezes e cobra duas vezes** | Único em `(grupo_id, competencia)`; a segunda tentativa não cria nada |
-| **Cliente paga e o webhook não chega** | Tela de administração com botão "conferir agora", que consulta a API pelo `external_reference`. Sem isso, a única saída é acesso ao banco |
-| **Bloqueio derruba cliente em dia por erro de status** | Fail-open na consulta + isenção + `admin_geral` sempre entra |
-| **Dono bloqueado não consegue pagar** | Ele entra e chega em `/assinatura`; é o único caminho aberto |
-| **Token do Mercado Pago vazado em log** | Nunca logar corpo de requisição para a API deles nem o header de autorização |
+| Marcar como paga sem consultar a API | A consulta com o `data.id` é obrigatória |
+| Notificação repetida gera baixa dupla | `mp_notification_id` único e baixa só de mensalidade `aberta` |
+| Cron roda duas vezes e cobra duas vezes | Único em grupo e competência; e-mail do vencimento marcado antes de enviar |
+| Lojista paga o link antigo, sem multa | Preferência antiga encerrada; se falhar, valor menor que o devido não dá baixa |
+| Lojista paga e o aviso não chega | "Conferir agora" na tela do admin |
+| Bloqueio derruba lojista em dia por falha | Fail-open, isenção e `admin_geral` sempre entra |
+| Bloqueado não consegue pagar | `/mensalidade` fica aberta; o link do e-mail também serve |
+| Token vazado em log | O erro do cliente do Mercado Pago só carrega o status HTTP |
 
-## 9. Fora de escopo
+## 13. Fora de escopo
 
-- **Recorrência automática no cartão** (`preapproval`) — descartada nesta fase.
-- **Onboarding self-service** de lojista novo (criar grupo, primeiro usuário,
-  primeira loja). Hoje isso é manual, feito pelo `admin_geral`.
-- **Nota fiscal da mensalidade** — o MOVA emitir NFS-e da própria assinatura é
-  outro projeto ([[project_nfe_propria_enotas]]).
-- **Planos diferentes, desconto, cupom, trial.** Um valor por grupo, só.
-- **Correção do isolamento entre CNPJs** (seção 1) — necessário para vender, mas
-  é trabalho próprio, com escopo próprio.
+- Recorrência no cartão e pagamento por cartão.
+- Bricks ou Checkout Transparente.
+- NFS-e da mensalidade.
+- Planos, desconto, cupom, trial.
+- Cadastro do lojista sem implantação (#229 trata da implantação).
 
-## 10. Critérios de aceite
+**Em aberto, não implementado:**
+- reajuste anual pelo IPCA em fevereiro (contrato 4.3): por ora, ajuste manual do valor;
+- rescisão por mais de 60 dias de atraso (contrato 4.6): decisão manual.
 
-- Um grupo não isento, sem cobrança do mês, ganha cobrança e link ao rodar o cron.
-- Rodar o cron duas vezes no mesmo dia **não** cria duas cobranças.
-- Pagar o link dá baixa automática em menos de um minuto, sem ninguém mexer.
-- A mesma notificação entregue duas vezes é processada **uma** vez.
-- Notificação com assinatura inválida é recusada com 401 e não muda nada.
-- No sexto dia após o vencimento, o grupo bloqueia: usuário comum vê o aviso, o
-  dono vê a tela de pagamento, e `admin_geral` continua entrando em tudo.
-- Pagar depois de bloqueado devolve o acesso sem intervenção manual.
-- Os três grupos do Cesar nunca geram cobrança nem bloqueiam.
+## 14. Critérios de aceite
+
+Verificados pelo teste de ponta a ponta `npm run e2e:mensalidade` (#220) contra o staging:
+
+1. O cron cria a 1ª cobrança de um grupo não isento (mensalidade + implantação) com link; rodar de
+   novo não cria nada.
+2. O link exclui cartões e aponta o `external_reference` e o webhook certos; o checkout mostra só
+   PIX e boleto.
+3. O `admin_socio` vê a faixa e a cobrança em `/mensalidade`; o vendedor não vê a faixa.
+4. No 6º dia após o vencimento, o `admin_socio` cai em "Acesso suspenso" e o vendedor em "fale com
+   o responsável"; o `admin_geral` continua entrando.
+5. Pagar uma cobrança vencida refaz o link com multa e juros.
+6. Notificação sem assinatura → 401; com assinatura e pagamento aprovado → baixa; a mesma
+   notificação de novo → ignorada.
+7. Com a mensalidade paga, o acesso volta sozinho.
+8. O "Conferir agora" acha o pagamento aprovado e dá baixa.
+
+**PIX e boleto aprovados não se testam no sandbox:** lá eles ficam pendentes. A baixa no teste usa
+um pagamento com cartão aprovado no sandbox em 17/10/2026, guardado na mensalidade de referência
+do grupo de teste. PIX e boleto aprovados se provam na 1ª cobrança real, com valor baixo.
