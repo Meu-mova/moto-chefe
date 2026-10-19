@@ -47,6 +47,11 @@ export function criarPreferencia(p: {
     body: JSON.stringify({
       items: [{ title: p.titulo, quantity: 1, unit_price: p.valor, currency_id: 'BRL' }],
       external_reference: p.mensalidadeId,
+      // Só PIX e boleto (Cesar, 17/10/2026): cartões fora. O saldo da conta Mercado
+      // Pago continua: a API recusa excluir account_money ("cannot be excluded").
+      payment_methods: {
+        excluded_payment_types: [{ id: 'credit_card' }, { id: 'debit_card' }, { id: 'prepaid_card' }],
+      },
       notification_url: p.urlNotificacao,
       ...(p.emailPagador ? { payer: { email: p.emailPagador } } : {}),
     }),
