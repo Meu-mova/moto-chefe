@@ -357,7 +357,14 @@ function AvisoManual({ adesao: a }: { adesao: AdesaoLinha }) {
 function GrupoVinculado({ adesao: a, grupos }: { adesao: AdesaoLinha; grupos: GrupoOpcao[] }) {
   const [pendente, iniciar] = useTransition()
 
+  const assinado = a.contrato?.status === 'assinado'
+  const recusada = a.status === 'recusada'
+  // Inativo só aparece se já for o grupo ligado, para o select não perder o valor atual.
+  const opcoes = grupos.filter(g => g.ativo || g.id === a.grupoId)
+
   function vincular(grupoId: string) {
+    if (a.grupoId && grupoId !== a.grupoId
+      && !window.confirm('Trocar ou desligar o grupo muda de onde vêm os valores das próximas mensalidades dele. Continuar?')) return
     iniciar(async () => {
       const r = await vincularGrupoAction(a.id, grupoId || null)
       if (!r.ok) { toast.error(r.erro); return }
@@ -373,16 +380,20 @@ function GrupoVinculado({ adesao: a, grupos }: { adesao: AdesaoLinha; grupos: Gr
       <select
         id={`${a.id}-grupo`}
         value={a.grupoId ?? ''}
-        disabled={pendente}
+        disabled={pendente || (!a.grupoId && (!assinado || recusada))}
         onChange={e => vincular(e.target.value)}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       >
         <option value="">Ainda não criado</option>
-        {grupos.map(g => (
-          <option key={g.id} value={g.id}>{g.nome} ({formatarCpfCnpj(g.cnpj)})</option>
+        {opcoes.map(g => (
+          <option key={g.id} value={g.id}>{g.nome} ({formatarCpfCnpj(g.cnpj)}){g.ativo ? '' : ' — inativo'}</option>
         ))}
       </select>
-      <p className="text-xs text-muted-foreground">A mensalidade deste grupo sai dos valores desta adesão.</p>
+      <p className="text-xs text-muted-foreground">
+        {recusada ? 'Adesão recusada não define mensalidade.'
+          : !assinado && !a.grupoId ? 'Disponível depois que o contrato for assinado.'
+          : 'A mensalidade deste grupo sai dos valores desta adesão.'}
+      </p>
     </div>
   )
 }
