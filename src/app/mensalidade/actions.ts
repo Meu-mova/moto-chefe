@@ -1,13 +1,14 @@
 'use server'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { mensalidades, grupos } from '@/lib/db/schema'
+import { mensalidades } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarPreferencia, expirarPreferencia } from '@/lib/mercadopago/cliente'
 import { podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
+import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 
 /**
  * Devolve o link para pagar a mensalidade. Vencida, o valor muda com o atraso: o
@@ -17,13 +18,14 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
   const u = await getUsuarioLogado()
   if (!podePagarMensalidade(u.papel)) return { ok: false, erro: 'Só o responsável da empresa paga a mensalidade' }
 
-  const [m] = await db.select({ m: mensalidades, grupoNome: grupos.nome })
-    .from(mensalidades).innerJoin(grupos, eq(grupos.id, mensalidades.grupoId))
-    .where(and(eq(mensalidades.id, mensalidadeId), eq(mensalidades.status, 'aberta'))).limit(1)
-  if (!m) return { ok: false, erro: 'Mensalidade não encontrada ou já paga' }
-
+  const [alvo] = await db.select({ grupoId: mensalidades.grupoId }).from(mensalidades)
+    .where(eq(mensalidades.id, mensalidadeId)).limit(1)
+  if (!alvo) return { ok: false, erro: 'Mensalidade não encontrada ou já paga' }
   // Só paga a mensalidade de um grupo que enxerga (mesma checagem do seletor de grupo).
-  if (!(await podeUsuarioVerGrupo(u, m.m.grupoId))) return { ok: false, erro: 'Mensalidade de outra empresa' }
+  if (!(await podeUsuarioVerGrupo(u, alvo.grupoId))) return { ok: false, erro: 'Mensalidade de outra empresa' }
+
+  const [m] = await abertasCobraveis({ grupoIds: [alvo.grupoId], mensalidadeId })
+  if (!m) return { ok: false, erro: 'Mensalidade não encontrada, já paga ou de grupo isento' }
 
   const { acrescimo, total } = valorAtualizado(Number(m.m.valor), m.m.vencimento, hojeBrt())
   if (m.m.linkPagamento && acrescimo === Number(m.m.acrescimo)) return { ok: true, url: m.m.linkPagamento }

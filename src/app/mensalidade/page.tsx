@@ -1,15 +1,13 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
 import Link from 'next/link'
-import { db } from '@/lib/db'
-import { grupos, mensalidades } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo, listarGruposVisiveis } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao, listarGruposVisiveis } from '@/lib/grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { logoutAction } from '@/app/(auth)/login/actions'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Badge } from '@/components/ui/badge'
 import { estaBloqueado, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
+import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { BotaoPagar } from './botao-pagar'
 
 const dataBR = (d: string) => d.split('-').reverse().join('/')
@@ -26,16 +24,14 @@ function Situacao({ vencimento, hoje }: { vencimento: string; hoje: string }) {
 // e troca de grupo pelo seletor para sair de um bloqueado. Layout: variante 3 (19/10/2026).
 export default async function MensalidadePage() {
   const usuario = await getUsuarioLogado()
-  const ativo = await getGrupoAtivo(usuario).catch(() => null)
+  const ativo = await grupoAtivoDaRequisicao(usuario).catch(() => null)
   const paga = podePagarMensalidade(usuario.papel)
-  const visiveis = paga ? await listarGruposVisiveis(usuario).catch(() => []) : ativo ? [ativo] : []
-  const ids = visiveis.map(g => g.id)
-  const abertas = ids.length
-    ? await db.select({ m: mensalidades, grupoNome: grupos.nome })
-      .from(mensalidades).innerJoin(grupos, eq(grupos.id, mensalidades.grupoId))
-      .where(and(inArray(mensalidades.grupoId, ids), eq(mensalidades.status, 'aberta')))
-      .orderBy(asc(mensalidades.vencimento))
-    : []
+  // admin_geral enxerga todos os grupos: aqui fica só o ativo, senão o total somaria a
+  // mensalidade de todos os clientes. A visão geral é /admin/mensalidades.
+  const visiveis = paga && usuario.papel !== 'admin_geral'
+    ? await listarGruposVisiveis(usuario).catch(() => [])
+    : ativo ? [ativo] : []
+  const abertas = await abertasCobraveis({ grupoIds: visiveis.map(g => g.id) })
   const hoje = hojeBrt()
   const bloqueado = estaBloqueado(abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m.vencimento), hoje)
   const linhas = abertas.map(a => ({ ...a, ...valorAtualizado(Number(a.m.valor), a.m.vencimento, hoje) }))
