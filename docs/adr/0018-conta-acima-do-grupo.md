@@ -16,15 +16,17 @@ configurações são globais e apareceriam para qualquer cliente novo.
 ## Decisão
 
 - **Conta** é o cliente do MOVA. Uma Conta tem um ou mais grupos; cada grupo pertence a uma só
-  Conta. Os 3 grupos do Cesar são uma Conta, isenta.
+  Conta. Os 3 grupos do Cesar são uma Conta, isenta, com o Cesar como `admin_socio` dela; os poderes
+  dele entre os grupos (transferir, aprovar) passam a vir daí.
 - **Usuário** tem exatamente uma Conta de origem.
 - **Dentro da Conta**, o `admin_socio` dela administra: vê todos os grupos da Conta e define, pelo
   `grupos_acesso`, o que cada usuário vê. `admin_socio` deixa de ser global e fica preso à Conta.
   `admin_geral` (Luis e Cesar, sócios do MOVA) continua vendo tudo.
 - **Entre Contas**, só por **autorização de acesso**: o `admin_socio` da Conta dona concede um
-  grupo inteiro com um papel existente a um usuário de outra Conta, pelo e-mail. A autorização
-  guarda quem concedeu, para quem, grupo, papel, quando e quando foi revogada, com aceite por clique
-  de um texto fixo. Vale até ser revogada; a revogação corta o acesso na requisição seguinte.
+  grupo inteiro com um papel existente a um usuário de outra Conta, pelo e-mail. O pedido chega por
+  fora (WhatsApp); não há fluxo de pedido no sistema. A autorização guarda quem concedeu, para quem,
+  grupo, papel, quando e quando foi revogada, com o aceite, por clique, de um texto fixo pelo
+  `admin_socio` que concede. Vale até ser revogada; a revogação corta o acesso na hora.
   Não gera cobrança; o bloqueio do grupo por falta de pagamento derruba também quem entra por ela.
 - **Adesão de CNPJ novo**: o `admin_geral` escolhe "Conta nova" ou "Conta existente". O lojista
   não escolhe.
@@ -47,7 +49,7 @@ configurações são globais e apareceriam para qualquer cliente novo.
 | `WHATSAPP_ALERTA_NUMERO` | Grupo, configurado pelo admin da Conta |
 | Permissões por e-mail fixo no código | `/admin/usuarios`, por Conta |
 | `CERT_MASTER_KEY`, Resend, `MCPAI_WHATSAPP_URL`, `BLING_REDIRECT_URI` | Plataforma |
-| `MCPAI_ENDPOINT_URL` | Já é por grupo (ADR-0010); a env de fallback não vale para Conta de fora |
+| `MCPAI_ENDPOINT_URL` | Já é por grupo (ADR-0010). Conta de fora tem de cadastrar a própria chave; a env de fallback não vale para ela |
 | Cron `/api/cron/pedidos-fabrica` | Plataforma, roda só para grupos com portal da fábrica |
 | Kommo (`kommo_*`, `KOMMO_*`) | Fora do produto: CRM oculto por decisão do Cesar |
 
@@ -58,7 +60,8 @@ Buckets do Storage não foram inventariados nesta rodada.
 - Conta, e não "cliente": "Cliente" já é o comprador no `CONTEXT.md`.
 - Autorização entre Contas, e não juntar CNPJs numa Conta: é o que o Cesar descreveu ("termo de
   autorização", "quem permite é o administrador da empresa").
-- Reaproveitar `admin_socio` evita mexer nos ~190 lugares que o usam; muda só o escopo.
+- Reaproveitar `admin_socio` evita mexer nas cerca de 250 ocorrências dele em ~130 arquivos de `src/`
+  (contadas em 2026-10-19); muda só o escopo.
 - Banco único: o app já filtra por grupo em tudo; schema ou projeto por cliente multiplicam
   migrações manuais e custo.
 
