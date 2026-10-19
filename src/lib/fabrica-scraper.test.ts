@@ -7,6 +7,7 @@ import {
   ehStatusFinalizado,
   loginAceito,
   explicarFalhaDeLogin,
+  parsearListaTrocas,
 } from './fabrica-scraper'
 
 // Markup fiel ao portal real (/clientes/pedido/N): rótulo "Tipo de Entrega" num
@@ -185,4 +186,47 @@ test('a mensagem do portal chega limpa de marcação e espaço', () => {
     '</div>',
   ].join('\n')
   assert.match(explicarFalhaDeLogin(303, '/login', html), /Erro: conta bloqueada/)
+})
+
+// Linha fiel ao portal real (/clientes/trocas): duas datas por linha
+// (solicitação e última movimentação, que pode ser "-") e dois badges
+// rounded-full — o da entrega com ícone dentro, o de status só texto.
+const linhaTroca = (o: { num: string; data: string; status: string; mov: string }) => `
+  <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+    <td class="px-6 py-4 text-white font-mono text-sm">
+        #${o.num}                                </td>
+    <td class="px-6 py-4 text-white text-sm">
+                ${o.data}                </td>
+    <td class="px-6 py-4">
+        <span class="inline-flex items-center gap-2 bg-yellow-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><path d="M21 16V8"/></svg>
+            Correios                                    </span>
+    </td>
+    <td class="px-6 py-4">
+        <span class="inline-flex px-3 py-1.5 rounded-full text-xs font-semibold bg-green-600 text-white">
+            ${o.status}                                    </span>
+    </td>
+    <td class="px-6 py-4 text-gray-400 text-sm">
+                ${o.mov}                </td>
+    <td class="px-6 py-4">
+        <a href="https://motochefebrasil.store/clientes/trocas/detalhes/${o.num}">Detalhes</a>
+    </td>
+  </tr>`
+
+test('lista de trocas: cada pedido leva a própria data de solicitação e o status', () => {
+  const html = `<table><thead><tr><th>ID</th></tr></thead><tbody>
+    ${linhaTroca({ num: '45095', data: '16/10/2026 14:13', status: 'Aguardando Separação', mov: '16/10/2026 16:40' })}
+    ${linhaTroca({ num: '45088', data: '15/10/2026 13:54', status: 'Em avaliação SAC', mov: '-' })}
+    ${linhaTroca({ num: '13491', data: '11/11/2025 09:51', status: 'Entregue', mov: '06/01/2026 16:33' })}
+  </tbody></table>`
+
+  assert.deepEqual(parsearListaTrocas(html), [
+    { numeroPedido: '45095', dataAbertura: '2026-10-16', status: 'Aguardando Separação' },
+    { numeroPedido: '45088', dataAbertura: '2026-10-15', status: 'Em avaliação SAC' },
+    { numeroPedido: '13491', dataAbertura: '2025-11-11', status: 'Entregue' },
+  ])
+})
+
+test('lista de trocas: página vazia devolve lista vazia', () => {
+  assert.deepEqual(parsearListaTrocas('<table><tbody></tbody></table>'), [])
 })

@@ -197,37 +197,76 @@ function parseFabricaDate(dateStr: string): string {
   return `${year}-${month}-${day}`
 }
 
-export async function listarPedidosGarantiaFabrica(
-  session: FabricaSession,
-): Promise<{ numeroPedido: string; dataAbertura: string }[]> {
-  const resp = await fetch(`${BASE}/clientes/trocas`, {
-    headers: { 'Cookie': session.cookie, 'User-Agent': UA },
-  })
-  const html = await resp.text()
+export type TrocaFabrica = {
+  numeroPedido: string
+  /** "2026-10-16" — a data da solicitação, não a da última movimentação */
+  dataAbertura: string
+  status: string | null
+}
 
-  // Sessão expirada volta o formulário de login com HTTP 200 — uma aba de
-  // trocas legitimamente vazia não tem esse formulário, só a lista (vazia ou não).
-  if (/name="csrf_test_name"/i.test(html) && !/\/trocas\/detalhes\//.test(html)) {
-    throw new Error('Sessão da fábrica expirou antes de listar as garantias')
+/**
+ * Extrai as garantias de uma página de /clientes/trocas.
+ *
+ * Puro de propósito — o HTML é de terceiro e é o teste que segura a mudança.
+ * Lê linha a linha: cada <tr> tem duas datas (solicitação e última
+ * movimentação, que pode ser "-"), e casar a i-ésima data da página com o
+ * i-ésimo pedido dava a data errada a partir da segunda linha.
+ */
+export function parsearListaTrocas(html: string): TrocaFabrica[] {
+  const trocas: TrocaFabrica[] = []
+  const vistos = new Set<string>()
+  for (const linha of html.split(/<tr\b/i).slice(1)) {
+    const numero = linha.match(/\/trocas\/detalhes\/(\d+)/)?.[1]
+    if (!numero || vistos.has(numero)) continue
+    vistos.add(numero)
+
+    const data = linha.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/)?.[1]
+    // A forma de entrega também é um badge, mas com ícone dentro — o [^<]+ só
+    // casa badge de texto puro, que é o de status.
+    const status = [...linha.matchAll(/rounded-full[^"]*"[^>]*>\s*([^<]+?)\s*<\/span>/g)]
+      .map(m => limparHtml(m[1]))
+      .find(Boolean) ?? null
+
+    trocas.push({
+      numeroPedido: numero,
+      dataAbertura: data ? parseFabricaDate(data) : hojeBrt(),
+      status,
+    })
+  }
+  return trocas
+}
+
+// Teto de páginas: o portal mostra 10 por página e a conta mais antiga tem ~10.
+// É só um freio contra laço infinito se o portal passar a repetir a última página.
+const MAX_PAGINAS_TROCAS = 60
+
+/** Todas as garantias da conta, varrendo a paginação até a primeira página vazia. */
+export async function listarPedidosGarantiaFabrica(session: FabricaSession): Promise<TrocaFabrica[]> {
+  const todas: TrocaFabrica[] = []
+  const vistos = new Set<string>()
+
+  for (let pagina = 1; pagina <= MAX_PAGINAS_TROCAS; pagina++) {
+    const resp = await fetch(`${BASE}/clientes/trocas?page=${pagina}`, {
+      headers: { 'Cookie': session.cookie, 'User-Agent': UA },
+    })
+    const html = await resp.text()
+
+    // Sessão expirada volta o formulário de login com HTTP 200 — uma aba de
+    // trocas legitimamente vazia não tem esse formulário, só a lista (vazia ou não).
+    if (/name="csrf_test_name"/i.test(html) && !/\/trocas\/detalhes\//.test(html)) {
+      throw new Error('Sessão da fábrica expirou antes de listar as garantias')
+    }
+
+    // Página além da última volta vazia; página repetida não traz nada novo.
+    const novas = parsearListaTrocas(html).filter(t => !vistos.has(t.numeroPedido))
+    if (novas.length === 0) break
+    for (const t of novas) {
+      vistos.add(t.numeroPedido)
+      todas.push(t)
+    }
   }
 
-  // Extrai números de pedido pelos links para /trocas/detalhes/NUMBER
-  const numerosLinks = [...html.matchAll(/\/trocas\/detalhes\/(\d+)/g)].map(m => m[1])
-  const numeros = [...new Set(numerosLinks)]
-
-  // Extrai todas as datas no formato DD/MM/YYYY HH:MM presentes na página
-  const datas = [...html.matchAll(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/g)].map(m => m[1])
-
-  console.log('[fabrica-v2] status:', resp.status, '| numeros:', numeros.slice(0, 5), '| datas:', datas.slice(0, 3))
-  // Contexto ao redor de "detalhes" para ver o padrão de URL real
-  const idxDet = html.indexOf('detalhes')
-  if (idxDet >= 0) console.log('[fabrica-v2] ctx detalhes:', JSON.stringify(html.substring(idxDet - 50, idxDet + 80)))
-  else console.log('[fabrica-v2] "detalhes" NÃO encontrado no HTML')
-
-  return numeros.map((num, i) => ({
-    numeroPedido: num,
-    dataAbertura: datas[i] ? parseFabricaDate(datas[i]) : hojeBrt(),
-  }))
+  return todas
 }
 
 export async function buscarDetalhePedidoGarantia(
