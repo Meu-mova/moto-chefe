@@ -1691,12 +1691,9 @@ export const contratosAdesaoCodigos = pgTable('contratos_adesao_codigos', {
 export const mensalidadeConfig = pgTable('mensalidade_config', {
   id:              uuid('id').primaryKey().defaultRandom(),
   grupoId:         uuid('grupo_id').notNull().unique().references(() => grupos.id),
-  adesaoId:        uuid('adesao_id').references(() => adesoesMova.id),
   valorMensal:     numeric('valor_mensal', { precision: 12, scale: 2 }),
   taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
   isento:          boolean('isento').notNull().default(false),
-  status:          text('status').$type<'ativa' | 'inadimplente' | 'bloqueada'>().notNull().default('ativa'),
-  bloqueiaEm:      date('bloqueia_em'),
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -1717,6 +1714,7 @@ export const mensalidades = pgTable('mensalidades', {
 }, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
 
 // Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
+// Sem grupo_id: quem cobra é o MOVA, e o grupo só se conhece depois de ler o pagamento.
 export const mensalidadeWebhookEventos = pgTable('mensalidade_webhook_eventos', {
   id:               uuid('id').primaryKey().defaultRandom(),
   mpNotificationId: text('mp_notification_id').notNull().unique(),
