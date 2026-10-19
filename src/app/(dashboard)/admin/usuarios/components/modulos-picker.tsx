@@ -21,17 +21,17 @@ export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChang
 
   const rotulo = { papel: 'do papel', liberado: 'liberado', bloqueado: 'bloqueado', sem: '' }
   const cor = {
-    papel: 'text-slate-700',
-    liberado: 'text-green-700 font-medium',
-    bloqueado: 'text-red-600 line-through',
-    sem: 'text-slate-400',
+    papel: 'text-foreground',
+    liberado: 'text-primary-text font-medium',
+    bloqueado: 'text-destructive line-through',
+    sem: 'text-muted-foreground',
   }
 
   return (
     <div className="space-y-3">
       {CATEGORIAS.map(({ slug, nome }) => (
         <div key={slug}>
-          <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-1">{nome}</p>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">{nome}</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
             {ITENS.filter(i => i.categoria === slug && !i.regraPropria).map(i => {
               const e = estado(i.id)
@@ -41,10 +41,10 @@ export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChang
                     type="checkbox"
                     checked={e === 'papel' || e === 'liberado'}
                     onChange={() => alternar(i.id)}
-                    className="rounded border-slate-300"
+                    className="rounded border-input"
                   />
                   <span className={cor[e]}>{i.label}</span>
-                  {rotulo[e] && <span className="text-[10px] text-slate-400">{rotulo[e]}</span>}
+                  {rotulo[e] && <span className="text-[10px] text-muted-foreground">{rotulo[e]}</span>}
                 </label>
               )
             })}

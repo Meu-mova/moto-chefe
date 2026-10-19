@@ -150,8 +150,12 @@ function FormUsuario({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    // Corpo rola e rodapé fica fixo: com ~50 módulos o formulário passa da
+    // altura da tela, e o diálogo centralizado cortava o topo e o botão Salvar.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4">
+      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-2 content-start gap-4">
         <div className="col-span-2 space-y-1.5">
           <Label>Nome completo</Label>
           <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: João da Silva" />
@@ -178,21 +182,6 @@ function FormUsuario({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
-          <div>
-            <Label>Acesso a módulos</Label>
-            <p className="text-xs text-slate-500">
-              A função já dá acesso ao que está marcado como &quot;do papel&quot;. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
-            </p>
-          </div>
-          <ModulosPicker
-            papel={papel}
-            papeisExtras={inicial?.papeisExtras ?? []}
-            extras={modulosExtras}
-            bloqueados={modulosBloqueados}
-            onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
-          />
         </div>
         <div className="col-span-2 space-y-1.5">
           <Label>Loja</Label>
@@ -293,6 +282,24 @@ function FormUsuario({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="space-y-2 self-start rounded-lg border bg-muted p-3">
+        <div>
+          <Label>Acesso a módulos</Label>
+          <p className="text-xs text-muted-foreground">
+            A função já dá acesso ao que está marcado como &quot;do papel&quot;. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
+          </p>
+        </div>
+        <ModulosPicker
+          papel={papel}
+          papeisExtras={inicial?.papeisExtras ?? []}
+          extras={modulosExtras}
+          bloqueados={modulosBloqueados}
+          onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
+        />
+      </div>
+      </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
@@ -482,7 +489,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
 
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="flex max-h-[90dvh] flex-col sm:max-w-2xl lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Novo usuário</DialogTitle>
           </DialogHeader>
@@ -498,7 +505,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
 
       {/* Dialog Editar */}
       <Dialog open={!!editando} onOpenChange={open => { if (!open) setEditando(null) }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="flex max-h-[90dvh] flex-col sm:max-w-2xl lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Editar usuário</DialogTitle>
             <p className="text-sm text-slate-500">{editando?.nome}</p>
