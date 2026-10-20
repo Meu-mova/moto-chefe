@@ -5,7 +5,7 @@
  */
 import { eq, inArray, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
+import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -87,4 +87,29 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   })
 
   return { numero: venda.numero }
+}
+
+/** O que fica guardado em `aprovacoes_venda.dados_venda` quando a edição pede aprovação (origem 'peca_edicao'). */
+export type EdicaoPendente = {
+  vendaId: string
+  numero: number
+  itens: EdicaoVendaPeca['itens']
+  pagamentos: EdicaoVendaPeca['pagamentos']
+}
+
+/**
+ * Aplica a edição que esperava aprovação (financiamento sem permissão). O grupo vem da
+ * loja da venda, lido agora; o histórico fica em nome de quem pediu a edição — quem
+ * aprovou está na própria aprovação.
+ */
+export async function aplicarEdicaoAprovadaTx(tx: Tx, e: EdicaoPendente, solicitanteId: string) {
+  const [venda] = await tx
+    .select({ grupoId: lojas.grupoId })
+    .from(vendasPecas)
+    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
+    .where(eq(vendasPecas.id, e.vendaId))
+  if (!venda) throw new Error(`Venda não encontrada — a venda de peças #${e.numero} pode ter sido excluída`)
+  return editarVendaPecaTx(tx, {
+    vendaId: e.vendaId, grupoId: venda.grupoId, usuarioId: solicitanteId, itens: e.itens, pagamentos: e.pagamentos,
+  })
 }

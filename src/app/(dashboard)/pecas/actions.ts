@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
-import { editarVendaPecaTx } from '@/lib/editar-venda-peca'
+import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 
 
 async function verificarAcesso() {
@@ -330,21 +330,60 @@ export async function editarVendaPecaAction(
   if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
   if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
 
-  const { pagamentos } = sanearPagamentos(input.pagamentos)
-  // Financiamento sem permissão: na criação vai para aprovação; na edição, a
-  // aprovação ainda não existe (vem num PR seguinte da #242), então recusa.
-  if (temPagamentoSensivelPeca(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, venda.lojaId))) {
-    throw new Error('Financiamento precisa de aprovação — peça a um gestor para fazer esta edição')
-  }
+  const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
   const itens = podeGerirPecas(usuario.papel)
     ? input.itens
     : input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade }))
 
-  const r = await db.transaction(tx => editarVendaPecaTx(tx, {
-    vendaId, grupoId: venda.grupoId, usuarioId: usuario.id, itens, pagamentos,
-  }))
+  // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+  // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+  const exigeAprovacao = temPagamentoSensivelPeca(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, venda.lojaId))
+
+  // Trava a linha da venda: a checagem de pedido pendente e o que vem depois (pedir aprovação
+  // ou editar) não podem intercalar com outro clique ao mesmo tempo.
+  const r = await db.transaction(async tx => {
+    const [atual] = await tx.select({ numero: vendasPecas.numero, clienteNome: vendasPecas.clienteNome })
+      .from(vendasPecas).where(eq(vendasPecas.id, vendaId)).for('update')
+    if (!atual) throw new Error('Venda não encontrada')
+
+    // Uma edição esperando aprovação por vez: duas na fila se sobreporiam na hora de aprovar.
+    // Vale também para o gestor, senão a aprovação depois desfaria a edição dele.
+    const [pendente] = await tx.select({ id: aprovacoesVenda.id }).from(aprovacoesVenda).where(and(
+      eq(aprovacoesVenda.origem, 'peca_edicao'),
+      eq(aprovacoesVenda.status, 'pendente'),
+      sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
+    )).limit(1)
+    if (pendente) throw new Error('Esta venda já tem uma edição aguardando aprovação — aprove ou recuse o pedido em Vendas antes de editar de novo')
+
+    // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+    // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+    if (exigeAprovacao) {
+      const pedido: EdicaoPendente & { clienteNome: string | null } = {
+        vendaId, numero: atual.numero, itens, pagamentos, clienteNome: atual.clienteNome,
+      }
+      await tx.insert(aprovacoesVenda).values({
+        origem: 'peca_edicao',
+        lojaId: venda.lojaId,
+        vendedorId: usuario.id,
+        valor: valorTotal.toFixed(2),
+        dadosVenda: pedido,
+        motivo: `Pagamento via Financiamento — edição da venda de peças #${atual.numero}`,
+        tipo: 'pagamento_sensivel',
+        status: 'pendente',
+      })
+      return { aguardandoAprovacao: true as const, numero: atual.numero }
+    }
+
+    const e = await editarVendaPecaTx(tx, { vendaId, grupoId: venda.grupoId, usuarioId: usuario.id, itens, pagamentos })
+    return { aguardandoAprovacao: false as const, numero: e.numero }
+  })
+  if (r.aguardandoAprovacao) {
+    revalidatePath('/pecas')
+    revalidatePath('/vendas')
+    return { aguardandoAprovacao: true as const, numero: r.numero, avisos: [] as string[] }
+  }
   revalidatePath('/pecas')
-  return { numero: r.numero, avisos: await avisosDaVenda(venda) }
+  return { aguardandoAprovacao: false as const, numero: r.numero, avisos: await avisosDaVenda(venda) }
 }
 
 export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
@@ -469,6 +508,16 @@ export async function excluirVendaPecaAction(vendaId: string) {
   if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
 
   await db.transaction(async tx => {
+    // Pedido de edição pendente desta venda perde o objeto: recusa junto, senão ficaria
+    // no painel de aprovações falhando com "venda não encontrada".
+    await tx.update(aprovacoesVenda)
+      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(and(
+        eq(aprovacoesVenda.origem, 'peca_edicao'),
+        eq(aprovacoesVenda.status, 'pendente'),
+        sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
+      ))
+
     const itens = await tx
       .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
       .from(vendasPecasItens)
@@ -501,5 +550,6 @@ export async function excluirVendaPecaAction(vendaId: string) {
   revalidatePath('/pecas')
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
+  revalidatePath('/vendas')
   return { numero: venda.numero }
 }
