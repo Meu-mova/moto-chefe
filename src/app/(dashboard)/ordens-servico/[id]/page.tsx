@@ -3,8 +3,11 @@ import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
+import { servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -27,13 +30,10 @@ const statusLabel: Record<string, string> = {
 
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [os, itens, usuario, mecanicos, servicos, pecas, aprovacaoPendente] = await Promise.all([
+  const [os, itens, usuario, servicos, pecas, aprovacaoPendente] = await Promise.all([
     buscarOS(id),
     listarItensOS(id),
     getUsuarioLogado(),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(eq(usuarios.papel, 'mecanico')),
     db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
     db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
     db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, id), eq(aprovacoesVenda.status, 'pendente'))).then(n => n > 0),
@@ -45,7 +45,9 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   if (!os) notFound()
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && os.lojaId !== usuario.lojaId) notFound()
+  if (isAdmin ? !(await podeAbrirRegistroDaLoja(usuario, os.lojaId)) : os.lojaId !== usuario.lojaId) notFound()
+
+  const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papel: 'mecanico' })
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)

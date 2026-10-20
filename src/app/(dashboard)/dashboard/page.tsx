@@ -6,6 +6,7 @@ import { eq, or, sql, and, count, gte, lt, inArray } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   getKPIs, getVendasPorDia, getSaldoCaixaPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
@@ -54,13 +55,11 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
+// Por grupo: a lista global mostrava vendedores de outros clientes do MOVA. O grupoId
+// entra na chave do cache como argumento.
 const getVendedoresOpts = unstable_cache(
-  () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios)
-    // Inclui quem vende sem ter 'vendedor' como papel principal — senão o filtro
-    // de vendedor esconde as vendas dessas pessoas.
-    .where(or(eq(usuarios.papel, 'vendedor'), sql`'vendedor' = ANY(${usuarios.papeisExtras})`))
-    .orderBy(usuarios.nome),
-  ['vendedores-opts'], { revalidate: 300 },
+  (grupoId: string) => listarUsuariosDoGrupo(grupoId, { papel: 'vendedor' }),
+  ['vendedores-opts-grupo'], { revalidate: 300 },
 )
 
 // ── Seções async ──────────────────────────────────────────────────────────────
@@ -438,7 +437,7 @@ export default async function DashboardPage({
   const filtroKey = `${dataInicio}_${dataFim}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
 
   const [lojasOpts, vendedoresOpts] = await withTimeout(
-    Promise.all([listarLojasDoGrupoAtivo(usuario), getVendedoresOpts()]),
+    Promise.all([listarLojasDoGrupoAtivo(usuario), getGrupoAtivo(usuario).then(g => getVendedoresOpts(g.id))]),
     8000,
   )
 
