@@ -79,7 +79,7 @@ export function OSEditarPanel(props: Props) {
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm">Detalhes da OS</CardTitle>
         {props.podeEditar && !editing && (
-          <button onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button type="button" aria-label="Editar detalhes da OS" onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground transition-colors">
             <Pencil size={14} />
           </button>
         )}

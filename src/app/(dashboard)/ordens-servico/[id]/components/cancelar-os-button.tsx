@@ -57,6 +57,7 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         title="Cancelar OS"
         className="flex items-center gap-1.5 text-sm text-warning hover:bg-warning/10 border border-input rounded-lg px-3 py-1.5 hover:border-warning transition-colors"

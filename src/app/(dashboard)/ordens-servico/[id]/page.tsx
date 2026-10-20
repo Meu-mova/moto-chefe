@@ -79,8 +79,9 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   })
 
   return (
-    <div className="max-w-4xl space-y-5 pb-20 lg:pb-0">
-      {/* Header */}
+    <div className="max-w-4xl space-y-5 has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
+      {/* Header. A folga embaixo (has-[[data-barra-fixa]]) só existe quando o botão de avançar
+          fica fixo no rodapé do celular; sem ela, o fim da página ficaria atrás dele. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <div>
@@ -210,7 +211,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
             <span className="text-muted-foreground">Peças</span>
             <span>{totalPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
           </div>
-          <div className="h-px bg-muted" />
+          <div className="h-px bg-border" />
           <div className="flex justify-between font-bold text-base">
             <span>Total</span>
             <span className="text-primary-text">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>

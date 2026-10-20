@@ -53,7 +53,7 @@ export function OSTemposPanel({ dataAbertura, oficinaEm, emAndamentoEm, finaliza
         <Etapa label="Em Andamento → Finalizada"            de={emAndamentoEm}        ate={finalizadaEm} />
         <Etapa label="Finalizada → Pendente de Pagamento"   de={finalizadaEm}         ate={pendentePagamentoEm} />
         <Etapa label="Pendente de Pagamento → Concluída"    de={pendentePagamentoEm}  ate={dataConclusao} />
-        <div className="h-px bg-muted my-1" />
+        <div className="h-px bg-border my-1" />
         <div className="flex justify-between text-sm font-semibold">
           <span className="text-muted-foreground">Total</span>
           <span className="text-foreground">

@@ -1,6 +1,6 @@
 'use client'
 import { useTransition } from 'react'
-import { CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, Loader2 } from 'lucide-react'
 import { atualizarStatusOSAction } from '../../actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -50,9 +50,10 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
       disabled={pending}
       className={cn('rounded-lg bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50', cls)}
     >
-      {pending ? 'Salvando…' : `→ ${next?.label}`}
+      {pending ? 'Salvando…' : <span className="inline-flex items-center justify-center gap-1.5"><ArrowRight className="size-4" aria-hidden />{next?.label}</span>}
     </button>
   )
+  const mostrarAvancar = Boolean(next && !ehUltimaAutomatica && podeAvancar)
   const aguardando = next && !ehUltimaAutomatica && !podeAvancar
     ? `Aguardando ${RESPONSAVEL_LABEL[responsaveis?.[0] ?? ''] ?? 'responsável'}`
     : ehUltimaAutomatica ? 'Aguardando pagamento' : null
@@ -80,8 +81,8 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
         })}
         {aguardando && <li className="pt-1 text-xs text-muted-foreground">{aguardando}</li>}
       </ol>
-      {next && !ehUltimaAutomatica && podeAvancar && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+      {mostrarAvancar && (
+        <div data-barra-fixa className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
           {botao('h-11 w-full')}
         </div>
       )}
@@ -111,7 +112,7 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
             </div>
           )
         })}
-        {next && !ehUltimaAutomatica && podeAvancar && <div className="ml-4">{botao('h-9')}</div>}
+        {mostrarAvancar && <div className="ml-4">{botao('h-9')}</div>}
         {aguardando && <span className="ml-4 text-xs whitespace-nowrap text-muted-foreground">{aguardando}</span>}
       </div>
     </>

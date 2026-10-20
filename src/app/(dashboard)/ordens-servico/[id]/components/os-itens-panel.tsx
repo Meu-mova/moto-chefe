@@ -91,7 +91,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm font-semibold text-foreground">{fmt(subtotal)}</span>
           {podeEditar && (
-            <button onClick={() => remover(item.id)} disabled={pending}
+            <button type="button" aria-label="Remover item" onClick={() => remover(item.id)} disabled={pending}
               className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
               <Trash2 size={14} />
             </button>
@@ -140,7 +140,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
 
             <div className="flex gap-2">
               {(['servico', 'peca'] as const).map(t => (
-                <button key={t} onClick={() => trocarTipo(t)}
+                <button type="button" key={t} onClick={() => trocarTipo(t)}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                     tipo === t
                       ? 'bg-primary text-primary-foreground border-primary'
