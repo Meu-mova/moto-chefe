@@ -228,12 +228,12 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   return (
     <>
       {edicao ? (
-        <button onClick={abrirEdicao} title="Editar venda" className="text-muted-foreground hover:text-foreground">
-          <Pencil size={15} />
-        </button>
+        <Button variant="outline" onClick={abrirEdicao} className="h-10 flex-1 gap-1.5">
+          <Pencil className="size-4" /> Editar
+        </Button>
       ) : (
-        <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
-          <ShoppingCart size={15} /> Nova Venda
+        <Button className="h-10 w-full gap-2 lg:h-9 lg:w-auto" onClick={() => setOpen(true)}>
+          <ShoppingCart className="size-4" /> Nova venda
         </Button>
       )}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { resetForm(); setAvisos([]) } }}>
