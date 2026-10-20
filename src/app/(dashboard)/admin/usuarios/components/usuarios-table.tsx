@@ -115,6 +115,8 @@ function FormUsuario({
   const [gruposAcesso, setGruposAcesso] = useState<string[]>(inicial?.gruposAcesso ?? [])
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
+  // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define.
+  const [verModulos, setVerModulos] = useState(false)
 
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
@@ -150,151 +152,172 @@ function FormUsuario({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2 space-y-1.5">
-          <Label>Nome completo</Label>
-          <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: João da Silva" />
-        </div>
-        <div className="col-span-2 space-y-1.5">
-          <Label>E-mail</Label>
-          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@email.com" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>{isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha'}</Label>
-          <SenhaInput value={senha} onChange={setSenha} placeholder={isEdit ? 'Nova senha' : 'Mínimo 6 caracteres'} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Função</Label>
-          <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a função">
-                {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {PAPEIS.map(p => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
-          <div>
-            <Label>Acesso a módulos</Label>
-            <p className="text-xs text-slate-500">
-              A função já dá acesso ao que está marcado como &quot;do papel&quot;. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
-            </p>
+    // Rolagem só no meio: o diálogo não pode passar da altura da tela (#235).
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Nome completo</Label>
+            <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: João da Silva" />
           </div>
-          <ModulosPicker
-            papel={papel}
-            papeisExtras={inicial?.papeisExtras ?? []}
-            extras={modulosExtras}
-            bloqueados={modulosBloqueados}
-            onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
-          />
-        </div>
-        <div className="col-span-2 space-y-1.5">
-          <Label>Loja</Label>
-          <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sem loja (Admin Geral)">
-                {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
-              {lojas.map(l => (
-                <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="col-span-2 space-y-1.5">
-          <Label>Conecta</Label>
-          <Input
-            value={conecta}
-            onChange={e => setConecta(e.target.value)}
-            placeholder="https://checkout.aride.com.br/?org=…&seller=…"
-          />
-        </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>E-mail</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@email.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha'}</Label>
+            <SenhaInput value={senha} onChange={setSenha} placeholder={isEdit ? 'Nova senha' : 'Mínimo 6 caracteres'} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Função</Label>
+            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione a função">
+                  {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PAPEIS.map(p => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Loja</Label>
+            <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sem loja (Admin Geral)">
+                  {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
+                {lojas.map(l => (
+                  <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Conecta <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+            <Input
+              value={conecta}
+              onChange={e => setConecta(e.target.value)}
+              placeholder="https://checkout.aride.com.br/?org=…&seller=…"
+            />
+          </div>
 
-        {mostrarAprovacao && (
-          <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
-            <div>
-              <Label>Aprovação de venda</Label>
-              <p className="text-xs text-slate-500">
-                O grupo da loja deste usuário já é aprovado por ele. Marque aqui os grupos <strong>a mais</strong>.
-              </p>
+          <div className="space-y-3 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="space-y-1">
+                <Label>Acesso a módulos</Label>
+                <p className="text-xs text-muted-foreground">
+                  {modulosExtras.length || modulosBloqueados.length
+                    ? [
+                        modulosExtras.length ? `${modulosExtras.length} liberado(s) a mais` : '',
+                        modulosBloqueados.length ? `${modulosBloqueados.length} bloqueado(s)` : '',
+                      ].filter(Boolean).join(' · ') + ' além do que a função dá'
+                    : 'Usa os módulos da função.'}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setVerModulos(v => !v)}>
+                {verModulos ? 'Ocultar módulos' : 'Personalizar'}
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              {grupos.map(g => (
-                <label key={g.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300"
-                    checked={gruposAprov.includes(g.id)}
-                    onChange={() => toggleGrupo(g.id)}
-                  />
-                  <span>
-                    {g.nome}
-                    {g.id === inicial?.grupoDaLojaId && (
-                      <span className="text-slate-400"> — grupo da loja (já aprova)</span>
-                    )}
+            {verModulos && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  O que está marcado como &quot;do papel&quot; vem da função. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
+                </p>
+                <ModulosPicker
+                  papel={papel}
+                  papeisExtras={inicial?.papeisExtras ?? []}
+                  extras={modulosExtras}
+                  bloqueados={modulosBloqueados}
+                  onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
+                />
+              </>
+            )}
+          </div>
+
+          {mostrarAprovacao && (
+            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
+              <div>
+                <Label>Aprovação de venda</Label>
+                <p className="text-xs text-muted-foreground">
+                  O grupo da loja deste usuário já é aprovado por ele. Marque aqui os grupos <strong>a mais</strong>.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {grupos.map(g => (
+                  <label key={g.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded border-input"
+                      checked={gruposAprov.includes(g.id)}
+                      onChange={() => toggleGrupo(g.id)}
+                    />
+                    <span>
+                      {g.nome}
+                      {g.id === inicial?.grupoDaLojaId && (
+                        <span className="text-muted-foreground"> — grupo da loja (já aprova)</span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+              </div>
+              <label className="flex items-center gap-2 border-t pt-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="rounded border-input"
+                  checked={aprovaSensivel}
+                  onChange={e => setAprovaSensivel(e.target.checked)}
+                />
+                <span>
+                  Aprova transferência bancária
+                  <span className="block text-xs text-muted-foreground">
+                    Vale nos mesmos grupos acima. Sem isto, ele só aprova venda abaixo do preço.
                   </span>
-                </label>
-              ))}
-              {grupos.length === 0 && <p className="text-sm text-slate-400">Nenhum grupo ativo.</p>}
-            </div>
-            <label className="flex items-center gap-2 text-sm border-t pt-2">
-              <input
-                type="checkbox"
-                className="rounded border-slate-300"
-                checked={aprovaSensivel}
-                onChange={e => setAprovaSensivel(e.target.checked)}
-              />
-              <span>
-                Aprova transferência bancária
-                <span className="block text-xs text-slate-500">
-                  Vale nos mesmos grupos acima. Sem isto, ele só aprova venda abaixo do preço.
                 </span>
-              </span>
-            </label>
-          </div>
-        )}
+              </label>
+            </div>
+          )}
 
-        {mostrarAcessoGrupos && (
-          <div className="col-span-2 space-y-2 rounded-lg border bg-slate-50 p-3">
-            <div>
-              <Label>Empresas que este usuário enxerga</Label>
-              <p className="text-xs text-slate-500">
-                Diferente da aprovação de venda acima: isto controla quais empresas aparecem no seletor de empresa
-                (trocar de grupo) e os dados que ele pode ver. O grupo da loja dele já vem incluso e não precisa ser marcado aqui.
-              </p>
+          {mostrarAcessoGrupos && (
+            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
+              <div>
+                <Label>Empresas que este usuário enxerga</Label>
+                <p className="text-xs text-muted-foreground">
+                  Diferente da aprovação de venda acima: isto controla quais empresas aparecem no seletor de empresa
+                  (trocar de grupo) e os dados que ele pode ver. O grupo da loja dele já vem incluso e não precisa ser marcado aqui.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {grupos.map(g => (
+                  <label key={g.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded border-input"
+                      checked={gruposAcesso.includes(g.id)}
+                      onChange={() => toggleGrupoAcesso(g.id)}
+                    />
+                    <span>
+                      {g.nome}
+                      {g.id === inicial?.grupoDaLojaId && (
+                        <span className="text-muted-foreground"> — grupo da loja (já enxerga)</span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              {grupos.map(g => (
-                <label key={g.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300"
-                    checked={gruposAcesso.includes(g.id)}
-                    onChange={() => toggleGrupoAcesso(g.id)}
-                  />
-                  <span>
-                    {g.nome}
-                    {g.id === inicial?.grupoDaLojaId && (
-                      <span className="text-slate-400"> — grupo da loja (já enxerga)</span>
-                    )}
-                  </span>
-                </label>
-              ))}
-              {grupos.length === 0 && <p className="text-sm text-slate-400">Nenhum grupo ativo.</p>}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-      <DialogFooter>
+      <DialogFooter className="mx-0 mb-0 rounded-b-xl px-4 sm:px-6">
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button onClick={handleSubmit}>{isEdit ? 'Salvar alterações' : 'Criar usuário'}</Button>
       </DialogFooter>
@@ -482,8 +505,8 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
 
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
+          <DialogHeader className="border-b px-4 py-4 sm:px-6">
             <DialogTitle>Novo usuário</DialogTitle>
           </DialogHeader>
           <FormUsuario
@@ -498,10 +521,10 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
 
       {/* Dialog Editar */}
       <Dialog open={!!editando} onOpenChange={open => { if (!open) setEditando(null) }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
+          <DialogHeader className="border-b px-4 py-4 sm:px-6">
             <DialogTitle>Editar usuário</DialogTitle>
-            <p className="text-sm text-slate-500">{editando?.nome}</p>
+            <p className="text-sm text-muted-foreground">{editando?.nome}</p>
           </DialogHeader>
           {editando && (
             <FormUsuario
