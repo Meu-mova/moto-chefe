@@ -9,6 +9,11 @@
 --
 -- Os campos guardam o vocabulário da API da Nota Gateway (ex.: 'VendaConcessionaria',
 -- 'Prata', '07'), validado em src/lib/notagateway/veiculo.ts.
+--
+-- Sem grupo_id, de propósito (exceção à regra do AGENTS.md, aceita pelo Luis em 20/10):
+-- o dado é da moto e o grupo vem dela (motos → lojas → grupos), como na motos_fiscal.
+-- Uma coluna própria ficaria errada quando a moto é transferida entre grupos. Consulta
+-- que filtre por grupo precisa juntar motos e lojas.
 
 CREATE TABLE IF NOT EXISTS motos_renave (
   moto_id                  uuid PRIMARY KEY REFERENCES motos(id) ON DELETE CASCADE,
