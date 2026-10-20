@@ -237,7 +237,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
         </Button>
       )}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { resetForm(); setAvisos([]) } }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-x-hidden overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{edicao ? `Editar venda de peças #${edicao.numero}` : 'Nova Venda de Peças e Acessórios'}</DialogTitle>
           </DialogHeader>
@@ -254,7 +254,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
               </div>
             )}
             {!edicao && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {isAdmin && (
                 <div className="space-y-1.5">
                   <Label>Loja *</Label>
@@ -322,9 +322,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 const estoqueInsuficiente = peca && qtd > peca.quantidadeEstoque
                 const precoAjustado = Boolean(peca && item.valor.trim() && Math.abs(preco - parseFloat(peca.valor)) > 0.005)
                 return (
-                  <div key={item.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
-                    <div className={`grid gap-2 items-end ${podeDefinirPreco ? 'grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_100px_auto]'}`}>
-                      <div className="space-y-1">
+                  <div key={item.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
+                    {/* Celular: a peça ocupa a linha e preço/quantidade vão embaixo; do sm para cima, uma linha só. */}
+                    <div className={`grid items-end gap-2 ${podeDefinirPreco ? 'grid-cols-[1fr_5rem_auto] sm:grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_auto] sm:grid-cols-[1fr_100px_auto]'}`}>
+                      <div className={`min-w-0 space-y-1 ${podeDefinirPreco ? 'col-span-3' : 'col-span-2'} sm:col-span-1`}>
                         <Label className="text-xs">Peça / Capacete</Label>
                         <PecaLookup
                           pecas={pecasDisponiveis}
@@ -354,8 +355,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         />
                       </div>
                       {itens.length > 1 && (
-                        <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 pb-1.5">
-                          <Trash2 size={14} />
+                        <button onClick={() => removeItem(item.id)} aria-label="Remover item" className="p-2 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="size-4" />
                         </button>
                       )}
                     </div>
@@ -381,12 +382,12 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 </Button>
               </div>
               {pgtos.map((p, idx) => (
-                <div key={p.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                <div key={p.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-slate-500">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} className="text-red-400 hover:text-red-600">
-                        <Trash2 size={13} />
+                      <button onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="size-4" />
                       </button>
                     )}
                   </div>
@@ -476,7 +477,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
               {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}
