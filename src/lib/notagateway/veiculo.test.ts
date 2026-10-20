@@ -120,3 +120,23 @@ test('monta o grupo veiculoNovo como a API recebe', () => {
   assert.equal(g.codigoMarcaModelo, '012345')
   assert.equal(g.restricao, 'NaoHa')
 })
+
+test('tipo da operação e restrição não vêm da moto anterior: são da venda', () => {
+  const h = sugestaoRenave({
+    chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026,
+    anterior: { ...PREENCHIDO, restricao: 'AlienacaoFiduciaria', tipoOperacao: 'Outros' },
+  })
+  assert.equal(h.restricao, 'NaoHa')
+  assert.equal(h.tipoOperacao, 'VendaConcessionaria')
+})
+
+test('CMT zero é aceita; pesos zero não', () => {
+  assert.ok(validarRenave({ ...PREENCHIDO, capacidadeMaximaTracao: '0' }).ok)
+  assert.equal(validarRenave({ ...PREENCHIDO, pesoLiquido: '0' }).ok, false)
+})
+
+test('tipo de pintura só aceita S, M ou P', () => {
+  const v = validarRenave({ ...PREENCHIDO, tipoPintura: 'x' })
+  assert.equal(v.ok, false)
+  if (!v.ok) assert.match(v.error, /Tipo de pintura/)
+})

@@ -180,11 +180,15 @@ export function potenciaCvSugerida(potenciaW: string | null | undefined): string
   return ''
 }
 
-/** O que é do modelo, e por isso vem da última moto do mesmo modelo. */
+/**
+ * O que é do modelo, e por isso vem da última moto do mesmo modelo. Tipo da
+ * operação e restrição são da venda: herdar levaria a alienação fiduciária de
+ * uma venda financiada para a próxima moto.
+ */
 const CAMPOS_DO_MODELO = [
-  'tipoOperacao', 'potenciaMotor', 'cilindradas', 'pesoLiquido', 'pesoBruto', 'tipoCombustivel',
+  'potenciaMotor', 'cilindradas', 'pesoLiquido', 'pesoBruto', 'tipoCombustivel',
   'capacidadeMaximaTracao', 'distanciaEixos', 'tipoPintura', 'tipoVeiculo', 'especie', 'condicaoVin',
-  'condicao', 'codigoMarcaModelo', 'lotacao', 'restricao',
+  'condicao', 'codigoMarcaModelo', 'lotacao',
 ] as const satisfies readonly (keyof DadosRenave)[]
 
 /**
@@ -238,11 +242,11 @@ export function sugestaoRenave(m: {
 const valores = (opcoes: [string, string][]) => new Set(opcoes.map(([v]) => v))
 
 /** Número decimal em toneladas, aceitando vírgula. Até 4 casas, como o leiaute. */
-function toneladas(s: string): number | null {
+function toneladas(s: string, aceitaZero = false): number | null {
   const t = s.trim().replace(',', '.')
   if (!/^\d+(\.\d{1,4})?$/.test(t)) return null
   const n = Number(t)
-  return n > 0 ? n : null
+  return n > 0 || (aceitaZero && n === 0) ? n : null
 }
 
 /**
@@ -266,7 +270,8 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
   if (pesoL == null) erros.push('Peso líquido: em toneladas, até 4 casas (ex.: 0,0850)')
   const pesoB = toneladas(d.pesoBruto)
   if (pesoB == null) erros.push('Peso bruto: em toneladas, até 4 casas (ex.: 0,2350)')
-  const cmt = toneladas(d.capacidadeMaximaTracao)
+  // CMT 0 é válido: ciclomotor que não traciona reboque.
+  const cmt = toneladas(d.capacidadeMaximaTracao, true)
   if (cmt == null) erros.push('Capacidade máxima de tração: em toneladas, até 4 casas')
 
   const anoFab = Number(d.anoFabricacao)
@@ -301,7 +306,7 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
     distanciaEixos: txt(d.distanciaEixos, 4, 'Distância entre eixos'),
     anoModelo: d.anoModelo.trim(),
     anoFabricacao: d.anoFabricacao.trim(),
-    tipoPintura: txt(d.tipoPintura, 1, 'Tipo de pintura'),
+    tipoPintura: opcao(d.tipoPintura.trim().toUpperCase(), OPCOES_PINTURA, 'Tipo de pintura'),
     tipoVeiculo: opcao(d.tipoVeiculo, OPCOES_TIPO_VEICULO, 'Tipo de veículo'),
     especie: opcao(d.especie, OPCOES_ESPECIE, 'Espécie'),
     condicaoVin: opcao(d.condicaoVin, OPCOES_CONDICAO_VIN, 'Condição do VIN'),
