@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { buscarDemandaParaRecibo } from '@/lib/queries/demandas'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
@@ -21,8 +22,7 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
   const [demanda, usuario] = await Promise.all([buscarDemandaParaRecibo(id), getUsuarioLogado()])
   if (!demanda || !demanda.sinalRecebido) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && demanda.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, demanda.lojaId))) notFound()
 
   // Demanda anterior à migração 0089 tem `pagamentos` nulo e vira uma linha só.
   const pagamentos = normalizarPagamentos({ ...demanda, valorTotal: demanda.valorSinal })

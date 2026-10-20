@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { motos, modelos, lojas, vendas, clientes, historicoEstoque } from '@/lib/db/schema'
 import { eq, ilike } from 'drizzle-orm'
@@ -69,6 +70,7 @@ export async function cadastrarVeiculoGarantiaAction(input: {
     ? input.lojaId
     : usuario.lojaId
   if (!lojaId) throw new Error('Loja é obrigatória')
+  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
 
   try {
     const [nova] = await db.insert(motos).values({

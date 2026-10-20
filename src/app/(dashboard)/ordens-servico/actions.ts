@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa, cuponsRevisao } from '@/lib/db/schema'
 import { and, eq, inArray, notInArray } from 'drizzle-orm'
@@ -30,7 +31,7 @@ async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   if (!os) throw new Error('OS não encontrada')
 
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
-  if (!isAdmin && os.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  if (!(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('Sem permissão')
 
   // OS cancelada é registro morto — nada nela pode mudar depois disso.
   if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
@@ -95,6 +96,7 @@ export async function abrirOSAction(input: AbrirOSInput) {
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
   const lojaId  = isAdmin ? (input.lojaId || usuario.lojaId) : usuario.lojaId
   if (!lojaId) throw new Error('Loja não identificada')
+  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
 
   // OS para empresa: sem CNPJ e razão social a impressão não identifica o tomador,
   // e é ela que a empresa leva pra lançar o serviço. Só vale para cliente fora do
@@ -149,7 +151,7 @@ export async function atualizarStatusOSAction(osId: string, novoStatus: string) 
   if (!os) throw new Error('OS não encontrada')
 
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
-  if (!isAdmin && os.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  if (!(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('Sem permissão')
 
   if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
 

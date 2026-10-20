@@ -1,7 +1,8 @@
 /**
  * Teste de ponta a ponta do isolamento entre grupos (#193, #194) contra o staging:
- * usuários de um grupo sem nenhum registro próprio tentam abrir, pelo endereço, moto
- * e OS de outro grupo, e procuram nomes de outros grupos no dashboard.
+ * usuários de um grupo sem nenhum registro próprio tentam abrir, pelo endereço, moto,
+ * OS e impressões (venda, reserva, OS) de outro grupo, e procuram nomes de outros
+ * grupos no dashboard.
  *
  * "Não abre" = a resposta é igual à de um id inexistente (status e texto). Com o
  * loading.tsx o Next já mandou o 200 quando o notFound() roda, então o status sozinho
@@ -63,23 +64,27 @@ async function main() {
   const deFora = sql`(select id from lojas where grupo_id <> ${grupo.id})`
   const [moto] = (await execRows(sql`select id, chassi from motos where loja_id in ${deFora} and chassi is not null limit 1`)) as { id: string; chassi: string }[]
   const [os] = (await execRows(sql`select id from ordens_servico where loja_id in ${deFora} limit 1`)) as { id: string }[]
+  const [venda] = (await execRows(sql`select id from vendas where loja_id in ${deFora} limit 1`)) as { id: string }[]
+  const [reserva] = (await execRows(sql`select id from reservas where loja_id in ${deFora} limit 1`)) as { id: string }[]
   // Nomes que só existem em outros grupos: aparecer na tela é vazamento.
   const marcas = ((await execRows(sql`
     select nome from lojas where grupo_id <> ${grupo.id}
     union select nome from usuarios where loja_id in ${deFora} and (papel = 'vendedor' or 'vendedor' = any(papeis_extras) or papel = 'mecanico')
   `)) as { nome: string }[]).map(r => r.nome).filter(n => n.length >= 6)
-  if (!moto || !os || !marcas.length) throw new Error('staging sem moto, OS ou usuários de outro grupo para testar')
+  if (!moto || !os || !venda || !reserva || !marcas.length) throw new Error('staging sem moto, OS ou usuários de outro grupo para testar')
   const vazou = (texto: string) => [...marcas, moto.chassi].filter(m => texto.includes(m))
 
   const navegador = await chromium.launch()
   try {
-    console.log('\n▶ Controle: admin_geral abre moto e OS de qualquer grupo')
+    console.log('\n▶ Controle: admin_geral abre moto, OS e impressão de qualquer grupo')
     const geral = await entrar(navegador, GERAL)
     // Controle: a resposta tem de DIFERIR da de id inexistente; status 200 sozinho não prova
     // nada (o não encontrado também sai com 200).
-    for (const [rotulo, rota, id] of [['moto', '/estoque', moto.id], ['OS', '/ordens-servico', os.id]] as const) {
+    for (const [rotulo, rota, id] of [
+      ['moto', '/estoque', moto.id], ['OS', '/ordens-servico', os.id], ['impressão da venda', '/vendas', `${venda.id}/checklist-entrega`],
+    ] as const) {
       const aberto = await abrir(geral, `${rota}/${id}`)
-      const inexistente = await abrir(geral, `${rota}/${INEXISTENTE}`)
+      const inexistente = await abrir(geral, `${rota}/${id.replace(/^[^/]+/, INEXISTENTE)}`)
       confere(aberto.texto !== inexistente.texto, `admin_geral abre a ${rotulo}`)
     }
     confere((await abrir(geral, `/estoque/${moto.id}`)).texto.includes(moto.chassi), 'admin_geral vê o chassi da moto')
@@ -91,6 +96,20 @@ async function main() {
         if (rotulo === 'OS' && !veOs) continue
         const deOutro = await abrir(p, `${rota}/${id}`)
         const inexistente = await abrir(p, `${rota}/${INEXISTENTE}`)
+        confere(
+          deOutro.status === inexistente.status && deOutro.texto === inexistente.texto && !vazou(deOutro.texto).length,
+          `${rotulo} de outro grupo responde igual a id inexistente`,
+          `status ${deOutro.status}/${inexistente.status}; ${vazou(deOutro.texto).slice(0, 3).join(', ') || 'texto diferente'}`,
+        )
+      }
+      const impressoes = [
+        ['impressão da venda', '/vendas', venda.id, '/checklist-entrega'],
+        ['impressão da reserva', '/reservas', reserva.id, '/imprimir'],
+        ...(veOs ? [['impressão da OS', '/ordens-servico', os.id, '/imprimir'] as const] : []),
+      ] as const
+      for (const [rotulo, rota, id, sufixo] of impressoes) {
+        const deOutro = await abrir(p, `${rota}/${id}${sufixo}`)
+        const inexistente = await abrir(p, `${rota}/${INEXISTENTE}${sufixo}`)
         confere(
           deOutro.status === inexistente.status && deOutro.texto === inexistente.texto && !vazou(deOutro.texto).length,
           `${rotulo} de outro grupo responde igual a id inexistente`,
