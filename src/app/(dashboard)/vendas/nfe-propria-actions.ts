@@ -404,13 +404,10 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
 }
 
 /**
- * Valida e grava o que a tela mandou do veículo (RENAVE). Roda no envio: o que
- * fica gravado é o que foi para a nota, e volta preenchido numa nova tentativa.
+ * Grava o veículo (RENAVE) já validado. Roda no envio: o que fica gravado é o
+ * que foi para a nota, e volta preenchido numa nova tentativa.
  */
-async function gravarRenave(motoId: string, d: DadosRenave, usuarioId: string): Promise<{ ok: true; dados: DadosRenave } | { ok: false; error: string }> {
-  const v = validarRenave(d)
-  if (!v.ok) return { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
-  const r = v.dados
+async function gravarRenave(motoId: string, r: DadosRenave, usuarioId: string): Promise<void> {
   const valores = {
     ...r,
     anoModelo: Number(r.anoModelo),
@@ -422,7 +419,6 @@ async function gravarRenave(motoId: string, d: DadosRenave, usuarioId: string): 
   await db.insert(motosRenave)
     .values({ motoId, ...valores })
     .onConflictDoUpdate({ target: motosRenave.motoId, set: valores })
-  return v
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -512,9 +508,9 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal — preencha antes de transmitir' }
     if (e.renaveExigido) {
       if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE) — preencha antes de transmitir' }
-      const g = await gravarRenave(motoId, renave, usuario.id)
-      if (!g.ok) return g
-      e.renave = g.dados
+      const v = validarRenave(renave)
+      if (!v.ok) return { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
+      e.renave = v.dados
     }
     if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }
 
@@ -556,6 +552,9 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
       if (tentativa > 50) throw new Error('Não achei um número de controle livre para esta nota')
     }
     const idExterno = idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente)
+
+    // Grava só aqui, depois dos retornos antecipados: o que fica é o que vai na nota.
+    if (e.renaveExigido && e.renave) await gravarRenave(motoId, e.renave, usuario.id)
 
     const uf = await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
