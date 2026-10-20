@@ -355,7 +355,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         />
                       </div>
                       {itens.length > 1 && (
-                        <button onClick={() => removeItem(item.id)} aria-label="Remover item" className="p-2 text-muted-foreground hover:text-destructive">
+                        <button type="button" onClick={() => removeItem(item.id)} aria-label="Remover item" className="p-2 text-muted-foreground hover:text-destructive">
                           <Trash2 className="size-4" />
                         </button>
                       )}
@@ -386,7 +386,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
+                      <button type="button" onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
                         <Trash2 className="size-4" />
                       </button>
                     )}
@@ -477,8 +477,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             </div>
           </div>
 
+<<<<<<< HEAD
           <DialogFooter className="mt-2 gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+=======
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); setAvisos([]) }}>Cancelar</Button>
+>>>>>>> feat/pecas-responsiva
             <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
               {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}
             </Button>
