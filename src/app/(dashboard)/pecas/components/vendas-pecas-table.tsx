@@ -74,7 +74,7 @@ export function VendasPecasTable({ vendas, papel, pecas }: Props) {
             className="block w-full rounded-2xl border border-border bg-card p-4 text-left shadow-sm hover:bg-muted"
           >
             <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>#{v.numero} · {data(v.dataVenda)}</span>
+              <span className="min-w-0 truncate">#{v.numero} · {data(v.dataVenda)} · {v.lojaNome}</span>
               <ConcBadge status={status} />
             </span>
             <span className="mt-1 block truncate font-semibold">{v.itens ?? '—'}</span>
@@ -104,7 +104,7 @@ export function VendasPecasTable({ vendas, papel, pecas }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-20">Nº</TableHead>
-                <TableHead>Data</TableHead>
+                <TableHead>Data · loja</TableHead>
                 <TableHead>Itens</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead className="hidden 2xl:table-cell">Vendedor</TableHead>
@@ -121,7 +121,10 @@ export function VendasPecasTable({ vendas, papel, pecas }: Props) {
                   className={cn('cursor-pointer hover:bg-muted', v.id === selId && 'bg-primary-soft hover:bg-primary-soft')}
                 >
                   <TableCell className="font-mono text-muted-foreground">#{v.numero}</TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">{data(v.dataVenda)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {data(v.dataVenda)}
+                    <span className="block max-w-28 truncate text-xs" title={v.lojaNome}>{v.lojaNome}</span>
+                  </TableCell>
                   <TableCell className="max-w-44 truncate 2xl:max-w-72" title={v.itens ?? ''}>{v.itens ?? '—'}</TableCell>
                   <TableCell className="max-w-32 truncate 2xl:max-w-48">{v.clienteNome ?? '—'}</TableCell>
                   <TableCell className="hidden max-w-32 truncate text-muted-foreground 2xl:table-cell">{v.vendedorNome}</TableCell>
