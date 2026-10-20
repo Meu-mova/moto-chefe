@@ -467,7 +467,8 @@ export const origensVenda = pgTable('origens_venda', {
 // ─── aprovacoes_venda ────────────────────────────────────────────────────────
 // origem distingue o que está pendente de aprovação: 'moto' (fluxo original — venda
 // ainda não existe, só é criada quando aprovada), 'os' (a OS já existe, fica retida sem
-// o pagamento aplicado) ou 'peca' (venda de peça ainda não existe, mesmo padrão de moto).
+// o pagamento aplicado), 'peca' (venda de peça ainda não existe, mesmo padrão de moto) ou
+// 'peca_edicao' (a venda de peça existe; a edição guardada em dados_venda só é aplicada na aprovação).
 export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   id: uuid('id').primaryKey().defaultRandom(),
   origem: text('origem').notNull().default('moto'),
