@@ -347,7 +347,7 @@ function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoEncontrado; onLimp
           {veiculo.fonte === 'estoque' ? 'Estoque' : 'Banco histórico'}
         </p>
       </div>
-      <button type="button" onClick={onLimpar} aria-label="Limpar" className="text-muted-foreground hover:text-foreground">
+      <button type="button" onClick={onLimpar} aria-label="Limpar veículo" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
@@ -363,7 +363,7 @@ function ClienteCard({ cliente, onLimpar }: { cliente: ClienteInfo; onLimpar: ()
         {cliente.cpfCnpj && <p className="text-xs text-muted-foreground">CPF: {cliente.cpfCnpj}</p>}
         {cliente.celular  && <p className="text-xs text-muted-foreground">Tel: {cliente.celular}</p>}
       </div>
-      <button type="button" onClick={onLimpar} aria-label="Limpar" className="text-muted-foreground hover:text-foreground">
+      <button type="button" onClick={onLimpar} aria-label="Limpar cliente" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>

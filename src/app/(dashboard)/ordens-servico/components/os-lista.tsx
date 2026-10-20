@@ -22,6 +22,18 @@ const motoDe = (os: OSComDetalhes) =>
   (os.chassi ? `${os.marca ?? ''} ${os.modelo ?? ''}` : `${os.marcaExterna ?? ''} ${os.modeloExterno ?? ''}`).trim() || '—'
 const clienteDe = (os: OSComDetalhes) => os.clienteNome ?? os.clienteNomeExterno ?? null
 
+/** Previsão só chama atenção enquanto a OS não fechou; em concluída/cancelada vira informação. */
+const previsaoAtiva = (os: OSComDetalhes) => !['concluida', 'cancelada'].includes(os.status)
+
+function Previsao({ os, className }: { os: OSComDetalhes; className?: string }) {
+  if (!os.dataPrevisao) return null
+  return (
+    <span className={cn('inline-flex items-center gap-1', previsaoAtiva(os) ? 'text-warning' : 'text-muted-foreground', className)}>
+      <Clock className="size-3.5" />{format(new Date(os.dataPrevisao), 'dd/MM HH:mm', { locale: ptBR })}
+    </span>
+  )
+}
+
 function concDe(os: OSComDetalhes): StatusConc {
   // Cancelada não tem conciliação a cobrar — o badge sumiria como 'pendente' pra sempre.
   if (os.valorTotal == null || os.status === 'cancelada') return 'na'
@@ -56,7 +68,7 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
     <>
       {/* Celular/tablet */}
       <div className="grid gap-3 md:grid-cols-2 lg:hidden">
-        {lista.map(os => (
+        {lista.map(os => { const conc = concDe(os); return (
           <button
             key={os.id}
             type="button"
@@ -71,20 +83,16 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
             <span className="block truncate text-sm text-muted-foreground">
               {clienteDe(os) ?? 'Sem cliente'}{os.mecanicoNome ? ` · ${os.mecanicoNome}` : ''}
             </span>
-            {os.dataPrevisao && (
-              <span className="mt-1 flex items-center gap-1 text-xs text-warning">
-                <Clock className="size-3.5" /> Previsão {format(new Date(os.dataPrevisao), 'dd/MM HH:mm', { locale: ptBR })}
-              </span>
-            )}
+            {os.dataPrevisao && <span className="mt-1 block text-xs">Previsão <Previsao os={os} /></span>}
             <span className="mt-1 flex items-center justify-between gap-2 text-sm">
               <span className="truncate text-muted-foreground">{os.lojaNome} · {dia(os.dataAbertura)}</span>
               <span className="flex items-center gap-2">
-                {concDe(os) !== 'na' && <ConcBadge status={concDe(os)} />}
+                {conc !== 'na' && <ConcBadge status={conc} />}
                 <span className="font-semibold tabular-nums">{moeda(os.valorTotal)}</span>
               </span>
             </span>
           </button>
-        ))}
+        ) })}
       </div>
 
       <Sheet open={!!gaveta} onOpenChange={o => !o && setGavetaId(null)}>
@@ -180,7 +188,7 @@ function ResumoOS({ os }: { os: OSComDetalhes }) {
         <Linha rotulo="Cliente"><span className="inline-flex items-center gap-1"><User className="size-3.5 text-muted-foreground" />{clienteDe(os) ?? '—'}</span></Linha>
         <Linha rotulo="Mecânico"><span className="inline-flex items-center gap-1"><Wrench className="size-3.5 text-muted-foreground" />{os.mecanicoNome ?? '—'}</span></Linha>
         {os.dataPrevisao && (
-          <Linha rotulo="Previsão"><span className="inline-flex items-center gap-1 text-warning"><Clock className="size-3.5" />{format(new Date(os.dataPrevisao), 'dd/MM HH:mm', { locale: ptBR })}</span></Linha>
+          <Linha rotulo="Previsão"><Previsao os={os} /></Linha>
         )}
         {os.servicosResumo && <Linha rotulo="Serviços">{os.servicosResumo}</Linha>}
         <Linha rotulo="Valor"><span className="font-semibold tabular-nums">{moeda(os.valorTotal)}</span></Linha>
