@@ -3,7 +3,7 @@
  * liam cópias separadas desta tabela; fica aqui para não divergirem.
  */
 
-const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
+export const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
 /**
  * Passos do mecânico também valem para o gestor (#243): quando o mecânico não

@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
-import { podeAvancarOS } from '@/lib/os-transicao'
+import { GESTORES, podeAvancarOS } from '@/lib/os-transicao'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
 import {
@@ -16,7 +16,6 @@ import {
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
-const GESTORES  = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
 async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   const usuario = await getUsuarioLogado()

@@ -20,6 +20,6 @@ test('vendedor não avança OS; concluída é automática para todos', () => {
   assert.equal(podeAvancarOS('concluida', 'admin_geral'), false)
 })
 
-test('a tela mostra "aguardando mecânico" nos passos dele', () => {
-  assert.equal(RESPONSAVEL_TRANSICAO.finalizada[0], 'mecanico')
+test('mecânico é o primeiro responsável nos passos dele (a tela usa o primeiro como "aguardando")', () => {
+  for (const passo of ['oficina', 'em_andamento', 'finalizada']) assert.equal(RESPONSAVEL_TRANSICAO[passo][0], 'mecanico')
 })
