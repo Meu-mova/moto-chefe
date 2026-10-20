@@ -189,8 +189,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     if (!edicao) return
     startTransition(async () => {
       try {
-        await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
-        toast.success(`Venda #${edicao.numero} atualizada`)
+        const r = await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
+        toast.success(r.aguardandoAprovacao
+          ? `Edição da venda #${edicao.numero} enviada para aprovação (financiamento)`
+          : `Venda #${edicao.numero} atualizada`)
         setOpen(false)
         resetForm()
       } catch (e: unknown) {
