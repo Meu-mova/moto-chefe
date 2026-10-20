@@ -87,7 +87,7 @@ export default async function PecasPage({
       </div>
 
       <Tabs defaultValue={podeVender ? 'vendas' : 'catalogo'}>
-        <TabsList className="max-w-full overflow-x-auto">
+        <TabsList className="max-w-full overflow-x-auto overflow-y-hidden lg:overflow-visible">
           {/* Mecânico só consulta o catálogo — vender peça não é papel dele. */}
           {podeVender && <TabsTrigger value="vendas">Vendas</TabsTrigger>}
           <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
