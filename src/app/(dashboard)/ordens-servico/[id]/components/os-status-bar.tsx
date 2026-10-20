@@ -3,6 +3,7 @@ import { useTransition } from 'react'
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react'
 import { atualizarStatusOSAction } from '../../actions'
 import { toast } from 'sonner'
+import { RESPONSAVEL_TRANSICAO, podeAvancarOS } from '@/lib/os-transicao'
 
 const STEPS = [
   { key: 'aberta',              label: 'Aberta' },
@@ -12,13 +13,6 @@ const STEPS = [
   { key: 'pendente_pagamento',  label: 'Pendente de Pagamento' },
   { key: 'concluida',           label: 'Concluída' },
 ]
-
-const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
-  oficina:            ['mecanico'],
-  em_andamento:       ['mecanico'],
-  finalizada:         ['mecanico'],
-  pendente_pagamento: ['admin_geral', 'admin_socio', 'aux_adm'],
-}
 
 const RESPONSAVEL_LABEL: Record<string, string> = {
   mecanico: 'mecânico',
@@ -34,7 +28,7 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
 
   const responsaveis = next ? RESPONSAVEL_TRANSICAO[next.key] : undefined
   const ehUltimaAutomatica = next?.key === 'concluida'
-  const podeAvancar = podeEditar && !!next && !ehUltimaAutomatica && !!responsaveis?.includes(papel)
+  const podeAvancar = podeEditar && !!next && !ehUltimaAutomatica && podeAvancarOS(next.key, papel)
 
   function avancar() {
     if (!next) return
