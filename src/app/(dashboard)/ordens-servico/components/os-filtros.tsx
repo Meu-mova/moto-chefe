@@ -130,8 +130,9 @@ export function OSFiltros({ lojas, mecanicos, dataInicioInicial, dataFimInicial,
         )}
       </div>
 
-      {/* Status: sempre à vista. Celular rola para o lado; desktop quebra linha. */}
-      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filtrar por status">
+      {/* Status: sempre à vista e quebrando linha — numa faixa que rola, o último botão aparecia
+          cortado na borda do celular. */}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por status">
         <button type="button" onClick={() => update('status', '')} aria-pressed={status.length === 0} className={chip(status.length === 0)}>
           Todas
         </button>
