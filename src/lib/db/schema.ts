@@ -687,6 +687,18 @@ export const vendasPecasItens = pgTable('vendas_pecas_itens', {
   valorUnitario: numeric('valor_unitario', { precision: 10, scale: 2 }).notNull().default('0'),
 })
 
+// ─── vendas_pecas_edicoes (histórico da edição de venda de peças, #242) ──────
+export const vendasPecasEdicoes = pgTable('vendas_pecas_edicoes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  vendaPecaId: uuid('venda_peca_id').notNull().references(() => vendasPecas.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  resumo: text('resumo').notNull(),
+  antes: jsonb('antes').notNull(),
+  depois: jsonb('depois').notNull(),
+  editadoEm: timestamp('editado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── os_itens ────────────────────────────────────────────────────────────────
 export const osItens = pgTable('os_itens', {
   id: uuid('id').primaryKey().defaultRandom(),
