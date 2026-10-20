@@ -6,7 +6,7 @@ import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { editarVendaPecaTx } from '@/lib/editar-venda-peca'
@@ -269,7 +269,8 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
 // ─── Edição de venda de peças (#242) ─────────────────────────────────────────
 // Itens e pagamentos; cliente e vendedor não mudam aqui. Edita quem vende peças
-// na loja da venda (admin vê o grupo todo, como na listagem).
+// na loja da venda. Admin: qualquer loja do grupo da venda que ele enxerga, mesmo
+// com outro grupo ativo na sessão (permissão vale no grupo do registro).
 
 async function vendaEditavel(vendaId: string) {
   const usuario = await verificarAcessoVenda()
@@ -281,9 +282,8 @@ async function vendaEditavel(vendaId: string) {
     .limit(1)
   if (!venda) throw new Error('Venda não encontrada')
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const lojaPermitida = isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
-  if (!lojaPermitida.includes(venda.lojaId)) throw new Error('Sem permissão para editar esta venda')
+  const pode = isAdmin ? await podeUsuarioVerGrupo(usuario, venda.grupoId) : usuario.lojaId === venda.lojaId
+  if (!pode) throw new Error('Sem permissão para editar esta venda')
   return { usuario, venda }
 }
 
