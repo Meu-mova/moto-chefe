@@ -508,13 +508,13 @@ async function exigirGrupo(usuario: Usuario, grupoId: string) {
   if (!(await podeUsuarioVerGrupo(usuario, grupoId))) throw new Error('Sem permissão para NF de saída deste grupo')
 }
 
-/** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
 async function exigirGrupoDaMoto(motoId: string, usuario: Usuario) {
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
   await exigirGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId))
 }
 
+/** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
 async function carregarNota(notaId: string, usuario: Usuario) {
   const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
   if (!r) throw new Error('Nota não encontrada')
