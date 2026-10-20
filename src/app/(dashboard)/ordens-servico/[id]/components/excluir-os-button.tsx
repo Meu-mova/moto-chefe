@@ -29,9 +29,9 @@ export function ExcluirOSButton({ osId, numero }: Props) {
       onClick={excluir}
       disabled={pending}
       title="Excluir OS"
-      className="flex items-center gap-1.5 text-sm text-destructive hover:bg-destructive/10 border border-input rounded-lg px-3 py-1.5 hover:border-destructive transition-colors disabled:opacity-50"
+      className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors sm:h-auto sm:py-1.5 text-destructive hover:border-destructive hover:bg-destructive/10 disabled:opacity-50"
     >
-      <Trash2 size={15} /> {pending ? 'Excluindo…' : 'Excluir OS'}
+      <Trash2 size={15} className="shrink-0" /> {pending ? 'Excluindo…' : <span>Excluir<span className="hidden sm:inline"> OS</span></span>}
     </button>
   )
 }

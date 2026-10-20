@@ -93,13 +93,14 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Celular: os três botões lado a lado com a mesma largura; do sm para cima, tamanho natural. */}
+        <div className="grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:items-center">
           <Link
             href={`/ordens-servico/${id}/imprimir`}
             target="_blank"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-input rounded-lg px-3 py-1.5 hover:border-ring transition-colors"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors sm:h-auto sm:py-1.5 text-muted-foreground hover:border-ring hover:text-foreground"
           >
-            <Printer size={15} /> Imprimir OS
+            <Printer size={15} className="shrink-0" /> <span>Imprimir<span className="hidden sm:inline"> OS</span></span>
           </Link>
           {podeCancelar && !cancelada && (
             <CancelarOSButton osId={id} numero={os.numero} bloqueio={bloqueioCancelamento} />
