@@ -2,12 +2,13 @@
 import { useTransition } from 'react'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { excluirVendaPecaAction } from '../actions'
 
 type Props = { vendaId: string; numero: number }
 
-// Venda de peça não tem tela de edição: lançamento errado se resolve apagando e
-// refazendo. O aviso do confirm() é o único lugar onde o operador lê o que a exclusão
+// Itens e pagamentos se corrigem pelo editar (#242); excluir é para a venda que não
+// devia existir. O aviso do confirm() é o único lugar onde o operador lê o que a exclusão
 // mexe — estoque e conciliação —, então não encurtar.
 export function ExcluirVendaPecaButton({ vendaId, numero }: Props) {
   const [pending, start] = useTransition()
@@ -31,13 +32,8 @@ export function ExcluirVendaPecaButton({ vendaId, numero }: Props) {
   }
 
   return (
-    <button
-      onClick={excluir}
-      disabled={pending}
-      title="Excluir venda"
-      className="text-slate-400 hover:text-red-600 disabled:opacity-40 transition-colors"
-    >
-      <Trash2 size={15} />
-    </button>
+    <Button variant="outline" onClick={excluir} disabled={pending} className="h-10 flex-1 gap-1.5 text-destructive hover:text-destructive">
+      <Trash2 className="size-4" /> Excluir
+    </Button>
   )
 }
