@@ -31,8 +31,8 @@ export function OSConciliacaoPanel({ osId, osNumero, pagamentos, papel }: Props)
         />
 
         {!dados.loading && pixPendente && (
-          <p className="text-xs text-slate-500">
-            PIX conciliado à parte — vá em <Link href="/pix-mcp" className="text-blue-600 hover:underline">PIX</Link>,
+          <p className="text-xs text-muted-foreground">
+            PIX conciliado à parte — vá em <Link href="/pix-mcp" className="text-primary-text hover:underline">PIX</Link>,
             busque a OS #{osNumero ?? '—'} e lance a correspondência.
           </p>
         )}

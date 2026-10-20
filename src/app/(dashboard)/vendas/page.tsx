@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
@@ -77,22 +78,6 @@ function calcConcStats(vendas: VendaComDetalhes[]) {
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-const TOM_KPI = {
-  aviso:  'bg-warning/10 text-warning',
-  perigo: 'bg-destructive/10 text-destructive',
-  ok:     'bg-primary-soft text-primary-text',
-}
-
-function Kpi({ tom, titulo, valor, nota }: { tom: keyof typeof TOM_KPI; titulo: string; valor: React.ReactNode; nota?: string }) {
-  return (
-    <div className={`min-w-40 shrink-0 snap-start rounded-lg px-4 py-3 lg:min-w-0 ${TOM_KPI[tom]}`}>
-      <p className="text-xs font-medium tracking-wide uppercase opacity-80">{titulo}</p>
-      <p className="mt-0.5 text-2xl font-bold">{valor}</p>
-      {nota && <p className="mt-0.5 text-xs opacity-80">{nota}</p>}
-    </div>
-  )
 }
 
 const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']

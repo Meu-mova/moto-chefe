@@ -197,3 +197,18 @@ test('comprador PJ: o indicador de contribuinte do ICMS sai do cadastro, com a I
   assert.equal(nao.cliente.indicadorContribuinteICMS, 'NaoContribuinte')
   assert.equal('inscricaoEstadual' in nao.cliente, false)
 })
+
+test('ciclomotor leva o grupo veiculoNovo no item; sem ele, o item sai como antes', () => {
+  const veiculo = {
+    tipoOperacao: 'VendaConcessionaria', chassi: '9C2ABC12345678901',
+    cor: { codigo: '11', descricao: 'PRETA', denatran: 'Preta' },
+    potenciaMotor: '1.36', cilindradas: '0', pesoLiquido: 0.085, pesoBruto: 0.235, numeroSerie: '45678901',
+    tipoCombustivel: '07', numeroMotor: 'MT1', capacidadeMaximaTracao: 0.235, distanciaEixos: '1300',
+    anoModelo: 2026, anoFabricacao: 2026, tipoPintura: 'S', tipoVeiculo: '02', especie: 'Passageiro',
+    condicaoVin: 'Normal', condicao: 'Acabado', codigoMarcaModelo: '012345', lotacao: 2, restricao: 'NaoHa',
+  }
+  const com = montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo } }, REGRA)
+  assert.deepEqual(com.itens[0].veiculoNovo, veiculo)
+  const sem = montarNfeVendaMoto(VENDA, REGRA)
+  assert.equal('veiculoNovo' in sem.itens[0], false)
+})

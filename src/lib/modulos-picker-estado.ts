@@ -49,3 +49,24 @@ export function alternar(
     bloqueados,
   }
 }
+
+/**
+ * Quantos módulos diferem da função, contando só os itens mostrados. extras e bloqueados
+ * guardam sobras de outra função (item que a função atual já dá, ou nem dá): elas não contam.
+ */
+export function diferencaDaFuncao(
+  papel: string,
+  papeisExtras: string[],
+  extras: string[],
+  bloqueados: string[],
+  ids: string[],
+): { liberados: number; bloqueados: number } {
+  let liberados = 0
+  let bloq = 0
+  for (const id of ids) {
+    const e = estado(papel, papeisExtras, extras, bloqueados, id)
+    if (e === 'liberado') liberados++
+    else if (e === 'bloqueado') bloq++
+  }
+  return { liberados, bloqueados: bloq }
+}

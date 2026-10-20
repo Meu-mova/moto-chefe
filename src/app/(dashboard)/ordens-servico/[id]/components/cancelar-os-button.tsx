@@ -47,9 +47,9 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
         type="button"
         onClick={() => toast.info(bloqueio)}
         title={bloqueio}
-        className="flex items-center gap-1.5 text-sm text-slate-400 border border-slate-200 rounded-lg px-3 py-1.5"
+        className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors sm:h-auto sm:py-1.5 text-muted-foreground"
       >
-        <Ban size={15} /> Cancelar OS
+        <Ban size={15} className="shrink-0" /> <span>Cancelar<span className="hidden sm:inline"> OS</span></span>
       </button>
     )
   }
@@ -57,11 +57,12 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         title="Cancelar OS"
-        className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-amber-300 transition-colors"
+        className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors sm:h-auto sm:py-1.5 text-warning hover:border-warning hover:bg-warning/10"
       >
-        <Ban size={15} /> Cancelar OS
+        <Ban size={15} className="shrink-0" /> <span>Cancelar<span className="hidden sm:inline"> OS</span></span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -71,7 +72,7 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
           </DialogHeader>
 
           <div className="space-y-2">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               A OS fica registrada como cancelada e não pode mais ser editada. Ela deixa de contar
               no faturamento e nas comissões.
             </p>

@@ -21,36 +21,48 @@ export type SituacaoCarta = 'pendente' | 'autorizada' | 'recusada'
 
 export type NumeroCarta = { ok: true; numero: number } | { ok: false; erro: string }
 
-// Recusada não fica registrada na SEFAZ, então o número dela volta a ficar livre.
-export function proximoNumeroCarta(cartas: { numero: number; situacao: SituacaoCarta }[]): NumeroCarta {
+// Rejeição 573: o número já está autorizado na SEFAZ, mesmo que aqui não conste.
+export function recusadaPor573(motivoStatus: string | null | undefined): boolean {
+  return /C[óo]digo:\s*573\b/.test(motivoStatus ?? '')
+}
+
+function numeroJaNaSefaz(c: { situacao: SituacaoCarta; motivoStatus?: string | null }): boolean {
+  return c.situacao === 'autorizada' || (c.situacao === 'recusada' && recusadaPor573(c.motivoStatus))
+}
+
+// Recusada não fica registrada na SEFAZ, então o número dela volta a ficar livre. A sequência
+// não aceita salto (rejeição 594): é sempre a última autorizada + 1 (suporte da Nota Gateway, 19/10/2026).
+// A exceção é a 573: o suporte orienta seguir para o número seguinte, senão a nota trava.
+export function proximoNumeroCarta(cartas: { numero: number; situacao: SituacaoCarta; motivoStatus?: string | null }[]): NumeroCarta {
   if (cartas.some(c => c.situacao === 'pendente')) {
     return { ok: false, erro: 'Já há uma carta de correção aguardando a SEFAZ: reconsulte antes de enviar outra.' }
   }
-  const numero = Math.max(0, ...cartas.filter(c => c.situacao === 'autorizada').map(c => c.numero)) + 1
+  const numero = Math.max(0, ...cartas.filter(numeroJaNaSefaz).map(c => c.numero)) + 1
   if (numero > MAX_CARTAS) return { ok: false, erro: `Esta nota já tem ${MAX_CARTAS} cartas de correção, o limite da SEFAZ.` }
   return { ok: true, numero }
 }
 
-// A doc da Nota Gateway só cita "Autorizada"; os demais nomes aguardam o suporte (#187).
-// Até lá, todo outro status conta como pendente; a recusa vem do 4xx do envio ou do descarte (recusaNaGateway).
+// Status finais confirmados pelo suporte da Nota Gateway em 19/10/2026 (#187): a rejeição da
+// SEFAZ chega como "Negada" na consulta, não como 4xx do envio. Qualquer outro ainda está em andamento.
 export function situacaoCarta(status: string): SituacaoCarta {
-  return status === 'Autorizada' ? 'autorizada' : 'pendente'
+  if (status === 'Autorizada') return 'autorizada'
+  if (status === 'Negada') return 'recusada'
+  return 'pendente'
 }
 
 /**
- * Carta presa em pendente (envio que não chegou à Nota Gateway, ou recusa com
- * status que ainda não sabemos ler) trava as próximas: depois do mesmo prazo da
- * NF, dá para descartar, se a consulta confirmar que a carta não existe lá.
+ * Carta presa em pendente (envio que não chegou à Nota Gateway) trava as
+ * próximas: depois do mesmo prazo da NF, dá para descartar, se a consulta
+ * confirmar que a carta não existe lá ou que foi negada.
  */
 export function podeDescartarCarta(carta: { situacao: SituacaoCarta; criadoEm: string }, agora: Date): boolean {
   return carta.situacao === 'pendente' && agora.getTime() - Date.parse(carta.criadoEm) >= MINUTOS_PARA_DESCARTAR * 60_000
 }
 
 /**
- * Rejeição da SEFAZ que só aparece na consulta: a carta existe na Nota Gateway,
- * mas com status que não sabemos nomear. Sem isso ela ficaria pendente para
- * sempre e travaria a nota. Status diferente de Autorizada/Processando, com
- * motivo, conta como recusa; devolve o motivo, ou null se não for o caso.
+ * No descarte, a carta existe na Nota Gateway: status diferente de
+ * Autorizada/Processando, com motivo, conta como recusa (na prática, "Negada").
+ * Devolve o motivo, ou null se não for o caso.
  */
 export function recusaNaGateway(c: { status: string; motivoStatus: string | null }): string | null {
   if (c.status === 'Autorizada' || c.status === 'Processando') return null

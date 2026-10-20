@@ -3,8 +3,11 @@ import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { usuarios, servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
+import { servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -27,13 +30,10 @@ const statusLabel: Record<string, string> = {
 
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [os, itens, usuario, mecanicos, servicos, pecas, aprovacaoPendente] = await Promise.all([
+  const [os, itens, usuario, servicos, pecas, aprovacaoPendente] = await Promise.all([
     buscarOS(id),
     listarItensOS(id),
     getUsuarioLogado(),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(eq(usuarios.papel, 'mecanico')),
     db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
     db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
     db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, id), eq(aprovacoesVenda.status, 'pendente'))).then(n => n > 0),
@@ -45,7 +45,9 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   if (!os) notFound()
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && os.lojaId !== usuario.lojaId) notFound()
+  if (isAdmin ? !(await podeAbrirRegistroDaLoja(usuario, os.lojaId)) : os.lojaId !== usuario.lojaId) notFound()
+
+  const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papel: 'mecanico' })
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
@@ -79,26 +81,28 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   })
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="max-w-4xl space-y-5 has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
+      {/* Header. A folga embaixo (has-[[data-barra-fixa]]) só existe quando o botão de avançar
+          fica fixo no rodapé do celular; sem ela, o fim da página ficaria atrás dele. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">OS #{os.numero}</h1>
             </div>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               Aberta em {format(new Date(os.dataAbertura), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} · {os.lojaNome}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Celular: os três botões lado a lado com a mesma largura; do sm para cima, tamanho natural. */}
+        <div className="grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:items-center">
           <Link
             href={`/ordens-servico/${id}/imprimir`}
             target="_blank"
-            className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-slate-400 transition-colors"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors sm:h-auto sm:py-1.5 text-muted-foreground hover:border-ring hover:text-foreground"
           >
-            <Printer size={15} /> Imprimir OS
+            <Printer size={15} className="shrink-0" /> <span>Imprimir<span className="hidden sm:inline"> OS</span></span>
           </Link>
           {podeCancelar && !cancelada && (
             <CancelarOSButton osId={id} numero={os.numero} bloqueio={bloqueioCancelamento} />
@@ -108,12 +112,12 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
       </div>
 
       {cancelada && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-          <Ban size={16} className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <Ban size={16} className="mt-0.5 shrink-0 text-warning" />
           <div>
-            <p className="font-semibold text-amber-800">OS cancelada</p>
-            <p className="text-amber-700">{os.motivoCancelamento}</p>
-            <p className="mt-0.5 text-xs text-amber-600">
+            <p className="font-semibold text-warning">OS cancelada</p>
+            <p className="text-warning">{os.motivoCancelamento}</p>
+            <p className="mt-0.5 text-xs text-warning">
               {os.canceladaPorNome ?? '—'}
               {os.canceladaEm && ` · ${format(new Date(os.canceladaEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`}
             </p>
@@ -136,15 +140,15 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         dataConclusao={os.dataConclusao ? new Date(os.dataConclusao) : null}
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Moto */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-slate-500 font-medium uppercase tracking-wide">Veículo</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Veículo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <p className="font-semibold text-base text-slate-800">{motoDesc.trim() || '—'}</p>
-            {os.chassi  && <p className="font-mono text-xs text-slate-500">{os.chassi}</p>}
+            <p className="font-semibold text-base text-foreground">{motoDesc.trim() || '—'}</p>
+            {os.chassi  && <p className="font-mono text-xs text-muted-foreground">{os.chassi}</p>}
             {os.km      && <p>KM: <span className="font-medium">{os.km.toLocaleString('pt-BR')}</span></p>}
             {os.cor     && <p>Cor: <span className="font-medium">{os.cor}</span></p>}
           </CardContent>
@@ -153,17 +157,17 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         {/* Cliente */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-slate-500 font-medium uppercase tracking-wide">Cliente</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Cliente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {clienteDesc
-              ? <p className="font-semibold text-base text-slate-800">{clienteDesc}</p>
-              : <p className="text-slate-400">Sem cliente vinculado</p>
+              ? <p className="font-semibold text-base text-foreground">{clienteDesc}</p>
+              : <p className="text-muted-foreground">Sem cliente vinculado</p>
             }
             {clienteFone && <p>Tel: <span className="font-medium">{clienteFone}</span></p>}
             {os.mecanicoNome && <p>Mecânico: <span className="font-medium">{os.mecanicoNome}</span></p>}
             {os.dataPrevisao && (
-              <p>Previsão: <span className="font-medium text-amber-700">
+              <p>Previsão: <span className="font-medium text-warning">
                 {format(new Date(os.dataPrevisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </span></p>
             )}
@@ -203,17 +207,17 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-500">Mão de obra</span>
+            <span className="text-muted-foreground">Mão de obra</span>
             <span>{totalServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-slate-500">Peças</span>
+            <span className="text-muted-foreground">Peças</span>
             <span>{totalPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
           </div>
-          <div className="h-px bg-slate-100" />
+          <div className="h-px bg-border" />
           <div className="flex justify-between font-bold text-base">
             <span>Total</span>
-            <span className="text-green-700">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+            <span className="text-primary-text">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
           </div>
         </CardContent>
       </Card>

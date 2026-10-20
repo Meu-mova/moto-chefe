@@ -1,4 +1,5 @@
 'use server'
+import { aplicarEdicaoAprovadaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
@@ -1830,6 +1831,24 @@ export async function aprovarVendaAction(aprovacaoId: string) {
     return
   }
 
+  // Edição de venda de peças (#242): a venda já existe — aplica a edição guardada no pedido,
+  // atômico com o UPDATE de aprovação. Se a venda foi excluída nesse meio-tempo, a transação
+  // falha e o pedido continua pendente (dá para recusar).
+  if (aprovacao.origem === 'peca_edicao') {
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx.update(aprovacoesVenda)
+        .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+        .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+        .returning({ id: aprovacoesVenda.id })
+      if (!claimed) throw new Error('Solicitação não está mais pendente')
+
+      await aplicarEdicaoAprovadaTx(tx, aprovacao.dadosVenda as unknown as EdicaoPendente, aprovacao.vendedorId)
+    })
+    revalidatePath('/vendas')
+    revalidatePath('/pecas')
+    return
+  }
+
   // Peça: a venda ainda não existe — cria de fato, atômico com o UPDATE de aprovação.
   if (aprovacao.origem === 'peca') {
     await db.transaction(async (tx) => {
@@ -1911,7 +1930,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
 
     revalidatePath('/vendas')
     if (aprovacao.origem === 'os')   revalidatePath(`/ordens-servico/${aprovacao.osId}`)
-    if (aprovacao.origem === 'peca') revalidatePath('/pecas')
+    if (aprovacao.origem === 'peca' || aprovacao.origem === 'peca_edicao') revalidatePath('/pecas')
     return
   }
 

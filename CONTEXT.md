@@ -6,9 +6,21 @@ conceito, como o negócio fala. Decisões de arquitetura ficam em `docs/adr/`.
 
 ## Organização
 
+**Conta**:
+Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário tem uma
+Conta de origem; ver grupo de outra Conta só por autorização de acesso (ADR-0018). Hoje: a Conta
+dos grupos do Cesar.
+_Evitar_: cliente (é o comprador), tenant, assinante. Conta bancária e conta a pagar são outra
+coisa: diga o nome inteiro.
+
+**Autorização de acesso**:
+Permissão que o administrador de uma Conta dá a um usuário de outra Conta para ver um grupo com um
+papel. Vale até ser revogada.
+_Evitar_: termo (sozinho), compartilhamento
+
 **Grupo**:
-Um CNPJ com suas lojas, contas e integrações próprias. Hoje: Sul de Minas, BH e Vale. Os dados
-de um grupo não aparecem para outro.
+Um CNPJ com suas lojas, contas bancárias e integrações próprias. Pertence a uma Conta. Hoje: Sul
+de Minas, BH e Vale. Os dados de um grupo não aparecem para outro.
 _Evitar_: bandeira (no sentido de grupo; "bandeira" do cartão é outra coisa), tenant
 
 **Loja**:
@@ -47,8 +59,8 @@ A pessoa que trabalha no grupo, vista pelo lado do RH (salário, dados pessoais)
 do usuário que faz login.
 
 **Cliente**:
-Quem compra (pessoa física ou jurídica). O cadastro é único no sistema inteiro, por CPF ou CNPJ,
-e não pertence a um grupo.
+Quem compra (pessoa física ou jurídica). O cadastro é único por CPF ou CNPJ e não pertence a um
+grupo. Hoje vale para o sistema inteiro; com o ADR-0018 passa a ser único dentro de cada Conta.
 
 **Representante legal**:
 A pessoa que assina o contrato de venda em nome de um cliente pessoa jurídica. É da venda, não do
@@ -222,6 +234,11 @@ _Evitar_: caixa, para o status da moto (use "na caixa")
 **Despesa**:
 Saída de dinheiro do grupo, com categoria. Pode ou não contar como custo operacional (compra de
 moto e retirada de sócio não contam).
+
+**Mensalidade**:
+Cobrança mensal que o MOVA faz a cada grupo (CNPJ) contratado, paga por PIX ou boleto num link do
+Mercado Pago. Sem pagamento, o grupo é bloqueado no 6º dia após o vencimento.
+_Evitar_: assinatura (é a assinatura eletrônica de documento), conta a pagar (é despesa do grupo)
 
 **Conta a pagar**:
 Compromisso agendado (único, recorrente ou calculado sobre uma base), que gera uma ocorrência por
