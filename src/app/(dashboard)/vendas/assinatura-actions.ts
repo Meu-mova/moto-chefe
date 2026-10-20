@@ -6,6 +6,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos, usuarios } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { buscarVenda } from '@/lib/queries/vendas'
 import {
   montarHtmlDocumento, dadosVendedoraCompletos, LABEL_TIPO,
@@ -28,10 +29,9 @@ export async function baseUrl(): Promise<string> {
   return urlBase()
 }
 
-// Escopo de loja — mesmo padrão das páginas de impressão: admin_geral e
-// admin_socio enxergam tudo; os demais só a própria loja. Sem isso, um vendedor
-// de outra loja listaria o TOKEN dos documentos alheios, e o token é a
-// credencial que assina o documento.
+// Escopo de loja — mesmo padrão das páginas de impressão: admin só no grupo que
+// vê; os demais só a própria loja. Sem isso, alguém de outra loja listaria o TOKEN
+// dos documentos alheios, e o token é a credencial que assina o documento.
 async function vendaNoEscopo(vendaId: string): Promise<{ id: string; lojaId: string | null } | null> {
   const usuario = await getUsuarioLogado()
   const [venda] = await db
@@ -40,8 +40,8 @@ async function vendaNoEscopo(vendaId: string): Promise<{ id: string; lojaId: str
     .where(eq(vendas.id, vendaId))
     .limit(1)
   if (!venda) return null
-  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) return venda
-  return venda.lojaId === usuario.lojaId ? venda : null
+  if (!venda.lojaId) return usuario.papel === 'admin_geral' ? venda : null
+  return (await podeAgirNaLoja(usuario, venda.lojaId)) ? venda : null
 }
 
 async function registrarEvento(documentoId: string, tipo: string, detalhe?: unknown) {

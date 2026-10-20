@@ -80,7 +80,7 @@ export type PreviaNfe =
 const numOuNulo = (v: string | null) => (v == null ? null : v)
 
 /** Junta tudo o que a nota precisa. Pré-visualização e transmissão usam a MESMA montagem. */
-async function montarEmissao(motoId: string) {
+async function montarEmissao(motoId: string, usuario: Usuario) {
   const [venda] = await db
     .select()
     .from(vendas)
@@ -90,6 +90,7 @@ async function montarEmissao(motoId: string) {
   if (!venda) throw new Error('Nenhuma venda encontrada para esta moto')
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
+  await exigirGrupo(usuario, grupoId)
   const cfg = await configNotaGateway(grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo — veja Admin → Notas fiscais')
 
@@ -224,8 +225,7 @@ const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, 
 
 export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
   try {
-    await exigirPapel()
-    const e = await montarEmissao(motoId)
+    const e = await montarEmissao(motoId, await exigirPapel())
     const notas = await notasDaVenda(e.venda.id)
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
@@ -292,7 +292,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
  */
 export async function salvarFichaMotoAction(motoId: string, f: FichaMoto): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await exigirPapel()
+    await exigirGrupoDaMoto(motoId, await exigirPapel())
     const ncm = f.ncm.replace(/\D/g, '')
     if (ncm.length !== 8) return { ok: false, error: 'NCM precisa ter 8 dígitos' }
     const c = normalizarCest(f.cest)
@@ -322,7 +322,7 @@ export async function salvarFichaMotoAction(motoId: string, f: FichaMoto): Promi
  */
 export async function salvarCestMotoAction(motoId: string, cestBruto: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await exigirPapel()
+    await exigirGrupoDaMoto(motoId, await exigirPapel())
     const c = normalizarCest(cestBruto)
     if (!c.ok) return c
     const atualizadas = await db.update(motosFiscal).set({ cest: c.cest }).where(eq(motosFiscal.motoId, motoId)).returning({ id: motosFiscal.motoId })
@@ -411,7 +411,7 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
   let notaId: string | null = null
   try {
     const usuario = await exigirPapel()
-    const e = await montarEmissao(motoId)
+    const e = await montarEmissao(motoId, usuario)
 
     const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(e.venda.id))
     if (bloqueio) return { ok: false, error: bloqueio }
@@ -509,6 +509,12 @@ async function exigirGrupo(usuario: Usuario, grupoId: string) {
 }
 
 /** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
+async function exigirGrupoDaMoto(motoId: string, usuario: Usuario) {
+  const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
+  if (!moto) throw new Error('Moto não encontrada')
+  await exigirGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId))
+}
+
 async function carregarNota(notaId: string, usuario: Usuario) {
   const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
   if (!r) throw new Error('Nota não encontrada')
@@ -733,11 +739,13 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
 /** Para o diálogo de NF decidir se mostra a opção — sem montar a nota. */
 export async function nfePropriaDisponivelAction(motoId: string): Promise<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }> {
   try {
-    await exigirPapel()
+    const usuario = await exigirPapel()
     const [v] = await db.select({ lojaId: vendas.lojaId }).from(vendas)
       .where(eq(vendas.motoId, motoId)).orderBy(desc(vendas.dataVenda)).limit(1)
     if (!v) return { disponivel: false, ambiente: null }
-    const cfg = await configNotaGateway(await getGrupoIdDaLoja(v.lojaId))
+    const grupoId = await getGrupoIdDaLoja(v.lojaId)
+    if (!(await podeUsuarioVerGrupo(usuario, grupoId))) return { disponivel: false, ambiente: null }
+    const cfg = await configNotaGateway(grupoId)
     return cfg ? { disponivel: true, ambiente: cfg.ambiente } : { disponivel: false, ambiente: null }
   } catch {
     return { disponivel: false, ambiente: null }
