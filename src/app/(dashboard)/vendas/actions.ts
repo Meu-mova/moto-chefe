@@ -9,7 +9,7 @@ import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -134,7 +134,7 @@ export type PrecoMinimoInfo = {
 export async function buscarPrecoMinimoAction(motoId: string): Promise<PrecoMinimoInfo | null> {
   const usuario = await getUsuarioLogado()
   const [moto] = await db.select({ modeloId: motos.modeloId, lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) return null
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) return null
   return buscarPrecificacao(moto.modeloId, moto.lojaId)
 }
 
@@ -173,8 +173,8 @@ export async function criarPedidoVendaAction(motoId: string, observacao?: string
 
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
-  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId)))) {
-    throw new Error('Sem permissão para criar pedido neste grupo')
+  if (!(await podeVenderMotoDaLoja(usuario, moto.lojaId))) {
+    throw new Error('Sem permissão para criar pedido desta loja')
   }
 
   await db.transaction(tx => criarPedidoTx(tx, {
@@ -476,7 +476,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'caixa') {
     throw new Error('Moto ainda não foi montada — não pode ser vendida')
   }
@@ -1148,7 +1148,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
     throw new Error('Moto já foi vendida')
   }
@@ -1726,7 +1726,7 @@ export async function solicitarAprovacaoVendaAction(
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
   if (bloqueio) throw new Error(bloqueio)
 

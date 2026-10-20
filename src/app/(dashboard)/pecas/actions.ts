@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
@@ -224,6 +225,8 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
+  // Como na tela: quem não é admin vende peça só pela própria loja.
+  if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new Error('Sem permissão para esta loja')
 
   // Venda para empresa: sem CNPJ o recibo não identifica o tomador, e é justamente
   // o recibo que a empresa leva pra lançar a compra.
@@ -506,6 +509,7 @@ export async function excluirVendaPecaAction(vendaId: string) {
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
+  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) throw new Error('Sem permissão para esta loja')
 
   await db.transaction(async tx => {
     // Pedido de edição pendente desta venda perde o objeto: recusa junto, senão ficaria

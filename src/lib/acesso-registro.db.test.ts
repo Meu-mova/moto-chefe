@@ -16,10 +16,11 @@ type Acesso = typeof import('@/lib/acesso-registro')
 let db: Db['db']
 let podeAbrirRegistroDaLoja: Acesso['podeAbrirRegistroDaLoja']
 let podeAgirNaLoja: Acesso['podeAgirNaLoja']
+let podeVenderMotoDaLoja: Acesso['podeVenderMotoDaLoja']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ podeAbrirRegistroDaLoja, podeAgirNaLoja } = await import('@/lib/acesso-registro'))
+  ;({ podeAbrirRegistroDaLoja, podeAgirNaLoja, podeVenderMotoDaLoja } = await import('@/lib/acesso-registro'))
 })
 
 after(async () => {
@@ -85,6 +86,34 @@ test('agir em registro de loja: admin no grupo que vê, os demais só na própri
     assert.equal(await podeAgirNaLoja(socioSoA, lojaB.id, tx), false, 'sócio não age em loja de grupo que não vê')
     assert.equal(await podeAgirNaLoja(socioAeB, lojaB.id, tx), true, 'sócio age em loja de grupo do grupos_acesso')
     assert.equal(await podeAgirNaLoja(adminGeral, lojaB.id, tx), true, 'admin_geral age em qualquer grupo')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('vender moto: própria loja, e o Galpão Matriz para quem vende no grupo dele', async () => {
+  const { LOJA_GALPAO_MATRIZ_ID } = await import('@/lib/loja-galpao')
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const sul = await linha(sql`insert into grupos (nome, cnpj) values ('Sul', '00000000000191') returning id`)
+    const bh = await linha(sql`insert into grupos (nome, cnpj) values ('BH', '00000000000272') returning id`)
+    const centro = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Centro', 'Rua 1', 'X', ${sul.id}) returning id`)
+    const norte = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Norte', 'Rua 2', 'X', ${sul.id}) returning id`)
+    await tx.execute(sql`insert into lojas (id, nome, endereco, cidade, grupo_id) values (${LOJA_GALPAO_MATRIZ_ID}, 'Galpão', 'Rua 3', 'X', ${sul.id})`)
+    const lojaBh = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('BH Centro', 'Rua 4', 'Y', ${bh.id}) returning id`)
+
+    const vendedor = { papel: 'vendedor', papeisExtras: [], lojaId: centro.id, gruposAcesso: [] }
+    const auxComoVendedor = { papel: 'aux_adm', papeisExtras: ['vendedor'], lojaId: centro.id, gruposAcesso: [] }
+    const aux = { papel: 'aux_adm', papeisExtras: [], lojaId: centro.id, gruposAcesso: [] }
+    const vendedorBh = { papel: 'vendedor', papeisExtras: [], lojaId: lojaBh.id, gruposAcesso: [] }
+    const socio = { papel: 'admin_socio', papeisExtras: [], lojaId: centro.id, gruposAcesso: [] }
+
+    assert.equal(await podeVenderMotoDaLoja(vendedor, centro.id, tx), true, 'vendedor vende na própria loja')
+    assert.equal(await podeVenderMotoDaLoja(vendedor, norte.id, tx), false, 'vendedor não vende moto de outra loja do grupo')
+    assert.equal(await podeVenderMotoDaLoja(vendedor, LOJA_GALPAO_MATRIZ_ID, tx), true, 'vendedor vende moto do Galpão Matriz')
+    assert.equal(await podeVenderMotoDaLoja(auxComoVendedor, LOJA_GALPAO_MATRIZ_ID, tx), true, 'quem também é vendedor usa a exceção do Galpão')
+    assert.equal(await podeVenderMotoDaLoja(aux, LOJA_GALPAO_MATRIZ_ID, tx), false, 'aux sem papel de vendedor não usa a exceção')
+    assert.equal(await podeVenderMotoDaLoja(vendedorBh, LOJA_GALPAO_MATRIZ_ID, tx), false, 'vendedor de outro grupo não vende moto do Galpão')
+    assert.equal(await podeVenderMotoDaLoja(socio, norte.id, tx), true, 'sócio vende em qualquer loja do grupo')
     throw new Desfazer()
   }), Desfazer)
 })
