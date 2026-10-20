@@ -6,7 +6,9 @@ import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { OSCard } from './components/os-card'
+import { OSLista } from './components/os-lista'
+import { STATUS_OS } from './status-os'
+import { Kpi } from '@/components/kpi'
 import { AbrirOSDialog } from './components/abrir-os-dialog'
 import { OSFiltros } from './components/os-filtros'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
@@ -51,23 +53,28 @@ export default async function OrdensServicoPage({
   const dataInicio = params.de  ?? dataDefaultMesAtual()
   const dataFim    = params.ate ?? undefined
 
-  const [lista, mecanicos, lojasOpts] = await Promise.all([
-    listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
+  const [recorte, mecanicos, lojasOpts] = await Promise.all([
+    listarTodasOS({ busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
   ])
 
-  const abertas             = lista.filter(o => o.status === 'aberta')
-  const oficina              = lista.filter(o => o.status === 'oficina')
-  const emAndamento         = lista.filter(o => o.status === 'em_andamento')
-  const finalizadas         = lista.filter(o => o.status === 'finalizada')
-  const pendentePagamento   = lista.filter(o => o.status === 'pendente_pagamento')
-  const concluidas          = lista.filter(o => o.status === 'concluida')
-  const canceladas          = lista.filter(o => o.status === 'cancelada')
+  // O status filtra só a lista: KPIs e o número de cada botão de status olham o recorte inteiro,
+  // senão marcar "Aberta" zeraria todos os outros. Cancelada vai para o fim.
+  const lista = recorte
+    .filter(o => statusFiltro.length === 0 || statusFiltro.includes(o.status))
+    .sort((a, b) => Number(a.status === 'cancelada') - Number(b.status === 'cancelada'))
+
+  const abertas             = recorte.filter(o => o.status === 'aberta')
+  const oficina              = recorte.filter(o => o.status === 'oficina')
+  const emAndamento         = recorte.filter(o => o.status === 'em_andamento')
+  const finalizadas         = recorte.filter(o => o.status === 'finalizada')
+  const pendentePagamento   = recorte.filter(o => o.status === 'pendente_pagamento')
+  const concluidas          = recorte.filter(o => o.status === 'concluida')
 
   // OS cancelada não entra em faturamento nem em conciliação — o valor dela morreu junto.
-  const ativas = lista.filter(o => o.status !== 'cancelada')
+  const ativas = recorte.filter(o => o.status !== 'cancelada')
 
   const concStats = ativas.reduce(
     (acc, o) => {
@@ -111,159 +118,52 @@ export default async function OrdensServicoPage({
   const totalPecas    = ativas.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+  const contagem = Object.fromEntries(STATUS_OS.map(st => [st.value, recorte.filter(o => o.status === st.value).length]))
+  const temConciliacao = concStats.pendente + concStats.parcial + concStats.conciliada + gratuidades.osQtd > 0
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
-          <p className="text-slate-500 text-sm">Pós-venda e oficina</p>
+          <p className="text-sm text-muted-foreground">Pós-venda e oficina</p>
         </div>
         <AbrirOSDialog mecanicos={mecanicos} lojas={lojasOpts} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">Abertas</p>
-          <p className="text-3xl font-bold text-amber-700 mt-0.5">{abertas.length}</p>
-        </div>
-        <div className="bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-sky-600 uppercase tracking-wide">Oficina</p>
-          <p className="text-3xl font-bold text-sky-700 mt-0.5">{oficina.length}</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Em Andamento</p>
-          <p className="text-3xl font-bold text-blue-700 mt-0.5">{emAndamento.length}</p>
-        </div>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Finalizadas</p>
-          <p className="text-3xl font-bold text-indigo-700 mt-0.5">{finalizadas.length}</p>
-        </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-orange-600 uppercase tracking-wide">Pend. Pagamento</p>
-          <p className="text-3xl font-bold text-orange-700 mt-0.5">{pendentePagamento.length}</p>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Concluídas</p>
-          <p className="text-3xl font-bold text-green-700 mt-0.5">{concluidas.length}</p>
-        </div>
-      </div>
-
-      {/* Valor: serviço x peça */}
-      <div className="grid grid-cols-2 gap-3 max-w-md">
-        <div className="bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-teal-600 uppercase tracking-wide">Total Serviços</p>
-          <p className="text-xl font-bold text-teal-700 mt-0.5">{fmt(totalServicos)}</p>
-        </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">Total Peças</p>
-          <p className="text-xl font-bold text-purple-700 mt-0.5">{fmt(totalPecas)}</p>
-        </div>
-      </div>
-
-      {/* Conciliação */}
-      {(concStats.pendente + concStats.parcial + concStats.conciliada + gratuidades.osQtd) > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl">
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            <p className="text-xs font-medium text-red-500 uppercase tracking-wide">Conc. Pendentes</p>
-            <p className="text-2xl font-bold text-red-700 mt-0.5">{concStats.pendente}</p>
-          </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-            <p className="text-xs font-medium text-amber-500 uppercase tracking-wide">Conc. Parciais</p>
-            <p className="text-2xl font-bold text-amber-700 mt-0.5">{concStats.parcial}</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-            <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Conciliadas</p>
-            <p className="text-2xl font-bold text-green-700 mt-0.5">{concStats.conciliada}</p>
-          </div>
-          <div className="bg-violet-50 border border-violet-200 rounded-lg px-4 py-3">
-            <p className="text-xs font-medium text-violet-600 uppercase tracking-wide">Gratuidades</p>
-            <p className="text-2xl font-bold text-violet-700 mt-0.5">{gratuidades.osQtd}</p>
+      {/* Celular: faixa que rola para o lado, sem barra à vista. Desktop: grade (padrão de Vendas). */}
+      <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-3 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
+        <Kpi tom={abertas.length ? 'aviso' : 'neutro'} titulo="Abertas" valor={abertas.length} />
+        <Kpi tom="neutro" titulo="Na oficina" valor={oficina.length + emAndamento.length} nota={`${oficina.length} oficina · ${emAndamento.length} em andamento`} />
+        <Kpi tom={finalizadas.length + pendentePagamento.length ? 'aviso' : 'neutro'} titulo="A cobrar" valor={finalizadas.length + pendentePagamento.length} nota={`${finalizadas.length} finalizada(s) · ${pendentePagamento.length} pend. pagamento`} />
+        <Kpi tom="ok" titulo="Concluídas" valor={concluidas.length} />
+        <Kpi tom="neutro" titulo="Valor das OS" valor={fmt(totalServicos + totalPecas)} nota={`Serviços ${fmt(totalServicos)} · Peças ${fmt(totalPecas)} · sem canceladas`} />
+        {temConciliacao && (
+          <>
+            <Kpi tom={concStats.pendente ? 'perigo' : 'neutro'} titulo="Conc. pendentes" valor={concStats.pendente} />
+            <Kpi tom={concStats.parcial ? 'aviso' : 'neutro'} titulo="Conc. parciais" valor={concStats.parcial} />
+            <Kpi tom="ok" titulo="Conciliadas" valor={concStats.conciliada} />
             {/* O valor é o que deixou de ser cobrado, não o total da OS: numa OS meio
                 cupom, meio dinheiro só a parte gratuita entra aqui. */}
-            <p className="text-xs text-violet-600 mt-0.5">{fmt(gratuidades.valor)} não cobrados</p>
-            <p className="text-[11px] text-violet-500 mt-1 leading-tight">
-              {gratuidades.cupomQtd} cupom · {gratuidades.cortesiaQtd} cortesia/garantia · {gratuidades.gratuitaQtd} gratuita
-            </p>
-          </div>
-        </div>
-      )}
+            <Kpi
+              tom="neutro"
+              titulo="Gratuidades"
+              valor={gratuidades.osQtd}
+              nota={`${fmt(gratuidades.valor)} não cobrados · ${gratuidades.cupomQtd} cupom · ${gratuidades.cortesiaQtd} cortesia/garantia · ${gratuidades.gratuitaQtd} gratuita`}
+            />
+          </>
+        )}
+      </div>
 
-      <OSFiltros lojas={isAdmin ? lojasOpts : []} mecanicos={mecanicos} dataInicioInicial={dataInicio} dataFimInicial={params.ate ?? ""} />
+      <OSFiltros
+        lojas={isAdmin ? lojasOpts : []}
+        mecanicos={mecanicos}
+        dataInicioInicial={dataInicio}
+        dataFimInicial={params.ate ?? ""}
+        contagem={contagem}
+      />
 
-      {lista.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-16">Nenhuma ordem de serviço encontrada.</p>
-      )}
-
-      {abertas.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-            Abertas ({abertas.length})
-          </h2>
-          {abertas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {oficina.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />
-            Oficina ({oficina.length})
-          </h2>
-          {oficina.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {emAndamento.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-            Em Andamento ({emAndamento.length})
-          </h2>
-          {emAndamento.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {finalizadas.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-            Finalizadas ({finalizadas.length})
-          </h2>
-          {finalizadas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {pendentePagamento.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
-            Pendente de Pagamento ({pendentePagamento.length})
-          </h2>
-          {pendentePagamento.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {concluidas.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-            Concluídas ({concluidas.length})
-          </h2>
-          {concluidas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
-
-      {canceladas.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
-            Canceladas ({canceladas.length})
-          </h2>
-          {canceladas.map(o => <OSCard key={o.id} os={o} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />)}
-        </section>
-      )}
+      <OSLista lista={lista} />
     </div>
   )
 }

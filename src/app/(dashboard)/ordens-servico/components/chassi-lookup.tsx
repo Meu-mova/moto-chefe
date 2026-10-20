@@ -122,8 +122,8 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
     <div className="space-y-4">
       {/* Busca por chassi */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-          Chassi do veículo <span className="text-red-500">*</span>
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Chassi do veículo <span className="text-destructive">*</span>
         </label>
 
         {veiculo ? (
@@ -138,14 +138,14 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                 onKeyDown={e => e.key === 'Enter' && buscar()}
                 onFocus={() => resultados.length > 0 && setListaAberta(true)}
                 placeholder="Digite parte do chassi (mín. 3 caracteres)…"
-                className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                  erroChassi ? 'border-amber-400' : 'border-slate-200'
+                className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-ring ${
+                  erroChassi ? 'border-warning' : 'border-input'
                 }`}
               />
               <button
                 onClick={buscar}
                 disabled={pendingV || chassi.trim().length < 3}
-                className="px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 transition-colors"
               >
                 {pendingV ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
               </button>
@@ -154,35 +154,35 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
             {/* Dropdown de resultados */}
             {listaAberta && resultados.length > 0 && (
               <div ref={listaRef}
-                className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-                <p className="px-3 py-2 text-[11px] text-slate-400 border-b bg-slate-50">
+                className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+                <p className="px-3 py-2 text-[11px] text-muted-foreground border-b bg-muted">
                   {resultados.length} resultado{resultados.length > 1 ? 's' : ''} — clique para selecionar
                 </p>
-                <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                <ul className="max-h-64 overflow-y-auto divide-y divide-border">
                   {resultados.map(r => (
                     <li key={r.chassi}>
                       <button
                         type="button"
                         onClick={() => selecionarVeiculo(r)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                        className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors flex items-center gap-3"
                       >
                         {r.fonte === 'estoque'
-                          ? <Bike size={14} className="text-blue-500 shrink-0" />
-                          : <Archive size={14} className="text-slate-400 shrink-0" />}
+                          ? <Bike size={14} className="text-primary-text shrink-0" />
+                          : <Archive size={14} className="text-muted-foreground shrink-0" />}
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {r.marca} {r.modelo}
-                            {r.cor && <span className="font-normal text-slate-500"> · {r.cor}</span>}
+                            {r.cor && <span className="font-normal text-muted-foreground"> · {r.cor}</span>}
                           </p>
-                          <p className="text-xs font-mono text-slate-400">{r.chassi}</p>
+                          <p className="text-xs font-mono text-muted-foreground">{r.chassi}</p>
                           {r.clienteNome && (
-                            <p className="text-xs text-blue-600">{r.clienteNome}</p>
+                            <p className="text-xs text-primary-text">{r.clienteNome}</p>
                           )}
                         </div>
                         <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
                           r.fonte === 'estoque'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'bg-slate-100 text-slate-500'
+                            ? 'bg-primary-soft text-primary-text'
+                            : 'bg-muted text-muted-foreground'
                         }`}>
                           {r.fonte === 'estoque' ? 'Estoque' : 'Histórico'}
                         </span>
@@ -195,14 +195,14 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
 
             {erroChassi && !cadastrandoVeiculo && (
               <div className="mt-1 space-y-1.5">
-                <p className="text-xs text-amber-600 flex items-center gap-1">
+                <p className="text-xs text-warning flex items-center gap-1">
                   <AlertCircle size={12} /> {erroChassi}
                 </p>
                 {chassi.trim().length >= 3 && (
                   <button
                     type="button"
                     onClick={() => { setCadastrandoVeiculo(true); setErroChassi(null) }}
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-primary-text hover:underline flex items-center gap-1"
                   >
                     <UserPlus size={12} /> Cadastrar este veículo
                   </button>
@@ -211,12 +211,12 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
             )}
 
             {cadastrandoVeiculo && (
-              <div className="mt-2 border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+              <div className="mt-2 border border-input rounded-lg p-3 space-y-2 bg-muted">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Cadastrar veículo — chassi {chassi}
                 </p>
                 {erroChassi && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <p className="text-xs text-warning flex items-center gap-1">
                     <AlertCircle size={12} /> {erroChassi}
                   </p>
                 )}
@@ -225,25 +225,25 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                     value={novoVeiculo.marca}
                     onChange={e => setNovoVeiculo(v => ({ ...v, marca: e.target.value }))}
                     placeholder="Marca *"
-                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                    className="border border-input rounded-md px-2 py-1.5 text-sm"
                   />
                   <input
                     value={novoVeiculo.modelo}
                     onChange={e => setNovoVeiculo(v => ({ ...v, modelo: e.target.value }))}
                     placeholder="Modelo *"
-                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                    className="border border-input rounded-md px-2 py-1.5 text-sm"
                   />
                   <input
                     value={novoVeiculo.cor}
                     onChange={e => setNovoVeiculo(v => ({ ...v, cor: e.target.value }))}
                     placeholder="Cor"
-                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                    className="border border-input rounded-md px-2 py-1.5 text-sm"
                   />
                   <input
                     value={novoVeiculo.numeroMotor}
                     onChange={e => setNovoVeiculo(v => ({ ...v, numeroMotor: e.target.value }))}
                     placeholder="Motor"
-                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                    className="border border-input rounded-md px-2 py-1.5 text-sm"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -251,7 +251,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                     type="button"
                     onClick={cadastrarVeiculo}
                     disabled={pendingCadastro}
-                    className="flex-1 bg-slate-800 text-white text-xs font-medium rounded-md py-1.5 hover:bg-slate-700 disabled:opacity-50"
+                    className="flex-1 bg-primary text-primary-foreground text-xs font-medium rounded-md py-1.5 hover:bg-primary-hover disabled:opacity-50"
                   >
                     {pendingCadastro ? 'Salvando…' : 'Salvar veículo'}
                   </button>
@@ -263,7 +263,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                       setNovoVeiculo({ marca: '', modelo: '', cor: '', numeroMotor: '' })
                     }}
                     disabled={pendingCadastro}
-                    className="text-xs text-slate-500 hover:text-slate-700 px-2"
+                    className="text-xs text-muted-foreground hover:text-foreground px-2"
                   >
                     Cancelar
                   </button>
@@ -276,7 +276,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
 
       {/* Busca por CPF */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Cliente (busca por CPF)
         </label>
         {cliente ? (
@@ -289,26 +289,26 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                 onChange={e => { setCpf(e.target.value); setErroCpf(null) }}
                 onKeyDown={e => e.key === 'Enter' && buscarCpf()}
                 placeholder="000.000.000-00"
-                className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                  erroCpf ? 'border-red-400' : 'border-slate-200'
+                className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                  erroCpf ? 'border-destructive' : 'border-input'
                 }`}
               />
               <button
                 onClick={buscarCpf}
                 disabled={pendingC || cpf.replace(/\D/g, '').length < 11}
-                className="px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 transition-colors"
               >
                 {pendingC ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
               </button>
             </div>
             {erroCpf && (
               <div className="mt-1 flex items-center justify-between gap-2">
-                <p className="text-xs text-slate-500 flex items-center gap-1">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <AlertCircle size={12} /> {erroCpf}
                 </p>
                 <ClienteForm
                   trigger={
-                    <span className="text-xs text-blue-600 hover:underline flex items-center gap-1 shrink-0">
+                    <span className="text-xs text-primary-text hover:underline flex items-center gap-1 shrink-0">
                       <UserPlus size={12} /> Cadastrar cliente
                     </span>
                   }
@@ -333,21 +333,21 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
 
 function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoEncontrado; onLimpar: () => void }) {
   return (
-    <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
-      <CheckCircle2 size={16} className="text-green-500 mt-0.5 shrink-0" />
+    <div className="flex items-start gap-3 bg-primary-soft border border-primary/30 rounded-lg p-3">
+      <CheckCircle2 size={16} className="text-primary-text mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800">
+        <p className="text-sm font-semibold text-foreground">
           {veiculo.marca} {veiculo.modelo}
-          {veiculo.cor && <span className="font-normal text-slate-500"> · {veiculo.cor}</span>}
-          {veiculo.ano && <span className="font-normal text-slate-500"> · {veiculo.ano}</span>}
+          {veiculo.cor && <span className="font-normal text-muted-foreground"> · {veiculo.cor}</span>}
+          {veiculo.ano && <span className="font-normal text-muted-foreground"> · {veiculo.ano}</span>}
         </p>
-        <p className="text-xs font-mono text-slate-500">{veiculo.chassi}</p>
-        {veiculo.numeroMotor && <p className="text-xs text-slate-400">Motor: {veiculo.numeroMotor}</p>}
-        <p className="text-[10px] mt-0.5 text-slate-400">
+        <p className="text-xs font-mono text-muted-foreground">{veiculo.chassi}</p>
+        {veiculo.numeroMotor && <p className="text-xs text-muted-foreground">Motor: {veiculo.numeroMotor}</p>}
+        <p className="text-[10px] mt-0.5 text-muted-foreground">
           {veiculo.fonte === 'estoque' ? 'Estoque' : 'Banco histórico'}
         </p>
       </div>
-      <button onClick={onLimpar} className="text-slate-400 hover:text-slate-600">
+      <button type="button" onClick={onLimpar} aria-label="Limpar veículo" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
@@ -356,14 +356,14 @@ function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoEncontrado; onLimp
 
 function ClienteCard({ cliente, onLimpar }: { cliente: ClienteInfo; onLimpar: () => void }) {
   return (
-    <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-      <CheckCircle2 size={16} className="text-blue-500 mt-0.5 shrink-0" />
+    <div className="flex items-start gap-3 bg-primary-soft border border-primary/30 rounded-lg p-3">
+      <CheckCircle2 size={16} className="text-primary-text mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800">{cliente.nome}</p>
-        {cliente.cpfCnpj && <p className="text-xs text-slate-500">CPF: {cliente.cpfCnpj}</p>}
-        {cliente.celular  && <p className="text-xs text-slate-500">Tel: {cliente.celular}</p>}
+        <p className="text-sm font-semibold text-foreground">{cliente.nome}</p>
+        {cliente.cpfCnpj && <p className="text-xs text-muted-foreground">CPF: {cliente.cpfCnpj}</p>}
+        {cliente.celular  && <p className="text-xs text-muted-foreground">Tel: {cliente.celular}</p>}
       </div>
-      <button onClick={onLimpar} className="text-slate-400 hover:text-slate-600">
+      <button type="button" onClick={onLimpar} aria-label="Limpar cliente" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
