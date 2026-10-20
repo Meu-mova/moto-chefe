@@ -334,6 +334,42 @@ export const motosFiscal = pgTable('motos_fiscal', {
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── motos_renave (detalhamento de veículo novo da NF de saída, grupo veicProd) ─
+// Só ciclomotor. Preenchido no ato do envio e guardado por moto, como a ficha
+// fiscal. O chassi é o da nota (editável na tela); não altera motos.chassi.
+// Valores no vocabulário da Nota Gateway -- ver src/lib/notagateway/veiculo.ts
+// e a migração 0131.
+export const motosRenave = pgTable('motos_renave', {
+  motoId:                 uuid('moto_id').primaryKey().references(() => motos.id, { onDelete: 'cascade' }),
+  chassi:                 text('chassi').notNull(),
+  tipoOperacao:           text('tipo_operacao').notNull(),
+  corCodigo:              text('cor_codigo').notNull(),
+  corDescricao:           text('cor_descricao').notNull(),
+  corDenatran:            text('cor_denatran').notNull(),
+  potenciaMotor:          text('potencia_motor').notNull(),
+  cilindradas:            text('cilindradas').notNull(),
+  pesoLiquido:            numeric('peso_liquido', { precision: 9, scale: 4 }).notNull(),
+  pesoBruto:              numeric('peso_bruto', { precision: 9, scale: 4 }).notNull(),
+  numeroSerie:            text('numero_serie').notNull(),
+  tipoCombustivel:        text('tipo_combustivel').notNull(),
+  numeroMotor:            text('numero_motor').notNull(),
+  capacidadeMaximaTracao: numeric('capacidade_maxima_tracao', { precision: 9, scale: 4 }).notNull(),
+  distanciaEixos:         text('distancia_eixos').notNull(),
+  anoModelo:              integer('ano_modelo').notNull(),
+  anoFabricacao:          integer('ano_fabricacao').notNull(),
+  tipoPintura:            text('tipo_pintura').notNull(),
+  tipoVeiculo:            text('tipo_veiculo').notNull(),
+  especie:                text('especie').notNull(),
+  condicaoVin:            text('condicao_vin').notNull(),
+  condicao:               text('condicao').notNull(),
+  codigoMarcaModelo:      text('codigo_marca_modelo').notNull(),
+  lotacao:                integer('lotacao').notNull(),
+  restricao:              text('restricao').notNull(),
+  preenchidoPor:          uuid('preenchido_por').references(() => usuarios.id),
+  criadoEm:               timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm:           timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── motos ───────────────────────────────────────────────────────────────────
 export const motos = pgTable('motos', {
   id: uuid('id').primaryKey().defaultRandom(),
