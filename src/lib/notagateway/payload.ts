@@ -22,6 +22,7 @@
 
 import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
+import type { VeiculoNovo } from './veiculo'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -89,6 +90,8 @@ export type DadosVendaMoto = {
     cest: string
     unidade: string
     origem: string
+    /** Grupo veicProd (RENAVE). Só ciclomotor — ver ./veiculo. */
+    veiculo?: VeiculoNovo
   }
   valor: number
   /** Já no vocabulário da API — ver `formaPagamentoNfe` em ./venda. */
@@ -131,6 +134,7 @@ export type ItemNfe = {
   unidadeMedida: string
   valorUnitario: number
   impostos: ImpostosItem
+  veiculoNovo?: VeiculoNovo
 }
 
 // Nomes da API v2, conferidos em homologação em 15/10/2026: 'ContribuinteIsento' é
@@ -241,6 +245,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     impostos,
   }
   if (moto.cest) item.cest = moto.cest
+  if (moto.veiculo) item.veiculoNovo = moto.veiculo
 
   return {
     id: venda.idExterno,
