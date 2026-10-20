@@ -295,10 +295,31 @@ async function avisosDaVenda(venda: { id: string; dataVenda: Date }) {
   return avisosDaEdicao({ conciliada: cartao.length + pix.length > 0, dataVenda: venda.dataVenda })
 }
 
-/** Avisos para a tela mostrar antes de salvar. Não bloqueiam. */
-export async function avisosEdicaoVendaPecaAction(vendaId: string): Promise<string[]> {
+/**
+ * O que o diálogo de edição precisa ao abrir: itens, pagamentos e os avisos,
+ * que aparecem antes de salvar. `pecas` traz as peças da venda mesmo inativas,
+ * para a busca mostrar o nome.
+ */
+export async function carregarVendaPecaParaEdicaoAction(vendaId: string) {
   const { venda } = await vendaEditavel(vendaId)
-  return avisosDaVenda(venda)
+  const [[cab], itens, avisos] = await Promise.all([
+    db.select({ clienteNome: vendasPecas.clienteNome, pagamentos: vendasPecas.pagamentos }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)),
+    db.select({
+      pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade, valorUnitario: vendasPecasItens.valorUnitario,
+      nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
+    })
+      .from(vendasPecasItens)
+      .innerJoin(pecasCatalogo, eq(pecasCatalogo.id, vendasPecasItens.pecaId))
+      .where(eq(vendasPecasItens.vendaPecaId, vendaId)),
+    avisosDaVenda(venda),
+  ])
+  return {
+    clienteNome: cab.clienteNome,
+    itens: itens.map(i => ({ pecaId: i.pecaId, quantidade: Number(i.quantidade), valorUnitario: Number(i.valorUnitario) })),
+    pecas: itens.map(i => ({ id: i.pecaId, nome: i.nome, valor: i.valor, quantidadeEstoque: i.quantidadeEstoque })),
+    pagamentos: (cab.pagamentos ?? []) as PagamentoVendaPecaInput[],
+    avisos,
+  }
 }
 
 export async function editarVendaPecaAction(
@@ -430,8 +451,8 @@ export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) 
     .limit(500)
 }
 
-// Excluir venda de peças: lançamento errado no balcão não tem como ser editado, então
-// o caminho é apagar e refazer. Devolve o estoque dos itens e SOLTA as transações que
+// Excluir venda de peças: para a venda que não devia existir (itens e pagamentos se
+// corrigem pelo editar, #242). Devolve o estoque dos itens e SOLTA as transações que
 // estavam casadas com essa venda — o dinheiro continua lá na conciliação, livre pra ser
 // vinculado ao lançamento certo. Gestor da loja (inclui aux_adm) resolve sozinho.
 export async function excluirVendaPecaAction(vendaId: string) {

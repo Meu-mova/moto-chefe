@@ -138,7 +138,7 @@ export default async function PecasPage({
               />
             </div>
 
-            <VendasPecasTable vendas={vendas} papel={usuario.papel} />
+            <VendasPecasTable vendas={vendas} papel={usuario.papel} pecas={pecas.filter(p => p.ativo)} />
           </TabsContent>
         )}
 
