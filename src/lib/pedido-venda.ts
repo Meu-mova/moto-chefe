@@ -68,8 +68,9 @@ export async function cancelarPedidoTx(
   if (pedido.status !== 'pendente') throw new Error(`Pedido não está pendente (status: ${pedido.status})`)
   if (!podeCancelarPedido(d.usuario, pedido)) throw new Error('Sem permissão para cancelar este pedido')
 
+  // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.
   await tx.update(pedidosVenda)
-    .set({ status: 'cancelado', dataAtualizacao: new Date(), ...(d.observacao ? { observacao: d.observacao } : {}) })
+    .set({ status: 'cancelado', dataAtualizacao: new Date() })
     .where(eq(pedidosVenda.id, d.pedidoId))
 
   const [moto] = await tx

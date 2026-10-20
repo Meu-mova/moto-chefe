@@ -2,6 +2,13 @@
 // cartão do pedido (cliente), para a tela e o servidor não divergirem de novo (#181:
 // a tela mostrava "Cancelar" ao sócio e o banco recusava).
 
+const PAPEIS_QUE_CRIAM_PEDIDO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
+
+/** Quem pode abrir pedido de venda (tela e servidor usam a mesma regra). */
+export function podeCriarPedido(papel: string): boolean {
+  return PAPEIS_QUE_CRIAM_PEDIDO.includes(papel)
+}
+
 export type QuemCancela = { id: string; papel: string; lojaId: string | null }
 export type PedidoParaCancelar = { status: string; lojaId: string; vendedorId: string }
 

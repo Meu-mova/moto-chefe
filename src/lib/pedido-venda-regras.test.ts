@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { motivoBloqueioCriarPedido, podeCancelarPedido } from './pedido-venda-regras'
+import { motivoBloqueioCriarPedido, podeCancelarPedido, podeCriarPedido } from './pedido-venda-regras'
 
 const pedido = { status: 'pendente', lojaId: 'loja-a', vendedorId: 'vend-1' }
 
@@ -40,4 +40,9 @@ describe('motivoBloqueioCriarPedido', () => {
     assert.match(motivoBloqueioCriarPedido({ status: 'montada', disponibilidade: 'aguardando_aprovacao' }, false)!, /não está disponível/)
     assert.match(motivoBloqueioCriarPedido({ status: 'montada', disponibilidade: 'disponivel' }, true)!, /transferência/)
   })
+})
+
+test('podeCriarPedido: sócios, aux_adm e vendedor criam; mecânico e motorista não', () => {
+  for (const p of ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']) assert.equal(podeCriarPedido(p), true, p)
+  for (const p of ['mecanico', 'motorista', '']) assert.equal(podeCriarPedido(p), false, p)
 })

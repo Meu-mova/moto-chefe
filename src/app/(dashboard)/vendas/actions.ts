@@ -22,6 +22,7 @@ import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
+import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
@@ -163,7 +164,7 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
 
 export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
+  if (!podeCriarPedido(usuario.papel)) {
     throw new Error('Sem permissão para criar pedido de venda')
   }
 
