@@ -58,6 +58,17 @@ test('com os termos confirmados, nenhum valor pendente sobra no contrato', () =>
   else assert.ok(pendentes.length > 0, 'com valores pendentes, TERMOS_CONFIRMADOS tem de ficar false')
 })
 
+test('contrato traz os termos fechados em 17/10/2026', () => {
+  const html = montarContratoAdesao(DADOS)
+  assert.match(html, /para pagamento por PIX ou boleto\./)
+  assert.doesNotMatch(html, /cart[aã]o de cr[eé]dito|cart[aã]o de d[eé]bito/i)
+  assert.doesNotMatch(html, /nota fiscal de servi[cç]o/i)
+  assert.match(html, /das 9h às 12h e das 14h às 17h, respondendo em até 2 horas úteis/)
+  assert.match(html, /backup\) do banco de dados do CLIENTE pelo menos uma vez por dia, mantida por no mínimo 7 dias\. Arquivos anexados/)
+  assert.match(html, /limitada ao valor de uma mensalidade/)
+  assert.match(html, /antes de completar 6 meses de vigência, paga multa de uma mensalidade/)
+})
+
 const ENVIO = { statusAdesao: 'dados_completos' as const, dados: DADOS, jaAssinado: false, producao: true, termosConfirmados: true }
 
 test('envio liberado com dados completos e termos confirmados', () => {

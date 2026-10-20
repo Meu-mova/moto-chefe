@@ -64,6 +64,9 @@ export const grupos = pgTable('grupos', {
   // Não é a cidade da loja que vendeu, nem se deriva da comarca.
   cidadeSede:         text('cidade_sede'),
   comarcaForo:        text('comarca_foro'),
+  // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
+  // no primeiro acesso de quem não é admin_geral: a implantação não conta.
+  primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
@@ -1628,6 +1631,9 @@ export const adesoesMova = pgTable('adesoes_mova', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
   franqueadoMotochefe: boolean('franqueado_motochefe').notNull().default(false),
   taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
+  // Grupo que esta adesão gerou: a mensalidade dele sai daqui (#207). Um grupo,
+  // uma adesão (índice único parcial na 0127).
+  grupoId: uuid('grupo_id').references(() => grupos.id),
 })
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────
@@ -1677,4 +1683,48 @@ export const contratosAdesaoCodigos = pgTable('contratos_adesao_codigos', {
   tentativas: integer('tentativas').notNull().default(0),
   usadoEm:    timestamp('usado_em', { withTimezone: true }),
   criadoEm:   timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── mensalidade (cobrança do MOVA aos lojistas, #208) ───────────────────────
+// Spec: docs/superpowers/specs/2026-09-14-assinatura-mova-design.md. Regras em
+// @/lib/mensalidade/regras. "Assinatura" no código é a assinatura eletrônica.
+export const mensalidadeConfig = pgTable('mensalidade_config', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  grupoId:         uuid('grupo_id').notNull().unique().references(() => grupos.id),
+  valorMensal:     numeric('valor_mensal', { precision: 12, scale: 2 }),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }),
+  isento:          boolean('isento').notNull().default(false),
+  criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const mensalidades = pgTable('mensalidades', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  grupoId:         uuid('grupo_id').notNull().references(() => grupos.id),
+  competencia:     text('competencia').notNull(),
+  valor:           numeric('valor', { precision: 12, scale: 2 }).notNull(),
+  taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }).notNull().default('0'),
+  acrescimo:       numeric('acrescimo', { precision: 12, scale: 2 }).notNull().default('0'),
+  vencimento:      date('vencimento').notNull(),
+  status:          text('status').$type<'aberta' | 'paga' | 'cancelada'>().notNull().default('aberta'),
+  mpPreferenceId:  text('mp_preference_id'),
+  mpPaymentId:     text('mp_payment_id'),
+  linkPagamento:   text('link_pagamento'),
+  pagoEm:          timestamp('pago_em', { withTimezone: true }),
+  criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // E-mail do dia do vencimento já enviado: o cron não repete.
+  avisoVencimentoEm: timestamp('aviso_vencimento_em', { withTimezone: true }),
+}, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
+
+// Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
+// Sem grupo_id: quem cobra é o MOVA, e o grupo só se conhece depois de ler o pagamento.
+export const mensalidadeWebhookEventos = pgTable('mensalidade_webhook_eventos', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  mpNotificationId: text('mp_notification_id').notNull().unique(),
+  tipo:             text('tipo'),
+  action:           text('action'),
+  dataId:           text('data_id'),
+  liveMode:         boolean('live_mode'),
+  recebidoEm:       timestamp('recebido_em', { withTimezone: true }).notNull().defaultNow(),
+  processadoEm:     timestamp('processado_em', { withTimezone: true }),
+  erro:             text('erro'),
 })

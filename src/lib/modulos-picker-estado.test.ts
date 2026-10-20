@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { estado, alternar } from './modulos-picker-estado'
+import { estado, alternar, diferencaDaFuncao } from './modulos-picker-estado'
 
 // 'atendimento' é de GESTORES (admin_geral, admin_socio, aux_adm) — vendedor não tem.
 const ITEM_DE_GESTOR = 'atendimento'
@@ -78,4 +78,11 @@ test('papeisExtras concede o item como se fosse do papel — caso real: aux_adm 
     estado(PAPEL_QUE_NAO_DA, papeisExtras, resultado.extras, resultado.bloqueados, ITEM_DE_GESTOR),
     'bloqueado',
   )
+})
+
+test('diferencaDaFuncao: liberado que a função já dá não conta; item fora da lista mostrada também não', () => {
+  assert.deepEqual(diferencaDaFuncao(PAPEL_QUE_DA, SEM_EXTRAS, [ITEM_DE_GESTOR], [], [ITEM_DE_GESTOR]), { liberados: 0, bloqueados: 0 })
+  assert.deepEqual(diferencaDaFuncao(PAPEL_QUE_NAO_DA, SEM_EXTRAS, [ITEM_DE_GESTOR], [], [ITEM_DE_GESTOR]), { liberados: 1, bloqueados: 0 })
+  assert.deepEqual(diferencaDaFuncao(PAPEL_QUE_DA, SEM_EXTRAS, [], [ITEM_DE_GESTOR], [ITEM_DE_GESTOR]), { liberados: 0, bloqueados: 1 })
+  assert.deepEqual(diferencaDaFuncao(PAPEL_QUE_NAO_DA, SEM_EXTRAS, [ITEM_DE_GESTOR], [], []), { liberados: 0, bloqueados: 0 })
 })

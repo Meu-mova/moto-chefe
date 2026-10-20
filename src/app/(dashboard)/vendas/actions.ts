@@ -8,7 +8,7 @@ import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
@@ -23,6 +23,7 @@ import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
+import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -219,6 +220,12 @@ export async function efetivarVendaAction(
     .where(eq(pedidosVenda.id, pedidoId))
     .limit(1)
   if (!pedido) throw new Error('Pedido não encontrado')
+  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
+    throw new Error('Sem permissão para efetivar venda deste grupo')
+  }
+
+  const valorNum = parseFloat(valor)
+  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
 
   if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
     throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
@@ -227,25 +234,19 @@ export async function efetivarVendaAction(
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
   const comprador = conferirComprador(clienteCpf)
 
-  const supabase = await createClient()
-  const { data: vendaId, error } = await supabase.rpc('efetivar_venda', {
-    p_pedido_id: pedidoId,
-    p_efetivado_por: usuario.id,
-    p_cliente_nome: clienteNome,
-    p_cliente_cpf: comprador.clienteCpf,
-    p_valor: parseFloat(valor),
-    p_forma_pagamento: formaPagamento,
-    p_origem_id: origem.origemId,
-    p_origem_detalhe: origem.origemDetalhe,
-  })
-  if (error) throw new Error(error.message)
-  if (clienteId && vendaId) {
-    const { error: updateError } = await supabase
-      .from('vendas')
-      .update({ cliente_id: clienteId })
-      .eq('id', vendaId as string)
-    if (updateError) throw new Error(updateError.message)
-  }
+  // Pelo Drizzle, não pela sessão: a RLS de escrita em vendas só aceita
+  // admin_geral, e o vínculo do cliente sumia calado para sócio e aux_adm (#181).
+  await db.transaction(tx => efetivarPedidoTx(tx, {
+    pedidoId,
+    lojaId: pedido.lojaId,
+    efetivadoPor: usuario.id,
+    clienteId: clienteId || null,
+    clienteNome,
+    clienteCpf: comprador.clienteCpf,
+    valor: valorNum,
+    formaPagamento,
+    origem,
+  }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }

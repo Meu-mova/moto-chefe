@@ -156,8 +156,8 @@ export async function reconsultarCartasAction(notaId: string): Promise<Resultado
 
 /**
  * Descarta a carta pendente que não chegou à Nota Gateway, ou que chegou e a
- * SEFAZ rejeitou: só depois do prazo e se a consulta confirmar um dos dois. Fica como recusada, o que libera
- * o número para a próxima tentativa.
+ * SEFAZ negou: só depois do prazo e se a consulta confirmar um dos dois. Fica
+ * como recusada, e o número volta para a próxima tentativa.
  */
 export async function descartarCartaAction(notaId: string, cartaId: string): Promise<ResultadoCartas> {
   try {
