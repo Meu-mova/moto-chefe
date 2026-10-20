@@ -47,7 +47,7 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
         type="button"
         onClick={() => toast.info(bloqueio)}
         title={bloqueio}
-        className="flex items-center gap-1.5 text-sm text-slate-400 border border-slate-200 rounded-lg px-3 py-1.5"
+        className="flex items-center gap-1.5 text-sm text-muted-foreground border border-input rounded-lg px-3 py-1.5"
       >
         <Ban size={15} /> Cancelar OS
       </button>
@@ -59,7 +59,7 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
       <button
         onClick={() => setOpen(true)}
         title="Cancelar OS"
-        className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-800 border border-slate-200 rounded-lg px-3 py-1.5 hover:border-amber-300 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-warning hover:bg-warning/10 border border-input rounded-lg px-3 py-1.5 hover:border-warning transition-colors"
       >
         <Ban size={15} /> Cancelar OS
       </button>
@@ -71,7 +71,7 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
           </DialogHeader>
 
           <div className="space-y-2">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               A OS fica registrada como cancelada e não pode mais ser editada. Ela deixa de contar
               no faturamento e nas comissões.
             </p>

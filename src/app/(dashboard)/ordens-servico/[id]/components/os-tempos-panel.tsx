@@ -24,8 +24,8 @@ function Etapa({ label, de, ate }: { label: string; de: Date | null; ate: Date |
   if (!de) {
     return (
       <div className="flex justify-between text-sm">
-        <span className="text-slate-400">{label}</span>
-        <span className="text-slate-300">—</span>
+        <span className="text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground">—</span>
       </div>
     )
   }
@@ -33,8 +33,8 @@ function Etapa({ label, de, ate }: { label: string; de: Date | null; ate: Date |
   const duracao = formatarDuracao((emAndamento ? new Date() : ate)!.getTime() - de.getTime())
   return (
     <div className="flex justify-between text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className={emAndamento ? 'text-amber-600 font-medium' : 'text-slate-700'}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className={emAndamento ? 'text-warning font-medium' : 'text-foreground'}>
         {duracao}{emAndamento ? ' (em andamento)' : ''}
       </span>
     </div>
@@ -53,10 +53,10 @@ export function OSTemposPanel({ dataAbertura, oficinaEm, emAndamentoEm, finaliza
         <Etapa label="Em Andamento → Finalizada"            de={emAndamentoEm}        ate={finalizadaEm} />
         <Etapa label="Finalizada → Pendente de Pagamento"   de={finalizadaEm}         ate={pendentePagamentoEm} />
         <Etapa label="Pendente de Pagamento → Concluída"    de={pendentePagamentoEm}  ate={dataConclusao} />
-        <div className="h-px bg-slate-100 my-1" />
+        <div className="h-px bg-muted my-1" />
         <div className="flex justify-between text-sm font-semibold">
-          <span className="text-slate-600">Total</span>
-          <span className="text-slate-800">
+          <span className="text-muted-foreground">Total</span>
+          <span className="text-foreground">
             {formatarDuracao((dataConclusao ?? new Date()).getTime() - dataAbertura.getTime())}
             {!dataConclusao ? ' (em andamento)' : ''}
           </span>
