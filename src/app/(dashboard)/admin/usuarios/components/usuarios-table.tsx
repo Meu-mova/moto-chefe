@@ -11,6 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
+import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
+import { ITENS } from '@/lib/navegacao'
+
+// O picker esconde os itens de regra própria: o resumo conta só o que ele mostra.
+const IDS_MODULOS = ITENS.filter(i => !i.regraPropria).map(i => i.id)
 
 type Loja = { id: string; nome: string }
 type Grupo = { id: string; nome: string }
@@ -115,8 +120,10 @@ function FormUsuario({
   const [gruposAcesso, setGruposAcesso] = useState<string[]>(inicial?.gruposAcesso ?? [])
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
-  // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define.
-  const [verModulos, setVerModulos] = useState(false)
+  const diferenca = diferencaDaFuncao(papel, inicial?.papeisExtras ?? [], modulosExtras, modulosBloqueados, IDS_MODULOS)
+  // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define. Quem
+  // já tem diferença salva abre aberto, para o ajuste não ficar escondido.
+  const [verModulos, setVerModulos] = useState(() => diferenca.liberados + diferenca.bloqueados > 0)
 
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
@@ -213,15 +220,15 @@ function FormUsuario({
               <div className="space-y-1">
                 <Label>Acesso a módulos</Label>
                 <p className="text-xs text-muted-foreground">
-                  {modulosExtras.length || modulosBloqueados.length
+                  {diferenca.liberados || diferenca.bloqueados
                     ? [
-                        modulosExtras.length ? `${modulosExtras.length} liberado(s) a mais` : '',
-                        modulosBloqueados.length ? `${modulosBloqueados.length} bloqueado(s)` : '',
-                      ].filter(Boolean).join(' · ') + ' além do que a função dá'
+                        diferenca.liberados ? `${diferenca.liberados} liberado(s) a mais` : '',
+                        diferenca.bloqueados ? `${diferenca.bloqueados} bloqueado(s)` : '',
+                      ].filter(Boolean).join(' · ') + ' em relação à função'
                     : 'Usa os módulos da função.'}
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setVerModulos(v => !v)}>
+              <Button type="button" variant="outline" size="sm" aria-expanded={verModulos} onClick={() => setVerModulos(v => !v)}>
                 {verModulos ? 'Ocultar módulos' : 'Personalizar'}
               </Button>
             </div>
@@ -506,7 +513,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
-          <DialogHeader className="border-b px-4 py-4 sm:px-6">
+          <DialogHeader className="border-b py-4 pr-12 pl-4 sm:pl-6">
             <DialogTitle>Novo usuário</DialogTitle>
           </DialogHeader>
           <FormUsuario
@@ -522,7 +529,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
       {/* Dialog Editar */}
       <Dialog open={!!editando} onOpenChange={open => { if (!open) setEditando(null) }}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
-          <DialogHeader className="border-b px-4 py-4 sm:px-6">
+          <DialogHeader className="border-b py-4 pr-12 pl-4 sm:pl-6">
             <DialogTitle>Editar usuário</DialogTitle>
             <p className="text-sm text-muted-foreground">{editando?.nome}</p>
           </DialogHeader>
