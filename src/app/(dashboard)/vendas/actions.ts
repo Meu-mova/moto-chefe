@@ -23,8 +23,10 @@ import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
+import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
+import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -163,21 +165,21 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
 
 export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
+  if (!podeCriarPedido(usuario.papel)) {
     throw new Error('Sem permissão para criar pedido de venda')
   }
-  const supabase = await createClient()
 
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
+  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId)))) {
+    throw new Error('Sem permissão para criar pedido neste grupo')
+  }
 
-  const { error } = await supabase.rpc('criar_pedido_venda', {
-    p_moto_id: motoId,
-    p_loja_id: moto.lojaId,
-    p_vendedor_id: usuario.id,
-    p_observacao: observacao ?? null,
-  })
-  if (error) throw new Error(error.message)
+  await db.transaction(tx => criarPedidoTx(tx, {
+    motoId,
+    vendedorId: usuario.id,
+    observacao: observacao?.trim() || null,
+  }))
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -185,15 +187,18 @@ export async function criarPedidoVendaAction(motoId: string, observacao?: string
 
 export async function cancelarPedidoAction(pedidoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('cancelar_pedido_venda', {
-    p_pedido_id: pedidoId,
-    p_usuario_id: usuario.id,
-    p_papel: usuario.papel,
-    p_loja_usuario_id: usuario.lojaId ?? null,
-    p_observacao: observacao ?? null,
-  })
-  if (error) throw new Error(error.message)
+
+  const [pedido] = await db.select({ lojaId: pedidosVenda.lojaId }).from(pedidosVenda).where(eq(pedidosVenda.id, pedidoId)).limit(1)
+  if (!pedido) throw new Error('Pedido não encontrado')
+  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
+    throw new Error('Sem permissão para cancelar pedido deste grupo')
+  }
+
+  await db.transaction(tx => cancelarPedidoTx(tx, {
+    pedidoId,
+    usuario: { id: usuario.id, papel: usuario.papel, lojaId: usuario.lojaId ?? null },
+    observacao: observacao?.trim() || null,
+  }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
