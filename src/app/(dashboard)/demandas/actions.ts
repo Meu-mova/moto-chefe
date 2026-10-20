@@ -123,11 +123,17 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   return { id: row.id }
 }
 
+async function exigirDemandaNoEscopo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, demandaId: string) {
+  const [demanda] = await db.select({ lojaId: demandas.lojaId }).from(demandas).where(eq(demandas.id, demandaId)).limit(1)
+  if (!demanda || !(await podeAgirNaLoja(usuario, demanda.lojaId))) throw new Error('Demanda não encontrada')
+}
+
 export async function darBaixaAction(demandaId: string) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) {
     throw new Error('Sem permissão para dar baixa')
   }
+  await exigirDemandaNoEscopo(usuario, demandaId)
   await db.delete(demandas).where(eq(demandas.id, demandaId))
   revalidatePath('/demandas')
 }
@@ -139,10 +145,7 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
 
   const [demanda] = await db.select({ lojaId: demandas.lojaId, sinalRecebido: demandas.sinalRecebido, numero: demandas.numero })
     .from(demandas).where(eq(demandas.id, demandaId)).limit(1)
-  if (!demanda) throw new Error('Demanda não encontrada')
-  if (!ADMINS.includes(usuario.papel) && demanda.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão para essa loja')
-  }
+  if (!demanda || !(await podeAgirNaLoja(usuario, demanda.lojaId))) throw new Error('Demanda não encontrada')
 
   validarSnapshot(sinal)
   const principal = validarSinal(sinal)
@@ -166,6 +169,7 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
 export async function desmarcarSinalDemandaAction(demandaId: string) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão para desmarcar o sinal')
+  await exigirDemandaNoEscopo(usuario, demandaId)
 
   await db.update(demandas)
     .set({ sinalRecebido: false })
