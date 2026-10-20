@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
+import { GESTORES, podeAvancarOS } from '@/lib/os-transicao'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
 import {
@@ -15,7 +16,6 @@ import {
 
 const ADMINS    = ['admin_geral', 'admin_socio'] as const
 const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
-const GESTORES  = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
 async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   const usuario = await getUsuarioLogado()
@@ -131,13 +131,6 @@ export async function abrirOSAction(input: AbrirOSInput) {
 
 const SEQUENCIA_STATUS = ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento', 'concluida'] as const
 
-const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
-  oficina:            ['mecanico'],
-  em_andamento:       ['mecanico'],
-  finalizada:         ['mecanico'],
-  pendente_pagamento: GESTORES,
-}
-
 const COLUNA_TIMESTAMP_TRANSICAO: Record<string, 'oficinaEm' | 'emAndamentoEm' | 'finalizadaEm' | 'pendentePagamentoEm'> = {
   oficina:            'oficinaEm',
   em_andamento:       'emAndamentoEm',
@@ -166,10 +159,7 @@ export async function atualizarStatusOSAction(osId: string, novoStatus: string) 
     throw new Error('Transição de status inválida')
   }
 
-  const responsaveis = RESPONSAVEL_TRANSICAO[novoStatus]
-  if (!responsaveis || !responsaveis.includes(usuario.papel)) {
-    throw new Error('Sem permissão')
-  }
+  if (!podeAvancarOS(novoStatus, usuario.papel)) throw new Error('Sem permissão')
 
   const colunaTempo = COLUNA_TIMESTAMP_TRANSICAO[novoStatus]
 

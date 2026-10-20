@@ -1,8 +1,10 @@
 'use client'
 import { useTransition } from 'react'
-import { CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, Loader2 } from 'lucide-react'
 import { atualizarStatusOSAction } from '../../actions'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { RESPONSAVEL_TRANSICAO, podeAvancarOS } from '@/lib/os-transicao'
 
 const STEPS = [
   { key: 'aberta',              label: 'Aberta' },
@@ -12,13 +14,6 @@ const STEPS = [
   { key: 'pendente_pagamento',  label: 'Pendente de Pagamento' },
   { key: 'concluida',           label: 'Concluída' },
 ]
-
-const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
-  oficina:            ['mecanico'],
-  em_andamento:       ['mecanico'],
-  finalizada:         ['mecanico'],
-  pendente_pagamento: ['admin_geral', 'admin_socio', 'aux_adm'],
-}
 
 const RESPONSAVEL_LABEL: Record<string, string> = {
   mecanico: 'mecânico',
@@ -34,7 +29,7 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
 
   const responsaveis = next ? RESPONSAVEL_TRANSICAO[next.key] : undefined
   const ehUltimaAutomatica = next?.key === 'concluida'
-  const podeAvancar = podeEditar && !!next && !ehUltimaAutomatica && !!responsaveis?.includes(papel)
+  const podeAvancar = podeEditar && !!next && !ehUltimaAutomatica && podeAvancarOS(next.key, papel)
 
   function avancar() {
     if (!next) return
@@ -48,58 +43,78 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
     })
   }
 
+  const botao = (cls: string) => (
+    <button
+      type="button"
+      onClick={avancar}
+      disabled={pending}
+      className={cn('rounded-lg bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50', cls)}
+    >
+      {pending ? 'Salvando…' : <span className="inline-flex items-center justify-center gap-1.5"><ArrowRight className="size-4" aria-hidden />{next?.label}</span>}
+    </button>
+  )
+  const mostrarAvancar = Boolean(next && !ehUltimaAutomatica && podeAvancar)
+  const aguardando = next && !ehUltimaAutomatica && !podeAvancar
+    ? `Aguardando ${RESPONSAVEL_LABEL[responsaveis?.[0] ?? ''] ?? 'responsável'}`
+    : ehUltimaAutomatica ? 'Aguardando pagamento' : null
+
   return (
-    <div className="flex items-center gap-0 flex-wrap">
-      {STEPS.map((step, idx) => {
-        const done    = idx < currentIdx
-        const current = idx === currentIdx
-        const isLast  = idx === STEPS.length - 1
-
-        return (
-          <div key={step.key} className="flex items-center flex-1 min-w-[110px]">
-            <div className={`flex flex-col items-center flex-1 py-3 px-2 rounded-lg border transition-colors ${
-              current ? 'bg-blue-50 border-blue-300' :
-              done    ? 'bg-green-50 border-green-200' :
-                        'bg-slate-50 border-slate-100'
-            }`}>
-              {done
-                ? <CheckCircle2 size={18} className="text-green-500" />
-                : current && pending
-                  ? <Loader2 size={18} className="text-blue-500 animate-spin" />
-                  : <Circle size={18} className={current ? 'text-blue-500' : 'text-slate-300'} />
-              }
-              <span className={`text-xs font-medium mt-1 text-center ${
-                current ? 'text-blue-700' : done ? 'text-green-700' : 'text-slate-400'
-              }`}>
-                {step.label}
+    <>
+      {/* Celular/tablet: passos em lista vertical; o botão de avançar fica fixo no rodapé (#248). */}
+      <ol className="space-y-1 rounded-xl border border-border bg-card p-3 lg:hidden" aria-label="Etapas da OS">
+        {STEPS.map((step, idx) => {
+          const done = idx < currentIdx
+          const current = idx === currentIdx
+          return (
+            <li key={step.key} className="flex items-center gap-3 py-1 text-sm">
+              <span className={cn(
+                'grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium',
+                done ? 'bg-primary text-primary-foreground' : current ? 'bg-primary-soft text-primary-text ring-2 ring-primary' : 'bg-muted text-muted-foreground ring-1 ring-border',
+              )}>
+                {done ? <CheckCircle2 className="size-4" /> : current && pending ? <Loader2 className="size-4 animate-spin" /> : idx + 1}
               </span>
+              <span className={cn(current ? 'font-semibold text-foreground' : done ? 'text-foreground' : 'text-muted-foreground')}>
+                {step.label}{current && <span className="sr-only"> (atual)</span>}
+              </span>
+            </li>
+          )
+        })}
+        {aguardando && <li className="pt-1 text-xs text-muted-foreground">{aguardando}</li>}
+      </ol>
+      {mostrarAvancar && (
+        <div data-barra-fixa className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+          {botao('h-11 w-full')}
+        </div>
+      )}
+
+      {/* Desktop: barra horizontal */}
+      <div className="hidden flex-wrap items-center gap-0 lg:flex">
+        {STEPS.map((step, idx) => {
+          const done    = idx < currentIdx
+          const current = idx === currentIdx
+          const isLast  = idx === STEPS.length - 1
+          return (
+            <div key={step.key} className="flex min-w-[110px] flex-1 items-center">
+              <div className={cn(
+                'flex flex-1 flex-col items-center rounded-lg border px-2 py-3 transition-colors',
+                current ? 'border-primary bg-primary-soft' : done ? 'border-border bg-card' : 'border-border bg-muted',
+              )}>
+                {done
+                  ? <CheckCircle2 size={18} className="text-primary" />
+                  : current && pending
+                    ? <Loader2 size={18} className="animate-spin text-primary" />
+                    : <Circle size={18} className={current ? 'text-primary' : 'text-muted-foreground'} />}
+                <span className={cn('mt-1 text-center text-xs font-medium', current ? 'text-primary-text' : done ? 'text-foreground' : 'text-muted-foreground')}>
+                  {step.label}
+                </span>
+              </div>
+              {!isLast && <div className={cn('h-px w-3', done ? 'bg-primary' : 'bg-border')} />}
             </div>
-            {!isLast && <div className={`h-px w-3 ${done ? 'bg-green-300' : 'bg-slate-200'}`} />}
-          </div>
-        )
-      })}
-
-      {next && !ehUltimaAutomatica && (
-        podeAvancar ? (
-          <button
-            onClick={avancar}
-            disabled={pending}
-            className="ml-4 px-4 py-2 text-sm font-medium bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-          >
-            {pending ? 'Salvando…' : `→ ${next.label}`}
-          </button>
-        ) : (
-          <span className="ml-4 text-xs text-slate-400 whitespace-nowrap">
-            Aguardando {RESPONSAVEL_LABEL[responsaveis?.[0] ?? ''] ?? 'responsável'}
-          </span>
-        )
-      )}
-
-      {ehUltimaAutomatica && (
-        <span className="ml-4 text-xs text-slate-400 whitespace-nowrap">
-          Aguardando pagamento
-        </span>
-      )}
-    </div>
+          )
+        })}
+        {mostrarAvancar && <div className="ml-4">{botao('h-9')}</div>}
+        {aguardando && <span className="ml-4 text-xs whitespace-nowrap text-muted-foreground">{aguardando}</span>}
+      </div>
+    </>
   )
 }

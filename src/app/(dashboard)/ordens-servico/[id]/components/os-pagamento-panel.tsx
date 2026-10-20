@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { X, Plus } from 'lucide-react'
+import { Check, X, Plus } from 'lucide-react'
 import { registrarPagamentoOSAction } from '../../actions'
 import { buscarCupomPorCodigoAction } from '@/app/(dashboard)/cupons/actions'
 import type { PgtoOS } from '@/lib/conciliacao-status'
@@ -77,7 +77,7 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
       return { ...x, [campo]: val }
     }))
 
-  // Digitar de novo apaga o resultado da conferência anterior: manter o "✓" verde
+  // Digitar de novo apaga o resultado da conferência anterior: manter o ícone de ok
   // ao lado de um código já alterado é pior que não mostrar nada.
   function limparCupomInfo(linhaId: string) {
     setCupomInfo(c => {
@@ -152,10 +152,10 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
         </CardHeader>
         <CardContent className="space-y-3">
           {jaPago ? (
-            <p className="text-sm text-green-600">✓ OS gratuita — sem pendência de pagamento.</p>
+            <p className="text-sm text-primary-text">OS gratuita — sem pendência de pagamento.</p>
           ) : (
             <>
-              <p className="text-xs text-slate-500">Esta OS não tem cobrança (R$ 0,00).</p>
+              <p className="text-xs text-muted-foreground">Esta OS não tem cobrança (R$ 0,00).</p>
               <Button size="sm" onClick={concluirGratuita} disabled={pending} className="w-full">
                 {pending ? 'Concluindo…' : 'Concluir OS gratuita'}
               </Button>
@@ -173,16 +173,16 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
       </CardHeader>
       <CardContent className="space-y-3">
         {aprovacaoPendente && (
-          <p className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
+          <p className="text-xs text-foreground bg-muted border border-border rounded-md px-3 py-2">
             Pagamento por transferência bancária enviado para aprovação — a OS só fica marcada como paga quando for aprovado.
           </p>
         )}
 
         {linhas.map(l => (
-          <div key={l.id} className="space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+          <div key={l.id} className="space-y-1.5 rounded-lg border border-border bg-muted/50 p-3">
             <div className="flex gap-2 items-center">
               <select value={l.tipo} onChange={e => updateLinha(l.id, 'tipo', e.target.value)}
-                className="flex-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="flex-1 border border-input rounded-md px-3 py-2 text-sm bg-background">
                 <option value="">Selecione...</option>
                 {FORMAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
               </select>
@@ -195,14 +195,14 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
             </div>
 
             {FORMAS_CARTAO.has(l.tipo) && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select value={l.operadora ?? ''} onChange={e => updateLinha(l.id, 'operadora', e.target.value)}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
                   <option value="">Operadora...</option>
                   {OPERADORAS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <select value={l.parcelas ?? ''} onChange={e => updateLinha(l.id, 'parcelas', e.target.value)}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
                   <option value="">Parcelas...</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}x</option>)}
                 </select>
@@ -226,11 +226,11 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
                   className="font-mono"
                 />
                 {cupomInfo[l.id] && (
-                  <p className={`text-xs ${cupomInfo[l.id].ok ? 'text-green-700' : 'text-red-600'}`}>
-                    {cupomInfo[l.id].ok ? '✓ ' : '✗ '}{cupomInfo[l.id].texto}
+                  <p className={`flex items-center gap-1 text-xs ${cupomInfo[l.id].ok ? 'text-primary-text' : 'text-destructive'}`}>
+                    {cupomInfo[l.id].ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}{cupomInfo[l.id].texto}
                   </p>
                 )}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   O cupom cobre a mão de obra ({valorServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).
                   As peças continuam sendo cobradas.
                 </p>
@@ -244,7 +244,7 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
         </Button>
 
         <div className={`text-xs px-3 py-2 rounded-md border font-medium ${
-          somatorioOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+          somatorioOk ? 'bg-primary-soft text-primary-text border-primary/30' : 'bg-warning/10 text-warning border-warning/40'
         }`}>
           Soma: {somatorio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           {' '}/ Total: {valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

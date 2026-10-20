@@ -41,87 +41,102 @@ export function PedidosFabricaTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button onClick={carregar} disabled={loading}>
-          <RefreshCw size={16} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <Button onClick={carregar} disabled={loading} className="h-10 w-full gap-1.5 sm:w-auto">
+          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Consultando a fábrica...' : 'Carregar pedidos'}
         </Button>
         {resultado && !loading && (
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             {total} peça(s) · {resultado.length} loja(s) consultada(s)
           </span>
         )}
       </div>
 
       {!resultado && !loading && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Peças compradas na fábrica que ainda não foram entregues. Clique em{' '}
           <strong>Carregar pedidos</strong> — a consulta é feita ao vivo no portal e leva alguns segundos por loja.
         </p>
       )}
 
       {resultado?.map(loja => (
-        <div key={loja.lojaId} className="rounded-lg border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-800">{loja.loja}</h2>
+        <div key={loja.lojaId} className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted px-4 py-2.5">
+            <h2 className="font-semibold">{loja.loja}</h2>
             {loja.status === 'ok' && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted-foreground">
                 {loja.itens.length === 0 ? 'sem pedidos em aberto' : `${loja.itens.length} peça(s)`}
               </span>
             )}
           </div>
 
           {loja.status === 'erro' && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-red-600">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-destructive">
               <AlertTriangle size={15} /> Não foi possível ler esta loja{loja.erro ? ` (${loja.erro})` : ''}.
             </p>
           )}
 
           {loja.status === 'sem_credencial' && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <KeyRound size={15} /> Sem login da fábrica cadastrado para esta loja.
             </p>
           )}
 
           {loja.status === 'ok' && loja.itens.length === 0 && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <Package2 size={15} /> Nenhum pedido de compra em aberto.
             </p>
           )}
 
           {loja.status === 'ok' && loja.itens.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-100">
-                    <th className="px-4 py-2 font-medium">Peça</th>
-                    <th className="px-4 py-2 font-medium">Categoria</th>
-                    <th className="px-4 py-2 font-medium">Qtd</th>
-                    <th className="px-4 py-2 font-medium">Status</th>
-                    <th className="px-4 py-2 font-medium">Entrega</th>
-                    <th className="px-4 py-2 font-medium">Pedido</th>
-                    <th className="px-4 py-2 font-medium">Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loja.itens.map((item, i) => (
-                    <tr key={`${item.numeroPedido}-${i}`} className="border-b border-slate-50 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-800">{item.peca}</td>
-                      <td className="px-4 py-2 text-slate-600">{item.categoria ?? '—'}</td>
-                      <td className="px-4 py-2 text-slate-600">{item.quantidade ?? '—'}</td>
-                      <td className="px-4 py-2">
-                        <span className="text-xs rounded-full bg-slate-100 text-slate-600 px-2 py-0.5">
-                          {item.status ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-slate-600">{item.tipoEntrega ?? '—'}</td>
-                      <td className="px-4 py-2 text-slate-600">#{item.numeroPedido}</td>
-                      <td className="px-4 py-2 text-slate-600">{item.dataPedido?.split(' ')[0] ?? '—'}</td>
+            <>
+              {/* Celular/tablet: um item por linha. */}
+              <ul className="divide-y divide-border lg:hidden">
+                {loja.itens.map((item, i) => (
+                  <li key={`${item.numeroPedido}-${i}`} className="space-y-1 px-4 py-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 font-medium break-words">{item.peca}</p>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{item.status ?? '—'}</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Qtd {item.quantidade ?? '—'} · Pedido #{item.numeroPedido} · {item.dataPedido?.split(' ')[0] ?? '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{[item.categoria, item.tipoEntrega].filter(Boolean).join(' · ') || '—'}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="px-4 py-2 font-medium">Peça</th>
+                      <th className="px-4 py-2 font-medium">Categoria</th>
+                      <th className="px-4 py-2 font-medium">Qtd</th>
+                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-4 py-2 font-medium">Entrega</th>
+                      <th className="px-4 py-2 font-medium">Pedido</th>
+                      <th className="px-4 py-2 font-medium">Data</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {loja.itens.map((item, i) => (
+                      <tr key={`${item.numeroPedido}-${i}`} className="border-b border-border last:border-0">
+                        <td className="px-4 py-2 font-medium">{item.peca}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{item.categoria ?? '—'}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{item.quantidade ?? '—'}</td>
+                        <td className="px-4 py-2">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{item.status ?? '—'}</span>
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">{item.tipoEntrega ?? '—'}</td>
+                        <td className="px-4 py-2 text-muted-foreground">#{item.numeroPedido}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{item.dataPedido?.split(' ')[0] ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       ))}
