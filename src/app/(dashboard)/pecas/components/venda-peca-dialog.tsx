@@ -277,7 +277,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 <select
                   value={tipoPessoa}
                   onChange={e => setTipoPessoa(e.target.value)}
-                  className="h-9 w-full border border-slate-200 rounded-md px-2 text-sm bg-white"
+                  className="h-9 w-full border border-input rounded-md px-2 text-sm bg-background"
                 >
                   <option value="fisica">Pessoa física</option>
                   <option value="juridica">Empresa (CNPJ)</option>
@@ -300,7 +300,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   className="font-mono"
                 />
                 {tipoPessoa === 'juridica' && !clientePJOk && (
-                  <p className="text-xs text-amber-700">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
                 )}
               </div>
             </div>
@@ -309,7 +309,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             {/* Itens */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Itens</p>
+                <p className="font-semibold text-foreground">Itens</p>
                 <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar item
                 </Button>
@@ -361,7 +361,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                       )}
                     </div>
                     {peca && (
-                      <p className={`text-xs ${estoqueInsuficiente ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                      <p className={`text-xs ${estoqueInsuficiente ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         Subtotal: {fmtBRL(subtotal)}
                         {precoAjustado ? ` — preço ajustado (catálogo: ${fmtBRL(parseFloat(peca.valor))})` : ''}
                         {estoqueInsuficiente ? ` — estoque insuficiente (disponível: ${peca.quantidadeEstoque})` : ''}
@@ -370,13 +370,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   </div>
                 )
               })}
-              <p className="text-right font-semibold text-slate-700">Total: {fmtBRL(totalItens)}</p>
+              <p className="text-right font-semibold text-foreground">Total: {fmtBRL(totalItens)}</p>
             </div>
 
             {/* Pagamentos */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Pagamentos</p>
+                <p className="font-semibold text-foreground">Pagamentos</p>
                 <Button variant="outline" size="sm" onClick={addPgto} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar
                 </Button>
@@ -384,7 +384,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
               {pgtos.map((p, idx) => (
                 <div key={p.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Pagamento {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
                       <button onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
                         <Trash2 className="size-4" />
@@ -411,13 +411,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         value={p.tipo === TIPO_BONIFICACAO ? '0,00' : p.valor}
                         onChange={e => updatePgto(p.id, 'valor', e.target.value)}
                         disabled={p.tipo === TIPO_BONIFICACAO}
-                        className="h-8 text-xs disabled:bg-slate-100 disabled:text-slate-400"
+                        className="h-8 text-xs disabled:bg-muted disabled:text-muted-foreground"
                         placeholder="0,00"
                       />
                     </div>
                   </div>
                   {p.tipo === TIPO_BONIFICACAO && (
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-warning">
                       Entrega sem cobrança — a venda é registrada com valor R$ 0,00 e não entra na receita.
                     </p>
                   )}
@@ -471,8 +471,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   )}
                 </div>
               ))}
-              <p className="text-right text-sm text-slate-600">
-                Valor a registrar na venda: <span className="font-semibold text-slate-800">{fmtBRL(totalPgtos)}</span>
+              <p className="text-right text-sm text-muted-foreground">
+                Valor a registrar na venda: <span className="font-semibold text-foreground">{fmtBRL(totalPgtos)}</span>
               </p>
             </div>
           </div>
