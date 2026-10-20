@@ -9,6 +9,7 @@ import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -131,8 +132,9 @@ export type PrecoMinimoInfo = {
 }
 
 export async function buscarPrecoMinimoAction(motoId: string): Promise<PrecoMinimoInfo | null> {
+  const usuario = await getUsuarioLogado()
   const [moto] = await db.select({ modeloId: motos.modeloId, lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) return null
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) return null
   return buscarPrecificacao(moto.modeloId, moto.lojaId)
 }
 
@@ -474,7 +476,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'caixa') {
     throw new Error('Moto ainda não foi montada — não pode ser vendida')
   }
@@ -563,13 +565,13 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
   }
 
   const [venda] = await db
-    .select({ id: vendas.id })
+    .select({ id: vendas.id, lojaId: vendas.lojaId })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
 
   // Trava: sem contrato assinado não registra NF — nem pelo caminho "nota já
   // emitida", senão bastaria emitir direto no Bling e voltar aqui.
@@ -625,7 +627,7 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
 
   // Trava: sem contrato assinado, nem rascunho no Bling.
   const bloqueioNf = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
@@ -754,7 +756,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
   if (!venda.blingNfeId) return { ok: false, error: 'Nenhum rascunho Bling encontrado para esta venda' }
 
   const [motoRow] = await db
@@ -863,7 +865,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada')
 
   const [motoRow] = await db
     .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
@@ -1146,7 +1148,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
     throw new Error('Moto já foi vendida')
   }
@@ -1308,8 +1310,8 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
     throw new Error('Reserva já virou venda — cancele a venda, não a reserva')
   }
 
-  // Mesmo recorte do resto do módulo: admin_geral não tem loja e enxerga tudo.
-  if (usuario.lojaId && reserva.lojaId !== usuario.lojaId) {
+  // Quem tem loja fica nela; quem não tem (admin_geral, sócio sem loja) só no grupo que vê.
+  if (usuario.lojaId ? reserva.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, reserva.lojaId))) {
     throw new Error('Sem permissão para cancelar reserva de outra loja')
   }
 
@@ -1420,8 +1422,8 @@ export async function editarVendaAction(vendaId: string, dados: {
     .limit(1)
   if (!vendaAtual) throw new Error('Venda não encontrada')
 
-  // Todos os papéis só podem editar vendas da própria loja
-  if (usuario.lojaId && vendaAtual.lojaId !== usuario.lojaId) {
+  // Quem tem loja só edita venda dela; quem não tem, só no grupo que vê.
+  if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
     throw new Error('Sem permissão para editar vendas de outra loja')
   }
 
@@ -1606,7 +1608,7 @@ export async function buscarHistoricoMotoAction(motoId: string) {
   if (!moto) return []
 
   const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && moto.lojaId !== usuario.lojaId) {
+  if (ADMINS.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId)) : moto.lojaId !== usuario.lojaId) {
     throw new Error('Sem permissão')
   }
 
@@ -1629,7 +1631,7 @@ export async function buscarHistoricoMotoAction(motoId: string) {
 // ─── Baixar DANFE da NF-e autorizada ─────────────────────────────────────────
 
 export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
 
   const [venda] = await db
     .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
@@ -1637,6 +1639,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
+  if (venda && !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Esta moto não tem venda registrada.')
 
   // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling: a nota viva
   // mais recente que tem DANFE, inclusive a com cancelamento negado.
@@ -1723,7 +1726,7 @@ export async function solicitarAprovacaoVendaAction(
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
   if (bloqueio) throw new Error(bloqueio)
 
