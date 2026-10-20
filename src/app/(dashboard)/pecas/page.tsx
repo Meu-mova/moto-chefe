@@ -10,9 +10,9 @@ import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { listarVendasPecasAction } from './actions'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { Kpi } from '@/components/kpi'
 import { PecaForm } from './components/peca-form'
 import { VendaPecaDialog } from './components/venda-peca-dialog'
 import { VendasPecasTable } from './components/vendas-pecas-table'
@@ -83,11 +83,11 @@ export default async function PecasPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Peças e Acessórios</h1>
-        <p className="text-slate-500 text-sm">Catálogo, estoque e vendas de peças e capacetes</p>
+        <p className="text-sm text-muted-foreground">Catálogo, estoque e vendas de peças e capacetes</p>
       </div>
 
       <Tabs defaultValue={podeVender ? 'vendas' : 'catalogo'}>
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           {/* Mecânico só consulta o catálogo — vender peça não é papel dele. */}
           {podeVender && <TabsTrigger value="vendas">Vendas</TabsTrigger>}
           <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
@@ -97,32 +97,16 @@ export default async function PecasPage({
 
         {podeVender && (
           <TabsContent value="vendas" className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <Card>
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Vendas</CardTitle></CardHeader>
-                <CardContent><p className="text-xl font-bold">{vendas.length}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Faturamento</CardTitle></CardHeader>
-                <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(faturamento)}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Ticket médio</CardTitle></CardHeader>
-                <CardContent><p className="text-xl font-bold">{fmt(ticketMedio)}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Bonificadas</CardTitle></CardHeader>
-                <CardContent><p className="text-xl font-bold text-amber-700">{bonificadas}</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">A conciliar</CardTitle></CardHeader>
-                <CardContent>
-                  <p className={`text-xl font-bold ${aConciliar > 0 ? 'text-blue-700' : 'text-slate-400'}`}>{aConciliar}</p>
-                </CardContent>
-              </Card>
+            {/* Celular: faixa que rola para o lado, sem barra à vista. Desktop: grade (padrão de Vendas). */}
+            <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-3 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
+              <Kpi tom="neutro" titulo="Vendas" valor={vendas.length} />
+              <Kpi tom="ok" titulo="Faturamento" valor={fmt(faturamento)} />
+              <Kpi tom="neutro" titulo="Ticket médio" valor={fmt(ticketMedio)} />
+              <Kpi tom={bonificadas > 0 ? 'aviso' : 'neutro'} titulo="Bonificadas" valor={bonificadas} />
+              <Kpi tom={aConciliar > 0 ? 'perigo' : 'neutro'} titulo="A conciliar" valor={aConciliar} />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
               <VendasPecasFiltros
                 lojas={isAdmin ? lojasOpts : []}
                 vendedores={vendedoresOpts}
@@ -138,16 +122,16 @@ export default async function PecasPage({
               />
             </div>
 
-            <VendasPecasTable vendas={vendas} papel={usuario.papel} />
+            <VendasPecasTable vendas={vendas} papel={usuario.papel} pecas={pecas.filter(p => p.ativo)} />
           </TabsContent>
         )}
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">
           {isGestor && (
-            <div className="flex justify-end">
-              <PecaForm trigger={
-                <span className={buttonVariants({ variant: 'default', size: 'sm' })}>
-                  <Plus size={15} className="mr-1.5" /> Nova Peça
+            <div className="flex lg:justify-end">
+              <PecaForm triggerClassName="flex w-full cursor-pointer lg:inline-flex lg:w-auto" trigger={
+                <span className={`${buttonVariants({ variant: 'default' })} h-10 w-full gap-1.5 lg:h-9 lg:w-auto`}>
+                  <Plus className="size-4" /> Nova peça
                 </span>
               } />
             </div>

@@ -90,27 +90,31 @@ export default async function ReciboVendaPecaPage({ params }: { params: Promise<
   return (
     <>
       <PrintTrigger />
+      {/* Cores pelas variáveis do tema (opção do Luis em 20/10). Hoje o tema claro é forçado
+          (theme-provider.tsx); quando passar a seguir o sistema, quem usa modo escuro imprime
+          o recibo desbotado (ou preto, com "gráficos de plano de fundo"). Ao tirar o tema
+          forçado, travar o claro nas páginas de impressão. */}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 28px 32px; }
-        .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 18px; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--background); padding: 28px 32px; }
+        .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 14px; margin-bottom: 18px; }
         .num { font-size: 26px; font-weight: 900; }
-        .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
+        .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 8px; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .f { margin-bottom: 5px; }
-        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
+        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); display: block; margin-bottom: 1px; }
         .fv { font-size: 12px; font-weight: 600; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        th, td { border: 1px solid #e2e8f0; padding: 7px 9px; font-size: 12px; text-align: left; }
-        th { background: #f8fafc; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+        th, td { border: 1px solid var(--border); padding: 7px 9px; font-size: 12px; text-align: left; }
+        th { background: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); }
         .tr { text-align: right; }
-        .tot td { font-weight: 700; background: #f8fafc; }
-        .grand { font-size: 15px; font-weight: 900; color: #166534; }
+        .tot td { font-weight: 700; background: var(--muted); }
+        .grand { font-size: 15px; font-weight: 900; color: var(--primary-text); }
         .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
         .sig { text-align: center; }
-        .sigline { border-top: 1px solid #1e293b; padding-top: 5px; font-size: 10px; color: #64748b; }
-        .ftr { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        .sigline { border-top: 1px solid var(--foreground); padding-top: 5px; font-size: 10px; color: var(--muted-foreground); }
+        .ftr { text-align: center; font-size: 9px; color: var(--muted-foreground); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
         @media print { body { padding: 0; } @page { margin: 1.5cm; } }
       `}</style>
 
@@ -120,18 +124,18 @@ export default async function ReciboVendaPecaPage({ params }: { params: Promise<
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
             <p style={{ fontWeight: 700 }}>{venda.grupoRazaoSocial ?? venda.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>CNPJ {formatarCpfCnpj(venda.grupoCnpj)}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>CNPJ {formatarCpfCnpj(venda.grupoCnpj)}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
               {venda.lojaNome} — {venda.lojaEndereco}, {venda.lojaCidade}
             </p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             Recibo de venda
           </p>
           <p className="num">#{venda.numero}</p>
-          <p style={{ fontSize: 10, color: '#64748b' }}>{dataVenda}</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>{dataVenda}</p>
         </div>
       </div>
 
@@ -218,7 +222,7 @@ export default async function ReciboVendaPecaPage({ params }: { params: Promise<
 
       {/* Peça e acessório não emitem nota fiscal neste fluxo. Dizer isso no papel
           evita que a empresa compradora fique esperando uma NF que não vem. */}
-      <p style={{ fontSize: 10, color: '#64748b' }}>
+      <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
         Documento não fiscal, emitido para comprovação de compra de peças e acessórios.
       </p>
 
