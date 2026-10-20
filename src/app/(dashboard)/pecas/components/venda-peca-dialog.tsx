@@ -239,7 +239,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
         </Button>
       )}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { resetForm(); setAvisos([]) } }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-x-hidden overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{edicao ? `Editar venda de peças #${edicao.numero}` : 'Nova Venda de Peças e Acessórios'}</DialogTitle>
           </DialogHeader>
@@ -256,7 +256,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
               </div>
             )}
             {!edicao && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {isAdmin && (
                 <div className="space-y-1.5">
                   <Label>Loja *</Label>
@@ -279,7 +279,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 <select
                   value={tipoPessoa}
                   onChange={e => setTipoPessoa(e.target.value)}
-                  className="h-9 w-full border border-slate-200 rounded-md px-2 text-sm bg-white"
+                  className="h-9 w-full border border-input rounded-md px-2 text-sm bg-background"
                 >
                   <option value="fisica">Pessoa física</option>
                   <option value="juridica">Empresa (CNPJ)</option>
@@ -302,7 +302,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   className="font-mono"
                 />
                 {tipoPessoa === 'juridica' && !clientePJOk && (
-                  <p className="text-xs text-amber-700">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
                 )}
               </div>
             </div>
@@ -311,7 +311,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             {/* Itens */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Itens</p>
+                <p className="font-semibold text-foreground">Itens</p>
                 <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar item
                 </Button>
@@ -324,9 +324,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 const estoqueInsuficiente = peca && qtd > peca.quantidadeEstoque
                 const precoAjustado = Boolean(peca && item.valor.trim() && Math.abs(preco - parseFloat(peca.valor)) > 0.005)
                 return (
-                  <div key={item.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
-                    <div className={`grid gap-2 items-end ${podeDefinirPreco ? 'grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_100px_auto]'}`}>
-                      <div className="space-y-1">
+                  <div key={item.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
+                    {/* Celular: a peça ocupa a linha e preço/quantidade vão embaixo; do sm para cima, uma linha só. */}
+                    <div className={`grid items-end gap-2 ${podeDefinirPreco ? 'grid-cols-[1fr_5rem_auto] sm:grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_auto] sm:grid-cols-[1fr_100px_auto]'}`}>
+                      <div className={`min-w-0 space-y-1 ${podeDefinirPreco ? 'col-span-3' : 'col-span-2'} sm:col-span-1`}>
                         <Label className="text-xs">Peça / Capacete</Label>
                         <PecaLookup
                           pecas={pecasDisponiveis}
@@ -356,13 +357,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         />
                       </div>
                       {itens.length > 1 && (
-                        <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 pb-1.5">
-                          <Trash2 size={14} />
+                        <button type="button" onClick={() => removeItem(item.id)} aria-label="Remover item" className="p-2 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="size-4" />
                         </button>
                       )}
                     </div>
                     {peca && (
-                      <p className={`text-xs ${estoqueInsuficiente ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                      <p className={`text-xs ${estoqueInsuficiente ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         Subtotal: {fmtBRL(subtotal)}
                         {precoAjustado ? ` — preço ajustado (catálogo: ${fmtBRL(parseFloat(peca.valor))})` : ''}
                         {estoqueInsuficiente ? ` — estoque insuficiente (disponível: ${peca.quantidadeEstoque})` : ''}
@@ -371,24 +372,24 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   </div>
                 )
               })}
-              <p className="text-right font-semibold text-slate-700">Total: {fmtBRL(totalItens)}</p>
+              <p className="text-right font-semibold text-foreground">Total: {fmtBRL(totalItens)}</p>
             </div>
 
             {/* Pagamentos */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Pagamentos</p>
+                <p className="font-semibold text-foreground">Pagamentos</p>
                 <Button variant="outline" size="sm" onClick={addPgto} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar
                 </Button>
               </div>
               {pgtos.map((p, idx) => (
-                <div key={p.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                <div key={p.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Pagamento {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} className="text-red-400 hover:text-red-600">
-                        <Trash2 size={13} />
+                      <button type="button" onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="size-4" />
                       </button>
                     )}
                   </div>
@@ -412,13 +413,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         value={p.tipo === TIPO_BONIFICACAO ? '0,00' : p.valor}
                         onChange={e => updatePgto(p.id, 'valor', e.target.value)}
                         disabled={p.tipo === TIPO_BONIFICACAO}
-                        className="h-8 text-xs disabled:bg-slate-100 disabled:text-slate-400"
+                        className="h-8 text-xs disabled:bg-muted disabled:text-muted-foreground"
                         placeholder="0,00"
                       />
                     </div>
                   </div>
                   {p.tipo === TIPO_BONIFICACAO && (
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-warning">
                       Entrega sem cobrança — a venda é registrada com valor R$ 0,00 e não entra na receita.
                     </p>
                   )}
@@ -472,13 +473,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   )}
                 </div>
               ))}
-              <p className="text-right text-sm text-slate-600">
-                Valor a registrar na venda: <span className="font-semibold text-slate-800">{fmtBRL(totalPgtos)}</span>
+              <p className="text-right text-sm text-muted-foreground">
+                Valor a registrar na venda: <span className="font-semibold text-foreground">{fmtBRL(totalPgtos)}</span>
               </p>
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 gap-2">
             <Button variant="outline" onClick={() => { setOpen(false); resetForm(); setAvisos([]) }}>Cancelar</Button>
             <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
               {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}

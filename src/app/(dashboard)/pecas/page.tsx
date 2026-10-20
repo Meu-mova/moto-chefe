@@ -128,10 +128,10 @@ export default async function PecasPage({
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">
           {isGestor && (
-            <div className="flex justify-end">
-              <PecaForm trigger={
-                <span className={buttonVariants({ variant: 'default', size: 'sm' })}>
-                  <Plus size={15} className="mr-1.5" /> Nova Peça
+            <div className="flex lg:justify-end">
+              <PecaForm triggerClassName="flex w-full cursor-pointer lg:inline-flex lg:w-auto" trigger={
+                <span className={`${buttonVariants({ variant: 'default' })} h-10 w-full gap-1.5 lg:h-9 lg:w-auto`}>
+                  <Plus className="size-4" /> Nova peça
                 </span>
               } />
             </div>
