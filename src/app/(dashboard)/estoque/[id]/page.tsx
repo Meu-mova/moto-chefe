@@ -6,8 +6,10 @@ import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { modelos, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -28,9 +30,13 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   // Rota do PAI: a tabela não tem item por id.
   if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
 
+  // Moto de grupo que o usuário não vê: 404, como id inexistente (não revela que existe).
   if (!moto) notFound()
-
-  const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
+  const [podeAbrir, grupoIdDaMoto] = await Promise.all([
+    podeAbrirRegistroDaLoja(usuario, moto.lojaId),
+    getGrupoIdDaLoja(moto.lojaId),
+  ])
+  if (!podeAbrir) notFound()
   const podeAprovarValorMinimo = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId)
   const tipoAprovacaoPendente = (moto.aprovacaoPendenteTipo ?? 'valor_minimo') as 'valor_minimo' | 'pagamento_sensivel'
@@ -39,12 +45,12 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
   const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
+    listarUsuariosDoGrupo(grupoIdDaMoto, { papel: 'mecanico' }),
     listarLojasDoGrupoAtivo(usuario),
     // Igual a /transferencias e /estoque: destino do botão "Transferir" inclui todos
     // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
     acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
+    listarUsuariosDoGrupo(grupoIdDaMoto),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.select({ valorMinimo: precificacao.valorMinimo })
       .from(precificacao)
