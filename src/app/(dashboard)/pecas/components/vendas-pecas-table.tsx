@@ -5,6 +5,7 @@ import { ConcBadge } from '@/components/conciliacao-badge'
 import { Printer } from 'lucide-react'
 import { ConciliacaoPecaDialog } from './conciliacao-peca-dialog'
 import { ExcluirVendaPecaButton } from './excluir-venda-peca-button'
+import { VendaPecaDialog } from './venda-peca-dialog'
 import { podeGerirPecas } from '../papeis'
 
 type VendaPeca = {
@@ -39,7 +40,10 @@ function fmtData(d: Date) {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel: string }) {
+type PecaCatalogo = { id: string; nome: string; valor: string; quantidadeEstoque: number }
+
+/** `pecas`: catálogo ativo, para o diálogo de edição (#242). Quem vê a lista pode editar. */
+export function VendasPecasTable({ vendas, papel, pecas }: { vendas: VendaPeca[]; papel: string; pecas: PecaCatalogo[] }) {
   // Apagar venda é o mesmo nível de quem define preço no catálogo — vendedor não mexe.
   const podeExcluir = podeGerirPecas(papel)
   // A última coluna existe sempre — o recibo é para todo mundo que vende; só a
@@ -112,6 +116,14 @@ export function VendasPecasTable({ vendas, papel }: { vendas: VendaPeca[]; papel
                     >
                       <Printer size={15} />
                     </a>
+                    <VendaPecaDialog
+                      pecas={pecas}
+                      lojas={[]}
+                      lojaUsuarioId={null}
+                      isAdmin={false}
+                      podeDefinirPreco={podeExcluir}
+                      edicao={{ vendaId: v.id, numero: v.numero }}
+                    />
                     {podeExcluir && <ExcluirVendaPecaButton vendaId={v.id} numero={v.numero} />}
                   </div>
                 </TableCell>

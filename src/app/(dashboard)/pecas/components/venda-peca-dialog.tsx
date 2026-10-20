@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { Plus, Trash2, ShoppingCart } from 'lucide-react'
-import { registrarVendaPecaAction } from '../actions'
+import { Pencil, Plus, Trash2, ShoppingCart } from 'lucide-react'
+import { carregarVendaPecaParaEdicaoAction, editarVendaPecaAction, registrarVendaPecaAction } from '../actions'
 import { PecaLookup } from './peca-lookup'
 
 type Peca = { id: string; nome: string; valor: string; quantidadeEstoque: number }
@@ -54,11 +54,18 @@ type Props = {
   isAdmin: boolean
   /** Gestor pode sobrepor o preço do catálogo naquela venda. O servidor revalida. */
   podeDefinirPreco: boolean
+  /**
+   * Edição de venda já salva (#242): mesmo diálogo, só itens e pagamentos.
+   * Loja e cliente ficam como estão.
+   */
+  edicao?: { vendaId: string; numero: number }
 }
 
-export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefinirPreco }: Props) {
+export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefinirPreco, edicao }: Props) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [carregando, setCarregando] = useState(false)
+  const [avisos, setAvisos] = useState<string[]>([])
 
   const [lojaId, setLojaId] = useState(isAdmin ? '' : (lojaUsuarioId ?? ''))
   const [clienteNome, setClienteNome] = useState('')
@@ -136,7 +143,61 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   // verdade está em registrarVendaPecaAction.
   const digitosDoc = documento.replace(/D/g, '')
   const clientePJOk = tipoPessoa !== 'juridica' || (digitosDoc.length === 14 && clienteNome.trim().length > 0)
-  const podeSalvar = !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
+  const podeSalvar = edicao
+    ? !carregando && itensValidos.length > 0 && pgtosValidos.length > 0
+    : !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
+
+  const itensParaEnviar = () => itensValidos.map(i => ({
+    pecaId: i.pecaId,
+    quantidade: parseFloat(i.quantidade),
+    ...(podeDefinirPreco && i.valor.trim() ? { valorUnitario: parseBRL(i.valor) } : {}),
+  }))
+  const pgtosParaEnviar = () => pgtosValidos.map(p => ({
+    tipo: p.tipo,
+    valor: p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor),
+    ...(p.operadora ? { operadora: p.operadora } : {}),
+    ...(p.parcelas ? { parcelas: parseInt(p.parcelas, 10) } : {}),
+    ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
+  }))
+
+  function abrirEdicao() {
+    if (!edicao) return
+    setOpen(true)
+    setCarregando(true)
+    startTransition(async () => {
+      try {
+        const v = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        setClienteNome(v.clienteNome ?? '')
+        setPecasNovas(prev => [...prev, ...v.pecas.filter(p => !pecas.some(x => x.id === p.id))])
+        // O preço gravado vai na linha: é ele que vale, não o do catálogo de hoje.
+        setItens(v.itens.map(i => ({ id: gerarId(), pecaId: i.pecaId, quantidade: String(i.quantidade), valor: i.valorUnitario.toFixed(2).replace('.', ',') })))
+        setPgtos(v.pagamentos.map(p => ({
+          id: gerarId(), tipo: p.tipo, valor: p.valor.toFixed(2).replace('.', ','),
+          operadora: p.operadora, parcelas: p.parcelas ? String(p.parcelas) : undefined, autorizacao: p.autorizacao,
+        })))
+        setAvisos(v.avisos)
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao abrir a venda')
+        setOpen(false)
+      } finally {
+        setCarregando(false)
+      }
+    })
+  }
+
+  function handleSalvarEdicao() {
+    if (!edicao) return
+    startTransition(async () => {
+      try {
+        await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
+        toast.success(`Venda #${edicao.numero} atualizada`)
+        setOpen(false)
+        resetForm()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao salvar a edição')
+      }
+    })
+  }
 
   function handleSalvar() {
     if (!podeSalvar) {
@@ -150,18 +211,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           clienteNome: clienteNome.trim() || undefined,
           clienteTipoPessoa: tipoPessoa,
           clienteDocumento: digitosDoc || null,
-          itens: itensValidos.map(i => ({
-            pecaId: i.pecaId,
-            quantidade: parseFloat(i.quantidade),
-            ...(podeDefinirPreco && i.valor.trim() ? { valorUnitario: parseBRL(i.valor) } : {}),
-          })),
-          pagamentos: pgtosValidos.map(p => ({
-            tipo: p.tipo,
-            valor: p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor),
-            ...(p.operadora ? { operadora: p.operadora } : {}),
-            ...(p.parcelas ? { parcelas: parseInt(p.parcelas, 10) } : {}),
-            ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
-          })),
+          itens: itensParaEnviar(),
+          pagamentos: pgtosParaEnviar(),
         })
         toast.success(resultado.aguardandoAprovacao
           ? 'Venda com financiamento enviada para aprovação'
@@ -176,14 +227,33 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
 
   return (
     <>
-      <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
-        <ShoppingCart size={15} /> Nova Venda
-      </Button>
-      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) resetForm() }}>
+      {edicao ? (
+        <button onClick={abrirEdicao} title="Editar venda" className="text-muted-foreground hover:text-foreground">
+          <Pencil size={15} />
+        </button>
+      ) : (
+        <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
+          <ShoppingCart size={15} /> Nova Venda
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { resetForm(); setAvisos([]) } }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Venda de Peças e Acessórios</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{edicao ? `Editar venda de peças #${edicao.numero}` : 'Nova Venda de Peças e Acessórios'}</DialogTitle>
+          </DialogHeader>
 
           <div className="space-y-5 text-sm">
+            {edicao && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. Loja e cliente não mudam na edição.`}
+                </p>
+                {avisos.map(a => (
+                  <p key={a} className="border-l-2 border-warning pl-3 text-foreground">{a}</p>
+                ))}
+              </div>
+            )}
+            {!edicao && (
             <div className="grid grid-cols-2 gap-3">
               {isAdmin && (
                 <div className="space-y-1.5">
@@ -234,6 +304,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 )}
               </div>
             </div>
+            )}
 
             {/* Itens */}
             <div className="space-y-3">
@@ -406,9 +477,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           </div>
 
           <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={pending || !podeSalvar}>
-              {pending ? 'Registrando…' : 'Registrar Venda'}
+            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); setAvisos([]) }}>Cancelar</Button>
+            <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
+              {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}
             </Button>
           </DialogFooter>
         </DialogContent>

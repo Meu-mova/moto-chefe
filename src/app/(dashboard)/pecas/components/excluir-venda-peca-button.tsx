@@ -6,8 +6,8 @@ import { excluirVendaPecaAction } from '../actions'
 
 type Props = { vendaId: string; numero: number }
 
-// Venda de peça não tem tela de edição: lançamento errado se resolve apagando e
-// refazendo. O aviso do confirm() é o único lugar onde o operador lê o que a exclusão
+// Itens e pagamentos se corrigem pelo editar (#242); excluir é para a venda que não
+// devia existir. O aviso do confirm() é o único lugar onde o operador lê o que a exclusão
 // mexe — estoque e conciliação —, então não encurtar.
 export function ExcluirVendaPecaButton({ vendaId, numero }: Props) {
   const [pending, start] = useTransition()
