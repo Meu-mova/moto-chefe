@@ -71,9 +71,17 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
             <span className="block truncate text-sm text-muted-foreground">
               {clienteDe(os) ?? 'Sem cliente'}{os.mecanicoNome ? ` · ${os.mecanicoNome}` : ''}
             </span>
+            {os.dataPrevisao && (
+              <span className="mt-1 flex items-center gap-1 text-xs text-warning">
+                <Clock className="size-3.5" /> Previsão {format(new Date(os.dataPrevisao), 'dd/MM HH:mm', { locale: ptBR })}
+              </span>
+            )}
             <span className="mt-1 flex items-center justify-between gap-2 text-sm">
               <span className="truncate text-muted-foreground">{os.lojaNome} · {dia(os.dataAbertura)}</span>
-              <span className="font-semibold tabular-nums">{moeda(os.valorTotal)}</span>
+              <span className="flex items-center gap-2">
+                {concDe(os) !== 'na' && <ConcBadge status={concDe(os)} />}
+                <span className="font-semibold tabular-nums">{moeda(os.valorTotal)}</span>
+              </span>
             </span>
           </button>
         ))}

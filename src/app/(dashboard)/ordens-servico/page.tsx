@@ -53,22 +53,28 @@ export default async function OrdensServicoPage({
   const dataInicio = params.de  ?? dataDefaultMesAtual()
   const dataFim    = params.ate ?? undefined
 
-  const [lista, mecanicos, lojasOpts] = await Promise.all([
-    listarTodasOS({ status: statusFiltro, busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
+  const [recorte, mecanicos, lojasOpts] = await Promise.all([
+    listarTodasOS({ busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
     listarLojasDoGrupoAtivo(usuario),
   ])
 
-  const abertas             = lista.filter(o => o.status === 'aberta')
-  const oficina              = lista.filter(o => o.status === 'oficina')
-  const emAndamento         = lista.filter(o => o.status === 'em_andamento')
-  const finalizadas         = lista.filter(o => o.status === 'finalizada')
-  const pendentePagamento   = lista.filter(o => o.status === 'pendente_pagamento')
-  const concluidas          = lista.filter(o => o.status === 'concluida')
+  // O status filtra só a lista: KPIs e o número de cada botão de status olham o recorte inteiro,
+  // senão marcar "Aberta" zeraria todos os outros. Cancelada vai para o fim.
+  const lista = recorte
+    .filter(o => statusFiltro.length === 0 || statusFiltro.includes(o.status))
+    .sort((a, b) => Number(a.status === 'cancelada') - Number(b.status === 'cancelada'))
+
+  const abertas             = recorte.filter(o => o.status === 'aberta')
+  const oficina              = recorte.filter(o => o.status === 'oficina')
+  const emAndamento         = recorte.filter(o => o.status === 'em_andamento')
+  const finalizadas         = recorte.filter(o => o.status === 'finalizada')
+  const pendentePagamento   = recorte.filter(o => o.status === 'pendente_pagamento')
+  const concluidas          = recorte.filter(o => o.status === 'concluida')
 
   // OS cancelada não entra em faturamento nem em conciliação — o valor dela morreu junto.
-  const ativas = lista.filter(o => o.status !== 'cancelada')
+  const ativas = recorte.filter(o => o.status !== 'cancelada')
 
   const concStats = ativas.reduce(
     (acc, o) => {
@@ -112,7 +118,7 @@ export default async function OrdensServicoPage({
   const totalPecas    = ativas.reduce((s, o) => s + (parseFloat(o.valorPecas)    || 0), 0)
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  const contagem = Object.fromEntries(STATUS_OS.map(st => [st.value, lista.filter(o => o.status === st.value).length]))
+  const contagem = Object.fromEntries(STATUS_OS.map(st => [st.value, recorte.filter(o => o.status === st.value).length]))
   const temConciliacao = concStats.pendente + concStats.parcial + concStats.conciliada + gratuidades.osQtd > 0
 
   return (
@@ -126,11 +132,12 @@ export default async function OrdensServicoPage({
       </div>
 
       {/* Celular: faixa que rola para o lado, sem barra à vista. Desktop: grade (padrão de Vendas). */}
-      <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-3 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-3 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
         <Kpi tom={abertas.length ? 'aviso' : 'neutro'} titulo="Abertas" valor={abertas.length} />
         <Kpi tom="neutro" titulo="Na oficina" valor={oficina.length + emAndamento.length} nota={`${oficina.length} oficina · ${emAndamento.length} em andamento`} />
         <Kpi tom={finalizadas.length + pendentePagamento.length ? 'aviso' : 'neutro'} titulo="A cobrar" valor={finalizadas.length + pendentePagamento.length} nota={`${finalizadas.length} finalizada(s) · ${pendentePagamento.length} pend. pagamento`} />
-        <Kpi tom="ok" titulo="Concluídas" valor={concluidas.length} nota={`Serviços ${fmt(totalServicos)} · Peças ${fmt(totalPecas)}`} />
+        <Kpi tom="ok" titulo="Concluídas" valor={concluidas.length} />
+        <Kpi tom="neutro" titulo="Valor das OS" valor={fmt(totalServicos + totalPecas)} nota={`Serviços ${fmt(totalServicos)} · Peças ${fmt(totalPecas)} · sem canceladas`} />
         {temConciliacao && (
           <>
             <Kpi tom={concStats.pendente ? 'perigo' : 'neutro'} titulo="Conc. pendentes" valor={concStats.pendente} />

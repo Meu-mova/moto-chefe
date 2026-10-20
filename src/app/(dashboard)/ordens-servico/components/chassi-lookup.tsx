@@ -347,7 +347,7 @@ function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoEncontrado; onLimp
           {veiculo.fonte === 'estoque' ? 'Estoque' : 'Banco histórico'}
         </p>
       </div>
-      <button onClick={onLimpar} className="text-muted-foreground hover:text-foreground">
+      <button type="button" onClick={onLimpar} aria-label="Limpar" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
@@ -356,14 +356,14 @@ function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoEncontrado; onLimp
 
 function ClienteCard({ cliente, onLimpar }: { cliente: ClienteInfo; onLimpar: () => void }) {
   return (
-    <div className="flex items-start gap-3 bg-accent border border-border rounded-lg p-3">
+    <div className="flex items-start gap-3 bg-primary-soft border border-primary/30 rounded-lg p-3">
       <CheckCircle2 size={16} className="text-primary-text mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground">{cliente.nome}</p>
         {cliente.cpfCnpj && <p className="text-xs text-muted-foreground">CPF: {cliente.cpfCnpj}</p>}
         {cliente.celular  && <p className="text-xs text-muted-foreground">Tel: {cliente.celular}</p>}
       </div>
-      <button onClick={onLimpar} className="text-muted-foreground hover:text-foreground">
+      <button type="button" onClick={onLimpar} aria-label="Limpar" className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
