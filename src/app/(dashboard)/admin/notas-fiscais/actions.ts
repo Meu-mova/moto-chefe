@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { notagatewayConfig, regrasFiscaisSaida, grupos } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { cifrar } from '@/lib/cripto'
 import { revalidatePath } from 'next/cache'
 
@@ -20,9 +21,9 @@ async function assertAdmin() {
   return u
 }
 
-async function assertGrupo(grupoId: string) {
+async function assertGrupo(usuario: Awaited<ReturnType<typeof assertAdmin>>, grupoId: string) {
   const [g] = await db.select({ id: grupos.id }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
-  if (!g) throw new Error('Grupo não encontrado')
+  if (!g || !(await podeUsuarioVerGrupo(usuario, grupoId))) throw new Error('Grupo não encontrado')
   return g
 }
 
@@ -43,8 +44,8 @@ export type CredencialPayload = {
  * O `empresaId` não entra aqui: ele vem da API no cadastro da empresa.
  */
 export async function salvarCredencialAction(data: CredencialPayload) {
-  await assertAdmin()
-  await assertGrupo(data.grupoId)
+  const usuario = await assertAdmin()
+  await assertGrupo(usuario, data.grupoId)
 
   const serie = data.serieNfe.trim() || '1'
   const numero = Number.isFinite(data.proximoNumero) && data.proximoNumero > 0 ? Math.trunc(data.proximoNumero) : 1
@@ -112,8 +113,8 @@ const ouNulo = (v: string) => (v.trim() === '' ? null : v.trim())
  * a de um lojista novo começa vazia e quem preenche é o contador dele.
  */
 export async function salvarRegraAction(data: RegraPayload) {
-  await assertAdmin()
-  await assertGrupo(data.grupoId)
+  const usuario = await assertAdmin()
+  await assertGrupo(usuario, data.grupoId)
 
   const obrigatorios: [string, string][] = [
     ['Natureza da operação', data.naturezaOperacao],

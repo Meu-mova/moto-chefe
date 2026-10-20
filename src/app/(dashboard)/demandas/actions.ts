@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
@@ -87,6 +88,7 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   // Não-admins só criam na própria loja
   const effectiveLojaId = ADMINS.includes(usuario.papel) ? dados.lojaId : usuario.lojaId
   if (!effectiveLojaId) throw new Error('Usuário sem loja associada')
+  if (!(await podeAgirNaLoja(usuario, effectiveLojaId))) throw new Error('Sem permissão para esta loja')
   if (!dados.modelo.trim() || !dados.cor.trim()) throw new Error('Modelo e cor são obrigatórios')
 
   const base = {

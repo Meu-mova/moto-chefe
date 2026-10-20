@@ -33,3 +33,17 @@ export async function podeAbrirRegistroDaLoja(
     doRegistro.grupoId,
   )
 }
+
+// Ação (ou impressão) sobre registro de uma loja escolhida pelo payload ou buscado
+// por id. Admin passava direto, inclusive com loja de outro grupo forjada no payload;
+// agora passa só no grupo que vê. Os demais papéis seguem presos à própria loja.
+export async function podeAgirNaLoja(
+  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null },
+  lojaId: string,
+  exec: Executor = db,
+): Promise<boolean> {
+  if (usuario.papel === 'admin_geral' || usuario.papel === 'admin_socio') {
+    return podeAbrirRegistroDaLoja(usuario, lojaId, exec)
+  }
+  return usuario.lojaId === lojaId
+}

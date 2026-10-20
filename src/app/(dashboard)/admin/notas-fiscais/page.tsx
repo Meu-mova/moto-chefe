@@ -1,8 +1,10 @@
 import { AdminGuard } from '../components/admin-guard'
 import { db } from '@/lib/db'
-import { grupos, notagatewayConfig, regrasFiscaisSaida, certificadosDigitais, motos, motosFiscal, lojas } from '@/lib/db/schema'
+import { notagatewayConfig, regrasFiscaisSaida, certificadosDigitais, motos, motosFiscal, lojas } from '@/lib/db/schema'
 import { eq, sql, and, isNull } from 'drizzle-orm'
 import { NotasFiscaisClient } from './components/notas-fiscais-client'
+import { getUsuarioLogado } from '@/lib/auth'
+import { listarGruposVisiveis } from '@/lib/grupo'
 
 /**
  * Configuração fiscal por grupo, para a emissão de NF-e própria.
@@ -12,8 +14,10 @@ import { NotasFiscaisClient } from './components/notas-fiscais-client'
  * credencial, o seu certificado e a regra que o contador dele definir.
  */
 export default async function NotasFiscaisPage() {
+  const usuario = await getUsuarioLogado()
   const [todosGrupos, configs, regras, certificados, prontidao] = await Promise.all([
-    db.select({ id: grupos.id, nome: grupos.nome }).from(grupos).orderBy(grupos.nome),
+    // Só os grupos que o usuário vê: o sócio não enxerga nem mexe na configuração fiscal de outro CNPJ.
+    listarGruposVisiveis(usuario),
     db.select().from(notagatewayConfig),
     db.select().from(regrasFiscaisSaida),
     db

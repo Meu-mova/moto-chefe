@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { buscarVenda } from '@/lib/queries/vendas'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
@@ -15,8 +16,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
   const [venda, usuario] = await Promise.all([buscarVenda(id), getUsuarioLogado()])
   if (!venda) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && venda.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) notFound()
 
   const data = format(new Date(venda.dataVenda), 'dd/MM/yyyy', { locale: ptBR })
   const endereco = [

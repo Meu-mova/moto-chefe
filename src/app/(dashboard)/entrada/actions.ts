@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque, modelos, motosFiscal } from '@/lib/db/schema'
 import { and, eq, isNull, lte, or } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
@@ -12,10 +13,9 @@ import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
-// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la.
-// Admin escolhe qualquer loja (o seletor já é filtrado pelo grupo ativo do cookie);
-// quem entra pela exceção nominal fica restrito ao grupo da própria loja, para que
-// um lojaId forjado no payload não jogue moto no estoque de outro grupo.
+// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la:
+// admin só no grupo que vê; quem entra pela exceção nominal, no grupo da própria loja.
+// Assim um lojaId forjado no payload não joga moto no estoque de outro grupo.
 async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
   const [loja] = await db
     .select({ id: lojas.id, grupoId: lojas.grupoId })
@@ -25,7 +25,9 @@ async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
 
   if (!loja) return { error: 'Loja não encontrada' as const }
 
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    if (!(await podeAbrirRegistroDaLoja(usuario, loja.id))) return { error: 'Loja fora do seu grupo' as const }
+  } else {
     if (!usuario.lojaId) return { error: 'Usuário sem loja associada' as const }
     const grupoUsuario = await getGrupoIdDaLoja(usuario.lojaId)
     if (grupoUsuario !== loja.grupoId) return { error: 'Loja fora do seu grupo' as const }

@@ -15,10 +15,11 @@ type Db = typeof import('@/lib/db')
 type Acesso = typeof import('@/lib/acesso-registro')
 let db: Db['db']
 let podeAbrirRegistroDaLoja: Acesso['podeAbrirRegistroDaLoja']
+let podeAgirNaLoja: Acesso['podeAgirNaLoja']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ podeAbrirRegistroDaLoja } = await import('@/lib/acesso-registro'))
+  ;({ podeAbrirRegistroDaLoja, podeAgirNaLoja } = await import('@/lib/acesso-registro'))
 })
 
 after(async () => {
@@ -60,6 +61,30 @@ test('registro de loja de outro grupo só abre para quem tem o grupo', async () 
       await podeAbrirRegistroDaLoja(adminGeral, '00000000-0000-0000-0000-000000000000', tx), false,
       'loja inexistente não abre, nem para admin_geral',
     )
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('agir em registro de loja: admin no grupo que vê, os demais só na própria loja', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const grupoA = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo A', '00000000000191') returning id`)
+    const grupoB = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo B', '00000000000272') returning id`)
+    const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupoA.id}) returning id`)
+    const lojaA2 = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A2', 'Rua 3', 'X', ${grupoA.id}) returning id`)
+    const lojaB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja B', 'Rua 2', 'Y', ${grupoB.id}) returning id`)
+
+    const auxA = { papel: 'aux_adm', lojaId: lojaA.id, gruposAcesso: [] } as const
+    const socioSoA = { papel: 'admin_socio', lojaId: lojaA.id, gruposAcesso: [] } as const
+    const socioAeB = { papel: 'admin_socio', lojaId: lojaA.id, gruposAcesso: [grupoB.id] } as const
+    const adminGeral = { papel: 'admin_geral', lojaId: null, gruposAcesso: [] } as const
+
+    assert.equal(await podeAgirNaLoja(auxA, lojaA.id, tx), true, 'aux age na própria loja')
+    assert.equal(await podeAgirNaLoja(auxA, lojaA2.id, tx), false, 'aux não age em outra loja, nem do mesmo grupo')
+    assert.equal(await podeAgirNaLoja(socioSoA, lojaA2.id, tx), true, 'sócio age em outra loja do próprio grupo')
+    assert.equal(await podeAgirNaLoja(socioSoA, lojaB.id, tx), false, 'sócio não age em loja de grupo que não vê')
+    assert.equal(await podeAgirNaLoja(socioAeB, lojaB.id, tx), true, 'sócio age em loja de grupo do grupos_acesso')
+    assert.equal(await podeAgirNaLoja(adminGeral, lojaB.id, tx), true, 'admin_geral age em qualquer grupo')
     throw new Desfazer()
   }), Desfazer)
 })
