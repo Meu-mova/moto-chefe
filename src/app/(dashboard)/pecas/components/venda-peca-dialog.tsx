@@ -477,13 +477,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             </div>
           </div>
 
-<<<<<<< HEAD
           <DialogFooter className="mt-2 gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-=======
-          <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => { setOpen(false); resetForm(); setAvisos([]) }}>Cancelar</Button>
->>>>>>> feat/pecas-responsiva
             <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
               {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}
             </Button>
