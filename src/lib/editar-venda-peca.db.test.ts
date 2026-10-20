@@ -15,10 +15,11 @@ type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let editarVendaPecaTx: typeof import('@/lib/editar-venda-peca')['editarVendaPecaTx']
+let aplicarEdicaoAprovadaTx: typeof import('@/lib/editar-venda-peca')['aplicarEdicaoAprovadaTx']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ editarVendaPecaTx } = await import('@/lib/editar-venda-peca'))
+  ;({ editarVendaPecaTx, aplicarEdicaoAprovadaTx } = await import('@/lib/editar-venda-peca'))
 })
 
 after(async () => {
@@ -96,6 +97,42 @@ describe('editarVendaPecaTx (#242)', () => {
         /Peça não encontrada/,
       )
       assert.equal(await estoque(tx, s.pneu), 4)
+    })
+  })
+
+  test('edição aprovada (financiamento) aplica o que ficou guardado no pedido, com o grupo da loja da venda', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const r = await aplicarEdicaoAprovadaTx(tx, {
+        vendaId: s.vendaId, numero: s.numero,
+        itens: [{ pecaId: s.retro, quantidade: 1 }],
+        pagamentos: [{ tipo: 'financiamento', valor: 40 }],
+      }, s.vendId)
+      assert.equal(r.numero, s.numero)
+      assert.equal(await estoque(tx, s.retro), 9)
+      assert.equal(await estoque(tx, s.pneu), 5)
+      const [v] = await linhas(tx, sql`select forma_pagamento, valor_total from vendas_pecas where id = ${s.vendaId}`)
+      assert.equal(v.forma_pagamento, 'financiamento')
+      assert.equal(v.valor_total, '40.00')
+      const [h] = await linhas(tx, sql`select grupo_id, usuario_id from vendas_pecas_edicoes where venda_peca_id = ${s.vendaId}`)
+      assert.equal(h.grupo_id, s.grupoId)
+      assert.equal(h.usuario_id, s.vendId)
+    })
+  })
+
+  test('edição aprovada de venda que foi excluída falha sem mexer no estoque', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      await linhas(tx, sql`delete from vendas_pecas where id = ${s.vendaId} returning id`)
+      await assert.rejects(
+        tx.transaction(t2 => aplicarEdicaoAprovadaTx(t2, {
+          vendaId: s.vendaId, numero: s.numero,
+          itens: [{ pecaId: s.retro, quantidade: 5 }],
+          pagamentos: [{ tipo: 'financiamento', valor: 200 }],
+        }, s.vendId)),
+        /Venda não encontrada/,
+      )
+      assert.equal(await estoque(tx, s.retro), 8)
     })
   })
 })
