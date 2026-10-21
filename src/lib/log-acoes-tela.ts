@@ -80,11 +80,12 @@ const brl = (v: unknown) => Number(v).toLocaleString('pt-BR', { style: 'currency
   .replace(/\u00a0/g, ' ')
 
 export function resumoDoEvento(e: EventoLog): string {
-  // Linha gravada antes de um campo existir não pode virar "undefined" na tela.
-  const d = new Proxy(e.detalhe ?? {}, { get: (o, k: string) => o[k] ?? '?' }) as Record<string, unknown>
+  const d = e.detalhe ?? {}
+  // Campo ausente (linha antiga) aparece como "?", nunca "undefined"; as condições leem d direto.
+  const v = (k: string) => d[k] ?? '?'
   switch (e.tipo) {
     case 'troca_grupo': return `Entrou em ${e.grupoNome ?? 'grupo excluído'}`
-    case 'venda_cancelada': return `Venda #${d.numeroVenda} · ${d.cliente} · ${brl(d.valor)} · “${d.motivo}”`
+    case 'venda_cancelada': return `Venda #${v('numeroVenda')} · ${v('cliente')} · ${d.valor == null ? '?' : brl(d.valor)} · “${v('motivo')}”`
     case 'nf_emitida': {
       const partes = [d.numeroNf ? `NF ${d.numeroNf} da venda #${d.numeroVenda ?? '?'}` : `NF da venda #${d.numeroVenda ?? '?'}`]
       if (d.status) partes.push(String(d.status))
@@ -94,12 +95,12 @@ export function resumoDoEvento(e: EventoLog): string {
       return partes.join(' · ')
     }
     case 'nf_cancelada':
-      return [`NF ${d.numeroNf ?? '?'}`, `“${d.motivo}”`, d.extemporaneo ? 'extemporâneo' : null, d.ambiente === 'Homologacao' ? 'homologação' : null]
+      return [`NF ${v('numeroNf')}`, `“${v('motivo')}”`, d.extemporaneo ? 'extemporâneo' : null, d.ambiente === 'Homologacao' ? 'homologação' : null]
         .filter(Boolean).join(' · ')
     case 'permissao_alterada': {
       const campos = Array.isArray(d.campos) ? `: ${d.campos.join(', ')}` : ''
       const papel = d.papelAntes ? ` (${d.papelAntes} → ${d.papel})` : ''
-      return `${d.alvoNome} · ${d.acao}${campos}${papel}`
+      return `${v('alvoNome')} · ${v('acao')}${campos}${papel}`
     }
     default: return `${dispositivoLegivel(e.userAgent)} · IP ${e.ip ?? '?'}`
   }

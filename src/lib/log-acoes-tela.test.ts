@@ -42,6 +42,9 @@ test('resumo de cada ação sensível', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_cancelada', detalhe: { numeroNf: '415', motivo: 'erro', extemporaneo: true, ambiente: 'Producao' } })), 'NF 415 · “erro” · extemporâneo')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['papel'], papelAntes: 'vendedor', papel: 'aux_adm' } })), 'Bruno · alterado: papel (vendedor → aux_adm)')
   assert.equal(resumoDoEvento(ev({ tipo: 'troca_grupo', detalhe: { de: 'g1' } })), 'Entrou em Sul')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['lojaId'] } })), 'Bruno · alterado: lojaId', 'sem mudança de papel, sem (→)')
+  assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { numeroVenda: 30041, origem: 'mova' } })), 'NF da venda #30041')
+  assert.equal(resumoDoEvento(ev({ tipo: 'venda_cancelada', detalhe: {} })), 'Venda #? · ? · ? · “?”', 'linha sem os campos não mostra undefined')
 })
 
 test('admin da Conta só vê a própria; admin_geral escolhe (ou vê todas)', () => {
