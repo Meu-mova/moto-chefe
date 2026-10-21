@@ -22,7 +22,7 @@ import {
 } from '../actions'
 import { AtivarCliente } from './ativar-cliente'
 import { EnderecoSedeCampos } from './endereco-sede-campos'
-import { limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
+import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
@@ -149,12 +149,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-function sedeInicial({ sede: s }: AdesaoLinha): EnderecoSede {
-  return {
-    cep: s.cep ?? '', logradouro: s.logradouro ?? '', numero: s.numero ?? '', complemento: s.complemento ?? '',
-    bairro: s.bairro ?? '', cidade: s.cidade ?? '', uf: s.uf ?? '',
-  }
-}
+const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
 
 function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))

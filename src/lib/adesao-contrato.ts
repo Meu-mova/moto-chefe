@@ -2,7 +2,7 @@ import { soDigitosDoc, cpfValido, cnpjValido } from '@/lib/documento'
 import { emailValido } from '@/lib/email'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { camposFaltando, type CampoContrato, type StatusAdesao } from '@/lib/adesao-campos'
-import { erroEnderecoSede, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
+import { erroEnderecoSede, limparEnderecoSede, montarEnderecoSede, paraColunasSede, type ColunasSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 // Dados do contrato de adesão que o /adesao não coleta (#165): o operador da
 // MOVA completa na tela interna, lendo o cartão CNPJ enviado. Salvar parcial é
@@ -22,10 +22,6 @@ export type DadosContrato = {
   sede?: ColunasSede
 }
 
-type ColunasSede = {
-  sedeCep: string | null; sedeLogradouro: string | null; sedeNumero: string | null; sedeComplemento: string | null
-  sedeBairro: string | null; sedeCidade: string | null; sedeUf: string | null
-}
 
 export type EntradaContrato = Partial<Record<CampoContrato, string | null | undefined>> & {
   franqueadoMotochefe?: boolean
@@ -72,17 +68,8 @@ export function lerDadosContrato(
       valorMensal: valor === null || valor === 'invalido' ? null : valor,
       taxaImplantacao: taxa === null || taxa === 'invalido' ? null : taxa,
       franqueadoMotochefe: entrada.franqueadoMotochefe === true,
-      ...(sede ? { sede: colunasSede(sede) } : {}),
+      ...(sede ? { sede: paraColunasSede(sede) } : {}),
     },
-  }
-}
-
-const ouNull = (v: string) => v || null
-
-function colunasSede(e: EnderecoSede): ColunasSede {
-  return {
-    sedeCep: ouNull(e.cep), sedeLogradouro: ouNull(e.logradouro), sedeNumero: ouNull(e.numero),
-    sedeComplemento: ouNull(e.complemento), sedeBairro: ouNull(e.bairro), sedeCidade: ouNull(e.cidade), sedeUf: ouNull(e.uf),
   }
 }
 

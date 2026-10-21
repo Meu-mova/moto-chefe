@@ -9,6 +9,7 @@ import { ufDoEndereco, ufValida } from '@/lib/sefaz/uf'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { geoDaLoja } from '@/lib/frete'
 import { lojaSugerida } from '@/lib/adesao-endereco'
+import { colunasSede } from '@/lib/sede-colunas'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
 // portal da fábrica da adesão para o grupo e a loja, sem passar pelo navegador.
@@ -139,8 +140,7 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
   const [a] = await exec.select({
     grupoId: adesoesMova.grupoId, enderecoSede: adesoesMova.enderecoSede, storeLogin: adesoesMova.storeLogin,
     nomeLoja: adesoesMova.loja,
-    sedeCep: adesoesMova.sedeCep, sedeLogradouro: adesoesMova.sedeLogradouro, sedeNumero: adesoesMova.sedeNumero,
-    sedeComplemento: adesoesMova.sedeComplemento, sedeBairro: adesoesMova.sedeBairro, sedeCidade: adesoesMova.sedeCidade, sedeUf: adesoesMova.sedeUf,
+    sede: colunasSede,
     temCertificado: sql<boolean>`${adesoesMova.certArquivo} is not null`,
     temSenhaPortal: sql<boolean>`${adesoesMova.storeSenha} is not null`,
     certificadoAplicadoEm: adesoesMova.certificadoAplicadoEm, portalAplicadoEm: adesoesMova.portalAplicadoEm,
@@ -160,13 +160,13 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
 
   return {
     // Endereço em campos (#292) vale mais que a leitura do texto, que fica para adesões antigas.
-    ufSugerida: (a.sedeUf && ufValida(a.sedeUf) ? a.sedeUf : null) ?? ufDoEndereco(a.enderecoSede),
-    lojaSugerida: a.sedeCidade
+    ufSugerida: (a.sede.uf && ufValida(a.sede.uf) ? a.sede.uf : null) ?? ufDoEndereco(a.enderecoSede),
+    lojaSugerida: a.sede.cidade
       ? {
           nome: a.nomeLoja.trim(),
-          cidade: a.sedeCidade,
-          endereco: [a.sedeLogradouro && `${a.sedeLogradouro}${a.sedeNumero ? `, ${a.sedeNumero}` : ''}`, a.sedeComplemento, a.sedeBairro].filter(Boolean).join(', '),
-          cep: a.sedeCep ?? '',
+          cidade: a.sede.cidade,
+          endereco: [a.sede.logradouro && `${a.sede.logradouro}${a.sede.numero ? `, ${a.sede.numero}` : ''}`, a.sede.complemento, a.sede.bairro].filter(Boolean).join(', '),
+          cep: a.sede.cep ?? '',
         }
       : lojaSugerida(a.nomeLoja, a.enderecoSede),
     storeLogin: a.storeLogin,
