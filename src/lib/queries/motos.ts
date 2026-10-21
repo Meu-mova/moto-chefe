@@ -4,6 +4,7 @@ import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, rese
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { motoNaoVendida } from './showroom'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
@@ -172,9 +173,7 @@ export async function listarMotos(filtros?: {
         // Motos cadastradas só para garantia de veículo externo nunca são estoque.
         eq(motos.somenteGarantia, false),
         filtros?.status?.length          ? inArray(motos.status, filtros.status as any[])                   : undefined,
-        filtros?.excluirVendidas
-          ? sql`(${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`
-          : undefined,
+        filtros?.excluirVendidas ? motoNaoVendida() : undefined,
         filtros?.disponibilidade?.length
           ? inArray(motos.disponibilidade, filtros.disponibilidade as any[])
           : undefined,

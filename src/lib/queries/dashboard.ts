@@ -4,6 +4,7 @@ import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } f
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { valorLiquidoExpr } from './valor-liquido'
+import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 
 type Filtros = {
@@ -35,9 +36,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   )
 
   const estoqueCond = and(
-    sql`${motos.status} != 'vendida'`,
-    sql`(${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida')`,
-    eq(motos.somenteGarantia, false), // moto só de garantia não é estoque
+    motoNoShowroom(),
     lojaId !== undefined ? lojaFilter(motos.lojaId, lojaId) : undefined,
   )
 
@@ -122,10 +121,7 @@ export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue
 }
 
 export async function getEstoquePorLoja(lojaId?: string[]) {
-  const conditions: any[] = [
-    sql`${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida'`,
-    eq(motos.somenteGarantia, false), // moto só de garantia não é estoque
-  ]
+  const conditions: any[] = [motoNoShowroom()]
   if (lojaId !== undefined) conditions.push(lojaFilter(motos.lojaId, lojaId)!)
 
   return db
