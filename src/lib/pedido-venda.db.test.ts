@@ -114,6 +114,21 @@ describe('efetivarPedidoTx (#181)', () => {
     })
   })
 
+  test('cliente de outra Conta é recusado e o pedido continua pendente', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const outra = await s.linha(sql`insert into contas (nome) values ('Outro cliente do MOVA') returning id`)
+      const deFora = await s.linha(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Comprador de fora', '52998224725', ${outra.id}) returning id`)
+      await assert.rejects(efetivarPedidoTx(tx, {
+        pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: deFora.id,
+        clienteNome: 'Comprador de fora', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        origem: { origemId: s.origemId, origemDetalhe: null },
+      }), /Cliente não encontrado/)
+      const [p] = ((await tx.execute(sql`select status from pedidos_venda where id = ${s.pedidoId}`)) as unknown as { rows: any[] }).rows
+      assert.equal(p.status, 'pendente')
+    })
+  })
+
   test('pedido já efetivado é recusado', async () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)

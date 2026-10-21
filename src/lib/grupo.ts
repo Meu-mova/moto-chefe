@@ -134,7 +134,7 @@ export async function getGrupoAtivo(
 // Conta do grupo que o usuário está operando: é a dona dos clientes que ele vê e
 // cadastra (ADR-0018).
 export async function contaDoGrupoAtivo(usuario: UsuarioComConta): Promise<string> {
-  return (await getGrupoAtivo(usuario)).contaId
+  return (await grupoAtivoDaRequisicao(usuario)).contaId
 }
 
 export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {

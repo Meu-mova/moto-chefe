@@ -73,7 +73,7 @@ async function main() {
     select nome from lojas where grupo_id <> ${grupo.id}
     union select nome from usuarios where loja_id in ${deFora} and (papel = 'vendedor' or 'vendedor' = any(papeis_extras) or papel = 'mecanico')
   `)) as { nome: string }[]).map(r => r.nome).filter(n => n.length >= 6)
-  if (!moto || !os || !venda || !reserva || !clientesDeFora.length || !marcas.length) throw new Error('staging sem moto, OS ou usuários de outro grupo para testar')
+  if (!moto || !os || !venda || !reserva || !clientesDeFora.length || !marcas.length) throw new Error('staging sem moto, OS, venda, reserva, comprador ou usuários de outro grupo/Conta para testar')
   const vazou = (texto: string) => [...marcas, moto.chassi].filter(m => texto.includes(m))
 
   const navegador = await chromium.launch()
@@ -118,15 +118,16 @@ async function main() {
           `status ${deOutro.status}/${inexistente.status}; ${vazou(deOutro.texto).slice(0, 3).join(', ') || 'texto diferente'}`,
         )
       }
-      if (veOs) {
+      // Os dois papéis do teste (sócio e vendedor) acessam /clientes.
+      {
         const lista = await abrir(p, '/clientes')
         const nomes = clientesDeFora.map(c => c.nome).filter(n => n.length >= 6 && lista.texto.includes(n))
-        confere(!nomes.length, '/clientes sem compradores de outra Conta', nomes.slice(0, 3).join(', '))
+        confere(!nomes.length, '/clientes (1ª página) sem nome de comprador de outra Conta (nomes com 6+ letras)', nomes.slice(0, 3).join(', '))
         const ficha = await abrir(p, `/clientes/${clientesDeFora[0].id}`)
         const fichaInexistente = await abrir(p, `/clientes/${INEXISTENTE}`)
         confere(
           ficha.status === fichaInexistente.status && ficha.texto === fichaInexistente.texto,
-          'ficha de comprador de outra Conta responde igual a id inexistente',
+          'ficha de um comprador de outra Conta responde igual a id inexistente',
           `status ${ficha.status}/${fichaInexistente.status}`,
         )
       }

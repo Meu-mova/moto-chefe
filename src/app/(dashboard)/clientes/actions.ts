@@ -1,6 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
-import { clientes, vendas, ordensServico, motos, modelos, lojas, grupos } from '@/lib/db/schema'
+import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
+import { lojasDaConta } from '@/lib/conta'
 import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
@@ -129,7 +130,6 @@ function cpfRepetido(e: unknown): boolean {
   return (e as { cause?: { constraint?: string } })?.cause?.constraint === 'clientes_conta_cpf_cnpj_key'
 }
 
-
 export async function criarClienteAction(dados: ClienteInput): Promise<string> {
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
@@ -175,7 +175,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
 export async function excluirClienteAction(id: string) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel !== 'admin_geral') throw new Error('Sem permissão')
-  await db.delete(clientes).where(eq(clientes.id, id))
+  await db.delete(clientes).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
   revalidatePath('/clientes')
 }
 
@@ -189,11 +189,9 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
   const [doCliente] = await db.select({ id: clientes.id }).from(clientes)
     .where(and(eq(clientes.id, id), eq(clientes.contaId, contaId))).limit(1)
   if (!doCliente) return { vendas: [], os: [] }
-  const lojasDaConta = db.select({ id: lojas.id }).from(lojas)
-    .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId))
 
   const condicaoVendas = and(
-    inArray(vendas.lojaId, lojasDaConta),
+    inArray(vendas.lojaId, lojasDaConta(contaId)),
     cpfCnpj ? or(eq(vendas.clienteId, id), eq(vendas.clienteCpf, cpfCnpj))! : eq(vendas.clienteId, id),
   )
 
@@ -229,7 +227,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       .from(ordensServico)
       .leftJoin(motos, eq(ordensServico.motoId, motos.id))
       .leftJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(and(eq(ordensServico.clienteId, id), inArray(ordensServico.lojaId, lojasDaConta)))
+      .where(and(eq(ordensServico.clienteId, id), inArray(ordensServico.lojaId, lojasDaConta(contaId))))
       .orderBy(desc(ordensServico.dataAbertura)),
   ])
 

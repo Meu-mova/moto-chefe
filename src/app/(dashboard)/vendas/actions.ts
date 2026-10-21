@@ -4,13 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo, lojas, grupos } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja } from '@/lib/conta'
+import { contaDaLoja, lojasDaConta } from '@/lib/conta'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -1573,7 +1573,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
 
   if (cliente) return { source: 'clientes' as const, ...cliente }
 
-  // 2. Fallback: última venda com esse CPF, só de loja da Conta
+  // 2. Fallback: última venda com esse CPF
   const [venda] = await db
     .select({
       nome: vendas.clienteNome,
@@ -1593,8 +1593,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
     // A venda grava o documento formatado; compara só os dígitos.
     .where(and(
       sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
-      inArray(vendas.lojaId, db.select({ id: lojas.id }).from(lojas)
-        .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId))),
+      inArray(vendas.lojaId, lojasDaConta(contaId)),
     ))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)

@@ -3,7 +3,8 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { motos, modelos, lojas, vendas, clientes, historicoEstoque } from '@/lib/db/schema'
-import { eq, ilike } from 'drizzle-orm'
+import { and, eq, ilike } from 'drizzle-orm'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
 
 const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
 
@@ -22,7 +23,7 @@ export type VeiculoGarantia = {
 // Busca em toda a base de motos (estoque, vendidas, qualquer loja/grupo — mesmo
 // escopo do módulo Radar), pois a garantia é sempre aberta na loja da própria moto.
 export async function buscarVeiculoGarantiaAction(chassi: string): Promise<VeiculoGarantia[]> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const termo = chassi.trim().toUpperCase()
   if (termo.length < 3) return []
 
@@ -42,7 +43,8 @@ export async function buscarVeiculoGarantiaAction(chassi: string): Promise<Veicu
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
     .leftJoin(vendas,   eq(vendas.motoId,  motos.id))
-    .leftJoin(clientes, eq(vendas.clienteId, clientes.id))
+    // Comprador só da Conta: a moto pode ter sido vendida por outro cliente do MOVA.
+    .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     .where(ilike(motos.chassi, `%${termo}%`))
     .limit(10)
 
