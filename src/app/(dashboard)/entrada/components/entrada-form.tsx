@@ -7,15 +7,13 @@ import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
-import { sugerirModeloEPreco } from '@/lib/entrada-preco'
+import { casarModelo } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
   modelo: string
   marca: string
-  precoCompraPadrao: string | null
-  ultimoPrecoCompra: string | null
 }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
@@ -102,23 +100,16 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     e.target.value = ''
   }
 
-  // --- Modelo/preço das motos importadas ---
+  // --- Modelo das motos importadas ---
   // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
-  // modeloId e a pessoa escolhe na tela.
+  // modeloId e a pessoa escolhe na tela. O preço sempre vem vazio (#288).
   function sugerirModelo(nomeArquivo: string) {
-    return sugerirModeloEPreco(nomeArquivo, modelos)
+    return { modeloId: casarModelo(nomeArquivo, modelos), preco: '' }
   }
 
   function trocarModeloDoGrupo(indices: number[], modeloId: string) {
-    const escolhido = modelos.find(m => m.id === modeloId)
-    // Reaproveita a mesma cascata cadastro → último praticado da importação.
-    const sugerido = escolhido ? sugerirModeloEPreco(escolhido.modelo, modelos).preco : ''
     const alvo = new Set(indices)
-    setLinhasPlanilha(prev => prev.map((l, i) => (
-      // O preço sugerido do novo modelo reaplica no bloco inteiro — é o "aplicar a
-      // todas". Modelo sem preço conhecido preserva o que já estava digitado.
-      alvo.has(i) ? { ...l, modeloId, preco: sugerido || l.preco } : l
-    )))
+    setLinhasPlanilha(prev => prev.map((l, i) => (alvo.has(i) ? { ...l, modeloId } : l)))
   }
 
   function updatePreco(idx: number, preco: string) {
@@ -570,12 +561,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 <label className="block text-sm text-slate-500 mb-1">Modelo *</label>
                 <select
                   value={modeloId}
-                  onChange={e => {
-                    const id = e.target.value
-                    setModeloId(id)
-                    const m = modelos.find(m => m.id === id)
-                    setPrecoCompra(m ? sugerirModeloEPreco(m.modelo, modelos).preco : '')
-                  }}
+                  onChange={e => setModeloId(e.target.value)}
                   className="w-full border rounded-md px-3 py-2 text-sm"
                   required
                 >
