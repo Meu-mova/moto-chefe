@@ -81,7 +81,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   })
 
   return (
-    <div className="max-w-4xl space-y-5 lg:max-w-7xl has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
+    <div className="max-w-4xl space-y-5 lg:max-w-none has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
       {/* Header. A folga embaixo (has-[[data-barra-fixa]]) só existe quando o botão de avançar
           fica fixo no rodapé do celular; sem ela, o fim da página ficaria atrás dele. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
