@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { Sidebar, MenuMobile } from '@/components/layout/sidebar'
 import { COOKIE_SIDEBAR_RECOLHIDA } from '@/components/layout/sidebar-cookie'
 import { BotaoVoltar } from '@/components/layout/botao-voltar'
@@ -10,6 +10,7 @@ import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
 import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
+import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
 import { grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao } from '@/lib/grupo'
 import { situacaoMensalidade, SEM_MENSALIDADE } from '@/lib/mensalidade/bloqueio'
 import { podePagarMensalidade } from '@/lib/mensalidade/regras'
@@ -72,6 +73,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     grupoAtivo && precisaRegistrar(usuario.papel, grupoAtivo)
       ? withTimeout(registrarPrimeiroAcesso(grupoAtivo.id), 3000)
         .catch(e => console.error('[primeiro-acesso] falha ao registrar:', e instanceof Error ? e.message : e))
+      : null,
+    // Toda página tenta; o índice único deixa só a 1ª do dia por grupo (#198).
+    grupoAtivo
+      ? withTimeout((async () => registrarSemFalhar({
+        tipo: 'acesso_dia', usuarioId: usuario.id, contaId: grupoAtivo.contaId, grupoId: grupoAtivo.id,
+        ...origemDaRequisicao(await headers()),
+      }))(), 3000).catch(() => null)
       : null,
   ])
 

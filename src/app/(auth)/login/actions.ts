@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
 
 export async function loginAction(formData: FormData) {
   const supabase = await createClient()
@@ -32,10 +34,18 @@ export async function loginAction(formData: FormData) {
   // aqui também dá uma mensagem clara na hora, sem abrir sessão à toa: desfaz
   // o signIn e devolve pro /login com o motivo, em vez de mandar pro
   // /dashboard pra só então ser expulso.
-  const [usuario] = await db.select({ ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.email, email)).limit(1)
+  const [usuario] = await db.select({ id: usuarios.id, ativo: usuarios.ativo, contaId: usuarios.contaId }).from(usuarios).where(eq(usuarios.email, email)).limit(1)
   if (usuario && !usuario.ativo) {
     await supabase.auth.signOut()
     redirect('/login?error=inativo')
+  }
+
+  // Sem grupo ainda: o grupo em que a pessoa caiu aparece no acesso_dia, gravado pelo layout.
+  if (usuario) {
+    await registrarSemFalhar({
+      tipo: 'login', usuarioId: usuario.id, contaId: usuario.contaId, grupoId: null,
+      ...origemDaRequisicao(await headers()),
+    })
   }
 
   redirect('/dashboard')
