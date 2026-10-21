@@ -154,7 +154,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             <select
               value={catalogoId}
               onChange={e => selecionarDoCatalogo(e.target.value)}
-              className="h-10 w-full truncate border border-input rounded-md px-3 text-sm bg-background"
+              className="h-10 w-full border border-input rounded-md px-3 text-sm bg-background"
             >
               <option value="">
                 {tipo === 'servico' ? 'Serviço do catálogo (opcional)' : 'Peça do catálogo (opcional)'}

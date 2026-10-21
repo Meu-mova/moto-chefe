@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RESPONSAVEL_TRANSICAO, podeAvancarOS } from '@/lib/os-transicao'
 
-const STEPS: { key: string; label: string; curto?: string }[] = [
+const STEPS = [
   { key: 'aberta',              label: 'Aberta' },
   { key: 'oficina',              label: 'Oficina' },
   { key: 'em_andamento',        label: 'Em Andamento' },
@@ -14,7 +14,7 @@ const STEPS: { key: string; label: string; curto?: string }[] = [
   // Na barra horizontal o nome inteiro não cabe na caixa: lá sai o curto.
   { key: 'pendente_pagamento',  label: 'Pendente de Pagamento', curto: 'Pagamento' },
   { key: 'concluida',           label: 'Concluída' },
-]
+] as const satisfies readonly { key: string; label: string; curto?: string }[]
 
 const RESPONSAVEL_LABEL: Record<string, string> = {
   mecanico: 'mecânico',
@@ -61,7 +61,7 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
 
   return (
     <>
-      {/* Celular: passos em lista vertical. Até o desktop, o botão de avançar fica fixo no rodapé (#248). */}
+      {/* Até o desktop, o botão de avançar fica fixo no rodapé (#248): no tablet a barra horizontal não tem espaço para ele. */}
       <ol className="space-y-1 rounded-xl border border-border bg-card p-3 md:hidden" aria-label="Etapas da OS">
         {STEPS.map((step, idx) => {
           const done = idx < currentIdx
@@ -88,7 +88,6 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
         </div>
       )}
 
-      {/* Tablet e desktop: barra horizontal */}
       <div className="hidden items-center gap-0 md:flex">
         {STEPS.map((step, idx) => {
           const done    = idx < currentIdx
@@ -106,7 +105,7 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
                     ? <Loader2 size={18} className="animate-spin text-primary" />
                     : <Circle size={18} className={current ? 'text-primary' : 'text-muted-foreground'} />}
                 <span title={step.label} className={cn('mt-1 max-w-full truncate text-center text-xs font-medium', current ? 'text-primary-text' : done ? 'text-foreground' : 'text-muted-foreground')}>
-                  {step.curto ?? step.label}
+                  {'curto' in step ? step.curto : step.label}
                 </span>
               </div>
               {!isLast && <div className={cn('h-px w-3', done ? 'bg-primary' : 'bg-border')} />}
