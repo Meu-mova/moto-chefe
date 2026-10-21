@@ -9,20 +9,22 @@ export type PontoFaturamento = {
 const DIA_MS = 86_400_000
 const isoDia = (t: number) => new Date(t).toISOString().slice(0, 10)
 
+type ValorDia = { dia: string; valor: number }
+
 /**
- * Séries do gráfico de faturamento. O período anterior tem a mesma duração e termina um dia
- * antes do atual (periodoAnterior do dashboard), então o dia N de um casa com o dia N do outro.
+ * Séries do gráfico de faturamento: o dia N do período casa com o dia N do anterior, que começa
+ * em `inicioAnterior` (o dashboard compara com um período da mesma duração).
  * Datas em UTC só como aritmética de calendário: os dias já chegam no fuso de Brasília.
  */
 export function montarSeriesFaturamento(
-  periodo: { inicio: string; fim: string },
-  atual: { dia: string; valor: number }[],
-  anterior: { dia: string; valor: number }[],
+  periodo: { inicio: string; fim: string; inicioAnterior: string },
+  atual: ValorDia[],
+  anterior: ValorDia[],
 ): PontoFaturamento[] {
   const ini = Date.parse(`${periodo.inicio}T00:00:00Z`)
   const n = Math.round((Date.parse(`${periodo.fim}T00:00:00Z`) - ini) / DIA_MS) + 1
-  const iniAnt = ini - n * DIA_MS
-  const porDia = (rows: { dia: string; valor: number }[]) => new Map(rows.map(r => [r.dia, r.valor]))
+  const iniAnt = Date.parse(`${periodo.inicioAnterior}T00:00:00Z`)
+  const porDia = (rows: ValorDia[]) => new Map(rows.map(r => [r.dia, r.valor]))
   const mAtual = porDia(atual)
   const mAnt = porDia(anterior)
 

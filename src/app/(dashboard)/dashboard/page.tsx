@@ -196,7 +196,10 @@ async function GraficosSection({
     console.error('[GraficosSection] erro:', e)
     throw e
   }
-  const serie = montarSeriesFaturamento({ inicio: filtros.dataInicio, fim: filtros.dataFim }, vendasDia, vendasDiaAnt)
+  const serie = montarSeriesFaturamento(
+    { inicio: filtros.dataInicio, fim: filtros.dataFim, inicioAnterior: filtrosAnt.dataInicio },
+    vendasDia, vendasDiaAnt,
+  )
   return (
     <>
       {/* "Showroom por loja" oculto para a apresentação de 06/10/2026. */}

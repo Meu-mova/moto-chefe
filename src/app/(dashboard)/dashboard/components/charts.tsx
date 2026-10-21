@@ -8,6 +8,8 @@ import { Secao } from './painel-secoes'
 
 const brl = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+// Caixa é conferido no centavo; no gráfico o valor arredondado basta.
+const brlCentavos = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const brlCurto = (v: number) => (Math.abs(v) >= 1000 ? `R$ ${Math.round(v / 1000)} mil` : brl(v))
 const diaMes = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 
@@ -142,10 +144,12 @@ export function GraficoCaixaPorLoja({ dados }: { dados: CaixaLoja[] }) {
   const lojas = dados.map(d => ({ loja: d.loja, saldo: Number(d.saldo) }))
   const total = lojas.reduce((s, l) => s + l.saldo, 0)
   const maior = Math.max(1, ...lojas.map(l => Math.abs(l.saldo)))
+  // Com saldo negativo em alguma loja a fatia passa de 100% ou fica negativa: aí não mostra.
+  const mostraPct = total > 0 && lojas.every(l => l.saldo >= 0)
   return (
     <Secao titulo="Caixa por loja">
       <div className="flex gap-6 pt-3 pb-2">
-        <div><b className="block text-lg tabular-nums">{brl(total)}</b><span className="text-xs text-muted-foreground">total em caixa</span></div>
+        <div><b className="block text-lg tabular-nums">{brlCentavos(total)}</b><span className="text-xs text-muted-foreground">total em caixa</span></div>
         <div><b className="block text-lg tabular-nums">{lojas.length}</b><span className="text-xs text-muted-foreground">lojas</span></div>
       </div>
       <ul className="space-y-2">
@@ -156,8 +160,8 @@ export function GraficoCaixaPorLoja({ dados }: { dados: CaixaLoja[] }) {
               <i className={`block h-full ${l.saldo < 0 ? 'bg-destructive' : 'bg-chart-1'}`} style={{ width: `${(Math.abs(l.saldo) / maior) * 100}%` }} />
             </span>
             <span className={`text-right tabular-nums ${l.saldo < 0 ? 'text-destructive' : ''}`}>
-              {brl(l.saldo)}
-              {total > 0 && <span className="ml-1.5 text-xs text-muted-foreground">{Math.round((l.saldo / total) * 100)}%</span>}
+              {brlCentavos(l.saldo)}
+              {mostraPct && <span className="ml-1.5 text-xs text-muted-foreground">{Math.round((l.saldo / total) * 100)}%</span>}
             </span>
           </li>
         ))}
