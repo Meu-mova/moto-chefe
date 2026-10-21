@@ -159,17 +159,18 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
   const gridCols = isVendedor ? (descontos ? 'lg:grid-cols-6' : 'lg:grid-cols-5') : 'lg:grid-cols-7'
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-3 ${gridCols} gap-4`}>
+    // Celular: carrossel com rolagem lateral (variante C do protótipo da #281); a partir de sm, grade.
+    <div className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 md:grid-cols-3 ${gridCols}`}>
       {cards.map(({ label, value, icon: Icon, color, bg, variacao, href, highlight, hint }) => {
         const inner = (
-          <div className={`bg-white rounded-lg border p-4 flex flex-col gap-2 ${highlight ? 'border-amber-300 ring-1 ring-amber-200' : ''} ${href ? 'hover:shadow-sm transition-shadow' : ''}`}>
+          <div className={`flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-4 ${highlight ? 'border-warning ring-1 ring-warning/30' : ''} ${href ? 'transition-shadow hover:shadow-sm' : ''}`}>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">{label}</span>
               <div className={`${bg} ${color} p-1.5 rounded-md`}>
                 <Icon size={16} />
               </div>
             </div>
-            <span className={`font-bold ${highlight ? 'text-amber-700' : ''} ${String(value).length > 15 ? 'text-lg' : 'text-2xl'}`}>{value}</span>
+            <span className={`break-words font-bold ${highlight ? 'text-warning' : ''} ${String(value).length > 15 ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl'}`}>{value}</span>
             {variacao && (
               <div className="flex items-center gap-1">
                 <VariacaoBadge atual={variacao.atual} anterior={variacao.anterior} />
@@ -184,9 +185,10 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
             )}
           </div>
         )
+        const item = 'w-[44%] shrink-0 snap-start sm:w-auto'
         return href
-          ? <Link key={label} href={href}>{inner}</Link>
-          : <div key={label}>{inner}</div>
+          ? <Link key={label} href={href} className={item}>{inner}</Link>
+          : <div key={label} className={item}>{inner}</div>
       })}
     </div>
   )
