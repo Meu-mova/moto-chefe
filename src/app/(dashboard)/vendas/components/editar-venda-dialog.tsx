@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
+import { podeAlterarValorVenda } from '@/lib/valor-venda'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -68,7 +69,7 @@ const TIPO_LABEL: Record<string, string> = {
   transferencia: 'Transferência Bancária',
 }
 
-export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Props) {
+export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilho }: Props) {
   const [open, setOpen] = useState(false)
 
   // Venda
@@ -219,14 +220,21 @@ export function EditarVendaDialog({ venda: v, vendedores, origens, gatilho }: Pr
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Valor Total (R$)</Label>
-                  <CurrencyInput
-                    value={valor}
-                    onChange={novo => {
-                      setValor(novo)
-                      setPgtos(prev => prev.length === 1 ? [{ ...prev[0], valor: novo }] : prev)
-                    }}
-                    placeholder="0,00"
-                  />
+                  {podeAlterarValorVenda(papel) ? (
+                    <CurrencyInput
+                      value={valor}
+                      onChange={novo => {
+                        setValor(novo)
+                        setPgtos(prev => prev.length === 1 ? [{ ...prev[0], valor: novo }] : prev)
+                      }}
+                      placeholder="0,00"
+                    />
+                  ) : (
+                    // Sem campo: o aux_adm não altera o valor (#293).
+                    <p className="flex h-9 items-center rounded-md border bg-muted px-3 text-muted-foreground">
+                      {lerValor(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Data da Venda</Label>

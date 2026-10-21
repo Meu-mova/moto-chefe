@@ -215,7 +215,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     })
     setFiscais(prev => [...prev, ...fichasNovas])
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
-    avisos.forEach(a => toast.warning(a, { duration: 9000 }))
+    // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
+    avisos.forEach(a => toast.warning(a, { duration: Infinity, closeButton: true }))
   }
 
   // --- Submit manual ---
