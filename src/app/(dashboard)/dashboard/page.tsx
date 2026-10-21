@@ -420,12 +420,12 @@ export default async function DashboardPage({
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
-  const hoje = hojeBrt()
-  const contasDoMes = isAdmin ? listarContasDoMesAction(hoje.slice(0, 7)) : null
-  // Se os indicadores falharem antes de a seção montar, ninguém espera esta promessa.
-  contasDoMes?.catch(() => {})
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
+  const hoje = hojeBrt()
+  const contasDoMes = isAdmin || isAuxAdm ? listarContasDoMesAction(hoje.slice(0, 7)) : null
+  // Se os indicadores falharem antes de a seção montar, ninguém espera esta promessa.
+  contasDoMes?.catch(() => {})
 
   const deDefault = inicioMesAtualISO()
   const ateDefault = hojeISO()

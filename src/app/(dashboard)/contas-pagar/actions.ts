@@ -15,11 +15,12 @@ import {
 } from '@/lib/contas-pagar'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
 
-const ADMINS = ['admin_geral', 'admin_socio']
+// aux_adm opera o financeiro da loja e entra junto (#311).
+const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm']
 
-async function checarAdmin() {
+async function checarGestor() {
   const usuario = await getUsuarioLogado()
-  if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!GESTORES.includes(usuario.papel)) throw new Error('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
   return { usuario, grupo }
 }
@@ -244,7 +245,7 @@ const CAMPOS_OCORRENCIA = {
  * aparecendo até alguém marcar como paga.
  */
 export async function listarContasDoMesAction(mes: string) {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   const usuario = await getUsuarioLogado()
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
@@ -295,7 +296,7 @@ export type ContaRow = {
 }
 
 export async function listarContasAction(): Promise<ContaRow[]> {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   return db
     .select({
       id: contasPagar.id,
@@ -340,7 +341,7 @@ export type NovaContaInput = {
 }
 
 export async function criarContaAction(input: NovaContaInput) {
-  const { usuario, grupo } = await checarAdmin()
+  const { usuario, grupo } = await checarGestor()
 
   if (!input.descricao.trim()) throw new Error('Informe a descrição da conta')
   if (!isTipoConta(input.tipo)) throw new Error('Tipo de conta inválido')
@@ -412,7 +413,7 @@ async function contaDoGrupo(grupoId: string, contaId: string) {
 
 /** Desliga a conta sem apagar o histórico do que já venceu e foi pago. */
 export async function alternarContaAtivaAction(contaId: string, ativo: boolean) {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   await contaDoGrupo(grupo.id, contaId)
   await db.update(contasPagar).set({ ativo }).where(eq(contasPagar.id, contaId))
   revalidatePath('/contas-pagar')
@@ -425,7 +426,7 @@ export async function alternarContaAtivaAction(contaId: string, ativo: boolean) 
  * alternarContaAtivaAction.
  */
 export async function excluirContaAction(contaId: string) {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   await contaDoGrupo(grupo.id, contaId)
   await db.delete(contasPagar).where(eq(contasPagar.id, contaId))
   revalidatePath('/contas-pagar')
@@ -444,7 +445,7 @@ async function ocorrenciaDoGrupo(grupoId: string, ocorrenciaId: string) {
 }
 
 export async function marcarPagoAction(ocorrenciaId: string, pago: boolean) {
-  const { usuario, grupo } = await checarAdmin()
+  const { usuario, grupo } = await checarGestor()
   await ocorrenciaDoGrupo(grupo.id, ocorrenciaId)
 
   await db.update(contasPagarOcorrencias)
@@ -466,7 +467,7 @@ export async function marcarPagoAction(ocorrenciaId: string, pago: boolean) {
  * não estão pagas, então a edição seria silenciosamente desfeita.
  */
 export async function editarValorOcorrenciaAction(ocorrenciaId: string, valor: number) {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   const row = await ocorrenciaDoGrupo(grupo.id, ocorrenciaId)
 
   if (row.tipo === 'automatica') {
@@ -504,7 +505,7 @@ export type ContaNoCalendario = {
  * calendário, que já checa a permissão antes.
  */
 export async function listarContasDoCalendarioAction(mes: string): Promise<ContaNoCalendario[]> {
-  const { grupo } = await checarAdmin()
+  const { grupo } = await checarGestor()
   const usuario = await getUsuarioLogado()
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 

@@ -105,7 +105,7 @@ export const ITENS: ItemNav[] = [
   { id: 'pix',            href: '/pix-mcp',        label: 'PIX',               icon: QrCode,        categoria: 'financeiro',   papeis: COMERCIAL },
   { id: 'conciliacao',    href: '/conciliacao',    label: 'Conciliação',       icon: CreditCard,    categoria: 'financeiro',   papeis: GESTORES },
   { id: 'cartoes',        href: '/cartoes',        label: 'Cartões de Crédito', icon: CreditCard,   categoria: 'financeiro',   papeis: ADMINS, oculto: true },
-  { id: 'contas-pagar',   href: '/contas-pagar',   label: 'Contas a Pagar',    icon: Receipt,       categoria: 'financeiro',   papeis: ADMINS },
+  { id: 'contas-pagar',   href: '/contas-pagar',   label: 'Contas a Pagar',    icon: Receipt,       categoria: 'financeiro',   papeis: GESTORES },
   { id: 'despesas',       href: '/despesas',       label: 'Despesas',          icon: TrendingDown,  categoria: 'financeiro',   papeis: ADMINS },
   { id: 'financeiro',     href: '/financeiro',     label: 'Financeiro',        icon: BarChart3,     categoria: 'financeiro',   papeis: ADMINS },
   { id: 'dre',            href: '/admin/dre',      label: 'DRE',               icon: FileSpreadsheet, categoria: 'financeiro', papeis: ADMINS },
