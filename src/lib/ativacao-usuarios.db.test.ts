@@ -79,3 +79,38 @@ test('cria os acessos da lista na loja e na Conta do grupo; e-mail que falha dev
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('papel fora da adesão é recusado; falha no log não impede o acesso nem o e-mail', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const [conta] = await rows<{ id: string }>(tx, sql`insert into contas (nome) values ('Cliente') returning id`)
+    const [grupo] = await rows<{ id: string }>(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('Cliente', '12345678000195', ${conta.id}) returning id`)
+    const [loja] = await rows<{ id: string }>(tx, sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Centro', 'r', 'c', ${grupo.id}) returning id`)
+    const lista = [
+      { nome: 'Intruso', email: 'intruso@cliente.test', papel: 'admin_geral' },
+      { nome: 'Aux', email: 'aux2@cliente.test', papel: 'aux_adm' },
+      { nome: 'Vend', email: 'vend2@cliente.test', papel: 'vendedor' },
+    ]
+    const [adesao] = await rows<{ id: string }>(tx, sql`
+      insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id)
+      values ('Cliente', 'Resp', '65999990000', 'x.pdf', 'loja@cliente.test', ${JSON.stringify(lista)}::jsonb, ${grupo.id}) returning id`)
+    // Log fora do ar só nesta transação de teste.
+    await tx.execute(sql`create function falha_log() returns trigger language plpgsql as $$ begin raise exception 'log fora do ar'; end $$`)
+    await tx.execute(sql`create trigger falha_log before insert on log_acoes for each row execute function falha_log()`)
+
+    const enviados: string[] = []
+    const r = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaId: loja.id, adminId: randomUUID() }, {
+      criarNoAuth: async () => randomUUID(),
+      apagarDoAuth: async () => {},
+      enviar: async (e: { para: string }) => { enviados.push(e.para); return { status: 'enviado' } },
+      urlLogin: 'https://mova.test/login',
+    }, tx)
+    assert.ok(r.ok)
+    assert.deepEqual(r.resultados.map(x => [x.email, x.situacao]), [
+      ['intruso@cliente.test', 'erro'], ['aux2@cliente.test', 'criado'], ['vend2@cliente.test', 'criado'],
+    ])
+    assert.deepEqual(enviados, ['aux2@cliente.test', 'vend2@cliente.test'], 'os dois receberam o e-mail mesmo com o log fora')
+    const [n] = await rows<{ n: number }>(tx, sql`select count(*)::int n from usuarios where email in ('aux2@cliente.test', 'vend2@cliente.test', 'intruso@cliente.test')`)
+    assert.equal(n.n, 2, 'admin_geral não foi criado')
+    throw new Desfazer()
+  }), Desfazer)
+})

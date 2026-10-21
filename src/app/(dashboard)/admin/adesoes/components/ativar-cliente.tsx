@@ -123,7 +123,8 @@ function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
   function criar() {
     setErro(null)
     iniciar(async () => {
-      const r = await criarUsuariosAtivacaoAction(adesaoId, loja)
+      let r
+      try { r = await criarUsuariosAtivacaoAction(adesaoId, loja) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       setResultados(r.resultados)
       aoAplicar()
