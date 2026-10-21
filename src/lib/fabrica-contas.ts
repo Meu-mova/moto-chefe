@@ -97,5 +97,16 @@ export async function listarContasFabrica(
     .where(and(eq(lojas.grupoId, grupo.id), eq(lojas.ativa, true)))
     .orderBy(lojas.nome)
 
-  return filtrarContasDoUsuario(usuario, doGrupo.map(l => ({ ...l, fabricaSenha: lerSenhaFabrica(l.fabricaSenha) })))
+  return filtrarContasDoUsuario(usuario, doGrupo.map(l => ({ ...l, fabricaSenha: senhaOuNada(l) })))
+}
+
+// Senha que não decifra (chave trocada, dado corrompido) deixa só esta loja sem
+// credencial; derrubar a lista inteira tiraria do ar a tela de garantias.
+function senhaOuNada(l: { nome: string; fabricaSenha: string | null }): string | null {
+  try {
+    return lerSenhaFabrica(l.fabricaSenha)
+  } catch (e) {
+    console.error(`fábrica: senha do portal de ${l.nome} não decifrou:`, e instanceof Error ? e.message : String(e))
+    return null
+  }
 }

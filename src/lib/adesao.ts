@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { emailValido } from '@/lib/email'
+import { emailValido } from '@/lib/email-valido'
 
 // Papéis que o formulário público oferece para os usuários da loja. admin_geral fica de fora
 // de propósito: é a conta da equipe MOVA, ninguém pede isso num formulário aberto.
@@ -24,12 +24,16 @@ export const usuarioAdesaoSchema = z.object({
   papel: z.enum(VALORES_PAPEL, { message: 'Escolha a função de cada usuário' }),
 })
 
+export const storeLoginValido = (v: string) => emailValido(v)
+export const ERRO_STORE_LOGIN = 'Informe o e-mail de acesso ao motochefe.store'
+
 export const adesaoSchema = z.object({
   loja: z.string().trim().min(2, 'Informe o nome da loja'),
   responsavel: z.string().trim().min(2, 'Informe o responsável'),
   celular: z.string().trim().refine(v => /^\d{10,11}$/.test(v.replace(/\D/g, '')), 'Celular inválido (com DDD)'),
   certSenha: z.string().min(1, 'Informe a senha do certificado'),
-  storeLogin: z.string().trim().min(1, 'Informe o login do motochefe.store'),
+  // É o e-mail da conta no portal da fábrica; texto livre já chegou como "marlon" e a fábrica recusou (#292).
+  storeLogin: z.string().trim().refine(storeLoginValido, ERRO_STORE_LOGIN),
   storeSenha: z.string().min(1, 'Informe a senha do motochefe.store'),
   usuarios: z.array(usuarioAdesaoSchema).min(1, 'Inclua ao menos um usuário').max(20, 'No máximo 20 usuários'),
 })
