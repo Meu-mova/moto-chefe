@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UFS } from '@/lib/sefaz/uf'
 import type { DadosAtivacao } from '@/lib/ativacao-cliente'
-import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, dadosAtivacaoAction } from '../actions'
+import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, criarUsuariosAtivacaoAction, dadosAtivacaoAction } from '../actions'
+import type { ResultadoUsuario } from '@/lib/ativacao-usuarios'
+import { PAPEIS_ADESAO } from '@/lib/adesao'
 
-// "Ativar cliente" (#292): loja, certificado A1 e login do portal saem da adesão
+// "Ativar cliente" (#292): loja, usuários, certificado A1 e login do portal saem da adesão
 // para o grupo e a loja pelo servidor. Seção na própria tela, não diálogo: o
 // revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
 
@@ -40,6 +42,7 @@ export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
       {dados && (
         <>
           <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+          <PassoUsuarios adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoCertificado adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoPortal adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <Resumo dados={dados} />
@@ -100,6 +103,95 @@ function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
           <p className="text-xs text-muted-foreground">Preenchido com o endereço da sede da adesão; confira.</p>
           <Button onClick={criar} disabled={pendente}>Criar loja</Button>
         </>
+      )}
+      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+    </div>
+  )
+}
+
+const ROTULO_PAPEL = new Map<string, string>(PAPEIS_ADESAO.map(p => [p.valor, p.rotulo]))
+
+function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
+  // Loja de cada pessoa, pelo e-mail: o cliente pode ter mais de uma loja.
+  const [escolhidas, setEscolhidas] = useState<Record<string, string>>({})
+  const [resultados, setResultados] = useState<ResultadoUsuario[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, iniciar] = useTransition()
+  const pendentes = dados.usuarios.filter(u => !u.temAcesso)
+  // Uma loja só (inclusive a recém-criada no passo acima): vale para todos, sem perguntar.
+  const unica = dados.lojas.length === 1 ? dados.lojas[0].id : ''
+  const chave = (email: string) => email.trim().toLowerCase()
+  const lojaDe = (email: string) => escolhidas[chave(email)] || unica
+  const faltaLoja = pendentes.some(u => !lojaDe(u.email))
+
+  function criar() {
+    setErro(null)
+    iniciar(async () => {
+      const lojaPorEmail = Object.fromEntries(pendentes.map(u => [chave(u.email), lojaDe(u.email)]))
+      let r
+      try { r = await criarUsuariosAtivacaoAction(adesaoId, lojaPorEmail) } catch (e) { setErro(mensagem(e)); return }
+      if (!r.ok) { setErro(r.erro); return }
+      setResultados(r.resultados)
+      aoAplicar()
+    })
+  }
+
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      <p className="text-sm font-medium">Usuários</p>
+      <ul className="space-y-2 text-sm">
+        {dados.usuarios.map(u => (
+          <li key={u.email} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {u.temAcesso ? <Check aria-hidden className="h-4 w-4 text-primary-text" /> : <Circle aria-hidden className="h-4 w-4 text-muted-foreground" />}
+            <span>{u.nome}</span>
+            <span className="text-muted-foreground">· {u.email} · {ROTULO_PAPEL.get(u.papel) ?? u.papel}</span>
+            {u.temAcesso ? <span className="text-xs text-muted-foreground">(já tem acesso)</span>
+              : dados.lojas.length > 1 && (
+                <>
+                  <Label htmlFor={`ativar-${adesaoId}-loja-${chave(u.email)}`} className="sr-only">Loja de {u.nome}</Label>
+                  {/* select nativo: o value é o id da loja. */}
+                  <select
+                    id={`ativar-${adesaoId}-loja-${chave(u.email)}`}
+                    value={lojaDe(u.email)}
+                    onChange={e => { const v = e.target.value; setEscolhidas(prev => ({ ...prev, [chave(u.email)]: v })) }}
+                    disabled={pendente}
+                    className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                  >
+                    <option value="">Loja…</option>
+                    {dados.lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                  </select>
+                </>
+              )}
+          </li>
+        ))}
+      </ul>
+      {dados.lojas.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Crie a loja no passo acima: os usuários entram nela.</p>
+      ) : pendentes.length > 0 && (
+        <div className="flex flex-wrap items-end gap-2">
+          <Button onClick={criar} disabled={pendente || faltaLoja}>
+            {pendente ? 'Criando…' : `Criar ${pendentes.length} acesso(s) e enviar e-mails`}
+          </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            {faltaLoja ? 'Escolha a loja de cada pessoa. ' : ''}Cada pessoa recebe por e-mail uma senha provisória e cria a dela no primeiro acesso.
+          </p>
+        </div>
+      )}
+      {resultados && (
+        <ul className="space-y-1 text-sm">
+          {resultados.filter(r => r.situacao !== 'ja_tinha').map(r => (
+            <li key={r.email}>
+              {r.situacao === 'erro' ? <span className="text-destructive">{r.nome}: {r.erro}</span>
+                : r.emailEnviado ? <span>{r.nome}: acesso criado, e-mail enviado.</span>
+                : (
+                  <span className="text-warning">
+                    {r.nome}: acesso criado, mas o e-mail falhou. Senha provisória (anote agora, não aparece de novo):{' '}
+                    <code className="rounded bg-muted px-1 font-mono text-foreground">{r.senhaProvisoria}</code>
+                  </span>
+                )}
+            </li>
+          ))}
+        </ul>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
     </div>
