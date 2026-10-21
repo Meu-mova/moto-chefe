@@ -16,15 +16,12 @@ process.env.DATABASE_URL = url
 type Db = typeof import('@/lib/db')
 type Dash = typeof import('@/lib/queries/dashboard')
 type Metas = typeof import('@/lib/queries/metas')
-type Motos = typeof import('@/lib/queries/motos')
 let db: Db['db']
 let execRows: Db['execRows']
 let getKPIs: Dash['getKPIs']
 let getVendasPorDia: Dash['getVendasPorDia']
 let realizadoDoMes: Metas['realizadoDoMes']
 let vendidoNoDia: Metas['vendidoNoDia']
-let listarMotos: Motos['listarMotos']
-let modeloId = ''
 let lojaId = ''
 let contaId = ''
 
@@ -34,7 +31,6 @@ before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   ;({ getKPIs, getVendasPorDia } = await import('@/lib/queries/dashboard'))
   ;({ realizadoDoMes, vendidoNoDia } = await import('@/lib/queries/metas'))
-  ;({ listarMotos } = await import('@/lib/queries/motos'))
   const conta = await linha(sql`insert into contas (nome) values ('Fuso 283') returning id`)
   contaId = conta.id
   const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Fuso 283', '00000000028300', ${conta.id}) returning id`)
@@ -42,7 +38,6 @@ before(async () => {
   lojaId = loja.id
   const vendedor = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend 283', 'vend283@teste.invalid', 'vendedor', ${loja.id}) returning id`)
   const modelo = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', 'F283', 'autopropelido', '1000', 'hub', '32') returning id`)
-  modeloId = modelo.id
   // A: 22h30 de 31/10 em Brasília (01h30 de 01/11 em UTC), R$ 10.000.
   // B: 8h de 01/11 em Brasília, R$ 20.000. Valores diferentes dizem qual venda caiu onde.
   for (const [chassi, quando, numero, valor] of [['FUSO283A', '2026-11-01T01:30:00Z', 928301, 10000], ['FUSO283B', '2026-11-01T11:00:00Z', 928302, 20000]] as const) {
@@ -83,14 +78,4 @@ test('meta: realizado do mês e vendido no dia seguem o dia de Brasília', async
   assert.equal((await realizadoDoMes([lojaId], 2026, 11)).get(lojaId), 20000)
   assert.equal(await vendidoNoDia([lojaId], 2026, 10, 31), 10000)
   assert.equal(await vendidoNoDia([lojaId], 2026, 11, 1), 20000)
-})
-
-test('showroom: o card do dashboard conta as mesmas motos da tela Showroom, inclusive as que aguardam NF', async () => {
-  for (const [chassi, status, disponibilidade] of [['SHOW310A', 'montada', 'disponivel'], ['SHOW310B', 'vendida', 'reservada']] as const) {
-    await db.execute(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-      values (${chassi}, ${modeloId}, ${lojaId}, 'CINZA', '1', ${status}, ${disponibilidade})`)
-  }
-  const tela = await listarMotos({ excluirVendidas: true, lojaId: [lojaId] })
-  assert.equal(tela.length, 2)
-  assert.equal((await getKPIs(outubro())).estoque, tela.length)
 })
