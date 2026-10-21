@@ -4,7 +4,8 @@ import { lojas, motos, usuarios } from '@/lib/db/schema'
 import { eq, and, ne, count } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { geocodificarCep } from '@/lib/frete'
+import { geoDaLoja } from '@/lib/frete'
+import { cifrarSenhaFabrica } from '@/lib/fabrica-senha'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -13,16 +14,8 @@ async function assertAdmin() {
 }
 
 async function geocodificarSeInformado(cep: string | null) {
-  if (!cep || !cep.trim()) return { geo: { cep: null, latitude: null, longitude: null }, geocodificado: true }
-  const resultado = await geocodificarCep(cep)
-  return {
-    geo: {
-      cep: cep.trim(),
-      latitude: resultado ? String(resultado.coordenada.latitude) : null,
-      longitude: resultado ? String(resultado.coordenada.longitude) : null,
-    },
-    geocodificado: resultado !== null,
-  }
+  const geo = await geoDaLoja(cep)
+  return { geo, geocodificado: !geo.cep || geo.latitude !== null }
 }
 
 export async function criarLojaAction(formData: FormData): Promise<{ geocodificado: boolean }> {
@@ -44,12 +37,14 @@ export async function criarLojaAction(formData: FormData): Promise<{ geocodifica
 export async function editarLojaAction(id: string, formData: FormData): Promise<{ geocodificado: boolean }> {
   await assertAdmin()
   const { geo, geocodificado } = await geocodificarSeInformado(formData.get('cep') as string | null)
+  // Senha em branco mantém a atual: a tela nunca recebe a gravada (#292).
+  const senhaNova = (formData.get('fabricaSenha') as string | null)?.trim()
   await db.update(lojas).set({
     nome: formData.get('nome') as string,
     cidade: formData.get('cidade') as string,
     endereco: formData.get('endereco') as string,
     fabricaEmail: (formData.get('fabricaEmail') as string | null)?.trim() || null,
-    fabricaSenha: (formData.get('fabricaSenha') as string | null)?.trim() || null,
+    ...(senhaNova ? { fabricaSenha: cifrarSenhaFabrica(senhaNova) } : {}),
     ...geo,
   }).where(eq(lojas.id, id))
   revalidatePath('/admin/lojas')

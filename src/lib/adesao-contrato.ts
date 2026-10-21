@@ -2,6 +2,7 @@ import { soDigitosDoc, cpfValido, cnpjValido } from '@/lib/documento'
 import { emailValido } from '@/lib/email'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { camposFaltando, type CampoContrato, type StatusAdesao } from '@/lib/adesao-campos'
+import { erroEnderecoSede, limparEnderecoSede, montarEnderecoSede, paraColunasSede, type ColunasSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 // Dados do contrato de adesão que o /adesao não coleta (#165): o operador da
 // MOVA completa na tela interna, lendo o cartão CNPJ enviado. Salvar parcial é
@@ -17,9 +18,16 @@ export type DadosContrato = {
   valorMensal: string | null
   taxaImplantacao: string | null
   franqueadoMotochefe: boolean
+  /** Só quando a tela mandou o endereço em campos; senão as colunas ficam como estão. */
+  sede?: ColunasSede
 }
 
-export type EntradaContrato = Partial<Record<CampoContrato, string | null | undefined>> & { franqueadoMotochefe?: boolean }
+
+export type EntradaContrato = Partial<Record<CampoContrato, string | null | undefined>> & {
+  franqueadoMotochefe?: boolean
+  /** Endereço da sede em campos (#292). Ausente: vale só o texto de `enderecoSede`. */
+  sede?: Partial<EnderecoSede>
+}
 
 export function lerDadosContrato(
   entrada: EntradaContrato,
@@ -43,18 +51,24 @@ export function lerDadosContrato(
   const taxa = lerValor(texto('taxaImplantacao'))
   if (taxa === 'invalido') erros.taxaImplantacao = 'Informe um valor maior que zero'
 
+  const sede = entrada.sede ? limparEnderecoSede(entrada.sede) : null
+  const erroSede = sede ? erroEnderecoSede(sede) : null
+  if (erroSede) erros.enderecoSede = erroSede
+
   if (Object.keys(erros).length) return { ok: false, erros }
   return {
     ok: true,
     dados: {
       razaoSocial: texto('razaoSocial'),
       cnpj,
-      enderecoSede: texto('enderecoSede'),
+      // Campos incompletos não apagam a linha que já vale (texto antigo ou a última montada).
+      enderecoSede: (sede && montarEnderecoSede(sede)) || texto('enderecoSede'),
       email,
       responsavelCpf,
       valorMensal: valor === null || valor === 'invalido' ? null : valor,
       taxaImplantacao: taxa === null || taxa === 'invalido' ? null : taxa,
       franqueadoMotochefe: entrada.franqueadoMotochefe === true,
+      ...(sede ? { sede: paraColunasSede(sede) } : {}),
     },
   }
 }

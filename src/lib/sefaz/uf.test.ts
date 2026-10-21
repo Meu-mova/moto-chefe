@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { UFS, codigoDaUf, ufValida } from './uf'
+import { UFS, codigoDaUf, ufDoEndereco, ufValida } from './uf'
 
 test('as 27 unidades da federação estão na tabela', () => {
   assert.equal(UFS.length, 27)
@@ -32,4 +32,12 @@ test('sigla inexistente falha explícito, sem cair num padrão', () => {
 test('ufValida separa sigla boa de ruim', () => {
   assert.equal(ufValida('SP'), true)
   assert.equal(ufValida('XX'), false)
+})
+
+test('UF sugerida pelo fim do endereço da sede', () => {
+  assert.equal(ufDoEndereco('Av. Fernando Correa da Costa, 707 – Areão, Cuiabá – MT'), 'MT')
+  assert.equal(ufDoEndereco('Rua A, 10, Pouso Alegre/mg'), 'MG')
+  assert.equal(ufDoEndereco('Rua A, 10 - Centro'), null)
+  assert.equal(ufDoEndereco('Rua A, 10 - XX'), null)
+  assert.equal(ufDoEndereco(null), null)
 })
