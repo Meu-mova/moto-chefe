@@ -11,13 +11,13 @@ type Executor = Pick<typeof db, 'select'>
 // (podeVerGrupo); quem chama devolve 404 quando dá false, para não revelar que o
 // registro existe em outro grupo.
 export async function podeAbrirRegistroDaLoja(
-  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null },
+  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null },
   lojaId: string,
   exec: Executor = db,
 ): Promise<boolean> {
   const ids = usuario.lojaId && usuario.lojaId !== lojaId ? [lojaId, usuario.lojaId] : [lojaId]
   const linhas = await exec
-    .select({ lojaId: lojas.id, grupoId: lojas.grupoId, ativo: grupos.ativo })
+    .select({ lojaId: lojas.id, grupoId: lojas.grupoId, ativo: grupos.ativo, contaId: grupos.contaId })
     .from(lojas)
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
     .where(inArray(lojas.id, ids))
@@ -29,9 +29,9 @@ export async function podeAbrirRegistroDaLoja(
     ? linhas.find(l => l.lojaId === usuario.lojaId)?.grupoId ?? null
     : null
   return podeVerGrupo(
-    { papel: usuario.papel, gruposAcesso: usuario.gruposAcesso ? [...usuario.gruposAcesso] : null },
+    { papel: usuario.papel, gruposAcesso: usuario.gruposAcesso ? [...usuario.gruposAcesso] : null, contaId: usuario.contaId },
     grupoDaPropriaLoja,
-    doRegistro.grupoId,
+    { id: doRegistro.grupoId, contaId: doRegistro.contaId },
   )
 }
 
@@ -39,7 +39,7 @@ export async function podeAbrirRegistroDaLoja(
 // por id. Admin passava direto, inclusive com loja de outro grupo forjada no payload;
 // agora passa só no grupo que vê. Os demais papéis seguem presos à própria loja.
 export async function podeAgirNaLoja(
-  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null },
+  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null },
   lojaId: string,
   exec: Executor = db,
 ): Promise<boolean> {
@@ -53,7 +53,7 @@ export async function podeAgirNaLoja(
 // do Galpão Matriz para quem vende (CONTEXT.md), dentro do grupo dele. É a regra que
 // a tela já aplica; aqui ela vale também para quem chama a action direto.
 export async function podeVenderMotoDaLoja(
-  usuario: { papel: string; papeisExtras?: readonly string[] | null; lojaId: string | null; gruposAcesso?: readonly string[] | null },
+  usuario: { papel: string; papeisExtras?: readonly string[] | null; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null },
   lojaId: string,
   exec: Executor = db,
 ): Promise<boolean> {

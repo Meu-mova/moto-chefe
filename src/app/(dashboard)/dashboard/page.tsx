@@ -66,7 +66,7 @@ const getVendedoresOpts = unstable_cache(
 
 async function KpiSection({
   filtros, filtrosAnt, usuario,
-}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null } }) {
+}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
   const isAuxAdm = papel === 'aux_adm'
@@ -117,7 +117,7 @@ async function KpiSection({
 async function PedidosFabricaSection({
   usuario,
 }: {
-  usuario: { papel: string; lojaId: string | null }
+  usuario: { papel: string; lojaId: string | null; contaId: string | null }
 }) {
   try {
     const grupo = await getGrupoAtivo(usuario)
@@ -147,7 +147,7 @@ async function PendenciasSection({ lojaId }: { lojaId: string }) {
 async function PendenciasDocumentosSection({
   usuario, isVendedor, isAdmin,
 }: {
-  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null }
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null }
   isVendedor: boolean
   isAdmin: boolean
 }) {
@@ -304,7 +304,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 // fechamento no ritmo atual. Sempre o mês corrente, independente do filtro de
 // período do dashboard: meta é do mês, não do intervalo que o usuário escolheu
 // olhar. Sem meta cadastrada em /admin/metas, a seção inteira não aparece.
-async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null } }) {
+async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null } }) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
   if (lojaIds.length === 0) return null
@@ -334,7 +334,7 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 async function AtendimentoSection({
   usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro,
 }: {
-  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null }
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null }
   dataInicio: string
   dataFim: string
   usuarioId?: string

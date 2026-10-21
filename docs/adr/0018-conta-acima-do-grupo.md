@@ -76,6 +76,19 @@ Buckets do Storage não foram inventariados nesta rodada.
 - **RLS como pré-requisito do 1º cliente**: grande demais; o risco residual é o mesmo de hoje entre
   os grupos do Cesar.
 
+## Adendo de 2026-10-21: o sócio vê o que está marcado (#193)
+
+Decisão do Luis: o `admin_socio` **não** vê todos os grupos da Conta automaticamente. Ele vê o
+grupo da própria loja e os grupos marcados para ele em `/admin/usuarios` (`grupos_acesso`), como
+antes; é para isso que a marcação existe. A Conta entra como trava: grupo de outra Conta nunca
+aparece nem abre, mesmo marcado, e o cadastro recusa marcar um. Usuário sem Conta (só o
+`admin_geral` deve estar assim) não vê grupo nenhum, salvo o próprio `admin_geral`. A regra fica em
+`src/lib/acesso-grupo.ts`.
+
+Na criação, a Conta dos grupos que já existiam saiu da ligação por usuários (loja e
+`grupos_acesso`), migração `0133_contas.sql`. Grupo criado em `/admin/grupos` nasce numa Conta nova;
+escolher uma Conta existente fica para quando for preciso (#263).
+
 ## Quando revisar
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.

@@ -7,9 +7,9 @@ conceito, como o negócio fala. Decisões de arquitetura ficam em `docs/adr/`.
 ## Organização
 
 **Conta**:
-Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário tem uma
-Conta de origem; ver grupo de outra Conta só por autorização de acesso (ADR-0018). Hoje: a Conta
-dos grupos do Cesar.
+Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário, menos o
+`admin_geral` (da plataforma), tem uma Conta de origem; ver grupo de outra Conta só por autorização
+de acesso (ADR-0018). Hoje: a Conta dos grupos do Cesar e uma por adesão.
 _Evitar_: cliente (é o comprador), tenant, assinante. Conta bancária e conta a pagar são outra
 coisa: diga o nome inteiro.
 
