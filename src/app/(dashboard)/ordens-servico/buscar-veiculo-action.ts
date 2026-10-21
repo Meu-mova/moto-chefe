@@ -2,7 +2,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { motos, modelos, veiculosHistorico, clientes, vendas } from '@/lib/db/schema'
-import { eq, ilike, sql } from 'drizzle-orm'
+import { and, eq, ilike, sql } from 'drizzle-orm'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -86,14 +87,14 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
 }
 
 export async function buscarClientePorCpfAction(cpf: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const cpfNorm = cpf.replace(/\D/g, '')
   if (cpfNorm.length < 11) return null
 
   const [cliente] = await db
     .select({ id: clientes.id, nome: clientes.nome, cpfCnpj: clientes.cpfCnpj, celular: clientes.celular, email: clientes.email })
     .from(clientes)
-    .where(ilike(clientes.cpfCnpj, `%${cpfNorm}%`))
+    .where(and(ilike(clientes.cpfCnpj, `%${cpfNorm}%`), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     .limit(1)
 
   return cliente ?? null

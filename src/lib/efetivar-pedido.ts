@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, reservas, vendas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
+import { contaDaLoja } from '@/lib/conta'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -26,7 +27,7 @@ export type DadosEfetivarPedido = {
  */
 export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<{ vendaId: string }> {
   const [pedido] = await tx
-    .select({ motoId: pedidosVenda.motoId, vendedorId: pedidosVenda.vendedorId, status: pedidosVenda.status })
+    .select({ motoId: pedidosVenda.motoId, lojaId: pedidosVenda.lojaId, vendedorId: pedidosVenda.vendedorId, status: pedidosVenda.status })
     .from(pedidosVenda)
     .where(eq(pedidosVenda.id, d.pedidoId))
     .for('update')
@@ -44,7 +45,9 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   if (moto.status === 'vendida') throw new Error('Moto já foi vendida')
 
   if (d.clienteId) {
-    const [cliente] = await tx.select({ id: clientes.id }).from(clientes).where(eq(clientes.id, d.clienteId)).limit(1)
+    // Cliente de outra Conta não existe para esta venda (ADR-0018).
+    const [cliente] = await tx.select({ id: clientes.id }).from(clientes)
+      .where(and(eq(clientes.id, d.clienteId), eq(clientes.contaId, await contaDaLoja(pedido.lojaId, tx)))).limit(1)
     if (!cliente) throw new Error('Cliente não encontrado')
   }
 
