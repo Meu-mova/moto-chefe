@@ -17,7 +17,7 @@ type Loja = {
   endereco: string
   cep: string | null
   fabricaEmail: string | null
-  fabricaSenha: string | null
+  temFabricaSenha: boolean
 }
 
 export function EditarLojaDialog({ loja }: { loja: Loja }) {
@@ -29,7 +29,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
   const [endereco, setEndereco] = useState(loja.endereco)
   const [cep, setCep] = useState(loja.cep ?? '')
   const [fabricaEmail, setFabricaEmail] = useState(loja.fabricaEmail ?? '')
-  const [fabricaSenha, setFabricaSenha] = useState(loja.fabricaSenha ?? '')
+  const [fabricaSenha, setFabricaSenha] = useState('')
 
   function handleOpen() {
     setNome(loja.nome)
@@ -37,7 +37,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
     setEndereco(loja.endereco)
     setCep(loja.cep ?? '')
     setFabricaEmail(loja.fabricaEmail ?? '')
-    setFabricaSenha(loja.fabricaSenha ?? '')
+    setFabricaSenha('')
     setOpen(true)
   }
 
@@ -104,7 +104,14 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Senha</Label>
-                <Input type="password" value={fabricaSenha} onChange={e => setFabricaSenha(e.target.value)} className="h-9 text-sm" />
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={fabricaSenha}
+                  onChange={e => setFabricaSenha(e.target.value)}
+                  placeholder={loja.temFabricaSenha ? '•••••• (deixe vazio para manter)' : 'senha do portal'}
+                  className="h-9 text-sm"
+                />
               </div>
               <p className="text-[11px] text-slate-400">
                 Cada loja tem o cadastro dela no portal. Em branco, esta loja fica
