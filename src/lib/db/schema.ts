@@ -84,7 +84,8 @@ export const logAcoes = pgTable('log_acoes', {
   id:        uuid('id').primaryKey().defaultRandom(),
   contaId:   uuid('conta_id').references(() => contas.id),
   grupoId:   uuid('grupo_id').references(() => grupos.id),
-  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  // Sem FK de propósito: o log sobrevive à exclusão do usuário (0136).
+  usuarioId: uuid('usuario_id').notNull(),
   /** Ver TIPOS_LOG em @/lib/log-acoes (check log_acoes_tipo_check no banco). */
   tipo:      text('tipo').notNull(),
   detalhe:   jsonb('detalhe').$type<Record<string, unknown>>(),
