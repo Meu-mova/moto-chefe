@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
+  ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot,
 } from 'recharts'
 import type { PontoFaturamento } from '@/lib/dashboard-series'
 import { Secao } from './painel-secoes'
@@ -10,7 +10,11 @@ const brl = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 // Caixa é conferido no centavo; no gráfico o valor arredondado basta.
 const brlCentavos = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const brlCurto = (v: number) => (Math.abs(v) >= 1000 ? `R$ ${Math.round(v / 1000)} mil` : brl(v))
+// Abaixo de R$ 10 mil mantém uma casa: sem ela, as marcas de 2,5 em 2,5 mil viram "3", "5", "8".
+const brlCurto = (v: number) =>
+  Math.abs(v) >= 1000
+    ? `R$ ${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(v) >= 10_000 ? 0 : 1 })} mil`
+    : brl(v)
 const diaMes = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 
 // Margem do eixo Y pelo maior rótulo (~6,5px por caractere a 11px): fixa, ela corta "R$ 100 mil" no celular.
@@ -91,6 +95,8 @@ function QuadroGrafico({ titulo, vazio, altura, children }: {
 export function GraficoFaturamentoPorDia({ serie }: { serie: PontoFaturamento[] }) {
   const max = Math.max(0, ...serie.flatMap(p => [p.atual, p.anterior]))
   const maiorDia = Math.max(0, ...serie.map(p => p.atual))
+  // Empate no maior valor (comum: uma moto por dia, mesmo preço): rótulo só no dia mais recente.
+  const iMaior = serie.findLastIndex(p => p.atual === maiorDia)
   return (
     <QuadroGrafico titulo="Faturamento por dia" vazio={max === 0} altura={240}>
       <ComposedChart data={serie} margin={{ top: 18, right: 8, bottom: 0, left: 0 }}>
@@ -98,18 +104,11 @@ export function GraficoFaturamentoPorDia({ serie }: { serie: PontoFaturamento[] 
         <XAxis {...eixoX} minTickGap={12} />
         <YAxis {...eixoY(max)} />
         <Tooltip content={<Dica campos={{ atual: 'atual', anterior: 'anterior' }} />} cursor={{ fill: 'var(--muted)' }} />
-        <Bar dataKey="atual" fill="var(--chart-1)" radius={[2, 2, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-          <LabelList
-            dataKey="atual"
-            content={({ x, y, width, value }) =>
-              Number(value) === maiorDia ? (
-                <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="var(--foreground)">
-                  {brlCurto(maiorDia)}
-                </text>
-              ) : null
-            }
-          />
-        </Bar>
+        <Bar dataKey="atual" fill="var(--chart-1)" radius={[2, 2, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+        {iMaior >= 0 && maiorDia > 0 && (
+          <ReferenceDot x={serie[iMaior].dia} y={maiorDia} r={0}
+            label={{ value: brlCurto(maiorDia), position: 'top', offset: 6, fontSize: 11, fontWeight: 600, fill: 'var(--foreground)' }} />
+        )}
         <Line dataKey="anterior" type="linear" stroke="var(--chart-4)" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
       </ComposedChart>
     </QuadroGrafico>
