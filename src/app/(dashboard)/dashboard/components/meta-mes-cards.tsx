@@ -28,7 +28,8 @@ const pct = (v: number) => `${v.toLocaleString('pt-BR', { maximumFractionDigits:
 
 function Celula({ rotulo, children, nota }: { rotulo: string; children: React.ReactNode; nota?: React.ReactNode }) {
   return (
-    <div className="min-w-0 border-b border-border px-4 py-3 sm:border-r lg:border-b-0 lg:last:border-r-0">
+    // Celular e tablet: 2 colunas (a 2ª sem borda à direita); desktop: as 4 numa linha.
+    <div className="min-w-0 border-b border-border px-4 py-3 odd:border-r lg:border-b-0 lg:border-r lg:last:border-r-0">
       <p className="text-xs text-muted-foreground">{rotulo}</p>
       <div className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{children}</div>
       {nota && <p className="mt-0.5 text-xs text-muted-foreground">{nota}</p>}
@@ -49,7 +50,7 @@ export function MetaMesCards({ meta, grupoNome, vendidoHoje }: Props) {
       titulo={`Meta do mês · ${grupoNome}`}
       acao={<Link href="/admin/metas" className="text-xs font-semibold text-primary-text hover:underline">Ver metas</Link>}
     >
-      <div className="mt-3 grid overflow-hidden rounded-md border border-border bg-card sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-md border border-border bg-card lg:grid-cols-4">
         <Celula rotulo="Vendido no mês" nota={<><span className={`font-semibold ${s.cor}`}>{s.rotulo}</span> · {pct(p.percentualAtingido)} em {p.diasDeVendaDecorridos} de {p.diasDeVendaNoMes} dias (seg–sáb)</>}>
           {brl(p.vendidas)} <span className="text-sm font-medium text-muted-foreground">/ {brl(p.meta)}</span>
           <span role="progressbar" aria-label="Meta do mês atingida" aria-valuenow={Math.round(p.percentualAtingido)} aria-valuemin={0} aria-valuemax={100}

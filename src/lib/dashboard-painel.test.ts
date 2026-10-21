@@ -18,7 +18,7 @@ test('admin: rótulos da manchete e dos indicadores, na ordem', () => {
   })
 })
 
-test('aux_adm (não admin) não vê valor do showroom nem conciliação', () => {
+test('aux_adm (não admin): montarPainel não devolve valor do showroom nem conciliação', () => {
   const r = rotulos(montarPainel({ ...base, papel: 'aux_adm' }))
   assert.ok(!r.indicadores.includes('Valor em showroom'))
   assert.ok(!r.indicadores.includes('Conciliação cartão'))

@@ -1,8 +1,8 @@
 import { percentualDesconto, type SomaDescontos } from '@/lib/desconto'
 import { calcularPremiacao } from '@/lib/premiacao'
 
-// Que números o topo do dashboard mostra para cada papel (#281). Puro: as mesmas
-// regras dos cards antigos, para o novo visual não mudar o que cada um vê.
+// Que números o topo do dashboard mostra para cada papel (#281). Regras copiadas dos
+// cards antigos (kpi-cards.tsx); módulo puro para dar para testar sem banco.
 
 export type KPIs = {
   totalVendas: number
