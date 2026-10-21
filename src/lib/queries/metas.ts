@@ -2,21 +2,26 @@ import { db } from '@/lib/db'
 import { metasLoja, lojas, vendas } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import type { LinhaMetaLoja } from '@/lib/meta-vendas'
+import { inicioDoDiaBrt } from '@/lib/data-venda'
 
 /**
  * Metas de venda por loja e o realizado do mês.
  *
  * O mês é sempre o do calendário de Brasília — quem chama passa ano/mês já
- * resolvidos por hojeEmBrasilia(). As bordas do intervalo são construídas em UTC
- * porque `vendas.data_venda` é gravado assim; ver [[feedback_input_date_timezone]]
- * para o estrago que meia-noite local causa aqui.
+ * resolvidos por hojeEmBrasilia(). As bordas também: o banco roda em UTC, e uma
+ * borda à meia-noite UTC jogaria a venda das 21h do último dia no mês seguinte (#283).
  */
 
-/** Primeiro instante do mês e o do mês seguinte — o intervalo [início, fim). */
+/** "YYYY-MM-DD" de uma data do calendário; Date.UTC só para normalizar o dia 32, o mês 13 etc. */
+function diaIso(ano: number, mes: number, dia: number) {
+  return new Date(Date.UTC(ano, mes - 1, dia)).toISOString().slice(0, 10)
+}
+
+/** Meia-noite de Brasília do 1º dia do mês e do 1º do mês seguinte — o intervalo [início, fim). */
 function bordasDoMes(ano: number, mes: number) {
   return {
-    inicio: new Date(Date.UTC(ano, mes - 1, 1)),
-    fim: new Date(Date.UTC(ano, mes, 1)),
+    inicio: inicioDoDiaBrt(diaIso(ano, mes, 1)),
+    fim: inicioDoDiaBrt(diaIso(ano, mes + 1, 1)),
   }
 }
 
@@ -61,8 +66,8 @@ export async function vendidoNoDia(lojaIds: string[], ano: number, mes: number, 
     .from(vendas)
     .where(and(
       inArray(vendas.lojaId, lojaIds),
-      gte(vendas.dataVenda, new Date(Date.UTC(ano, mes - 1, dia))),
-      lt(vendas.dataVenda, new Date(Date.UTC(ano, mes - 1, dia + 1))),
+      gte(vendas.dataVenda, inicioDoDiaBrt(diaIso(ano, mes, dia))),
+      lt(vendas.dataVenda, inicioDoDiaBrt(diaIso(ano, mes, dia + 1))),
     ))
   return Number(linha?.total ?? 0)
 }
