@@ -84,24 +84,26 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      {/* Corpo rola por dentro e o rodapé fica fixo: com os dados de contrato e as
+          integrações, o formulário passa da altura de telas baixas (#313). */}
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
+        <DialogHeader className="border-b py-4 pr-12 pl-4 sm:pl-6">
           <DialogTitle>{modo === 'criar' ? 'Novo Grupo' : 'Editar Grupo'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Nome *</Label>
-            <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: BH" className="h-9 text-sm" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">CNPJ *</Label>
-            <Input value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" className="h-9 text-sm" />
-          </div>
-
-          <div className="border-t pt-3 space-y-3">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Dados para contrato</p>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
             <div className="space-y-1.5">
+              <Label className="text-xs">Nome *</Label>
+              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: BH" className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">CNPJ *</Label>
+              <Input value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" className="h-9 text-sm" />
+            </div>
+
+            <p className="border-t pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:col-span-2">Dados para contrato</p>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Razão social</Label>
               <Input
                 value={razaoSocial}
@@ -110,7 +112,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Endereço da sede</Label>
               <Input
                 value={enderecoSede}
@@ -127,7 +129,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 placeholder="Pouso Alegre"
                 className="h-9 text-sm"
               />
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Sai no fecho do contrato ("Pouso Alegre, 11/08/2026"), independente da loja que vendeu.
               </p>
             </div>
@@ -141,74 +143,76 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               />
             </div>
             {contratoIncompleto && (
-              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              <p className="rounded border border-warning/40 bg-warning/10 px-2 py-1.5 text-[11px] text-warning sm:col-span-2">
                 Sem estes três campos, o envio de contrato para assinatura fica bloqueado neste grupo.
               </p>
             )}
-          </div>
 
-          <div className="border-t pt-3 space-y-3">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Integrações (opcional)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Bling — Client ID</Label>
-                <Input value={blingClientId} onChange={e => setBlingClientId(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Bling — Client Secret</Label>
-                <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Open Finance (mcp.ai) — URL do endpoint</Label>
-              <Input
-                type="password"
-                value={mcpaiEndpointUrl}
-                onChange={e => { setMcpaiEndpointUrl(e.target.value); setMcpaiRemover(false) }}
-                placeholder={inicial?.mcpaiConfigurado ? 'Deixe em branco para manter a atual' : 'https://api.mcp.ai/...'}
-                className="h-9 text-sm"
-                disabled={mcpaiRemover}
-              />
-              {inicial?.mcpaiConfigurado ? (
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-emerald-700">
-                    Configurada: {inicial.mcpaiResumo}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => { setMcpaiRemover(v => !v); setMcpaiEndpointUrl('') }}
-                    className="text-[11px] text-slate-400 hover:text-red-600 underline underline-offset-2"
-                  >
-                    {mcpaiRemover ? 'Cancelar remoção' : 'Remover chave'}
-                  </button>
+            <details className="rounded-lg border px-3 py-2 sm:col-span-2">
+              <summary className="cursor-pointer text-sm font-medium">
+                Integrações (opcional) <span className="ml-1 text-xs font-normal text-muted-foreground">Bling, Open Finance</span>
+              </summary>
+              <div className="mt-3 grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bling — Client ID</Label>
+                  <Input value={blingClientId} onChange={e => setBlingClientId(e.target.value)} className="h-9 text-sm" />
                 </div>
-              ) : (
-                <p className="text-[11px] text-amber-600">
-                  Sem chave própria, esta empresa usa a conta global do sistema — e só enxerga extrato,
-                  PIX e cartão se o CNPJ dela estiver conectado lá.
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bling — Client Secret</Label>
+                  <Input type="password" value={blingClientSecret} onChange={e => setBlingClientSecret(e.target.value)} className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Open Finance (mcp.ai) — URL do endpoint</Label>
+                  <Input
+                    type="password"
+                    value={mcpaiEndpointUrl}
+                    onChange={e => { setMcpaiEndpointUrl(e.target.value); setMcpaiRemover(false) }}
+                    placeholder={inicial?.mcpaiConfigurado ? 'Deixe em branco para manter a atual' : 'https://api.mcp.ai/...'}
+                    className="h-9 text-sm"
+                    disabled={mcpaiRemover}
+                  />
+                  {inicial?.mcpaiConfigurado ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-primary-text">
+                        Configurada: {inicial.mcpaiResumo}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setMcpaiRemover(v => !v); setMcpaiEndpointUrl('') }}
+                        className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-destructive"
+                      >
+                        {mcpaiRemover ? 'Cancelar remoção' : 'Remover chave'}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-warning">
+                      Sem chave própria, esta empresa usa a conta global do sistema — e só enxerga extrato,
+                      PIX e cartão se o CNPJ dela estiver conectado lá.
+                    </p>
+                  )}
+                  {mcpaiRemover && (
+                    <p className="text-[11px] text-destructive">
+                      A chave será apagada ao salvar. Os módulos de Open Finance desta empresa voltam para a conta global.
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  A URL do mcp.ai é gravada cifrada e nunca volta para esta tela — por isso o campo aparece vazio.
+                  Bling é a emissão de NF-e. O login da fábrica fica no cadastro de cada loja.
                 </p>
-              )}
-              {mcpaiRemover && (
-                <p className="text-[11px] text-red-600">
-                  A chave será apagada ao salvar. Os módulos de Open Finance desta empresa voltam para a conta global.
-                </p>
-              )}
-            </div>
-            <p className="text-xs text-slate-400">
-              A URL do mcp.ai é gravada cifrada e nunca volta para esta tela — por isso o campo aparece vazio.
-              Bling é a emissão de NF-e. O login da fábrica fica no cadastro de cada loja.
-            </p>
-          </div>
+              </div>
+            </details>
 
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="ativo" checked={ativo} onChange={e => setAtivo(e.target.checked)} />
-            <Label htmlFor="ativo" className="text-xs">Grupo ativo</Label>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <input type="checkbox" id="ativo" checked={ativo} onChange={e => setAtivo(e.target.checked)} />
+              <Label htmlFor="ativo" className="text-xs">Grupo ativo</Label>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange?.(false)}>Cancelar</Button>
-          <Button onClick={handleSalvar} disabled={loading}>
+        <div className="flex justify-end gap-2 border-t bg-muted/40 px-4 py-3 sm:px-6">
+          <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => onOpenChange?.(false)}>Cancelar</Button>
+          <Button className="flex-1 sm:flex-none" onClick={handleSalvar} disabled={loading}>
             {loading ? 'Salvando...' : modo === 'criar' ? 'Criar' : 'Salvar'}
           </Button>
         </div>
