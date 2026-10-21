@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import { hojeBrt } from '@/lib/data-venda'
 import { db } from '@/lib/db'
 import { usuarios, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
@@ -32,7 +32,8 @@ import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
 import { PainelIndicadores } from './components/painel-indicadores'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
-import { GraficoVendasPorDia, GraficoCaixaPorLoja } from './components/charts'
+import { GraficoFaturamentoPorDia, GraficoAcumulado, GraficoCaixaPorLoja } from './components/charts'
+import { montarSeriesFaturamento } from '@/lib/dashboard-series'
 import {
   TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo,
   TabelaOsAbertas, TabelaRankingVendedores, TabelaModelosMaisVendidos,
@@ -61,6 +62,12 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 const getVendedoresOpts = unstable_cache(
   (grupoId: string) => listarUsuariosDoGrupo(grupoId, { papel: 'vendedor' }),
   ['vendedores-opts-grupo'], { revalidate: 300 },
+)
+
+// Manchete e gráficos leem a mesma série: o cache do render faz uma consulta só por período.
+// Chave por identidade: as seções recebem o mesmo objeto `filtros`/`filtrosAnt` da página.
+const vendasPorDia = cache((filtros: Filtros, liquido: boolean) =>
+  getVendasPorDia(filtros, liquido ? { useLiquidoValue: true } : undefined),
 )
 
 // ── Seções async ──────────────────────────────────────────────────────────────
@@ -92,7 +99,7 @@ async function KpiSection({
           ? totalDescontos({ ...filtros, vendedorId: filtros.vendedorId ? [filtros.vendedorId] : undefined })
           : Promise.resolve(undefined),
         // Tendência da manchete: mesma base (bruta ou líquida) do número ao lado.
-        getVendasPorDia(filtros, kpiOpts),
+        vendasPorDia(filtros, isVendedor),
       ]),
       25000,
     )
@@ -169,13 +176,18 @@ async function PendenciasDocumentosSection({
   }
 }
 
-async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
+async function GraficosSection({
+  filtros, filtrosAnt, isAdmin, isVendedor,
+}: { filtros: Filtros; filtrosAnt: Filtros; isAdmin: boolean; isVendedor: boolean }) {
   let vendasDia: Awaited<ReturnType<typeof getVendasPorDia>>,
+      vendasDiaAnt: Awaited<ReturnType<typeof getVendasPorDia>>,
       saldoCaixaLoja: Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>
   try {
-    ;[vendasDia, saldoCaixaLoja] = await withTimeout(
+    ;[vendasDia, vendasDiaAnt, saldoCaixaLoja] = await withTimeout(
       Promise.all([
-        getVendasPorDia(filtros),
+        // Mesma base (bruta ou líquida) da manchete, para o gráfico bater com o número de cima.
+        vendasPorDia(filtros, isVendedor),
+        vendasPorDia(filtrosAnt, isVendedor),
         isAdmin ? getSaldoCaixaPorLoja(filtros.lojaId) : Promise.resolve([] as Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>),
       ]),
       25000,
@@ -184,10 +196,14 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
     console.error('[GraficosSection] erro:', e)
     throw e
   }
+  const serie = montarSeriesFaturamento({ inicio: filtros.dataInicio, fim: filtros.dataFim }, vendasDia, vendasDiaAnt)
   return (
     <>
       {/* "Showroom por loja" oculto para a apresentação de 06/10/2026. */}
-      <GraficoVendasPorDia dados={vendasDia} />
+      <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+        <GraficoFaturamentoPorDia serie={serie} />
+        <GraficoAcumulado serie={serie} />
+      </div>
       {isAdmin && saldoCaixaLoja.length > 0 && <GraficoCaixaPorLoja dados={saldoCaixaLoja} />}
     </>
   )
@@ -525,7 +541,7 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
-          <GraficosSection filtros={filtros} isAdmin={isAdmin} />
+          <GraficosSection filtros={filtros} filtrosAnt={filtrosAnt} isAdmin={isAdmin} isVendedor={isVendedor} />
         </Suspense>
       </SectionErrorBoundary>
 
