@@ -11,6 +11,14 @@ export type EnderecoSede = {
 export const ENDERECO_SEDE_VAZIO: EnderecoSede = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '' }
 
 const OBRIGATORIOS = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'uf'] as const
+const ROTULO: Record<(typeof OBRIGATORIOS)[number], string> = {
+  cep: 'CEP', logradouro: 'logradouro', numero: 'número', bairro: 'bairro', cidade: 'cidade', uf: 'UF',
+}
+
+/** Campos obrigatórios ainda vazios, para a tela dizer o que falta. */
+export function faltamNoEnderecoSede(e: EnderecoSede): string[] {
+  return OBRIGATORIOS.filter(k => !e[k]).map(k => ROTULO[k])
+}
 
 export function limparEnderecoSede(e: Partial<EnderecoSede>): EnderecoSede {
   const t = (k: keyof EnderecoSede) => (e[k] ?? '').trim()

@@ -84,17 +84,30 @@ test('lerDadosContrato monta o endereço da sede a partir dos campos', () => {
   assert.equal(r.dados.sede?.sedeUf, 'MT')
 })
 
-test('lerDadosContrato: endereço em campos incompleto deixa o contrato aguardando; UF errada é erro', () => {
-  const parcial = lerDadosContrato({ ...completo, sede: { cep: '78010-400', cidade: 'Cuiabá' } })
-  assert.ok(parcial.ok)
-  assert.equal(parcial.dados.enderecoSede, null)
-  assert.equal(statusDaAdesao(parcial.dados), 'pendente')
+test('lerDadosContrato: campos incompletos não apagam a linha que já vale; sem linha, o contrato aguarda', () => {
+  const comAntigo = lerDadosContrato({ ...completo, sede: { cep: '78010-400', cidade: 'Cuiabá' } })
+  assert.ok(comAntigo.ok)
+  assert.equal(comAntigo.dados.enderecoSede, completo.enderecoSede, 'texto antigo continua valendo')
+  assert.equal(comAntigo.dados.sede?.sedeCidade, 'Cuiabá', 'os campos parciais são gravados')
+
+  const semLinha = lerDadosContrato({ ...completo, enderecoSede: '', sede: { cep: '78010-400', cidade: 'Cuiabá' } })
+  assert.ok(semLinha.ok)
+  assert.equal(semLinha.dados.enderecoSede, null)
+  assert.equal(statusDaAdesao(semLinha.dados), 'pendente')
+
   const ruim = lerDadosContrato({ ...completo, sede: { uf: 'ZZ' } })
   assert.ok(!ruim.ok && ruim.erros.enderecoSede === 'UF inválida')
 })
 
-test('lerDadosContrato sem campos de endereço mantém o texto (adesões antigas)', () => {
+test('lerDadosContrato: campos esvaziados limpam as colunas e mantêm a linha do contrato', () => {
   const r = lerDadosContrato({ ...completo, sede: { cep: ' ' } })
+  assert.ok(r.ok)
+  assert.equal(r.dados.enderecoSede, completo.enderecoSede)
+  assert.ok(r.dados.sede && Object.values(r.dados.sede).every(v => v === null))
+})
+
+test('lerDadosContrato sem campos de endereço (tela antiga) mantém só o texto', () => {
+  const r = lerDadosContrato(completo)
   assert.ok(r.ok)
   assert.equal(r.dados.enderecoSede, completo.enderecoSede)
   assert.equal(r.dados.sede, undefined)
