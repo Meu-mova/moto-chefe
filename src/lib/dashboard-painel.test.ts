@@ -50,3 +50,11 @@ test('variação contra o período anterior', () => {
   assert.deepEqual(variacao(5, 0), { sentido: 'alta', texto: 'novo' })
   assert.equal(variacao(0, 0), null)
 })
+
+test('vendedor: comissão a 0,5% do faturamento e premiação pela faixa, com a variação', () => {
+  const p = montarPainel({ ...base, papel: 'vendedor', isVendedor: true, faixasOTE: [{ valorMinimoVendas: '50000', premiacao: '300' }] })
+  assert.equal(p.manchete[2].valor, 'R$ 509,66')
+  const premiacao = p.indicadores.find(i => i.rotulo === 'Premiação OTE')!
+  assert.equal(premiacao.valor, 'R$ 300,00')
+  assert.equal(premiacao.dica, 'novo · R$ 0,00 no período anterior')
+})

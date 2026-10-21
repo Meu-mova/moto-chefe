@@ -34,6 +34,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 // Mesma taxa fixa do card antigo; o simulador abaixo usa a do cadastro do vendedor.
 const COMISSAO_CARD = 0.005
 
+// toLocaleString põe espaço sem quebra (U+00A0) depois do R$; troca por espaço comum para o texto e os testes compararem igual.
 export const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/ /g, ' ')
 
 export function variacao(atual: number, anterior: number): Variacao | null {
@@ -64,9 +65,11 @@ export function montarPainel(e: EntradaPainel): { manchete: Manchete[]; indicado
   const { kpis, kpisAnt } = e
   if (e.isVendedor) {
     const premiacao = calcularPremiacao(kpis.faturamento, e.faixasOTE)
+    const premiacaoAnt = calcularPremiacao(kpisAnt.faturamento, e.faixasOTE)
+    const varPremiacao = variacao(premiacao, premiacaoAnt)
     const indicadores: Indicador[] = [
       { rotulo: 'Mais vendida', valor: e.motoMaisVendida ? `${e.motoMaisVendida.modelo} (${e.motoMaisVendida.total})` : '—', alerta: false },
-      { rotulo: 'Premiação OTE', valor: brl(premiacao), alerta: false, dica: `${brl(calcularPremiacao(kpisAnt.faturamento, e.faixasOTE))} no período anterior` },
+      { rotulo: 'Premiação OTE', valor: brl(premiacao), alerta: false, dica: `${varPremiacao ? `${varPremiacao.texto} · ` : ''}${brl(premiacaoAnt)} no período anterior` },
     ]
     if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamento))
     return {

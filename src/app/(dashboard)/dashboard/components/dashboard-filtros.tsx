@@ -39,7 +39,7 @@ export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, de
   const rotulo = 'flex flex-col gap-1 text-xs text-muted-foreground lg:flex-row lg:items-center lg:gap-2 lg:text-sm'
   const campo = 'h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground lg:w-auto'
   return (
-    // Celular: 2 colunas; tablet: 4; ambos na largura toda; desktop: em linha ao lado do título.
+    // Abaixo do desktop o título fica em cima (page.tsx): os filtros usam a largura toda em vez de espremer ao lado dele.
     <div className={`grid grid-cols-2 items-end gap-2 transition-opacity sm:grid-cols-4 lg:flex lg:flex-wrap lg:items-center lg:gap-3 ${isPending ? 'opacity-60' : ''}`}>
       <label className={rotulo}>
         De
