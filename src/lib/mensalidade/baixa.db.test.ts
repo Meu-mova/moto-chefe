@@ -31,7 +31,7 @@ class Desfazer extends Error {}
 test('baixa uma vez só; a segunda vê que já foi baixada; ambiente trocado não baixa', async () => {
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const grupo = await linha(sql`insert into grupos (nome, cnpj) values ('Pagante', '00000000000272') returning id`)
+    const grupo = await linha(sql`with c as (insert into contas (nome) values ('Pagante') returning id) insert into grupos (nome, cnpj, conta_id) select 'Pagante', '00000000000272', id from c returning id`)
     const { id } = await linha(sql`insert into mensalidades (grupo_id, competencia, valor, vencimento) values (${grupo.id}, '2026-01', 499, '2026-01-10') returning id`)
     const ler = async () => (await tx.select().from(mensalidades).where(sql`${mensalidades.id} = ${id}`))[0]
     const pg = { id: 77, status: 'approved', external_reference: id, transaction_amount: 499, live_mode: false }

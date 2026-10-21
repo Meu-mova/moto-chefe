@@ -3,7 +3,7 @@ import { GroupSwitcher } from './group-switcher'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
-type Props = { usuario: { papel: string; lojaId: string | null } }
+type Props = { usuario: { papel: string; lojaId: string | null; contaId: string | null } }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([

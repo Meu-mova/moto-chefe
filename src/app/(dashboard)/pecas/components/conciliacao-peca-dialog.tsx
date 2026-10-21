@@ -28,8 +28,8 @@ export function ConciliacaoPecaDialog({ vendaId, numero, pagamentos, papel, stat
         title="Ver conciliação dos pagamentos"
         className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
           resolvido
-            ? 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-            : 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100'
+            ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            : 'border border-primary bg-primary-soft text-primary-text hover:bg-primary-soft/80'
         }`}
       >
         <Wallet size={13} />

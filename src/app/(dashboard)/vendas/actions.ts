@@ -1,14 +1,18 @@
 'use server'
+import { aplicarEdicaoAprovadaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
-import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
+import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
+import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
@@ -22,8 +26,10 @@ import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
+import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
+import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -128,8 +134,9 @@ export type PrecoMinimoInfo = {
 }
 
 export async function buscarPrecoMinimoAction(motoId: string): Promise<PrecoMinimoInfo | null> {
+  const usuario = await getUsuarioLogado()
   const [moto] = await db.select({ modeloId: motos.modeloId, lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) return null
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) return null
   return buscarPrecificacao(moto.modeloId, moto.lojaId)
 }
 
@@ -162,21 +169,21 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
 
 export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
+  if (!podeCriarPedido(usuario.papel)) {
     throw new Error('Sem permissão para criar pedido de venda')
   }
-  const supabase = await createClient()
 
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto) throw new Error('Moto não encontrada')
+  if (!(await podeVenderMotoDaLoja(usuario, moto.lojaId))) {
+    throw new Error('Sem permissão para criar pedido desta loja')
+  }
 
-  const { error } = await supabase.rpc('criar_pedido_venda', {
-    p_moto_id: motoId,
-    p_loja_id: moto.lojaId,
-    p_vendedor_id: usuario.id,
-    p_observacao: observacao ?? null,
-  })
-  if (error) throw new Error(error.message)
+  await db.transaction(tx => criarPedidoTx(tx, {
+    motoId,
+    vendedorId: usuario.id,
+    observacao: observacao?.trim() || null,
+  }))
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -184,15 +191,18 @@ export async function criarPedidoVendaAction(motoId: string, observacao?: string
 
 export async function cancelarPedidoAction(pedidoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('cancelar_pedido_venda', {
-    p_pedido_id: pedidoId,
-    p_usuario_id: usuario.id,
-    p_papel: usuario.papel,
-    p_loja_usuario_id: usuario.lojaId ?? null,
-    p_observacao: observacao ?? null,
-  })
-  if (error) throw new Error(error.message)
+
+  const [pedido] = await db.select({ lojaId: pedidosVenda.lojaId }).from(pedidosVenda).where(eq(pedidosVenda.id, pedidoId)).limit(1)
+  if (!pedido) throw new Error('Pedido não encontrado')
+  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
+    throw new Error('Sem permissão para cancelar pedido deste grupo')
+  }
+
+  await db.transaction(tx => cancelarPedidoTx(tx, {
+    pedidoId,
+    usuario: { id: usuario.id, papel: usuario.papel, lojaId: usuario.lojaId ?? null },
+    observacao: observacao?.trim() || null,
+  }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }
@@ -325,6 +335,7 @@ async function criarVendaTx(
     const [clienteUpsert] = await tx
       .insert(clientes)
       .values({
+        contaId:     await contaDaLoja(moto.lojaId, tx),
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
         tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
@@ -341,7 +352,7 @@ async function criarVendaTx(
         inscricaoEstadual: icms.inscricaoEstadual,
       })
       .onConflictDoUpdate({
-        target: clientes.cpfCnpj,
+        target: [clientes.contaId, clientes.cpfCnpj],
         set: {
           nome:        sql`excluded.nome`,
           tipoPessoa:  sql`excluded.tipo_pessoa`,
@@ -468,7 +479,7 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'caixa') {
     throw new Error('Moto ainda não foi montada — não pode ser vendida')
   }
@@ -557,13 +568,13 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
   }
 
   const [venda] = await db
-    .select({ id: vendas.id })
+    .select({ id: vendas.id, lojaId: vendas.lojaId })
     .from(vendas)
     .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
 
   // Trava: sem contrato assinado não registra NF — nem pelo caminho "nota já
   // emitida", senão bastaria emitir direto no Bling e voltar aqui.
@@ -578,6 +589,11 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
     await tx.update(motos)
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
+  })
+  // Nota emitida fora do MOVA e só anotada aqui: entra no log como emissão.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, lojaId: venda.lojaId,
+    detalhe: { origem: 'confirmada', vendaId: venda.id, numeroNf: notaFiscal },
   })
 
   revalidatePath('/vendas')
@@ -619,7 +635,7 @@ export async function criarRascunhoBlingAction(motoId: string): Promise<{ ok: tr
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
 
   // Trava: sem contrato assinado, nem rascunho no Bling.
   const bloqueioNf = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
@@ -748,7 +764,7 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) return { ok: false, error: 'Nenhuma venda pendente de NF encontrada' }
   if (!venda.blingNfeId) return { ok: false, error: 'Nenhum rascunho Bling encontrado para esta venda' }
 
   const [motoRow] = await db
@@ -857,7 +873,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
-  if (!venda) throw new Error('Nenhuma venda pendente de NF encontrada')
+  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada')
 
   const [motoRow] = await db
     .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
@@ -937,6 +953,10 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
   })
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId,
+    detalhe: { origem: 'bling', vendaId: venda.id, numeroNf: numeroNF },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -957,6 +977,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   const [vendaRecord] = await db
     .select({
       id: vendas.id,
+      numero: vendas.numero,
       motoId: vendas.motoId,
       lojaId: vendas.lojaId,
       pedidoVendaId: vendas.pedidoVendaId,
@@ -1097,6 +1118,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     }
   }
 
+  // A venda foi apagada: o detalhe precisa bastar sozinho.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'venda_cancelada', usuarioId: usuario.id, lojaId: vendaRecord.lojaId,
+    detalhe: { vendaId, numeroVenda: vendaRecord.numero, cliente: vendaRecord.clienteNome, valor: vendaRecord.valor, motivo: motivo.trim() },
+  })
+
   revalidatePath('/vendas')
   revalidatePath('/estoque')
   revalidatePath('/caixa')
@@ -1140,7 +1167,7 @@ export async function registrarReservaAction(data: DadosReserva) {
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
     throw new Error('Moto já foi vendida')
   }
@@ -1302,8 +1329,8 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
     throw new Error('Reserva já virou venda — cancele a venda, não a reserva')
   }
 
-  // Mesmo recorte do resto do módulo: admin_geral não tem loja e enxerga tudo.
-  if (usuario.lojaId && reserva.lojaId !== usuario.lojaId) {
+  // Quem tem loja fica nela; quem não tem (admin_geral, sócio sem loja) só no grupo que vê.
+  if (usuario.lojaId ? reserva.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, reserva.lojaId))) {
     throw new Error('Sem permissão para cancelar reserva de outra loja')
   }
 
@@ -1414,8 +1441,8 @@ export async function editarVendaAction(vendaId: string, dados: {
     .limit(1)
   if (!vendaAtual) throw new Error('Venda não encontrada')
 
-  // Todos os papéis só podem editar vendas da própria loja
-  if (usuario.lojaId && vendaAtual.lojaId !== usuario.lojaId) {
+  // Quem tem loja só edita venda dela; quem não tem, só no grupo que vê.
+  if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
     throw new Error('Sem permissão para editar vendas de outra loja')
   }
 
@@ -1507,7 +1534,7 @@ export async function editarVendaAction(vendaId: string, dados: {
     if (gravaIcms && icms.indicadorIe) {
       await tx.update(clientes)
         .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-        .where(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)))
+        .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(vendaAtual.lojaId, tx))))
     }
 
     // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria
@@ -1536,7 +1563,8 @@ export async function editarVendaAction(vendaId: string, dados: {
 // ─── Buscar cliente por CPF/CNPJ ──────────────────────────────────────────────────
 
 export async function buscarClientePorCpfAction(cpf: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
+  const contaId = await contaDoGrupoAtivo(usuario)
   const cpfLimpo = cpf.replace(/\D/g, '')
   if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) return null
 
@@ -1557,7 +1585,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
       inscricaoEstadual: clientes.inscricaoEstadual,
     })
     .from(clientes)
-    .where(eq(clientes.cpfCnpj, cpfLimpo))
+    .where(and(eq(clientes.cpfCnpj, cpfLimpo), eq(clientes.contaId, contaId)))
     .limit(1)
 
   if (cliente) return { source: 'clientes' as const, ...cliente }
@@ -1580,7 +1608,10 @@ export async function buscarClientePorCpfAction(cpf: string) {
     })
     .from(vendas)
     // A venda grava o documento formatado; compara só os dígitos.
-    .where(sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`)
+    .where(and(
+      sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
+      inArray(vendas.lojaId, lojasDaConta(contaId)),
+    ))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 
@@ -1600,7 +1631,7 @@ export async function buscarHistoricoMotoAction(motoId: string) {
   if (!moto) return []
 
   const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS.includes(usuario.papel) && moto.lojaId !== usuario.lojaId) {
+  if (ADMINS.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId)) : moto.lojaId !== usuario.lojaId) {
     throw new Error('Sem permissão')
   }
 
@@ -1623,7 +1654,7 @@ export async function buscarHistoricoMotoAction(motoId: string) {
 // ─── Baixar DANFE da NF-e autorizada ─────────────────────────────────────────
 
 export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
 
   const [venda] = await db
     .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
@@ -1631,6 +1662,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     .where(and(eq(vendas.motoId, motoId)))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
+  if (venda && !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Esta moto não tem venda registrada.')
 
   // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling: a nota viva
   // mais recente que tem DANFE, inclusive a com cancelamento negado.
@@ -1717,7 +1749,7 @@ export async function solicitarAprovacaoVendaAction(
   data = comCompradorConferido(data)
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
   if (bloqueio) throw new Error(bloqueio)
 
@@ -1825,6 +1857,24 @@ export async function aprovarVendaAction(aprovacaoId: string) {
     return
   }
 
+  // Edição de venda de peças (#242): a venda já existe — aplica a edição guardada no pedido,
+  // atômico com o UPDATE de aprovação. Se a venda foi excluída nesse meio-tempo, a transação
+  // falha e o pedido continua pendente (dá para recusar).
+  if (aprovacao.origem === 'peca_edicao') {
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx.update(aprovacoesVenda)
+        .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+        .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+        .returning({ id: aprovacoesVenda.id })
+      if (!claimed) throw new Error('Solicitação não está mais pendente')
+
+      await aplicarEdicaoAprovadaTx(tx, aprovacao.dadosVenda as unknown as EdicaoPendente, aprovacao.vendedorId)
+    })
+    revalidatePath('/vendas')
+    revalidatePath('/pecas')
+    return
+  }
+
   // Peça: a venda ainda não existe — cria de fato, atômico com o UPDATE de aprovação.
   if (aprovacao.origem === 'peca') {
     await db.transaction(async (tx) => {
@@ -1906,7 +1956,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
 
     revalidatePath('/vendas')
     if (aprovacao.origem === 'os')   revalidatePath(`/ordens-servico/${aprovacao.osId}`)
-    if (aprovacao.origem === 'peca') revalidatePath('/pecas')
+    if (aprovacao.origem === 'peca' || aprovacao.origem === 'peca_edicao') revalidatePath('/pecas')
     return
   }
 

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { buscarOS, listarItensOS } from '@/lib/queries/ordens-servico'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
@@ -24,8 +25,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
   const [os, itens, usuario] = await Promise.all([buscarOS(id), listarItensOS(id), getUsuarioLogado()])
   if (!os) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && os.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, os.lojaId))) notFound()
 
   const servicos     = itens.filter(i => i.tipo === 'servico')
   const pecas        = itens.filter(i => i.tipo === 'peca')

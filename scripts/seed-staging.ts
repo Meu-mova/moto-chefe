@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import {
-  categoriasCaixa, categoriasDespesa, configuracaoTaxas, grupos, lojas, modelos, motos,
+  categoriasCaixa, categoriasDespesa, configuracaoTaxas, contas, grupos, lojas, modelos, motos,
   ordensServico, origensVenda, pedidosVenda, precificacao, reservas, usuarios, usuariosDados, vendas,
 } from '../src/lib/db/schema'
 import { hojeBrt } from '../src/lib/data-venda'
@@ -91,9 +91,11 @@ async function main() {
   const idUsuario = new Map<string, string>()
   const idOrigem = new Map<string, string>()
 
+  // Os três grupos de teste imitam os do Cesar: uma Conta só (ADR-0018).
+  const [conta] = await db.insert(contas).values({ nome: GRUPOS.map(g => g.nome).join(' + ') }).returning({ id: contas.id })
   for (const g of GRUPOS) {
     const [r] = await db.insert(grupos).values({
-      nome: g.nome, cnpj: g.cnpj, razaoSocial: `${g.nome} Ltda`, cidadeSede: g.cidadeSede,
+      contaId: conta.id, nome: g.nome, cnpj: g.cnpj, razaoSocial: `${g.nome} Ltda`, cidadeSede: g.cidadeSede,
     }).returning({ id: grupos.id })
     idGrupo.set(g.chave, r.id)
     await db.insert(configuracaoTaxas).values({ grupoId: r.id, ...TAXAS })
@@ -128,6 +130,7 @@ async function main() {
     await db.insert(usuarios).values({
       id: data.user.id, nome: u.nome, email: u.email, papel: u.papel,
       lojaId: u.loja ? idLoja.get(u.loja)! : null, aprovaPagamentoSensivel: u.aprovaPagamentoSensivel,
+      contaId: u.papel === 'admin_geral' ? null : conta.id,
     })
     if (u.cpf) {
       await db.insert(usuariosDados).values({

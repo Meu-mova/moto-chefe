@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { agendamentos, ordensServico, lojas } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -33,6 +34,7 @@ export async function criarAgendamentoAction(input: CriarAgendamentoInput) {
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const lojaId  = isAdmin ? input.lojaId : usuario.lojaId
   if (!lojaId) throw new Error('Loja não identificada')
+  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
 
   const [ag] = await db.insert(agendamentos).values({
     lojaId,
@@ -198,7 +200,7 @@ export async function agendarPublicoAction(input: {
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-async function verificarTenantAgendamento(agendamentoId: string, usuario: { papel: string; lojaId: string | null }) {
+async function verificarTenantAgendamento(agendamentoId: string, usuario: { papel: string; lojaId: string | null; contaId: string | null }) {
   const [ag] = await db
     .select({
       lojaId:           agendamentos.lojaId,
@@ -215,7 +217,6 @@ async function verificarTenantAgendamento(agendamentoId: string, usuario: { pape
     .limit(1)
 
   if (!ag) throw new Error('Agendamento não encontrado')
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && ag.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  if (!(await podeAgirNaLoja(usuario, ag.lojaId))) throw new Error('Sem permissão')
   return ag
 }

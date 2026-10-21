@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
@@ -56,7 +57,7 @@ export async function abrirGarantiaAction(params: {
     .from(motos)
     .where(eq(motos.id, params.motoId))
     .limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
 
   // Prazo fixo de 30 dias a partir da data de abertura
   const fim = new Date(params.dataInicio)
@@ -280,6 +281,9 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
 
 export async function encerrarGarantiaAction(garantiaId: string, observacao?: string, dataEncerramento?: string) {
   const usuario = await getUsuarioLogado()
+  // A função do banco só compara com a loja do usuário: sem loja (admin_socio sem loja) ela deixa passar.
+  const [garantia] = await db.select({ lojaId: garantias.lojaId }).from(garantias).where(eq(garantias.id, garantiaId)).limit(1)
+  if (!garantia || !(await podeAbrirRegistroDaLoja(usuario, garantia.lojaId))) throw new Error('Garantia não encontrada')
   const supabase = await createClient()
   const { error } = await supabase.rpc('encerrar_garantia', {
     p_garantia_id: garantiaId,

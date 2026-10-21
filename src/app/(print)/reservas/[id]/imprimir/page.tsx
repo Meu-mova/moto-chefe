@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { buscarReserva } from '@/lib/queries/reservas'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
@@ -21,8 +22,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
   const [reserva, usuario] = await Promise.all([buscarReserva(id), getUsuarioLogado()])
   if (!reserva) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && reserva.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, reserva.lojaId))) notFound()
 
   // Reserva anterior à migração 0088 tem `pagamentos` nulo e vira uma linha só.
   const pagamentos = normalizarPagamentos({ ...reserva, valorTotal: reserva.valorReserva })

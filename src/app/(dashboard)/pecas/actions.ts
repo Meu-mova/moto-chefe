@@ -1,13 +1,16 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
+import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
+import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 
 
 async function verificarAcesso() {
@@ -134,6 +137,17 @@ function zerarBonificacoes(pagamentos: PagamentoVendaPecaInput[]): PagamentoVend
   return pagamentos.map(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO ? { ...p, valor: 0 } : p)
 }
 
+/** Mesma regra de valor na criação e na edição. */
+function sanearPagamentos(entrada: PagamentoVendaPecaInput[]) {
+  const pagamentos = zerarBonificacoes(entrada)
+  const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
+  if (valorTotal < 0) throw new Error('Valor total inválido')
+  if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
+    throw new Error('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
+  }
+  return { pagamentos, valorTotal }
+}
+
 // Cria a venda de fato — sem checagem de permissão/sensibilidade, usada tanto pelo
 // fechamento direto quanto pela aprovação de pagamento sensível. Recebe a transação de
 // fora pra poder ficar atômico com o UPDATE de aprovação (ver aprovarVendaAction).
@@ -211,6 +225,8 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
+  // Como na tela: quem não é admin vende peça só pela própria loja.
+  if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new Error('Sem permissão para esta loja')
 
   // Venda para empresa: sem CNPJ o recibo não identifica o tomador, e é justamente
   // o recibo que a empresa leva pra lançar a compra.
@@ -223,12 +239,7 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
     throw new Error('Informe a razão social da empresa')
   }
 
-  const pagamentos = zerarBonificacoes(input.pagamentos)
-  const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
-  if (valorTotal < 0) throw new Error('Valor total inválido')
-  if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
-    throw new Error('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
-  }
+  const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
 
   // Preço fora do catálogo é decisão de gestor. Descartar aqui (e não lá embaixo)
   // faz a venda que vai pra aprovação já ficar gravada com o preço certo — senão o
@@ -257,6 +268,125 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
   const resultado = await db.transaction(tx => aplicarVendaPeca(tx, usuario.id, saneado))
   revalidatePath('/pecas')
   return { aguardandoAprovacao: false as const, id: resultado.id }
+}
+
+// ─── Edição de venda de peças (#242) ─────────────────────────────────────────
+// Itens e pagamentos; cliente e vendedor não mudam aqui. Edita quem vende peças
+// na loja da venda. Admin: qualquer loja do grupo da venda que ele enxerga, mesmo
+// com outro grupo ativo na sessão (permissão vale no grupo do registro).
+
+async function vendaEditavel(vendaId: string) {
+  const usuario = await verificarAcessoVenda()
+  const [venda] = await db
+    .select({ id: vendasPecas.id, lojaId: vendasPecas.lojaId, dataVenda: vendasPecas.dataVenda, grupoId: lojas.grupoId })
+    .from(vendasPecas)
+    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
+    .where(eq(vendasPecas.id, vendaId))
+    .limit(1)
+  if (!venda) throw new Error('Venda não encontrada')
+  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
+  const pode = isAdmin ? await podeUsuarioVerGrupo(usuario, venda.grupoId) : usuario.lojaId === venda.lojaId
+  if (!pode) throw new Error('Sem permissão para editar esta venda')
+  return { usuario, venda }
+}
+
+async function avisosDaVenda(venda: { id: string; dataVenda: Date }) {
+  const [cartao, pix] = await Promise.all([
+    db.select({ id: conciliacoesCartao.id }).from(conciliacoesCartao).where(eq(conciliacoesCartao.pecaVendaId, venda.id)).limit(1),
+    db.select({ id: pixRecebimentosMcp.id }).from(pixRecebimentosMcp).where(eq(pixRecebimentosMcp.pecaVendaId, venda.id)).limit(1),
+  ])
+  return avisosDaEdicao({ conciliada: cartao.length + pix.length > 0, dataVenda: venda.dataVenda })
+}
+
+/**
+ * O que o diálogo de edição precisa ao abrir: itens, pagamentos e os avisos,
+ * que aparecem antes de salvar. `pecas` traz as peças da venda mesmo inativas,
+ * para a busca mostrar o nome.
+ */
+export async function carregarVendaPecaParaEdicaoAction(vendaId: string) {
+  const { venda } = await vendaEditavel(vendaId)
+  const [[cab], itens, avisos] = await Promise.all([
+    db.select({ clienteNome: vendasPecas.clienteNome, pagamentos: vendasPecas.pagamentos }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)),
+    db.select({
+      pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade, valorUnitario: vendasPecasItens.valorUnitario,
+      nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
+    })
+      .from(vendasPecasItens)
+      .innerJoin(pecasCatalogo, eq(pecasCatalogo.id, vendasPecasItens.pecaId))
+      .where(eq(vendasPecasItens.vendaPecaId, vendaId)),
+    avisosDaVenda(venda),
+  ])
+  return {
+    clienteNome: cab.clienteNome,
+    itens: itens.map(i => ({ pecaId: i.pecaId, quantidade: Number(i.quantidade), valorUnitario: Number(i.valorUnitario) })),
+    pecas: itens.map(i => ({ id: i.pecaId, nome: i.nome, valor: i.valor, quantidadeEstoque: i.quantidadeEstoque })),
+    pagamentos: (cab.pagamentos ?? []) as PagamentoVendaPecaInput[],
+    avisos,
+  }
+}
+
+export async function editarVendaPecaAction(
+  vendaId: string,
+  input: { itens: ItemVendaPecaInput[]; pagamentos: PagamentoVendaPecaInput[] },
+) {
+  const { usuario, venda } = await vendaEditavel(vendaId)
+  if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
+  if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
+
+  const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
+  const itens = podeGerirPecas(usuario.papel)
+    ? input.itens
+    : input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade }))
+
+  // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+  // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+  const exigeAprovacao = temPagamentoSensivelPeca(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, venda.lojaId))
+
+  // Trava a linha da venda: a checagem de pedido pendente e o que vem depois (pedir aprovação
+  // ou editar) não podem intercalar com outro clique ao mesmo tempo.
+  const r = await db.transaction(async tx => {
+    const [atual] = await tx.select({ numero: vendasPecas.numero, clienteNome: vendasPecas.clienteNome })
+      .from(vendasPecas).where(eq(vendasPecas.id, vendaId)).for('update')
+    if (!atual) throw new Error('Venda não encontrada')
+
+    // Uma edição esperando aprovação por vez: duas na fila se sobreporiam na hora de aprovar.
+    // Vale também para o gestor, senão a aprovação depois desfaria a edição dele.
+    const [pendente] = await tx.select({ id: aprovacoesVenda.id }).from(aprovacoesVenda).where(and(
+      eq(aprovacoesVenda.origem, 'peca_edicao'),
+      eq(aprovacoesVenda.status, 'pendente'),
+      sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
+    )).limit(1)
+    if (pendente) throw new Error('Esta venda já tem uma edição aguardando aprovação — aprove ou recuse o pedido em Vendas antes de editar de novo')
+
+    // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+    // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+    if (exigeAprovacao) {
+      const pedido: EdicaoPendente & { clienteNome: string | null } = {
+        vendaId, numero: atual.numero, itens, pagamentos, clienteNome: atual.clienteNome,
+      }
+      await tx.insert(aprovacoesVenda).values({
+        origem: 'peca_edicao',
+        lojaId: venda.lojaId,
+        vendedorId: usuario.id,
+        valor: valorTotal.toFixed(2),
+        dadosVenda: pedido,
+        motivo: `Pagamento via Financiamento — edição da venda de peças #${atual.numero}`,
+        tipo: 'pagamento_sensivel',
+        status: 'pendente',
+      })
+      return { aguardandoAprovacao: true as const, numero: atual.numero }
+    }
+
+    const e = await editarVendaPecaTx(tx, { vendaId, grupoId: venda.grupoId, usuarioId: usuario.id, itens, pagamentos })
+    return { aguardandoAprovacao: false as const, numero: e.numero }
+  })
+  if (r.aguardandoAprovacao) {
+    revalidatePath('/pecas')
+    revalidatePath('/vendas')
+    return { aguardandoAprovacao: true as const, numero: r.numero, avisos: [] as string[] }
+  }
+  revalidatePath('/pecas')
+  return { aguardandoAprovacao: false as const, numero: r.numero, avisos: await avisosDaVenda(venda) }
 }
 
 export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
@@ -363,8 +493,8 @@ export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) 
     .limit(500)
 }
 
-// Excluir venda de peças: lançamento errado no balcão não tem como ser editado, então
-// o caminho é apagar e refazer. Devolve o estoque dos itens e SOLTA as transações que
+// Excluir venda de peças: para a venda que não devia existir (itens e pagamentos se
+// corrigem pelo editar, #242). Devolve o estoque dos itens e SOLTA as transações que
 // estavam casadas com essa venda — o dinheiro continua lá na conciliação, livre pra ser
 // vinculado ao lançamento certo. Gestor da loja (inclui aux_adm) resolve sozinho.
 export async function excluirVendaPecaAction(vendaId: string) {
@@ -379,8 +509,19 @@ export async function excluirVendaPecaAction(vendaId: string) {
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
+  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) throw new Error('Sem permissão para esta loja')
 
   await db.transaction(async tx => {
+    // Pedido de edição pendente desta venda perde o objeto: recusa junto, senão ficaria
+    // no painel de aprovações falhando com "venda não encontrada".
+    await tx.update(aprovacoesVenda)
+      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
+      .where(and(
+        eq(aprovacoesVenda.origem, 'peca_edicao'),
+        eq(aprovacoesVenda.status, 'pendente'),
+        sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
+      ))
+
     const itens = await tx
       .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
       .from(vendasPecasItens)
@@ -413,5 +554,6 @@ export async function excluirVendaPecaAction(vendaId: string) {
   revalidatePath('/pecas')
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
+  revalidatePath('/vendas')
   return { numero: venda.numero }
 }

@@ -18,7 +18,12 @@
 export type UsuarioAcessoGrupo = {
   papel: string
   gruposAcesso?: string[] | null
+  // Conta de origem (ADR-0018). Grupo de outra Conta nunca aparece, nem marcado em
+  // grupos_acesso; sem Conta, nenhum grupo (só admin_geral vive sem Conta).
+  contaId: string | null
 }
+
+export type GrupoComConta = { id: string; contaId: string }
 
 // admin_geral é o dono do sistema e a válvula de segurança: precisa sobrar
 // alguém que consiga entrar em qualquer grupo e consertar se esta trava tiver
@@ -44,14 +49,9 @@ function ehAdminGeral(usuario: { papel: string }): boolean {
 export function gruposVisiveis(
   usuario: UsuarioAcessoGrupo,
   grupoDaPropriaLoja: string | null,
-  todosOsGruposAtivos: string[],
+  todosOsGruposAtivos: GrupoComConta[],
 ): string[] {
-  if (ehAdminGeral(usuario)) return todosOsGruposAtivos
-
-  const permitidos = new Set(usuario.gruposAcesso ?? [])
-  if (grupoDaPropriaLoja) permitidos.add(grupoDaPropriaLoja)
-
-  return todosOsGruposAtivos.filter(g => permitidos.has(g))
+  return todosOsGruposAtivos.filter(g => podeVerGrupo(usuario, grupoDaPropriaLoja, g)).map(g => g.id)
 }
 
 // Mesma regra que gruposVisiveis, mas para checar um grupo específico sem
@@ -60,11 +60,12 @@ export function gruposVisiveis(
 export function podeVerGrupo(
   usuario: UsuarioAcessoGrupo,
   grupoDaPropriaLoja: string | null,
-  grupoId: string,
+  grupo: GrupoComConta,
 ): boolean {
   if (ehAdminGeral(usuario)) return true
-  if (grupoDaPropriaLoja && grupoId === grupoDaPropriaLoja) return true
-  return (usuario.gruposAcesso ?? []).includes(grupoId)
+  if (!usuario.contaId || grupo.contaId !== usuario.contaId) return false
+  if (grupoDaPropriaLoja && grupo.id === grupoDaPropriaLoja) return true
+  return (usuario.gruposAcesso ?? []).includes(grupo.id)
 }
 
 // ─── Escolha do grupo padrão (fallback de getGrupoAtivo) ──────────────────────

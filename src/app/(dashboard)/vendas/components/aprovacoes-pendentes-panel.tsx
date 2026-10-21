@@ -63,6 +63,10 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
               <Link href={`/ordens-servico/${aprovacao.osId}`} className="font-medium text-slate-800 hover:underline">
                 OS #{aprovacao.osNumero ?? '—'} — {aprovacao.osClienteNome ?? 'Cliente não identificado'}
               </Link>
+            ) : aprovacao.origem === 'peca_edicao' ? (
+              <span className="font-medium text-foreground">
+                Edição da venda de peças #{(aprovacao.dadosVenda as { numero?: number })?.numero ?? '—'} — {(aprovacao.dadosVenda as { clienteNome?: string | null })?.clienteNome || 'Cliente não identificado'}
+              </span>
             ) : aprovacao.origem === 'peca' ? (
               <span className="font-medium text-slate-800">
                 Venda de peças — {(aprovacao.dadosVenda as { clienteNome?: string })?.clienteNome || 'Cliente não identificado'}

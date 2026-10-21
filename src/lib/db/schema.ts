@@ -33,6 +33,14 @@ export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identifica
 export const demandaStatusEnum = pgEnum('demanda_status', ['aberta', 'atendida'])
 export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os', 'pedido', 'peca'])
 
+// ─── contas ──────────────────────────────────────────────────────────────────
+// O cliente do MOVA, acima do grupo (ADR-0018): uma Conta tem um ou mais grupos.
+export const contas = pgTable('contas', {
+  id:       uuid('id').primaryKey().defaultRandom(),
+  nome:     text('nome').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── grupos ──────────────────────────────────────────────────────────────────
 export const grupos = pgTable('grupos', {
   id:                 uuid('id').primaryKey().defaultRandom(),
@@ -67,6 +75,24 @@ export const grupos = pgTable('grupos', {
   // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
   // no primeiro acesso de quem não é admin_geral: a implantação não conta.
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
+  contaId:            uuid('conta_id').notNull().references(() => contas.id),
+})
+
+// ─── log_acoes ────────────────────────────────────────────────────────────────
+// Acessos e ações sensíveis, 12 meses (#198). Gravar só por src/lib/log-acoes.ts.
+export const logAcoes = pgTable('log_acoes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  contaId:   uuid('conta_id').references(() => contas.id),
+  grupoId:   uuid('grupo_id').references(() => grupos.id),
+  // Sem FK de propósito: o log sobrevive à exclusão do usuário (0136).
+  usuarioId: uuid('usuario_id').notNull(),
+  /** Ver TIPOS_LOG em @/lib/log-acoes (check log_acoes_tipo_check no banco). */
+  tipo:      text('tipo').notNull(),
+  detalhe:   jsonb('detalhe').$type<Record<string, unknown>>(),
+  ip:        text('ip'),
+  userAgent: text('user_agent'),
+  dia:       date('dia').notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
@@ -149,6 +175,8 @@ export const usuarios = pgTable('usuarios', {
   // Inativo continua no sistema (histórico intacto), mas some dos relatórios de
   // vendedor e do 1-a-1. Ver /admin/usuarios e queries/individual.
   ativo: boolean('ativo').notNull().default(true),
+  // Conta de origem (ADR-0018). Nula só para admin_geral, que é da plataforma.
+  contaId: uuid('conta_id').references(() => contas.id),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────
@@ -334,6 +362,42 @@ export const motosFiscal = pgTable('motos_fiscal', {
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── motos_renave (detalhamento de veículo novo da NF de saída, grupo veicProd) ─
+// Só ciclomotor. Preenchido no ato do envio e guardado por moto, como a ficha
+// fiscal. O chassi é o da nota (editável na tela); não altera motos.chassi.
+// Valores no vocabulário da Nota Gateway -- ver src/lib/notagateway/veiculo.ts
+// e a migração 0131.
+export const motosRenave = pgTable('motos_renave', {
+  motoId:                 uuid('moto_id').primaryKey().references(() => motos.id, { onDelete: 'cascade' }),
+  chassi:                 text('chassi').notNull(),
+  tipoOperacao:           text('tipo_operacao').notNull(),
+  corCodigo:              text('cor_codigo').notNull(),
+  corDescricao:           text('cor_descricao').notNull(),
+  corDenatran:            text('cor_denatran').notNull(),
+  potenciaMotor:          text('potencia_motor').notNull(),
+  cilindradas:            text('cilindradas').notNull(),
+  pesoLiquido:            numeric('peso_liquido', { precision: 9, scale: 4 }).notNull(),
+  pesoBruto:              numeric('peso_bruto', { precision: 9, scale: 4 }).notNull(),
+  numeroSerie:            text('numero_serie').notNull(),
+  tipoCombustivel:        text('tipo_combustivel').notNull(),
+  numeroMotor:            text('numero_motor').notNull(),
+  capacidadeMaximaTracao: numeric('capacidade_maxima_tracao', { precision: 9, scale: 4 }).notNull(),
+  distanciaEixos:         text('distancia_eixos').notNull(),
+  anoModelo:              integer('ano_modelo').notNull(),
+  anoFabricacao:          integer('ano_fabricacao').notNull(),
+  tipoPintura:            text('tipo_pintura').notNull(),
+  tipoVeiculo:            text('tipo_veiculo').notNull(),
+  especie:                text('especie').notNull(),
+  condicaoVin:            text('condicao_vin').notNull(),
+  condicao:               text('condicao').notNull(),
+  codigoMarcaModelo:      text('codigo_marca_modelo').notNull(),
+  lotacao:                integer('lotacao').notNull(),
+  restricao:              text('restricao').notNull(),
+  preenchidoPor:          uuid('preenchido_por').references(() => usuarios.id),
+  criadoEm:               timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm:           timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── motos ───────────────────────────────────────────────────────────────────
 export const motos = pgTable('motos', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -467,7 +531,8 @@ export const origensVenda = pgTable('origens_venda', {
 // ─── aprovacoes_venda ────────────────────────────────────────────────────────
 // origem distingue o que está pendente de aprovação: 'moto' (fluxo original — venda
 // ainda não existe, só é criada quando aprovada), 'os' (a OS já existe, fica retida sem
-// o pagamento aplicado) ou 'peca' (venda de peça ainda não existe, mesmo padrão de moto).
+// o pagamento aplicado), 'peca' (venda de peça ainda não existe, mesmo padrão de moto) ou
+// 'peca_edicao' (a venda de peça existe; a edição guardada em dados_venda só é aplicada na aprovação).
 export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   id: uuid('id').primaryKey().defaultRandom(),
   origem: text('origem').notNull().default('moto'),
@@ -649,6 +714,18 @@ export const vendasPecasItens = pgTable('vendas_pecas_itens', {
   descricao: text('descricao').notNull(),
   quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('1'),
   valorUnitario: numeric('valor_unitario', { precision: 10, scale: 2 }).notNull().default('0'),
+})
+
+// ─── vendas_pecas_edicoes (histórico da edição de venda de peças, #242) ──────
+export const vendasPecasEdicoes = pgTable('vendas_pecas_edicoes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  vendaPecaId: uuid('venda_peca_id').notNull().references(() => vendasPecas.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  resumo: text('resumo').notNull(),
+  antes: jsonb('antes').notNull(),
+  depois: jsonb('depois').notNull(),
+  editadoEm: timestamp('editado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── os_itens ────────────────────────────────────────────────────────────────
@@ -1064,7 +1141,7 @@ export const clientes = pgTable('clientes', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   tipoPessoa: tipoPessoaEnum('tipo_pessoa').notNull().default('fisica'),
-  cpfCnpj: text('cpf_cnpj').unique(),
+  cpfCnpj: text('cpf_cnpj'),
   sexo: sexoEnum('sexo').notNull().default('nao_identificado'),
   email: text('email'),
   celular: text('celular'),
@@ -1079,7 +1156,9 @@ export const clientes = pgTable('clientes', {
   inscricaoEstadual: text('inscricao_estadual'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+  // Conta dona do cliente (ADR-0018): cada Conta só vê os próprios compradores.
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+}, t => [unique('clientes_conta_cpf_cnpj_key').on(t.contaId, t.cpfCnpj)])
 
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {

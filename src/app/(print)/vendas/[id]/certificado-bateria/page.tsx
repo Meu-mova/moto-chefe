@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { buscarVenda } from '@/lib/queries/vendas'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { PrintTrigger } from './print-trigger'
 import { rotuloDocumento } from '@/lib/documento'
 
@@ -9,8 +10,7 @@ export default async function CertificadoBateriaPage({ params }: { params: Promi
   const [venda, usuario] = await Promise.all([buscarVenda(id), getUsuarioLogado()])
   if (!venda) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && venda.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) notFound()
 
   return (
     <>

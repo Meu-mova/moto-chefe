@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { vendas, lojas, grupos } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { buscarVenda } from '@/lib/queries/vendas'
 import { formatarCpfCnpj, rotuloDocumento } from '@/lib/documento'
 import {
@@ -34,8 +35,7 @@ export default async function DocumentoImpressoPage({
   const venda = await buscarVenda(id)
   if (!venda) notFound()
 
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && venda.lojaId !== usuario.lojaId) notFound()
+  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) notFound()
 
   const [extra] = await db
     .select({
