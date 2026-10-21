@@ -5,6 +5,7 @@ import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
@@ -27,6 +28,30 @@ function getAdminClient() {
 async function assertAdmin() {
   const u = await getUsuarioLogado()
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
+  return u
+}
+
+/** Grupo da loja do alvo e Conta dele: é onde o admin da Conta vê a mudança. */
+async function registrarPermissao(adminId: string, alvo: { id: string; nome: string; lojaId: string | null; contaId: string | null }, detalhe: Record<string, unknown>) {
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'permissao_alterada', usuarioId: adminId, contaId: alvo.contaId,
+    grupoId: alvo.lojaId ? await getGrupoIdDaLoja(alvo.lojaId).catch(() => null) : null,
+    detalhe: { alvoId: alvo.id, alvoNome: alvo.nome, ...detalhe },
+  })
+}
+
+const colunasPermissao = {
+  id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId,
+  papel: usuarios.papel, gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao,
+  aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
+  modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
+}
+
+function permissoesDe(u: Permissoes): Permissoes {
+  return {
+    papel: u.papel, lojaId: u.lojaId, gruposAcesso: u.gruposAcesso, gruposAprovacao: u.gruposAprovacao,
+    aprovaPagamentoSensivel: u.aprovaPagamentoSensivel, modulosExtras: u.modulosExtras, modulosBloqueados: u.modulosBloqueados,
+  }
 }
 
 // Garante que o link Conecta é http/https (evita esquemas perigosos como javascript:)
@@ -116,7 +141,7 @@ export async function criarUsuarioAction(dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
-  await assertAdmin()
+  const admin = await assertAdmin()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
   const conecta = validarConecta(dados.conecta)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
@@ -146,6 +171,7 @@ export async function criarUsuarioAction(dados: {
     modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
     modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
   })
+  await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
 
   revalidatePath('/admin/usuarios')
 }
@@ -163,7 +189,8 @@ export async function editarUsuarioAction(id: string, dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
-  await assertAdmin()
+  const admin = await assertAdmin()
+  const [antes] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
@@ -204,20 +231,30 @@ export async function editarUsuarioAction(id: string, dados: {
     }
   })
 
+  const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
+  const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
+  if (campos.length) {
+    await registrarPermissao(admin.id, depois, { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) })
+  }
+
   revalidatePath('/admin/usuarios')
 }
 
 export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
-  await assertAdmin()
-  await db.update(usuarios).set({ ativo }).where(eq(usuarios.id, id))
+  const admin = await assertAdmin()
+  const [alvo] = await db.update(usuarios).set({ ativo }).where(eq(usuarios.id, id))
+    .returning({ id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId })
+  if (alvo) await registrarPermissao(admin.id, alvo, { acao: ativo ? 'ativado' : 'desativado' })
   revalidatePath('/admin/usuarios')
 }
 
 export async function excluirUsuarioAction(id: string) {
-  await assertAdmin()
+  const admin = await assertAdmin()
   const supabase = getAdminClient()
 
-  await db.delete(usuarios).where(eq(usuarios.id, id))
+  const [alvo] = await db.delete(usuarios).where(eq(usuarios.id, id))
+    .returning({ id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId })
+  if (alvo) await registrarPermissao(admin.id, alvo, { acao: 'excluido' })
 
   const { error } = await supabase.auth.admin.deleteUser(id)
   if (error) throw new Error(error.message)

@@ -2,6 +2,7 @@
 import { aplicarEdicaoAprovadaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
@@ -967,6 +968,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   const [vendaRecord] = await db
     .select({
       id: vendas.id,
+      numero: vendas.numero,
       motoId: vendas.motoId,
       lojaId: vendas.lojaId,
       pedidoVendaId: vendas.pedidoVendaId,
@@ -1112,6 +1114,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   revalidatePath('/caixa')
   revalidatePath('/dashboard')
   revalidatePath('/conciliacao')
+  // A venda foi apagada: o detalhe precisa bastar sozinho.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'venda_cancelada', usuarioId: usuario.id, grupoId: await getGrupoIdDaLoja(vendaRecord.lojaId).catch(() => null),
+    detalhe: { vendaId, numero: vendaRecord.numero, cliente: vendaRecord.clienteNome, valor: vendaRecord.valor, motivo: motivo.trim() },
+  })
+
   revalidatePath('/pix-mcp')
 
   return { ok: true as const, ...desvinculados }

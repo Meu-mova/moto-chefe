@@ -4,6 +4,7 @@ import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSa
 import { and, desc, eq, notInArray, sql, type SQL } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
@@ -466,6 +467,11 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       status: 'Enviando', payload, emitidaPor: usuario.id,
     }).returning({ id: notasFiscaisSaida.id })
     notaId = nova.id
+    // Cada tentativa que sai para a Nota Gateway; o resultado fica na própria nota.
+    await registrarAcaoSensivelSemFalhar({
+      tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: e.grupoId,
+      detalhe: { notaId, vendaId: e.venda.id, numeroVenda: e.venda.numero, ambiente: e.cfg.ambiente },
+    })
 
     try {
       await enviarNfe(e.cfg, payload)
@@ -649,6 +655,10 @@ async function pedirCancelamento(
     cancelamentoEm: sql`now()` as unknown as Date,
     atualizadoEm: sql`now()` as unknown as Date,
   }).where(eq(notasFiscaisSaida.id, r.id))
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_cancelada', usuarioId: registro.por, grupoId: r.grupoId,
+    detalhe: { notaId: r.id, vendaId: r.vendaId, numero: r.numero, ambiente: r.ambiente, motivo: registro.motivo, extemporaneo: registro.contador !== null },
+  })
 
   const pedido = { statusAntes, em: new Date() }
   try {
