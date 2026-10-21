@@ -227,11 +227,12 @@ async function RankingSection({
     periodoSemRegistro: periodoAnteriorAoRegistro(filtrosRanking.dataInicio),
   }
   return (
-    <>
+    // O ranking tem até 7 colunas (descontos): lado a lado só a partir de telas bem largas.
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[2fr_3fr]">
       {/* "Ranking de lojas" oculto para a apresentação de 06/10/2026. */}
       <TabelaModelosMaisVendidos modelos={modelosMaisVendidos} />
       <TabelaRankingVendedores ranking={rankingVendedores} vendedorAtualId={vendedorAtualId} descontos={descontosRanking} />
-    </>
+    </div>
   )
 }
 
@@ -258,16 +259,13 @@ async function TabelasSection({
   }
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TabelaUltimasVendas vendas={ultimasVendas} />
+      {/* Últimas vendas tem 6 colunas: na largura toda. As outras cabem em pares. */}
+      <TabelaUltimasVendas vendas={ultimasVendas} />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <TabelaTransferenciasPendentes transferencias={transfPendentes} />
+        {!isVendedor && <TabelaGarantiasVencendo garantias={garantiasVencendo} />}
+        {!isVendedor && <TabelaOsAbertas ordens={osAbertas} />}
       </div>
-      {!isVendedor && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TabelaGarantiasVencendo garantias={garantiasVencendo} />
-          <TabelaOsAbertas ordens={osAbertas} />
-        </div>
-      )}
     </>
   )
 }
