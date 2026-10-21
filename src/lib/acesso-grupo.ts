@@ -20,7 +20,7 @@ export type UsuarioAcessoGrupo = {
   gruposAcesso?: string[] | null
   // Conta de origem (ADR-0018). Grupo de outra Conta nunca aparece, nem marcado em
   // grupos_acesso; sem Conta, nenhum grupo (só admin_geral vive sem Conta).
-  contaId?: string | null
+  contaId: string | null
 }
 
 export type GrupoComConta = { id: string; contaId: string }
