@@ -73,7 +73,7 @@ async function KpiSection({
   const isVendedor = temPapel(usuario, 'vendedor')
   const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos, serieDia] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
@@ -94,13 +94,15 @@ async function KpiSection({
         (isAdmin || isAuxAdm || isVendedor)
           ? totalDescontos({ ...filtros, vendedorId: filtros.vendedorId ? [filtros.vendedorId] : undefined })
           : Promise.resolve(undefined),
+        // Tendência da manchete: mesma base (bruta ou líquida) do número ao lado.
+        getVendasPorDia(filtros, kpiOpts),
       ]),
       25000,
     )
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} />
+        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} serieDia={serieDia} />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}

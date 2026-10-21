@@ -85,7 +85,8 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   }
 }
 
-export async function getVendasPorDia(filtros: Filtros) {
+/** useLiquidoValue: a mesma base do faturamento do vendedor em getKPIs, para a série bater com o número. */
+export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = new Date(dataInicio)
   const fim = new Date(dataFim + 'T23:59:59.999Z')
@@ -101,7 +102,7 @@ export async function getVendasPorDia(filtros: Filtros) {
     .select({
       dia: sql<string>`to_char(${vendas.dataVenda}, 'YYYY-MM-DD')`,
       total: count(),
-      valor: sum(vendas.valor),
+      valor: opts?.useLiquidoValue ? sql<string>`sum(${valorLiquidoExpr()})` : sum(vendas.valor),
     })
     .from(vendas)
     .where(and(...conditions))
