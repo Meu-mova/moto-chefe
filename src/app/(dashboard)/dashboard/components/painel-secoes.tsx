@@ -52,3 +52,61 @@ export function LinhaPendencia({ rotulo, valor, href }: { rotulo: string; valor:
     </Link>
   )
 }
+
+export type Coluna<T> = {
+  titulo: string
+  valor: (linha: T) => React.ReactNode
+  direita?: boolean
+  /** Só no desktop (lg); abaixo disso o valor vai para a linha de detalhe. */
+  secundaria?: boolean
+  /** A coluna que recebe a linha de detalhe (o nome do item); sem nenhuma, a 1ª. */
+  principal?: boolean
+  /** Explicação no cabeçalho (title) e, quando o título é um símbolo, o nome lido pelo leitor de tela. */
+  dica?: string
+  classe?: string
+}
+
+/**
+ * Tabela das seções do dashboard. Abaixo do desktop as colunas secundárias saem da linha
+ * e o que elas mostravam vai para `detalhe`, embaixo da 1ª coluna: nada some no celular.
+ */
+export function TabelaPainel<T>({ rotulo, linhas, colunas, chave, vazio, detalhe, destaque }: {
+  /** Nome da tabela para o leitor de tela (o título da seção). */
+  rotulo: string
+  linhas: T[]
+  colunas: Coluna<T>[]
+  chave: (linha: T) => string
+  vazio: string
+  detalhe?: (linha: T) => React.ReactNode
+  destaque?: (linha: T) => boolean
+}) {
+  if (linhas.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">{vazio}</p>
+  const iPrincipal = Math.max(0, colunas.findIndex(c => c.principal))
+  return (
+    // A rolagem fica na tabela, se um dia não couber: a página nunca rola na horizontal.
+    <div className="overflow-x-auto">
+    <table aria-label={rotulo} className="mt-1 w-full text-sm">
+      <thead>
+        <tr className="border-b border-border text-xs text-muted-foreground">
+          {colunas.map((c, i) => (
+            <th key={i} scope="col" title={c.dica} aria-label={c.dica && c.titulo.length <= 2 ? c.dica : undefined}
+              className={`py-2 pr-3 font-semibold last:pr-0 ${c.direita ? 'text-right' : 'text-left'} ${c.secundaria ? 'hidden lg:table-cell' : ''}`}>{c.titulo}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border">
+        {linhas.map(l => (
+          <tr key={chave(l)} className={destaque?.(l) ? 'bg-primary-soft font-medium' : 'hover:bg-muted'}>
+            {colunas.map((c, i) => (
+              <td key={i} className={`py-2 pr-3 align-top tabular-nums last:pr-0 ${c.direita ? 'text-right' : ''} ${c.secundaria ? 'hidden lg:table-cell' : ''} ${c.classe ?? ''}`}>
+                {c.valor(l)}
+                {i === iPrincipal && detalhe && <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">{detalhe(l)}</span>}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
+  )
+}
