@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UFS } from '@/lib/sefaz/uf'
 import type { DadosAtivacao } from '@/lib/ativacao-cliente'
-import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, dadosAtivacaoAction } from '../actions'
+import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, criarUsuariosAtivacaoAction, dadosAtivacaoAction } from '../actions'
+import type { ResultadoUsuario } from '@/lib/ativacao-usuarios'
+import { PAPEIS_ADESAO } from '@/lib/adesao'
 
-// "Ativar cliente" (#292): loja, certificado A1 e login do portal saem da adesão
+// "Ativar cliente" (#292): loja, usuários, certificado A1 e login do portal saem da adesão
 // para o grupo e a loja pelo servidor. Seção na própria tela, não diálogo: o
 // revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
 
@@ -37,6 +39,7 @@ export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
       {dados && (
         <>
           <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+          <PassoUsuarios adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoCertificado adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoPortal adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <Resumo dados={dados} />
@@ -96,6 +99,88 @@ function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
           <p className="text-xs text-muted-foreground">Preenchido com o endereço da sede da adesão; confira.</p>
           <Button onClick={criar} disabled={pendente}>Criar loja</Button>
         </>
+      )}
+      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+    </div>
+  )
+}
+
+const ROTULO_PAPEL = new Map<string, string>(PAPEIS_ADESAO.map(p => [p.valor, p.rotulo]))
+
+function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
+  const [lojaId, setLojaId] = useState(dados.lojas.length === 1 ? dados.lojas[0].id : '')
+  const [resultados, setResultados] = useState<ResultadoUsuario[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, iniciar] = useTransition()
+  const faltam = dados.usuarios.filter(u => !u.temAcesso).length
+  // A loja do passo anterior acabou de ser criada: pré-escolhe quando é a única.
+  const loja = lojaId || (dados.lojas.length === 1 ? dados.lojas[0].id : '')
+
+  function criar() {
+    setErro(null)
+    iniciar(async () => {
+      const r = await criarUsuariosAtivacaoAction(adesaoId, loja)
+      if (!r.ok) { setErro(r.erro); return }
+      setResultados(r.resultados)
+      aoAplicar()
+    })
+  }
+
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      <p className="text-sm font-medium">Usuários</p>
+      <ul className="space-y-1 text-sm">
+        {dados.usuarios.map(u => (
+          <li key={u.email} className="flex flex-wrap items-center gap-x-2">
+            {u.temAcesso ? <Check className="h-4 w-4 text-primary-text" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+            <span>{u.nome}</span>
+            <span className="text-muted-foreground">· {u.email} · {ROTULO_PAPEL.get(u.papel) ?? u.papel}</span>
+            {u.temAcesso && <span className="text-xs text-muted-foreground">(já tem acesso)</span>}
+          </li>
+        ))}
+      </ul>
+      {dados.lojas.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Crie a loja no passo acima: os usuários entram nela.</p>
+      ) : faltam > 0 && (
+        <div className="flex flex-wrap items-end gap-2">
+          {dados.lojas.length > 1 && (
+            <div className="space-y-1">
+              <Label htmlFor={`ativar-${adesaoId}-loja-usuarios`}>Loja dos usuários</Label>
+              <select
+                id={`ativar-${adesaoId}-loja-usuarios`}
+                value={lojaId}
+                onChange={e => setLojaId(e.target.value)}
+                disabled={pendente}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Escolha…</option>
+                {dados.lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+              </select>
+            </div>
+          )}
+          <Button onClick={criar} disabled={pendente || !loja}>
+            {pendente ? 'Criando…' : `Criar ${faltam} acesso(s) e enviar e-mails`}
+          </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            Cada pessoa recebe por e-mail uma senha provisória e cria a dela no primeiro acesso.
+          </p>
+        </div>
+      )}
+      {resultados && (
+        <ul className="space-y-1 text-sm">
+          {resultados.filter(r => r.situacao !== 'ja_tinha').map(r => (
+            <li key={r.email}>
+              {r.situacao === 'erro' ? <span className="text-destructive">{r.nome}: {r.erro}</span>
+                : r.emailEnviado ? <span>{r.nome}: acesso criado, e-mail enviado.</span>
+                : (
+                  <span className="text-warning">
+                    {r.nome}: acesso criado, mas o e-mail falhou. Senha provisória (anote agora, não aparece de novo):{' '}
+                    <code className="rounded bg-muted px-1 font-mono text-foreground">{r.senhaProvisoria}</code>
+                  </span>
+                )}
+            </li>
+          ))}
+        </ul>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
     </div>

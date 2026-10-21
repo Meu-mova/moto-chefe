@@ -9,6 +9,7 @@ import { ufDoEndereco, ufValida, type SiglaUf } from '@/lib/sefaz/uf'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { geocodificarCep } from '@/lib/frete'
 import { lojaSugerida } from '@/lib/adesao-endereco'
+import { emailsComAcesso } from '@/lib/ativacao-usuarios'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
 // portal da fábrica da adesão para o grupo e a loja, sem passar pelo navegador.
@@ -131,7 +132,7 @@ export async function criarLojaDaAdesao(
 export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
   const [a] = await exec.select({
     grupoId: adesoesMova.grupoId, enderecoSede: adesoesMova.enderecoSede, storeLogin: adesoesMova.storeLogin,
-    nomeLoja: adesoesMova.loja,
+    nomeLoja: adesoesMova.loja, listaUsuarios: adesoesMova.usuarios,
     sedeCep: adesoesMova.sedeCep, sedeLogradouro: adesoesMova.sedeLogradouro, sedeNumero: adesoesMova.sedeNumero,
     sedeComplemento: adesoesMova.sedeComplemento, sedeBairro: adesoesMova.sedeBairro, sedeCidade: adesoesMova.sedeCidade, sedeUf: adesoesMova.sedeUf,
     temCertificado: sql<boolean>`${adesoesMova.certArquivo} is not null`,
@@ -151,7 +152,10 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
     exec.select({ n: sql<number>`count(*)::int` }).from(motos).innerJoin(lojas, eq(lojas.id, motos.lojaId)).where(eq(lojas.grupoId, grupoId)),
   ])
 
+  const comAcesso = await emailsComAcesso(a.listaUsuarios.map(u => u.email), exec)
+
   return {
+    usuarios: a.listaUsuarios.map(u => ({ nome: u.nome, email: u.email, papel: u.papel, temAcesso: comAcesso.has(u.email.trim().toLowerCase()) })),
     // Endereço em campos (#292) vale mais que a leitura do texto, que fica para adesões antigas.
     ufSugerida: (a.sedeUf && ufValida(a.sedeUf) ? a.sedeUf : null) ?? ufDoEndereco(a.enderecoSede),
     lojaSugerida: a.sedeCidade

@@ -20,6 +20,7 @@ import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
 import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
 import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
+import { criarUsuariosDaAdesao } from '@/lib/ativacao-usuarios'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -292,5 +293,24 @@ export async function criarLojaAtivacaoAction(adesaoId: string, dados: { nome: s
   if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
   const r = await criarLojaDaAdesao({ adesaoId, ...dados })
   if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/lojas') }
+  return r
+}
+
+export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaId: string) {
+  const u = await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const auth = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).auth.admin
+  const r = await criarUsuariosDaAdesao({ adesaoId, lojaId, adminId: u.id }, {
+    criarNoAuth: async (email, senha) => {
+      // must_change_password: o middleware leva a pessoa a /trocar-senha no 1º login.
+      const { data, error } = await auth.createUser({ email, password: senha, email_confirm: true, user_metadata: { must_change_password: true } })
+      if (error) throw new Error(error.message)
+      return data.user.id
+    },
+    apagarDoAuth: async id => { await auth.deleteUser(id) },
+    enviar: enviarEmail,
+    urlLogin: `${urlBase()}/login`,
+  })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/usuarios') }
   return r
 }
