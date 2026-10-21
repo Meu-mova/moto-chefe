@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { motos, usuarios, reservas, vendas } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
@@ -215,7 +215,7 @@ export async function resolverGarantiaSemRegistroAction(motoId: string, observac
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status !== 'em_garantia') throw new Error('Moto não está em garantia')
 
   const [garantiaAtiva] = await db

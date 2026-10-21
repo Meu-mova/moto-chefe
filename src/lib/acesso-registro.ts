@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas } from '@/lib/db/schema'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
+import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -46,4 +47,17 @@ export async function podeAgirNaLoja(
     return podeAbrirRegistroDaLoja(usuario, lojaId, exec)
   }
   return usuario.lojaId === lojaId
+}
+
+// Reservar, vender ou pedir venda de uma moto: como podeAgirNaLoja, mais a exceção
+// do Galpão Matriz para quem vende (CONTEXT.md), dentro do grupo dele. É a regra que
+// a tela já aplica; aqui ela vale também para quem chama a action direto.
+export async function podeVenderMotoDaLoja(
+  usuario: { papel: string; papeisExtras?: readonly string[] | null; lojaId: string | null; gruposAcesso?: readonly string[] | null },
+  lojaId: string,
+  exec: Executor = db,
+): Promise<boolean> {
+  if (await podeAgirNaLoja(usuario, lojaId, exec)) return true
+  const vende = usuario.papel === 'vendedor' || (usuario.papeisExtras ?? []).includes('vendedor')
+  return vende && podeVendedorReservarForaDaLoja(lojaId) && (await podeAbrirRegistroDaLoja(usuario, lojaId, exec))
 }
