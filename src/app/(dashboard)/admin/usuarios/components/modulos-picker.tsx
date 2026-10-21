@@ -33,7 +33,7 @@ export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChang
         <div key={slug}>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{nome}</p>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {ITENS.filter(i => i.categoria === slug && !i.regraPropria).map(i => {
+            {ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral).map(i => {
               const e = estado(i.id)
               return (
                 <label key={i.id} className="flex items-center gap-2 text-sm cursor-pointer">

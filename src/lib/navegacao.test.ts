@@ -26,7 +26,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log',
-    'lojas', 'marketing', 'metas', 'modelos', 'montagens', 'notas-fiscais', 'ordens-servico',
+    'marketing', 'metas', 'modelos', 'montagens', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas', 'veiculos-historico',
@@ -141,4 +141,14 @@ test('todo item tem href único', () => {
     assert.ok(!vistos.has(i.href), `href repetido: ${i.href}`)
     vistos.add(i.href)
   }
+})
+
+test('Grupos e Lojas: só o admin_geral, nem com liberação individual (#306)', () => {
+  const liberado: UsuarioNav = { papel: 'admin_socio', modulosExtras: ['grupos', 'lojas'] }
+  for (const u of [SOCIO, AUX, liberado]) {
+    assert.equal(podeAcessar(u, '/admin/grupos', SEM_REGRA_PROPRIA), false)
+    assert.equal(podeAcessar(u, '/admin/lojas', SEM_REGRA_PROPRIA), false)
+  }
+  const menu = itensDoMenu(ADMIN_GERAL, SEM_REGRA_PROPRIA).map(i => i.id)
+  assert.ok(menu.includes('grupos') && menu.includes('lojas'), 'aparecem no menu do admin_geral')
 })
