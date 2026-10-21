@@ -286,7 +286,7 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
 
       <GrupoVinculado adesao={a} grupos={grupos} />
 
-      {a.contrato?.status === 'assinado' && a.grupoId && <AtivarCliente key={a.id} adesaoId={a.id} />}
+      {a.contrato?.status === 'assinado' && a.grupoId && a.status !== 'recusada' && a.status !== 'processada' && <AtivarCliente key={a.id} adesaoId={a.id} />}
 
       {a.status === 'processada' ? (
         <p className="text-sm text-muted-foreground">Adesão já processada.</p>

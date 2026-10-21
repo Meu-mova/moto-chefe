@@ -140,6 +140,30 @@ test('portal: login recusado não grava; aceito grava cifrado na loja e apaga da
   }), Desfazer)
 })
 
+test('se o log falhar, nada do passo fica gravado (certificado e portal)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    // Trigger só desta transação de teste: some no rollback do fim.
+    await tx.execute(sql`create function falha_log() returns trigger language plpgsql as $$ begin raise exception 'log fora do ar'; end $$`)
+    await tx.execute(sql`create trigger falha_log before insert on log_acoes for each row execute function falha_log()`)
+
+    await assert.rejects(aplicarCertificadoDaAdesao({ adesaoId: c.adesao, uf: 'MT', usuarioId: USUARIO }, tx), /log_acoes/)
+    const [cert] = await rows<{ n: number }>(tx, sql`select count(*)::int n from certificados_digitais where grupo_id = ${c.grupo}`)
+    assert.equal(cert.n, 0, 'certificado não ficou no grupo')
+    const [a1] = await rows<{ tem: boolean; marcado: boolean }>(tx,
+      sql`select cert_arquivo is not null tem, certificado_aplicado_em is not null marcado from adesoes_mova where id = ${c.adesao}`)
+    assert.deepEqual(a1, { tem: true, marcado: false }, 'adesão continua com o certificado, sem marca de aplicado')
+
+    await assert.rejects(aplicarPortalDaAdesao({ adesaoId: c.adesao, lojaId: c.loja, email: 'loja@cliente.com', usuarioId: USUARIO }, tx, async () => ({})), /log_acoes/)
+    const [loja] = await rows<{ email: string | null; senha: string | null }>(tx, sql`select fabrica_email email, fabrica_senha senha from lojas where id = ${c.loja}`)
+    assert.deepEqual(loja, { email: null, senha: null }, 'loja sem credencial')
+    const [a2] = await rows<{ tem: boolean; marcado: boolean }>(tx,
+      sql`select store_senha is not null tem, portal_aplicado_em is not null marcado from adesoes_mova where id = ${c.adesao}`)
+    assert.deepEqual(a2, { tem: true, marcado: false }, 'adesão continua com a senha do portal')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
 test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
