@@ -4,7 +4,8 @@ import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasAtivasDaConta } from '@/lib/conta'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { modelos, precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -49,7 +50,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
     listarLojasDoGrupoAtivo(usuario),
     // Igual a /transferencias e /estoque: destino do botão "Transferir" inclui todos
     // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
-    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
+    acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
     listarUsuariosDoGrupo(grupoIdDaMoto),
     db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
     db.select({ valorMinimo: precificacao.valorMinimo })
