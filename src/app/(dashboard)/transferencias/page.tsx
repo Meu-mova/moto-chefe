@@ -3,10 +3,11 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTransferencias } from '@/lib/queries/transferencias'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
 import { motos, modelos } from '@/lib/db/schema'
-import { eq, inArray, asc, and } from 'drizzle-orm'
+import { eq, inArray, and } from 'drizzle-orm'
 import { TransferenciaCard } from './components/transferencia-card'
 import { SolicitarDialog } from './components/solicitar-dialog'
 import { TransferenciasFiltros } from './components/transferencias-filtros'
@@ -66,7 +67,7 @@ export default async function TransferenciasPage({
               )
             : inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
       ),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
   ])
 
   const pendentes = lista.filter(t => t.status === 'pendente')

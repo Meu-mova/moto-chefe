@@ -1,7 +1,8 @@
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { modelos, motos, historicoEstoque, modeloApelidos } from '@/lib/db/schema'
-import { listarLojasDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { EntradaForm } from './components/entrada-form'
@@ -32,19 +33,20 @@ export default async function EntradaPage() {
   const lojasOpts = await listarLojasDoGrupoAtivo(usuario)
 
   const [modelosCadastrados, ultimosPrecos, apelidos] = await Promise.all([
-    db
-      .select({ id: modelos.id, modelo: modelos.modelo, marca: modelos.marca, precoCompraPadrao: modelos.precoCompraPadrao })
-      .from(modelos)
-      .orderBy(modelos.marca, modelos.modelo),
+    // Só as marcas da Conta: modelo da nota de marca escondida aparece como não cadastrado.
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     ultimoPrecoPorModelo(lojasOpts.map(l => l.id)),
     // Apelidos que as notas usam ("DRIFT" para DRIFT CAR). Ligam o chassi do
     // infCpl ao item da nota na hora de ler a ficha fiscal. Nao sao por grupo:
     // e como o FORNECEDOR escreve, e ele vende para os dois CNPJs.
     db
-      .select({ nome: modeloApelidos.apelido, canonico: modelos.modelo })
+      .select({ nome: modeloApelidos.apelido, canonico: modelos.modelo, modeloId: modelos.id })
       .from(modeloApelidos)
       .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId)),
   ])
+
+  const visiveis = new Set(modelosCadastrados.map(m => m.id))
+  const apelidosVisiveis = apelidos.filter(a => visiveis.has(a.modeloId)).map(({ nome, canonico }) => ({ nome, canonico }))
 
   const modelosOpts = modelosCadastrados.map(m => ({
     ...m,
@@ -57,7 +59,7 @@ export default async function EntradaPage() {
         <h1 className="text-2xl font-bold">Entrada de Motos</h1>
         <p className="text-slate-500 text-sm">Registrar motos recebidas da fábrica</p>
       </div>
-      <EntradaForm modelos={modelosOpts} lojas={lojasOpts} apelidos={apelidos} />
+      <EntradaForm modelos={modelosOpts} lojas={lojasOpts} apelidos={apelidosVisiveis} />
     </div>
   )
 }

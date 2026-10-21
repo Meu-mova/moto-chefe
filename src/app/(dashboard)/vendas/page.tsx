@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
@@ -134,7 +135,7 @@ export default async function VendasPage({
       .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
       .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
     listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     db.select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
       .where(inArray(usuarios.papel, PAPEIS_VENDE as any[]))
