@@ -5,9 +5,9 @@ import { decifrar } from '@/lib/cripto'
 import { cifrarSenhaFabrica } from '@/lib/fabrica-senha'
 import { loginFabrica } from '@/lib/fabrica-scraper'
 import { lerDadosDoPfx, salvarCertificado } from '@/lib/sefaz/certificado'
-import { ufDoEndereco, ufValida, type SiglaUf } from '@/lib/sefaz/uf'
+import { ufDoEndereco, ufValida } from '@/lib/sefaz/uf'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
-import { geocodificarCep } from '@/lib/frete'
+import { geoDaLoja } from '@/lib/frete'
 import { lojaSugerida } from '@/lib/adesao-endereco'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
@@ -15,7 +15,7 @@ import { lojaSugerida } from '@/lib/adesao-endereco'
 // O segredo sai da adesão assim que é aplicado (decisão do Luis, 21/10).
 // Sem next/headers direto, para ser testado contra o banco.
 
-type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
+type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete' | 'transaction'>
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string }
 
 async function adesaoComGrupo(adesaoId: string, exec: Executor) {
@@ -40,10 +40,10 @@ export async function aplicarCertificadoDaAdesao(
   if (!('grupo' in a) || !a.grupo) return { ok: false, erro: 'Vincule a adesão a um grupo antes' }
   if (!a.certArquivo || !a.certSenha) return { ok: false, erro: 'O certificado desta adesão já foi aplicado' }
 
-  const pfx = decifrar(a.certArquivo)
-  const senha = decifrar(a.certSenha).toString('utf8')
-  let dados
+  let pfx: Buffer, senha: string, dados
   try {
+    pfx = decifrar(a.certArquivo)
+    senha = decifrar(a.certSenha).toString('utf8')
     dados = lerDadosDoPfx(pfx, senha)
   } catch (e) {
     return { ok: false, erro: e instanceof Error ? e.message : 'Falha ao ler o certificado' }
@@ -54,14 +54,18 @@ export async function aplicarCertificadoDaAdesao(
     return { ok: false, erro: `O certificado da adesão é de ${dados.titular} (CNPJ ${dados.cnpj}), e o grupo ${a.grupo.nome} é do CNPJ ${cnpjDoGrupo}.` }
   }
 
-  await salvarCertificado(a.grupo.id, pfx, senha, p.uf as SiglaUf, exec)
-  await exec.update(adesoesMova)
-    .set({ certArquivo: null, certSenha: null, certificadoAplicadoEm: new Date() })
-    .where(eq(adesoesMova.id, p.adesaoId))
-  await registrarAcaoSensivel({
-    tipo: 'certificado_aplicado', usuarioId: p.usuarioId, grupoId: a.grupo.id,
-    detalhe: { adesaoId: p.adesaoId, titular: dados.titular, validoAte: dados.validoAte.toISOString().slice(0, 10), uf: p.uf },
-  }, exec)
+  const grupoId = a.grupo.id, uf = p.uf
+  // Tudo ou nada: certificado no grupo, segredo fora da adesão e linha no log.
+  await exec.transaction(async tx => {
+    await salvarCertificado(grupoId, pfx, senha, uf, tx)
+    await tx.update(adesoesMova)
+      .set({ certArquivo: null, certSenha: null, certificadoAplicadoEm: new Date() })
+      .where(eq(adesoesMova.id, p.adesaoId))
+    await registrarAcaoSensivel({
+      tipo: 'certificado_aplicado', usuarioId: p.usuarioId, grupoId,
+      detalhe: { adesaoId: p.adesaoId, titular: dados.titular, validoAte: dados.validoAte.toISOString().slice(0, 10), uf },
+    }, tx)
+  })
   return { ok: true, titular: dados.titular }
 }
 
@@ -91,14 +95,18 @@ export async function aplicarPortalDaAdesao(
     return { ok: false, erro: e instanceof Error ? e.message : 'A fábrica recusou o login' }
   }
 
-  await exec.update(lojas).set({ fabricaEmail: email, fabricaSenha: cifrarSenhaFabrica(senha) }).where(eq(lojas.id, loja.id))
-  await exec.update(adesoesMova)
-    .set({ storeLogin: email, storeSenha: null, portalAplicadoEm: new Date() })
-    .where(eq(adesoesMova.id, p.adesaoId))
-  await registrarAcaoSensivel({
-    tipo: 'portal_aplicado', usuarioId: p.usuarioId, grupoId: a.grupo.id,
-    detalhe: { adesaoId: p.adesaoId, loja: loja.nome, email },
-  }, exec)
+  const grupoId = a.grupo.id
+  // O login na fábrica fica fora: é rede, e a transação só segura as gravações.
+  await exec.transaction(async tx => {
+    await tx.update(lojas).set({ fabricaEmail: email, fabricaSenha: cifrarSenhaFabrica(senha) }).where(eq(lojas.id, loja.id))
+    await tx.update(adesoesMova)
+      .set({ storeLogin: email, storeSenha: null, portalAplicadoEm: new Date() })
+      .where(eq(adesoesMova.id, p.adesaoId))
+    await registrarAcaoSensivel({
+      tipo: 'portal_aplicado', usuarioId: p.usuarioId, grupoId,
+      detalhe: { adesaoId: p.adesaoId, loja: loja.nome, email },
+    }, tx)
+  })
   return { ok: true }
 }
 
@@ -106,22 +114,21 @@ export async function aplicarPortalDaAdesao(
 export async function criarLojaDaAdesao(
   p: { adesaoId: string; nome: string; cidade: string; endereco: string; cep: string },
   exec: Executor = db,
-  geocodificar: typeof geocodificarCep = geocodificarCep,
+  geocodificar: typeof geoDaLoja = geoDaLoja,
 ): Promise<Resultado<{ lojaId: string; geocodificado: boolean }>> {
   const nome = p.nome.trim(), cidade = p.cidade.trim(), endereco = p.endereco.trim(), cep = p.cep.trim()
   if (!nome || !cidade || !endereco) return { ok: false, erro: 'Preencha nome, cidade e endereço da loja' }
   const a = await adesaoComGrupo(p.adesaoId, exec)
   if (!a) return { ok: false, erro: 'Adesão não encontrada' }
   if (!('grupo' in a) || !a.grupo) return { ok: false, erro: 'Vincule a adesão a um grupo antes' }
+  // O passo cria "a" loja do grupo: segunda loja (outra aba, reenvio) é em /admin/lojas.
+  const [existente] = await exec.select({ nome: lojas.nome }).from(lojas).where(eq(lojas.grupoId, a.grupo.id)).limit(1)
+  if (existente) return { ok: false, erro: `O grupo já tem a loja ${existente.nome}. Outras lojas: /admin/lojas.` }
 
-  const geo = cep ? await geocodificar(cep) : null
-  const [loja] = await exec.insert(lojas).values({
-    nome, cidade, endereco, grupoId: a.grupo.id,
-    cep: cep || null,
-    latitude: geo ? String(geo.coordenada.latitude) : null,
-    longitude: geo ? String(geo.coordenada.longitude) : null,
-  }).returning({ id: lojas.id })
-  return { ok: true, lojaId: loja.id, geocodificado: !cep || !!geo }
+  const geo = await geocodificar(cep)
+  const [loja] = await exec.insert(lojas).values({ nome, cidade, endereco, grupoId: a.grupo.id, ...geo }).returning({ id: lojas.id })
+  // Sem coordenadas (sem CEP ou não localizado) o frete não calcula: a tela avisa.
+  return { ok: true, lojaId: loja.id, geocodificado: geo.latitude !== null }
 }
 
 /**

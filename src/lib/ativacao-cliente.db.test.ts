@@ -140,10 +140,39 @@ test('portal: login recusado não grava; aceito grava cifrado na loja e apaga da
   }), Desfazer)
 })
 
-test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
+test('se o log falhar, nada do passo fica gravado (certificado e portal)', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    const geo = async () => ({ coordenada: { latitude: -15.6, longitude: -56.1 } }) as never
+    // Trigger só desta transação de teste: some no rollback do fim.
+    await tx.execute(sql`create function falha_log() returns trigger language plpgsql as $$ begin raise exception 'log fora do ar'; end $$`)
+    await tx.execute(sql`create trigger falha_log before insert on log_acoes for each row execute function falha_log()`)
+
+    await assert.rejects(aplicarCertificadoDaAdesao({ adesaoId: c.adesao, uf: 'MT', usuarioId: USUARIO }, tx), /log_acoes/)
+    const [cert] = await rows<{ n: number }>(tx, sql`select count(*)::int n from certificados_digitais where grupo_id = ${c.grupo}`)
+    assert.equal(cert.n, 0, 'certificado não ficou no grupo')
+    const [a1] = await rows<{ tem: boolean; marcado: boolean }>(tx,
+      sql`select cert_arquivo is not null tem, certificado_aplicado_em is not null marcado from adesoes_mova where id = ${c.adesao}`)
+    assert.deepEqual(a1, { tem: true, marcado: false }, 'adesão continua com o certificado, sem marca de aplicado')
+
+    await assert.rejects(aplicarPortalDaAdesao({ adesaoId: c.adesao, lojaId: c.loja, email: 'loja@cliente.com', usuarioId: USUARIO }, tx, async () => ({})), /log_acoes/)
+    const [loja] = await rows<{ email: string | null; senha: string | null }>(tx, sql`select fabrica_email email, fabrica_senha senha from lojas where id = ${c.loja}`)
+    assert.deepEqual(loja, { email: null, senha: null }, 'loja sem credencial')
+    const [a2] = await rows<{ tem: boolean; marcado: boolean }>(tx,
+      sql`select store_senha is not null tem, portal_aplicado_em is not null marcado from adesoes_mova where id = ${c.adesao}`)
+    assert.deepEqual(a2, { tem: true, marcado: false }, 'adesão continua com a senha do portal')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('loja criada no grupo da adesão; grupo que já tem loja recusa a segunda', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const geo = async (cep: string | null) => ({ cep, latitude: cep ? '-15.6' : null, longitude: cep ? '-56.1' : null })
+
+    const jaTem = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: 'Cuiabá', endereco: 'Av. B', cep: '' }, tx, geo)
+    assert.deepEqual(jaTem, { ok: false, erro: 'O grupo já tem a loja Centro. Outras lojas: /admin/lojas.' })
+
+    await tx.execute(sql`delete from lojas where id = ${c.loja}`)
     const vazio = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: '', endereco: 'Rua A', cep: '' }, tx, geo)
     assert.equal(vazio.ok, false, 'sem cidade, não cria')
 
@@ -154,7 +183,21 @@ test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
     assert.deepEqual(loja, { nome: 'Nova', grupo: c.grupo, cep: '78010-400', lat: '-15.600000' })
 
     const dados = await dadosDaAtivacao(c.adesao, tx)
-    assert.deepEqual(dados?.lojas.map(l => l.nome), ['Centro', 'Nova'], 'o passo do portal passa a oferecer a loja nova')
+    assert.deepEqual(dados?.lojas.map(l => l.nome), ['Nova'], 'o passo do portal passa a oferecer a loja nova')
+
+    const deNovo = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Outra', cidade: 'Cuiabá', endereco: 'Av. C', cep: '' }, tx, geo)
+    assert.equal(deNovo.ok, false, 'clique de novo ou outra aba não cria a segunda')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('loja sem CEP é criada, mas volta como não localizada (a tela avisa)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`delete from lojas where id = ${c.loja}`)
+    const geo = async (cep: string | null) => ({ cep, latitude: null, longitude: null })
+    const r = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: 'Cuiabá', endereco: 'Av. B', cep: '' }, tx, geo)
+    assert.ok(r.ok && !r.geocodificado)
     throw new Desfazer()
   }), Desfazer)
 })

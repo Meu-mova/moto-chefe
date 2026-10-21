@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { FundoOndas } from '@/components/auth/fundo-ondas'
 import { CampoSenha } from '@/components/auth/campo-senha'
 import { mascaraCelular } from '@/lib/mascaras'
-import { PAPEIS_ADESAO } from '@/lib/adesao'
+import { ERRO_STORE_LOGIN, PAPEIS_ADESAO, storeLoginValido } from '@/lib/adesao'
 import { registrarAdesaoAction } from './actions'
 
 type Usuario = { nome: string; email: string; papel: string }
@@ -50,7 +50,8 @@ function faltaNoPasso(passo: number, d: Dados): string | null {
   if (passo === 2 && d.usuarios.some(u => !u.nome.trim() || !u.email.trim() || !u.papel)) {
     return 'Preencha nome, e-mail e função de cada usuário'
   }
-  if (passo === 3 && (!d.storeLogin.trim() || !d.storeSenha)) return 'Informe o login e a senha do motochefe.store'
+  if (passo === 3 && !storeLoginValido(d.storeLogin)) return ERRO_STORE_LOGIN
+  if (passo === 3 && !d.storeSenha) return 'Informe a senha do motochefe.store'
   return null
 }
 
@@ -212,7 +213,7 @@ export function FormAdesao() {
 
                 {passo === 3 && (<>
                   <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-                    <Campo id="sl" label="Login"><Input id="sl" className="h-10" autoComplete="off" value={d.storeLogin} onChange={e => set('storeLogin', e.target.value)} /></Campo>
+                    <Campo id="sl" label="E-mail de acesso ao motochefe.store"><Input id="sl" type="email" inputMode="email" className="h-10" autoComplete="off" value={d.storeLogin} onChange={e => set('storeLogin', e.target.value)} /></Campo>
                     <Campo id="ss" label="Senha"><CampoSenha id="ss" autoComplete="off" value={d.storeSenha} onChange={e => set('storeSenha', e.target.value)} /></Campo>
                   </div>
                   <dl className="space-y-1 rounded-lg bg-primary-soft p-3.5 text-sm">
