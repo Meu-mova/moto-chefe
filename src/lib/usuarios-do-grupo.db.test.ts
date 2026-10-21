@@ -30,8 +30,8 @@ class Desfazer extends Error {}
 test('listas de usuários da tela trazem só quem é do grupo', async () => {
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const grupoA = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo A', '00000000000191') returning id`)
-    const grupoB = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo B', '00000000000272') returning id`)
+    const grupoA = await linha(sql`with c as (insert into contas (nome) values ('Grupo A') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo A', '00000000000191', id from c returning id`)
+    const grupoB = await linha(sql`with c as (insert into contas (nome) values ('Grupo B') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo B', '00000000000272', id from c returning id`)
     const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupoA.id}) returning id`)
     const lojaB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja B', 'Rua 2', 'Y', ${grupoB.id}) returning id`)
     const usuario = (nome: string, papel: string, lojaId: string | null, extras: string[] = [], acesso: string[] = []) =>

@@ -33,6 +33,14 @@ export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identifica
 export const demandaStatusEnum = pgEnum('demanda_status', ['aberta', 'atendida'])
 export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os', 'pedido', 'peca'])
 
+// ─── contas ──────────────────────────────────────────────────────────────────
+// O cliente do MOVA, acima do grupo (ADR-0018): uma Conta tem um ou mais grupos.
+export const contas = pgTable('contas', {
+  id:       uuid('id').primaryKey().defaultRandom(),
+  nome:     text('nome').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── grupos ──────────────────────────────────────────────────────────────────
 export const grupos = pgTable('grupos', {
   id:                 uuid('id').primaryKey().defaultRandom(),
@@ -67,6 +75,7 @@ export const grupos = pgTable('grupos', {
   // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
   // no primeiro acesso de quem não é admin_geral: a implantação não conta.
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
+  contaId:            uuid('conta_id').notNull().references(() => contas.id),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
@@ -149,6 +158,8 @@ export const usuarios = pgTable('usuarios', {
   // Inativo continua no sistema (histórico intacto), mas some dos relatórios de
   // vendedor e do 1-a-1. Ver /admin/usuarios e queries/individual.
   ativo: boolean('ativo').notNull().default(true),
+  // Conta de origem (ADR-0018). Nula só para admin_geral, que é da plataforma.
+  contaId: uuid('conta_id').references(() => contas.id),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────

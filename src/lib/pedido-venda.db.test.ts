@@ -55,7 +55,7 @@ async function emTransacaoDesfeita(fn: (tx: Parameters<Parameters<typeof db.tran
 
 async function semear(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], opts: { comReserva?: boolean } = {}) {
   const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows[0]
-  const grupo = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo Teste', '00000000000191') returning id`)
+  const grupo = await linha(sql`with c as (insert into contas (nome) values ('Grupo Teste') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo Teste', '00000000000191', id from c returning id`)
   const loja = await linha(sql`insert into lojas (nome, cidade, endereco, grupo_id) values ('Loja Teste', 'Cidade', 'Rua', ${grupo.id}) returning id`)
   const aux = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Aux', 'aux@teste.invalid', 'aux_adm', ${loja.id}) returning id`)
   const vendedor = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend', 'vend@teste.invalid', 'vendedor', ${loja.id}) returning id`)

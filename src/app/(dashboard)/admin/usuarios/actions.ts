@@ -4,6 +4,7 @@ import { usuarios, grupos } from '@/lib/db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
@@ -83,6 +84,16 @@ async function validarAcesso(papel: string, gruposAcesso: string[]) {
   return { gruposAcesso: ids }
 }
 
+// Conta de origem (ADR-0018): a do grupo da loja; sem loja, a do primeiro grupo de
+// acesso. admin_geral é da plataforma e fica sem.
+async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso: string[]): Promise<string | null> {
+  if (papel === 'admin_geral') return null
+  const grupoId = lojaId ? await getGrupoIdDaLoja(lojaId) : gruposAcesso[0]
+  if (!grupoId) return null
+  const [g] = await db.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
+  return g?.contaId ?? null
+}
+
 export async function criarUsuarioAction(dados: {
   nome: string
   email: string
@@ -101,6 +112,7 @@ export async function criarUsuarioAction(dados: {
   const conecta = validarConecta(dados.conecta)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
+  const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -116,6 +128,7 @@ export async function criarUsuarioAction(dados: {
     email: dados.email,
     papel: dados.papel as any,
     lojaId: dados.lojaId,
+    contaId,
     conecta,
     gruposAprovacao:         aprovacao.gruposAprovacao,
     aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
@@ -143,6 +156,7 @@ export async function editarUsuarioAction(id: string, dados: {
   await assertAdmin()
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
+  const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
 
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({
@@ -150,6 +164,7 @@ export async function editarUsuarioAction(id: string, dados: {
       email: dados.email,
       papel: dados.papel as any,
       lojaId: dados.lojaId,
+      contaId,
       conecta: validarConecta(dados.conecta),
       gruposAprovacao:         aprovacao.gruposAprovacao,
       aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
