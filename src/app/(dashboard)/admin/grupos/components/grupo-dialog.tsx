@@ -47,6 +47,9 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   // significa "mantém o que está lá".
   const [mcpaiEndpointUrl, setMcpaiEndpointUrl] = useState('')
   const [mcpaiRemover, setMcpaiRemover] = useState(false)
+  // Abre sozinha quando já há integração: o "Configurada" e o "Remover chave" ficam à vista.
+  const integracaoConfigurada = !!(inicial?.blingClientId || inicial?.mcpaiConfigurado)
+  const [integracoesAbertas, setIntegracoesAbertas] = useState(integracaoConfigurada)
   const [razaoSocial, setRazaoSocial] = useState(inicial?.razaoSocial ?? '')
   const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
   const [cidadeSede, setCidadeSede] = useState(inicial?.cidadeSede ?? '')
@@ -148,9 +151,17 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               </p>
             )}
 
-            <details className="rounded-lg border px-3 py-2 sm:col-span-2">
+            {/* Com remoção pendente, abre e o título avisa: recolhida, a remoção não passa calada. */}
+            <details
+              className="rounded-lg border px-3 py-2 sm:col-span-2"
+              open={integracoesAbertas || mcpaiRemover}
+              onToggle={e => setIntegracoesAbertas(e.currentTarget.open)}
+            >
               <summary className="cursor-pointer text-sm font-medium">
-                Integrações (opcional) <span className="ml-1 text-xs font-normal text-muted-foreground">Bling, Open Finance</span>
+                Integrações (opcional){' '}
+                {mcpaiRemover
+                  ? <span className="ml-1 text-xs font-normal text-destructive">chave do Open Finance será removida</span>
+                  : <span className="ml-1 text-xs font-normal text-muted-foreground">{integracaoConfigurada ? 'configurada' : 'Bling, Open Finance'}</span>}
               </summary>
               <div className="mt-3 grid gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
