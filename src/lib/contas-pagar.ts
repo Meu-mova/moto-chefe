@@ -131,6 +131,25 @@ export function situacaoOcorrencia(
   return 'a_vencer'
 }
 
+/**
+ * Totais do card do dashboard (#311). Total e Em aberto são do mês; Atrasado é tudo
+ * vencido e não pago, do mês ou de meses anteriores (estas só chegam em `anteriores`).
+ */
+export function totaisDoMes(
+  doMes: { pago: boolean; vencimento: string; valor: string }[],
+  anteriores: { pago: boolean; vencimento: string; valor: string }[],
+  hoje: string,
+) {
+  const soma = (l: { valor: string }[]) => l.reduce((s, o) => s + Number(o.valor), 0)
+  const vencidas = [...doMes, ...anteriores].filter(o => situacaoOcorrencia(o, hoje) === 'vencida')
+  return {
+    total: soma(doMes),
+    emAberto: soma(doMes.filter(o => !o.pago)),
+    atrasado: soma(vencidas),
+    qtdAtrasadas: vencidas.length,
+  }
+}
+
 /** Valor da conta automática: percentual sobre a base apurada no mês anterior. */
 export function valorAutomatico(base: number, percentual: number): number {
   const b = Number(base) || 0

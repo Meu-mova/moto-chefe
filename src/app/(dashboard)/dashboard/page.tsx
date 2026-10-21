@@ -42,7 +42,7 @@ import { SectionErrorBoundary } from './section-error-boundary'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
 import { listarContasDoMesAction } from '../contas-pagar/actions'
-import { ContasPagarCard } from './components/contas-pagar-card'
+import { ContasPagarCard, ContasPagarEsqueleto } from './components/contas-pagar-card'
 
 // O botão "Atualizar" do card da fábrica roda por Server Action nesta rota, e
 // ele faz login + scraping no portal, uma conta por loja. Não cabe no default.
@@ -374,11 +374,11 @@ async function AtendimentoSection({
 
 // Contas a pagar do mês. Materializa as ocorrências antes de ler (mesma função da
 // tela do módulo), então uma conta recorrente aparece aqui sem ninguém precisar
-// abrir /contas-pagar naquele mês. Fica no próprio Suspense porque a base
-// automática da folha roda o cálculo inteiro dela.
-async function ContasPagarSection() {
-  const { doMes, atrasadas } = await listarContasDoMesAction(hojeBrt().slice(0, 7))
-  return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} />
+// abrir /contas-pagar naquele mês. Recebe a consulta já disparada pela página: ela
+// roda a base automática da folha inteira e não pode esperar os indicadores terminarem.
+async function ContasPagarSection({ contas, hoje }: { contas: ReturnType<typeof listarContasDoMesAction>; hoje: string }) {
+  const { doMes, atrasadas } = await contas
+  return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} hoje={hoje} />
 }
 
 // Próximos eventos do calendário de gestão, respeitando a visibilidade de cada um.
@@ -420,6 +420,10 @@ export default async function DashboardPage({
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
+  const hoje = hojeBrt()
+  const contasDoMes = isAdmin ? listarContasDoMesAction(hoje.slice(0, 7)) : null
+  // Se os indicadores falharem antes de a seção montar, ninguém espera esta promessa.
+  contasDoMes?.catch(() => {})
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
 
@@ -489,11 +493,10 @@ export default async function DashboardPage({
             filtrosAnt={filtrosAnt}
             usuario={usuario}
             // Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir.
-            // Carrega no próprio Suspense para não segurar os indicadores.
-            abaixoDaManchete={isAdmin && (
+            abaixoDaManchete={contasDoMes && (
               <SectionErrorBoundary label="as contas a pagar">
-                <Suspense fallback={null}>
-                  <ContasPagarSection />
+                <Suspense fallback={<ContasPagarEsqueleto />}>
+                  <ContasPagarSection contas={contasDoMes} hoje={hoje} />
                 </Suspense>
               </SectionErrorBoundary>
             )}
