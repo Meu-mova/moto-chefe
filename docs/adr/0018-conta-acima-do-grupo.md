@@ -44,7 +44,7 @@ configurações são globais e apareceriam para qualquer cliente novo.
 |---|---|
 | `clientes` (compradores) | Conta |
 | `servicos_catalogo`, `pecas_catalogo`, `categorias_caixa`, `categorias_despesa`, `simulador_precos` | Conta (cliente novo começa com cópia padrão) |
-| `modelos` | Plataforma |
+| `modelos` | Plataforma (as marcas que cada Conta vê são da Conta; ver adendo #287) |
 | `funcionarios_config`, folha e holerites | Grupo (conferir as FKs na execução) |
 | `WHATSAPP_ALERTA_NUMERO` | Grupo, configurado pelo admin da Conta |
 | Permissões por e-mail fixo no código | `/admin/usuarios`, por Conta |
@@ -88,6 +88,22 @@ aparece nem abre, mesmo marcado, e o cadastro recusa marcar um. Usuário sem Con
 Na criação, a Conta dos grupos que já existiam saiu da ligação por usuários (loja e
 `grupos_acesso`), migração `0133_contas.sql`. Grupo criado em `/admin/grupos` nasce numa Conta nova;
 escolher uma Conta existente fica para quando for preciso (#263).
+
+## Adendo de 2026-10-21: marcas de moto por Conta (#287)
+
+O primeiro cliente de fora só trabalha com uma marca e via, em toda lista de modelo, as marcas
+dos grupos do Cesar. O cadastro de `modelos` **continua da Plataforma** e único: apagar não serve
+(os grupos do Cesar usam as outras marcas), e um catálogo por Conta duplicaria modelo, apelido da
+NF e ficha fiscal. O que passa a ser da Conta é **a visibilidade das marcas** (`conta_marcas`,
+migração `0138`), escolhida pelo `admin_geral` em `/admin/modelos`.
+
+- Conta criada em `/admin/grupos` nasce vendo só MotoChefe; o `admin_geral` amplia depois.
+- Conta sem nenhuma marca escolhida vê todas. A Conta do Cesar ficou assim, sem backfill.
+- O filtro vale só nas **listas de escolha** (entrada, venda, demandas, transferências, garantias,
+  filtros do estoque). Moto já gravada com modelo de marca escondida continua aparecendo em
+  estoque, vendas e relatórios.
+- Na importação de XML, modelo que só casaria com marca escondida aparece como não cadastrado.
+- A regra fica em `src/lib/modelos-da-conta.ts`.
 
 ## Quando revisar
 

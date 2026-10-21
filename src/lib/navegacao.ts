@@ -25,6 +25,11 @@ export type ItemNav = {
   regraPropria?: true
   /** Some do menu e dos hubs, mas a rota continua liberada para quem tem a permissão. */
   oculto?: true
+  /**
+   * Só quem TEM o papel admin_geral como papel principal (#306): nem liberação individual
+   * (modulosExtras) nem papel extra abrem. É a mesma regra das actions dessas telas.
+   */
+  soAdminGeral?: true
 }
 
 export type UsuarioNav = {
@@ -117,10 +122,10 @@ export const ITENS: ItemNav[] = [
   { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER, oculto: true },
 
   // ── Configuração
-  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'configuracao', papeis: ADMINS, oculto: true },
+  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
   { id: 'adesoes',        href: '/admin/adesoes',  label: 'Adesões',           icon: FileSignature, categoria: 'configuracao', papeis: SUPER },
   { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER },
-  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, oculto: true },
+  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
   { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: SUPER },
   { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', papeis: ADMINS },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
@@ -149,6 +154,7 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   // Bloqueio individual ganha de tudo — inclusive de liberação individual.
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
+  if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if ((usuario.modulosExtras ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }

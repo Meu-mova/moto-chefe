@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { loginFabrica, type FabricaSession } from '@/lib/fabrica-scraper'
 import type { getUsuarioLogado } from '@/lib/auth'
+import { lerSenhaFabrica } from '@/lib/fabrica-senha'
 
 // auth.ts não exporta o tipo do usuário — deriva do retorno de getUsuarioLogado.
 type UsuarioLogado = Awaited<ReturnType<typeof getUsuarioLogado>>
@@ -51,13 +52,13 @@ export async function paraCadaLojaNaFabrica<T>(
   for (const l of lojasDoGrupo) {
     const base = { lojaId: l.id, loja: l.nome }
     const email = l.email?.trim()
-    const senha = l.senha?.trim()
-    if (!email || !senha) {
+    if (!email || !l.senha) {
       resultado.push({ ...base, status: 'sem_credencial', dados: [] })
       continue
     }
 
     try {
+      const senha = lerSenhaFabrica(l.senha)?.trim() ?? ''
       const session = await loginFabrica({ email, senha })
       resultado.push({ ...base, status: 'ok', dados: await ler(session, { id: l.id, nome: l.nome }) })
     } catch (e) {

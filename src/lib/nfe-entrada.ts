@@ -12,7 +12,7 @@
 // Variações reais tratadas: modelo com espaço ("GIGA C/ BAU", "JET C/ NFC"),
 // moto sem número de motor ("SOMA 1000W <chassi> BRANCO"), variante da fábrica
 // entre parênteses ("X12 1000W (RC) ..." e "X12 1000W(RC) ..."), cor com mais
-// de uma palavra ("AZUL TURQUESA") e lixo no fim (linha de ICMS, ";;;").
+// de uma palavra ou com parênteses ("CINZA(BRANCO)") ("AZUL TURQUESA") e lixo no fim (linha de ICMS, ";;;").
 
 export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: string }
 
@@ -29,7 +29,8 @@ const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/-]{10,}$/i
 
 // Marcador de variante da fábrica: "(RC)", "(RP)" — e "(RP" sem fechar, que
 // aparece nas notas 40743 e 40957. Não é modelo, nem chassi, nem cor.
-const RE_VARIANTE = /^\(|\)$/
+// Só o token que começa com "(": cor como "CINZA(BRANCO)" termina em ")" e é cor.
+const RE_VARIANTE = /^\(/
 
 // Potência solta no meio do texto ("1000W", "1000W(RC)"). Sai do nome do modelo:
 // quem manda é o cadastro. Colada ("X12-1000W") fica, e o de-para resolve.

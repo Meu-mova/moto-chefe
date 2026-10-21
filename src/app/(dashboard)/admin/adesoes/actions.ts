@@ -19,6 +19,9 @@ import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
 import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
+import { colunasSede } from '@/lib/sede-colunas'
+import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
+import { criarUsuariosDaAdesao } from '@/lib/ativacao-usuarios'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -44,6 +47,7 @@ export async function listarAdesoesAction() {
     razaoSocial: adesoesMova.razaoSocial,
     cnpj: adesoesMova.cnpj,
     enderecoSede: adesoesMova.enderecoSede,
+    sede: colunasSede,
     email: adesoesMova.email,
     responsavelCpf: adesoesMova.responsavelCpf,
     valorMensal: adesoesMova.valorMensal,
@@ -94,8 +98,9 @@ export async function salvarDadosContratoAction(
   if (atual.status === 'recusada' || atual.status === 'processada') return { ok: false, erro: 'Adesão recusada ou processada não pode ser alterada' }
 
   const status = statusDaAdesao(lido.dados)
+  const { sede, ...dados } = lido.dados
   await db.update(adesoesMova)
-    .set({ ...lido.dados, status, atualizadoPor: u.id, atualizadoEm: new Date() })
+    .set({ ...dados, ...sede, status, atualizadoPor: u.id, atualizadoEm: new Date() })
     .where(eq(adesoesMova.id, id))
   revalidatePath('/admin/adesoes')
   return { ok: true, status }
@@ -247,4 +252,63 @@ export async function vincularGrupoAction(
   }
   revalidatePath('/admin/adesoes')
   return { ok: true, aviso }
+}
+
+// ─── Ativar cliente (#292) ───────────────────────────────────────────────────
+// Só com contrato assinado e grupo vinculado. Os segredos são lidos e gravados
+// no servidor; nenhuma destas actions devolve senha ou certificado.
+
+async function contratoAssinado(adesaoId: string) {
+  const [c] = await db.select({ id: contratosAdesao.id }).from(contratosAdesao)
+    .where(and(eq(contratosAdesao.adesaoId, adesaoId), eq(contratosAdesao.status, 'assinado'))).limit(1)
+  return !!c
+}
+
+export async function dadosAtivacaoAction(adesaoId: string) {
+  await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return null
+  return dadosDaAtivacao(adesaoId)
+}
+
+export async function aplicarCertificadoAction(adesaoId: string, uf: string) {
+  const u = await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const r = await aplicarCertificadoDaAdesao({ adesaoId, uf, usuarioId: u.id })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/certificados') }
+  return r
+}
+
+export async function aplicarPortalAction(adesaoId: string, dados: { lojaId: string; email: string; senha?: string }) {
+  const u = await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const r = await aplicarPortalDaAdesao({ adesaoId, ...dados, usuarioId: u.id })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/lojas') }
+  return r
+}
+
+export async function criarLojaAtivacaoAction(adesaoId: string, dados: { nome: string; cidade: string; endereco: string; cep: string }) {
+  await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const r = await criarLojaDaAdesao({ adesaoId, ...dados })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/lojas') }
+  return r
+}
+
+export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaPorEmail: Record<string, string>) {
+  const u = await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const auth = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).auth.admin
+  const r = await criarUsuariosDaAdesao({ adesaoId, lojaPorEmail, adminId: u.id }, {
+    criarNoAuth: async (email, senha) => {
+      // must_change_password: o middleware leva a pessoa a /trocar-senha no 1º login.
+      const { data, error } = await auth.createUser({ email, password: senha, email_confirm: true, user_metadata: { must_change_password: true } })
+      if (error) throw new Error(error.message)
+      return data.user.id
+    },
+    apagarDoAuth: async id => { await auth.deleteUser(id) },
+    enviar: enviarEmail,
+    urlLogin: `${urlBase()}/login`,
+  })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/usuarios') }
+  return r
 }

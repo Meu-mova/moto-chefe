@@ -8,6 +8,7 @@ import {
   STATUS_AGUARDANDO_PAGAMENTO,
   type PedidoCompraFabrica,
 } from '@/lib/fabrica-scraper'
+import { lerSenhaFabrica } from '@/lib/fabrica-senha'
 
 const URL_PORTAL = 'https://motochefebrasil.store/clientes/pedidos?aba=compras'
 
@@ -112,11 +113,11 @@ export async function alertarPedidosFabricaDaLoja(
 ): Promise<ResultadoLoja> {
   const base = { loja: loja.nome, grupo: loja.grupoNome }
   const email  = loja.fabricaEmail?.trim()
-  const senha  = loja.fabricaSenha?.trim()
 
-  if (!email || !senha) return { ...base, status: 'sem_credencial' }
+  if (!email || !loja.fabricaSenha) return { ...base, status: 'sem_credencial' }
 
   try {
+    const senha = lerSenhaFabrica(loja.fabricaSenha)?.trim() ?? ''
     const session = await loginFabrica({ email, senha })
     const pedidos = await listarPedidosCompraFabrica(session, STATUS_AGUARDANDO_PAGAMENTO)
 

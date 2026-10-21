@@ -207,6 +207,15 @@ export const modelos = pgTable('modelos', {
   imagemUrl: text('imagem_url'),
 })
 
+// ─── conta_marcas ────────────────────────────────────────────────────────────
+// Marcas que a Conta enxerga nas listas de escolha (#287). Sem linha = todas.
+export const contaMarcas = pgTable('conta_marcas', {
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  marca: text('marca').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contaId, t.marca] }),
+}))
+
 // ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────
 export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id),
@@ -1686,10 +1695,11 @@ export const adesoesMova = pgTable('adesoes_mova', {
   responsavel: text('responsavel').notNull(),
   celular: text('celular').notNull(),
   cnpjArquivoPath: text('cnpj_arquivo_path').notNull(),
-  certArquivo: text('cert_arquivo').notNull(),
-  certSenha: text('cert_senha').notNull(),
+  // Os três segredos ficam nulos depois de aplicados no grupo e na loja (#292).
+  certArquivo: text('cert_arquivo'),
+  certSenha: text('cert_senha'),
   storeLogin: text('store_login').notNull(),
-  storeSenha: text('store_senha').notNull(),
+  storeSenha: text('store_senha'),
   usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
   status: text('status').$type<StatusAdesao>().notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
@@ -1713,6 +1723,16 @@ export const adesoesMova = pgTable('adesoes_mova', {
   // Grupo que esta adesão gerou: a mensalidade dele sai daqui (#207). Um grupo,
   // uma adesão (índice único parcial na 0127).
   grupoId: uuid('grupo_id').references(() => grupos.id),
+  // Endereço da sede em campos (#292); endereco_sede é a linha montada deles.
+  sedeCep: text('sede_cep'),
+  sedeLogradouro: text('sede_logradouro'),
+  sedeNumero: text('sede_numero'),
+  sedeComplemento: text('sede_complemento'),
+  sedeBairro: text('sede_bairro'),
+  sedeCidade: text('sede_cidade'),
+  sedeUf: text('sede_uf'),
+  certificadoAplicadoEm: timestamp('certificado_aplicado_em', { withTimezone: true }),
+  portalAplicadoEm: timestamp('portal_aplicado_em', { withTimezone: true }),
 })
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────
