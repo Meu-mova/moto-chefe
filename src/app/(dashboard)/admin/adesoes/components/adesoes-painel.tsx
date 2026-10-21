@@ -265,7 +265,8 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
       </dl>
 
       <Tabs value={aba} onValueChange={v => setAba(v as Aba)} className="flex min-h-0 flex-1 flex-col gap-0">
-        <div className="overflow-x-auto border-b px-4">
+        {/* overflow-y-hidden tira a barra vertical que o sublinhado da aba (5px abaixo) criava; o pb devolve esse espaço. */}
+        <div className="overflow-x-auto overflow-y-hidden border-b px-4 pb-[5px]">
           <TabsList variant="line">
             <TabsTrigger value="contrato">
               Contrato
