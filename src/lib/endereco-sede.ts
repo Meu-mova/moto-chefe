@@ -11,6 +11,14 @@ export type EnderecoSede = {
 export const ENDERECO_SEDE_VAZIO: EnderecoSede = { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '' }
 
 const OBRIGATORIOS = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'uf'] as const
+const ROTULO: Record<(typeof OBRIGATORIOS)[number], string> = {
+  cep: 'CEP', logradouro: 'logradouro', numero: 'número', bairro: 'bairro', cidade: 'cidade', uf: 'UF',
+}
+
+/** Campos obrigatórios ainda vazios, para a tela dizer o que falta. */
+export function faltamNoEnderecoSede(e: EnderecoSede): string[] {
+  return OBRIGATORIOS.filter(k => !e[k]).map(k => ROTULO[k])
+}
 
 export function limparEnderecoSede(e: Partial<EnderecoSede>): EnderecoSede {
   const t = (k: keyof EnderecoSede) => (e[k] ?? '').trim()
@@ -36,4 +44,25 @@ export function montarEnderecoSede(e: EnderecoSede): string | null {
   if (OBRIGATORIOS.some(k => !e[k])) return null
   return [`${e.logradouro}, ${e.numero}`, e.complemento, e.bairro, `CEP ${e.cep}`, `${e.cidade} – ${e.uf}`]
     .filter(Boolean).join(', ')
+}
+
+// Um lugar só liga cada campo à sua coluna em adesoes_mova: campo novo muda aqui
+// e em sede-colunas.ts, não em cada select e update.
+export const COLUNA_SEDE = {
+  cep: 'sedeCep', logradouro: 'sedeLogradouro', numero: 'sedeNumero', complemento: 'sedeComplemento',
+  bairro: 'sedeBairro', cidade: 'sedeCidade', uf: 'sedeUf',
+} as const satisfies Record<keyof EnderecoSede, string>
+
+export type ColunasSede = { [K in keyof EnderecoSede as (typeof COLUNA_SEDE)[K]]: string | null }
+/** Como o banco devolve: campo vazio é null. */
+export type EnderecoSedeGravado = { [K in keyof EnderecoSede]: string | null }
+
+const CHAVES = Object.keys(COLUNA_SEDE) as (keyof EnderecoSede)[]
+
+export function paraColunasSede(e: EnderecoSede): ColunasSede {
+  return Object.fromEntries(CHAVES.map(k => [COLUNA_SEDE[k], e[k] || null])) as ColunasSede
+}
+
+export function deEnderecoGravado(g: EnderecoSedeGravado): EnderecoSede {
+  return Object.fromEntries(CHAVES.map(k => [k, g[k] ?? ''])) as EnderecoSede
 }

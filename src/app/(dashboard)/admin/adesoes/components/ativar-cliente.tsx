@@ -16,7 +16,10 @@ import { PAPEIS_ADESAO } from '@/lib/adesao'
 // para o grupo e a loja pelo servidor. Seção na própria tela, não diálogo: o
 // revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
 
-const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+const formatarData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+
+// Exceção da action (rede, sessão) aparece como erro na tela, não some calada.
+const mensagem = (e: unknown) => e instanceof Error ? e.message : 'Falha inesperada; tente de novo'
 
 export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
   const [dados, setDados] = useState<DadosAtivacao | null>(null)
@@ -66,10 +69,11 @@ function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
   function criar() {
     setErro(null)
     iniciar(async () => {
-      const r = await criarLojaAtivacaoAction(adesaoId, loja)
+      let r
+      try { r = await criarLojaAtivacaoAction(adesaoId, loja) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       if (r.geocodificado) toast.success('Loja criada')
-      else toast.warning('Loja criada, mas o CEP não foi localizado no mapa. Ajuste em /admin/lojas para o frete funcionar.')
+      else toast.warning('Loja criada, mas sem localização no mapa (CEP vazio ou não encontrado). Ajuste o CEP em /admin/lojas para o frete funcionar.')
       aoAplicar()
     })
   }
@@ -195,7 +199,8 @@ function PassoCertificado({ adesaoId, dados, aoAplicar }: Passo) {
   function aplicar() {
     setErro(null)
     iniciar(async () => {
-      const r = await aplicarCertificadoAction(adesaoId, uf)
+      let r
+      try { r = await aplicarCertificadoAction(adesaoId, uf) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       toast.success(`Certificado de ${r.titular} aplicado ao grupo`)
       aoAplicar()
@@ -206,9 +211,9 @@ function PassoCertificado({ adesaoId, dados, aoAplicar }: Passo) {
     <div className="rounded-md border p-3 space-y-2">
       <p className="text-sm font-medium">Certificado A1</p>
       {dados.certificadoAplicadoEm ? (
-        <p className="text-sm text-muted-foreground">Aplicado em {data(dados.certificadoAplicadoEm)} e apagado da adesão.</p>
+        <p className="text-sm text-muted-foreground">Aplicado em {formatarData(dados.certificadoAplicadoEm)} e apagado da adesão.</p>
       ) : !dados.temCertificadoNaAdesao ? (
-        <p className="text-sm text-muted-foreground">A adesão não tem certificado. Envie em /admin/certificados.</p>
+        <p className="text-sm text-muted-foreground">A adesão não tem certificado. Envie em <Link href="/admin/certificados" className="underline">/admin/certificados</Link>.</p>
       ) : (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
@@ -237,7 +242,9 @@ function PassoCertificado({ adesaoId, dados, aoAplicar }: Passo) {
 }
 
 function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
-  const [lojaId, setLojaId] = useState(dados.lojas.length === 1 ? dados.lojas[0].id : '')
+  const [lojaId, setLojaId] = useState('')
+  // Recalculado a cada carga: a loja pode ter sido criada depois de a seção abrir.
+  const loja = lojaId || (dados.lojas.length === 1 ? dados.lojas[0].id : '')
   const [email, setEmail] = useState(dados.storeLogin)
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -246,7 +253,8 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
   function aplicar() {
     setErro(null)
     iniciar(async () => {
-      const r = await aplicarPortalAction(adesaoId, { lojaId, email, senha })
+      let r
+      try { r = await aplicarPortalAction(adesaoId, { lojaId: loja, email, senha }) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       toast.success('Login do portal testado e aplicado à loja')
       setSenha('')
@@ -258,7 +266,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
     <div className="rounded-md border p-3 space-y-2">
       <p className="text-sm font-medium">Portal da fábrica</p>
       {dados.portalAplicadoEm ? (
-        <p className="text-sm text-muted-foreground">Testado e aplicado em {data(dados.portalAplicadoEm)} ({dados.storeLogin}).</p>
+        <p className="text-sm text-muted-foreground">Testado e aplicado em {formatarData(dados.portalAplicadoEm)} ({dados.storeLogin}).</p>
       ) : dados.lojas.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           O grupo ainda não tem loja. Crie no passo acima.
@@ -270,7 +278,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
             {/* select nativo: o value é o id da loja. */}
             <select
               id={`ativar-${adesaoId}-loja`}
-              value={lojaId}
+              value={loja}
               onChange={e => setLojaId(e.target.value)}
               disabled={pendente}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -296,7 +304,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
             />
           </div>
           <div className="sm:col-span-3">
-            <Button onClick={aplicar} disabled={pendente || !lojaId || !email.trim()}>
+            <Button onClick={aplicar} disabled={pendente || !loja || !email.trim()}>
               {pendente ? 'Testando login…' : 'Testar login e aplicar'}
             </Button>
           </div>
@@ -322,7 +330,8 @@ function Resumo({ dados }: { dados: DadosAtivacao }) {
       <ul className="space-y-1 text-sm">
         {itens.map(i => (
           <li key={i.texto} className="flex items-center gap-2">
-            {i.feito ? <Check className="h-4 w-4 text-primary-text" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+            {i.feito ? <Check aria-hidden className="h-4 w-4 text-primary-text" /> : <Circle aria-hidden className="h-4 w-4 text-muted-foreground" />}
+            <span className="sr-only">{i.feito ? 'Feito:' : 'Falta:'}</span>
             <span className={i.feito ? '' : 'text-muted-foreground'}>{i.texto}</span>
             {!i.feito && i.href && <Link href={i.href} className="text-xs underline text-primary-text">{i.href}</Link>}
           </li>

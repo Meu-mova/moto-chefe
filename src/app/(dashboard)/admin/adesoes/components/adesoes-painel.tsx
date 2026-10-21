@@ -22,7 +22,7 @@ import {
 } from '../actions'
 import { AtivarCliente } from './ativar-cliente'
 import { EnderecoSedeCampos } from './endereco-sede-campos'
-import { ENDERECO_SEDE_VAZIO, enderecoSedeVazio, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
+import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
@@ -149,15 +149,12 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-function sedeInicial(a: AdesaoLinha): EnderecoSede {
-  return Object.fromEntries(Object.entries(ENDERECO_SEDE_VAZIO).map(([k]) => [k, a.sede[k as keyof EnderecoSede] ?? ''])) as EnderecoSede
-}
+const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
 
 function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
   const [sede, setSede] = useState(() => sedeInicial(a))
-  // Sem campos preenchidos, vale o texto antigo (adesões de antes dos campos).
-  const sedeEmCampos = !enderecoSedeVazio(limparEnderecoSede(sede))
+
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
   const [recusando, setRecusando] = useState(false)
@@ -165,7 +162,8 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
   const [pendente, iniciar] = useTransition()
   // Recusada ou processada não se edita mais por esta tela.
   const travada = a.status === 'recusada' || a.status === 'processada'
-  const faltam = camposFaltando({ ...valores, enderecoSede: sedeEmCampos ? montarEnderecoSede(limparEnderecoSede(sede)) : valores.enderecoSede })
+  // Mesma regra do servidor: campos incompletos não tiram a linha que já vale.
+  const faltam = camposFaltando({ ...valores, enderecoSede: montarEnderecoSede(limparEnderecoSede(sede)) ?? valores.enderecoSede })
   const situacao = situacaoContrato(a.contrato, new Date())
   // O contrato sai do que está gravado: com edição não salva, o lojista
   // receberia valores diferentes dos que estão na tela.
@@ -174,7 +172,7 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
 
   function salvar() {
     iniciar(async () => {
-      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado, ...(sedeEmCampos ? { sede } : {}) })
+      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado, sede })
       if (!r.ok) {
         setErros(r.erros ?? {})
         toast.error(r.erro ?? 'Corrija os campos marcados')
@@ -282,7 +280,7 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
               onChange={patch => setSede(prev => ({ ...prev, ...patch }))}
               disabled={travada || pendente}
               erro={erros.enderecoSede}
-              textoAntigo={!a.sede.cep && a.enderecoSede ? a.enderecoSede : null}
+              linhaAtual={a.enderecoSede}
             />
           ) : (
             <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
@@ -306,7 +304,7 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
 
       <GrupoVinculado adesao={a} grupos={grupos} />
 
-      {a.contrato?.status === 'assinado' && a.grupoId && <AtivarCliente key={a.id} adesaoId={a.id} />}
+      {a.contrato?.status === 'assinado' && a.grupoId && a.status !== 'recusada' && a.status !== 'processada' && <AtivarCliente key={a.id} adesaoId={a.id} />}
 
       {a.status === 'processada' ? (
         <p className="text-sm text-muted-foreground">Adesão já processada.</p>

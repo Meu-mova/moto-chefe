@@ -19,6 +19,7 @@ import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
 import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
+import { colunasSede } from '@/lib/sede-colunas'
 import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
 import { criarUsuariosDaAdesao } from '@/lib/ativacao-usuarios'
 
@@ -46,10 +47,7 @@ export async function listarAdesoesAction() {
     razaoSocial: adesoesMova.razaoSocial,
     cnpj: adesoesMova.cnpj,
     enderecoSede: adesoesMova.enderecoSede,
-    sede: {
-      cep: adesoesMova.sedeCep, logradouro: adesoesMova.sedeLogradouro, numero: adesoesMova.sedeNumero,
-      complemento: adesoesMova.sedeComplemento, bairro: adesoesMova.sedeBairro, cidade: adesoesMova.sedeCidade, uf: adesoesMova.sedeUf,
-    },
+    sede: colunasSede,
     email: adesoesMova.email,
     responsavelCpf: adesoesMova.responsavelCpf,
     valorMensal: adesoesMova.valorMensal,

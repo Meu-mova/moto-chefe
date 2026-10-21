@@ -13,10 +13,14 @@ type EnderecoViaCep = {
 
 type ResultadoNominatim = { lat: string; lon: string }
 
+// Server Actions da mesma sessão rodam em fila: serviço externo parado não pode
+// segurar as outras. Estourou o tempo, o catch trata como não localizado.
+const LIMITE_MS = 8000
+
 async function buscarNominatim(query: string): Promise<Coordenada | null> {
   try {
     const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
-    const nominatimRes = await fetch(nominatimUrl, { headers: { 'User-Agent': NOMINATIM_USER_AGENT } })
+    const nominatimRes = await fetch(nominatimUrl, { headers: { 'User-Agent': NOMINATIM_USER_AGENT }, signal: AbortSignal.timeout(LIMITE_MS) })
     if (!nominatimRes.ok) return null
     const resultados = await nominatimRes.json() as ResultadoNominatim[]
     if (resultados.length === 0) return null
@@ -37,7 +41,7 @@ export async function geocodificarCep(cep: string): Promise<ResultadoGeocodifica
 
   let endereco: EnderecoViaCep
   try {
-    const viaCepRes = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+    const viaCepRes = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`, { signal: AbortSignal.timeout(LIMITE_MS) })
     if (!viaCepRes.ok) return null
     endereco = await viaCepRes.json() as EnderecoViaCep
   } catch {
@@ -66,6 +70,17 @@ export async function geocodificarCep(cep: string): Promise<ResultadoGeocodifica
     if (coord) return { coordenada: coord, enderecoFormatado }
   }
   return null
+}
+
+/** CEP da loja com as coordenadas para o frete; sem CEP ou não localizado, sem coordenadas. */
+export async function geoDaLoja(cep: string | null) {
+  const limpo = cep?.trim() || null
+  const resultado = limpo ? await geocodificarCep(limpo) : null
+  return {
+    cep: limpo,
+    latitude: resultado ? String(resultado.coordenada.latitude) : null,
+    longitude: resultado ? String(resultado.coordenada.longitude) : null,
+  }
 }
 
 function toRad(graus: number): number {

@@ -1,39 +1,45 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
 import { buscarEnderecoPorCep } from '@/lib/mascaras'
-import type { EnderecoSede } from '@/lib/endereco-sede'
+import { faltamNoEnderecoSede, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
+import { UFS } from '@/lib/sefaz/uf'
 
 // Cenário A do protótipo (#292): CEP primeiro, que preenche logradouro, bairro,
 // cidade e UF; tudo continua editável.
 
-const CAMPOS: { chave: Exclude<keyof EnderecoSede, 'cep'>; rotulo: string; classe: string }[] = [
+const CAMPOS: { chave: Exclude<keyof EnderecoSede, 'cep' | 'uf'>; rotulo: string; classe: string }[] = [
   { chave: 'logradouro', rotulo: 'Logradouro', classe: 'sm:col-span-4' },
   { chave: 'numero', rotulo: 'Número', classe: 'sm:col-span-2' },
   { chave: 'complemento', rotulo: 'Complemento (opcional)', classe: 'sm:col-span-3' },
   { chave: 'bairro', rotulo: 'Bairro', classe: 'sm:col-span-3' },
   { chave: 'cidade', rotulo: 'Cidade', classe: 'sm:col-span-4' },
-  { chave: 'uf', rotulo: 'UF', classe: 'sm:col-span-2' },
 ]
 
-export function EnderecoSedeCampos({ id, valor, onChange, disabled, erro, textoAntigo }: {
+export function EnderecoSedeCampos({ id, valor, onChange, disabled, erro, linhaAtual }: {
   id: string
   valor: EnderecoSede
   onChange: (patch: Partial<EnderecoSede>) => void
   disabled: boolean
   erro?: string
-  /** Endereço gravado antes dos campos existirem: mostrado até ser substituído. */
-  textoAntigo: string | null
+  /** Linha gravada hoje: é a que vale no contrato enquanto os campos estiverem incompletos. */
+  linhaAtual: string | null
 }) {
   const [busca, setBusca] = useState<'buscando' | 'nao_achou' | null>(null)
+  // Resposta de um CEP já trocado não pode sobrescrever os campos do CEP novo.
+  const ultimoCep = useRef('')
+  const montada = montarEnderecoSede(limparEnderecoSede(valor))
+  const faltam = faltamNoEnderecoSede(limparEnderecoSede(valor))
 
   async function trocarCep(cep: string) {
     onChange({ cep })
+    ultimoCep.current = cep
     if (cep.replace(/\D/g, '').length !== 8) { setBusca(null); return }
     setBusca('buscando')
     const e = await buscarEnderecoPorCep(cep)
+    if (ultimoCep.current !== cep) return
     setBusca(e ? null : 'nao_achou')
     // Só o que o ViaCEP trouxe; o resto (número, complemento) fica como está.
     if (e) onChange(Object.fromEntries(Object.entries(e).filter(([, v]) => v)) as Partial<EnderecoSede>)
@@ -42,7 +48,6 @@ export function EnderecoSedeCampos({ id, valor, onChange, disabled, erro, textoA
   return (
     <div className="sm:col-span-2 space-y-2">
       <p className="text-sm font-medium">Endereço da sede</p>
-      {textoAntigo && <p className="text-xs text-muted-foreground">Gravado antes: {textoAntigo}. Preencha os campos para substituir.</p>}
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
         <div className="sm:col-span-2 space-y-1">
           <Label htmlFor={`${id}-sede-cep`}>CEP</Label>
@@ -56,13 +61,31 @@ export function EnderecoSedeCampos({ id, valor, onChange, disabled, erro, textoA
             <Input
               id={`${id}-sede-${c.chave}`}
               value={valor[c.chave]}
-              maxLength={c.chave === 'uf' ? 2 : undefined}
               onChange={e => onChange({ [c.chave]: e.target.value })}
               disabled={disabled}
             />
           </div>
         ))}
+        <div className="sm:col-span-2 space-y-1">
+          <Label htmlFor={`${id}-sede-uf`}>UF</Label>
+          {/* select nativo: lista fechada evita UF inválida. */}
+          <select
+            id={`${id}-sede-uf`}
+            value={valor.uf}
+            onChange={e => onChange({ uf: e.target.value })}
+            disabled={disabled}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">—</option>
+            {UFS.map(u => <option key={u.sigla} value={u.sigla}>{u.sigla}</option>)}
+          </select>
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {montada ? <>Vai no contrato como: <span className="text-foreground">{montada}</span></>
+          : linhaAtual ? <>Faltam {faltam.join(', ')}. Enquanto isso, o contrato usa: <span className="text-foreground">{linhaAtual}</span></>
+          : <>Faltam {faltam.join(', ')} para o contrato.</>}
+      </p>
       {erro && <p className="text-xs text-destructive">{erro}</p>}
     </div>
   )
