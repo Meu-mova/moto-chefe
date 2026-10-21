@@ -70,7 +70,7 @@ function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
       try { r = await criarLojaAtivacaoAction(adesaoId, loja) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       if (r.geocodificado) toast.success('Loja criada')
-      else toast.warning('Loja criada, mas o CEP não foi localizado no mapa. Ajuste em /admin/lojas para o frete funcionar.')
+      else toast.warning('Loja criada, mas sem localização no mapa (CEP vazio ou não encontrado). Ajuste o CEP em /admin/lojas para o frete funcionar.')
       aoAplicar()
     })
   }

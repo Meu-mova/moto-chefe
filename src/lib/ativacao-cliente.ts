@@ -7,7 +7,7 @@ import { loginFabrica } from '@/lib/fabrica-scraper'
 import { lerDadosDoPfx, salvarCertificado } from '@/lib/sefaz/certificado'
 import { ufDoEndereco, ufValida } from '@/lib/sefaz/uf'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
-import { geocodificarCep } from '@/lib/frete'
+import { geoDaLoja } from '@/lib/frete'
 import { lojaSugerida } from '@/lib/adesao-endereco'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
@@ -114,22 +114,21 @@ export async function aplicarPortalDaAdesao(
 export async function criarLojaDaAdesao(
   p: { adesaoId: string; nome: string; cidade: string; endereco: string; cep: string },
   exec: Executor = db,
-  geocodificar: typeof geocodificarCep = geocodificarCep,
+  geocodificar: typeof geoDaLoja = geoDaLoja,
 ): Promise<Resultado<{ lojaId: string; geocodificado: boolean }>> {
   const nome = p.nome.trim(), cidade = p.cidade.trim(), endereco = p.endereco.trim(), cep = p.cep.trim()
   if (!nome || !cidade || !endereco) return { ok: false, erro: 'Preencha nome, cidade e endereço da loja' }
   const a = await adesaoComGrupo(p.adesaoId, exec)
   if (!a) return { ok: false, erro: 'Adesão não encontrada' }
   if (!('grupo' in a) || !a.grupo) return { ok: false, erro: 'Vincule a adesão a um grupo antes' }
+  // O passo cria "a" loja do grupo: segunda loja (outra aba, reenvio) é em /admin/lojas.
+  const [existente] = await exec.select({ nome: lojas.nome }).from(lojas).where(eq(lojas.grupoId, a.grupo.id)).limit(1)
+  if (existente) return { ok: false, erro: `O grupo já tem a loja ${existente.nome}. Outras lojas: /admin/lojas.` }
 
-  const geo = cep ? await geocodificar(cep) : null
-  const [loja] = await exec.insert(lojas).values({
-    nome, cidade, endereco, grupoId: a.grupo.id,
-    cep: cep || null,
-    latitude: geo ? String(geo.coordenada.latitude) : null,
-    longitude: geo ? String(geo.coordenada.longitude) : null,
-  }).returning({ id: lojas.id })
-  return { ok: true, lojaId: loja.id, geocodificado: !cep || !!geo }
+  const geo = await geocodificar(cep)
+  const [loja] = await exec.insert(lojas).values({ nome, cidade, endereco, grupoId: a.grupo.id, ...geo }).returning({ id: lojas.id })
+  // Sem coordenadas (sem CEP ou não localizado) o frete não calcula: a tela avisa.
+  return { ok: true, lojaId: loja.id, geocodificado: geo.latitude !== null }
 }
 
 /**

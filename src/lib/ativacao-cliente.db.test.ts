@@ -164,10 +164,15 @@ test('se o log falhar, nada do passo fica gravado (certificado e portal)', async
   }), Desfazer)
 })
 
-test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
+test('loja criada no grupo da adesão; grupo que já tem loja recusa a segunda', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    const geo = async () => ({ coordenada: { latitude: -15.6, longitude: -56.1 } }) as never
+    const geo = async (cep: string | null) => ({ cep, latitude: cep ? '-15.6' : null, longitude: cep ? '-56.1' : null })
+
+    const jaTem = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: 'Cuiabá', endereco: 'Av. B', cep: '' }, tx, geo)
+    assert.deepEqual(jaTem, { ok: false, erro: 'O grupo já tem a loja Centro. Outras lojas: /admin/lojas.' })
+
+    await tx.execute(sql`delete from lojas where id = ${c.loja}`)
     const vazio = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: '', endereco: 'Rua A', cep: '' }, tx, geo)
     assert.equal(vazio.ok, false, 'sem cidade, não cria')
 
@@ -178,7 +183,21 @@ test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
     assert.deepEqual(loja, { nome: 'Nova', grupo: c.grupo, cep: '78010-400', lat: '-15.600000' })
 
     const dados = await dadosDaAtivacao(c.adesao, tx)
-    assert.deepEqual(dados?.lojas.map(l => l.nome), ['Centro', 'Nova'], 'o passo do portal passa a oferecer a loja nova')
+    assert.deepEqual(dados?.lojas.map(l => l.nome), ['Nova'], 'o passo do portal passa a oferecer a loja nova')
+
+    const deNovo = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Outra', cidade: 'Cuiabá', endereco: 'Av. C', cep: '' }, tx, geo)
+    assert.equal(deNovo.ok, false, 'clique de novo ou outra aba não cria a segunda')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('loja sem CEP é criada, mas volta como não localizada (a tela avisa)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`delete from lojas where id = ${c.loja}`)
+    const geo = async (cep: string | null) => ({ cep, latitude: null, longitude: null })
+    const r = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: 'Cuiabá', endereco: 'Av. B', cep: '' }, tx, geo)
+    assert.ok(r.ok && !r.geocodificado)
     throw new Desfazer()
   }), Desfazer)
 })
