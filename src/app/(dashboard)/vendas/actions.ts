@@ -5,13 +5,13 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
-import { eq, and, isNull, isNotNull, notInArray, desc, sql } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja } from '@/lib/conta'
-import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
+import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
@@ -1546,7 +1546,8 @@ export async function editarVendaAction(vendaId: string, dados: {
 // ─── Buscar cliente por CPF/CNPJ ──────────────────────────────────────────────────
 
 export async function buscarClientePorCpfAction(cpf: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
+  const contaId = await contaDoGrupoAtivo(usuario)
   const cpfLimpo = cpf.replace(/\D/g, '')
   if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) return null
 
@@ -1567,7 +1568,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
       inscricaoEstadual: clientes.inscricaoEstadual,
     })
     .from(clientes)
-    .where(eq(clientes.cpfCnpj, cpfLimpo))
+    .where(and(eq(clientes.cpfCnpj, cpfLimpo), eq(clientes.contaId, contaId)))
     .limit(1)
 
   if (cliente) return { source: 'clientes' as const, ...cliente }
@@ -1590,7 +1591,10 @@ export async function buscarClientePorCpfAction(cpf: string) {
     })
     .from(vendas)
     // A venda grava o documento formatado; compara só os dígitos.
-    .where(sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`)
+    .where(and(
+      sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
+      inArray(vendas.lojaId, lojasDaConta(contaId)),
+    ))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
 

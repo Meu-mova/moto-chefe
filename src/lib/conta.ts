@@ -28,6 +28,12 @@ export async function listarLojasAtivasDaConta(
   return consulta.where(and(eq(lojas.ativa, true), eq(grupos.contaId, usuario.contaId))).orderBy(asc(lojas.nome))
 }
 
+// Lojas da Conta como subconsulta, para filtrar registros com inArray(x.lojaId, ...).
+export function lojasDaConta(contaId: string) {
+  return db.select({ id: lojas.id }).from(lojas)
+    .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId))
+}
+
 // Conta da loja de um registro (venda, OS): é a dona do cliente que ele cria ou atualiza.
 export async function contaDaLoja(lojaId: string, exec: Executor = db): Promise<string> {
   const [r] = await exec

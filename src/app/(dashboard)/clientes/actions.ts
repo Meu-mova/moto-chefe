@@ -1,9 +1,10 @@
 'use server'
 import { db } from '@/lib/db'
 import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
-import { eq, ilike, or, and, desc, SQL, sql } from 'drizzle-orm'
+import { lojasDaConta } from '@/lib/conta'
+import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 export type ClienteInput = {
@@ -64,7 +65,8 @@ export async function listarClientesAction(params: {
     conds.push(eq(clientes.cidade, params.cidade))
   }
 
-  const where = conds.length > 0 ? and(...conds) : undefined
+  conds.push(eq(clientes.contaId, await contaDoGrupoAtivo(usuario)))
+  const where = and(...conds)
 
   const [rows, [{ total }]] = await Promise.all([
     db.select().from(clientes)
@@ -90,9 +92,12 @@ export async function buscarClientesAction(termo: string) {
     cpfCnpj: clientes.cpfCnpj,
     celular: clientes.celular,
   }).from(clientes)
-    .where(or(
-      ilike(clientes.nome, `%${termo}%`),
-      termoCpf.length >= 3 ? ilike(clientes.cpfCnpj, `%${termoCpf}%`) : undefined,
+    .where(and(
+      eq(clientes.contaId, await contaDoGrupoAtivo(usuario)),
+      or(
+        ilike(clientes.nome, `%${termo}%`),
+        termoCpf.length >= 3 ? ilike(clientes.cpfCnpj, `%${termoCpf}%`) : undefined,
+      ),
     ))
     .orderBy(clientes.nome)
     .limit(5)
@@ -102,7 +107,9 @@ export async function buscarClientePorIdAction(id: string) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
 
-  const [cliente] = await db.select().from(clientes).where(eq(clientes.id, id)).limit(1)
+  const [cliente] = await db.select().from(clientes)
+    .where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
+    .limit(1)
   return cliente ?? null
 }
 
@@ -112,6 +119,7 @@ export async function listarCidadesAction() {
 
   const rows = await db.selectDistinct({ cidade: clientes.cidade })
     .from(clientes)
+    .where(eq(clientes.contaId, await contaDoGrupoAtivo(usuario)))
     .orderBy(clientes.cidade)
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
@@ -120,11 +128,6 @@ export async function listarCidadesAction() {
 // query inteira, então procurar "cpf_cnpj" nele pegava qualquer falha do insert.
 function cpfRepetido(e: unknown): boolean {
   return (e as { cause?: { constraint?: string } })?.cause?.constraint === 'clientes_conta_cpf_cnpj_key'
-}
-
-// Cliente é da Conta do grupo que o usuário está operando (ADR-0018).
-async function contaDoGrupoAtivo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<string> {
-  return (await getGrupoAtivo(usuario)).contaId
 }
 
 export async function criarClienteAction(dados: ClienteInput): Promise<string> {
@@ -172,7 +175,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
 export async function excluirClienteAction(id: string) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel !== 'admin_geral') throw new Error('Sem permissão')
-  await db.delete(clientes).where(eq(clientes.id, id))
+  await db.delete(clientes).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
   revalidatePath('/clientes')
 }
 
@@ -180,9 +183,17 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
 
-  const condicaoVendas = cpfCnpj
-    ? or(eq(vendas.clienteId, id), eq(vendas.clienteCpf, cpfCnpj))!
-    : eq(vendas.clienteId, id)
+  // Histórico só da Conta: o CPF casa com vendas de qualquer loja do sistema, e o
+  // cliente pode ser de outra Conta (aí não há histórico nenhum a mostrar).
+  const contaId = await contaDoGrupoAtivo(usuario)
+  const [doCliente] = await db.select({ id: clientes.id }).from(clientes)
+    .where(and(eq(clientes.id, id), eq(clientes.contaId, contaId))).limit(1)
+  if (!doCliente) return { vendas: [], os: [] }
+
+  const condicaoVendas = and(
+    inArray(vendas.lojaId, lojasDaConta(contaId)),
+    cpfCnpj ? or(eq(vendas.clienteId, id), eq(vendas.clienteCpf, cpfCnpj))! : eq(vendas.clienteId, id),
+  )
 
   const [vendasCliente, osCliente] = await Promise.all([
     db.select({
@@ -216,7 +227,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       .from(ordensServico)
       .leftJoin(motos, eq(ordensServico.motoId, motos.id))
       .leftJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(eq(ordensServico.clienteId, id))
+      .where(and(eq(ordensServico.clienteId, id), inArray(ordensServico.lojaId, lojasDaConta(contaId))))
       .orderBy(desc(ordensServico.dataAbertura)),
   ])
 

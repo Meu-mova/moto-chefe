@@ -2,7 +2,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { motos, modelos, veiculosHistorico, clientes, vendas } from '@/lib/db/schema'
-import { eq, ilike, sql } from 'drizzle-orm'
+import { and, eq, ilike, sql } from 'drizzle-orm'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -20,7 +21,7 @@ export type VeiculoEncontrado = {
 }
 
 export async function buscarVeiculoPorChassisAction(chassi: string): Promise<VeiculoEncontrado[]> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const termo = chassi.trim().toUpperCase()
   if (termo.length < 3) return []
 
@@ -34,7 +35,7 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
       cor:         motos.cor,
       marca:       modelos.marca,
       modelo:      modelos.modelo,
-      clienteId:   vendas.clienteId,
+      clienteId:   clientes.id,
       clienteNome: clientes.nome,
       clienteCpf:  clientes.cpfCnpj,
       clienteFone: clientes.celular,
@@ -42,7 +43,8 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .leftJoin(vendas,   eq(vendas.motoId,   motos.id))
-    .leftJoin(clientes, eq(vendas.clienteId, clientes.id))
+    // Comprador só da Conta: a moto pode ter sido vendida por outro cliente do MOVA.
+    .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     .where(ilike(motos.chassi, padrao))
     .limit(8)
 
@@ -86,14 +88,14 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
 }
 
 export async function buscarClientePorCpfAction(cpf: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const cpfNorm = cpf.replace(/\D/g, '')
   if (cpfNorm.length < 11) return null
 
   const [cliente] = await db
     .select({ id: clientes.id, nome: clientes.nome, cpfCnpj: clientes.cpfCnpj, celular: clientes.celular, email: clientes.email })
     .from(clientes)
-    .where(ilike(clientes.cpfCnpj, `%${cpfNorm}%`))
+    .where(and(ilike(clientes.cpfCnpj, `%${cpfNorm}%`), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     .limit(1)
 
   return cliente ?? null

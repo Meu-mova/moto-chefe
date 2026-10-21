@@ -1,7 +1,7 @@
 /**
  * Teste de ponta a ponta do isolamento entre grupos (#193, #194) contra o staging:
  * usuários de um grupo sem nenhum registro próprio tentam abrir, pelo endereço, moto,
- * OS e impressões (venda, reserva, OS) de outro grupo, e procuram nomes de outros
+ * OS, impressões (venda, reserva, OS) e compradores de outro grupo/Conta, e procuram nomes de outros
  * grupos no dashboard.
  *
  * "Não abre" = a resposta é igual à de um id inexistente (status e texto). Com o
@@ -66,12 +66,14 @@ async function main() {
   const [os] = (await execRows(sql`select id from ordens_servico where loja_id in ${deFora} limit 1`)) as { id: string }[]
   const [venda] = (await execRows(sql`select id from vendas where loja_id in ${deFora} limit 1`)) as { id: string }[]
   const [reserva] = (await execRows(sql`select id from reservas where loja_id in ${deFora} limit 1`)) as { id: string }[]
+  const [grupoNovo] = (await execRows(sql`select conta_id from grupos where id = ${grupo.id}`)) as { conta_id: string }[]
+  const clientesDeFora = (await execRows(sql`select id, nome from clientes where conta_id <> ${grupoNovo.conta_id} order by nome`)) as { id: string; nome: string }[]
   // Nomes que só existem em outros grupos: aparecer na tela é vazamento.
   const marcas = ((await execRows(sql`
     select nome from lojas where grupo_id <> ${grupo.id}
     union select nome from usuarios where loja_id in ${deFora} and (papel = 'vendedor' or 'vendedor' = any(papeis_extras) or papel = 'mecanico')
   `)) as { nome: string }[]).map(r => r.nome).filter(n => n.length >= 6)
-  if (!moto || !os || !venda || !reserva || !marcas.length) throw new Error('staging sem moto, OS ou usuários de outro grupo para testar')
+  if (!moto || !os || !venda || !reserva || !clientesDeFora.length || !marcas.length) throw new Error('staging sem moto, OS, venda, reserva, comprador ou usuários de outro grupo/Conta para testar')
   const vazou = (texto: string) => [...marcas, moto.chassi].filter(m => texto.includes(m))
 
   const navegador = await chromium.launch()
@@ -114,6 +116,19 @@ async function main() {
           deOutro.status === inexistente.status && deOutro.texto === inexistente.texto && !vazou(deOutro.texto).length,
           `${rotulo} de outro grupo responde igual a id inexistente`,
           `status ${deOutro.status}/${inexistente.status}; ${vazou(deOutro.texto).slice(0, 3).join(', ') || 'texto diferente'}`,
+        )
+      }
+      // Os dois papéis do teste (sócio e vendedor) acessam /clientes.
+      {
+        const lista = await abrir(p, '/clientes')
+        const nomes = clientesDeFora.map(c => c.nome).filter(n => n.length >= 6 && lista.texto.includes(n))
+        confere(!nomes.length, '/clientes (1ª página) sem nome de comprador de outra Conta (nomes com 6+ letras)', nomes.slice(0, 3).join(', '))
+        const ficha = await abrir(p, `/clientes/${clientesDeFora[0].id}`)
+        const fichaInexistente = await abrir(p, `/clientes/${INEXISTENTE}`)
+        confere(
+          ficha.status === fichaInexistente.status && ficha.texto === fichaInexistente.texto,
+          'ficha de um comprador de outra Conta responde igual a id inexistente',
+          `status ${ficha.status}/${fichaInexistente.status}`,
         )
       }
       const d = await abrir(p, '/dashboard')

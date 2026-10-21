@@ -131,6 +131,12 @@ export async function getGrupoAtivo(
   return grupo
 }
 
+// Conta do grupo que o usuário está operando: é a dona dos clientes que ele vê e
+// cadastra (ADR-0018).
+export async function contaDoGrupoAtivo(usuario: UsuarioComConta): Promise<string> {
+  return (await grupoAtivoDaRequisicao(usuario)).contaId
+}
+
 export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {
   const [loja] = await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
   if (!loja) throw new Error('Loja não encontrada')
