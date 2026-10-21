@@ -16,10 +16,11 @@ type Log = typeof import('@/lib/log-acoes')
 let db: Db['db']
 let registrarAcao: Log['registrarAcao']
 let apagarLogAntigo: Log['apagarLogAntigo']
+let registrarAcaoSensivel: Log['registrarAcaoSensivel']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ registrarAcao, apagarLogAntigo } = await import('@/lib/log-acoes'))
+  ;({ registrarAcao, apagarLogAntigo, registrarAcaoSensivel } = await import('@/lib/log-acoes'))
 })
 
 after(async () => {
@@ -87,6 +88,22 @@ test('excluir o usuário não falha por causa do log, e o log fica', async () =>
     await registrarAcao({ tipo: 'login', usuarioId: c.usuario, contaId: c.conta, grupoId: null, ip: null, userAgent: null }, tx)
     await tx.execute(sql`delete from usuarios where id = ${c.usuario}`)
     assert.equal((await linhasDoUsuario(tx, c.usuario)).length, 1)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('ação sensível: grava na Conta do grupo do registro, não na de quem fez', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const outra = await linha(sql`insert into contas (nome) values ('Outra') returning id`)
+    const grupoDeFora = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('X', '00000000000353', ${outra.id}) returning id`)
+    for (const tipo of ['venda_cancelada', 'nf_emitida', 'nf_cancelada'] as const) {
+      await registrarAcaoSensivel({ tipo, usuarioId: c.usuario, grupoId: grupoDeFora.id, detalhe: { venda: 1 } }, tx)
+    }
+    await registrarAcaoSensivel({ tipo: 'permissao_alterada', usuarioId: c.usuario, grupoId: null, contaId: c.conta, detalhe: { acao: 'criado' } }, tx)
+    const linhas = await linhasDoUsuario(tx, c.usuario)
+    assert.deepEqual(linhas.map(l => l.conta_id), [outra.id, outra.id, outra.id, c.conta])
     throw new Desfazer()
   }), Desfazer)
 })

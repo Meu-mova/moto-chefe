@@ -2,6 +2,7 @@
 import { aplicarEdicaoAprovadaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
@@ -589,6 +590,11 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
   })
+  // Nota emitida fora do MOVA e só anotada aqui: entra no log como emissão.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, lojaId: venda.lojaId,
+    detalhe: { origem: 'confirmada', vendaId: venda.id, numeroNf: notaFiscal },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -947,6 +953,10 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
   })
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId,
+    detalhe: { origem: 'bling', vendaId: venda.id, numeroNf: numeroNF },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -967,6 +977,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   const [vendaRecord] = await db
     .select({
       id: vendas.id,
+      numero: vendas.numero,
       motoId: vendas.motoId,
       lojaId: vendas.lojaId,
       pedidoVendaId: vendas.pedidoVendaId,
@@ -1106,6 +1117,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       console.error('[assinatura] falha ao apagar arquivos do bucket:', e)
     }
   }
+
+  // A venda foi apagada: o detalhe precisa bastar sozinho.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'venda_cancelada', usuarioId: usuario.id, lojaId: vendaRecord.lojaId,
+    detalhe: { vendaId, numeroVenda: vendaRecord.numero, cliente: vendaRecord.clienteNome, valor: vendaRecord.valor, motivo: motivo.trim() },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
