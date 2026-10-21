@@ -180,13 +180,14 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
 
         {linhas.map(l => (
           <div key={l.id} className="space-y-1.5 rounded-lg border border-border bg-muted/50 p-3">
-            <div className="flex gap-2 items-center">
+            {/* No celular a forma ocupa a linha e o valor desce: lado a lado, o select não encolhe e espreme o valor. */}
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
               <select value={l.tipo} onChange={e => updateLinha(l.id, 'tipo', e.target.value)}
-                className="flex-1 border border-input rounded-md px-3 py-2 text-sm bg-background">
+                className="w-full min-w-0 border border-input rounded-md px-3 py-2 text-sm bg-background sm:w-auto sm:flex-1">
                 <option value="">Selecione...</option>
                 {FORMAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
               </select>
-              <CurrencyInput className="w-28" placeholder="0,00" value={l.valor} onChange={v => updateLinha(l.id, 'valor', v)} />
+              <CurrencyInput className="min-w-0 flex-1 sm:w-32 sm:flex-none" placeholder="0,00" value={l.valor} onChange={v => updateLinha(l.id, 'valor', v)} />
               {linhas.length > 1 && (
                 <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeLinha(l.id)}>
                   <X size={14} />
