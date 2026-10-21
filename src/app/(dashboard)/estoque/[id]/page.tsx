@@ -5,9 +5,10 @@ import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
-import { modelos, precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
@@ -52,7 +53,9 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
     // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
     listarUsuariosDoGrupo(grupoIdDaMoto),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+    // O modelo atual da moto fica na lista mesmo se a marca estiver escondida para a Conta.
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)).then(lista =>
+      lista.some(m => m.id === moto.modeloId) || !moto.modeloId ? lista : [...lista, { id: moto.modeloId, modelo: moto.modelo }]),
     db.select({ valorMinimo: precificacao.valorMinimo })
       .from(precificacao)
       .where(and(eq(precificacao.nome, moto.modelo), eq(precificacao.ativo, true), eq(precificacao.grupoId, grupoIdDaMoto)))

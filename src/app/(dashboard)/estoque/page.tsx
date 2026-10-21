@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
 import { eq } from 'drizzle-orm'
-import { modelos, motos, usuarios } from '@/lib/db/schema'
+import { motos, usuarios } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
@@ -11,7 +11,8 @@ import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -84,7 +85,7 @@ export default async function EstoquePage({
     // o usuário com a exceção multi-grupo vê lojas de todos os grupos aqui; o filtro
     // "Loja" acima (lojasOpts) continua escopado ao grupo ativo pra todo mundo.
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
     db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),

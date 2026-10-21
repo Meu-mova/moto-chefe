@@ -3,9 +3,10 @@ import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarGarantias } from '@/lib/queries/garantias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
-import { modelos, ordensServico, lojas } from '@/lib/db/schema'
+import { ordensServico, lojas } from '@/lib/db/schema'
 import { inArray, eq } from 'drizzle-orm'
 import { GarantiaCard } from './components/garantia-card'
 import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
@@ -56,8 +57,7 @@ export default async function GarantiasPage({
 
     isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
 
-    db.select({ id: modelos.id, marca: modelos.marca, modelo: modelos.modelo })
-      .from(modelos).orderBy(modelos.marca, modelos.modelo),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
 
     !isAdmin && usuario.lojaId
       ? db.select({ nome: lojas.nome }).from(lojas).where(eq(lojas.id, usuario.lojaId)).limit(1)
