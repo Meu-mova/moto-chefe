@@ -25,11 +25,12 @@ import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
+import { Secao } from './components/painel-secoes'
 import { PendenciasDocumentosCard } from './components/pendencias-documentos-card'
 import { pendenciasDeVendas } from '@/lib/queries/pendencias-venda'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
-import { KpiCards } from './components/kpi-cards'
+import { PainelIndicadores } from './components/painel-indicadores'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
 import { GraficoVendasPorDia, GraficoCaixaPorLoja } from './components/charts'
 import {
@@ -73,7 +74,7 @@ async function KpiSection({
   const isVendedor = temPapel(usuario, 'vendedor')
   const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos, serieDia] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
@@ -90,13 +91,18 @@ async function KpiSection({
         (isAdmin || isAuxAdm || isVendedor)
           ? totalDescontos({ ...filtros, vendedorId: filtros.vendedorId ? [filtros.vendedorId] : undefined })
           : Promise.resolve(undefined),
+        // Tendência da manchete: mesma base (bruta ou líquida) do número ao lado.
+        getVendasPorDia(filtros, kpiOpts),
       ]),
       25000,
     )
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} />
+        <PainelIndicadores
+          entrada={{ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos }}
+          serieDia={serieDia}
+        />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}
@@ -439,7 +445,7 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-slate-500 text-sm">
@@ -458,7 +464,12 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Antes dos eventos: é a primeira coisa que o Cesar quer ver ao abrir. */}
+      <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
+        <Suspense fallback={<KpiSkeleton />}>
+          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
+        </Suspense>
+      </SectionErrorBoundary>
+      {/* Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir. */}
       {isAdmin && (
         <SectionErrorBoundary label="as contas a pagar">
           <Suspense fallback={null}>
@@ -466,31 +477,36 @@ export default async function DashboardPage({
           </Suspense>
         </SectionErrorBoundary>
       )}
-
-      <SectionErrorBoundary label="os próximos eventos">
-        <Suspense fallback={null}>
-          <ProximosEventosSection usuario={usuario} />
-        </Suspense>
-      </SectionErrorBoundary>
-
-      {(isAdmin || isAuxAdm) && (
-        <SectionErrorBoundary label="os pedidos da fábrica">
-          <Suspense fallback={null}>
-            <PedidosFabricaSection usuario={usuario} />
-          </Suspense>
-        </SectionErrorBoundary>
+      {/* Requer atenção (#281): pendências à esquerda, fábrica à direita; cada bloco carrega sozinho. */}
+      {(isVendedor || isAdmin || isAuxAdm) && (
+        <Secao titulo="Requer atenção" escondeVazia>
+          <div className="grid gap-x-8 lg:grid-cols-[3fr_2fr]">
+            <div className="min-w-0">
+              {isAuxAdm && usuario.lojaId && (
+                <SectionErrorBoundary label="as pendências da loja">
+                  <Suspense fallback={null}>
+                    <PendenciasSection lojaId={usuario.lojaId} />
+                  </Suspense>
+                </SectionErrorBoundary>
+              )}
+              <SectionErrorBoundary label="as pendências de contrato e checklist">
+                <Suspense fallback={null}>
+                  <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
+                </Suspense>
+              </SectionErrorBoundary>
+            </div>
+            <div className="min-w-0">
+              {(isAdmin || isAuxAdm) && (
+                <SectionErrorBoundary label="os pedidos da fábrica">
+                  <Suspense fallback={null}>
+                    <PedidosFabricaSection usuario={usuario} />
+                  </Suspense>
+                </SectionErrorBoundary>
+              )}
+            </div>
+          </div>
+        </Secao>
       )}
-
-      {isAuxAdm && usuario.lojaId && (
-        <SectionErrorBoundary label="as pendências da loja">
-          <Suspense fallback={null}>
-            <PendenciasSection lojaId={usuario.lojaId} />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
-
-      {/* Painel de atendimento (Kommo) oculto para a apresentação de 06/10/2026;
-          AtendimentoSection continua acima, volta com o revert. */}
 
       {/* aux_adm entra junto: é quem cadastra a meta em /admin/metas e cobra a loja —
           não faz sentido preencher o alvo e não enxergar o placar. */}
@@ -502,19 +518,11 @@ export default async function DashboardPage({
         </SectionErrorBoundary>
       )}
 
-      <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
-        <Suspense fallback={<KpiSkeleton />}>
-          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
+      <SectionErrorBoundary label="os próximos eventos">
+        <Suspense fallback={null}>
+          <ProximosEventosSection usuario={usuario} />
         </Suspense>
       </SectionErrorBoundary>
-
-      {(isVendedor || isAdmin || isAuxAdm) && (
-        <SectionErrorBoundary label="as pendências de contrato e checklist">
-          <Suspense fallback={null}>
-            <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
 
       <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
