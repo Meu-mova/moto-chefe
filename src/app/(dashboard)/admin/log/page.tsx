@@ -5,15 +5,16 @@ import { db } from '@/lib/db'
 import { contas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
 import { buttonVariants } from '@/components/ui/button'
-import { listarLog, LIMITE_LOG } from '@/lib/queries/log-acoes'
+import { listarLog, listarPessoasDoLog, LIMITE_LOG } from '@/lib/queries/log-acoes'
 import {
   agruparPorPessoa, contaDoFiltro, dispositivoLegivel, eventoDeFora, resumoDoEvento,
-  ROTULO_TIPO, TIPOS_SENSIVEIS, type EventoLog,
+  ehSensivel, ROTULO_TIPO, TIPOS_DESTRUTIVOS, type EventoLog,
 } from '@/lib/log-acoes-tela'
 
 type Params = { conta?: string; pessoa?: string; tipo?: string; de?: string; ate?: string }
 
 const DIA = /^\d{4}-\d{2}-\d{2}$/
+const CAMPO = 'h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground'
 
 function diasAntes(dia: string, n: number): string {
   const d = new Date(`${dia}T12:00:00Z`)
@@ -43,14 +44,13 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
   const ate = params.ate && DIA.test(params.ate) ? params.ate : hoje
   const de = params.de && DIA.test(params.de) ? params.de : diasAntes(ate, 13)
 
-  const [eventos, listaContas] = await Promise.all([
-    filtro ? listarLog({ contaId: filtro.contaId, de, ate }) : Promise.resolve([] as EventoLog[]),
+  const [eventos, pessoasDoPeriodo, listaContas] = await Promise.all([
+    filtro ? listarLog({ contaId: filtro.contaId, de, ate, usuarioId: params.pessoa || undefined }) : Promise.resolve([] as EventoLog[]),
+    filtro ? listarPessoasDoLog({ contaId: filtro.contaId, de, ate }) : Promise.resolve([]),
     geral ? db.select({ id: contas.id, nome: contas.nome }).from(contas).orderBy(asc(contas.nome)) : Promise.resolve([]),
   ])
   const filtrados = eventos.filter(e =>
-    (!params.pessoa || e.usuarioId === params.pessoa) &&
-    (!params.tipo || (params.tipo === 'sensiveis' ? TIPOS_SENSIVEIS.includes(e.tipo) : e.tipo === params.tipo)))
-  const pessoasDoPeriodo = agruparPorPessoa(eventos)
+    !params.tipo || (params.tipo === 'sensiveis' ? ehSensivel(e.tipo) : e.tipo === params.tipo))
   const pessoas = agruparPorPessoa(filtrados)
 
   return (
@@ -66,7 +66,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
         {geral && (
           <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
             Conta
-            <select name="conta" defaultValue={params.conta ?? ''} className="h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground">
+            <select name="conta" defaultValue={params.conta ?? ''} className={CAMPO}>
               <option value="">Todas</option>
               {listaContas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
@@ -74,14 +74,14 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
         )}
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
           Pessoa
-          <select name="pessoa" defaultValue={params.pessoa ?? ''} className="h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground">
+          <select name="pessoa" defaultValue={params.pessoa ?? ''} className={CAMPO}>
             <option value="">Todas</option>
             {pessoasDoPeriodo.map(p => <option key={p.usuarioId} value={p.usuarioId}>{p.nome}</option>)}
           </select>
         </label>
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted-foreground">
           Tipo
-          <select name="tipo" defaultValue={params.tipo ?? ''} className="h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground">
+          <select name="tipo" defaultValue={params.tipo ?? ''} className={CAMPO}>
             <option value="">Tudo</option>
             <option value="sensiveis">Só ações sensíveis</option>
             {Object.entries(ROTULO_TIPO).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
@@ -89,11 +89,11 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           De
-          <input type="date" name="de" defaultValue={de} className="h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground" />
+          <input type="date" name="de" defaultValue={de} className={CAMPO} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           Até
-          <input type="date" name="ate" defaultValue={ate} className="h-10 rounded-md border border-input bg-card px-2 text-sm text-foreground" />
+          <input type="date" name="ate" defaultValue={ate} className={CAMPO} />
         </label>
         <button type="submit" className={buttonVariants({ className: 'h-10' })}>Filtrar</button>
       </form>
@@ -130,8 +130,8 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
               {p.eventos.map(e => (
                 <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 sm:pl-8">
                   <span className="text-xs tabular-nums text-muted-foreground">{quando(e.criadoEm)}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${TIPOS_SENSIVEIS.includes(e.tipo)
-                    ? (e.tipo.endsWith('cancelada') ? 'bg-muted font-semibold text-destructive' : 'bg-primary-soft font-semibold text-primary-text')
+                  <span className={`rounded-full px-2 py-0.5 text-xs ${ehSensivel(e.tipo)
+                    ? (TIPOS_DESTRUTIVOS.includes(e.tipo) ? 'bg-muted font-semibold text-destructive' : 'bg-primary-soft font-semibold text-primary-text')
                     : 'bg-muted text-muted-foreground'}`}>
                     {ROTULO_TIPO[e.tipo] ?? e.tipo}
                   </span>
@@ -139,7 +139,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
                     {e.grupoNome && <>{e.grupoNome} · </>}{resumoDoEvento(e)}
                     {eventoDeFora(e) && <span className="ml-1 text-xs font-semibold text-warning">de fora da Conta</span>}
                   </span>
-                  {TIPOS_SENSIVEIS.includes(e.tipo) && (
+                  {ehSensivel(e.tipo) && (
                     <span className="w-full text-xs text-muted-foreground">{dispositivoLegivel(e.userAgent)} · IP {e.ip ?? '?'}</span>
                   )}
                 </li>

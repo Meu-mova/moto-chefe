@@ -118,12 +118,16 @@ test('a tela de uma Conta não traz linha de outra; "todas" traz as duas', async
     const base = { usuarioId: c.usuario, grupoId: null, ip: null, userAgent: null }
     await registrarAcao({ ...base, tipo: 'login', contaId: c.conta }, tx)
     await registrarAcao({ ...base, tipo: 'login', contaId: outra.id }, tx)
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const hoje = hojeBrt()
     const periodo = { de: hoje, ate: hoje }
     const daConta = await listarLog({ contaId: c.conta, ...periodo }, tx)
     assert.deepEqual(daConta.filter(e => e.usuarioId === c.usuario).map(e => e.contaId), [c.conta])
     const todas = await listarLog({ contaId: 'todas', ...periodo }, tx)
     assert.equal(todas.filter(e => e.usuarioId === c.usuario).length, 2)
+    const { listarPessoasDoLog } = await import('@/lib/queries/log-acoes')
+    assert.deepEqual((await listarPessoasDoLog({ contaId: outra.id, ...periodo }, tx)).map(p => p.usuarioId), [c.usuario])
+    assert.equal((await listarLog({ contaId: 'todas', usuarioId: c.usuario, ...periodo }, tx)).length, 2)
     throw new Desfazer()
   }), Desfazer)
 })

@@ -6,6 +6,9 @@ export const ROTULO_TIPO: Record<string, string> = {
   permissao_alterada: 'Mudou permissão',
 }
 export const TIPOS_SENSIVEIS = ['venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada']
+/** Desfazem algo já feito: a tela pinta de vermelho. */
+export const TIPOS_DESTRUTIVOS = ['venda_cancelada', 'nf_cancelada']
+export const ehSensivel = (tipo: string) => TIPOS_SENSIVEIS.includes(tipo)
 
 export type EventoLog = {
   id: string
@@ -49,8 +52,9 @@ export function dispositivoLegivel(ua: string | null): string {
   return `${sistema} · ${navegador}`
 }
 
+/** Usuário excluído não tem Conta conhecida: sem como saber, não acusa. */
 export function eventoDeFora(e: EventoLog): boolean {
-  return e.contaId !== null && e.contaDoUsuario !== e.contaId
+  return e.contaId !== null && e.usuarioNome !== null && e.contaDoUsuario !== e.contaId
 }
 
 export function agruparPorPessoa(eventos: EventoLog[]): PessoaNoLog[] {
@@ -64,7 +68,7 @@ export function agruparPorPessoa(eventos: EventoLog[]): PessoaNoLog[] {
       ultimo: ordenados[0].criadoEm,
       dias: new Set(es.map(e => e.dia)).size,
       dispositivos: new Set(es.map(e => dispositivoLegivel(e.userAgent))).size,
-      sensiveis: es.filter(e => TIPOS_SENSIVEIS.includes(e.tipo)).length,
+      sensiveis: es.filter(e => ehSensivel(e.tipo)).length,
       deFora: es.some(eventoDeFora),
       eventos: ordenados,
     }
@@ -73,10 +77,11 @@ export function agruparPorPessoa(eventos: EventoLog[]): PessoaNoLog[] {
 
 const brl = (v: unknown) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   // toLocaleString usa espaço sem quebra entre R$ e o valor.
-  .replace(/ /g, ' ')
+  .replace(/\u00a0/g, ' ')
 
 export function resumoDoEvento(e: EventoLog): string {
-  const d = e.detalhe ?? {}
+  // Linha gravada antes de um campo existir não pode virar "undefined" na tela.
+  const d = new Proxy(e.detalhe ?? {}, { get: (o, k: string) => o[k] ?? '?' }) as Record<string, unknown>
   switch (e.tipo) {
     case 'troca_grupo': return `Entrou em ${e.grupoNome ?? 'grupo excluído'}`
     case 'venda_cancelada': return `Venda #${d.numeroVenda} · ${d.cliente} · ${brl(d.valor)} · “${d.motivo}”`

@@ -31,7 +31,9 @@ test('uma linha por pessoa, a de acesso mais recente primeiro, com o resumo', ()
 })
 
 test('usuário excluído aparece com nome próprio', () => {
-  assert.equal(agruparPorPessoa([ev({ usuarioNome: null })])[0].nome, 'Usuário excluído')
+  const [excluido] = agruparPorPessoa([ev({ usuarioNome: null, contaDoUsuario: null })])
+  assert.equal(excluido.nome, 'Usuário excluído')
+  assert.equal(excluido.deFora, false, 'sem a Conta dele, não acusa de fora')
 })
 
 test('resumo de cada ação sensível', () => {
