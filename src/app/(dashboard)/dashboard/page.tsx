@@ -1,11 +1,12 @@
 import { Suspense } from 'react'
 import { hojeBrt } from '@/lib/data-venda'
 import { db } from '@/lib/db'
-import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
-import { eq, or, sql, and, count, gte, lt, inArray } from 'drizzle-orm'
+import { usuarios, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
+import { eq, or, sql, count, lt, inArray } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { contarPendenciasCartao } from '@/lib/queries/conciliacao-pendentes'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   getKPIs, getVendasPorDia, getSaldoCaixaPorLoja,
@@ -15,7 +16,6 @@ import {
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
 import { descontosPorVendedor, totalDescontos } from '@/lib/queries/descontos'
-import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
 import { periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
@@ -80,12 +80,8 @@ async function KpiSection({
         getKPIs(filtrosAnt, kpiOpts),
         getMotoMaisVendida(filtros),
         isAdmin
-          // Mesmo corte da tela de /conciliacao, senão o card mostra um número
-          // de pendentes que a tela não lista — ver INICIO_CONCILIACAO.
-          ? db.$count(conciliacoesCartao, and(
-              eq(conciliacoesCartao.conciliado, false),
-              gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
-            ))
+          // Só o grupo ativo, como a tela /conciliacao: sem isso o card somava todas as Contas.
+          ? getGrupoAtivo(usuario).then(g => contarPendenciasCartao(g.id))
           : Promise.resolve(0),
         isVendedor ? Promise.resolve({ servicos: 0, pecas: 0 }) : getFaturamentoOS(filtros),
         isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
