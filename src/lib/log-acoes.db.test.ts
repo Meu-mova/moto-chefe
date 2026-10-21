@@ -17,10 +17,12 @@ let db: Db['db']
 let registrarAcao: Log['registrarAcao']
 let apagarLogAntigo: Log['apagarLogAntigo']
 let registrarAcaoSensivel: Log['registrarAcaoSensivel']
+let listarLog: typeof import('@/lib/queries/log-acoes')['listarLog']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ registrarAcao, apagarLogAntigo, registrarAcaoSensivel } = await import('@/lib/log-acoes'))
+  ;({ listarLog } = await import('@/lib/queries/log-acoes'))
 })
 
 after(async () => {
@@ -104,6 +106,28 @@ test('ação sensível: grava na Conta do grupo do registro, não na de quem fez
     await registrarAcaoSensivel({ tipo: 'permissao_alterada', usuarioId: c.usuario, grupoId: null, contaId: c.conta, detalhe: { acao: 'criado' } }, tx)
     const linhas = await linhasDoUsuario(tx, c.usuario)
     assert.deepEqual(linhas.map(l => l.conta_id), [outra.id, outra.id, outra.id, c.conta])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('a tela de uma Conta não traz linha de outra; "todas" traz as duas', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const outra = await linha(sql`insert into contas (nome) values ('Outra') returning id`)
+    const base = { usuarioId: c.usuario, grupoId: null, ip: null, userAgent: null }
+    await registrarAcao({ ...base, tipo: 'login', contaId: c.conta }, tx)
+    await registrarAcao({ ...base, tipo: 'login', contaId: outra.id }, tx)
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const hoje = hojeBrt()
+    const periodo = { de: hoje, ate: hoje }
+    const daConta = await listarLog({ contaId: c.conta, ...periodo }, tx)
+    assert.deepEqual(daConta.filter(e => e.usuarioId === c.usuario).map(e => e.contaId), [c.conta])
+    const todas = await listarLog({ contaId: 'todas', ...periodo }, tx)
+    assert.equal(todas.filter(e => e.usuarioId === c.usuario).length, 2)
+    const { listarPessoasDoLog } = await import('@/lib/queries/log-acoes')
+    assert.deepEqual((await listarPessoasDoLog({ contaId: outra.id, ...periodo }, tx)).map(p => p.usuarioId), [c.usuario])
+    assert.equal((await listarLog({ contaId: 'todas', usuarioId: c.usuario, ...periodo }, tx)).length, 2)
     throw new Desfazer()
   }), Desfazer)
 })
