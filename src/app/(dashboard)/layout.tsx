@@ -79,7 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       ? withTimeout((async () => registrarSemFalhar({
         tipo: 'acesso_dia', usuarioId: usuario.id, contaId: grupoAtivo.contaId, grupoId: grupoAtivo.id,
         ...origemDaRequisicao(await headers()),
-      }))(), 3000).catch(() => null)
+      }))(), 3000).catch(e => console.error('[log-acoes] acesso_dia:', e instanceof Error ? e.message : e))
       : null,
   ])
 

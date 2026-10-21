@@ -38,7 +38,7 @@ async function cenario(tx: Tx) {
   return { conta: conta.id, grupo: grupo.id, outro: outro.id, usuario: usuario.id }
 }
 
-async function contar(tx: Tx, usuarioId: string) {
+async function linhasDoUsuario(tx: Tx, usuarioId: string) {
   const r = (await tx.execute(sql`select tipo, grupo_id, conta_id from log_acoes where usuario_id = ${usuarioId} order by criado_em`)) as unknown as { rows: { tipo: string; grupo_id: string | null; conta_id: string | null }[] }
   return r.rows
 }
@@ -52,7 +52,7 @@ test('1º uso do dia: uma linha por pessoa, dia e grupo', async () => {
     await registrarAcao({ ...base, tipo: 'acesso_dia', grupoId: c.outro }, tx)
     await registrarAcao({ ...base, tipo: 'login', grupoId: null }, tx)
     await registrarAcao({ ...base, tipo: 'login', grupoId: null }, tx)
-    const linhas = await contar(tx, c.usuario)
+    const linhas = await linhasDoUsuario(tx, c.usuario)
     assert.equal(linhas.filter(l => l.tipo === 'acesso_dia').length, 2, 'repetir no mesmo grupo e dia não grava de novo')
     assert.equal(linhas.filter(l => l.tipo === 'login').length, 2, 'todo login grava')
     throw new Desfazer()
@@ -76,7 +76,7 @@ test('limpeza apaga só o que passou de 12 meses', async () => {
       (${c.usuario}, ${c.conta}, 'login', current_date, now())`)
     const apagadas = await apagarLogAntigo(tx)
     assert.equal(apagadas, 1)
-    assert.equal((await contar(tx, c.usuario)).length, 2)
+    assert.equal((await linhasDoUsuario(tx, c.usuario)).length, 2)
     throw new Desfazer()
   }), Desfazer)
 })
