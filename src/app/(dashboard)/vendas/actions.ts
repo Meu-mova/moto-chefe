@@ -30,6 +30,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
+import { travaDoValorVenda } from '@/lib/valor-venda'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -1435,7 +1436,7 @@ export async function editarVendaAction(vendaId: string, dados: {
 
   // Busca venda atual para validações de acesso e sincronização
   const [vendaAtual] = await db
-    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, pedidoVendaId: vendas.pedidoVendaId })
+    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, pedidoVendaId: vendas.pedidoVendaId, valor: vendas.valor })
     .from(vendas)
     .where(eq(vendas.id, vendaId))
     .limit(1)
@@ -1467,6 +1468,8 @@ export async function editarVendaAction(vendaId: string, dados: {
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
   if (!valorNum || valorNum <= 0) throw new Error('Valor da venda inválido')
+  const travaValor = travaDoValorVenda(usuario.papel, Number(vendaAtual.valor), valorNum)
+  if (travaValor) throw new Error(travaValor)
 
   for (const p of dados.pagamentos) {
     if (!p.valor || p.valor <= 0) throw new Error('Valor de pagamento inválido')
