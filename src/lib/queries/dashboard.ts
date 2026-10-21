@@ -4,6 +4,7 @@ import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } f
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { valorLiquidoExpr } from './valor-liquido'
+import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 
 type Filtros = {
   dataInicio: string
@@ -23,8 +24,8 @@ function lojaFilter(col: Column, ids: string[]) {
 export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const useLiquido = opts?.useLiquidoValue ?? false
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const vendasCond = and(
     gte(vendas.dataVenda, inicio),
@@ -85,11 +86,12 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   }
 }
 
+// O banco roda em UTC: o dia da venda é tirado no fuso de Brasília, senão a das 22h cai no seguinte.
 /** useLiquidoValue: a mesma base do faturamento do vendedor em getKPIs, para a série bater com o número. */
 export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -100,14 +102,14 @@ export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue
 
   const rows = await db
     .select({
-      dia: sql<string>`to_char(${vendas.dataVenda}, 'YYYY-MM-DD')`,
+      dia: sql<string>`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`,
       total: count(),
       valor: opts?.useLiquidoValue ? sql<string>`sum(${valorLiquidoExpr()})` : sum(vendas.valor),
     })
     .from(vendas)
     .where(and(...conditions))
-    .groupBy(sql`to_char(${vendas.dataVenda}, 'YYYY-MM-DD')`)
-    .orderBy(sql`to_char(${vendas.dataVenda}, 'YYYY-MM-DD')`)
+    .groupBy(sql`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`)
+    .orderBy(sql`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`)
 
   return rows.map(r => ({
     dia: r.dia,
@@ -160,8 +162,8 @@ export async function getSaldoCaixaPorLoja(lojaId?: string[]) {
 
 export async function getUltimasVendas(filtros: Filtros, limite = 5) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -283,8 +285,8 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
 
 export async function getMotoMaisVendida(filtros: Filtros) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -311,8 +313,8 @@ export async function getMotoMaisVendida(filtros: Filtros) {
 
 export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -335,8 +337,8 @@ export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoV
 
 export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>) {
   const { dataInicio, dataFim, lojaId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -367,8 +369,8 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
 
 export async function getModelosMaisVendidos(filtros: Filtros) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     gte(vendas.dataVenda, inicio),
@@ -394,8 +396,8 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
 
 export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
   const { dataInicio, dataFim, lojaId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [gte(vendas.dataVenda, inicio), lte(vendas.dataVenda, fim)]
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
@@ -418,8 +420,8 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
 // não as que ainda estão abertas/em andamento/aguardando pagamento.
 export async function getFaturamentoOS(filtros: Filtros) {
   const { dataInicio, dataFim, lojaId } = filtros
-  const inicio = new Date(dataInicio)
-  const fim = new Date(dataFim + 'T23:59:59.999Z')
+  const inicio = inicioDoDiaBrt(dataInicio)
+  const fim = fimDoDiaBrt(dataFim)
 
   const conditions = [
     eq(ordensServico.status, 'concluida'),
