@@ -1,6 +1,7 @@
 'use server'
 import { db } from '@/lib/db'
-import { contas, grupos } from '@/lib/db/schema'
+import { contaMarcas, contas, grupos } from '@/lib/db/schema'
+import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -84,6 +85,7 @@ export async function criarGrupoAction(dados: GrupoInput) {
   // Grupo novo nasce numa Conta nova (ADR-0018); escolher uma Conta existente vem depois (#263).
   await db.transaction(async tx => {
     const [conta] = await tx.insert(contas).values({ nome: dados.nome.trim() }).returning({ id: contas.id })
+    await tx.insert(contaMarcas).values(MARCAS_DA_CONTA_NOVA.map(marca => ({ contaId: conta.id, marca })))
     await tx.insert(grupos).values({
       contaId: conta.id,
       nome: dados.nome.trim(),
