@@ -112,19 +112,24 @@ function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
 const ROTULO_PAPEL = new Map<string, string>(PAPEIS_ADESAO.map(p => [p.valor, p.rotulo]))
 
 function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
-  const [lojaId, setLojaId] = useState(dados.lojas.length === 1 ? dados.lojas[0].id : '')
+  // Loja de cada pessoa, pelo e-mail: o cliente pode ter mais de uma loja.
+  const [escolhidas, setEscolhidas] = useState<Record<string, string>>({})
   const [resultados, setResultados] = useState<ResultadoUsuario[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [pendente, iniciar] = useTransition()
-  const faltam = dados.usuarios.filter(u => !u.temAcesso).length
-  // A loja do passo anterior acabou de ser criada: pré-escolhe quando é a única.
-  const loja = lojaId || (dados.lojas.length === 1 ? dados.lojas[0].id : '')
+  const pendentes = dados.usuarios.filter(u => !u.temAcesso)
+  // Uma loja só (inclusive a recém-criada no passo acima): vale para todos, sem perguntar.
+  const unica = dados.lojas.length === 1 ? dados.lojas[0].id : ''
+  const chave = (email: string) => email.trim().toLowerCase()
+  const lojaDe = (email: string) => escolhidas[chave(email)] || unica
+  const faltaLoja = pendentes.some(u => !lojaDe(u.email))
 
   function criar() {
     setErro(null)
     iniciar(async () => {
+      const lojaPorEmail = Object.fromEntries(pendentes.map(u => [chave(u.email), lojaDe(u.email)]))
       let r
-      try { r = await criarUsuariosAtivacaoAction(adesaoId, loja) } catch (e) { setErro(mensagem(e)); return }
+      try { r = await criarUsuariosAtivacaoAction(adesaoId, lojaPorEmail) } catch (e) { setErro(mensagem(e)); return }
       if (!r.ok) { setErro(r.erro); return }
       setResultados(r.resultados)
       aoAplicar()
@@ -134,40 +139,41 @@ function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
   return (
     <div className="rounded-md border p-3 space-y-2">
       <p className="text-sm font-medium">Usuários</p>
-      <ul className="space-y-1 text-sm">
+      <ul className="space-y-2 text-sm">
         {dados.usuarios.map(u => (
-          <li key={u.email} className="flex flex-wrap items-center gap-x-2">
-            {u.temAcesso ? <Check className="h-4 w-4 text-primary-text" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+          <li key={u.email} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {u.temAcesso ? <Check aria-hidden className="h-4 w-4 text-primary-text" /> : <Circle aria-hidden className="h-4 w-4 text-muted-foreground" />}
             <span>{u.nome}</span>
             <span className="text-muted-foreground">· {u.email} · {ROTULO_PAPEL.get(u.papel) ?? u.papel}</span>
-            {u.temAcesso && <span className="text-xs text-muted-foreground">(já tem acesso)</span>}
+            {u.temAcesso ? <span className="text-xs text-muted-foreground">(já tem acesso)</span>
+              : dados.lojas.length > 1 && (
+                <>
+                  <Label htmlFor={`ativar-${adesaoId}-loja-${chave(u.email)}`} className="sr-only">Loja de {u.nome}</Label>
+                  {/* select nativo: o value é o id da loja. */}
+                  <select
+                    id={`ativar-${adesaoId}-loja-${chave(u.email)}`}
+                    value={lojaDe(u.email)}
+                    onChange={e => { const v = e.target.value; setEscolhidas(prev => ({ ...prev, [chave(u.email)]: v })) }}
+                    disabled={pendente}
+                    className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                  >
+                    <option value="">Loja…</option>
+                    {dados.lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                  </select>
+                </>
+              )}
           </li>
         ))}
       </ul>
       {dados.lojas.length === 0 ? (
         <p className="text-sm text-muted-foreground">Crie a loja no passo acima: os usuários entram nela.</p>
-      ) : faltam > 0 && (
+      ) : pendentes.length > 0 && (
         <div className="flex flex-wrap items-end gap-2">
-          {dados.lojas.length > 1 && (
-            <div className="space-y-1">
-              <Label htmlFor={`ativar-${adesaoId}-loja-usuarios`}>Loja dos usuários</Label>
-              <select
-                id={`ativar-${adesaoId}-loja-usuarios`}
-                value={lojaId}
-                onChange={e => setLojaId(e.target.value)}
-                disabled={pendente}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Escolha…</option>
-                {dados.lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              </select>
-            </div>
-          )}
-          <Button onClick={criar} disabled={pendente || !loja}>
-            {pendente ? 'Criando…' : `Criar ${faltam} acesso(s) e enviar e-mails`}
+          <Button onClick={criar} disabled={pendente || faltaLoja}>
+            {pendente ? 'Criando…' : `Criar ${pendentes.length} acesso(s) e enviar e-mails`}
           </Button>
           <p className="w-full text-xs text-muted-foreground">
-            Cada pessoa recebe por e-mail uma senha provisória e cria a dela no primeiro acesso.
+            {faltaLoja ? 'Escolha a loja de cada pessoa. ' : ''}Cada pessoa recebe por e-mail uma senha provisória e cria a dela no primeiro acesso.
           </p>
         </div>
       )}

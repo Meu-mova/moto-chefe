@@ -30,6 +30,8 @@ class Desfazer extends Error {}
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 const rows = async <T>(tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: T[] }).rows
 
+const todosNa = (lojaId: string) => ({ 'socia@cliente.test': lojaId, 'aux@cliente.test': lojaId, 'jatem@cliente.test': lojaId })
+
 const LISTA = [
   { nome: 'Sócia', email: 'Socia@Cliente.test', papel: 'admin_socio' },
   { nome: 'Aux', email: 'aux@cliente.test', papel: 'aux_adm' },
@@ -55,7 +57,7 @@ test('cria os acessos da lista na loja e na Conta do grupo; e-mail que falha dev
       enviar: async (e: { para: string; texto: string }) => { enviados.push(e.texto); return { status: e.para.startsWith('aux') ? 'erro' : 'enviado' } },
       urlLogin: 'https://mova.test/login',
     }
-    const r = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaId: loja.id, adminId: randomUUID() }, deps, tx)
+    const r = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaPorEmail: todosNa(loja.id), adminId: randomUUID() }, deps, tx)
     assert.ok(r.ok)
     assert.deepEqual(r.resultados.map(x => [x.email, x.situacao]), [
       ['socia@cliente.test', 'criado'], ['aux@cliente.test', 'criado'], ['jatem@cliente.test', 'ja_tinha'],
@@ -74,7 +76,7 @@ test('cria os acessos da lista na loja e na Conta do grupo; e-mail que falha dev
     const [log] = await rows<{ n: number }>(tx, sql`select count(*)::int n from log_acoes where tipo = 'permissao_alterada' and grupo_id = ${grupo.id}`)
     assert.equal(log.n, 2)
 
-    const deNovo = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaId: loja.id, adminId: randomUUID() }, deps, tx)
+    const deNovo = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaPorEmail: todosNa(loja.id), adminId: randomUUID() }, deps, tx)
     assert.ok(deNovo.ok && deNovo.resultados.every(x => x.situacao === 'ja_tinha'), 'rodar de novo não duplica')
     throw new Desfazer()
   }), Desfazer)
@@ -98,7 +100,7 @@ test('papel fora da adesão é recusado; falha no log não impede o acesso nem o
     await tx.execute(sql`create trigger falha_log before insert on log_acoes for each row execute function falha_log()`)
 
     const enviados: string[] = []
-    const r = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaId: loja.id, adminId: randomUUID() }, {
+    const r = await criarUsuariosDaAdesao({ adesaoId: adesao.id, lojaPorEmail: { 'aux2@cliente.test': loja.id, 'vend2@cliente.test': loja.id, 'intruso@cliente.test': loja.id }, adminId: randomUUID() }, {
       criarNoAuth: async () => randomUUID(),
       apagarDoAuth: async () => {},
       enviar: async (e: { para: string }) => { enviados.push(e.para); return { status: 'enviado' } },
@@ -111,6 +113,35 @@ test('papel fora da adesão é recusado; falha no log não impede o acesso nem o
     assert.deepEqual(enviados, ['aux2@cliente.test', 'vend2@cliente.test'], 'os dois receberam o e-mail mesmo com o log fora')
     const [n] = await rows<{ n: number }>(tx, sql`select count(*)::int n from usuarios where email in ('aux2@cliente.test', 'vend2@cliente.test', 'intruso@cliente.test')`)
     assert.equal(n.n, 2, 'admin_geral não foi criado')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('cada pessoa vai para a sua loja; loja de outro grupo ou sem loja vira erro só dela', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const [conta] = await rows<{ id: string }>(tx, sql`insert into contas (nome) values ('Cliente') returning id`)
+    const [grupo] = await rows<{ id: string }>(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('Cliente', '12345678000195', ${conta.id}) returning id`)
+    const [outro] = await rows<{ id: string }>(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('Outro', '00000000000191', ${conta.id}) returning id`)
+    const [centro] = await rows<{ id: string }>(tx, sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Centro', 'r', 'c', ${grupo.id}) returning id`)
+    const [norte] = await rows<{ id: string }>(tx, sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Norte', 'r', 'c', ${grupo.id}) returning id`)
+    const [fora] = await rows<{ id: string }>(tx, sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Fora', 'r', 'c', ${outro.id}) returning id`)
+    const lista = [
+      { nome: 'A', email: 'a@cliente.test', papel: 'vendedor' },
+      { nome: 'B', email: 'b@cliente.test', papel: 'mecanico' },
+      { nome: 'C', email: 'c@cliente.test', papel: 'vendedor' },
+      { nome: 'D', email: 'd@cliente.test', papel: 'vendedor' },
+    ]
+    const [adesao] = await rows<{ id: string }>(tx, sql`
+      insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id)
+      values ('Cliente', 'Resp', '65999990000', 'x.pdf', 'loja@cliente.test', ${JSON.stringify(lista)}::jsonb, ${grupo.id}) returning id`)
+    const r = await criarUsuariosDaAdesao({
+      adesaoId: adesao.id, adminId: randomUUID(),
+      lojaPorEmail: { 'a@cliente.test': centro.id, 'b@cliente.test': norte.id, 'c@cliente.test': fora.id },
+    }, { criarNoAuth: async () => randomUUID(), apagarDoAuth: async () => {}, enviar: async () => ({ status: 'enviado' }), urlLogin: 'x' }, tx)
+    assert.ok(r.ok)
+    assert.deepEqual(r.resultados.map(x => x.situacao), ['criado', 'criado', 'erro', 'erro'], 'C (loja de outro grupo) e D (sem loja) ficam de fora')
+    const gravados = await rows<{ email: string; loja: string }>(tx, sql`select email, loja_id loja from usuarios where email in ('a@cliente.test', 'b@cliente.test') order by email`)
+    assert.deepEqual(gravados, [{ email: 'a@cliente.test', loja: centro.id }, { email: 'b@cliente.test', loja: norte.id }])
     throw new Desfazer()
   }), Desfazer)
 })

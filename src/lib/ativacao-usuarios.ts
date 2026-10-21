@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { adesoesMova, grupos, lojas, usuarios } from '@/lib/db/schema'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
@@ -54,7 +54,8 @@ export async function emailsComAcesso(emails: string[], exec: Pick<typeof db, 's
 }
 
 export async function criarUsuariosDaAdesao(
-  p: { adesaoId: string; lojaId: string; adminId: string },
+  /** Loja de cada pessoa, pelo e-mail (minúsculo): o cliente pode ter mais de uma loja. */
+  p: { adesaoId: string; lojaPorEmail: Record<string, string>; adminId: string },
   deps: DepsUsuarios,
   exec: Executor = db,
 ): Promise<{ ok: true; resultados: ResultadoUsuario[] } | { ok: false; erro: string }> {
@@ -62,10 +63,10 @@ export async function criarUsuariosDaAdesao(
     .from(adesoesMova).where(eq(adesoesMova.id, p.adesaoId)).limit(1)
   if (!a) return { ok: false, erro: 'Adesão não encontrada' }
   if (!a.grupoId) return { ok: false, erro: 'Vincule a adesão a um grupo antes' }
-  const [loja] = await exec.select({ id: lojas.id, nome: lojas.nome, contaId: grupos.contaId })
+  const lojasDoGrupo = await exec.select({ id: lojas.id, nome: lojas.nome, contaId: grupos.contaId })
     .from(lojas).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-    .where(and(eq(lojas.id, p.lojaId), eq(lojas.grupoId, a.grupoId))).limit(1)
-  if (!loja) return { ok: false, erro: 'Escolha uma loja do grupo desta adesão' }
+    .where(eq(lojas.grupoId, a.grupoId))
+  const lojaPorId = new Map(lojasDoGrupo.map(l => [l.id, l]))
 
   const jaTem = await emailsComAcesso(a.lista.map(u => u.email), exec)
   const resultados: ResultadoUsuario[] = []
@@ -75,6 +76,9 @@ export async function criarUsuariosDaAdesao(
     if (jaTem.has(email)) { resultados.push({ ...base, situacao: 'ja_tinha' }); continue }
     // A adesão já valida na entrada, mas adesão antiga ou editada no banco não passou por lá.
     if (!PAPEIS_VALIDOS.has(u.papel)) { resultados.push({ ...base, situacao: 'erro', erro: `Papel "${u.papel}" não é permitido pela adesão` }); continue }
+    // Só loja do grupo da adesão: o id chega do navegador.
+    const loja = lojaPorId.get(p.lojaPorEmail[email] ?? '')
+    if (!loja) { resultados.push({ ...base, situacao: 'erro', erro: 'Escolha uma loja do grupo desta adesão' }); continue }
 
     const senha = senhaProvisoria()
     let id: string

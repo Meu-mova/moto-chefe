@@ -294,11 +294,11 @@ export async function criarLojaAtivacaoAction(adesaoId: string, dados: { nome: s
   return r
 }
 
-export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaId: string) {
+export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaPorEmail: Record<string, string>) {
   const u = await assertAdmin()
   if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
   const auth = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).auth.admin
-  const r = await criarUsuariosDaAdesao({ adesaoId, lojaId, adminId: u.id }, {
+  const r = await criarUsuariosDaAdesao({ adesaoId, lojaPorEmail, adminId: u.id }, {
     criarNoAuth: async (email, senha) => {
       // must_change_password: o middleware leva a pessoa a /trocar-senha no 1º login.
       const { data, error } = await auth.createUser({ email, password: senha, email_confirm: true, user_metadata: { must_change_password: true } })
