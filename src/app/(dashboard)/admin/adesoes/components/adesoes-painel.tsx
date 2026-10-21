@@ -20,6 +20,7 @@ import {
   salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, enviarContratoAction, vincularGrupoAction,
   type AdesaoLinha, type GrupoOpcao,
 } from '../actions'
+import { AtivarCliente } from './ativar-cliente'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
@@ -284,6 +285,8 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
       </div>
 
       <GrupoVinculado adesao={a} grupos={grupos} />
+
+      {a.contrato?.status === 'assinado' && a.grupoId && <AtivarCliente key={a.id} adesaoId={a.id} />}
 
       {a.status === 'processada' ? (
         <p className="text-sm text-muted-foreground">Adesão já processada.</p>
