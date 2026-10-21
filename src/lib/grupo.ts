@@ -20,7 +20,11 @@ import { escolherGrupoPadrao, gruposVisiveis, podeVerGrupo, type UsuarioAcessoGr
 // a omissão do campo é sinal de bug: sem isto, um objeto montado à mão sem
 // grupos_acesso compilava calado e a página podia resolver um grupo diferente
 // do que o seletor mostra, sem erro nem log.
-type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | null }
+type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | null; contaId: string | null }
+
+// Conta obrigatória no tipo (mesmo que null): sem ela a regra recusa todo grupo, e
+// esquecer o campo viraria "usuário sem acesso" calado em vez de erro de compilação.
+type UsuarioComConta = { papel: string; lojaId: string | null; contaId: string | null } & Partial<UsuarioAcessoGrupo>
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -47,15 +51,18 @@ export async function grupoIdDaPropriaLoja(lojaId: string | null): Promise<strin
 // e qualquer outro ponto fora deste arquivo devem chamar, em vez de duplicar
 // a resolução de grupoDaPropriaLoja.
 export async function podeUsuarioVerGrupo(
-  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+  usuario: UsuarioComConta,
   grupoId: string,
 ): Promise<boolean> {
-  const grupoDaPropriaLoja = await grupoIdDaPropriaLoja(usuario.lojaId)
-  return podeVerGrupo(usuario, grupoDaPropriaLoja, grupoId)
+  const [grupoDaPropriaLoja, [grupo]] = await Promise.all([
+    grupoIdDaPropriaLoja(usuario.lojaId),
+    db.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1),
+  ])
+  return !!grupo && podeVerGrupo(usuario, grupoDaPropriaLoja, grupo)
 }
 
 export async function getGrupoAtivo(
-  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+  usuario: UsuarioComConta,
 ): Promise<Grupo> {
   if (ADMIN_PAPEIS.includes(usuario.papel)) {
     const grupoDaPropriaLoja = await grupoIdDaPropriaLoja(usuario.lojaId)
@@ -67,13 +74,13 @@ export async function getGrupoAtivo(
     // PERMITIDO (posse via grupos_acesso, ou ser o da própria loja, ou
     // admin_geral). Sem essa checagem, qualquer admin_socio trocava de tenant
     // só escrevendo outro id no seletor — era a falha que este módulo fecha.
-    if (grupoIdCookie && podeVerGrupo(usuario, grupoDaPropriaLoja, grupoIdCookie)) {
+    if (grupoIdCookie) {
       const [grupo] = await db
         .select()
         .from(grupos)
         .where(and(eq(grupos.id, grupoIdCookie), eq(grupos.ativo, true)))
         .limit(1)
-      if (grupo) return grupo
+      if (grupo && podeVerGrupo(usuario, grupoDaPropriaLoja, grupo)) return grupo
     }
 
     // Cookie ausente, de um grupo inexistente/inativo, ou de um grupo sem
@@ -103,7 +110,7 @@ export async function getGrupoAtivo(
     // lança erro em vez de inventar um (era isto que a versão anterior fazia,
     // devolvendo o primeiro grupo de "candidatos" em silêncio — vazamento de
     // tenant). Ver src/lib/acesso-grupo.ts.
-    const permitidos = candidatos.filter(g => podeVerGrupo(usuario, grupoDaPropriaLoja, g.id))
+    const permitidos = candidatos.filter(g => podeVerGrupo(usuario, grupoDaPropriaLoja, g))
     return escolherGrupoPadrao(permitidos, GRUPO_PADRAO_ID)
   }
 
@@ -138,14 +145,14 @@ export async function listarGruposAtivos(): Promise<Grupo[]> {
 // grupos (ex.: /admin/usuarios editando a lista de outra pessoa) continuam
 // usando listarGruposAtivos() direto — de propósito, não é o mesmo caso de uso.
 export async function listarGruposVisiveis(
-  usuario: { papel: string; lojaId: string | null } & Partial<UsuarioAcessoGrupo>,
+  usuario: UsuarioComConta,
 ): Promise<Grupo[]> {
   const [todos, grupoDaPropriaLoja] = await Promise.all([
     listarGruposAtivos(),
     grupoIdDaPropriaLoja(usuario.lojaId),
   ])
 
-  const idsVisiveis = new Set(gruposVisiveis(usuario, grupoDaPropriaLoja, todos.map(g => g.id)))
+  const idsVisiveis = new Set(gruposVisiveis(usuario, grupoDaPropriaLoja, todos))
   return todos.filter(g => idsVisiveis.has(g.id))
 }
 
@@ -201,7 +208,7 @@ export async function podeAprovarPagamentoSensivelNaLoja(
 // Variante para telas que listam o grupo ativo inteiro (/vendas, /estoque):
 // o alvo é o grupo que o usuário está olhando, não uma loja específica.
 export async function podeAprovarPagamentoSensivelNoGrupoAtivo(
-  usuario: UsuarioAprovador,
+  usuario: UsuarioAprovador & UsuarioComConta,
 ): Promise<boolean> {
   if (usuario.email === EMAIL_ACESSO_MULTI_GRUPO) return true
   if (!usuario.aprovaPagamentoSensivel) return false

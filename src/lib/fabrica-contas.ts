@@ -82,7 +82,7 @@ export function lojaDaContaDaGarantia(
 
 /** Contas do portal no escopo do usuário, lidas do banco. */
 export async function listarContasFabrica(
-  usuario: { papel: string; lojaId: string | null },
+  usuario: { papel: string; lojaId: string | null; contaId: string | null },
 ): Promise<EscopoFabrica> {
   const grupo = await getGrupoAtivo(usuario)
   const doGrupo = await db

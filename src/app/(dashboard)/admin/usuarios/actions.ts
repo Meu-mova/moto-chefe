@@ -94,6 +94,14 @@ async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso
   return g?.contaId ?? null
 }
 
+// Grupo marcado tem de ser da Conta do usuário: o seletor nunca mostra grupo de
+// outra Conta, e gravar um assim seria acesso que não vale (ADR-0018).
+async function exigirGruposDaConta(contaId: string | null, gruposAcesso: string[]) {
+  if (gruposAcesso.length === 0) return
+  const linhas = await db.select({ contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, gruposAcesso))
+  if (linhas.some(g => g.contaId !== contaId)) throw new Error('Grupo de acesso de outra Conta: marque só grupos da mesma Conta da loja do usuário')
+}
+
 export async function criarUsuarioAction(dados: {
   nome: string
   email: string
@@ -113,6 +121,7 @@ export async function criarUsuarioAction(dados: {
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+  await exigirGruposDaConta(contaId, acesso.gruposAcesso)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -157,6 +166,7 @@ export async function editarUsuarioAction(id: string, dados: {
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+  await exigirGruposDaConta(contaId, acesso.gruposAcesso)
 
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({

@@ -200,7 +200,7 @@ export async function agendarPublicoAction(input: {
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-async function verificarTenantAgendamento(agendamentoId: string, usuario: { papel: string; lojaId: string | null }) {
+async function verificarTenantAgendamento(agendamentoId: string, usuario: { papel: string; lojaId: string | null; contaId: string | null }) {
   const [ag] = await db
     .select({
       lojaId:           agendamentos.lojaId,
