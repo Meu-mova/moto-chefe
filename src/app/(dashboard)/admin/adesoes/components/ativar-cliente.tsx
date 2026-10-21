@@ -21,7 +21,9 @@ const formatarData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 // Exceção da action (rede, sessão) aparece como erro na tela, não some calada.
 const mensagem = (e: unknown) => e instanceof Error ? e.message : 'Falha inesperada; tente de novo'
 
-export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
+// Os passos ficam em duas abas do detalhe (#312) e dividem os mesmos dados: cada passo
+// aplicado recarrega tudo, e o da outra aba enxerga a loja recém-criada.
+export function useAtivacao(adesaoId: string) {
   const [dados, setDados] = useState<DadosAtivacao | null>(null)
   const [pendente, iniciar] = useTransition()
 
@@ -33,21 +35,32 @@ export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
     })
   }
 
+  return { dados, carregar, pendente }
+}
+
+type Ativacao = ReturnType<typeof useAtivacao>
+
+function Carregando({ ativacao }: { ativacao: Ativacao }) {
+  return ativacao.pendente
+    ? <p className="text-sm text-muted-foreground">Carregando…</p>
+    : <Button variant="outline" onClick={ativacao.carregar}>Carregar ativação</Button>
+}
+
+export function AtivacaoLoja({ adesaoId, ativacao }: { adesaoId: string; ativacao: Ativacao }) {
+  const { dados, carregar } = ativacao
+  if (!dados) return <Carregando ativacao={ativacao} />
+  return <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+}
+
+export function AtivacaoAcessos({ adesaoId, ativacao }: { adesaoId: string; ativacao: Ativacao }) {
+  const { dados, carregar } = ativacao
+  if (!dados) return <Carregando ativacao={ativacao} />
   return (
-    <div className="border-t pt-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-medium">Ativar cliente</h3>
-        {!dados && <Button variant="outline" onClick={carregar} disabled={pendente}>Ativar cliente</Button>}
-      </div>
-      {dados && (
-        <>
-          <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
-          <PassoUsuarios adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
-          <PassoCertificado adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
-          <PassoPortal adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
-          <Resumo dados={dados} />
-        </>
-      )}
+    <div className="space-y-3">
+      <PassoUsuarios adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+      <PassoCertificado adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+      <PassoPortal adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
+      <Resumo dados={dados} />
     </div>
   )
 }
@@ -166,7 +179,7 @@ function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
         ))}
       </ul>
       {dados.lojas.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Crie a loja no passo acima: os usuários entram nela.</p>
+        <p className="text-sm text-muted-foreground">Crie a loja na aba "Grupo e loja": os usuários entram nela.</p>
       ) : pendentes.length > 0 && (
         <div className="flex flex-wrap items-end gap-2">
           <Button onClick={criar} disabled={pendente || faltaLoja}>
@@ -276,7 +289,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
         <p className="text-sm text-muted-foreground">Testado e aplicado em {formatarData(dados.portalAplicadoEm)} ({dados.storeLogin}).</p>
       ) : dados.lojas.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          O grupo ainda não tem loja. Crie no passo acima.
+          O grupo ainda não tem loja. Crie na aba "Grupo e loja".
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
