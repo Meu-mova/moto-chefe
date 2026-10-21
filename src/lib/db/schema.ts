@@ -1695,10 +1695,11 @@ export const adesoesMova = pgTable('adesoes_mova', {
   responsavel: text('responsavel').notNull(),
   celular: text('celular').notNull(),
   cnpjArquivoPath: text('cnpj_arquivo_path').notNull(),
-  certArquivo: text('cert_arquivo').notNull(),
-  certSenha: text('cert_senha').notNull(),
+  // Os três segredos ficam nulos depois de aplicados no grupo e na loja (#292).
+  certArquivo: text('cert_arquivo'),
+  certSenha: text('cert_senha'),
   storeLogin: text('store_login').notNull(),
-  storeSenha: text('store_senha').notNull(),
+  storeSenha: text('store_senha'),
   usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
   status: text('status').$type<StatusAdesao>().notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
@@ -1722,6 +1723,8 @@ export const adesoesMova = pgTable('adesoes_mova', {
   // Grupo que esta adesão gerou: a mensalidade dele sai daqui (#207). Um grupo,
   // uma adesão (índice único parcial na 0127).
   grupoId: uuid('grupo_id').references(() => grupos.id),
+  certificadoAplicadoEm: timestamp('certificado_aplicado_em', { withTimezone: true }),
+  portalAplicadoEm: timestamp('portal_aplicado_em', { withTimezone: true }),
 })
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────
