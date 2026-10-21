@@ -78,6 +78,22 @@ export const grupos = pgTable('grupos', {
   contaId:            uuid('conta_id').notNull().references(() => contas.id),
 })
 
+// ─── log_acoes ────────────────────────────────────────────────────────────────
+// Acessos e ações sensíveis, 12 meses (#198). Gravar só por src/lib/log-acoes.ts.
+export const logAcoes = pgTable('log_acoes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  contaId:   uuid('conta_id').references(() => contas.id),
+  grupoId:   uuid('grupo_id').references(() => grupos.id),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  /** Ver TIPOS_LOG em @/lib/log-acoes (check log_acoes_tipo_check no banco). */
+  tipo:      text('tipo').notNull(),
+  detalhe:   jsonb('detalhe').$type<Record<string, unknown>>(),
+  ip:        text('ip'),
+  userAgent: text('user_agent'),
+  dia:       date('dia').notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
 // Memória do alerta de pedido "aguardando pagamento" no portal da fábrica.
 // Sem isso o cron re-avisaria o mesmo pedido em toda rodada.

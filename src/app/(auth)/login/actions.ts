@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
+import { getGrupoAtivo } from '@/lib/grupo'
 
 export async function loginAction(formData: FormData) {
   const supabase = await createClient()
@@ -32,10 +35,19 @@ export async function loginAction(formData: FormData) {
   // aqui também dá uma mensagem clara na hora, sem abrir sessão à toa: desfaz
   // o signIn e devolve pro /login com o motivo, em vez de mandar pro
   // /dashboard pra só então ser expulso.
-  const [usuario] = await db.select({ ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.email, email)).limit(1)
+  const [usuario] = await db.select().from(usuarios).where(eq(usuarios.email, email)).limit(1)
   if (usuario && !usuario.ativo) {
     await supabase.auth.signOut()
     redirect('/login?error=inativo')
+  }
+
+  // Grupo em que a pessoa cai (cookie ou padrão); a Conta é a do grupo, como nas outras linhas.
+  if (usuario) {
+    const grupo = await getGrupoAtivo(usuario).catch(() => null)
+    await registrarSemFalhar({
+      tipo: 'login', usuarioId: usuario.id, contaId: grupo?.contaId ?? usuario.contaId, grupoId: grupo?.id ?? null,
+      ...origemDaRequisicao(await headers()),
+    })
   }
 
   redirect('/dashboard')
