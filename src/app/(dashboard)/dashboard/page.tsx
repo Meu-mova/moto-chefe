@@ -25,7 +25,7 @@ import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
-import { Secao } from './components/requer-atencao'
+import { Secao } from './components/painel-secoes'
 import { PendenciasDocumentosCard } from './components/pendencias-documentos-card'
 import { pendenciasDeVendas } from '@/lib/queries/pendencias-venda'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
@@ -493,13 +493,11 @@ export default async function DashboardPage({
                   </Suspense>
                 </SectionErrorBoundary>
               )}
-              {(isVendedor || isAdmin || isAuxAdm) && (
-                <SectionErrorBoundary label="as pendências de contrato e checklist">
-                  <Suspense fallback={null}>
-                    <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
-                  </Suspense>
-                </SectionErrorBoundary>
-              )}
+              <SectionErrorBoundary label="as pendências de contrato e checklist">
+                <Suspense fallback={null}>
+                  <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
+                </Suspense>
+              </SectionErrorBoundary>
             </div>
             <div className="min-w-0">
               {(isAdmin || isAuxAdm) && (
@@ -514,12 +512,6 @@ export default async function DashboardPage({
         </Secao>
       )}
 
-      <SectionErrorBoundary label="os próximos eventos">
-        <Suspense fallback={null}>
-          <ProximosEventosSection usuario={usuario} />
-        </Suspense>
-      </SectionErrorBoundary>
-
       {/* aux_adm entra junto: é quem cadastra a meta em /admin/metas e cobra a loja —
           não faz sentido preencher o alvo e não enxergar o placar. */}
       {(isAdmin || isAuxAdm) && (
@@ -529,6 +521,12 @@ export default async function DashboardPage({
           </Suspense>
         </SectionErrorBoundary>
       )}
+
+      <SectionErrorBoundary label="os próximos eventos">
+        <Suspense fallback={null}>
+          <ProximosEventosSection usuario={usuario} />
+        </Suspense>
+      </SectionErrorBoundary>
 
       <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>

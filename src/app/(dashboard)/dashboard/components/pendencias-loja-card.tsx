@@ -1,4 +1,4 @@
-import { LinhaPendencia, TituloGrupo } from './requer-atencao'
+import { LinhaPendencia, TituloGrupo } from './painel-secoes'
 
 type Props = {
   semNotaFiscal: number

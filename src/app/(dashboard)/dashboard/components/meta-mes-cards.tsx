@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { MetaDoMes } from '@/lib/meta-vendas'
-import { Secao } from './requer-atencao'
+import { Secao } from './painel-secoes'
 
 type Props = {
   meta: MetaDoMes
@@ -41,6 +41,8 @@ export function MetaMesCards({ meta, grupoNome, vendidoHoje }: Props) {
   const s = SITUACAO[p.situacao]
   const larguraBarra = Math.min(100, p.percentualAtingido)
   const batidas = meta.lojas.filter(l => l.batida).length
+  // Onde a projeção cai na régua da meta; some quando a meta já foi batida.
+  const marcaProjecao = p.meta > 0 ? Math.min(100, (p.projecao / p.meta) * 100) : 0
 
   return (
     <Secao
@@ -50,9 +52,16 @@ export function MetaMesCards({ meta, grupoNome, vendidoHoje }: Props) {
       <div className="mt-3 grid overflow-hidden rounded-md border border-border bg-card sm:grid-cols-2 lg:grid-cols-4">
         <Celula rotulo="Vendido no mês" nota={<><span className={`font-semibold ${s.cor}`}>{s.rotulo}</span> · {pct(p.percentualAtingido)} em {p.diasDeVendaDecorridos} de {p.diasDeVendaNoMes} dias (seg–sáb)</>}>
           {brl(p.vendidas)} <span className="text-sm font-medium text-muted-foreground">/ {brl(p.meta)}</span>
-          <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
-            <span className={`block h-full ${s.barra}`} style={{ width: `${larguraBarra}%` }} />
+          <span role="progressbar" aria-label="Meta do mês atingida" aria-valuenow={Math.round(p.percentualAtingido)} aria-valuemin={0} aria-valuemax={100}
+            className="relative mt-2 block h-1.5 rounded-full bg-muted">
+            <span className={`block h-full rounded-full ${s.barra}`} style={{ width: `${larguraBarra}%` }} />
+            {p.situacao !== 'batida' && marcaProjecao > 0 && (
+              <span aria-hidden title={`Projeção ${brlCurto(p.projecao)}`} className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 bg-foreground" style={{ left: `${marcaProjecao}%` }} />
+            )}
           </span>
+          {p.situacao !== 'batida' && marcaProjecao > 0 && (
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">| marca: projeção de {brlCurto(p.projecao)}</span>
+          )}
         </Celula>
         <Celula rotulo="Vendido hoje" nota={`ritmo do mês: ${brlCurto(p.ritmoDiario)}/dia`}>{brlCurto(vendidoHoje)}</Celula>
         <Celula
@@ -73,13 +82,14 @@ export function MetaMesCards({ meta, grupoNome, vendidoHoje }: Props) {
         {meta.lojas.map(l => (
           <li key={l.lojaId} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[10rem_11rem_1fr_4rem]">
             <span className="truncate text-foreground">{l.loja}</span>
-            <span className="tabular-nums text-muted-foreground sm:order-none">
+            <span className="tabular-nums text-muted-foreground">
               {brlCurto(l.realizado)} / {brlCurto(l.meta)}
             </span>
-            <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted sm:col-span-1">
+            <span role="progressbar" aria-label={`Meta de ${l.loja}`} aria-valuenow={Math.round(l.percentual)} aria-valuemin={0} aria-valuemax={100}
+              className="h-1.5 overflow-hidden rounded-full bg-muted">
               <span className={`block h-full ${l.batida ? 'bg-primary' : 'bg-input'}`} style={{ width: `${Math.min(100, l.percentual)}%` }} />
             </span>
-            <span className={`hidden text-right tabular-nums sm:block ${l.batida ? 'font-semibold text-primary-text' : 'text-muted-foreground'}`}>
+            <span className={`text-right tabular-nums ${l.batida ? 'font-semibold text-primary-text' : 'text-muted-foreground'}`}>
               {pct(l.percentual)}
             </span>
           </li>

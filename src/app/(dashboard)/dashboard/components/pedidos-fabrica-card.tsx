@@ -4,7 +4,7 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { atualizarPedidosFabricaAction } from '../actions'
 import type { PedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
-import { TituloGrupo } from './requer-atencao'
+import { LinhaValor, TituloGrupo } from './painel-secoes'
 
 const URL_PORTAL = 'https://motochefebrasil.store/clientes/pedidos?aba=compras'
 
@@ -63,7 +63,6 @@ export function PedidosFabricaCard({ dados: iniciais }: { dados: PedidosFabricaD
   if (total === 0 && lojasSemLeitura.length === 0 && !releu) return null
 
   const critico = pendentes.some(p => p.dias >= 3)
-  const linha = 'flex items-baseline justify-between gap-3 border-b border-border py-2.5 text-sm'
   return (
     <div>
       <TituloGrupo acao={
@@ -74,12 +73,7 @@ export function PedidosFabricaCard({ dados: iniciais }: { dados: PedidosFabricaD
       }>
         Pedidos de peças na fábrica
       </TituloGrupo>
-      <div className={linha}>
-        <span className="text-muted-foreground">Aguardando pagamento</span>
-        {total > 0
-          ? <span className="text-[15px] font-bold tabular-nums text-warning">{total} · {reais(valorTotal)}</span>
-          : <span className="font-semibold text-foreground">Nenhum</span>}
-      </div>
+      <LinhaValor rotulo="Aguardando pagamento" alerta={total > 0}>{total > 0 ? `${total} · ${reais(valorTotal)}` : 'Nenhum'}</LinhaValor>
       {total > 0 && (
         <ul className="divide-y divide-border border-b border-border">
           {pendentes.slice(0, 6).map(p => (
@@ -98,10 +92,7 @@ export function PedidosFabricaCard({ dados: iniciais }: { dados: PedidosFabricaD
           {pendentes.length > 6 && <li className="py-2 text-xs text-muted-foreground">e mais {pendentes.length - 6}…</li>}
         </ul>
       )}
-      <div className={linha}>
-        <span className="text-muted-foreground">Última leitura do portal</span>
-        <span className="font-semibold tabular-nums text-foreground">{quando(ultimaLeitura)}{lendo && ' · lendo…'}</span>
-      </div>
+      <LinhaValor rotulo="Última leitura do portal">{quando(ultimaLeitura)}{lendo && ' · lendo…'}</LinhaValor>
       {total > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           A fábrica cancela por prazo de pagamento{critico ? ', e há pedido parado há 3 dias ou mais' : ''}.{' '}

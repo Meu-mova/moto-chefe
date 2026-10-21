@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LinhaPendencia, TituloGrupo } from './requer-atencao'
+import { LinhaPendencia, TituloGrupo } from './painel-secoes'
 import { LABEL_PENDENCIA, type Pendencia } from '@/lib/pendencias-venda'
 import type { PainelPendencias } from '@/lib/queries/pendencias-venda'
 
@@ -37,7 +37,7 @@ export function PendenciasDocumentosCard({
       </TituloGrupo>
       <LinhaPendencia rotulo="Pendentes de tarefa" valor={dados.pendentes} href="/vendas" />
       <LinhaPendencia rotulo="Efetivadas (as quatro fechadas)" valor={dados.efetivadas} href="/vendas" />
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className={`mt-2 text-xs ${tudoEmDia ? 'font-semibold text-primary-text' : 'text-muted-foreground'}`}>
         {tudoEmDia ? 'Tudo em dia: nenhuma venda pendente de tarefa.' : quebra}
       </p>
 
@@ -72,10 +72,10 @@ export function PendenciasDocumentosCard({
             </thead>
             <tbody className="divide-y divide-border">
               {dados.porVendedor.map(v => (
-                <tr key={v.vendedorId}>
+                <tr key={v.vendedorId} className={v.total > v.efetivadas ? 'bg-muted/50' : ''}>
                   <td className="max-w-[14rem] truncate py-2 pr-3 text-foreground">{v.nome}</td>
                   <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{v.total}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-foreground">{v.efetivadas}</td>
+                  <td className={`px-2 py-2 text-right tabular-nums ${v.total === v.efetivadas ? 'font-semibold text-primary-text' : 'text-foreground'}`}>{v.efetivadas}</td>
                   {ORDEM.map(t => (
                     <td key={t} className={`px-2 py-2 text-right tabular-nums ${v[t] > 0 ? 'font-semibold text-warning' : 'text-muted-foreground'}`}>
                       {v[t] || '—'}
