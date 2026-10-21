@@ -11,7 +11,7 @@ const base: EntradaPainel = {
 }
 const rotulos = (p: ReturnType<typeof montarPainel>) => ({ manchete: p.manchete.map(m => m.rotulo), indicadores: p.indicadores.map(i => i.rotulo) })
 
-test('admin: os mesmos números de antes, com ticket médio na manchete', () => {
+test('admin: rótulos da manchete e dos indicadores, na ordem', () => {
   assert.deepEqual(rotulos(montarPainel(base)), {
     manchete: ['Faturamento', 'Motos vendidas', 'Ticket médio'],
     indicadores: ['Showroom', 'Valor em showroom', 'Transferências pendentes', 'Garantias ativas', 'OS abertas', 'OS · serviços', 'OS · peças', 'Conciliação cartão', 'Descontos'],
@@ -24,7 +24,7 @@ test('aux_adm (não admin) não vê valor do showroom nem conciliação', () => 
   assert.ok(!r.indicadores.includes('Conciliação cartão'))
 })
 
-test('vendedor: comissão e premiação na manchete, como os cards de hoje', () => {
+test('vendedor: rótulos da manchete e dos indicadores, na ordem', () => {
   assert.deepEqual(rotulos(montarPainel({ ...base, papel: 'vendedor', isVendedor: true })), {
     manchete: ['Total de vendas', 'Motos vendidas', 'Comissão'],
     indicadores: ['Mais vendida', 'Premiação OTE', 'Descontos'],

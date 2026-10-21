@@ -30,9 +30,13 @@ export type Variacao = { sentido: 'alta' | 'baixa' | 'igual'; texto: string }
 export type Manchete = { rotulo: string; valor: string; variacao: Variacao | null; anterior: string; serie: 'valor' | 'quantidade' | null }
 export type Indicador = { rotulo: string; valor: string; alerta: boolean; href?: string; dica?: string }
 
+// Os mesmos dois papéis do dashboard (page.tsx). isAdmin() de @/lib/auth é só admin_geral
+// e puxa o banco, o que tiraria este módulo do teste puro.
 const ADMINS = ['admin_geral', 'admin_socio']
-// Mesma taxa fixa do card antigo; o simulador abaixo usa a do cadastro do vendedor.
-const COMISSAO_CARD = 0.005
+// Taxa fixa herdada do card antigo; SimuladorComissaoOTE usa a do cadastro do vendedor.
+const COMISSAO_PADRAO = 0.005
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
 // toLocaleString põe espaço sem quebra (U+00A0) depois do R$; troca por espaço comum para o texto e os testes compararem igual.
 export const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/ /g, ' ')
@@ -52,9 +56,9 @@ function manchete(rotulo: string, atual: number, anterior: number, fmt: (v: numb
 
 function indicadorDesconto(d: SomaDescontos, faturamento: number): Indicador {
   const pct = percentualDesconto(d.margem, faturamento)
-  const partes = [`${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'}`]
+  const partes = [plural(d.qtd, 'venda', 'vendas')]
   if (pct > 0) partes.push(`${pct}% do faturamento`)
-  if (d.estimados > 0) partes.push(`${d.estimados} estimada${d.estimados === 1 ? '' : 's'}`)
+  if (d.estimados > 0) partes.push(plural(d.estimados, 'estimada', 'estimadas'))
   return { rotulo: 'Descontos', valor: brl(d.margem), alerta: false, dica: partes.join(' · ') }
 }
 
@@ -76,14 +80,14 @@ export function montarPainel(e: EntradaPainel): { manchete: Manchete[]; indicado
       manchete: [
         manchete('Total de vendas', kpis.faturamento, kpisAnt.faturamento, brl, 'valor'),
         manchete('Motos vendidas', kpis.totalVendas, kpisAnt.totalVendas, qtd, 'quantidade'),
-        manchete('Comissão', kpis.faturamento * COMISSAO_CARD, kpisAnt.faturamento * COMISSAO_CARD, brl, null),
+        manchete('Comissão', kpis.faturamento * COMISSAO_PADRAO, kpisAnt.faturamento * COMISSAO_PADRAO, brl, null),
       ],
       indicadores,
     }
   }
 
   const admin = ADMINS.includes(e.papel)
-  const indicadores: Indicador[] = [{ rotulo: 'Showroom', valor: `${kpis.estoque} ${kpis.estoque === 1 ? 'moto' : 'motos'}`, alerta: false }]
+  const indicadores: Indicador[] = [{ rotulo: 'Showroom', valor: plural(kpis.estoque, 'moto', 'motos'), alerta: false }]
   if (admin) indicadores.push({ rotulo: 'Valor em showroom', valor: brl(kpis.valorEstoque), alerta: false })
   indicadores.push(
     { rotulo: 'Transferências pendentes', valor: qtd(kpis.transferenciasPendentes), alerta: false },
@@ -94,7 +98,7 @@ export function montarPainel(e: EntradaPainel): { manchete: Manchete[]; indicado
   )
   if (admin) {
     const n = e.conciliacaoPendentes
-    indicadores.push({ rotulo: 'Conciliação cartão', valor: n > 0 ? `${n} ${n === 1 ? 'pendente' : 'pendentes'}` : 'Em dia', alerta: n > 0, href: '/conciliacao' })
+    indicadores.push({ rotulo: 'Conciliação cartão', valor: n > 0 ? plural(n, 'pendente', 'pendentes') : 'Em dia', alerta: n > 0, href: '/conciliacao' })
   }
   if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamento))
   return {

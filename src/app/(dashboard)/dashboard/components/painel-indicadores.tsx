@@ -1,23 +1,11 @@
 import Link from 'next/link'
-import { type SomaDescontos } from '@/lib/desconto'
-import { montarPainel, type KPIs, type Manchete, type Variacao } from '@/lib/dashboard-painel'
+import { ChevronRight } from 'lucide-react'
+import { montarPainel, type EntradaPainel, type Manchete, type Variacao } from '@/lib/dashboard-painel'
 
-type Props = {
-  kpis: KPIs
-  kpisAnt: KPIs
-  papel: string
-  isVendedor?: boolean
-  motoMaisVendida: { modelo: string; total: number } | null
-  conciliacaoPendentes?: number
-  faturamentoOS?: { servicos: number; pecas: number }
-  faixasOTE?: { valorMinimoVendas: string; premiacao: string }[]
-  /** Descontos aprovados no período. Ausente = período sem registro ou sem permissão. */
-  descontos?: SomaDescontos
-  /** Vendas por dia do período, na mesma base de valor do faturamento mostrado. */
-  serieDia?: { total: number; valor: number }[]
-}
+type SerieDia = { total: number; valor: number }[]
 
-const SETA: Record<Variacao['sentido'], string> = { alta: '▲', baixa: '▼', igual: '■' }
+// U+FE0E pede a forma de texto: sem ele o iOS pode desenhar ▲ como emoji.
+const SETA: Record<Variacao['sentido'], string> = { alta: '▲\uFE0E', baixa: '▼\uFE0E', igual: '■\uFE0E' }
 const COR_VARIACAO: Record<Variacao['sentido'], string> = { alta: 'text-primary-text', baixa: 'text-destructive', igual: 'text-muted-foreground' }
 
 // Acumulado do período: mostra o ritmo, não o sobe e desce de cada dia.
@@ -34,14 +22,15 @@ function Tendencia({ pontos }: { pontos: number[] }) {
   )
 }
 
-function Destaque({ m, serieDia }: { m: Manchete; serieDia?: Props['serieDia'] }) {
-  const pontos = m.serie && serieDia ? serieDia.map(d => (m.serie === 'valor' ? d.valor : d.total)) : []
+function Destaque({ m, serieDia }: { m: Manchete; serieDia?: SerieDia }) {
+  const pontos = m.serie && serieDia ? serieDia.map(d => d[m.serie === 'valor' ? 'valor' : 'total']) : []
+  const comTendencia = pontos.length >= 2
   return (
     // Celular: número à esquerda e tendência à direita, para o bloco não ficar alto e vazio.
-    <div className="grid grid-cols-[1fr_42%] items-center gap-x-3 border-b border-border px-4 py-3 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-5 sm:py-4 sm:last:border-r-0">
+    <div className={`grid ${comTendencia ? 'grid-cols-[1fr_42%]' : 'grid-cols-1'} items-center gap-x-3 border-b border-border px-4 py-3 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-5 sm:py-4 sm:last:border-r-0`}>
       <div className="min-w-0">
         <p className="text-xs font-medium text-muted-foreground">{m.rotulo}</p>
-        <p className="mt-0.5 truncate text-2xl font-bold tracking-tight tabular-nums text-foreground sm:text-[1.75rem]">{m.valor}</p>
+        <p className="mt-0.5 truncate text-2xl font-bold tracking-tight tabular-nums text-foreground sm:text-3xl">{m.valor}</p>
         {m.variacao && (
           <p className="mt-0.5 text-xs">
             <span className={`font-semibold ${COR_VARIACAO[m.variacao.sentido]}`}>{SETA[m.variacao.sentido]} {m.variacao.texto}</span>
@@ -49,16 +38,14 @@ function Destaque({ m, serieDia }: { m: Manchete; serieDia?: Props['serieDia'] }
           </p>
         )}
       </div>
-      <Tendencia pontos={pontos} />
+      {comTendencia && <Tendencia pontos={pontos} />}
     </div>
   )
 }
 
-export function KpiCards({ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [], descontos, serieDia }: Props) {
-  const { manchete, indicadores } = montarPainel({
-    kpis, kpisAnt, papel, isVendedor: isVendedor ?? papel === 'vendedor',
-    motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos,
-  })
+/** serieDia: vendas por dia do período, na mesma base de valor (bruta ou líquida) do faturamento. */
+export function PainelIndicadores({ entrada, serieDia }: { entrada: EntradaPainel; serieDia?: SerieDia }) {
+  const { manchete, indicadores } = montarPainel(entrada)
 
   return (
     <div className="space-y-5">
@@ -67,18 +54,19 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, co
       </div>
 
       <dl className="grid border-t-2 border-foreground sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-3">
-        {indicadores.map(i => {
-          return (
+        {indicadores.map(i => (
             <div key={i.rotulo} className={`relative flex items-baseline justify-between gap-4 border-b border-border py-2.5 ${i.href ? 'hover:bg-muted' : ''}`}>
               <dt className="text-sm text-muted-foreground">
                 {/* O link cobre a linha toda; dentro de <dl> ele não pode embrulhar dt e dd. */}
                 {i.href ? <Link href={i.href} className="after:absolute after:inset-0">{i.rotulo}</Link> : i.rotulo}
                 {i.dica && <span className="block text-xs">{i.dica}</span>}
               </dt>
-              <dd className={`shrink-0 text-sm font-semibold tabular-nums ${i.alerta ? 'text-warning' : 'text-foreground'}`}>{i.valor}</dd>
+              <dd className={`flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums ${i.alerta ? 'text-warning' : 'text-foreground'}`}>
+                {i.valor}
+                {i.href && <ChevronRight aria-hidden className="size-4 text-muted-foreground" />}
+              </dd>
             </div>
-          )
-        })}
+        ))}
       </dl>
     </div>
   )

@@ -29,7 +29,7 @@ import { PendenciasDocumentosCard } from './components/pendencias-documentos-car
 import { pendenciasDeVendas } from '@/lib/queries/pendencias-venda'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
-import { KpiCards } from './components/kpi-cards'
+import { PainelIndicadores } from './components/painel-indicadores'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
 import { GraficoVendasPorDia, GraficoCaixaPorLoja } from './components/charts'
 import {
@@ -102,7 +102,10 @@ async function KpiSection({
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} serieDia={serieDia} />
+        <PainelIndicadores
+          entrada={{ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos }}
+          serieDia={serieDia}
+        />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}
