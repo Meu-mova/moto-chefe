@@ -34,8 +34,9 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
     vendedorId ? eq(vendas.vendedorId, vendedorId) : undefined,
   )
 
+  // Mesma regra da tela Showroom (listarMotos com excluirVendidas): a moto vendida que
+  // aguarda NF ainda está na loja e conta (#310).
   const estoqueCond = and(
-    sql`${motos.status} != 'vendida'`,
     sql`(${motos.disponibilidade} IS NULL OR ${motos.disponibilidade} != 'vendida')`,
     eq(motos.somenteGarantia, false), // moto só de garantia não é estoque
     lojaId !== undefined ? lojaFilter(motos.lojaId, lojaId) : undefined,
