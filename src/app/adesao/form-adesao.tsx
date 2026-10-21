@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { FundoOndas } from '@/components/auth/fundo-ondas'
 import { CampoSenha } from '@/components/auth/campo-senha'
 import { mascaraCelular } from '@/lib/mascaras'
-import { PAPEIS_ADESAO, storeLoginValido } from '@/lib/adesao'
+import { ERRO_STORE_LOGIN, PAPEIS_ADESAO, storeLoginValido } from '@/lib/adesao'
 import { registrarAdesaoAction } from './actions'
 
 type Usuario = { nome: string; email: string; papel: string }
@@ -50,7 +50,7 @@ function faltaNoPasso(passo: number, d: Dados): string | null {
   if (passo === 2 && d.usuarios.some(u => !u.nome.trim() || !u.email.trim() || !u.papel)) {
     return 'Preencha nome, e-mail e função de cada usuário'
   }
-  if (passo === 3 && !storeLoginValido(d.storeLogin)) return 'Informe o e-mail de acesso ao motochefe.store'
+  if (passo === 3 && !storeLoginValido(d.storeLogin)) return ERRO_STORE_LOGIN
   if (passo === 3 && !d.storeSenha) return 'Informe a senha do motochefe.store'
   return null
 }
