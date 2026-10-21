@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
+import { listarLojasAtivasDaConta } from '@/lib/conta'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTransferencias } from '@/lib/queries/transferencias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { motos, modelos } from '@/lib/db/schema'
 import { eq, inArray, asc, and } from 'drizzle-orm'
@@ -50,7 +51,7 @@ export default async function TransferenciasPage({
       chassiBusca:   params.q,
     }),
     listarLojasDoGrupoAtivo(usuario),
-    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
+    acessoMultiGrupo ? listarLojasAtivasDaConta(usuario.contaId) : listarLojasDoGrupoAtivo(usuario),
     db
       .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
       .from(motos)

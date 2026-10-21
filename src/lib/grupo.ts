@@ -11,6 +11,7 @@ import {
   socioAprovaNoGrupo,
   type UsuarioAprovador,
 } from '@/lib/aprovacao-permissao'
+import { grupoEstaNaConta } from '@/lib/conta'
 import { escolherGrupoPadrao, gruposVisiveis, podeVerGrupo, type UsuarioAcessoGrupo } from '@/lib/acesso-grupo'
 
 // Usuário com o campo de acesso OBRIGATÓRIO (mesmo que null) — diferente de
@@ -24,6 +25,8 @@ type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | nul
 
 // Conta obrigatória no tipo (mesmo que null): sem ela a regra recusa todo grupo, e
 // esquecer o campo viraria "usuário sem acesso" calado em vez de erro de compilação.
+type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null }
+
 type UsuarioComConta = { papel: string; lojaId: string | null; contaId: string | null } & Partial<UsuarioAcessoGrupo>
 
 export type Grupo = typeof grupos.$inferSelect
@@ -192,38 +195,36 @@ export function podeTransferirEntreGrupos(usuario: { email: string }): boolean {
 // fixa + grupos_aprovacao), nunca no grupo do cookie grupoAtivo.
 // A regra pura fica em @/lib/aprovacao-permissao.
 export async function podeAprovarPagamentoSensivelNaLoja(
-  usuario: UsuarioAprovador,
+  usuario: UsuarioAprovadorComConta,
   lojaIdVenda: string,
 ): Promise<boolean> {
-  if (usuario.email === EMAIL_ACESSO_MULTI_GRUPO) return true
-  if (!usuario.aprovaPagamentoSensivel) return false
+  if (usuario.email !== EMAIL_ACESSO_MULTI_GRUPO && !usuario.aprovaPagamentoSensivel) return false
 
   const [grupoAlvo, grupoUsuario] = await Promise.all([
     getGrupoIdDaLoja(lojaIdVenda),
     usuario.lojaId ? getGrupoIdDaLoja(usuario.lojaId) : Promise.resolve(null),
   ])
+  if (!(await aprovaNaContaDoGrupo(usuario, grupoAlvo))) return false
   return aprovaPagamentoSensivelNoGrupo(usuario, grupoAlvo, grupoUsuario)
 }
 
 // Variante para telas que listam o grupo ativo inteiro (/vendas, /estoque):
 // o alvo é o grupo que o usuário está olhando, não uma loja específica.
 export async function podeAprovarPagamentoSensivelNoGrupoAtivo(
-  usuario: UsuarioAprovador & UsuarioComConta,
+  usuario: UsuarioAprovadorComConta & UsuarioComConta,
 ): Promise<boolean> {
-  if (usuario.email === EMAIL_ACESSO_MULTI_GRUPO) return true
-  if (!usuario.aprovaPagamentoSensivel) return false
+  if (usuario.email !== EMAIL_ACESSO_MULTI_GRUPO && !usuario.aprovaPagamentoSensivel) return false
 
   const grupoAtivo = await getGrupoAtivo(usuario)
+  if (!(await aprovaNaContaDoGrupo(usuario, grupoAtivo.id))) return false
   const grupoUsuario = usuario.lojaId ? await getGrupoIdDaLoja(usuario.lojaId) : null
   return aprovaPagamentoSensivelNoGrupo(usuario, grupoAtivo.id, grupoUsuario)
 }
 
-export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: string }[]> {
-  return db
-    .select({ id: lojas.id, nome: lojas.nome })
-    .from(lojas)
-    .where(eq(lojas.ativa, true))
-    .orderBy(lojas.nome)
+// Fora o admin_geral, aprovar (pela exceção nominal, pelos grupos de aprovação ou como
+// sócio) só vale em grupo da própria Conta (ADR-0018).
+async function aprovaNaContaDoGrupo(usuario: UsuarioAprovadorComConta, grupoId: string): Promise<boolean> {
+  return usuario.papel === 'admin_geral' || grupoEstaNaConta(grupoId, usuario.contaId)
 }
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
@@ -234,14 +235,16 @@ export async function listarTodasLojasAtivas(): Promise<{ id: string; nome: stri
 // está "olhando" no momento. A regra pura fica em @/lib/aprovacao-permissao
 // (testável sem banco).
 export async function podeAprovarVendaBaixoValor(
-  usuario: UsuarioAprovador,
+  usuario: UsuarioAprovadorComConta,
   lojaIdVenda: string,
 ): Promise<boolean> {
-  // admin_geral e o usuário multi-grupo aprovam em qualquer grupo — sem isto o
-  // sócio multi-grupo ficava travado no BH por ter loja fixa no Sul de Minas.
+  if (usuario.papel === 'admin_geral') return true
+  const grupoVenda = await getGrupoIdDaLoja(lojaIdVenda)
+  if (!(await aprovaNaContaDoGrupo(usuario, grupoVenda))) return false
+  // O usuário multi-grupo aprova em qualquer grupo da Conta dele — sem isto ficava
+  // travado no BH por ter loja fixa no Sul de Minas.
   if (aprovaBaixoValorEmQualquerGrupo(usuario)) return true
 
-  const grupoVenda = await getGrupoIdDaLoja(lojaIdVenda)
   // Grupo liberado nominalmente no cadastro (ex.: João Brito no BH e no Vale).
   if (aprovaEmGrupoExtra(usuario, grupoVenda)) return true
 
