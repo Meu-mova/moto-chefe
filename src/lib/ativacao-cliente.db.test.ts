@@ -158,3 +158,15 @@ test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('com o endereço da sede em campos, a loja e a UF vêm deles, não da leitura do texto', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`update adesoes_mova set endereco_sede = 'texto qualquer – SP', sede_cep = '78010-400',
+      sede_logradouro = 'Av. A', sede_numero = '7', sede_bairro = 'Areão', sede_cidade = 'Cuiabá', sede_uf = 'MT' where id = ${c.adesao}`)
+    const d = await dadosDaAtivacao(c.adesao, tx)
+    assert.equal(d?.ufSugerida, 'MT')
+    assert.deepEqual(d?.lojaSugerida, { nome: 'Cliente', cidade: 'Cuiabá', endereco: 'Av. A, 7, Areão', cep: '78010-400' })
+    throw new Desfazer()
+  }), Desfazer)
+})

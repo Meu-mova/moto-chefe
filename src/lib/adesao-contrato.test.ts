@@ -76,3 +76,26 @@ function lerOk(v: Parameters<typeof lerDadosContrato>[0]) {
   if (!r.ok) throw new Error(JSON.stringify(r.erros))
   return r.dados
 }
+
+test('lerDadosContrato monta o endereço da sede a partir dos campos', () => {
+  const r = lerDadosContrato({ ...completo, enderecoSede: 'texto antigo', sede: { cep: '78010400', logradouro: 'Av. A', numero: '7', bairro: 'Areão', cidade: 'Cuiabá', uf: 'mt' } })
+  assert.ok(r.ok)
+  assert.equal(r.dados.enderecoSede, 'Av. A, 7, Areão, CEP 78010-400, Cuiabá – MT')
+  assert.equal(r.dados.sede?.sedeUf, 'MT')
+})
+
+test('lerDadosContrato: endereço em campos incompleto deixa o contrato aguardando; UF errada é erro', () => {
+  const parcial = lerDadosContrato({ ...completo, sede: { cep: '78010-400', cidade: 'Cuiabá' } })
+  assert.ok(parcial.ok)
+  assert.equal(parcial.dados.enderecoSede, null)
+  assert.equal(statusDaAdesao(parcial.dados), 'pendente')
+  const ruim = lerDadosContrato({ ...completo, sede: { uf: 'ZZ' } })
+  assert.ok(!ruim.ok && ruim.erros.enderecoSede === 'UF inválida')
+})
+
+test('lerDadosContrato sem campos de endereço mantém o texto (adesões antigas)', () => {
+  const r = lerDadosContrato({ ...completo, sede: { cep: ' ' } })
+  assert.ok(r.ok)
+  assert.equal(r.dados.enderecoSede, completo.enderecoSede)
+  assert.equal(r.dados.sede, undefined)
+})

@@ -132,6 +132,8 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
   const [a] = await exec.select({
     grupoId: adesoesMova.grupoId, enderecoSede: adesoesMova.enderecoSede, storeLogin: adesoesMova.storeLogin,
     nomeLoja: adesoesMova.loja,
+    sedeCep: adesoesMova.sedeCep, sedeLogradouro: adesoesMova.sedeLogradouro, sedeNumero: adesoesMova.sedeNumero,
+    sedeComplemento: adesoesMova.sedeComplemento, sedeBairro: adesoesMova.sedeBairro, sedeCidade: adesoesMova.sedeCidade, sedeUf: adesoesMova.sedeUf,
     temCertificado: sql<boolean>`${adesoesMova.certArquivo} is not null`,
     temSenhaPortal: sql<boolean>`${adesoesMova.storeSenha} is not null`,
     certificadoAplicadoEm: adesoesMova.certificadoAplicadoEm, portalAplicadoEm: adesoesMova.portalAplicadoEm,
@@ -150,8 +152,16 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
   ])
 
   return {
-    ufSugerida: ufDoEndereco(a.enderecoSede),
-    lojaSugerida: lojaSugerida(a.nomeLoja, a.enderecoSede),
+    // Endereço em campos (#292) vale mais que a leitura do texto, que fica para adesões antigas.
+    ufSugerida: (a.sedeUf && ufValida(a.sedeUf) ? a.sedeUf : null) ?? ufDoEndereco(a.enderecoSede),
+    lojaSugerida: a.sedeCidade
+      ? {
+          nome: a.nomeLoja.trim(),
+          cidade: a.sedeCidade,
+          endereco: [a.sedeLogradouro && `${a.sedeLogradouro}${a.sedeNumero ? `, ${a.sedeNumero}` : ''}`, a.sedeComplemento, a.sedeBairro].filter(Boolean).join(', '),
+          cep: a.sedeCep ?? '',
+        }
+      : lojaSugerida(a.nomeLoja, a.enderecoSede),
     storeLogin: a.storeLogin,
     temCertificadoNaAdesao: a.temCertificado,
     temSenhaPortalNaAdesao: a.temSenhaPortal,
