@@ -9,7 +9,8 @@ import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permis
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
-const IDS_VALIDOS = new Set(ITENS.map(i => i.id))
+// Item só do admin_geral não se libera individualmente: gravar seria liberação sem efeito.
+const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral).map(i => i.id))
 
 // Grava só ids que existem hoje na tabela de navegação — evita lixo permanente
 // no banco se um id de item mudar de nome (o valor antigo nunca mais casaria

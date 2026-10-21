@@ -25,7 +25,10 @@ export type ItemNav = {
   regraPropria?: true
   /** Some do menu e dos hubs, mas a rota continua liberada para quem tem a permissão. */
   oculto?: true
-  /** Só o admin_geral, sem exceção: a liberação individual (modulosExtras) não abre (#306). */
+  /**
+   * Só quem TEM o papel admin_geral como papel principal (#306): nem liberação individual
+   * (modulosExtras) nem papel extra abrem. É a mesma regra das actions dessas telas.
+   */
   soAdminGeral?: true
 }
 
@@ -151,7 +154,7 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   // Bloqueio individual ganha de tudo — inclusive de liberação individual.
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
-  if (item.soAdminGeral) return temPapelNav(usuario, 'admin_geral')
+  if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if ((usuario.modulosExtras ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }

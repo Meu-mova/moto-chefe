@@ -149,6 +149,11 @@ test('Grupos e Lojas: só o admin_geral, nem com liberação individual (#306)',
     assert.equal(podeAcessar(u, '/admin/grupos', SEM_REGRA_PROPRIA), false)
     assert.equal(podeAcessar(u, '/admin/lojas', SEM_REGRA_PROPRIA), false)
   }
+  const papelExtra: UsuarioNav = { papel: 'admin_socio', papeisExtras: ['admin_geral'] }
+  assert.equal(podeAcessar(papelExtra, '/admin/grupos', SEM_REGRA_PROPRIA), false, 'admin_geral só como papel extra não abre')
+  assert.equal(podeAcessar(papelExtra, '/admin/lojas', SEM_REGRA_PROPRIA), false)
+  assert.equal(podeAcessar(ADMIN_GERAL, '/admin/grupos', SEM_REGRA_PROPRIA), true)
+  assert.equal(podeAcessar(ADMIN_GERAL, '/admin/lojas', SEM_REGRA_PROPRIA), true)
   const menu = itensDoMenu(ADMIN_GERAL, SEM_REGRA_PROPRIA).map(i => i.id)
   assert.ok(menu.includes('grupos') && menu.includes('lojas'), 'aparecem no menu do admin_geral')
 })
