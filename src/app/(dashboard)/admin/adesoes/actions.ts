@@ -19,6 +19,7 @@ import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
 import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
+import { colunasSede } from '@/lib/sede-colunas'
 import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
 
 async function assertAdmin() {
@@ -45,6 +46,7 @@ export async function listarAdesoesAction() {
     razaoSocial: adesoesMova.razaoSocial,
     cnpj: adesoesMova.cnpj,
     enderecoSede: adesoesMova.enderecoSede,
+    sede: colunasSede,
     email: adesoesMova.email,
     responsavelCpf: adesoesMova.responsavelCpf,
     valorMensal: adesoesMova.valorMensal,
@@ -95,8 +97,9 @@ export async function salvarDadosContratoAction(
   if (atual.status === 'recusada' || atual.status === 'processada') return { ok: false, erro: 'Adesão recusada ou processada não pode ser alterada' }
 
   const status = statusDaAdesao(lido.dados)
+  const { sede, ...dados } = lido.dados
   await db.update(adesoesMova)
-    .set({ ...lido.dados, status, atualizadoPor: u.id, atualizadoEm: new Date() })
+    .set({ ...dados, ...sede, status, atualizadoPor: u.id, atualizadoEm: new Date() })
     .where(eq(adesoesMova.id, id))
   revalidatePath('/admin/adesoes')
   return { ok: true, status }

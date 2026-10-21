@@ -21,6 +21,8 @@ import {
   type AdesaoLinha, type GrupoOpcao,
 } from '../actions'
 import { AtivarCliente } from './ativar-cliente'
+import { EnderecoSedeCampos } from './endereco-sede-campos'
+import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
@@ -147,8 +149,12 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
+const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
+
 function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
+  const [sede, setSede] = useState(() => sedeInicial(a))
+
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
   const [recusando, setRecusando] = useState(false)
@@ -156,15 +162,17 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
   const [pendente, iniciar] = useTransition()
   // Recusada ou processada não se edita mais por esta tela.
   const travada = a.status === 'recusada' || a.status === 'processada'
-  const faltam = camposFaltando(valores)
+  // Mesma regra do servidor: campos incompletos não tiram a linha que já vale.
+  const faltam = camposFaltando({ ...valores, enderecoSede: montarEnderecoSede(limparEnderecoSede(sede)) ?? valores.enderecoSede })
   const situacao = situacaoContrato(a.contrato, new Date())
   // O contrato sai do que está gravado: com edição não salva, o lojista
   // receberia valores diferentes dos que estão na tela.
   const alterado = JSON.stringify(valores) !== JSON.stringify(valoresIniciais(a)) || franqueado !== a.franqueadoMotochefe
+    || JSON.stringify(sede) !== JSON.stringify(sedeInicial(a))
 
   function salvar() {
     iniciar(async () => {
-      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado })
+      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado, sede })
       if (!r.ok) {
         setErros(r.erros ?? {})
         toast.error(r.erro ?? 'Corrija os campos marcados')
@@ -264,7 +272,17 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
           Franqueado MotoChefe (desconto na implantação e na mensalidade)
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {CAMPOS_CONTRATO.map(c => (
+          {CAMPOS_CONTRATO.map(c => c.chave === 'enderecoSede' ? (
+            <EnderecoSedeCampos
+              key={c.chave}
+              id={a.id}
+              valor={sede}
+              onChange={patch => setSede(prev => ({ ...prev, ...patch }))}
+              disabled={travada || pendente}
+              erro={erros.enderecoSede}
+              linhaAtual={a.enderecoSede}
+            />
+          ) : (
             <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
               <Label htmlFor={`${a.id}-${c.chave}`}>{c.rotulo}</Label>
               <Input
