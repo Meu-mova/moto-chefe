@@ -207,6 +207,15 @@ export const modelos = pgTable('modelos', {
   imagemUrl: text('imagem_url'),
 })
 
+// ─── conta_marcas ────────────────────────────────────────────────────────────
+// Marcas que a Conta enxerga nas listas de escolha (#287). Sem linha = todas.
+export const contaMarcas = pgTable('conta_marcas', {
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  marca: text('marca').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contaId, t.marca] }),
+}))
+
 // ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────
 export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id),

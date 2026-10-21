@@ -2,19 +2,20 @@ import { AdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { contas, contaMarcas, modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
+import { asc, eq } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BlingCodigoCell } from './components/bling-codigo-cell'
 import { ModeloFormButton } from './components/modelo-form-button'
 import { ApelidosCell } from './components/apelidos-cell'
+import { MarcasDaConta } from './components/marcas-da-conta'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 
-  const [todos, codigos, apelidos] = await Promise.all([
+  const [todos, codigos, apelidos, listaContas, escolhas] = await Promise.all([
     db.select().from(modelos).orderBy(modelos.marca),
     db.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
       .from(modeloBlingCodigos)
@@ -24,7 +25,13 @@ export default async function ModelosPage() {
     db.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
       .from(modeloApelidos)
       .orderBy(modeloApelidos.apelido),
+    db.select({ id: contas.id, nome: contas.nome }).from(contas).orderBy(asc(contas.nome)),
+    db.select().from(contaMarcas),
   ])
+  const marcas = [...new Set(todos.map(m => m.marca))].sort()
+  const contasComMarcas = listaContas.map(c => ({
+    ...c, marcas: escolhas.filter(e => e.contaId === c.id).map(e => e.marca),
+  }))
   const codigoPorModelo = new Map(codigos.map(c => [c.modeloId, c.codigo]))
   const apelidosPorModelo = new Map<string, string[]>()
   for (const a of apelidos) {
@@ -84,6 +91,7 @@ export default async function ModelosPage() {
             </TableBody>
           </Table>
         </div>
+        <MarcasDaConta contas={contasComMarcas} marcas={marcas} />
       </div>
     </AdminGuard>
   )

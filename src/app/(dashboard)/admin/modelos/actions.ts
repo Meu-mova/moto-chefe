@@ -6,6 +6,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
+import { salvarMarcasDaConta } from '@/lib/modelos-da-conta'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -103,5 +104,12 @@ export async function salvarApelidosAction(modeloId: string, texto: string) {
     }
   })
 
+  revalidatePath('/admin/modelos')
+}
+
+// Marcas que a Conta enxerga nas listas de escolha (#287). Nenhuma marcada = todas.
+export async function salvarMarcasDaContaAction(contaId: string, marcas: string[]) {
+  await assertAdmin()
+  await salvarMarcasDaConta(contaId, marcas)
   revalidatePath('/admin/modelos')
 }
