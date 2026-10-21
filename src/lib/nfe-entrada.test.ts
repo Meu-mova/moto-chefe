@@ -148,6 +148,16 @@ test('variante com parêntese não fechado não entra no modelo (NF 40743)', () 
   })
 })
 
+// NF de 21/10: variante antes da potência e cor com a segunda cor entre parênteses.
+const NF_X11_COR_PARENTESES = 'X11-12 (RC) 3000W HL5TCAH32T9W54171 12ZW6073316YA26194171 CINZA(BRANCO);X11-12 (RP) 3000W HL5TCAH30T9W54069 12ZW6073316YA26194069 PRETO(AMARELO)'
+
+test('cor com parênteses não descarta a moto (NF de 21/10)', () => {
+  assert.deepEqual(parseMotosInfCpl(NF_X11_COR_PARENTESES), [
+    { modelo: 'X11-12', chassi: 'HL5TCAH32T9W54171', motor: '12ZW6073316YA26194171', cor: 'CINZA(BRANCO)' },
+    { modelo: 'X11-12', chassi: 'HL5TCAH30T9W54069', motor: '12ZW6073316YA26194069', cor: 'PRETO(AMARELO)' },
+  ])
+})
+
 test('linha de ICMS continua sendo descartada', () => {
   assert.deepEqual(parseMotosInfCpl('Valor de ICMS credito presumido: R$ 646,44'), [])
 })
