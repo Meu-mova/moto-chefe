@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { lojas, grupos } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DesativarLojaButton } from './components/desativar-loja-button'
@@ -27,7 +27,8 @@ export default async function LojasPage() {
     .select({
       id: lojas.id, nome: lojas.nome, cidade: lojas.cidade, endereco: lojas.endereco,
       ativa: lojas.ativa, grupoNome: grupos.nome, cep: lojas.cep,
-      fabricaEmail: lojas.fabricaEmail, fabricaSenha: lojas.fabricaSenha,
+      // A senha do portal nunca vai para o navegador; a tela só sabe se há uma.
+      fabricaEmail: lojas.fabricaEmail, temFabricaSenha: sql<boolean>`${lojas.fabricaSenha} is not null`,
     })
     .from(lojas)
     .innerJoin(grupos, eq(lojas.grupoId, grupos.id))
@@ -73,7 +74,7 @@ export default async function LojasPage() {
                   {isSuperAdmin && (
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <EditarLojaDialog loja={{ id: loja.id, nome: loja.nome, cidade: loja.cidade, endereco: loja.endereco, cep: loja.cep, fabricaEmail: loja.fabricaEmail, fabricaSenha: loja.fabricaSenha }} />
+                        <EditarLojaDialog loja={{ id: loja.id, nome: loja.nome, cidade: loja.cidade, endereco: loja.endereco, cep: loja.cep, fabricaEmail: loja.fabricaEmail, temFabricaSenha: loja.temFabricaSenha }} />
                         {loja.ativa && <DesativarLojaButton lojaId={loja.id} />}
                       </div>
                     </TableCell>
