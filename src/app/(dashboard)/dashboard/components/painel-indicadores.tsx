@@ -43,8 +43,11 @@ function Destaque({ m, serieDia }: { m: Manchete; serieDia?: SerieDia }) {
   )
 }
 
-/** serieDia: vendas por dia do período, na mesma base de valor (bruta ou líquida) do faturamento. */
-export function PainelIndicadores({ entrada, serieDia }: { entrada: EntradaPainel; serieDia?: SerieDia }) {
+/**
+ * serieDia: vendas por dia do período, na mesma base de valor (bruta ou líquida) do faturamento.
+ * abaixoDaManchete: o que entra entre a manchete e os indicadores (contas a pagar, #311).
+ */
+export function PainelIndicadores({ entrada, serieDia, abaixoDaManchete }: { entrada: EntradaPainel; serieDia?: SerieDia; abaixoDaManchete?: React.ReactNode }) {
   const { manchete, indicadores } = montarPainel(entrada)
 
   return (
@@ -52,6 +55,8 @@ export function PainelIndicadores({ entrada, serieDia }: { entrada: EntradaPaine
       <div className="grid overflow-hidden rounded-md border border-t-[3px] border-border border-t-primary bg-card sm:grid-cols-3">
         {manchete.map(m => <Destaque key={m.rotulo} m={m} serieDia={serieDia} />)}
       </div>
+
+      {abaixoDaManchete}
 
       <dl className="grid border-t-2 border-foreground sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-3">
         {indicadores.map(i => (

@@ -42,7 +42,7 @@ import { SectionErrorBoundary } from './section-error-boundary'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
 import { listarContasDoMesAction } from '../contas-pagar/actions'
-import { ContasPagarCard } from './components/contas-pagar-card'
+import { ContasPagarCard, ContasPagarEsqueleto } from './components/contas-pagar-card'
 
 // O botão "Atualizar" do card da fábrica roda por Server Action nesta rota, e
 // ele faz login + scraping no portal, uma conta por loja. Não cabe no default.
@@ -73,8 +73,8 @@ const vendasPorDia = cache((filtros: Filtros, liquido: boolean) =>
 // ── Seções async ──────────────────────────────────────────────────────────────
 
 async function KpiSection({
-  filtros, filtrosAnt, usuario,
-}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
+  filtros, filtrosAnt, usuario, abaixoDaManchete,
+}: { filtros: Filtros; filtrosAnt: Filtros; abaixoDaManchete?: React.ReactNode; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
   const isAuxAdm = papel === 'aux_adm'
@@ -109,6 +109,7 @@ async function KpiSection({
         <PainelIndicadores
           entrada={{ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos }}
           serieDia={serieDia}
+          abaixoDaManchete={abaixoDaManchete}
         />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
@@ -373,11 +374,10 @@ async function AtendimentoSection({
 
 // Contas a pagar do mês. Materializa as ocorrências antes de ler (mesma função da
 // tela do módulo), então uma conta recorrente aparece aqui sem ninguém precisar
-// abrir /contas-pagar naquele mês. Fica no próprio Suspense porque a base
-// automática da folha roda o cálculo inteiro dela.
-async function ContasPagarSection() {
-  const hoje = hojeBrt()
-  const { doMes, atrasadas } = await listarContasDoMesAction(hoje.slice(0, 7))
+// abrir /contas-pagar naquele mês. Recebe a consulta já disparada pela página: ela
+// roda a base automática da folha inteira e não pode esperar os indicadores terminarem.
+async function ContasPagarSection({ contas, hoje }: { contas: ReturnType<typeof listarContasDoMesAction>; hoje: string }) {
+  const { doMes, atrasadas } = await contas
   return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} hoje={hoje} />
 }
 
@@ -420,6 +420,10 @@ export default async function DashboardPage({
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
+  const hoje = hojeBrt()
+  const contasDoMes = isAdmin ? listarContasDoMesAction(hoje.slice(0, 7)) : null
+  // Se os indicadores falharem antes de a seção montar, ninguém espera esta promessa.
+  contasDoMes?.catch(() => {})
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
 
@@ -484,17 +488,21 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
         <Suspense fallback={<KpiSkeleton />}>
-          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
+          <KpiSection
+            filtros={filtros}
+            filtrosAnt={filtrosAnt}
+            usuario={usuario}
+            // Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir.
+            abaixoDaManchete={contasDoMes && (
+              <SectionErrorBoundary label="as contas a pagar">
+                <Suspense fallback={<ContasPagarEsqueleto />}>
+                  <ContasPagarSection contas={contasDoMes} hoje={hoje} />
+                </Suspense>
+              </SectionErrorBoundary>
+            )}
+          />
         </Suspense>
       </SectionErrorBoundary>
-      {/* Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir. */}
-      {isAdmin && (
-        <SectionErrorBoundary label="as contas a pagar">
-          <Suspense fallback={null}>
-            <ContasPagarSection />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
       {/* Requer atenção (#281): pendências à esquerda, fábrica à direita; cada bloco carrega sozinho. */}
       {(isVendedor || isAdmin || isAuxAdm) && (
         <Secao titulo="Requer atenção" escondeVazia>

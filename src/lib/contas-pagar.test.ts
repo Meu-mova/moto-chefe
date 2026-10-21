@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   mesAnterior, ultimoDiaDoMes, vencimentoNoMes, contaVigenteNoMes,
   situacaoOcorrencia, valorAutomatico, isTipoConta, isBaseFormula,
-  isMesReferencia, mesApurado,
+  isMesReferencia, mesApurado, totaisDoMes,
 } from './contas-pagar'
 
 // ── competência ──────────────────────────────────────────────────────────────
@@ -131,4 +131,23 @@ test('valida o mês de referência contra a lista fechada', () => {
   assert.equal(isMesReferencia('anterior'), true)
   assert.equal(isMesReferencia('corrente'), true)
   assert.equal(isMesReferencia('proximo'), false)
+})
+
+// ── totais do dashboard (#311) ───────────────────────────────────────────────
+
+const ocorrencia = (vencimento: string, valor: string, pago = false) => ({ vencimento, valor, pago })
+
+test('totais: conta do mês vencida e não paga entra em Atrasado, além de Em aberto', () => {
+  const t = totaisDoMes([ocorrencia('2026-10-10', '100'), ocorrencia('2026-10-25', '50')], [], '2026-10-21')
+  assert.deepEqual(t, { total: 150, emAberto: 150, atrasado: 100, qtdAtrasadas: 1 })
+})
+
+test('totais: conta de mês anterior não paga soma em Atrasado, não no Total do mês', () => {
+  const t = totaisDoMes([ocorrencia('2026-10-25', '50')], [ocorrencia('2026-09-10', '30')], '2026-10-21')
+  assert.deepEqual(t, { total: 50, emAberto: 50, atrasado: 30, qtdAtrasadas: 1 })
+})
+
+test('totais: conta paga fica só no Total; vencendo hoje ainda não é atraso', () => {
+  const t = totaisDoMes([ocorrencia('2026-10-05', '80', true), ocorrencia('2026-10-21', '20')], [], '2026-10-21')
+  assert.deepEqual(t, { total: 100, emAberto: 20, atrasado: 0, qtdAtrasadas: 0 })
 })
