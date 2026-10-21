@@ -16,7 +16,10 @@ async function main() {
   console.log(`Primeiros nomes únicos: ${nomesUnicos.length}`)
   const sexoMap = await classificarSexo(nomesUnicos)
   console.log('Classificação de sexo concluída.')
-  const registros = transformarRegistros(rows, sexoMap)
+  // Cliente é por Conta (ADR-0018): informe a dona da base importada.
+  const contaId = process.env.CONTA_ID
+  if (!contaId) throw new Error('Informe CONTA_ID (a Conta dona dos clientes importados)')
+  const registros = transformarRegistros(rows, sexoMap).map(r => ({ ...r, contaId }))
   const BATCH_INSERT = 100
   let total = 0
   for (let i = 0; i < registros.length; i += BATCH_INSERT) {
@@ -24,7 +27,7 @@ async function main() {
     const comCpf = lote.filter(r => r.cpfCnpj)
     const semCpf = lote.filter(r => !r.cpfCnpj)
     if (comCpf.length > 0) {
-      await db.insert(clientes).values(comCpf).onConflictDoNothing({ target: clientes.cpfCnpj })
+      await db.insert(clientes).values(comCpf).onConflictDoNothing({ target: [clientes.contaId, clientes.cpfCnpj] })
     }
     if (semCpf.length > 0) {
       await db.insert(clientes).values(semCpf)

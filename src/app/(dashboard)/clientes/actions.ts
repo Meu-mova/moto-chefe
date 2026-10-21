@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
 import { eq, ilike, or, and, desc, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
 export type ClienteInput = {
@@ -115,6 +116,11 @@ export async function listarCidadesAction() {
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
 
+// Cliente é da Conta do grupo que o usuário está operando (ADR-0018).
+async function contaDoGrupoAtivo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<string> {
+  return (await getGrupoAtivo(usuario)).contaId
+}
+
 export async function criarClienteAction(dados: ClienteInput): Promise<string> {
   const usuario = await getUsuarioLogado()
   if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
@@ -125,6 +131,7 @@ export async function criarClienteAction(dados: ClienteInput): Promise<string> {
     const [novo] = await db.insert(clientes).values({
       ...dados,
       cpfCnpj,
+      contaId: await contaDoGrupoAtivo(usuario),
     }).returning({ id: clientes.id })
     revalidatePath('/clientes')
     return novo.id
@@ -146,7 +153,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
       ...dados,
       ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
       atualizadoEm: new Date(),
-    }).where(eq(clientes.id, id))
+    }).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     revalidatePath('/clientes')
     revalidatePath(`/clientes/${id}`)
   } catch (e: unknown) {

@@ -49,3 +49,18 @@ test('grupo e lojas de uma Conta: nada de outra Conta entra', async () => {
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('o mesmo CPF pode existir em duas Contas, mas não duas vezes na mesma', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const conta = await linha(sql`insert into contas (nome) values ('Conta do dono') returning id`)
+    const outra = await linha(sql`insert into contas (nome) values ('Outro cliente') returning id`)
+    await tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Comprador', '52998224725', ${conta.id})`)
+    await tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Comprador', '52998224725', ${outra.id})`)
+    await assert.rejects(
+      tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('De novo', '52998224725', ${conta.id})`),
+      (e: { cause?: { constraint?: string } }) => e.cause?.constraint === 'clientes_conta_cpf_cnpj_key',
+    )
+    throw new Desfazer()
+  }), Desfazer)
+})

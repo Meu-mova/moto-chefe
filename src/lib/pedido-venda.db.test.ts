@@ -62,7 +62,7 @@ async function semear(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], o
   const modelo = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', 'X', 'autopropelido', '1000', 'hub', '32') returning id`)
   const moto = await linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade) values ('TESTE181', ${modelo.id}, ${loja.id}, 'CINZA', '1', 'montada', ${opts.comReserva ? 'reservada' : 'disponivel'}) returning id`)
   const origem = await linha(sql`insert into origens_venda (grupo_id, nome) values (${grupo.id}, 'Passou na porta') returning id`)
-  const cliente = await linha(sql`insert into clientes (nome, cpf_cnpj) values ('Cliente Teste', '52998224725') returning id`)
+  const cliente = await linha(sql`insert into clientes (nome, cpf_cnpj, conta_id) select 'Cliente Teste', '52998224725', conta_id from grupos where id = ${grupo.id} returning id`)
   const pedido = await linha(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${loja.id}, ${vendedor.id}) returning id`)
   const reserva = opts.comReserva
     ? await linha(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao) values (${moto.id}, ${loja.id}, ${vendedor.id}, 500, 'pix', current_date) returning id`)
