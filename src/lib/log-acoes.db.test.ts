@@ -80,3 +80,13 @@ test('limpeza apaga só o que passou de 12 meses', async () => {
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('excluir o usuário não falha por causa do log, e o log fica', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await registrarAcao({ tipo: 'login', usuarioId: c.usuario, contaId: c.conta, grupoId: null, ip: null, userAgent: null }, tx)
+    await tx.execute(sql`delete from usuarios where id = ${c.usuario}`)
+    assert.equal((await linhasDoUsuario(tx, c.usuario)).length, 1)
+    throw new Desfazer()
+  }), Desfazer)
+})
