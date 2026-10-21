@@ -97,6 +97,7 @@ dos grupos do Cesar. O cadastro de `modelos` **continua da Plataforma** e único
 NF e ficha fiscal. O que passa a ser da Conta é **a visibilidade das marcas** (`conta_marcas`,
 migração `0138`), escolhida pelo `admin_geral` em `/admin/modelos`.
 
+- Conta criada em `/admin/grupos` nasce vendo só MotoChefe; o `admin_geral` amplia depois.
 - Conta sem nenhuma marca escolhida vê todas. A Conta do Cesar ficou assim, sem backfill.
 - O filtro vale só nas **listas de escolha** (entrada, venda, demandas, transferências, garantias,
   filtros do estoque). Moto já gravada com modelo de marca escondida continua aparecendo em

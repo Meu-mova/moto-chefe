@@ -8,6 +8,10 @@ type Executor = Pick<typeof db, 'select'>
 // listas de escolha: moto já gravada com modelo de marca escondida continua aparecendo.
 // Sem next/headers, para ser testado contra o banco.
 
+// Conta nova nasce vendo só a marca da fábrica (decisão do Luis, 21/10). A grafia
+// tem de bater com `modelos.marca`.
+export const MARCAS_DA_CONTA_NOVA = ['MotoChefe']
+
 export async function listarModelosDaConta(contaId: string, exec: Executor = db) {
   const marcasDaConta = exec.select({ marca: contaMarcas.marca }).from(contaMarcas)
     .where(eq(contaMarcas.contaId, contaId))

@@ -13,7 +13,7 @@ export function MarcasDaConta({ contas, marcas }: { contas: Conta[]; marcas: str
         <h2 className="text-lg font-semibold">Marcas por Conta</h2>
         <p className="text-sm text-muted-foreground">
           Marcas que cada Conta vê ao escolher modelo (entrada, venda, demandas, estoque). Nenhuma
-          marcada = vê todas. Moto já cadastrada continua aparecendo.
+          marcada = vê todas; Conta nova nasce só com MotoChefe. Moto já cadastrada continua aparecendo.
         </p>
       </div>
       <div className="divide-y">
