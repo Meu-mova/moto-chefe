@@ -19,7 +19,7 @@ import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
 import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
-import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
+import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -278,6 +278,14 @@ export async function aplicarPortalAction(adesaoId: string, dados: { lojaId: str
   const u = await assertAdmin()
   if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
   const r = await aplicarPortalDaAdesao({ adesaoId, ...dados, usuarioId: u.id })
+  if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/lojas') }
+  return r
+}
+
+export async function criarLojaAtivacaoAction(adesaoId: string, dados: { nome: string; cidade: string; endereco: string; cep: string }) {
+  await assertAdmin()
+  if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
+  const r = await criarLojaDaAdesao({ adesaoId, ...dados })
   if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/lojas') }
   return r
 }

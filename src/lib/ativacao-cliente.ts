@@ -7,6 +7,8 @@ import { loginFabrica } from '@/lib/fabrica-scraper'
 import { lerDadosDoPfx, salvarCertificado } from '@/lib/sefaz/certificado'
 import { ufDoEndereco, ufValida } from '@/lib/sefaz/uf'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
+import { geoDaLoja } from '@/lib/frete'
+import { lojaSugerida } from '@/lib/adesao-endereco'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
 // portal da fábrica da adesão para o grupo e a loja, sem passar pelo navegador.
@@ -108,6 +110,27 @@ export async function aplicarPortalDaAdesao(
   return { ok: true }
 }
 
+/** Cria a loja do grupo da adesão; CEP informado é geocodificado para o frete, como em /admin/lojas. */
+export async function criarLojaDaAdesao(
+  p: { adesaoId: string; nome: string; cidade: string; endereco: string; cep: string },
+  exec: Executor = db,
+  geocodificar: typeof geoDaLoja = geoDaLoja,
+): Promise<Resultado<{ lojaId: string; geocodificado: boolean }>> {
+  const nome = p.nome.trim(), cidade = p.cidade.trim(), endereco = p.endereco.trim(), cep = p.cep.trim()
+  if (!nome || !cidade || !endereco) return { ok: false, erro: 'Preencha nome, cidade e endereço da loja' }
+  const a = await adesaoComGrupo(p.adesaoId, exec)
+  if (!a) return { ok: false, erro: 'Adesão não encontrada' }
+  if (!('grupo' in a) || !a.grupo) return { ok: false, erro: 'Vincule a adesão a um grupo antes' }
+  // O passo cria "a" loja do grupo: segunda loja (outra aba, reenvio) é em /admin/lojas.
+  const [existente] = await exec.select({ nome: lojas.nome }).from(lojas).where(eq(lojas.grupoId, a.grupo.id)).limit(1)
+  if (existente) return { ok: false, erro: `O grupo já tem a loja ${existente.nome}. Outras lojas: /admin/lojas.` }
+
+  const geo = await geocodificar(cep)
+  const [loja] = await exec.insert(lojas).values({ nome, cidade, endereco, grupoId: a.grupo.id, ...geo }).returning({ id: lojas.id })
+  // Sem coordenadas (sem CEP ou não localizado) o frete não calcula: a tela avisa.
+  return { ok: true, lojaId: loja.id, geocodificado: geo.latitude !== null }
+}
+
 /**
  * O que a tela "Ativar cliente" precisa, sem segredo nenhum: vai para o navegador.
  * O resumo diz o que ainda falta para o cliente operar.
@@ -115,6 +138,7 @@ export async function aplicarPortalDaAdesao(
 export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
   const [a] = await exec.select({
     grupoId: adesoesMova.grupoId, enderecoSede: adesoesMova.enderecoSede, storeLogin: adesoesMova.storeLogin,
+    nomeLoja: adesoesMova.loja,
     temCertificado: sql<boolean>`${adesoesMova.certArquivo} is not null`,
     temSenhaPortal: sql<boolean>`${adesoesMova.storeSenha} is not null`,
     certificadoAplicadoEm: adesoesMova.certificadoAplicadoEm, portalAplicadoEm: adesoesMova.portalAplicadoEm,
@@ -134,6 +158,7 @@ export async function dadosDaAtivacao(adesaoId: string, exec: Executor = db) {
 
   return {
     ufSugerida: ufDoEndereco(a.enderecoSede),
+    lojaSugerida: lojaSugerida(a.nomeLoja, a.enderecoSede),
     storeLogin: a.storeLogin,
     temCertificadoNaAdesao: a.temCertificado,
     temSenhaPortalNaAdesao: a.temSenhaPortal,

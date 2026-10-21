@@ -4,7 +4,7 @@ import { lojas, motos, usuarios } from '@/lib/db/schema'
 import { eq, and, ne, count } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { geocodificarCep } from '@/lib/frete'
+import { geoDaLoja } from '@/lib/frete'
 import { cifrarSenhaFabrica } from '@/lib/fabrica-senha'
 
 async function assertAdmin() {
@@ -14,16 +14,8 @@ async function assertAdmin() {
 }
 
 async function geocodificarSeInformado(cep: string | null) {
-  if (!cep || !cep.trim()) return { geo: { cep: null, latitude: null, longitude: null }, geocodificado: true }
-  const resultado = await geocodificarCep(cep)
-  return {
-    geo: {
-      cep: cep.trim(),
-      latitude: resultado ? String(resultado.coordenada.latitude) : null,
-      longitude: resultado ? String(resultado.coordenada.longitude) : null,
-    },
-    geocodificado: resultado !== null,
-  }
+  const geo = await geoDaLoja(cep)
+  return { geo, geocodificado: !geo.cep || geo.latitude !== null }
 }
 
 export async function criarLojaAction(formData: FormData): Promise<{ geocodificado: boolean }> {
