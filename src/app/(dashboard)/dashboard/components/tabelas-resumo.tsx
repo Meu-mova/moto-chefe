@@ -59,6 +59,7 @@ const osStatusLabel: Record<string, string> = {
 }
 
 const chassi = (c: string) => <span className="font-mono text-xs text-muted-foreground">{c}</span>
+const chassiDetalhe = (c: string) => <span className="font-mono">{c}</span>
 
 export function TabelaUltimasVendas({ vendas }: { vendas: Venda[] }) {
   const colunas: Coluna<Venda>[] = [
@@ -71,8 +72,8 @@ export function TabelaUltimasVendas({ vendas }: { vendas: Venda[] }) {
   ]
   return (
     <Secao titulo="Últimas vendas">
-      <TabelaPainel linhas={vendas} colunas={colunas} chave={v => v.id} vazio="Nenhuma venda no período"
-        detalhe={v => <>{v.vendedor} · {v.loja} · <span className="font-mono">{v.chassi}</span></>} />
+      <TabelaPainel rotulo="Últimas vendas" linhas={vendas} colunas={colunas} chave={v => v.id} vazio="Nenhuma venda no período"
+        detalhe={v => <>{v.vendedor} · {v.loja} · {chassiDetalhe(v.chassi)}</>} />
     </Secao>
   )
 }
@@ -87,8 +88,8 @@ export function TabelaTransferenciasPendentes({ transferencias }: { transferenci
   ]
   return (
     <Secao titulo="Transferências pendentes">
-      <TabelaPainel linhas={transferencias} colunas={colunas} chave={t => t.id} vazio="Nenhuma pendente"
-        detalhe={t => <span className="font-mono">{t.chassi}</span>} />
+      <TabelaPainel rotulo="Transferências pendentes" linhas={transferencias} colunas={colunas} chave={t => t.id} vazio="Nenhuma pendente"
+        detalhe={t => chassiDetalhe(t.chassi)} />
     </Secao>
   )
 }
@@ -103,8 +104,8 @@ export function TabelaGarantiasVencendo({ garantias }: { garantias: Garantia[] }
   ]
   return (
     <Secao titulo="Garantias próximas do vencimento">
-      <TabelaPainel linhas={garantias} colunas={colunas} chave={g => g.id} vazio="Nenhuma garantia ativa"
-        detalhe={g => <><span className="font-mono">{g.chassi}</span>{g.descricao && <> · {g.descricao}</>}</>} />
+      <TabelaPainel rotulo="Garantias próximas do vencimento" linhas={garantias} colunas={colunas} chave={g => g.id} vazio="Nenhuma garantia ativa"
+        detalhe={g => <>{chassiDetalhe(g.chassi)}{g.descricao && <> · {g.descricao}</>}</>} />
     </Secao>
   )
 }
@@ -120,7 +121,7 @@ export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[
   const totalUnidades = modelos.reduce((s, m) => s + m.totalVendas, 0)
   const pct = (m: ModeloVendido) => totalUnidades > 0 ? Math.round((m.totalVendas / totalUnidades) * 100) : 0
   const colunas: Coluna<ModeloVendido & { posicao: number }>[] = [
-    { titulo: '#', valor: m => <span className="text-muted-foreground">{m.posicao}</span>, classe: 'w-8' },
+    { titulo: '#', valor: m => <span className="text-muted-foreground">{m.posicao}</span>, classe: 'w-8', dica: 'Posição' },
     { titulo: 'Modelo', valor: m => <span className="font-medium text-foreground">{m.modelo}</span>, principal: true },
     { titulo: 'Vendas', valor: m => m.totalVendas, direita: true },
     {
@@ -136,7 +137,7 @@ export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[
   ]
   return (
     <Secao titulo="Modelos mais vendidos">
-      <TabelaPainel linhas={modelos.map((m, i) => ({ ...m, posicao: i + 1 }))} colunas={colunas} chave={m => m.modelo}
+      <TabelaPainel rotulo="Modelos mais vendidos" linhas={modelos.map((m, i) => ({ ...m, posicao: i + 1 }))} colunas={colunas} chave={m => m.modelo}
         vazio="Nenhuma venda no período" detalhe={m => `${pct(m)}% das unidades`} />
     </Secao>
   )
@@ -171,7 +172,7 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
     ? [...descontos.porVendedor.values()].some(d => d.estimados > 0)
     : false
   const colunas: Coluna<LinhaRanking>[] = [
-    { titulo: '#', valor: r => <span className="text-muted-foreground">{r.posicao}</span>, classe: 'w-8' },
+    { titulo: '#', valor: r => <span className="text-muted-foreground">{r.posicao}</span>, classe: 'w-8', dica: 'Posição' },
     { titulo: 'Vendedor', valor: r => <span className="text-foreground">{r.nome}{r.vendedorId === vendedorAtualId ? ' (você)' : ''}</span>, principal: true },
     { titulo: 'Loja', valor: r => <span className="text-muted-foreground">{r.loja}</span>, secundaria: true },
     { titulo: 'Vendas', valor: r => r.totalVendas, direita: true },
@@ -179,8 +180,16 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
   ]
   if (descontos) {
     colunas.push(
-      { titulo: 'Desc. margem', direita: true, secundaria: true, valor: r => <DescontoMargem d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} /> },
-      { titulo: 'Desc. preço', direita: true, secundaria: true, valor: r => <DescontoPreco d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} /> },
+      {
+        titulo: 'Desc. margem', direita: true, secundaria: true,
+        dica: 'Quanto faltou para o preço mínimo depois das taxas de cartão. O % é sobre o faturamento do vendedor no período.',
+        valor: r => <DescontoMargem d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} />,
+      },
+      {
+        titulo: 'Desc. preço', direita: true, secundaria: true,
+        dica: 'Quanto foi cedido na negociação, sobre o valor cheio da venda. O % é sobre o faturamento do vendedor no período.',
+        valor: r => <DescontoPreco d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} />,
+      },
     )
   }
   return (
@@ -190,12 +199,14 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
           Desconto só é registrado a partir de 10/07/2026 — antes disso o pedido de aprovação não existia no sistema.
         </p>
       )}
-      <TabelaPainel
+      <TabelaPainel rotulo="Ranking de vendedores"
         linhas={ranking.map((r, i) => ({ ...r, posicao: i + 1 }))} colunas={colunas} chave={r => r.vendedorId}
         vazio="Nenhuma venda no período" destaque={r => r.vendedorId === vendedorAtualId}
         detalhe={r => {
           const d = descontos?.porVendedor.get(r.vendedorId)
-          return <>{r.loja}{d && d.qtd > 0 && <> · desconto {formatCurrency(d.margem)}{d.estimados > 0 ? '*' : ''} na margem{d.preco > 0 && <>, {formatCurrency(d.preco)} no preço</>}</>}</>
+          const fat = Number(r.faturamento ?? 0)
+          const partes = [r.loja, d && d.qtd > 0 ? `desconto na margem ${textoMargem(d, fat)}` : null, d && d.preco > 0 ? `no preço ${textoPreco(d, fat)}` : null]
+          return partes.filter(Boolean).join(' · ')
         }}
       />
       {temEstimativa && (
@@ -213,26 +224,36 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
 // é a taxa que compara quem vendeu 3 motos com quem vendeu 30.
 type Desconto = { qtd: number; margem: number; preco: number; estimados: number }
 
+// Uma fonte de texto para a coluna (desktop) e a linha de detalhe (celular): as duas não divergem.
+const notaMargem = (d: Desconto, faturamento: number) => {
+  const pct = percentualDesconto(d.margem, faturamento)
+  return `${d.qtd} ${d.qtd === 1 ? 'venda' : 'vendas'}${pct > 0 ? ` · ${pct}%` : ''}`
+}
+const notaPreco = (d: Desconto, faturamento: number) => {
+  const pct = percentualDesconto(d.preco, faturamento)
+  return pct > 0 ? `${pct}%` : ''
+}
+const valorMargem = (d: Desconto) => `${formatCurrency(d.margem)}${d.estimados > 0 ? '*' : ''}`
+const textoMargem = (d: Desconto, f: number) => `${valorMargem(d)} (${notaMargem(d, f)})`
+const textoPreco = (d: Desconto, f: number) => `${formatCurrency(d.preco)}${notaPreco(d, f) ? ` (${notaPreco(d, f)})` : ''}`
+
 function DescontoMargem({ d, faturamento }: { d?: Desconto; faturamento: number }) {
   if (!d || d.qtd === 0) return <span className="text-muted-foreground">—</span>
-  const pctMargem = percentualDesconto(d.margem, faturamento)
   return (
     <span className="text-destructive">
-      {formatCurrency(d.margem)}{d.estimados > 0 ? '*' : ''}
-      <span className="block text-xs text-muted-foreground">
-        {d.qtd} {d.qtd === 1 ? 'venda' : 'vendas'}{pctMargem > 0 ? ` · ${pctMargem}%` : ''}
-      </span>
+      {valorMargem(d)}
+      <span className="block text-xs text-muted-foreground">{notaMargem(d, faturamento)}</span>
     </span>
   )
 }
 
 function DescontoPreco({ d, faturamento }: { d?: Desconto; faturamento: number }) {
   if (!d || d.qtd === 0 || d.preco <= 0) return <span className="text-muted-foreground">—</span>
-  const pctPreco = percentualDesconto(d.preco, faturamento)
+  const nota = notaPreco(d, faturamento)
   return (
     <span className="text-destructive">
       {formatCurrency(d.preco)}
-      {pctPreco > 0 && <span className="block text-xs text-muted-foreground">{pctPreco}%</span>}
+      {nota && <span className="block text-xs text-muted-foreground">{nota}</span>}
     </span>
   )
 }
@@ -246,14 +267,14 @@ type RankingLoja = {
 
 export function TabelaRankingLojas({ ranking, lojaAtualId }: { ranking: RankingLoja[]; lojaAtualId?: string | null }) {
   const colunas: Coluna<RankingLoja & { posicao: number }>[] = [
-    { titulo: '#', valor: r => <span className="text-muted-foreground">{r.posicao}</span>, classe: 'w-8' },
+    { titulo: '#', valor: r => <span className="text-muted-foreground">{r.posicao}</span>, classe: 'w-8', dica: 'Posição' },
     { titulo: 'Loja', valor: r => <span className="text-foreground">{r.loja}{r.lojaId === lojaAtualId ? ' (sua loja)' : ''}</span>, principal: true },
     { titulo: 'Vendas', valor: r => r.totalVendas, direita: true },
     { titulo: 'Total de vendas', valor: r => formatCurrency(r.faturamento ?? 0), direita: true },
   ]
   return (
     <Secao titulo="Ranking de lojas">
-      <TabelaPainel linhas={ranking.map((r, i) => ({ ...r, posicao: i + 1 }))} colunas={colunas} chave={r => r.lojaId}
+      <TabelaPainel rotulo="Ranking de lojas" linhas={ranking.map((r, i) => ({ ...r, posicao: i + 1 }))} colunas={colunas} chave={r => r.lojaId}
         vazio="Nenhuma venda no período" destaque={r => r.lojaId === lojaAtualId} />
     </Secao>
   )
@@ -276,8 +297,8 @@ export function TabelaOsAbertas({ ordens }: { ordens: OS[] }) {
   ]
   return (
     <Secao titulo="Ordens de serviço abertas">
-      <TabelaPainel linhas={ordens} colunas={colunas} chave={o => o.id} vazio="Nenhuma OS aberta"
-        detalhe={o => <span className="font-mono">{o.chassi}</span>} />
+      <TabelaPainel rotulo="Ordens de serviço abertas" linhas={ordens} colunas={colunas} chave={o => o.id} vazio="Nenhuma OS aberta"
+        detalhe={o => chassiDetalhe(o.chassi)} />
     </Secao>
   )
 }
