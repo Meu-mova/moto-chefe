@@ -467,11 +467,6 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       status: 'Enviando', payload, emitidaPor: usuario.id,
     }).returning({ id: notasFiscaisSaida.id })
     notaId = nova.id
-    // Cada tentativa que sai para a Nota Gateway; o resultado fica na própria nota.
-    await registrarAcaoSensivelSemFalhar({
-      tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: e.grupoId,
-      detalhe: { notaId, vendaId: e.venda.id, numeroVenda: e.venda.numero, ambiente: e.cfg.ambiente },
-    })
 
     try {
       await enviarNfe(e.cfg, payload)
@@ -497,6 +492,11 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
     if (n) await aplicarRetorno(notaId, n, e.cfg.ambiente, e.venda.id, motoId)
 
     const nota = await resumoDaNota(notaId)
+    // Só a nota que a Nota Gateway aceitou; recusa da SEFAZ também entra, com o status.
+    await registrarAcaoSensivelSemFalhar({
+      tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: e.grupoId,
+      detalhe: { origem: 'mova', notaId, vendaId: e.venda.id, numeroVenda: e.venda.numero, numeroNf: nota.numero, ambiente: e.cfg.ambiente, status: nota.status },
+    })
     if (ehRecusada(nota.status)) {
       return { ok: false, error: `A SEFAZ não autorizou: ${nota.motivoStatus ?? 'sem motivo informado'}`, nota }
     }
@@ -655,9 +655,10 @@ async function pedirCancelamento(
     cancelamentoEm: sql`now()` as unknown as Date,
     atualizadoEm: sql`now()` as unknown as Date,
   }).where(eq(notasFiscaisSaida.id, r.id))
-  await registrarAcaoSensivelSemFalhar({
+  // Só depois de a Nota Gateway aceitar o pedido (cancelada ou em cancelamento).
+  const registrar = (status: string) => registrarAcaoSensivelSemFalhar({
     tipo: 'nf_cancelada', usuarioId: registro.por, grupoId: r.grupoId,
-    detalhe: { notaId: r.id, vendaId: r.vendaId, numero: r.numero, ambiente: r.ambiente, motivo: registro.motivo, extemporaneo: registro.contador !== null },
+    detalhe: { notaId: r.id, vendaId: r.vendaId, numeroNf: r.numero, ambiente: r.ambiente, motivo: registro.motivo, extemporaneo: registro.contador !== null, status },
   })
 
   const pedido = { statusAntes, em: new Date() }
@@ -668,7 +669,10 @@ async function pedirCancelamento(
     // (a nota que já estava cancelada, por exemplo, volta como Cancelada).
     await reconsultar(carregada).catch(() => null)
     const atual = await resumoDaNota(r.id)
-    if (atual.status === 'Cancelada' || emCancelamento(atual.status)) return { ok: true, nota: atual }
+    if (atual.status === 'Cancelada' || emCancelamento(atual.status)) {
+      await registrar(atual.status)
+      return { ok: true, nota: atual }
+    }
     const msg = err instanceof CancelamentoRecusado
       ? `A Nota Gateway não aceitou o pedido: ${err.message}`
       : `Não deu para confirmar o pedido de cancelamento (${(err as Error).message}) — consulte e, se a nota continuar autorizada, peça de novo`
@@ -681,6 +685,7 @@ async function pedirCancelamento(
   if (atual.status === 'Autorizada') {
     return { ok: false, error: 'A Nota Gateway ainda não registrou o pedido: peça de novo em instantes', nota: atual }
   }
+  await registrar(atual.status)
   return { ok: true, nota: atual }
 }
 

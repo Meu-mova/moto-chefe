@@ -590,6 +590,11 @@ export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string)
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
   })
+  // Nota emitida fora do MOVA e só anotada aqui: entra no log como emissão.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, lojaId: venda.lojaId,
+    detalhe: { origem: 'confirmada', vendaId: venda.id, numeroNf: notaFiscal },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -948,6 +953,10 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
       .set({ disponibilidade: 'vendida' as any })
       .where(eq(motos.id, motoId))
   })
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId,
+    detalhe: { origem: 'bling', vendaId: venda.id, numeroNf: numeroNF },
+  })
 
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -1109,17 +1118,17 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
     }
   }
 
+  // A venda foi apagada: o detalhe precisa bastar sozinho.
+  await registrarAcaoSensivelSemFalhar({
+    tipo: 'venda_cancelada', usuarioId: usuario.id, lojaId: vendaRecord.lojaId,
+    detalhe: { vendaId, numeroVenda: vendaRecord.numero, cliente: vendaRecord.clienteNome, valor: vendaRecord.valor, motivo: motivo.trim() },
+  })
+
   revalidatePath('/vendas')
   revalidatePath('/estoque')
   revalidatePath('/caixa')
   revalidatePath('/dashboard')
   revalidatePath('/conciliacao')
-  // A venda foi apagada: o detalhe precisa bastar sozinho.
-  await registrarAcaoSensivelSemFalhar({
-    tipo: 'venda_cancelada', usuarioId: usuario.id, grupoId: await getGrupoIdDaLoja(vendaRecord.lojaId).catch(() => null),
-    detalhe: { vendaId, numero: vendaRecord.numero, cliente: vendaRecord.clienteNome, valor: vendaRecord.valor, motivo: motivo.trim() },
-  })
-
   revalidatePath('/pix-mcp')
 
   return { ok: true as const, ...desvinculados }

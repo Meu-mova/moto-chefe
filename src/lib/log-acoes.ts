@@ -1,7 +1,7 @@
 import { eq, lt, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { db } from '@/lib/db'
-import { grupos, logAcoes } from '@/lib/db/schema'
+import { grupos, lojas, logAcoes } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
 
 // Log de acessos e ações sensíveis (#198). Quem chama nunca deve falhar por causa
@@ -67,8 +67,10 @@ export async function apagarLogAntigo(executor: Executor = db): Promise<number> 
 export type AcaoSensivel = {
   tipo: Extract<TipoLog, 'venda_cancelada' | 'nf_emitida' | 'nf_cancelada' | 'permissao_alterada'>
   usuarioId: string
-  /** Grupo do registro (loja da venda, grupo da nota); nunca o grupo ativo da sessão. */
-  grupoId: string | null
+  /** Grupo do registro (grupo da nota); nunca o grupo ativo da sessão. */
+  grupoId?: string | null
+  /** Ou a loja do registro (loja da venda): o grupo sai dela. */
+  lojaId?: string | null
   /** Só quando não há grupo: a Conta do usuário-alvo de uma mudança de permissão. */
   contaId?: string | null
   detalhe: Record<string, unknown>
@@ -84,12 +86,17 @@ async function origemDaRequisicaoAtual(): Promise<Origem> {
 }
 
 export async function registrarAcaoSensivel(a: AcaoSensivel, executor: Executor = db): Promise<void> {
+  let grupoId = a.grupoId ?? null
+  if (!grupoId && a.lojaId) {
+    const [l] = await executor.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, a.lojaId)).limit(1)
+    grupoId = l?.grupoId ?? null
+  }
   let contaId = a.contaId ?? null
-  if (a.grupoId) {
-    const [g] = await executor.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, a.grupoId)).limit(1)
+  if (grupoId) {
+    const [g] = await executor.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
     contaId = g?.contaId ?? contaId
   }
-  await registrarAcao({ ...a, contaId, ...(await origemDaRequisicaoAtual()) }, executor)
+  await registrarAcao({ tipo: a.tipo, usuarioId: a.usuarioId, detalhe: a.detalhe, grupoId, contaId, ...(await origemDaRequisicaoAtual()) }, executor)
 }
 
 /** Para as actions: a ação já aconteceu, e erro no log não pode desfazer a resposta. */
@@ -114,7 +121,7 @@ export type Permissoes = {
 /** Nome e e-mail ficam de fora: o log é de permissão, não de cadastro. */
 export function camposDePermissaoAlterados(antes: Permissoes, depois: Permissoes): (keyof Permissoes)[] {
   const igual = (a: unknown, b: unknown) => Array.isArray(a) && Array.isArray(b)
-    ? a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i])
+    ? [...a].sort().join('\u0000') === [...b].sort().join('\u0000')
     : a === b
   return (Object.keys(antes) as (keyof Permissoes)[]).filter(k => !igual(antes[k], depois[k]))
 }

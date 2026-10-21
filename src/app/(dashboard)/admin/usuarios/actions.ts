@@ -32,16 +32,19 @@ async function assertAdmin() {
 }
 
 /** Grupo da loja do alvo e Conta dele: é onde o admin da Conta vê a mudança. */
-async function registrarPermissao(adminId: string, alvo: { id: string; nome: string; lojaId: string | null; contaId: string | null }, detalhe: Record<string, unknown>) {
+type Alvo = { id: string; nome: string; lojaId: string | null; contaId: string | null }
+
+async function registrarPermissao(adminId: string, alvo: Alvo, detalhe: Record<string, unknown>) {
   await registrarAcaoSensivelSemFalhar({
-    tipo: 'permissao_alterada', usuarioId: adminId, contaId: alvo.contaId,
-    grupoId: alvo.lojaId ? await getGrupoIdDaLoja(alvo.lojaId).catch(() => null) : null,
+    tipo: 'permissao_alterada', usuarioId: adminId, contaId: alvo.contaId, lojaId: alvo.lojaId,
     detalhe: { alvoId: alvo.id, alvoNome: alvo.nome, ...detalhe },
   })
 }
 
+const colunasAlvo = { id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId }
+
 const colunasPermissao = {
-  id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId,
+  ...colunasAlvo,
   papel: usuarios.papel, gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao,
   aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
   modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
@@ -234,7 +237,10 @@ export async function editarUsuarioAction(id: string, dados: {
   const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
   if (campos.length) {
-    await registrarPermissao(admin.id, depois, { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) })
+    const detalhe = { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) }
+    await registrarPermissao(admin.id, depois, detalhe)
+    // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
+    if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)
   }
 
   revalidatePath('/admin/usuarios')
@@ -243,7 +249,7 @@ export async function editarUsuarioAction(id: string, dados: {
 export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
   const admin = await assertAdmin()
   const [alvo] = await db.update(usuarios).set({ ativo }).where(eq(usuarios.id, id))
-    .returning({ id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId })
+    .returning(colunasAlvo)
   if (alvo) await registrarPermissao(admin.id, alvo, { acao: ativo ? 'ativado' : 'desativado' })
   revalidatePath('/admin/usuarios')
 }
@@ -252,12 +258,11 @@ export async function excluirUsuarioAction(id: string) {
   const admin = await assertAdmin()
   const supabase = getAdminClient()
 
-  const [alvo] = await db.delete(usuarios).where(eq(usuarios.id, id))
-    .returning({ id: usuarios.id, nome: usuarios.nome, lojaId: usuarios.lojaId, contaId: usuarios.contaId })
-  if (alvo) await registrarPermissao(admin.id, alvo, { acao: 'excluido' })
+  const [alvo] = await db.delete(usuarios).where(eq(usuarios.id, id)).returning(colunasAlvo)
 
   const { error } = await supabase.auth.admin.deleteUser(id)
   if (error) throw new Error(error.message)
+  if (alvo) await registrarPermissao(admin.id, alvo, { acao: 'excluido' })
 
   revalidatePath('/admin/usuarios')
 }
