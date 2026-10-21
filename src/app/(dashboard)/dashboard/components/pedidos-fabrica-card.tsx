@@ -1,9 +1,10 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { AlertTriangle, EyeOff, PackageX, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { atualizarPedidosFabricaAction } from '../actions'
 import type { PedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
+import { TituloGrupo } from './requer-atencao'
 
 const URL_PORTAL = 'https://motochefebrasil.store/clientes/pedidos?aba=compras'
 
@@ -62,86 +63,58 @@ export function PedidosFabricaCard({ dados: iniciais }: { dados: PedidosFabricaD
   if (total === 0 && lojasSemLeitura.length === 0 && !releu) return null
 
   const critico = pendentes.some(p => p.dias >= 3)
-
+  const linha = 'flex items-baseline justify-between gap-3 border-b border-border py-2.5 text-sm'
   return (
-    <section className={`rounded-lg border p-4 space-y-2 ${
-      total > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
-    }`}>
-      <div className="flex items-start justify-between gap-2">
-        <h2 className={`font-semibold text-sm flex items-center gap-1.5 ${
-          total > 0 ? 'text-amber-800' : 'text-slate-700'
-        }`}>
-          {total > 0
-            ? <AlertTriangle size={15} className="text-amber-600" />
-            : <PackageX size={15} className="text-slate-400" />}
-          Pedidos de peças aguardando pagamento na fábrica
-        </h2>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={atualizar}
-          disabled={lendo}
-          className="shrink-0 bg-white"
-        >
+    <div>
+      <TituloGrupo acao={
+        <Button variant="outline" size="sm" onClick={atualizar} disabled={lendo} className="h-7 shrink-0">
           <RefreshCw className={lendo ? 'animate-spin' : undefined} />
           {lendo ? 'Lendo o portal…' : 'Atualizar'}
         </Button>
+      }>
+        Pedidos de peças na fábrica
+      </TituloGrupo>
+      <div className={linha}>
+        <span className="text-muted-foreground">Aguardando pagamento</span>
+        {total > 0
+          ? <span className="text-[15px] font-bold tabular-nums text-warning">{total} · {reais(valorTotal)}</span>
+          : <span className="font-semibold text-foreground">Nenhum</span>}
       </div>
-
       {total > 0 && (
-        <>
-          <p className="text-sm text-amber-900">
-            <b>{total}</b> pedido{total !== 1 ? 's' : ''} · <b>{reais(valorTotal)}</b>
-            {critico && ' · há 3 dias ou mais'}
-          </p>
-          <ul className="space-y-0.5">
-            {pendentes.slice(0, 6).map(p => (
-              <li key={p.loja + p.numeroPedido} className="text-sm text-amber-900">
-                <span className="font-mono">#{p.numeroPedido}</span>
-                {' · '}{p.loja}
-                {p.valor != null && <> · {reais(p.valor)}</>}
-                {' · '}
-                <span className={p.dias >= 3 ? 'font-semibold' : ''}>
+        <ul className="divide-y divide-border border-b border-border">
+          {pendentes.slice(0, 6).map(p => (
+            <li key={p.loja + p.numeroPedido} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+              <span className="min-w-0 truncate">
+                <span className="font-mono text-muted-foreground">#{p.numeroPedido}</span> {p.loja}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {p.valor != null && <>{reais(p.valor)} · </>}
+                <span className={p.dias >= 3 ? 'font-semibold text-warning' : 'text-muted-foreground'}>
                   {p.dias === 0 ? 'visto hoje' : p.dias === 1 ? 'há 1 dia' : `há ${p.dias} dias`}
                 </span>
-              </li>
-            ))}
-            {pendentes.length > 6 && (
-              <li className="text-xs text-amber-700">e mais {pendentes.length - 6}…</li>
-            )}
-          </ul>
-          <p className="text-xs text-amber-700">
-            A fábrica cancela por prazo de pagamento.{' '}
-            <a href={URL_PORTAL} target="_blank" rel="noopener noreferrer" className="underline">
-              Abrir o portal
-            </a>
-          </p>
-        </>
+              </span>
+            </li>
+          ))}
+          {pendentes.length > 6 && <li className="py-2 text-xs text-muted-foreground">e mais {pendentes.length - 6}…</li>}
+        </ul>
       )}
-
-      {total === 0 && (
-        <p className="text-sm text-slate-600">
-          Nenhum pedido pendente nas lojas que o sistema consegue ler.
+      <div className={linha}>
+        <span className="text-muted-foreground">Última leitura do portal</span>
+        <span className="font-semibold tabular-nums text-foreground">{quando(ultimaLeitura)}{lendo && ' · lendo…'}</span>
+      </div>
+      {total > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          A fábrica cancela por prazo de pagamento{critico ? ', e há pedido parado há 3 dias ou mais' : ''}.{' '}
+          <a href={URL_PORTAL} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-text hover:underline">Abrir o portal</a>
         </p>
       )}
-
       {lojasSemLeitura.length > 0 && (
-        <div className="flex items-start gap-1.5 rounded border border-slate-300 bg-white px-2 py-1.5">
-          <EyeOff size={13} className="mt-0.5 shrink-0 text-slate-400" />
-          <p className="text-xs text-slate-600">
-            Sem leitura:{' '}
-            {lojasSemLeitura.map(l => `${l.loja} (${MOTIVO[l.status] ?? l.status})`).join(', ')}.
-            {' '}O zero dessas lojas não quer dizer que está tudo pago.
-          </p>
-        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Sem leitura em {lojasSemLeitura.length} {lojasSemLeitura.length === 1 ? 'loja' : 'lojas'}:{' '}
+          {lojasSemLeitura.map(l => `${l.loja} (${MOTIVO[l.status] ?? l.status})`).join(', ')}. Para elas, o zero não garante que está tudo pago.
+        </p>
       )}
-
-      {erro && <p className="text-xs text-destructive">{erro}</p>}
-
-      <p className="text-[11px] text-slate-400">
-        Última leitura do portal: {quando(ultimaLeitura)}
-        {lendo && ' · lendo agora…'}
-      </p>
-    </section>
+      {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
+    </div>
   )
 }
