@@ -30,6 +30,10 @@ async function main() {
   const registros: ClienteRecord[] = JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'))
   console.log(`Total de registros: ${registros.length}`)
 
+  // Cliente é por Conta (ADR-0018): informe a dona da base importada.
+  const contaId = process.env.CONTA_ID
+  if (!contaId) throw new Error('Informe CONTA_ID (a Conta dona dos clientes importados)')
+
   // Mapear para snake_case conforme a tabela
   const rows = registros.map(r => ({
     nome: r.nome,
@@ -45,6 +49,7 @@ async function main() {
     cep: r.cep || null,
     cidade: r.cidade || null,
     uf: r.uf || null,
+    conta_id: contaId,
   }))
 
   const BATCH = 100
@@ -57,7 +62,7 @@ async function main() {
     const { error, count } = await supabase
       .from('clientes')
       .upsert(lote, {
-        onConflict: 'cpf_cnpj',
+        onConflict: 'conta_id,cpf_cnpj',
         ignoreDuplicates: true,
         count: 'exact',
       })
@@ -67,7 +72,7 @@ async function main() {
       // Tentar inserir um a um para não perder o lote inteiro
       for (const row of lote) {
         const { error: e2 } = await supabase.from('clientes').upsert([row], {
-          onConflict: row.cpf_cnpj ? 'cpf_cnpj' : undefined,
+          onConflict: row.cpf_cnpj ? 'conta_id,cpf_cnpj' : undefined,
           ignoreDuplicates: true,
         })
         if (e2) {

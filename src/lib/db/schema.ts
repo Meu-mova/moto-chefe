@@ -1124,7 +1124,7 @@ export const clientes = pgTable('clientes', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   tipoPessoa: tipoPessoaEnum('tipo_pessoa').notNull().default('fisica'),
-  cpfCnpj: text('cpf_cnpj').unique(),
+  cpfCnpj: text('cpf_cnpj'),
   sexo: sexoEnum('sexo').notNull().default('nao_identificado'),
   email: text('email'),
   celular: text('celular'),
@@ -1139,7 +1139,9 @@ export const clientes = pgTable('clientes', {
   inscricaoEstadual: text('inscricao_estadual'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+  // Conta dona do cliente (ADR-0018): cada Conta só vê os próprios compradores.
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+}, t => [unique('clientes_conta_cpf_cnpj_key').on(t.contaId, t.cpfCnpj)])
 
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {

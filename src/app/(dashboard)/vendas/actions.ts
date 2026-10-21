@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
+import { contaDaLoja } from '@/lib/conta'
 import { getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
@@ -333,6 +334,7 @@ async function criarVendaTx(
     const [clienteUpsert] = await tx
       .insert(clientes)
       .values({
+        contaId:     await contaDaLoja(moto.lojaId, tx),
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
         tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
@@ -349,7 +351,7 @@ async function criarVendaTx(
         inscricaoEstadual: icms.inscricaoEstadual,
       })
       .onConflictDoUpdate({
-        target: clientes.cpfCnpj,
+        target: [clientes.contaId, clientes.cpfCnpj],
         set: {
           nome:        sql`excluded.nome`,
           tipoPessoa:  sql`excluded.tipo_pessoa`,
@@ -1515,7 +1517,7 @@ export async function editarVendaAction(vendaId: string, dados: {
     if (gravaIcms && icms.indicadorIe) {
       await tx.update(clientes)
         .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-        .where(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)))
+        .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(vendaAtual.lojaId, tx))))
     }
 
     // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria

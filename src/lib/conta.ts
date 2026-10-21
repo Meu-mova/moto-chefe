@@ -27,3 +27,15 @@ export async function listarLojasAtivasDaConta(
   if (!usuario.contaId) return []
   return consulta.where(and(eq(lojas.ativa, true), eq(grupos.contaId, usuario.contaId))).orderBy(asc(lojas.nome))
 }
+
+// Conta da loja de um registro (venda, OS): é a dona do cliente que ele cria ou atualiza.
+export async function contaDaLoja(lojaId: string, exec: Executor = db): Promise<string> {
+  const [r] = await exec
+    .select({ contaId: grupos.contaId })
+    .from(lojas)
+    .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .where(eq(lojas.id, lojaId))
+    .limit(1)
+  if (!r) throw new Error('Loja não encontrada')
+  return r.contaId
+}
