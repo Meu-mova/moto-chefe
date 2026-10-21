@@ -11,9 +11,10 @@ const STEPS = [
   { key: 'oficina',              label: 'Oficina' },
   { key: 'em_andamento',        label: 'Em Andamento' },
   { key: 'finalizada',          label: 'Finalizada' },
-  { key: 'pendente_pagamento',  label: 'Pendente de Pagamento' },
+  // Na barra horizontal o nome inteiro não cabe na caixa: lá sai o curto.
+  { key: 'pendente_pagamento',  label: 'Pendente de Pagamento', curto: 'Pagamento' },
   { key: 'concluida',           label: 'Concluída' },
-]
+] as const satisfies readonly { key: string; label: string; curto?: string }[]
 
 const RESPONSAVEL_LABEL: Record<string, string> = {
   mecanico: 'mecânico',
@@ -60,8 +61,8 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
 
   return (
     <>
-      {/* Celular/tablet: passos em lista vertical; o botão de avançar fica fixo no rodapé (#248). */}
-      <ol className="space-y-1 rounded-xl border border-border bg-card p-3 lg:hidden" aria-label="Etapas da OS">
+      {/* Até o desktop, o botão de avançar fica fixo no rodapé (#248): no tablet a barra horizontal não tem espaço para ele. */}
+      <ol className="space-y-1 rounded-xl border border-border bg-card p-3 md:hidden" aria-label="Etapas da OS">
         {STEPS.map((step, idx) => {
           const done = idx < currentIdx
           const current = idx === currentIdx
@@ -87,16 +88,15 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
         </div>
       )}
 
-      {/* Desktop: barra horizontal */}
-      <div className="hidden flex-wrap items-center gap-0 lg:flex">
+      <div className="hidden items-center gap-0 md:flex">
         {STEPS.map((step, idx) => {
           const done    = idx < currentIdx
           const current = idx === currentIdx
           const isLast  = idx === STEPS.length - 1
           return (
-            <div key={step.key} className="flex min-w-[110px] flex-1 items-center">
+            <div key={step.key} className="flex min-w-0 flex-1 items-center">
               <div className={cn(
-                'flex flex-1 flex-col items-center rounded-lg border px-2 py-3 transition-colors',
+                'flex h-16 min-w-0 flex-1 flex-col items-center justify-center rounded-lg border px-2 transition-colors',
                 current ? 'border-primary bg-primary-soft' : done ? 'border-border bg-card' : 'border-border bg-muted',
               )}>
                 {done
@@ -104,17 +104,18 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
                   : current && pending
                     ? <Loader2 size={18} className="animate-spin text-primary" />
                     : <Circle size={18} className={current ? 'text-primary' : 'text-muted-foreground'} />}
-                <span className={cn('mt-1 text-center text-xs font-medium', current ? 'text-primary-text' : done ? 'text-foreground' : 'text-muted-foreground')}>
-                  {step.label}
+                <span title={step.label} className={cn('mt-1 max-w-full truncate text-center text-xs font-medium', current ? 'text-primary-text' : done ? 'text-foreground' : 'text-muted-foreground')}>
+                  {'curto' in step ? step.curto : step.label}
                 </span>
               </div>
               {!isLast && <div className={cn('h-px w-3', done ? 'bg-primary' : 'bg-border')} />}
             </div>
           )
         })}
-        {mostrarAvancar && <div className="ml-4">{botao('h-9')}</div>}
-        {aguardando && <span className="ml-4 text-xs whitespace-nowrap text-muted-foreground">{aguardando}</span>}
+        {mostrarAvancar && <div className="ml-4 hidden lg:block">{botao('h-10')}</div>}
+        {aguardando && <span className="ml-4 hidden text-xs whitespace-nowrap text-muted-foreground lg:inline">{aguardando}</span>}
       </div>
+      {aguardando && <p className="hidden text-xs text-muted-foreground md:block lg:hidden">{aguardando}</p>}
     </>
   )
 }

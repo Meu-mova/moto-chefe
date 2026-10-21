@@ -141,7 +141,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             <div className="flex gap-2">
               {(['servico', 'peca'] as const).map(t => (
                 <button type="button" key={t} onClick={() => trocarTipo(t)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                  className={`h-10 flex-1 text-sm font-medium rounded-md border transition-colors ${
                     tipo === t
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-input text-muted-foreground hover:border-ring'
@@ -154,10 +154,10 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             <select
               value={catalogoId}
               onChange={e => selecionarDoCatalogo(e.target.value)}
-              className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              className="h-10 w-full border border-input rounded-md px-3 text-sm bg-background"
             >
               <option value="">
-                {tipo === 'servico' ? 'Escolher serviço do catálogo (opcional)' : 'Escolher peça do catálogo (opcional)'}
+                {tipo === 'servico' ? 'Serviço do catálogo (opcional)' : 'Peça do catálogo (opcional)'}
               </option>
               {opcoesCatalogo.map(o => (
                 <option key={o.id} value={o.id}>
@@ -167,13 +167,13 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             </select>
 
             <Input placeholder="Descrição" value={form.descricao} onChange={e => setF('descricao', e.target.value)} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
               <Input placeholder="Qtd" type="number" min="0.001" step="0.001"
                 value={form.quantidade} onChange={e => setF('quantidade', e.target.value)} />
               <Input placeholder="Valor unit. (R$)" type="number" min="0" step="0.01"
                 value={form.valorUnitario} onChange={e => setF('valorUnitario', e.target.value)} />
             </div>
-            <Button size="sm" onClick={adicionar} disabled={pending} className="w-full gap-1.5">
+            <Button onClick={adicionar} disabled={pending} className="h-10 w-full gap-1.5">
               <Plus size={14} /> {pending ? 'Adicionando…' : 'Adicionar'}
             </Button>
           </div>

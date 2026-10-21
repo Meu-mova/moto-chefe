@@ -81,7 +81,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   })
 
   return (
-    <div className="max-w-4xl space-y-5 has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
+    <div className="max-w-4xl space-y-5 lg:max-w-7xl has-[[data-barra-fixa]]:pb-20 lg:has-[[data-barra-fixa]]:pb-0">
       {/* Header. A folga embaixo (has-[[data-barra-fixa]]) só existe quando o botão de avançar
           fica fixo no rodapé do celular; sem ela, o fim da página ficaria atrás dele. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -130,117 +130,127 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
         <OSStatusBar osId={id} status={os.status} podeEditar={podeEditar} papel={usuario.papel} />
       )}
 
-      {/* Tempos por etapa */}
-      <OSTemposPanel
-        dataAbertura={new Date(os.dataAbertura)}
-        oficinaEm={os.oficinaEm ? new Date(os.oficinaEm) : null}
-        emAndamentoEm={os.emAndamentoEm ? new Date(os.emAndamentoEm) : null}
-        finalizadaEm={os.finalizadaEm ? new Date(os.finalizadaEm) : null}
-        pendentePagamentoEm={os.pendentePagamentoEm ? new Date(os.pendentePagamentoEm) : null}
-        dataConclusao={os.dataConclusao ? new Date(os.dataConclusao) : null}
-      />
+      {/* Desktop: duas colunas, a da direita com itens e totais para lançar sem rolar.
+          Abaixo disso, uma coluna na ordem de antes (tempos primeiro). */}
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* Tempos por etapa */}
+          <div className="order-first lg:order-last">
+            <OSTemposPanel
+              dataAbertura={new Date(os.dataAbertura)}
+              oficinaEm={os.oficinaEm ? new Date(os.oficinaEm) : null}
+              emAndamentoEm={os.emAndamentoEm ? new Date(os.emAndamentoEm) : null}
+              finalizadaEm={os.finalizadaEm ? new Date(os.finalizadaEm) : null}
+              pendentePagamentoEm={os.pendentePagamentoEm ? new Date(os.pendentePagamentoEm) : null}
+              dataConclusao={os.dataConclusao ? new Date(os.dataConclusao) : null}
+            />
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Moto */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Veículo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p className="font-semibold text-base text-foreground">{motoDesc.trim() || '—'}</p>
-            {os.chassi  && <p className="font-mono text-xs text-muted-foreground">{os.chassi}</p>}
-            {os.km      && <p>KM: <span className="font-medium">{os.km.toLocaleString('pt-BR')}</span></p>}
-            {os.cor     && <p>Cor: <span className="font-medium">{os.cor}</span></p>}
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Moto */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Veículo</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p className="font-semibold text-base text-foreground">{motoDesc.trim() || '—'}</p>
+                {os.chassi  && <p className="font-mono text-xs text-muted-foreground">{os.chassi}</p>}
+                {os.km      && <p>KM: <span className="font-medium">{os.km.toLocaleString('pt-BR')}</span></p>}
+                {os.cor     && <p>Cor: <span className="font-medium">{os.cor}</span></p>}
+              </CardContent>
+            </Card>
 
-        {/* Cliente */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Cliente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {clienteDesc
-              ? <p className="font-semibold text-base text-foreground">{clienteDesc}</p>
-              : <p className="text-muted-foreground">Sem cliente vinculado</p>
-            }
-            {clienteFone && <p>Tel: <span className="font-medium">{clienteFone}</span></p>}
-            {os.mecanicoNome && <p>Mecânico: <span className="font-medium">{os.mecanicoNome}</span></p>}
-            {os.dataPrevisao && (
-              <p>Previsão: <span className="font-medium text-warning">
-                {format(new Date(os.dataPrevisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </span></p>
-            )}
-          </CardContent>
-        </Card>
+            {/* Cliente */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Cliente</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {clienteDesc
+                  ? <p className="font-semibold text-base text-foreground">{clienteDesc}</p>
+                  : <p className="text-muted-foreground">Sem cliente vinculado</p>
+                }
+                {clienteFone && <p>Tel: <span className="font-medium">{clienteFone}</span></p>}
+                {os.mecanicoNome && <p>Mecânico: <span className="font-medium">{os.mecanicoNome}</span></p>}
+                {os.dataPrevisao && (
+                  <p>Previsão: <span className="font-medium text-warning">
+                    {format(new Date(os.dataPrevisao), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </span></p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Descrição e diagnóstico */}
+          <OSEditarPanel
+            osId={id}
+            descricao={os.descricao}
+            diagnostico={os.diagnostico ?? ''}
+            observacoesFinais={os.observacoesFinais ?? ''}
+            mecanicos={mecanicos}
+            mecanicoId={os.mecanicoId ?? ''}
+            dataPrevisao={os.dataPrevisao ? new Date(os.dataPrevisao).toISOString().slice(0, 16) : ''}
+            km={os.km ?? undefined}
+            clienteNomeExterno={os.clienteNomeExterno ?? ''}
+            clienteFoneExterno={os.clienteFoneExterno ?? ''}
+            temCliente={Boolean(os.clienteId)}
+            podeEditar={podeEditar && !cancelada}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* Itens — depois de conciliada o valor não pode mais mudar, senão descasa do extrato */}
+          <OSItensPanel
+            osId={id}
+            itens={itens}
+            podeEditar={podeEditar && !cancelada && !conciliada}
+            servicos={servicos}
+            pecas={pecas}
+          />
+
+          {/* Totais e pagamento */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Totais</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Mão de obra</span>
+                <span>{totalServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Peças</span>
+                <span>{totalPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+              </div>
+              <div className="h-px bg-border" />
+              <div className="flex justify-between font-bold text-base">
+                <span>Total</span>
+                <span className="text-primary-text">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {podeFechar && ['pendente_pagamento', 'concluida'].includes(os.status) && (
+            <OSPagamentoPanel
+              osId={id}
+              valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
+              valorServicos={totalServicos}
+              pagamentosIniciais={pagamentosOS}
+              jaPago={os.status === 'concluida'}
+              aprovacaoPendente={aprovacaoPendente}
+            />
+          )}
+
+          {podeFechar && os.status === 'concluida' && pagamentosOS.length > 0 && (
+            <OSConciliacaoPanel
+              osId={id}
+              osNumero={os.numero}
+              pagamentos={pagamentosOS}
+              papel={usuario.papel}
+            />
+          )}
+        </div>
       </div>
-
-      {/* Descrição e diagnóstico */}
-      <OSEditarPanel
-        osId={id}
-        descricao={os.descricao}
-        diagnostico={os.diagnostico ?? ''}
-        observacoesFinais={os.observacoesFinais ?? ''}
-        mecanicos={mecanicos}
-        mecanicoId={os.mecanicoId ?? ''}
-        dataPrevisao={os.dataPrevisao ? new Date(os.dataPrevisao).toISOString().slice(0, 16) : ''}
-        km={os.km ?? undefined}
-        clienteNomeExterno={os.clienteNomeExterno ?? ''}
-        clienteFoneExterno={os.clienteFoneExterno ?? ''}
-        temCliente={Boolean(os.clienteId)}
-        podeEditar={podeEditar && !cancelada}
-      />
-
-      {/* Itens — depois de conciliada o valor não pode mais mudar, senão descasa do extrato */}
-      <OSItensPanel
-        osId={id}
-        itens={itens}
-        podeEditar={podeEditar && !cancelada && !conciliada}
-        servicos={servicos}
-        pecas={pecas}
-      />
-
-      {/* Totais e pagamento */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Totais</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Mão de obra</span>
-            <span>{totalServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Peças</span>
-            <span>{totalPecas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-          </div>
-          <div className="h-px bg-border" />
-          <div className="flex justify-between font-bold text-base">
-            <span>Total</span>
-            <span className="text-primary-text">{totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {podeFechar && ['pendente_pagamento', 'concluida'].includes(os.status) && (
-        <OSPagamentoPanel
-          osId={id}
-          valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
-          valorServicos={totalServicos}
-          pagamentosIniciais={pagamentosOS}
-          jaPago={os.status === 'concluida'}
-          aprovacaoPendente={aprovacaoPendente}
-        />
-      )}
-
-      {podeFechar && os.status === 'concluida' && pagamentosOS.length > 0 && (
-        <OSConciliacaoPanel
-          osId={id}
-          osNumero={os.numero}
-          pagamentos={pagamentosOS}
-          papel={usuario.papel}
-        />
-      )}
     </div>
   )
 }
