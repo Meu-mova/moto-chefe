@@ -80,15 +80,17 @@ export async function importarComunicadosAction(itens: {
 }
 
 export async function toggleAtivoAction(id: string, ativo: boolean) {
-  await requireAdmin()
-  await db.update(comunicados).set({ ativo }).where(eq(comunicados.id, id))
+  const u = await requireAdmin()
+  const grupo = await getGrupoAtivo(u)
+  await db.update(comunicados).set({ ativo }).where(and(eq(comunicados.id, id), eq(comunicados.grupoId, grupo.id)))
   revalidatePath('/admin/comunicados')
   revalidatePath('/', 'layout')
 }
 
 export async function excluirComunicadoAction(id: string) {
-  await requireAdmin()
-  await db.delete(comunicados).where(eq(comunicados.id, id))
+  const u = await requireAdmin()
+  const grupo = await getGrupoAtivo(u)
+  await db.delete(comunicados).where(and(eq(comunicados.id, id), eq(comunicados.grupoId, grupo.id)))
   revalidatePath('/admin/comunicados')
   revalidatePath('/', 'layout')
 }

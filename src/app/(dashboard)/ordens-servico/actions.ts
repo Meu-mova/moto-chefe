@@ -461,11 +461,11 @@ export async function excluirOSAction(osId: string) {
   }
 
   const [os] = await db
-    .select({ id: ordensServico.id })
+    .select({ id: ordensServico.id, lojaId: ordensServico.lojaId })
     .from(ordensServico)
     .where(eq(ordensServico.id, osId))
     .limit(1)
-  if (!os) throw new Error('OS não encontrada')
+  if (!os || !(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('OS não encontrada')
 
   try {
     await db.delete(ordensServico).where(eq(ordensServico.id, osId))
