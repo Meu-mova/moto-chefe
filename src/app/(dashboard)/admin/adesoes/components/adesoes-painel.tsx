@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -150,6 +150,8 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
+type Aba = 'contrato' | 'grupo' | 'acessos'
+
 const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
 
 function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
@@ -219,9 +221,14 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
   // Ativação só depois do contrato assinado e do grupo ligado; carrega ao abrir a aba.
   const ativavel = a.contrato?.status === 'assinado' && !!a.grupoId && !travada
   const ativacao = useAtivacao(a.id)
-  function trocarAba(aba: unknown) {
-    if (aba !== 'contrato' && ativavel && !ativacao.dados && !ativacao.pendente) ativacao.carregar()
-  }
+  const [aba, setAba] = useState<Aba>('contrato')
+  const abaDeAtivacao = aba === 'grupo' || aba === 'acessos'
+  // Também cobre o grupo ligado com a aba já aberta: a ativação fica disponível sem trocar de aba.
+  const { dados: dadosAtivacao, pendente: carregandoAtivacao, carregar: carregarAtivacao } = ativacao
+  useEffect(() => {
+    if (abaDeAtivacao && ativavel && !dadosAtivacao && !carregandoAtivacao) carregarAtivacao()
+    // Só a aba e a disponibilidade disparam: carregar muda a cada render.
+  }, [abaDeAtivacao, ativavel])
 
   return (
     // No desktop o painel tem a altura da tela e rola por dentro, com cabeçalho e
@@ -257,12 +264,12 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
         <div className="flex gap-1"><dt className="sr-only">Certificado e senhas</dt><dd className="text-muted-foreground">A1 e senhas cifrados</dd></div>
       </dl>
 
-      <Tabs defaultValue="contrato" onValueChange={trocarAba} className="flex min-h-0 flex-1 flex-col gap-0">
+      <Tabs value={aba} onValueChange={v => setAba(v as Aba)} className="flex min-h-0 flex-1 flex-col gap-0">
         <div className="overflow-x-auto border-b px-4">
           <TabsList variant="line">
             <TabsTrigger value="contrato">
               Contrato
-              {!travada && faltam.length > 0 && <Badge variant="outline" className="border-warning text-warning">{faltam.length}</Badge>}
+              {!travada && situacao !== 'assinado' && faltam.length > 0 && <Badge variant="outline" className="border-warning text-warning">{faltam.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="grupo">Grupo e loja</TabsTrigger>
             <TabsTrigger value="acessos">Usuários e acessos</TabsTrigger>
@@ -359,16 +366,16 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={salvar} disabled={pendente}>Salvar dados</Button>
-            <Button variant="outline" className="border-destructive text-destructive" onClick={() => setRecusando(true)} disabled={pendente}>
+            <Button className="flex-1 sm:flex-none" onClick={salvar} disabled={pendente}>Salvar dados</Button>
+            <Button variant="outline" className="flex-1 border-destructive text-destructive sm:flex-none" onClick={() => setRecusando(true)} disabled={pendente}>
               Recusar…
             </Button>
             {a.status === 'dados_completos' && situacao !== 'assinado' && (
-              <Button variant="outline" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
+              <Button variant="outline" className="flex-1 sm:flex-none" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
                 {situacao ? 'Reenviar contrato' : 'Enviar contrato'}
               </Button>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="w-full text-xs text-muted-foreground sm:w-auto">
               {envioTravado && a.status === 'dados_completos'
                 ? 'Envio travado até os termos do contrato serem confirmados'
                 : alterado && a.status === 'dados_completos'

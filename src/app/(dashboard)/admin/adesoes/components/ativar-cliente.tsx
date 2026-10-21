@@ -13,8 +13,8 @@ import type { ResultadoUsuario } from '@/lib/ativacao-usuarios'
 import { PAPEIS_ADESAO } from '@/lib/adesao'
 
 // "Ativar cliente" (#292): loja, usuários, certificado A1 e login do portal saem da adesão
-// para o grupo e a loja pelo servidor. Seção na própria tela, não diálogo: o
-// revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
+// para o grupo e a loja pelo servidor. Passos nas abas do detalhe (#312), não em diálogo:
+// o revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
 
 const formatarData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 
@@ -29,7 +29,8 @@ export function useAtivacao(adesaoId: string) {
 
   function carregar() {
     iniciar(async () => {
-      const d = await dadosAtivacaoAction(adesaoId)
+      let d
+      try { d = await dadosAtivacaoAction(adesaoId) } catch (e) { toast.error(mensagem(e)); return }
       if (!d) { toast.error('Contrato não assinado ou adesão sem grupo'); return }
       setDados(d)
     })
@@ -40,7 +41,7 @@ export function useAtivacao(adesaoId: string) {
 
 type Ativacao = ReturnType<typeof useAtivacao>
 
-function Carregando({ ativacao }: { ativacao: Ativacao }) {
+function CarregarAtivacao({ ativacao }: { ativacao: Ativacao }) {
   return ativacao.pendente
     ? <p className="text-sm text-muted-foreground">Carregando…</p>
     : <Button variant="outline" onClick={ativacao.carregar}>Carregar ativação</Button>
@@ -48,13 +49,13 @@ function Carregando({ ativacao }: { ativacao: Ativacao }) {
 
 export function AtivacaoLoja({ adesaoId, ativacao }: { adesaoId: string; ativacao: Ativacao }) {
   const { dados, carregar } = ativacao
-  if (!dados) return <Carregando ativacao={ativacao} />
+  if (!dados) return <CarregarAtivacao ativacao={ativacao} />
   return <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
 }
 
 export function AtivacaoAcessos({ adesaoId, ativacao }: { adesaoId: string; ativacao: Ativacao }) {
   const { dados, carregar } = ativacao
-  if (!dados) return <Carregando ativacao={ativacao} />
+  if (!dados) return <CarregarAtivacao ativacao={ativacao} />
   return (
     <div className="space-y-3">
       <PassoUsuarios adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
