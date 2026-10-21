@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
@@ -57,7 +57,7 @@ export async function abrirGarantiaAction(params: {
     .from(motos)
     .where(eq(motos.id, params.motoId))
     .limit(1)
-  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
 
   // Prazo fixo de 30 dias a partir da data de abertura
   const fim = new Date(params.dataInicio)
