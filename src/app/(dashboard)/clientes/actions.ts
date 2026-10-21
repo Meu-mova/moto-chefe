@@ -116,6 +116,12 @@ export async function listarCidadesAction() {
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
 
+// Só a trava de CPF por Conta vira "já cadastrado": o texto do erro do Drizzle traz a
+// query inteira, então procurar "cpf_cnpj" nele pegava qualquer falha do insert.
+function cpfRepetido(e: unknown): boolean {
+  return (e as { cause?: { constraint?: string } })?.cause?.constraint === 'clientes_conta_cpf_cnpj_key'
+}
+
 // Cliente é da Conta do grupo que o usuário está operando (ADR-0018).
 async function contaDoGrupoAtivo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<string> {
   return (await getGrupoAtivo(usuario)).contaId
@@ -136,8 +142,7 @@ export async function criarClienteAction(dados: ClienteInput): Promise<string> {
     revalidatePath('/clientes')
     return novo.id
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : ''
-    if (msg.includes('cpf_cnpj')) throw new Error('CPF/CNPJ já cadastrado')
+    if (cpfRepetido(e)) throw new Error('CPF/CNPJ já cadastrado')
     throw e
   }
 }
@@ -149,16 +154,17 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
   const cpfCnpj = dados.cpfCnpj !== undefined ? limparCpfCnpj(dados.cpfCnpj) : undefined
 
   try {
-    await db.update(clientes).set({
+    const atualizados = await db.update(clientes).set({
       ...dados,
       ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
       atualizadoEm: new Date(),
     }).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
+      .returning({ id: clientes.id })
+    if (!atualizados.length) throw new Error('Cliente não encontrado')
     revalidatePath('/clientes')
     revalidatePath(`/clientes/${id}`)
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : ''
-    if (msg.includes('cpf_cnpj')) throw new Error('CPF/CNPJ já cadastrado')
+    if (cpfRepetido(e)) throw new Error('CPF/CNPJ já cadastrado')
     throw e
   }
 }
