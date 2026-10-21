@@ -73,8 +73,8 @@ const vendasPorDia = cache((filtros: Filtros, liquido: boolean) =>
 // ── Seções async ──────────────────────────────────────────────────────────────
 
 async function KpiSection({
-  filtros, filtrosAnt, usuario,
-}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
+  filtros, filtrosAnt, usuario, abaixoDaManchete,
+}: { filtros: Filtros; filtrosAnt: Filtros; abaixoDaManchete?: React.ReactNode; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
   const isAuxAdm = papel === 'aux_adm'
@@ -109,6 +109,7 @@ async function KpiSection({
         <PainelIndicadores
           entrada={{ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos }}
           serieDia={serieDia}
+          abaixoDaManchete={abaixoDaManchete}
         />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
@@ -376,9 +377,8 @@ async function AtendimentoSection({
 // abrir /contas-pagar naquele mês. Fica no próprio Suspense porque a base
 // automática da folha roda o cálculo inteiro dela.
 async function ContasPagarSection() {
-  const hoje = hojeBrt()
-  const { doMes, atrasadas } = await listarContasDoMesAction(hoje.slice(0, 7))
-  return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} hoje={hoje} />
+  const { doMes, atrasadas } = await listarContasDoMesAction(hojeBrt().slice(0, 7))
+  return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} />
 }
 
 // Próximos eventos do calendário de gestão, respeitando a visibilidade de cada um.
@@ -484,17 +484,22 @@ export default async function DashboardPage({
 
       <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
         <Suspense fallback={<KpiSkeleton />}>
-          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
+          <KpiSection
+            filtros={filtros}
+            filtrosAnt={filtrosAnt}
+            usuario={usuario}
+            // Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir.
+            // Carrega no próprio Suspense para não segurar os indicadores.
+            abaixoDaManchete={isAdmin && (
+              <SectionErrorBoundary label="as contas a pagar">
+                <Suspense fallback={null}>
+                  <ContasPagarSection />
+                </Suspense>
+              </SectionErrorBoundary>
+            )}
+          />
         </Suspense>
       </SectionErrorBoundary>
-      {/* Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir. */}
-      {isAdmin && (
-        <SectionErrorBoundary label="as contas a pagar">
-          <Suspense fallback={null}>
-            <ContasPagarSection />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
       {/* Requer atenção (#281): pendências à esquerda, fábrica à direita; cada bloco carrega sozinho. */}
       {(isVendedor || isAdmin || isAuxAdm) && (
         <Secao titulo="Requer atenção" escondeVazia>
