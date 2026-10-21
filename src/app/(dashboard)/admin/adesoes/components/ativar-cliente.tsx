@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UFS } from '@/lib/sefaz/uf'
 import type { DadosAtivacao } from '@/lib/ativacao-cliente'
-import { aplicarCertificadoAction, aplicarPortalAction, dadosAtivacaoAction } from '../actions'
+import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, dadosAtivacaoAction } from '../actions'
 
-// "Ativar cliente" (#292, fatia 1): certificado A1 e login do portal saem da adesão
+// "Ativar cliente" (#292): loja, certificado A1 e login do portal saem da adesão
 // para o grupo e a loja pelo servidor. Seção na própria tela, não diálogo: o
 // revalidatePath das actions desmontaria um diálogo aberto (AGENTS.md, "Interface").
 
@@ -36,6 +36,7 @@ export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
       </div>
       {dados && (
         <>
+          <PassoLoja adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoCertificado adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <PassoPortal adesaoId={adesaoId} dados={dados} aoAplicar={carregar} />
           <Resumo dados={dados} />
@@ -46,6 +47,60 @@ export function AtivarCliente({ adesaoId }: { adesaoId: string }) {
 }
 
 type Passo = { adesaoId: string; dados: DadosAtivacao; aoAplicar: () => void }
+
+const CAMPOS_LOJA = [
+  { chave: 'nome', rotulo: 'Nome' },
+  { chave: 'cidade', rotulo: 'Cidade' },
+  { chave: 'endereco', rotulo: 'Endereço' },
+  { chave: 'cep', rotulo: 'CEP' },
+] as const
+
+function PassoLoja({ adesaoId, dados, aoAplicar }: Passo) {
+  const [loja, setLoja] = useState(dados.lojaSugerida)
+  const [erro, setErro] = useState<string | null>(null)
+  const [pendente, iniciar] = useTransition()
+
+  function criar() {
+    setErro(null)
+    iniciar(async () => {
+      const r = await criarLojaAtivacaoAction(adesaoId, loja)
+      if (!r.ok) { setErro(r.erro); return }
+      if (r.geocodificado) toast.success('Loja criada')
+      else toast.warning('Loja criada, mas o CEP não foi localizado no mapa. Ajuste em /admin/lojas para o frete funcionar.')
+      aoAplicar()
+    })
+  }
+
+  return (
+    <div className="rounded-md border p-3 space-y-2">
+      <p className="text-sm font-medium">Loja</p>
+      {dados.lojas.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {dados.lojas.map(l => l.nome).join(', ')}. Outras lojas: <Link href="/admin/lojas" className="underline">/admin/lojas</Link>.
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {CAMPOS_LOJA.map(c => (
+              <div key={c.chave} className="space-y-1">
+                <Label htmlFor={`ativar-${adesaoId}-loja-${c.chave}`}>{c.rotulo}</Label>
+                <Input
+                  id={`ativar-${adesaoId}-loja-${c.chave}`}
+                  value={loja[c.chave]}
+                  onChange={e => { const v = e.target.value; setLoja(prev => ({ ...prev, [c.chave]: v })) }}
+                  disabled={pendente}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Preenchido com o endereço da sede da adesão; confira.</p>
+          <Button onClick={criar} disabled={pendente}>Criar loja</Button>
+        </>
+      )}
+      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+    </div>
+  )
+}
 
 function PassoCertificado({ adesaoId, dados, aoAplicar }: Passo) {
   const [uf, setUf] = useState<string>(dados.ufSugerida ?? '')
@@ -121,7 +176,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
         <p className="text-sm text-muted-foreground">Testado e aplicado em {data(dados.portalAplicadoEm)} ({dados.storeLogin}).</p>
       ) : dados.lojas.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          O grupo ainda não tem loja. Crie em <Link href="/admin/lojas" className="underline">/admin/lojas</Link> e volte aqui.
+          O grupo ainda não tem loja. Crie no passo acima.
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">

@@ -19,12 +19,13 @@ let db: Db['db']
 let aplicarCertificadoDaAdesao: Mod['aplicarCertificadoDaAdesao']
 let aplicarPortalDaAdesao: Mod['aplicarPortalDaAdesao']
 let dadosDaAtivacao: Mod['dadosDaAtivacao']
+let criarLojaDaAdesao: Mod['criarLojaDaAdesao']
 let cifrar: typeof import('@/lib/cripto')['cifrar']
 let lerSenhaFabrica: typeof import('@/lib/fabrica-senha')['lerSenhaFabrica']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, dadosDaAtivacao } = await import('@/lib/ativacao-cliente'))
+  ;({ aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, dadosDaAtivacao, criarLojaDaAdesao } = await import('@/lib/ativacao-cliente'))
   ;({ cifrar } = await import('@/lib/cripto'))
   ;({ lerSenhaFabrica } = await import('@/lib/fabrica-senha'))
 })
@@ -135,6 +136,25 @@ test('portal: login recusado não grava; aceito grava cifrado na loja e apaga da
     assert.deepEqual(a, { senha: null, aplicado: true })
     const [log] = await rows<{ n: number }>(tx, sql`select count(*)::int n from log_acoes where tipo = 'portal_aplicado' and grupo_id = ${c.grupo}`)
     assert.equal(log.n, 1)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('loja criada no grupo da adesão, com o CEP geocodificado', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const geo = async () => ({ coordenada: { latitude: -15.6, longitude: -56.1 } }) as never
+    const vazio = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: 'Nova', cidade: '', endereco: 'Rua A', cep: '' }, tx, geo)
+    assert.equal(vazio.ok, false, 'sem cidade, não cria')
+
+    const r = await criarLojaDaAdesao({ adesaoId: c.adesao, nome: ' Nova ', cidade: 'Cuiabá', endereco: 'Av. B, 707', cep: '78010-400' }, tx, geo)
+    assert.ok(r.ok && r.geocodificado)
+    const [loja] = await rows<{ nome: string; grupo: string; cep: string; lat: string }>(tx,
+      sql`select nome, grupo_id grupo, cep, latitude::text lat from lojas where id = ${r.ok ? r.lojaId : ''}`)
+    assert.deepEqual(loja, { nome: 'Nova', grupo: c.grupo, cep: '78010-400', lat: '-15.600000' })
+
+    const dados = await dadosDaAtivacao(c.adesao, tx)
+    assert.deepEqual(dados?.lojas.map(l => l.nome), ['Centro', 'Nova'], 'o passo do portal passa a oferecer a loja nova')
     throw new Desfazer()
   }), Desfazer)
 })
