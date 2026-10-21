@@ -32,9 +32,9 @@ class Desfazer extends Error {}
 test('registro de loja de outro grupo só abre para quem tem o grupo', async () => {
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const grupoA = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo A', '00000000000191') returning id`)
-    const grupoB = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo B', '00000000000272') returning id`)
-    const grupoInativo = await linha(sql`insert into grupos (nome, cnpj, ativo) values ('Grupo Inativo', '00000000000353', false) returning id`)
+    const grupoA = await linha(sql`with c as (insert into contas (nome) values ('Grupo A') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo A', '00000000000191', id from c returning id`)
+    const grupoB = await linha(sql`with c as (insert into contas (nome) values ('Grupo B') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo B', '00000000000272', id from c returning id`)
+    const grupoInativo = await linha(sql`with c as (insert into contas (nome) values ('Grupo Inativo') returning id) insert into grupos (nome, cnpj, ativo, conta_id) select 'Grupo Inativo', '00000000000353', false, id from c returning id`)
     const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupoA.id}) returning id`)
     const lojaA2 = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A2', 'Rua 3', 'X', ${grupoA.id}) returning id`)
     const lojaB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja B', 'Rua 2', 'Y', ${grupoB.id}) returning id`)
@@ -69,8 +69,8 @@ test('registro de loja de outro grupo só abre para quem tem o grupo', async () 
 test('agir em registro de loja: admin no grupo que vê, os demais só na própria loja', async () => {
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const grupoA = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo A', '00000000000191') returning id`)
-    const grupoB = await linha(sql`insert into grupos (nome, cnpj) values ('Grupo B', '00000000000272') returning id`)
+    const grupoA = await linha(sql`with c as (insert into contas (nome) values ('Grupo A') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo A', '00000000000191', id from c returning id`)
+    const grupoB = await linha(sql`with c as (insert into contas (nome) values ('Grupo B') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo B', '00000000000272', id from c returning id`)
     const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupoA.id}) returning id`)
     const lojaA2 = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A2', 'Rua 3', 'X', ${grupoA.id}) returning id`)
     const lojaB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja B', 'Rua 2', 'Y', ${grupoB.id}) returning id`)
@@ -94,8 +94,8 @@ test('vender moto: própria loja, e o Galpão Matriz para quem vende no grupo de
   const { LOJA_GALPAO_MATRIZ_ID } = await import('@/lib/loja-galpao')
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const sul = await linha(sql`insert into grupos (nome, cnpj) values ('Sul', '00000000000191') returning id`)
-    const bh = await linha(sql`insert into grupos (nome, cnpj) values ('BH', '00000000000272') returning id`)
+    const sul = await linha(sql`with c as (insert into contas (nome) values ('Sul') returning id) insert into grupos (nome, cnpj, conta_id) select 'Sul', '00000000000191', id from c returning id`)
+    const bh = await linha(sql`with c as (insert into contas (nome) values ('BH') returning id) insert into grupos (nome, cnpj, conta_id) select 'BH', '00000000000272', id from c returning id`)
     const centro = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Centro', 'Rua 1', 'X', ${sul.id}) returning id`)
     const norte = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Norte', 'Rua 2', 'X', ${sul.id}) returning id`)
     await tx.execute(sql`insert into lojas (id, nome, endereco, cidade, grupo_id) values (${LOJA_GALPAO_MATRIZ_ID}, 'Galpão', 'Rua 3', 'X', ${sul.id})`)

@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { grupos } from '@/lib/db/schema'
+import { contas, grupos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
@@ -81,17 +81,22 @@ export async function criarGrupoAction(dados: GrupoInput) {
   if (!dados.nome.trim()) throw new Error('Nome obrigatório')
   if (!dados.cnpj.trim()) throw new Error('CNPJ obrigatório')
 
-  await db.insert(grupos).values({
-    nome: dados.nome.trim(),
-    cnpj: dados.cnpj.trim(),
-    ativo: dados.ativo,
-    blingClientId: dados.blingClientId?.trim() || null,
-    blingClientSecret: dados.blingClientSecret?.trim() || null,
-    mcpaiEndpointUrl: cifrarChaveMcp(dados) ?? null,
-    razaoSocial: dados.razaoSocial?.trim() || null,
-    enderecoSede: dados.enderecoSede?.trim() || null,
-    cidadeSede: dados.cidadeSede?.trim() || null,
-    comarcaForo: dados.comarcaForo?.trim() || null,
+  // Grupo novo nasce numa Conta nova (ADR-0018); escolher uma Conta existente vem depois (#263).
+  await db.transaction(async tx => {
+    const [conta] = await tx.insert(contas).values({ nome: dados.nome.trim() }).returning({ id: contas.id })
+    await tx.insert(grupos).values({
+      contaId: conta.id,
+      nome: dados.nome.trim(),
+      cnpj: dados.cnpj.trim(),
+      ativo: dados.ativo,
+      blingClientId: dados.blingClientId?.trim() || null,
+      blingClientSecret: dados.blingClientSecret?.trim() || null,
+      mcpaiEndpointUrl: cifrarChaveMcp(dados) ?? null,
+      razaoSocial: dados.razaoSocial?.trim() || null,
+      enderecoSede: dados.enderecoSede?.trim() || null,
+      cidadeSede: dados.cidadeSede?.trim() || null,
+      comarcaForo: dados.comarcaForo?.trim() || null,
+    })
   })
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
