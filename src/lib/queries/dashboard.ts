@@ -86,8 +86,10 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   }
 }
 
-// O banco roda em UTC: o dia da venda é tirado no fuso de Brasília, senão a das 22h cai no seguinte.
-/** useLiquidoValue: a mesma base do faturamento do vendedor em getKPIs, para a série bater com o número. */
+/**
+ * useLiquidoValue: a mesma base do faturamento do vendedor em getKPIs, para a série bater com o número.
+ * O dia é o de Brasília: o banco roda em UTC, e sem o fuso a venda das 22h cai no dia seguinte.
+ */
 export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue?: boolean }) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = inicioDoDiaBrt(dataInicio)
@@ -100,16 +102,17 @@ export async function getVendasPorDia(filtros: Filtros, opts?: { useLiquidoValue
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
+  const diaBrt = sql<string>`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`
   const rows = await db
     .select({
-      dia: sql<string>`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`,
+      dia: diaBrt,
       total: count(),
       valor: opts?.useLiquidoValue ? sql<string>`sum(${valorLiquidoExpr()})` : sum(vendas.valor),
     })
     .from(vendas)
     .where(and(...conditions))
-    .groupBy(sql`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`)
-    .orderBy(sql`to_char(${vendas.dataVenda} AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')`)
+    .groupBy(diaBrt)
+    .orderBy(diaBrt)
 
   return rows.map(r => ({
     dia: r.dia,

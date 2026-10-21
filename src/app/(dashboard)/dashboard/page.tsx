@@ -374,9 +374,10 @@ function hojeISO() {
   return hojeBrt()
 }
 
+// Mês de Brasília: no servidor (UTC), das 21h à meia-noite do último dia o relógio já
+// está no mês seguinte e o período padrão ficaria com o início depois do fim (#283).
 function inicioMesAtualISO() {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10)
+  return `${hojeBrt().slice(0, 7)}-01`
 }
 
 // Período de comparação: mesma duração do período selecionado, terminando um dia antes dele.
