@@ -38,15 +38,18 @@ function Legenda() {
   )
 }
 
-function Dica({ active, payload, campo }: {
+type CampoValor = Exclude<keyof PontoFaturamento, 'dia'>
+type Campos = { atual: CampoValor; anterior: CampoValor }
+
+function Dica({ active, payload, campos }: {
   active?: boolean
   payload?: { payload: PontoFaturamento }[]
-  campo: 'diario' | 'acumulado'
+  campos: Campos
 }) {
   if (!active || !payload?.length) return null
   const p = payload[0].payload
-  const atual = campo === 'diario' ? p.atual : p.atualAcumulado
-  const anterior = campo === 'diario' ? p.anterior : p.anteriorAcumulado
+  const atual = p[campos.atual]
+  const anterior = p[campos.anterior]
   const dif = atual - anterior
   return (
     <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-sm">
@@ -60,40 +63,56 @@ function Dica({ active, payload, campo }: {
   )
 }
 
-export function GraficoFaturamentoPorDia({ serie }: { serie: PontoFaturamento[] }) {
-  const max = Math.max(0, ...serie.flatMap(p => [p.atual, p.anterior]))
-  const maiorDia = Math.max(0, ...serie.map(p => p.atual))
+// Eixos e grade iguais nos dois gráficos, como props: o XAxis/YAxis continua filho direto do gráfico.
+const grade = { vertical: false, stroke: 'var(--border)' }
+const eixoX = { dataKey: 'dia', tickFormatter: diaMes, tick: eixo, tickLine: false, axisLine: { stroke: 'var(--input)' } }
+const eixoY = (max: number) => ({ tick: <TickReais />, tickLine: false, axisLine: false, width: larguraEixoY(max) })
+
+function QuadroGrafico({ titulo, vazio, altura, children }: {
+  titulo: string
+  vazio: boolean
+  altura: number
+  children: React.ReactElement
+}) {
   return (
-    <Secao titulo="Faturamento por dia">
-      {max === 0 ? (
+    <Secao titulo={titulo}>
+      {vazio ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma venda no período</p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={240} className="mt-3">
-            <ComposedChart data={serie} margin={{ top: 18, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" />
-              <XAxis dataKey="dia" tickFormatter={diaMes} tick={eixo} tickLine={false} axisLine={{ stroke: 'var(--input)' }} minTickGap={12} />
-              <YAxis tick={<TickReais />} tickLine={false} axisLine={false} width={larguraEixoY(max)} />
-              <Tooltip content={<Dica campo="diario" />} cursor={{ fill: 'var(--muted)' }} />
-              <Bar dataKey="atual" fill="var(--chart-1)" radius={[2, 2, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-                <LabelList
-                  dataKey="atual"
-                  content={({ x, y, width, value }) =>
-                    Number(value) === maiorDia ? (
-                      <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="var(--foreground)">
-                        {brlCurto(maiorDia)}
-                      </text>
-                    ) : null
-                  }
-                />
-              </Bar>
-              <Line dataKey="anterior" type="linear" stroke="var(--chart-4)" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={altura} className="mt-3">{children}</ResponsiveContainer>
           <Legenda />
         </>
       )}
     </Secao>
+  )
+}
+
+export function GraficoFaturamentoPorDia({ serie }: { serie: PontoFaturamento[] }) {
+  const max = Math.max(0, ...serie.flatMap(p => [p.atual, p.anterior]))
+  const maiorDia = Math.max(0, ...serie.map(p => p.atual))
+  return (
+    <QuadroGrafico titulo="Faturamento por dia" vazio={max === 0} altura={240}>
+      <ComposedChart data={serie} margin={{ top: 18, right: 8, bottom: 0, left: 0 }}>
+        <CartesianGrid {...grade} />
+        <XAxis {...eixoX} minTickGap={12} />
+        <YAxis {...eixoY(max)} />
+        <Tooltip content={<Dica campos={{ atual: 'atual', anterior: 'anterior' }} />} cursor={{ fill: 'var(--muted)' }} />
+        <Bar dataKey="atual" fill="var(--chart-1)" radius={[2, 2, 0, 0]} maxBarSize={28} isAnimationActive={false}>
+          <LabelList
+            dataKey="atual"
+            content={({ x, y, width, value }) =>
+              Number(value) === maiorDia ? (
+                <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="var(--foreground)">
+                  {brlCurto(maiorDia)}
+                </text>
+              ) : null
+            }
+          />
+        </Bar>
+        <Line dataKey="anterior" type="linear" stroke="var(--chart-4)" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+      </ComposedChart>
+    </QuadroGrafico>
   )
 }
 
@@ -102,39 +121,29 @@ export function GraficoAcumulado({ serie }: { serie: PontoFaturamento[] }) {
   const max = Math.max(0, ultimo?.atualAcumulado ?? 0, ultimo?.anteriorAcumulado ?? 0)
   const fim = serie.length - 1
   // Valor na ponta de cada linha: responde "à frente ou atrás?" sem passar o mouse.
-  const ponta = (cor: string, campo: 'atualAcumulado' | 'anteriorAcumulado') =>
+  const renderPonta = (cor: string, campo: CampoValor, comPonto: boolean) =>
     function Ponta({ cx, cy, index }: { cx?: number; cy?: number; index?: number }) {
       if (index !== fim || !ultimo) return <g key={index} />
       return (
         <g key={index}>
-          {campo === 'atualAcumulado' && <circle cx={cx} cy={cy} r={3.5} fill={cor} />}
+          {comPonto && <circle cx={cx} cy={cy} r={3.5} fill={cor} />}
           <text x={Number(cx) + 6} y={Number(cy) + 4} fontSize={11} fontWeight={600} fill={cor}>{brlCurto(ultimo[campo])}</text>
         </g>
       )
     }
   return (
-    <Secao titulo="Acumulado do período">
-      {max === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma venda no período</p>
-      ) : (
-        <>
-          <ResponsiveContainer width="100%" height={200} className="mt-3">
-            <ComposedChart data={serie} margin={{ top: 14, right: 62, bottom: 0, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" />
-              <XAxis dataKey="dia" tickFormatter={diaMes} tick={eixo} tickLine={false} axisLine={{ stroke: 'var(--input)' }}
-                ticks={serie.length > 1 ? [serie[0].dia, serie[fim].dia] : undefined} interval={0} />
-              <YAxis tick={<TickReais />} tickLine={false} axisLine={false} width={larguraEixoY(max)} />
-              <Tooltip content={<Dica campo="acumulado" />} cursor={{ stroke: 'var(--input)' }} />
-              <Area dataKey="atualAcumulado" type="linear" stroke="var(--chart-1)" strokeWidth={2.5} fill="var(--chart-1)" fillOpacity={0.12}
-                dot={ponta('var(--chart-1)', 'atualAcumulado')} activeDot={false} isAnimationActive={false} />
-              <Line dataKey="anteriorAcumulado" type="linear" stroke="var(--chart-4)" strokeWidth={2} strokeDasharray="5 4"
-                dot={ponta('var(--muted-foreground)', 'anteriorAcumulado')} activeDot={false} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-          <Legenda />
-        </>
-      )}
-    </Secao>
+    <QuadroGrafico titulo="Acumulado do período" vazio={max === 0} altura={200}>
+      <ComposedChart data={serie} margin={{ top: 14, right: 62, bottom: 0, left: 0 }}>
+        <CartesianGrid {...grade} />
+        <XAxis {...eixoX} ticks={serie.length > 1 ? [serie[0].dia, serie[fim].dia] : undefined} interval={0} />
+        <YAxis {...eixoY(max)} />
+        <Tooltip content={<Dica campos={{ atual: 'atualAcumulado', anterior: 'anteriorAcumulado' }} />} cursor={{ stroke: 'var(--input)' }} />
+        <Area dataKey="atualAcumulado" type="linear" stroke="var(--chart-1)" strokeWidth={2.5} fill="var(--chart-1)" fillOpacity={0.12}
+          dot={renderPonta('var(--chart-1)', 'atualAcumulado', true)} activeDot={false} isAnimationActive={false} />
+        <Line dataKey="anteriorAcumulado" type="linear" stroke="var(--chart-4)" strokeWidth={2} strokeDasharray="5 4"
+          dot={renderPonta('var(--muted-foreground)', 'anteriorAcumulado', false)} activeDot={false} isAnimationActive={false} />
+      </ComposedChart>
+    </QuadroGrafico>
   )
 }
 
