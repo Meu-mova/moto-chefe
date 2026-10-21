@@ -61,3 +61,9 @@ export function codigoDaUf(sigla: string): string {
   }
   return uf.codigo
 }
+
+/** UF pelo fim do endereço da sede ("Cuiabá – MT", "Cuiabá/MT"); null se não der para saber. */
+export function ufDoEndereco(endereco: string | null): SiglaUf | null {
+  const ultima = (endereco ?? '').trim().match(/(?:^|[\s,/–-])([A-Za-z]{2})\.?$/)?.[1]?.toUpperCase()
+  return ultima && ufValida(ultima) ? ultima : null
+}

@@ -44,9 +44,12 @@ export function lerDadosDoPfx(pfx: Buffer, senha: string): DadosCertificado {
  * subject, mas o de AC privada (o do Vale, por exemplo) não tem nenhum dos
  * dois. Por isso é parâmetro obrigatório, e não algo lido do .pfx.
  */
-export async function salvarCertificado(grupoId: string, pfx: Buffer, senha: string, uf: SiglaUf): Promise<DadosCertificado> {
+export async function salvarCertificado(
+  grupoId: string, pfx: Buffer, senha: string, uf: SiglaUf,
+  exec: Pick<typeof db, 'insert'> = db,
+): Promise<DadosCertificado> {
   const dados = lerDadosDoPfx(pfx, senha)
-  await db.insert(certificadosDigitais)
+  await exec.insert(certificadosDigitais)
     .values({
       grupoId,
       arquivo: cifrar(pfx),
