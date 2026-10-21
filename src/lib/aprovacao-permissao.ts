@@ -21,11 +21,12 @@ export type UsuarioAprovador = {
   aprovaPagamentoSensivel?: boolean | null
 }
 
-// Quem aprova venda de baixo valor em QUALQUER grupo, sem depender da loja fixa:
+// Quem aprova venda de baixo valor sem depender da loja fixa:
 //   - admin_geral: aprova tudo, sempre.
-//   - usuário multi-grupo: opera os dois grupos, então aprova nos dois. Sem
+//   - usuário multi-grupo: opera os grupos da Conta dele, então aprova em todos. Sem
 //     isto ele só aprovaria no grupo da própria loja (Sul de Minas) e ficaria
 //     travado no BH — que é o bug que esta função corrige.
+// Não olha a Conta: chame por podeAprovarVendaBaixoValor (@/lib/grupo), que confere.
 export function aprovaBaixoValorEmQualquerGrupo(usuario: { papel: string; email: string }): boolean {
   return usuario.papel === 'admin_geral' || usuario.email === EMAIL_ACESSO_MULTI_GRUPO
 }

@@ -26,7 +26,6 @@ after(async () => {
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
-
 class Desfazer extends Error {}
 
 test('grupo e lojas de uma Conta: nada de outra Conta entra', async () => {
@@ -43,8 +42,10 @@ test('grupo e lojas de uma Conta: nada de outra Conta entra', async () => {
     assert.equal(await grupoEstaNaConta(bh.id, conta.id, tx), true, 'grupo da Conta')
     assert.equal(await grupoEstaNaConta(x.id, conta.id, tx), false, 'grupo de outra Conta')
     assert.equal(await grupoEstaNaConta(sul.id, null, tx), false, 'sem Conta, nenhum grupo')
-    assert.deepEqual((await listarLojasAtivasDaConta(conta.id, tx)).map(l => l.nome), ['BH Centro', 'Sul Centro'], 'lojas ativas da Conta, sem as de outra Conta')
-    assert.deepEqual(await listarLojasAtivasDaConta(null, tx), [], 'sem Conta, nenhuma loja')
+    assert.deepEqual((await listarLojasAtivasDaConta({ papel: 'admin_socio', contaId: conta.id }, tx)).map(l => l.nome), ['BH Centro', 'Sul Centro'], 'lojas ativas da Conta, sem as de outra Conta')
+    assert.deepEqual(await listarLojasAtivasDaConta({ papel: 'admin_socio', contaId: null }, tx), [], 'sem Conta, nenhuma loja')
+    const doGeral = (await listarLojasAtivasDaConta({ papel: 'admin_geral', contaId: null }, tx)).map(l => l.nome)
+    assert.ok(['BH Centro', 'Sul Centro', 'X Centro'].every(n => doGeral.includes(n)) && !doGeral.includes('Sul Fechada'), 'admin_geral: lojas ativas de todas as Contas')
     throw new Desfazer()
   }), Desfazer)
 })

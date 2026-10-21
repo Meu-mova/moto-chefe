@@ -46,7 +46,7 @@ export async function solicitarTransferenciaAction(
   // destino, de grupo que ele vê, ou, pela exceção nominal, de qualquer grupo da Conta.
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
-  const destinoOk = podeTransferirEntreGrupos(usuario)
+  const destinoOk = usuario.papel !== 'admin_geral' && podeTransferirEntreGrupos(usuario)
     ? await grupoEstaNaConta(await getGrupoIdDaLoja(lojaDestinoId), usuario.contaId)
     : await podeAbrirRegistroDaLoja(usuario, lojaDestinoId)
   if (!destinoOk) {

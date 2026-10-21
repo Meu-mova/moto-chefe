@@ -96,8 +96,9 @@ async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso
 
 // Grupo marcado (de acesso ou de aprovação) tem de ser da Conta do usuário: grupo de
 // outra Conta nunca vale, e gravar um assim seria permissão que não funciona (ADR-0018).
-async function exigirGruposDaConta(contaId: string | null, gruposMarcados: string[]) {
-  if (gruposMarcados.length === 0) return
+async function exigirGruposDaConta(papel: string, contaId: string | null, gruposMarcados: string[]) {
+  // admin_geral é da plataforma, sem Conta: aprova e vê tudo de qualquer jeito.
+  if (papel === 'admin_geral' || gruposMarcados.length === 0) return
   const linhas = await db.select({ contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, gruposMarcados))
   if (linhas.some(g => g.contaId !== contaId)) throw new Error('Grupo de outra Conta: marque só grupos da mesma Conta da loja do usuário')
 }
@@ -121,7 +122,7 @@ export async function criarUsuarioAction(dados: {
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-  if (dados.papel !== 'admin_geral') await exigirGruposDaConta(contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+  await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -166,7 +167,7 @@ export async function editarUsuarioAction(id: string, dados: {
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-  if (dados.papel !== 'admin_geral') await exigirGruposDaConta(contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+  await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
 
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({

@@ -14,15 +14,16 @@ export async function grupoEstaNaConta(grupoId: string, contaId: string | null, 
   return g?.contaId === contaId
 }
 
+// admin_geral (da plataforma, sem Conta) vê as lojas ativas de todas as Contas.
 export async function listarLojasAtivasDaConta(
-  contaId: string | null,
+  usuario: { papel: string; contaId: string | null },
   exec: Executor = db,
 ): Promise<{ id: string; nome: string }[]> {
-  if (!contaId) return []
-  return exec
+  const consulta = exec
     .select({ id: lojas.id, nome: lojas.nome })
     .from(lojas)
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-    .where(and(eq(lojas.ativa, true), eq(grupos.contaId, contaId)))
-    .orderBy(asc(lojas.nome))
+  if (usuario.papel === 'admin_geral') return consulta.where(eq(lojas.ativa, true)).orderBy(asc(lojas.nome))
+  if (!usuario.contaId) return []
+  return consulta.where(and(eq(lojas.ativa, true), eq(grupos.contaId, usuario.contaId))).orderBy(asc(lojas.nome))
 }

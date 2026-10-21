@@ -25,9 +25,9 @@ type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | nul
 
 // Conta obrigatória no tipo (mesmo que null): sem ela a regra recusa todo grupo, e
 // esquecer o campo viraria "usuário sem acesso" calado em vez de erro de compilação.
-type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null }
-
 type UsuarioComConta = { papel: string; lojaId: string | null; contaId: string | null } & Partial<UsuarioAcessoGrupo>
+
+type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null }
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -228,7 +228,7 @@ async function aprovaNaContaDoGrupo(usuario: UsuarioAprovadorComConta, grupoId: 
 }
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
-// admin_geral e o usuário multi-grupo aprovam de qualquer grupo; admin_socio
+// admin_geral aprova em qualquer grupo; o usuário multi-grupo, em qualquer grupo da Conta dele; admin_socio
 // aprova no próprio grupo (o da loja fixa dele, usuarios.lojaId) mais os grupos
 // liberados no cadastro (usuarios.grupos_aprovacao) — nunca pelo cookie
 // grupoAtivo: a permissão de aprovar não deve depender de qual grupo o sócio
