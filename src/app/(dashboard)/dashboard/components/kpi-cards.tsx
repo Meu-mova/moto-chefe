@@ -87,6 +87,9 @@ function cardDesconto(d: { qtd: number; margem: number; estimados: number }, fat
   }
 }
 
+// Pouco menos da metade da tela: aparece a ponta do próximo cartão, sinal de que rola.
+const CARTAO_CARROSSEL = 'w-[44%] shrink-0 snap-start sm:w-auto'
+
 export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, motoMaisVendida, conciliacaoPendentes = 0, faturamentoOS = { servicos: 0, pecas: 0 }, faixasOTE = [], descontos }: Props) {
   const isAdmin = ADMINS.includes(papel)
   // Quem acumula a função de vendedor sem ter o papel principal vem pela prop.
@@ -160,12 +163,12 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
 
   return (
     // Celular: carrossel com rolagem lateral (variante C do protótipo da #281); a partir de sm, grade.
-    <div className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 md:grid-cols-3 ${gridCols}`}>
+    <div className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 ${gridCols}`}>
       {cards.map(({ label, value, icon: Icon, color, bg, variacao, href, highlight, hint }) => {
         const inner = (
           <div className={`flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-4 ${highlight ? 'border-warning ring-1 ring-warning/30' : ''} ${href ? 'transition-shadow hover:shadow-sm' : ''}`}>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">{label}</span>
+              <span className="text-sm text-muted-foreground">{label}</span>
               <div className={`${bg} ${color} p-1.5 rounded-md`}>
                 <Icon size={16} />
               </div>
@@ -185,10 +188,9 @@ export function KpiCards({ kpis, kpisAnt, papel, isVendedor: isVendedorProp, mot
             )}
           </div>
         )
-        const item = 'w-[44%] shrink-0 snap-start sm:w-auto'
         return href
-          ? <Link key={label} href={href} className={item}>{inner}</Link>
-          : <div key={label} className={item}>{inner}</div>
+          ? <Link key={label} href={href} className={CARTAO_CARROSSEL}>{inner}</Link>
+          : <div key={label} className={CARTAO_CARROSSEL}>{inner}</div>
       })}
     </div>
   )

@@ -36,15 +36,16 @@ export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, de
     })
   }, [router, pathname, searchParams])
 
+  const rotulo = 'flex flex-col gap-1 text-xs text-muted-foreground lg:flex-row lg:items-center lg:gap-2 lg:text-sm'
   const campo = 'h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground lg:w-auto'
   return (
-    // Celular e tablet: grade de 2 colunas na largura toda; desktop: em linha ao lado do título.
-    <div className={`grid grid-cols-2 items-end gap-2 transition-opacity lg:flex lg:flex-wrap lg:items-center lg:gap-3 ${isPending ? 'opacity-60' : ''}`}>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground lg:flex-row lg:items-center lg:gap-2 lg:text-sm">
+    // Celular: 2 colunas; tablet: 4; ambos na largura toda; desktop: em linha ao lado do título.
+    <div className={`grid grid-cols-2 items-end gap-2 transition-opacity sm:grid-cols-4 lg:flex lg:flex-wrap lg:items-center lg:gap-3 ${isPending ? 'opacity-60' : ''}`}>
+      <label className={rotulo}>
         De
         <input type="date" value={deAtual} onChange={e => update('de', e.target.value)} className={campo} disabled={isPending} />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground lg:flex-row lg:items-center lg:gap-2 lg:text-sm">
+      <label className={rotulo}>
         Até
         <input type="date" value={ateAtual} onChange={e => update('ate', e.target.value)} className={campo} disabled={isPending} />
       </label>
@@ -66,7 +67,7 @@ export function DashboardFiltros({ lojas, vendedores, isAdmin, lojaUsuarioId, de
           ))}
         </select>
       )}
-      {isPending && <Loader2 size={14} className="col-span-2 shrink-0 animate-spin text-muted-foreground" />}
+      {isPending && <Loader2 size={14} className="shrink-0 animate-spin text-muted-foreground" />}
     </div>
   )
 }
