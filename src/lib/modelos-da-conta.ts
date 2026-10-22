@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, ne, notExists, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { contaMarcas, modeloApelidos, modelos } from '@/lib/db/schema'
+import { contaMarcas, demandas, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
@@ -82,6 +82,34 @@ export async function salvarApelidosDoModelo(
       await tx.insert(modeloApelidos).values(apelidos.map(apelido => ({ apelido, modeloId, contaId: modelo.contaId })))
     }
   })
+}
+
+// Depois que uma moto ou demanda usa o modelo, ele só se edita: excluir apagaria a
+// referência do histórico.
+export async function excluirModelo(modeloId: string, exec: Pick<typeof db, 'select' | 'transaction'> = db) {
+  await exec.transaction(async tx => {
+    // Trava o modelo: uma moto ou demanda gravada entre a checagem e o delete cairia na FK.
+    await tx.select({ id: modelos.id }).from(modelos).where(eq(modelos.id, modeloId)).for('update')
+    const [moto] = await tx.select({ id: motos.id }).from(motos).where(eq(motos.modeloId, modeloId)).limit(1)
+    if (moto) throw new Error('Há motos com este modelo; ele não pode mais ser excluído, só editado')
+    const [demanda] = await tx.select({ id: demandas.id }).from(demandas).where(eq(demandas.modeloId, modeloId)).limit(1)
+    if (demanda) throw new Error('Há demandas com este modelo; ele não pode mais ser excluído, só editado')
+    await tx.delete(modeloBlingCodigos).where(eq(modeloBlingCodigos.modeloId, modeloId))
+    await tx.delete(modelos).where(eq(modelos.id, modeloId))
+  })
+}
+
+// Avisa, não bloqueia: a Conta pode ter um modelo com o mesmo nome de um da plataforma.
+// contaId nulo = cadastro da plataforma, que compara com todos.
+export async function avisoDeNomeRepetido(contaId: string | null, nome: string, ignorarId: string | null, exec: Executor = db) {
+  const [igual] = await exec.select({ marca: modelos.marca, modelo: modelos.modelo }).from(modelos)
+    .where(and(
+      sql`lower(${modelos.modelo}) = lower(${nome.trim()})`,
+      ignorarId ? ne(modelos.id, ignorarId) : undefined,
+      contaId ? daPlataformaOuDa(modelos.contaId, contaId) : undefined,
+    ))
+    .limit(1)
+  return igual ? `Já existe um modelo "${igual.modelo}" (${igual.marca}). Gravado mesmo assim.` : null
 }
 
 export async function listarMarcasDaConta(contaId: string, exec: Executor = db): Promise<string[]> {
