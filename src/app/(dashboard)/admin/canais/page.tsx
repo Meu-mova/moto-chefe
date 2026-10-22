@@ -24,9 +24,12 @@ export default async function CanaisPage() {
   // leads do concorrente (kommo_pipeline_grupo é a prova de tenant de
   // /marketing inteiro). A action definirGrupoFunilAction valida de novo no
   // servidor — o filtro aqui é só para não nem oferecer a opção errada.
+  // Canais e funis da Kommo são da integração inteira: só o admin_geral vê e edita.
+  // Os demais recebem só os funis do próprio grupo, para lançar verba (#328).
+  const adminGeral = usuario.papel === 'admin_geral'
   const [canais, funis, grupos, investimentos] = await Promise.all([
-    canaisParaAdmin(),
-    funisParaAdmin(),
+    adminGeral ? canaisParaAdmin() : Promise.resolve([]),
+    funisParaAdmin(adminGeral ? undefined : grupo.id),
     listarGruposVisiveis(usuario),
     db.select().from(marketingInvestimento)
       .where(eq(marketingInvestimento.grupoId, grupo.id))
@@ -47,20 +50,24 @@ export default async function CanaisPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="canais">
+      <Tabs defaultValue={adminGeral ? 'canais' : 'investimento'}>
         <TabsList>
-          <TabsTrigger value="canais">Canais</TabsTrigger>
-          <TabsTrigger value="funis">Funis e grupos</TabsTrigger>
+          {adminGeral && <TabsTrigger value="canais">Canais</TabsTrigger>}
+          {adminGeral && <TabsTrigger value="funis">Funis e grupos</TabsTrigger>}
           <TabsTrigger value="investimento">Investimento</TabsTrigger>
         </TabsList>
-        <TabsContent value="canais">
-          <div className="pt-4"><CanaisTable canais={canais} /></div>
-        </TabsContent>
-        <TabsContent value="funis">
-          <div className="pt-4">
-            <FunisTable funis={funis} grupos={grupos.map(g => ({ id: g.id, nome: g.nome }))} />
-          </div>
-        </TabsContent>
+        {adminGeral && (
+          <TabsContent value="canais">
+            <div className="pt-4"><CanaisTable canais={canais} /></div>
+          </TabsContent>
+        )}
+        {adminGeral && (
+          <TabsContent value="funis">
+            <div className="pt-4">
+              <FunisTable funis={funis} grupos={grupos.map(g => ({ id: g.id, nome: g.nome }))} />
+            </div>
+          </TabsContent>
+        )}
         <TabsContent value="investimento">
           <div className="pt-4">
             <InvestimentoTable

@@ -366,7 +366,8 @@ export async function canaisParaAdmin(): Promise<CanalAdmin[]> {
 }
 
 // Todos os funis vistos nos leads, com o grupo atual (null = não classificado).
-export async function funisParaAdmin() {
+// grupoId omitido = admin_geral, todos os funis; senão só os ligados ao grupo (#328).
+export async function funisParaAdmin(grupoId?: string) {
   const rows = await execRows(sql`
     WITH ${FUNIS}
     SELECT l.pipeline_id                                as pipeline_id,
@@ -377,6 +378,7 @@ export async function funisParaAdmin() {
     FROM kommo_leads l
     LEFT JOIN funis f ON f.pipeline_id = l.pipeline_id
     LEFT JOIN kommo_pipeline_grupo pg ON pg.pipeline_id = l.pipeline_id
+    ${grupoId ? sql`WHERE pg.grupo_id = ${grupoId}::uuid` : sql``}
     GROUP BY l.pipeline_id
     ORDER BY leads90 DESC, leads DESC
   `) as unknown as { pipeline_id: string; funil: string; leads: number; leads90: number; grupo_id: string | null }[]
