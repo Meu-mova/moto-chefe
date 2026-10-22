@@ -12,6 +12,7 @@ import { GESTORES, podeAvancarOS } from '@/lib/os-transicao'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
+import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 import {
   TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom, motivoCupomInvalido,
 } from '@/lib/cupom-revisao'
@@ -110,6 +111,7 @@ export async function abrirOSAction(input: AbrirOSInput) {
   if (!input.clienteId && tipoPessoa === 'juridica' && !input.clienteNomeExterno?.trim()) {
     throw new Error('Informe a razão social da empresa')
   }
+  await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, usuarioIds: [input.mecanicoId] })
 
   await db.insert(ordensServico).values({
     lojaId,
@@ -186,7 +188,8 @@ export async function atualizarOSAction(osId: string, dados: {
   clienteNomeExterno?: string | null
   clienteFoneExterno?: string | null
 }) {
-  await verificarAcessoOS(osId, EDITORES)
+  const { os } = await verificarAcessoOS(osId, EDITORES)
+  await conferirVinculosDaConta(os.lojaId, { usuarioIds: [dados.mecanicoId] })
   await db.update(ordensServico).set({
     mecanicoId:         dados.mecanicoId !== undefined ? (dados.mecanicoId || null) : undefined,
     descricao:          dados.descricao  !== undefined ? dados.descricao            : undefined,

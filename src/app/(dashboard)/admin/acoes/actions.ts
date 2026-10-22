@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { contaDaLoja } from '@/lib/conta'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -19,6 +20,10 @@ export async function reatribuirLojaMotaAction(motoId: string, novaLojaId: strin
   if (!moto) throw new Error('Moto não encontrada')
   if (moto.status !== 'faturada') throw new Error('Reatribuição de loja só permitida para motos com status "faturada"')
   if (!observacao) throw new Error('Observação obrigatória para reatribuição de loja')
+  // Reatribuir é trocar de loja dentro da mesma Conta; levar a moto para outra Conta, não.
+  if ((await contaDaLoja(novaLojaId)) !== (await contaDaLoja(moto.lojaId))) {
+    throw new Error('Loja não encontrada')
+  }
 
   const lojaAnteriorId = moto.lojaId
 
