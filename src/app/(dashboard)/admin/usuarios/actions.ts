@@ -1,17 +1,18 @@
 'use server'
 import { db } from '@/lib/db'
-import { usuarios, grupos, lojas } from '@/lib/db/schema'
+import { usuarios, grupos } from '@/lib/db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoIdDaLoja, listarGruposVisiveis } from '@/lib/grupo'
-import { ehGestorDeUsuarios, podeExcluir, recusaDaGravacao, type CadastroGestao, type Gestor } from '@/lib/gestao-usuarios'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { gestorDaSessao } from '@/lib/gestor-da-sessao'
+import { podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
+import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
-import { ITENS, itensVisiveis } from '@/lib/navegacao'
+import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
 // Item só do admin_geral não se libera individualmente: gravar seria liberação sem efeito.
-const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral).map(i => i.id))
+const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral && !i.soPeloPapel).map(i => i.id))
 
 // Grava só ids que existem hoje na tabela de navegação — evita lixo permanente
 // no banco se um id de item mudar de nome (o valor antigo nunca mais casaria
@@ -27,39 +28,8 @@ function getAdminClient() {
   )
 }
 
-// admin_geral ou sócio (#322). O que cada um pode gravar decide @/lib/gestao-usuarios.
-async function gestorDaSessao(): Promise<Gestor> {
-  const u = await getUsuarioLogado()
-  if (!ehGestorDeUsuarios(u)) throw new Error('Sem permissão para gerenciar usuários')
-  const gruposVisiveis = u.papel === 'admin_geral' ? [] : (await listarGruposVisiveis(u)).map(g => g.id)
-  // Sem as regras próprias: tela que depende delas não se libera pelo sócio.
-  const itensLiberaveis = itensVisiveis(u, {}).map(i => i.id)
-  return { id: u.id, papel: u.papel, gruposVisiveis, itensLiberaveis, aprovaPagamentoSensivel: u.aprovaPagamentoSensivel === true }
-}
-
 function exigir(recusa: string | null) {
   if (recusa) throw new Error(recusa)
-}
-
-// Estado gravado do alvo, lido no servidor: a tela não decide quem está no alcance.
-async function cadastroAtual(id: string): Promise<(CadastroGestao & { id: string }) | null> {
-  const [u] = await db
-    .select({
-      id: usuarios.id, papel: usuarios.papel, grupoDaLoja: lojas.grupoId, ativo: usuarios.ativo,
-      gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao, modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
-      aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
-    })
-    .from(usuarios).leftJoin(lojas, eq(usuarios.lojaId, lojas.id)).where(eq(usuarios.id, id)).limit(1)
-  if (!u) return null
-  return { ...u, gruposAcesso: u.gruposAcesso ?? [], gruposAprovacao: u.gruposAprovacao ?? [], modulosExtras: u.modulosExtras ?? [], modulosBloqueados: u.modulosBloqueados ?? [] }
-}
-
-async function cadastroPedido(dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; modulosBloqueados: string[]; aprovaPagamentoSensivel: boolean }, ativo: boolean): Promise<CadastroGestao> {
-  return {
-    aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
-    papel: dados.papel, grupoDaLoja: dados.lojaId ? await getGrupoIdDaLoja(dados.lojaId) : null, ativo,
-    gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras, modulosBloqueados: dados.modulosBloqueados,
-  }
 }
 
 /** Grupo da loja do alvo e Conta dele: é onde o admin da Conta vê a mudança. */

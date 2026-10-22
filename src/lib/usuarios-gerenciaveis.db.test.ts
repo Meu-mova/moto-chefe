@@ -14,10 +14,15 @@ type Db = typeof import('@/lib/db')
 type Mod = typeof import('@/lib/usuarios-gerenciaveis')
 let db: Db['db']
 let listarUsuariosGerenciaveis: Mod['listarUsuariosGerenciaveis']
+let cadastroAtual: Mod['cadastroAtual']
+let lojasDosGruposVisiveis: Mod['lojasDosGruposVisiveis']
+let cadastroPedido: Mod['cadastroPedido']
+let recusaDaGravacao: typeof import('@/lib/gestao-usuarios')['recusaDaGravacao']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarUsuariosGerenciaveis } = await import('@/lib/usuarios-gerenciaveis'))
+  ;({ listarUsuariosGerenciaveis, cadastroAtual, cadastroPedido, lojasDosGruposVisiveis } = await import('@/lib/usuarios-gerenciaveis'))
+  ;({ recusaDaGravacao } = await import('@/lib/gestao-usuarios'))
 })
 
 after(async () => {
@@ -56,9 +61,35 @@ test('sócio lista só usuários de loja de grupo que ele vê; admin_geral lista
       'sócio só do A1 não recebe o vendedor do A2 (mesma Conta), o da Conta B, nem o sócio que também vê o A2')
     assert.deepEqual(await emails({ papel: 'admin_socio', gruposVisiveis: [grupoB.id] }), ['vend-b@t'],
       'sócio da Conta B não recebe ninguém da Conta A')
+    assert.deepEqual((await lojasDosGruposVisiveis([grupoA1.id, grupoA2.id], tx)).map(l => l.nome), ['Loja A1 (A1)', 'Loja A2 (A2)'],
+      'sócio de dois grupos escolhe loja dos dois, com o grupo no nome')
+    assert.deepEqual((await lojasDosGruposVisiveis([grupoB.id], tx)).map(l => l.nome), ['Loja B'], 'um grupo só: nome sem o grupo')
     assert.deepEqual(await emails({ papel: 'aux_adm', gruposVisiveis: [grupoA1.id] }), [], 'aux_adm não lista ninguém')
     assert.deepEqual(await emails({ papel: 'admin_geral', gruposVisiveis: [] }),
       ['geral@t', 'socio-a1-e-a2@t', 'socio-sem-loja-a1@t', 'vend-a1@t', 'vend-a2@t', 'vend-b@t'], 'admin_geral lista todos')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('sócio da Conta B não edita nem cria usuário na Conta A; o da A edita o dele', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const grupoA = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('A', '00000000000191', ${contaA.id}) returning id`)
+    const grupoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('B', '00000000000272', ${contaB.id}) returning id`)
+    const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua', 'X', ${grupoA.id}) returning id`)
+    const vendedorA = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
+      values (gen_random_uuid(), 'Vend A', 'vend-a@t', 'vendedor', ${lojaA.id}, ${contaA.id}) returning id`)
+
+    const socio = (grupo: string) => ({ id: 'socio', papel: 'admin_socio', gruposVisiveis: [grupo], gruposAprovacao: [grupo], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+    const pedido = (lojaId: string) => cadastroPedido({ papel: 'vendedor', lojaId, gruposAcesso: [], gruposAprovacao: [], modulosExtras: [], modulosBloqueados: [], aprovaPagamentoSensivel: false }, true, tx)
+
+    const atual = await cadastroAtual(vendedorA.id, tx)
+    assert.ok(atual, 'cadastro gravado é lido com o grupo da loja')
+    assert.match(recusaDaGravacao(socio(grupoB.id), atual, await pedido(lojaA.id)) ?? '', /alcance/, 'sócio da B não edita o vendedor da A')
+    assert.match(recusaDaGravacao(socio(grupoB.id), null, await pedido(lojaA.id)) ?? '', /grupos/, 'sócio da B não cria usuário na loja da A')
+    assert.equal(recusaDaGravacao(socio(grupoA.id), atual, await pedido(lojaA.id)), null, 'sócio da A edita o vendedor da A')
     throw new Desfazer()
   }), Desfazer)
 })
