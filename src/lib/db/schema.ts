@@ -205,6 +205,8 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
+  // Nulo = catálogo da plataforma; preenchido = modelo só daquela Conta (#321).
+  contaId: uuid('conta_id').references(() => contas.id),
 })
 
 // ─── conta_marcas ────────────────────────────────────────────────────────────
@@ -227,13 +229,16 @@ export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
 
 // ─── modelo_apelidos (nomes que as notas usam e o catalogo nao conhece) ───
 // O infCpl da LAIOUNS chama o DRIFT CAR de "DRIFT" e o PATINETE G5 de "G5".
-// Sem de-para o chassi nao acha a ficha fiscal do item. O apelido e a PK: um
-// apelido nunca pode apontar para dois modelos.
+// Sem de-para o chassi nao acha a ficha fiscal do item. Dentro da Conta (e entre os
+// da plataforma) um apelido nunca aponta para dois modelos.
 export const modeloApelidos = pgTable('modelo_apelidos', {
-  apelido:  text('apelido').primaryKey(),
+  apelido:  text('apelido').notNull(),
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id, { onDelete: 'cascade' }),
+  // Repete a Conta do modelo: o apelido é único dentro dela (#321).
+  contaId:  uuid('conta_id').references(() => contas.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+// O índice real é NULLS NOT DISTINCT (0143); o IndexBuilder do Drizzle não declara isso.
+}, t => [uniqueIndex('modelo_apelidos_conta_apelido_key').on(t.contaId, t.apelido)])
 
 // ─── notagateway_config (credencial da emissao propria, por grupo) ───────
 // Token cifrado como o certificado A1. empresaId vem do cadastro na API e e

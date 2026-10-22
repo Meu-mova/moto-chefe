@@ -1,9 +1,6 @@
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
-import { db } from '@/lib/db'
-import { modelos, modeloApelidos } from '@/lib/db/schema'
 import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
-import { eq } from 'drizzle-orm'
+import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { redirect } from 'next/navigation'
 import { EntradaForm } from './components/entrada-form'
 
@@ -13,16 +10,13 @@ export default async function EntradaPage() {
 
   const lojasOpts = await listarLojasDoGrupoAtivo(usuario)
 
+  const conta = await contaDoGrupoAtivo(usuario)
   const [modelosCadastrados, apelidos] = await Promise.all([
     // Só as marcas da Conta: modelo da nota de marca escondida aparece como não cadastrado.
-    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
+    listarModelosDaConta(conta),
     // Apelidos que as notas usam ("DRIFT" para DRIFT CAR). Ligam o chassi do
-    // infCpl ao item da nota na hora de ler a ficha fiscal. Nao sao por grupo:
-    // e como o FORNECEDOR escreve, e ele vende para os dois CNPJs.
-    db
-      .select({ nome: modeloApelidos.apelido, canonico: modelos.modelo, modeloId: modelos.id })
-      .from(modeloApelidos)
-      .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId)),
+    // infCpl ao item da nota na hora de ler a ficha fiscal.
+    listarApelidosDaConta(conta),
   ])
 
   const visiveis = new Set(modelosCadastrados.map(m => m.id))

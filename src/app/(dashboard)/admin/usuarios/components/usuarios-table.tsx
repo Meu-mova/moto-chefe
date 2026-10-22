@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
+import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
 
@@ -63,6 +64,8 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'motorista',    label: 'Motorista' },
 ]
 
+type Limites = LimitesDaTela
+
 const PAPEL_CORES: Record<string, string> = {
   admin_geral: 'bg-purple-100 text-purple-800 border-purple-200',
   admin_socio: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -101,10 +104,12 @@ function FormUsuario({
   onSubmit,
   onCancel,
   isEdit,
+  limites,
 }: {
   inicial?: Partial<Usuario>
   lojas: Loja[]
   grupos: Grupo[]
+  limites: Limites
   onSubmit: (dados: DadosForm) => void
   onCancel: () => void
   isEdit: boolean
@@ -177,14 +182,15 @@ function FormUsuario({
           </div>
           <div className="space-y-1.5">
             <Label>Função</Label>
-            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
+            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
                   {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {PAPEIS.map(p => (
+                {/* O papel atual sempre na lista: sem item para o valor, o Select mostraria o valor cru. */}
+                {PAPEIS.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -238,6 +244,7 @@ function FormUsuario({
                   O que está marcado como &quot;do papel&quot; vem da função. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
                 </p>
                 <ModulosPicker
+                  liberaveis={limites.itensLiberaveis}
                   papel={papel}
                   papeisExtras={inicial?.papeisExtras ?? []}
                   extras={modulosExtras}
@@ -257,7 +264,7 @@ function FormUsuario({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.map(g => (
+                {grupos.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
                   <label key={g.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -280,6 +287,7 @@ function FormUsuario({
                   type="checkbox"
                   className="rounded border-input"
                   checked={aprovaSensivel}
+                  disabled={!limites.aprovaPagamentoSensivel && !inicial?.aprovaPagamentoSensivel}
                   onChange={e => setAprovaSensivel(e.target.checked)}
                 />
                 <span>
@@ -332,7 +340,7 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[] }) {
+export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites }) {
   const [criando,    setCriando]    = useState(false)
   const [editando,   setEditando]   = useState<Usuario | null>(null)
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
@@ -472,7 +480,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
-                    <Button
+                    {!(u.id === limites.meuId && limites.travaASiMesmo) && <Button
                       variant="ghost" size="icon"
                       className={`h-8 w-8 ${u.ativo ? 'text-slate-400 hover:text-slate-700' : 'text-emerald-600 hover:text-emerald-800'} hover:bg-slate-100`}
                       onClick={() => handleToggleAtivo(u)}
@@ -480,7 +488,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                       disabled={pending}
                     >
                       {u.ativo ? <PowerOff size={15} /> : <Power size={15} />}
-                    </Button>
+                    </Button>}
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
@@ -488,13 +496,15 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                     >
                       <Pencil size={15} />
                     </Button>
+                    {limites.podeExcluir && (
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => setExcluindo(u)}
                     >
                       <Trash2 size={15} />
                     </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -519,6 +529,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           <FormUsuario
             lojas={lojas}
             grupos={grupos}
+            limites={limites}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -538,6 +549,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
               inicial={editando}
               lojas={lojas}
               grupos={grupos}
+              limites={limites}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

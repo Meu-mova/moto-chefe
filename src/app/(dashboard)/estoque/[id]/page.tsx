@@ -47,7 +47,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
   const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
-    listarUsuariosDoGrupo(grupoIdDaMoto, { papel: 'mecanico' }),
+    listarUsuariosDoGrupo(grupoIdDaMoto, { papeis: ['mecanico'] }),
     listarLojasDoGrupoAtivo(usuario),
     // Igual a /transferencias e /estoque: destino do botão "Transferir" inclui todos
     // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
