@@ -182,7 +182,7 @@ function FormUsuario({
           </div>
           <div className="space-y-1.5">
             <Label>Função</Label>
-            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && !limites.podeExcluir}>
+            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
                   {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
@@ -264,7 +264,7 @@ function FormUsuario({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.map(g => (
+                {grupos.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
                   <label key={g.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -480,7 +480,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
-                    <Button
+                    {!(u.id === limites.meuId && limites.travaASiMesmo) && <Button
                       variant="ghost" size="icon"
                       className={`h-8 w-8 ${u.ativo ? 'text-slate-400 hover:text-slate-700' : 'text-emerald-600 hover:text-emerald-800'} hover:bg-slate-100`}
                       onClick={() => handleToggleAtivo(u)}
@@ -488,7 +488,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
                       disabled={pending}
                     >
                       {u.ativo ? <PowerOff size={15} /> : <Power size={15} />}
-                    </Button>
+                    </Button>}
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"

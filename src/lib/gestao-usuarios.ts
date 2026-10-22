@@ -100,6 +100,9 @@ export function limitesDaTela(gestor: Gestor) {
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
+    /** null = todos os grupos. */
+    gruposAprovacao: geral ? null : gestor.gruposAprovacao,
+    travaASiMesmo: !geral,
   }
 }
 
