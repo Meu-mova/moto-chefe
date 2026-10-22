@@ -30,6 +30,11 @@ export type ItemNav = {
    * (modulosExtras) nem papel extra abrem. É a mesma regra das actions dessas telas.
    */
   soAdminGeral?: true
+  /**
+   * Só o papel abre, nunca a liberação individual: a tela depende de poder que o papel dá
+   * nas actions (Usuários, #322). Liberar daria só um link que redireciona.
+   */
+  soPeloPapel?: true
 }
 
 export type UsuarioNav = {
@@ -126,7 +131,7 @@ export const ITENS: ItemNav[] = [
   { id: 'adesoes',        href: '/admin/adesoes',  label: 'Adesões',           icon: FileSignature, categoria: 'configuracao', papeis: SUPER },
   { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER },
   { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
-  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: ADMINS },
+  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: ADMINS, soPeloPapel: true },
   { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', papeis: ADMINS },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
@@ -155,7 +160,7 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
-  if ((usuario.modulosExtras ?? []).includes(item.id)) return true
+  if (!item.soPeloPapel && (usuario.modulosExtras ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }
 

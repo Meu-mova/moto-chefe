@@ -19,8 +19,11 @@ export async function loginAction(formData: FormData) {
   // tela dizia "email ou senha inválidos" — o pessoal ficava tentando de novo
   // achando que tinha errado a senha.
   let error
+  let deveTrocarSenha = false
   try {
-    ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
+    const res = await supabase.auth.signInWithPassword({ email, password })
+    error = res.error
+    deveTrocarSenha = res.data.user?.user_metadata?.must_change_password === true
   } catch {
     redirect('/login?error=indisponivel')
   }
@@ -50,7 +53,9 @@ export async function loginAction(formData: FormData) {
     })
   }
 
-  redirect('/dashboard')
+  // Senha provisória: vai direto para a troca. O middleware também leva, mas só na navegação
+  // seguinte; sem isto a pessoa via o dashboard uma vez antes.
+  redirect(deveTrocarSenha ? '/trocar-senha' : '/dashboard')
 }
 
 export async function logoutAction() {

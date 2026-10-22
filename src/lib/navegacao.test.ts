@@ -91,6 +91,12 @@ test('modulos_extras libera item fora do papel', () => {
   assert.ok(podeAcessar(joao, '/marketing', SEM_REGRA_PROPRIA))
 })
 
+test('Usuários não se libera por item: só o papel abre (#322)', () => {
+  const joao: UsuarioNav = { papel: 'vendedor', modulosExtras: ['usuarios'] }
+  assert.ok(!ids(joao).includes('usuarios'))
+  assert.ok(!podeAcessar(joao, '/admin/usuarios', SEM_REGRA_PROPRIA))
+})
+
 test('modulos_bloqueados tira item que o papel dá', () => {
   const joao: UsuarioNav = { papel: 'vendedor', modulosBloqueados: ['pix'] }
   assert.ok(!ids(joao).includes('pix'))

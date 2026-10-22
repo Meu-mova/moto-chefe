@@ -4,7 +4,7 @@ import { listarLojasDoGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { ehGestorDeUsuarios, limitesDaTela } from '@/lib/gestao-usuarios'
 import { redirect } from 'next/navigation'
-import { listarUsuariosGerenciaveis } from '@/lib/usuarios-gerenciaveis'
+import { listarUsuariosGerenciaveis, lojasDosGruposVisiveis } from '@/lib/usuarios-gerenciaveis'
 import { UsuariosTable } from './components/usuarios-table'
 
 export default async function UsuariosPage() {
@@ -16,7 +16,8 @@ export default async function UsuariosPage() {
 
   const [todos, lojasOpts, gruposAtivos] = await Promise.all([
     listarUsuariosGerenciaveis(gestor),
-    listarLojasDoGrupoAtivo(usuario),
+    // admin_geral segue com as lojas do grupo ativo; o sócio escolhe entre todos os grupos que vê.
+    ehGeral ? listarLojasDoGrupoAtivo(usuario) : lojasDosGruposVisiveis(gestor.gruposVisiveis),
     // Todos os grupos, não só o ativo: a liberação é justamente para o sócio
     // aprovar num grupo diferente do que ele está olhando. Para o sócio, só os que ele vê.
     listarGruposAtivos(),
