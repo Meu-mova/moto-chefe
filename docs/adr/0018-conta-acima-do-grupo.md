@@ -44,10 +44,10 @@ configurações são globais e apareceriam para qualquer cliente novo.
 |---|---|
 | `clientes` (compradores) | Conta |
 | `servicos_catalogo`, `pecas_catalogo`, `categorias_caixa`, `categorias_despesa`, `simulador_precos` | Conta (cliente novo começa com cópia padrão) |
-| `modelos` | Plataforma (as marcas que cada Conta vê são da Conta; ver adendo #287) |
+| `modelos` | Plataforma, mais os modelos próprios de cada Conta (ver adendos #287 e #321/#322) |
 | `funcionarios_config`, folha e holerites | Grupo (conferir as FKs na execução) |
 | `WHATSAPP_ALERTA_NUMERO` | Grupo, configurado pelo admin da Conta |
-| Permissões por e-mail fixo no código | `/admin/usuarios`, por Conta |
+| Permissões por e-mail fixo no código | `/admin/usuarios`, por Conta (o sócio gerencia os da Conta; adendo #321/#322) |
 | `CERT_MASTER_KEY`, Resend, `MCPAI_WHATSAPP_URL`, `BLING_REDIRECT_URI` | Plataforma |
 | `MCPAI_ENDPOINT_URL` | Já é por grupo (ADR-0010). Conta de fora tem de cadastrar a própria chave; a env de fallback não vale para ela |
 | Cron `/api/cron/pedidos-fabrica` | Plataforma, roda só para grupos com portal da fábrica |
@@ -104,6 +104,36 @@ migração `0138`), escolhida pelo `admin_geral` em `/admin/modelos`.
   estoque, vendas e relatórios.
 - Na importação de XML, modelo que só casaria com marca escondida aparece como não cadastrado.
 - A regra fica em `src/lib/modelos-da-conta.ts`.
+
+## Adendo de 2026-10-22: o sócio cadastra usuários e modelos da Conta (#321, #322)
+
+O lojista de fora dependia da plataforma para cada contratação e para cada modelo fora do
+catálogo. Decisões do Luis:
+
+**Usuários (#322).** O `admin_socio` gerencia em `/admin/usuarios` os usuários **dos grupos que
+ele vê** (adendo #193), não da Conta inteira: um sócio marcado só num grupo não mexe em quem é de
+outro grupo da mesma Conta.
+
+- Cria qualquer papel menos `admin_geral`, inclusive outro sócio. Loja, `grupos_acesso`,
+  aprovações e liberações por item ficam limitados ao que ele mesmo tem.
+- Define a senha inicial; o usuário troca no primeiro login (`must_change_password`).
+- Só desativa e reativa. Excluir de vez continua do `admin_geral` (o histórico de vendas e OS
+  aponta para o usuário). Não desativa nem rebaixa a si mesmo, para a Conta não ficar sem sócio.
+- O `aux_adm` não gerencia usuários.
+
+**Modelos (#321).** Revê em parte o adendo #287, que tinha descartado catálogo por Conta. O
+catálogo da plataforma continua único; a Conta **acrescenta** modelos próprios
+(`modelos.conta_id`; nulo = plataforma), visíveis só para ela, e não altera os da plataforma.
+Os riscos que o #287 apontou ficaram menores: a ficha fiscal vem da NF de entrada de cada moto,
+não do modelo, e o apelido da NF passa a ser único dentro da Conta.
+
+- Só o `admin_socio` cadastra. Marca livre; o modelo da Conta aparece para ela mesmo fora das
+  marcas escolhidas.
+- Nome igual a um da plataforma: avisa e deixa gravar.
+- Exclui só enquanto nenhuma moto ou demanda usa o modelo; depois, só edita.
+- Modelo da Conta nasce sem código Bling (o Bling vai ser desligado; cliente novo emite pela Nota
+  Gateway).
+- O `admin_geral` vê e edita todos, com a Conta de cada um.
 
 ## Quando revisar
 
