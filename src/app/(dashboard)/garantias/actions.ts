@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
 import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
@@ -25,17 +26,8 @@ export async function exportarRelatorioGarantiasAction(filtros: {
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(u.papel)) {
     throw new Error('Sem permissão')
   }
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(u.papel)
-
-  if (!isAdmin) {
-    const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: u.lojaId ?? undefined })
-    return rows
-  }
-
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(u)
-  const lojaIdValido = filtros.lojaId && lojaIdsGrupo.includes(filtros.lojaId) ? filtros.lojaId : undefined
-  const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: lojaIdValido })
-  return lojaIdValido ? rows : rows.filter(r => lojaIdsGrupo.includes(r.lojaId))
+  const { lojaId, ...resto } = filtros
+  return exportarRelatorioGarantias({ ...resto, lojaIds: await lojasDoEscopoDeGarantias(u, lojaId) })
 }
 
 export async function abrirGarantiaAction(params: {

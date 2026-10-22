@@ -3,11 +3,12 @@ import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarGarantias } from '@/lib/queries/garantias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
 import { ordensServico, lojas } from '@/lib/db/schema'
-import { inArray, eq } from 'drizzle-orm'
+import { and, inArray, eq } from 'drizzle-orm'
 import { GarantiaCard } from './components/garantia-card'
 import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
 import { GarantiasFiltros } from './components/garantias-filtros'
@@ -35,16 +36,13 @@ export default async function GarantiasPage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   // Filtros de busca
-  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
-  const lojaFiltro   = isAdmin
-    ? (params.loja && lojaIdsGrupo.includes(params.loja) ? params.loja : undefined)
-    : (usuario.lojaId ?? undefined)
+  const lojaIds      = await lojasDoEscopoDeGarantias(usuario, params.loja)
   const statusFiltro = params.status  // 'ativa' | 'encerrada' | undefined = todos
   const modeloFiltro = params.modelo
 
-  const [listaBruta, ordensAbertas, lojasOpts, modelosOpts, lojaUsuarioRow] = await Promise.all([
+  const [lista, ordensAbertas, lojasOpts, modelosOpts, lojaUsuarioRow] = await Promise.all([
     listarGarantias({
-      lojaId:               lojaFiltro,
+      lojaIds,
       status:               statusFiltro,
       chassiBusca:          params.q,
       numeroPedidoFabrica:  params.nf,
@@ -53,7 +51,8 @@ export default async function GarantiasPage({
 
     db.select({ id: ordensServico.id, descricao: ordensServico.descricao, motoId: ordensServico.motoId })
       .from(ordensServico)
-      .where(inArray(ordensServico.status, ['aberta', 'em_andamento'])),
+      // Vão para o diálogo no navegador: só as OS das lojas do escopo (#328).
+      .where(and(inArray(ordensServico.status, ['aberta', 'em_andamento']), inArray(ordensServico.lojaId, lojaIds))),
 
     isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
 
@@ -66,9 +65,6 @@ export default async function GarantiasPage({
 
   const lojaUsuarioNome = lojaUsuarioRow[0]?.nome ?? null
 
-  const lista = isAdmin && !lojaFiltro
-    ? listaBruta.filter(g => lojaIdsGrupo.includes(g.lojaId))
-    : listaBruta
 
   const ativas      = lista.filter(g => g.status === 'ativa')
   const encerradas  = lista.filter(g => g.status === 'encerrada')

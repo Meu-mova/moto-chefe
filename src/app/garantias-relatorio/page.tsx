@@ -3,6 +3,7 @@ import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { PrintButtons } from './print-buttons'
+import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -51,7 +52,7 @@ export default async function GarantiasRelatorioPage({
   const [rowsBrutas, lojasDb] = await Promise.all([
     exportarRelatorioGarantias({
       status:        params.status        || undefined,
-      lojaId:        lojaIdFiltro,
+      lojaIds:       await lojasDoEscopoDeGarantias(usuario, params.lojaId),
       modeloId:      params.modeloId      || undefined,
       statusFabrica: params.statusFabrica || undefined,
       dataInicio:    params.dataInicio    || undefined,
@@ -60,9 +61,7 @@ export default async function GarantiasRelatorioPage({
     isAdmin ? listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }) : Promise.resolve([]),
   ])
 
-  const rows = isAdmin && !lojaIdFiltro
-    ? rowsBrutas.filter(r => lojaIdsGrupo.includes(r.lojaId))
-    : rowsBrutas
+  const rows = rowsBrutas
 
   const agora = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
