@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
-import { eq } from 'drizzle-orm'
-import { motos, usuarios } from '@/lib/db/schema'
+import { motos } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
@@ -87,8 +87,8 @@ export default async function EstoquePage({
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),
+    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id)),
+    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id, { papel: 'mecanico' })),
   ]), 20000)
 
   // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)

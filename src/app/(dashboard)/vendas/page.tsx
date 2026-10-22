@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
@@ -8,8 +9,8 @@ import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios } from '@/lib/db/schema'
-import { eq, asc, inArray, and } from 'drizzle-orm'
+import { motos, modelos, lojas } from '@/lib/db/schema'
+import { eq, inArray, and } from 'drizzle-orm'
 import { PedidoCard } from './components/pedido-card'
 import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
@@ -136,10 +137,7 @@ export default async function VendasPage({
       .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
     listarLojasDoGrupoAtivo(usuario),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(inArray(usuarios.papel, PAPEIS_VENDE as any[]))
-      .orderBy(asc(usuarios.nome)),
+    listarUsuariosDoGrupo(grupoAtivo.id, { papeis: PAPEIS_VENDE }),
     isAdmin ? listarAprovacoesPendentes(lojaIdsGrupo) : Promise.resolve([]),
     // Todas as linhas de aprovacoesPendentes pertencem ao mesmo grupo ativo (lojaIdsGrupo),
     // então uma checagem com qualquer loja do grupo já vale pra todas — ver podeAprovarVendaBaixoValor.

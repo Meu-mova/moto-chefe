@@ -61,6 +61,11 @@ test('listas de usuários da tela trazem só quem é do grupo', async () => {
       ['Aux que vende A', 'Mecânico A', 'Sócio de B com acesso a A', 'Vendedor A'],
       'todos: loja do grupo A ou grupo A no grupos_acesso, em ordem de nome; admin_geral sem loja e sócio de outra Conta ficam de fora',
     )
+    assert.deepEqual(
+      (await listarUsuariosDoGrupo(grupoA.id, { papeis: ['aux_adm', 'vendedor'] }, tx)).map(u => u.nome),
+      ['Aux que vende A', 'Vendedor A'],
+      'por papel principal: só os papéis pedidos, do grupo A',
+    )
     throw new Desfazer()
   }), Desfazer)
 })

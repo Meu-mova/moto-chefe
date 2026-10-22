@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTodasOS } from '@/lib/queries/ordens-servico'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { OSLista } from './components/os-lista'
 import { STATUS_OS } from './status-os'
 import { Kpi } from '@/components/kpi'
@@ -55,8 +53,7 @@ export default async function OrdensServicoPage({
 
   const [recorte, mecanicos, lojasOpts] = await Promise.all([
     listarTodasOS({ busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios).where(eq(usuarios.papel, 'mecanico')),
+    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id, { papel: 'mecanico' })),
     listarLojasDoGrupoAtivo(usuario),
   ])
 
