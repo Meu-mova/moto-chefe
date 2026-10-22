@@ -3,10 +3,8 @@ import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarAgendamentos } from '@/lib/queries/agendamentos'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { usuarios } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, addDays, format, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { AgendaNav } from './components/agenda-nav'
@@ -42,11 +40,10 @@ export default async function AgendaPage({
     ? endOfWeek(dataParam, { weekStartsOn: 1 })
     : endOfDay(dataParam)
 
+  const grupo = await getGrupoAtivo(usuario)
   const [lista, mecanicos, lojasOpts] = await Promise.all([
     listarAgendamentos({ lojaId: lojaFiltroIds, dataInicio, dataFim }),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(eq(usuarios.papel, 'mecanico')),
+    listarUsuariosDoGrupo(grupo.id, { papeis: ['mecanico'] }),
     isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
   ])
 

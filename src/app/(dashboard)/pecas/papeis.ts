@@ -9,7 +9,7 @@
 const GESTORES_PECAS = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
 /** Registra venda de peça. Mecânico fica de fora — ele só consulta o catálogo. */
-const PAPEIS_VENDA_PECA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
+export const PAPEIS_VENDA_PECA = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
 
 export function podeGerirPecas(papel: string): boolean {
   return (GESTORES_PECAS as readonly string[]).includes(papel)

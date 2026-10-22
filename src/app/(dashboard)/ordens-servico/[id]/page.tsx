@@ -47,7 +47,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   if (isAdmin ? !(await podeAbrirRegistroDaLoja(usuario, os.lojaId)) : os.lojaId !== usuario.lojaId) notFound()
 
-  const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papel: 'mecanico' })
+  const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papeis: ['mecanico'] })
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
