@@ -57,10 +57,10 @@ type VeiculoHistorico = {
 }
 
 // O chassi é único na base toda: reimportar atualiza só se a linha for da mesma Conta;
-// chassi que já é de outra Conta fica como está.
-export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], contaId: string, exec: Pick<typeof db, 'insert'> = db) {
-  if (!valores.length) return
-  await exec
+// chassi que já é de outra Conta fica como está. Devolve quantos entraram de fato.
+export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], contaId: string, exec: Pick<typeof db, 'insert'> = db): Promise<number> {
+  if (!valores.length) return 0
+  const gravados = await exec
     .insert(veiculosHistorico)
     .values(valores.map(v => ({ ...v, contaId })))
     .onConflictDoUpdate({
@@ -76,4 +76,24 @@ export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], conta
       },
       setWhere: sql`${veiculosHistorico.contaId} = excluded.conta_id`,
     })
+    .returning({ id: veiculosHistorico.id })
+  return gravados.length
+}
+
+// Chassis da lista que já são motos da Conta (contaId nulo = admin_geral, qualquer Conta).
+// A importação do histórico os ignora; chassi de outra Conta não aparece aqui (#325).
+export async function chassisNasMotos(chassis: string[], contaId: string | null, exec: Executor = db): Promise<string[]> {
+  if (!chassis.length) return []
+  const linhas = await exec.select({ chassi: motos.chassi }).from(motos)
+    .where(and(inArray(motos.chassi, chassis), contaId ? inArray(motos.lojaId, lojasDaConta(contaId)) : undefined))
+  return linhas.map(l => l.chassi).filter((c): c is string => !!c)
+}
+
+// Moto pelo chassi exato, só entre as lojas da Conta (#325): cupom e garantia importada
+// não podem se ligar a moto de outro cliente do MOVA.
+export async function motoDaContaPorChassi(chassi: string, contaId: string, exec: Executor = db) {
+  const [moto] = await exec.select({ id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }).from(motos)
+    .where(and(eq(motos.chassi, chassi), inArray(motos.lojaId, lojasDaConta(contaId))))
+    .limit(1)
+  return moto ?? null
 }

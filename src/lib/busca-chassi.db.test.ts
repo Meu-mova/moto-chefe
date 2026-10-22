@@ -17,10 +17,12 @@ let db: Db['db']
 let buscarMotosPorChassi: Mod['buscarMotosPorChassi']
 let buscarHistoricoPorChassi: Mod['buscarHistoricoPorChassi']
 let gravarVeiculosHistorico: Mod['gravarVeiculosHistorico']
+let chassisNasMotos: Mod['chassisNasMotos']
+let motoDaContaPorChassi: Mod['motoDaContaPorChassi']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ buscarMotosPorChassi, buscarHistoricoPorChassi, gravarVeiculosHistorico } = await import('@/lib/busca-chassi'))
+  ;({ buscarMotosPorChassi, buscarHistoricoPorChassi, gravarVeiculosHistorico, chassisNasMotos, motoDaContaPorChassi } = await import('@/lib/busca-chassi'))
 })
 
 after(async () => {
@@ -43,6 +45,14 @@ test('busca por chassi da Conta B não acha moto da Conta A (#325)', async () =>
         values (${chassi}, ${modelo.id}, ${loja.id}, 'CINZA', '1', 'vendida', 'vendida')`)
     }
 
+    // Conferência da importação: chassi de moto de outra Conta não aparece como "já no sistema".
+    assert.deepEqual(await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], contas[1], tx), ['BUSCA325B'])
+    assert.deepEqual((await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], null, tx)).sort(), ['BUSCA325A', 'BUSCA325B'])
+
+    // Chassi exato (cupom, importação de garantias): só moto da própria Conta.
+    assert.equal(await motoDaContaPorChassi('BUSCA325A', contas[1], tx), null, 'moto da A não serve para a B')
+    assert.equal((await motoDaContaPorChassi('BUSCA325B', contas[1], tx))?.chassi, 'BUSCA325B')
+
     const daB = await buscarMotosPorChassi('BUSCA325', { contaDasMotos: contas[1], contaDoComprador: contas[1], limite: 10 }, tx)
     assert.deepEqual(daB.map(m => m.chassi), ['BUSCA325B'])
 
@@ -60,7 +70,8 @@ test('histórico de veículos: Conta B não acha nem sobrescreve veículo da Con
     const veiculo = (chassi: string, cor: string) => ({ chassi, numeroMotor: null, marca: 'M', modelo: 'H', cor, ano: null, nfEntrada: null })
 
     await gravarVeiculosHistorico([veiculo('HIST325A', 'AZUL')], contaA, tx)
-    await gravarVeiculosHistorico([veiculo('HIST325B', 'VERDE'), veiculo('HIST325A', 'ROSA')], contaB, tx)
+    const gravadosB = await gravarVeiculosHistorico([veiculo('HIST325B', 'VERDE'), veiculo('HIST325A', 'ROSA')], contaB, tx)
+    assert.equal(gravadosB, 1, 'conta só o que entrou: o chassi da A fica de fora')
 
     assert.deepEqual((await buscarHistoricoPorChassi('HIST325', contaB, 10, tx)).map(v => v.chassi), ['HIST325B'], 'B só acha o próprio')
     const daA = await buscarHistoricoPorChassi('HIST325', contaA, 10, tx)
