@@ -19,6 +19,13 @@ mais se erra:
   subiu lendo colunas que não existiam.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
+## Isolamento entre Contas: regra absoluta
+
+- **Jamais uma Conta lê, sobrescreve ou se liga a dado de outra Conta**, qualquer que seja o
+  dado: tela, busca, importação, upsert, contagem, mensagem de erro. Sem exceção.
+- Como aplicar: seção "Multi-grupo e permissões" do `AGENTS.md`. Em revisão de PR, conferir isso
+  primeiro; achado aqui bloqueia o merge.
+
 ## Cores: nenhuma cor hardcoded
 
 - **Nenhuma cor hardcoded no projeto.** Cor só pelo nome (variável do `src/app/globals.css`):
