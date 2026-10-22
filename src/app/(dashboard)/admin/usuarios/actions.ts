@@ -3,11 +3,11 @@ import { db } from '@/lib/db'
 import { usuarios, grupos, lojas } from '@/lib/db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoIdDaLoja, listarGruposVisiveis } from '@/lib/grupo'
-import { ehGestorDeUsuarios, podeExcluir, recusaDaGravacao, type CadastroGestao, type Gestor } from '@/lib/gestao-usuarios'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { gestorDaSessao } from '@/lib/gestor-da-sessao'
+import { podeExcluir, recusaDaGravacao, type CadastroGestao } from '@/lib/gestao-usuarios'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
-import { ITENS, itensVisiveis } from '@/lib/navegacao'
+import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
 // Item só do admin_geral não se libera individualmente: gravar seria liberação sem efeito.
@@ -25,16 +25,6 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
-}
-
-// admin_geral ou sócio (#322). O que cada um pode gravar decide @/lib/gestao-usuarios.
-async function gestorDaSessao(): Promise<Gestor> {
-  const u = await getUsuarioLogado()
-  if (!ehGestorDeUsuarios(u)) throw new Error('Sem permissão para gerenciar usuários')
-  const gruposVisiveis = u.papel === 'admin_geral' ? [] : (await listarGruposVisiveis(u)).map(g => g.id)
-  // Sem as regras próprias: tela que depende delas não se libera pelo sócio.
-  const itensLiberaveis = itensVisiveis(u, {}).map(i => i.id)
-  return { id: u.id, papel: u.papel, gruposVisiveis, itensLiberaveis, aprovaPagamentoSensivel: u.aprovaPagamentoSensivel === true }
 }
 
 function exigir(recusa: string | null) {

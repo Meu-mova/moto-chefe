@@ -126,7 +126,7 @@ export const ITENS: ItemNav[] = [
   { id: 'adesoes',        href: '/admin/adesoes',  label: 'Adesões',           icon: FileSignature, categoria: 'configuracao', papeis: SUPER },
   { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER },
   { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
-  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: SUPER },
+  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: ADMINS },
   { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', papeis: ADMINS },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },

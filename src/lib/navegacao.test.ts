@@ -29,7 +29,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'marketing', 'metas', 'modelos', 'montagens', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
-    'transferencias', 'vendas', 'veiculos-historico',
+    'transferencias', 'usuarios', 'vendas', 'veiculos-historico',
   ].sort())
 })
 

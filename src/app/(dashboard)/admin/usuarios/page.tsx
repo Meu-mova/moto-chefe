@@ -1,43 +1,38 @@
 import { SuperAdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { usuarios, lojas } from '@/lib/db/schema'
-import { eq, asc } from 'drizzle-orm'
-import { UsuariosTable } from './components/usuarios-table'
+import { gestorDaSessao } from '@/lib/gestor-da-sessao'
+import { ehGestorDeUsuarios, podeExcluir } from '@/lib/gestao-usuarios'
+import { redirect } from 'next/navigation'
+import { listarUsuariosGerenciaveis } from '@/lib/usuarios-gerenciaveis'
+import { UsuariosTable, type Limites } from './components/usuarios-table'
+
+const TODOS_OS_PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
 
 export default async function UsuariosPage() {
   const usuario = await getUsuarioLogado()
+  // Item liberado por tela a quem não é sócio nem admin_geral não abre: as actions recusariam tudo.
+  if (!ehGestorDeUsuarios(usuario)) redirect('/dashboard')
+  const gestor = await gestorDaSessao()
+  const ehGeral = gestor.papel === 'admin_geral'
 
-  const [todos, lojasOpts, gruposOpts] = await Promise.all([
-    db
-      .select({
-        id:       usuarios.id,
-        nome:     usuarios.nome,
-        email:    usuarios.email,
-        papel:    usuarios.papel,
-        papeisExtras: usuarios.papeisExtras,
-        lojaId:   usuarios.lojaId,
-        lojaNome: lojas.nome,
-        conecta:  usuarios.conecta,
-        gruposAprovacao:         usuarios.gruposAprovacao,
-        aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
-        gruposAcesso:            usuarios.gruposAcesso,
-        ativo:                   usuarios.ativo,
-        modulosExtras:           usuarios.modulosExtras,
-        modulosBloqueados:       usuarios.modulosBloqueados,
-        // Grupo da loja fixa: já aprova nele por padrão, então o formulário
-        // mostra esse grupo como fixo em vez de oferecê-lo como opção.
-        grupoDaLojaId:           lojas.grupoId,
-      })
-      .from(usuarios)
-      .leftJoin(lojas, eq(usuarios.lojaId, lojas.id))
-      .orderBy(asc(usuarios.nome)),
+  const [todos, lojasOpts, gruposAtivos] = await Promise.all([
+    listarUsuariosGerenciaveis(gestor),
     listarLojasDoGrupoAtivo(usuario),
     // Todos os grupos, não só o ativo: a liberação é justamente para o sócio
-    // aprovar num grupo diferente do que ele está olhando.
+    // aprovar num grupo diferente do que ele está olhando. Para o sócio, só os que ele vê.
     listarGruposAtivos(),
   ])
+  const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
+
+  // Os mesmos limites que as actions conferem (@/lib/gestao-usuarios); aqui só para a
+  // tela não oferecer o que seria recusado.
+  const limites: Limites = {
+    podeExcluir: podeExcluir(gestor),
+    papeis: ehGeral ? TODOS_OS_PAPEIS : TODOS_OS_PAPEIS.filter(p => p !== 'admin_geral'),
+    itensLiberaveis: ehGeral ? null : gestor.itensLiberaveis,
+    aprovaPagamentoSensivel: ehGeral || gestor.aprovaPagamentoSensivel,
+  }
 
   return (
     <SuperAdminGuard href="/admin/usuarios">
@@ -50,6 +45,7 @@ export default async function UsuariosPage() {
           usuarios={todos}
           lojas={lojasOpts}
           grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
+          limites={limites}
         />
       </div>
     </SuperAdminGuard>

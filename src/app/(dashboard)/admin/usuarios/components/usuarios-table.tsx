@@ -63,6 +63,15 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'motorista',    label: 'Motorista' },
 ]
 
+/** O que quem está na tela pode fazer (#322): o sócio tem limites; o admin_geral, não. */
+export type Limites = {
+  podeExcluir: boolean
+  papeis: string[]
+  /** null = todas as telas. */
+  itensLiberaveis: string[] | null
+  aprovaPagamentoSensivel: boolean
+}
+
 const PAPEL_CORES: Record<string, string> = {
   admin_geral: 'bg-purple-100 text-purple-800 border-purple-200',
   admin_socio: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -101,10 +110,12 @@ function FormUsuario({
   onSubmit,
   onCancel,
   isEdit,
+  limites,
 }: {
   inicial?: Partial<Usuario>
   lojas: Loja[]
   grupos: Grupo[]
+  limites: Limites
   onSubmit: (dados: DadosForm) => void
   onCancel: () => void
   isEdit: boolean
@@ -184,7 +195,7 @@ function FormUsuario({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {PAPEIS.map(p => (
+                {PAPEIS.filter(p => limites.papeis.includes(p.value)).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -238,6 +249,7 @@ function FormUsuario({
                   O que está marcado como &quot;do papel&quot; vem da função. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
                 </p>
                 <ModulosPicker
+                  liberaveis={limites.itensLiberaveis}
                   papel={papel}
                   papeisExtras={inicial?.papeisExtras ?? []}
                   extras={modulosExtras}
@@ -280,6 +292,7 @@ function FormUsuario({
                   type="checkbox"
                   className="rounded border-input"
                   checked={aprovaSensivel}
+                  disabled={!limites.aprovaPagamentoSensivel && !inicial?.aprovaPagamentoSensivel}
                   onChange={e => setAprovaSensivel(e.target.checked)}
                 />
                 <span>
@@ -332,7 +345,7 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[] }) {
+export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites }) {
   const [criando,    setCriando]    = useState(false)
   const [editando,   setEditando]   = useState<Usuario | null>(null)
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
@@ -488,6 +501,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                     >
                       <Pencil size={15} />
                     </Button>
+                    {limites.podeExcluir && (
                     <Button
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
@@ -495,6 +509,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
                     >
                       <Trash2 size={15} />
                     </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -519,6 +534,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           <FormUsuario
             lojas={lojas}
             grupos={grupos}
+            limites={limites}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -538,6 +554,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
               inicial={editando}
               lojas={lojas}
               grupos={grupos}
+              limites={limites}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

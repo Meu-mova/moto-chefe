@@ -3,6 +3,8 @@ import { CATEGORIAS, ITENS } from '@/lib/navegacao'
 import { estado as estadoModulo, alternar as alternarModulo } from '@/lib/modulos-picker-estado'
 
 type Props = {
+  /** Telas que quem edita pode liberar; null = todas. As que o usuário já tem continuam à vista. */
+  liberaveis: string[] | null
   papel: string
   papeisExtras: string[]
   extras: string[]
@@ -10,7 +12,7 @@ type Props = {
   onChange: (v: { extras: string[]; bloqueados: string[] }) => void
 }
 
-export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChange }: Props) {
+export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloqueados, onChange }: Props) {
   function alternar(id: string) {
     onChange(alternarModulo(papel, papeisExtras, extras, bloqueados, id))
   }
@@ -33,7 +35,8 @@ export function ModulosPicker({ papel, papeisExtras, extras, bloqueados, onChang
         <div key={slug}>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{nome}</p>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral).map(i => {
+            {ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral)
+              .filter(i => liberaveis === null || liberaveis.includes(i.id) || estado(i.id) !== 'sem').map(i => {
               const e = estado(i.id)
               return (
                 <label key={i.id} className="flex items-center gap-2 text-sm cursor-pointer">
