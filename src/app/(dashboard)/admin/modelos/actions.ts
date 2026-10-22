@@ -17,28 +17,28 @@ async function assertAdmin() {
 
 async function quemEdita() {
   const u = await getUsuarioLogado()
-  return { u, quem: { papel: u.papel, contaId: u.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(u) } }
+  return { papel: u.papel, contaId: u.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(u) }
 }
 
 // Carrega o modelo e recusa se ele não é de quem edita (sócio só os da própria Conta).
 async function modeloEditavel(id: string) {
-  const { quem } = await quemEdita()
+  const quem = await quemEdita()
   const [modelo] = await db.select({ id: modelos.id, contaId: modelos.contaId }).from(modelos).where(eq(modelos.id, id)).limit(1)
   if (!modelo || !podeEditarModelo(quem, modelo)) throw new Error('Modelo não encontrado')
   return modelo
 }
 
 function camposDoForm(formData: FormData) {
-  return {
-    marca: (formData.get('marca') as string).trim(),
-    modelo: (formData.get('modelo') as string).trim(),
-    categoria: formData.get('categoria') as typeof modelos.categoria.enumValues[number],
-    potenciaW: (formData.get('potencia_w') as string).trim(),
-  }
+  const texto = (campo: string) => String(formData.get(campo) ?? '').trim()
+  const categoria = texto('categoria') as typeof modelos.categoria.enumValues[number]
+  if (!modelos.categoria.enumValues.includes(categoria)) throw new Error('Categoria inválida')
+  const campos = { marca: texto('marca'), modelo: texto('modelo'), categoria, potenciaW: texto('potencia_w') }
+  if (!campos.marca || !campos.modelo || !campos.potenciaW) throw new Error('Preencha marca, modelo e potência')
+  return campos
 }
 
 export async function criarModeloAction(formData: FormData): Promise<{ aviso: string | null }> {
-  const { quem } = await quemEdita()
+  const quem = await quemEdita()
   const contaId = contaDoModeloNovo(quem)
   const campos = camposDoForm(formData)
   // Antes do insert, senão o próprio modelo novo conta como repetido.
@@ -73,6 +73,10 @@ export async function excluirModeloAction(id: string) {
 
 export async function atualizarBlingCodigoAction(modeloId: string, codigo: string) {
   const u = await assertAdmin()
+  const [modelo] = await db.select({ contaId: modelos.contaId }).from(modelos).where(eq(modelos.id, modeloId)).limit(1)
+  if (!modelo) throw new Error('Modelo não encontrado')
+  // Modelo da Conta não tem código Bling: o cliente novo emite pela Nota Gateway.
+  if (modelo.contaId) throw new Error('Modelo da Conta não tem código Bling')
   const grupo = await getGrupoAtivo(u)
 
   if (!codigo.trim()) {

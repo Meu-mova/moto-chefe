@@ -8,8 +8,11 @@ export function podeEditarModelo(quem: Quem, modelo: { contaId: string | null })
   return quem.papel === 'admin_socio' && modelo.contaId !== null && modelo.contaId === quem.contaId
 }
 
+export function podeCadastrarModelo(quem: Quem): boolean {
+  return quem.papel === 'admin_geral' || (quem.papel === 'admin_socio' && !!quem.contaId)
+}
+
 export function contaDoModeloNovo(quem: Quem): string | null {
-  if (quem.papel === 'admin_geral') return null
-  if (quem.papel === 'admin_socio' && quem.contaId) return quem.contaId
-  throw new Error('Sem permissão para cadastrar modelo')
+  if (!podeCadastrarModelo(quem)) throw new Error('Sem permissão para cadastrar modelo')
+  return quem.papel === 'admin_geral' ? null : quem.contaId
 }

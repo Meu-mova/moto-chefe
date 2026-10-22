@@ -87,11 +87,13 @@ export async function salvarApelidosDoModelo(
 // Depois que uma moto ou demanda usa o modelo, ele só se edita: excluir apagaria a
 // referência do histórico.
 export async function excluirModelo(modeloId: string, exec: Pick<typeof db, 'select' | 'transaction'> = db) {
-  const [moto] = await exec.select({ id: motos.id }).from(motos).where(eq(motos.modeloId, modeloId)).limit(1)
-  if (moto) throw new Error('Há motos com este modelo; ele não pode mais ser excluído, só editado')
-  const [demanda] = await exec.select({ id: demandas.id }).from(demandas).where(eq(demandas.modeloId, modeloId)).limit(1)
-  if (demanda) throw new Error('Há demandas com este modelo; ele não pode mais ser excluído, só editado')
   await exec.transaction(async tx => {
+    // Trava o modelo: uma moto ou demanda gravada entre a checagem e o delete cairia na FK.
+    await tx.select({ id: modelos.id }).from(modelos).where(eq(modelos.id, modeloId)).for('update')
+    const [moto] = await tx.select({ id: motos.id }).from(motos).where(eq(motos.modeloId, modeloId)).limit(1)
+    if (moto) throw new Error('Há motos com este modelo; ele não pode mais ser excluído, só editado')
+    const [demanda] = await tx.select({ id: demandas.id }).from(demandas).where(eq(demandas.modeloId, modeloId)).limit(1)
+    if (demanda) throw new Error('Há demandas com este modelo; ele não pode mais ser excluído, só editado')
     await tx.delete(modeloBlingCodigos).where(eq(modeloBlingCodigos.modeloId, modeloId))
     await tx.delete(modelos).where(eq(modelos.id, modeloId))
   })

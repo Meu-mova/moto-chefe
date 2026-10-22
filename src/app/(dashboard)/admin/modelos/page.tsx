@@ -9,7 +9,7 @@ import { ModeloFormButton } from './components/modelo-form-button'
 import { ApelidosCell } from './components/apelidos-cell'
 import { MarcasDaConta } from './components/marcas-da-conta'
 import { ExcluirModeloButton } from './components/excluir-modelo-button'
-import { podeEditarModelo } from '@/lib/gestao-modelos'
+import { podeCadastrarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
@@ -19,7 +19,7 @@ export default async function ModelosPage() {
   const adminGeral = usuario.papel === 'admin_geral'
   const contaId = adminGeral ? null : await contaDoGrupoAtivo(usuario)
   const quem = { papel: usuario.papel, contaId }
-  const podeCadastrar = adminGeral || usuario.papel === 'admin_socio'
+  const podeCadastrar = podeCadastrarModelo(quem)
   const { modelos: todos, codigos, apelidos, contas } = await carregarTelaModelos(contaId === null
     ? { adminGeral: true, contaId: null, grupoId: grupo.id }
     : { adminGeral: false, contaId, grupoId: grupo.id })

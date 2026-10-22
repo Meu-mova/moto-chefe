@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { contaDoModeloNovo, podeEditarModelo } from './gestao-modelos'
+import { contaDoModeloNovo, podeCadastrarModelo, podeEditarModelo } from './gestao-modelos'
 
 const contaA = 'conta-a'
 const contaB = 'conta-b'
@@ -27,4 +27,5 @@ test('modelo novo: do admin_geral é da plataforma, do sócio é da Conta dele',
   assert.equal(contaDoModeloNovo(geral), null)
   assert.equal(contaDoModeloNovo(socioA), contaA)
   assert.throws(() => contaDoModeloNovo(auxA))
+  assert.deepEqual([geral, socioA, auxA].map(podeCadastrarModelo), [true, true, false])
 })
