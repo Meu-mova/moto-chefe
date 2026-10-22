@@ -2,7 +2,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
-import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
@@ -171,6 +172,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
   const supabase = await createClient()
   const porLoja: ResultadoImportacaoFabrica['porLoja'] = []
   const lojaIdsDoGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const contaId = await contaDoGrupoAtivo(usuario)
 
   // Carrega os números já lançados uma vez só, normalizados: quem lança à mão
   // grava "#38780", a importação grava "38780".
@@ -205,14 +207,15 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
           continue
         }
 
-        // Chassi exato na base toda (moto transferida de grupo cai certo, a loja
-        // da garantia sai de moto.loja_id). Final do chassi só dentro do grupo:
+        // Chassi exato em toda a Conta (moto transferida de grupo cai certo, a loja
+        // da garantia sai de moto.loja_id); nunca em moto de outra Conta (#325). Final do chassi só dentro do grupo:
         // na base toda, um "3024" casaria com moto de outro CNPJ.
         // O exato vem numa consulta própria: junto com os do final, um corte de
         // linhas podia deixá-lo de fora e a garantia cair na moto errada.
         const alvo = chassi.replace(/\s+/g, '').toUpperCase()
         const colunas = { id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }
-        const exatas = await db.select(colunas).from(motos).where(eq(motos.chassi, chassi)).limit(1)
+        const exata = await motoDaContaPorChassi(chassi, contaId)
+        const exatas = exata ? [exata] : []
         const podeBuscarPeloFinal = /^[A-Z0-9]+$/.test(alvo) && alvo.length >= MIN_DIGITOS_SUFIXO_CHASSI && lojaIdsDoGrupo.length > 0
         // Duas já bastam para ser ambíguo; o limite só evita trazer o estoque inteiro.
         const candidatas = exatas.length || !podeBuscarPeloFinal

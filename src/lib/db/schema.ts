@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique,
+  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique, uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
@@ -663,7 +663,7 @@ export const agendamentos = pgTable('agendamentos', {
 // ─── veiculos_historico ───────────────────────────────────────────────────────
 export const veiculosHistorico = pgTable('veiculos_historico', {
   id:           uuid('id').primaryKey().defaultRandom(),
-  chassi:       text('chassi').notNull().unique(),
+  chassi:       text('chassi').notNull(),
   numeroMotor:  text('numero_motor'),
   marca:        text('marca').notNull().default(''),
   modelo:       text('modelo').notNull().default(''),
@@ -673,7 +673,7 @@ export const veiculosHistorico = pgTable('veiculos_historico', {
   // Conta que importou (#325): cada Conta só vê o próprio histórico.
   contaId:      uuid('conta_id').notNull().references(() => contas.id),
   importadoEm:  timestamp('importado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+}, t => [uniqueIndex('veiculos_historico_conta_chassi_key').on(t.contaId, t.chassi)])
 
 // ─── servicos_catalogo ─────────────────────────────────────────────────────────
 export const servicosCatalogo = pgTable('servicos_catalogo', {

@@ -127,6 +127,21 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
 
 ## Multi-grupo e permissões
 
+**Regra absoluta: nenhuma Conta lê, sobrescreve ou se liga a dado de outra Conta.** Sem
+exceção, em tela, busca, importação, upsert, contagem ou mensagem de erro. Vale para toda
+leitura e gravação:
+
+- Consulta de usuário que não é `admin_geral` filtra pela Conta (`contaDoGrupoAtivo()`,
+  `lojasDaConta()`) **dentro da consulta**, não depois no JS.
+- Busca por chave única global (chassi, CPF, código) procura só na Conta. "Não encontrado"
+  não pode revelar que o registro existe em outra.
+- `upsert`/`onConflictDoUpdate` em tabela com Conta leva `setWhere` com a mesma Conta, e a
+  tela conta só as linhas que de fato entraram.
+- Gravação que referencia outro registro (moto, cliente, loja) confere no servidor que ele é
+  da Conta.
+- Todo fluxo novo ou alterado tem teste de banco provando que a Conta B não lê nem sobrescreve
+  dado da Conta A. Isso custou os hotfixes v1.8.1 e v1.8.2 (#320, #325).
+
 - O sistema é **multi-tenant por CNPJ** (grupos Sul de Minas, BH e Vale). **Toda
   funcionalidade nova nasce separada por grupo**: tabela com
   `grupo_id not null references grupos(id)`, consulta filtrada por
