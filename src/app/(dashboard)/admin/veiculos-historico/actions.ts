@@ -1,11 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { veiculosHistorico, motos } from '@/lib/db/schema'
-import { and, eq, sql, inArray } from 'drizzle-orm'
+import { veiculosHistorico } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
-import { lojasDaConta } from '@/lib/conta'
-import { gravarVeiculosHistorico } from '@/lib/busca-chassi'
+import { chassisNasMotos, gravarVeiculosHistorico } from '@/lib/busca-chassi'
 
 export type VeiculoImportRow = {
   chassi: string
@@ -50,11 +49,12 @@ export async function importarVeiculosAction(rows: VeiculoImportRow[]) {
   // Insere em lotes de 500 para não estourar o limite de 65535 parâmetros do PostgreSQL
   const contaId = await contaDoGrupoAtivo(usuario)
   const LOTE = 500
+  let importados = 0
   for (let i = 0; i < valores.length; i += LOTE) {
-    await gravarVeiculosHistorico(valores.slice(i, i + LOTE), contaId)
+    importados += await gravarVeiculosHistorico(valores.slice(i, i + LOTE), contaId)
   }
 
-  return { importados: valores.length }
+  return { importados }
 }
 
 // Retorna o Set de chassis que já existem na tabela motos (estoque ativo/vendido)
@@ -71,12 +71,7 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
   const LOTE = 1000
   const todoEncontrados: string[] = []
   for (let i = 0; i < normalizados.length; i += LOTE) {
-    const lote = normalizados.slice(i, i + LOTE)
-    const resultado = await db
-      .select({ chassi: motos.chassi })
-      .from(motos)
-      .where(and(inArray(motos.chassi, lote), daConta ? inArray(motos.lojaId, lojasDaConta(daConta)) : undefined))
-    todoEncontrados.push(...resultado.map(r => r.chassi).filter(Boolean) as string[])
+    todoEncontrados.push(...await chassisNasMotos(normalizados.slice(i, i + LOTE), daConta))
   }
 
   return new Set(todoEncontrados)

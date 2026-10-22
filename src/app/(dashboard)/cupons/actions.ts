@@ -1,11 +1,12 @@
 'use server'
 import { db } from '@/lib/db'
-import { cuponsRevisao, lojas, usuarios, motos, ordensServico } from '@/lib/db/schema'
+import { cuponsRevisao, lojas, usuarios, ordensServico } from '@/lib/db/schema'
 import { eq, and, desc, inArray, ilike, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { hojeBrt } from '@/lib/data-venda'
 import { gerarCodigoCupom, normalizarCodigoCupom } from '@/lib/cupom-revisao'
 import { podeEmitirCupom, podeVerCupom } from './papeis'
@@ -107,7 +108,8 @@ export async function emitirCupomAction(input: EmitirCupomInput) {
   const chassi = input.chassi?.trim().toUpperCase() || null
   let motoId: string | null = null
   if (chassi) {
-    const [moto] = await db.select({ id: motos.id }).from(motos).where(eq(motos.chassi, chassi)).limit(1)
+    // Só moto da Conta (#325): nem liga o cupom a moto de outro cliente, nem revela que ela existe.
+    const moto = await motoDaContaPorChassi(chassi, grupo.contaId)
     if (!moto) throw new Error('Chassi não encontrado no estoque')
     motoId = moto.id
   }
