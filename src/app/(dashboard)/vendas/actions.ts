@@ -14,7 +14,7 @@ import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-regi
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
-import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
+import { aplicarVendaPeca, type DadosVendaPeca } from '@/lib/venda-peca'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
 import { parseDataInput, hojeBrt } from '@/lib/data-venda'
