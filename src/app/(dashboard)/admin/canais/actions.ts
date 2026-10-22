@@ -15,13 +15,22 @@ async function exigirGestor() {
   return u
 }
 
+// Nome do canal e funil da Kommo são da integração inteira, não de uma Conta: só o
+// admin_geral mexe. Um gestor ligava ao próprio grupo o funil de outra Conta e passava
+// a ver os leads dela (#328). A Kommo vai sair (#59).
+async function exigirAdminGeral() {
+  const u = await getUsuarioLogado()
+  if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
+  return u
+}
+
 function revalidar() {
   revalidatePath('/admin/canais')
   revalidatePath('/marketing')
 }
 
 export async function salvarNomeCanalAction(sourceId: number, nome: string) {
-  await exigirGestor()
+  await exigirAdminGeral()
   const limpo = nome.trim()
   // Nome vazio volta ao rótulo automático (canal · perfil) em vez de virar ''.
   await db.update(kommoSources)
@@ -31,12 +40,9 @@ export async function salvarNomeCanalAction(sourceId: number, nome: string) {
 }
 
 export async function definirGrupoFunilAction(pipelineId: string, grupoId: string | null) {
-  const usuario = await exigirGestor()
+  const usuario = await exigirAdminGeral()
   // kommo_pipeline_grupo é a prova de tenant do /marketing inteiro (ver
-  // src/lib/queries/marketing.ts) — sem esta checagem, um aux_adm reatribuía o
-  // funil de outro lojista pro próprio grupo e passava a ver os leads do
-  // concorrente, só mandando outro grupoId pra esta action. `null` (remover o
-  // vínculo) continua liberado: não expõe dado de nenhum grupo.
+  // src/lib/queries/marketing.ts): o grupo de destino tem de existir para o admin.
   if (grupoId && !(await podeUsuarioVerGrupo(usuario, grupoId))) {
     throw new Error('Você não tem acesso a este grupo')
   }
