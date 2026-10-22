@@ -20,11 +20,12 @@ let listarMarcasDaConta: Mod['listarMarcasDaConta']
 let listarApelidosDaConta: Mod['listarApelidosDaConta']
 let modelosUsaveisPelaConta: Mod['modelosUsaveisPelaConta']
 let salvarApelidosDoModelo: Mod['salvarApelidosDoModelo']
+let excluirModelo: Mod['excluirModelo']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -136,6 +137,29 @@ test('apelido repetido só conflita dentro da Conta, e o erro não cita modelo d
       (e: Error) => e.message.includes('Primeiro da A') && !e.message.includes('Segredo da B'),
       'dentro da Conta recusa, citando só o modelo da própria Conta',
     )
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('modelo só se exclui enquanto nenhuma moto ou demanda o usa (#321)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const conta = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Grupo A', '00000000000191', ${conta.id}) returning id`)
+    const loja = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupo.id}) returning id`)
+    const novo = async (nome: string) => linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', ${nome}, 'autopropelido', '1000', '', '', ${conta.id}) returning id`)
+    const livre = await novo('Livre')
+    const comMoto = await novo('Com moto')
+    const comDemanda = await novo('Com demanda')
+    await salvarApelidosDoModelo(livre.id, ['TESTE-LIVRE'], tx)
+    await tx.execute(sql`insert into motos (chassi, modelo_id, loja_id, status, cor, nota_fiscal_entrada) values ('TESTE321CHASSI', ${comMoto.id}, ${loja.id}, 'montada', 'PRETO', '1')`)
+    const solicitante = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id) values (gen_random_uuid(), 'Vendedor', 'v321@teste.invalid', 'vendedor', ${loja.id}, ${conta.id}) returning id`)
+    await tx.execute(sql`insert into demandas (modelo, modelo_id, cor, loja_id, solicitante_id) values ('Com demanda', ${comDemanda.id}, 'PRETO', ${loja.id}, ${solicitante.id})`)
+
+    await excluirModelo(livre.id, tx)
+    assert.equal((await tx.execute(sql`select 1 from modelos where id = ${livre.id}`) as unknown as { rows: unknown[] }).rows.length, 0, 'sem uso: exclui, com os apelidos')
+    await assert.rejects(excluirModelo(comMoto.id, tx), /moto/i, 'com moto: recusa')
+    await assert.rejects(excluirModelo(comDemanda.id, tx), /demanda/i, 'com demanda: recusa')
     throw new Desfazer()
   }), Desfazer)
 })
