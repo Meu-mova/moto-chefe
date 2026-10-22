@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { podeExcluir, podeGerenciar, recusaDaGravacao } from './gestao-usuarios'
+import { limitesDaTela, podeExcluir, podeGerenciar, recusaDaGravacao } from './gestao-usuarios'
 
 const VALE = 'grupo-vale'
 const BH = 'grupo-bh'
@@ -18,7 +18,7 @@ const cadastro = (extra = {}) => ({
 })
 type Cadastro = ReturnType<typeof cadastro>
 const gravar = (depois: Cadastro = cadastro(), antes: (Cadastro & { id: string }) | null = null) =>
-  recusaDaGravacao({ ...socioDoVale, itensLiberaveis: ['estoque'], aprovaPagamentoSensivel: false }, antes, depois)
+  recusaDaGravacao({ ...socioDoVale, gruposAprovacao: [VALE], itensLiberaveis: ['estoque'], aprovaPagamentoSensivel: false }, antes, depois)
 
 test('sócio cria vendedor e outro sócio na loja do grupo dele', () => {
   assert.equal(gravar(), null)
@@ -54,10 +54,10 @@ test('sócio não desativa nem rebaixa a si mesmo, mas edita o resto do próprio
 })
 
 test('aux_adm não gerencia usuários; admin_geral grava qualquer coisa', () => {
-  const aux = { id: 'aux', papel: 'aux_adm', gruposVisiveis: [VALE], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  const aux = { id: 'aux', papel: 'aux_adm', gruposVisiveis: [VALE], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   assert.equal(podeGerenciar(aux, alvo(VALE)), false)
   assert.match(recusaDaGravacao(aux, null, cadastro()) ?? '', /permissão/)
-  const geral = { id: 'geral', papel: 'admin_geral', gruposVisiveis: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  const geral = { id: 'geral', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'admin_geral', grupoDaLoja: null, modulosExtras: ['dre'] })), null)
 })
 
@@ -85,7 +85,7 @@ test('sócio alcança e cria outro sócio sem loja, só com grupo que ele vê', 
 })
 
 test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', () => {
-  const semPoder = { ...socioDoVale, itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  const semPoder = { ...socioDoVale, gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   assert.match(recusaDaGravacao(semPoder, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })) ?? '', /pagamento/)
   assert.equal(recusaDaGravacao({ ...semPoder, aprovaPagamentoSensivel: true }, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })), null)
 })
@@ -100,4 +100,23 @@ test('sócio bloqueia qualquer tela, mas só desbloqueia a que ele mesmo tem', (
   assert.equal(gravar(cadastro({ modulosBloqueados: ['financeiro'] }), bloqueado([])), null, 'bloquear: livre')
   assert.equal(gravar(cadastro(), bloqueado(['estoque'])), null, 'desbloquear tela que ele tem')
   assert.match(gravar(cadastro(), bloqueado(['financeiro'])) ?? '', /telas que você mesmo tem/, 'desbloquear tela que ele não tem')
+})
+
+test('sócio só dá aprovação em grupo onde ele mesmo aprova', () => {
+  const socioDeDoisGrupos = { id: 's', papel: 'admin_socio', gruposVisiveis: [VALE, BH], gruposAprovacao: [VALE], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  const socioNovo = (gruposAprovacao: string[]) => cadastro({ papel: 'admin_socio', grupoDaLoja: VALE, gruposAcesso: [BH], gruposAprovacao })
+  assert.equal(recusaDaGravacao(socioDeDoisGrupos, null, socioNovo([VALE])), null)
+  assert.match(recusaDaGravacao(socioDeDoisGrupos, null, socioNovo([BH])) ?? '', /aprova/)
+})
+
+test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () => {
+  const l = limitesDaTela({ ...socioDoVale, gruposAprovacao: [], itensLiberaveis: ['estoque'], aprovaPagamentoSensivel: false })
+  assert.equal(l.podeExcluir, false)
+  assert.equal(l.papeis.includes('admin_geral'), false)
+  assert.equal(l.papeis.includes('admin_socio'), true)
+  assert.deepEqual(l.itensLiberaveis, ['estoque'])
+  const g = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.equal(g.podeExcluir, true)
+  assert.equal(g.papeis.includes('admin_geral'), true)
+  assert.equal(g.itensLiberaveis, null)
 })

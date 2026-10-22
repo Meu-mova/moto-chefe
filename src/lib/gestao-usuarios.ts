@@ -11,6 +11,8 @@ export type Gestor = {
   id: string
   papel: string
   gruposVisiveis: string[]
+  /** Grupos onde o próprio gestor aprova (o da loja dele e os marcados). */
+  gruposAprovacao: string[]
   itensLiberaveis: string[]
   aprovaPagamentoSensivel: boolean
 }
@@ -75,11 +77,33 @@ export function recusaDaGravacao(
   if (![...telasNovas, ...desbloqueadas].every(id => gestor.itensLiberaveis.includes(id))) {
     return 'Você só pode liberar telas que você mesmo tem'
   }
+  // Ver um grupo não é aprovar nele: aprovação só onde o próprio sócio aprova.
+  const aprovacoesNovas = depois.gruposAprovacao.filter(g => !(antes?.gruposAprovacao ?? []).includes(g))
+  if (!aprovacoesNovas.every(g => gestor.gruposAprovacao.includes(g))) {
+    return 'Você só pode dar aprovação nos grupos onde você mesmo aprova'
+  }
   if (depois.aprovaPagamentoSensivel && !antes?.aprovaPagamentoSensivel && !gestor.aprovaPagamentoSensivel) {
     return 'Você só pode dar aprovação de pagamento sensível se você mesmo aprova'
   }
   return null
 }
+
+const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+
+/** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
+export function limitesDaTela(gestor: Gestor) {
+  const geral = gestor.papel === 'admin_geral'
+  return {
+    meuId: gestor.id,
+    podeExcluir: podeExcluir(gestor),
+    papeis: geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral'),
+    /** null = todas as telas. */
+    itensLiberaveis: geral ? null : gestor.itensLiberaveis,
+    aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
+  }
+}
+
+export type LimitesDaTela = ReturnType<typeof limitesDaTela>
 
 // Excluir apaga o login e esbarra no histórico (vendas, OS) que aponta para o usuário.
 export function podeExcluir(gestor: { papel: string }): boolean {

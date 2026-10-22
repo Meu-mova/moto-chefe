@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
+import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
 
@@ -63,14 +64,7 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'motorista',    label: 'Motorista' },
 ]
 
-/** O que quem está na tela pode fazer (#322): o sócio tem limites; o admin_geral, não. */
-export type Limites = {
-  podeExcluir: boolean
-  papeis: string[]
-  /** null = todas as telas. */
-  itensLiberaveis: string[] | null
-  aprovaPagamentoSensivel: boolean
-}
+type Limites = LimitesDaTela
 
 const PAPEL_CORES: Record<string, string> = {
   admin_geral: 'bg-purple-100 text-purple-800 border-purple-200',
@@ -188,14 +182,15 @@ function FormUsuario({
           </div>
           <div className="space-y-1.5">
             <Label>Função</Label>
-            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
+            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && !limites.podeExcluir}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
                   {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {PAPEIS.filter(p => limites.papeis.includes(p.value)).map(p => (
+                {/* O papel atual sempre na lista: sem item para o valor, o Select mostraria o valor cru. */}
+                {PAPEIS.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -504,7 +499,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
                     {limites.podeExcluir && (
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => setExcluindo(u)}
                     >
                       <Trash2 size={15} />

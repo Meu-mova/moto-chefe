@@ -2,12 +2,10 @@ import { SuperAdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
-import { ehGestorDeUsuarios, podeExcluir } from '@/lib/gestao-usuarios'
+import { ehGestorDeUsuarios, limitesDaTela } from '@/lib/gestao-usuarios'
 import { redirect } from 'next/navigation'
 import { listarUsuariosGerenciaveis } from '@/lib/usuarios-gerenciaveis'
-import { UsuariosTable, type Limites } from './components/usuarios-table'
-
-const TODOS_OS_PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+import { UsuariosTable } from './components/usuarios-table'
 
 export default async function UsuariosPage() {
   const usuario = await getUsuarioLogado()
@@ -25,15 +23,6 @@ export default async function UsuariosPage() {
   ])
   const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
-  // Os mesmos limites que as actions conferem (@/lib/gestao-usuarios); aqui só para a
-  // tela não oferecer o que seria recusado.
-  const limites: Limites = {
-    podeExcluir: podeExcluir(gestor),
-    papeis: ehGeral ? TODOS_OS_PAPEIS : TODOS_OS_PAPEIS.filter(p => p !== 'admin_geral'),
-    itensLiberaveis: ehGeral ? null : gestor.itensLiberaveis,
-    aprovaPagamentoSensivel: ehGeral || gestor.aprovaPagamentoSensivel,
-  }
-
   return (
     <SuperAdminGuard href="/admin/usuarios">
       <div className="space-y-2">
@@ -45,7 +34,7 @@ export default async function UsuariosPage() {
           usuarios={todos}
           lojas={lojasOpts}
           grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
-          limites={limites}
+          limites={limitesDaTela(gestor)}
         />
       </div>
     </SuperAdminGuard>
