@@ -46,19 +46,19 @@ async function cadastroAtual(id: string): Promise<(CadastroGestao & { id: string
   const [u] = await db
     .select({
       id: usuarios.id, papel: usuarios.papel, grupoDaLoja: lojas.grupoId, ativo: usuarios.ativo,
-      gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao, modulosExtras: usuarios.modulosExtras,
+      gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao, modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
       aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
     })
     .from(usuarios).leftJoin(lojas, eq(usuarios.lojaId, lojas.id)).where(eq(usuarios.id, id)).limit(1)
   if (!u) return null
-  return { ...u, gruposAcesso: u.gruposAcesso ?? [], gruposAprovacao: u.gruposAprovacao ?? [], modulosExtras: u.modulosExtras ?? [] }
+  return { ...u, gruposAcesso: u.gruposAcesso ?? [], gruposAprovacao: u.gruposAprovacao ?? [], modulosExtras: u.modulosExtras ?? [], modulosBloqueados: u.modulosBloqueados ?? [] }
 }
 
-async function cadastroPedido(dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; aprovaPagamentoSensivel: boolean }, ativo: boolean): Promise<CadastroGestao> {
+async function cadastroPedido(dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; modulosBloqueados: string[]; aprovaPagamentoSensivel: boolean }, ativo: boolean): Promise<CadastroGestao> {
   return {
     aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
     papel: dados.papel, grupoDaLoja: dados.lojaId ? await getGrupoIdDaLoja(dados.lojaId) : null, ativo,
-    gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras,
+    gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras, modulosBloqueados: dados.modulosBloqueados,
   }
 }
 
@@ -236,6 +236,9 @@ export async function editarUsuarioAction(id: string, dados: {
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
   await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
 
+  // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
+  // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
+  const forcarTroca = admin.papel === 'admin_socio' && id !== admin.id
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({
       nome: dados.nome,
@@ -256,6 +259,7 @@ export async function editarUsuarioAction(id: string, dados: {
         UPDATE auth.users
         SET email = ${dados.email},
             encrypted_password = crypt(${dados.novaSenha}, gen_salt('bf')),
+            raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || ${forcarTroca ? sql`'{"must_change_password": true}'::jsonb` : sql`'{}'::jsonb`},
             email_confirmed_at = COALESCE(email_confirmed_at, now()),
             updated_at = now()
         WHERE id = ${id}::uuid
@@ -270,12 +274,6 @@ export async function editarUsuarioAction(id: string, dados: {
       `)
     }
   })
-
-  // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login.
-  if (admin.papel === 'admin_socio' && dados.novaSenha?.trim()) {
-    const { error } = await getAdminClient().auth.admin.updateUserById(id, { user_metadata: { must_change_password: true } })
-    if (error) throw new Error(error.message)
-  }
 
   const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []

@@ -24,6 +24,7 @@ export type AlvoGestao = {
 
 export type CadastroGestao = AlvoGestao & {
   modulosExtras: string[]
+  modulosBloqueados: string[]
   aprovaPagamentoSensivel: boolean
   ativo: boolean
 }
@@ -69,7 +70,9 @@ export function recusaDaGravacao(
   // Só o que o sócio acrescenta passa pelo limite de telas: o que o admin_geral já deu
   // ao usuário fica, senão o sócio não conseguiria nem corrigir o nome dele.
   const telasNovas = depois.modulosExtras.filter(id => !(antes?.modulosExtras ?? []).includes(id))
-  if (!telasNovas.every(id => gestor.itensLiberaveis.includes(id))) {
+  // Tirar um bloqueio também devolve a tela: vale o mesmo limite.
+  const desbloqueadas = (antes?.modulosBloqueados ?? []).filter(id => !depois.modulosBloqueados.includes(id))
+  if (![...telasNovas, ...desbloqueadas].every(id => gestor.itensLiberaveis.includes(id))) {
     return 'Você só pode liberar telas que você mesmo tem'
   }
   if (depois.aprovaPagamentoSensivel && !antes?.aprovaPagamentoSensivel && !gestor.aprovaPagamentoSensivel) {

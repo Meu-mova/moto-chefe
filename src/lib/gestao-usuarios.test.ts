@@ -14,7 +14,7 @@ test('sócio gerencia quem é de loja de grupo que ele vê, e não quem é de ou
 
 const cadastro = (extra = {}) => ({
   papel: 'vendedor', grupoDaLoja: VALE as string | null, gruposAcesso: [] as string[], gruposAprovacao: [] as string[],
-  modulosExtras: [] as string[], aprovaPagamentoSensivel: false, ativo: true, ...extra,
+  modulosExtras: [] as string[], modulosBloqueados: [] as string[], aprovaPagamentoSensivel: false, ativo: true, ...extra,
 })
 type Cadastro = ReturnType<typeof cadastro>
 const gravar = (depois: Cadastro = cadastro(), antes: (Cadastro & { id: string }) | null = null) =>
@@ -93,4 +93,11 @@ test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', ()
 test('sócio não alcança um admin_geral, mesmo com loja de grupo que ele vê', () => {
   assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_geral')), false)
   assert.equal(gravar(cadastro(), { ...cadastro({ papel: 'admin_geral' }), id: 'geral' }), 'Usuário fora do seu alcance')
+})
+
+test('sócio bloqueia qualquer tela, mas só desbloqueia a que ele mesmo tem', () => {
+  const bloqueado = (ids: string[]) => ({ id: 'v', ...cadastro({ modulosBloqueados: ids }) })
+  assert.equal(gravar(cadastro({ modulosBloqueados: ['financeiro'] }), bloqueado([])), null, 'bloquear: livre')
+  assert.equal(gravar(cadastro(), bloqueado(['estoque'])), null, 'desbloquear tela que ele tem')
+  assert.match(gravar(cadastro(), bloqueado(['financeiro'])) ?? '', /telas que você mesmo tem/, 'desbloquear tela que ele não tem')
 })
