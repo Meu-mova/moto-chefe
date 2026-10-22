@@ -89,7 +89,8 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       serieEntrada(grupo.id, de, ate, gran),
       entradaPorHorario(grupo.id, de, ate),
       motivosPerdaCoorte(grupo.id, de, ate),
-      funisNaoClassificados(de, ate),
+      // Funil sem grupo pode ser de qualquer Conta: o aviso é para quem classifica (#328).
+      usuario.papel === 'admin_geral' ? funisNaoClassificados(de, ate) : Promise.resolve([]),
       valoresAtipicos(grupo.id, de, ate),
       investimentoPorFunil(grupo.id, de, ate),
       investimentoPorFunil(grupo.id, anterior.de, anterior.ate),

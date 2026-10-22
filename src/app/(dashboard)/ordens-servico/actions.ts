@@ -2,8 +2,8 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
-import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, lancamentosCaixa, cuponsRevisao } from '@/lib/db/schema'
-import { and, eq, inArray, notInArray } from 'drizzle-orm'
+import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, cuponsRevisao } from '@/lib/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
@@ -11,6 +11,7 @@ import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancela
 import { GESTORES, podeAvancarOS } from '@/lib/os-transicao'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
+import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import {
   TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom, motivoCupomInvalido,
 } from '@/lib/cupom-revisao'
@@ -203,94 +204,6 @@ export async function atualizarOSAction(osId: string, dados: {
 // 'transferencia' precisa da mesma aprovação exigida em venda de moto — só quem tem
 // podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
-
-export type DadosPagamentoOS = {
-  valorTotal: number
-  pagamentos: PgtoOS[]
-}
-
-// Aplica o pagamento de fato na OS — sem checagem de permissão/sensibilidade, usada
-// tanto pelo fechamento direto quanto pela aprovação de pagamento sensível.
-export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
-  const [osAtual] = await db
-    .select({ status: ordensServico.status, lojaId: ordensServico.lojaId, numero: ordensServico.numero })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-
-  // Aprovações de pagamento sensível criadas antes da migração pra array de
-  // pagamentos guardam o formato antigo (só formaPagamento, sem `pagamentos`).
-  // Normaliza aqui pra não quebrar ao aprovar uma aprovação pendente antiga.
-  const legado = dados as unknown as { formaPagamento?: string }
-  const pagamentos = dados.pagamentos ?? (legado.formaPagamento
-    ? [{ tipo: legado.formaPagamento, valor: dados.valorTotal }]
-    : [])
-
-  const usuario = await getUsuarioLogado()
-  const pagamentosDinheiro = pagamentos.filter(p => p.tipo === 'dinheiro')
-  // Data no fuso de SP — evita cair no dia anterior à noite (toISOString é UTC).
-  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-
-  await db.transaction(async (tx) => {
-    await tx.update(ordensServico).set({
-      valorTotal:     String(dados.valorTotal),
-      formaPagamento: pagamentos[0]?.tipo ?? (dados.valorTotal < 0.01 ? 'Gratuita' : null),
-      pagamentos:     pagamentos.length > 0 ? pagamentos : null,
-      ...(osAtual?.status === 'pendente_pagamento'
-        ? { status: 'concluida' as any, dataConclusao: new Date() }
-        : {}),
-    }).where(eq(ordensServico.id, osId))
-
-    // Recebimento em dinheiro entra no caixa da loja, como na venda de moto.
-    // Re-sincroniza: apaga os lançamentos de dinheiro anteriores desta OS e
-    // recria — assim editar o pagamento (ou trocá-lo por outra forma, ou zerar
-    // uma OS gratuita) não duplica nem deixa resíduo no caixa.
-    if (osAtual?.lojaId) {
-      await tx.delete(lancamentosCaixa)
-        .where(and(eq(lancamentosCaixa.osId, osId), eq(lancamentosCaixa.tipo, 'entrada')))
-      for (const pgto of pagamentosDinheiro) {
-        await tx.insert(lancamentosCaixa).values({
-          lojaId:    osAtual.lojaId,
-          usuarioId: usuario.id,
-          tipo:      'entrada',
-          categoria: 'Serviço',
-          descricao: `OS #${osAtual.numero ?? '—'} dinheiro`,
-          valor:     Number(pgto.valor).toFixed(2),
-          data:      hoje,
-          osId,
-        })
-      }
-    }
-
-    // Cupom de revisão: re-sincroniza como o caixa acima. Primeiro SOLTA os cupons
-    // presos a esta OS que sumiram do pagamento — trocar o cupom por dinheiro numa
-    // reedição deixaria o cupom queimado sem nada em troca —, depois prende os que
-    // ficaram. Fora da transação isso abriria janela pra dois caixas gastarem o
-    // mesmo código.
-    const linhasCupom = pagamentos.filter(p => p.tipo === TIPO_PAGAMENTO_CUPOM && p.cupom)
-    const codigosCupom = linhasCupom.map(p => normalizarCodigoCupom(p.cupom))
-
-    await tx.update(cuponsRevisao)
-      .set({ status: 'ativo', osId: null, usadoEm: null, valorAbatido: null })
-      .where(and(
-        eq(cuponsRevisao.osId, osId),
-        codigosCupom.length > 0 ? notInArray(cuponsRevisao.codigo, codigosCupom) : undefined,
-      ))
-
-    for (const linha of linhasCupom) {
-      await tx.update(cuponsRevisao).set({
-        status: 'usado',
-        osId,
-        usadoEm: new Date(),
-        valorAbatido: Number(linha.valor).toFixed(2),
-      }).where(eq(cuponsRevisao.codigo, normalizarCodigoCupom(linha.cupom)))
-    }
-  })
-
-  revalidatePath('/ordens-servico')
-  revalidatePath(`/ordens-servico/${osId}`)
-  revalidatePath('/caixa')
-}
 
 export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
