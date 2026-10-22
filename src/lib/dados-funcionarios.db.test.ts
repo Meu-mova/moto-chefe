@@ -46,3 +46,21 @@ test('sócio de uma Conta não recebe dado pessoal de funcionário de outra Cont
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('sócio de Conta com dois grupos recebe os funcionários dos dois grupos (#320)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const conta = await linha(sql`insert into contas (nome) values ('Conta Dois Grupos') returning id`)
+    const ids: string[] = []
+    for (const [nome, cnpj] of [['G1', '00000000032011'], ['G2', '00000000032012']]) {
+      const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values (${nome}, ${cnpj}, ${conta.id}) returning id`)
+      const loja = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values (${'Loja ' + nome}, 'R', 'C', ${grupo.id}) returning id`)
+      const func = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id) values (gen_random_uuid(), ${'Func ' + nome}, ${nome + '@teste.invalid'}, 'vendedor', ${loja.id}, ${conta.id}) returning id`)
+      ids.push(func.id)
+    }
+
+    const daConta = (await listarDadosFuncionarios(conta.id, tx)).map(l => l.id).sort()
+    assert.deepEqual(daConta, [...ids].sort())
+    throw new Desfazer()
+  }), Desfazer)
+})
