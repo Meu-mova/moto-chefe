@@ -15,10 +15,12 @@ type Db = typeof import('@/lib/db')
 type Mod = typeof import('@/lib/busca-chassi')
 let db: Db['db']
 let buscarMotosPorChassi: Mod['buscarMotosPorChassi']
+let buscarHistoricoPorChassi: Mod['buscarHistoricoPorChassi']
+let gravarVeiculosHistorico: Mod['gravarVeiculosHistorico']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ buscarMotosPorChassi } = await import('@/lib/busca-chassi'))
+  ;({ buscarMotosPorChassi, buscarHistoricoPorChassi, gravarVeiculosHistorico } = await import('@/lib/busca-chassi'))
 })
 
 after(async () => {
@@ -46,6 +48,24 @@ test('busca por chassi da Conta B não acha moto da Conta A (#325)', async () =>
 
     const geral = (await buscarMotosPorChassi('BUSCA325', { contaDasMotos: null, contaDoComprador: contas[1], limite: 10 }, tx)).map(m => m.chassi).sort()
     assert.deepEqual(geral, ['BUSCA325A', 'BUSCA325B'], 'admin_geral acha as duas')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('histórico de veículos: Conta B não acha nem sobrescreve veículo da Conta A (#325)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = (await linha(sql`insert into contas (nome) values ('Hist 325 A') returning id`)).id
+    const contaB = (await linha(sql`insert into contas (nome) values ('Hist 325 B') returning id`)).id
+    const veiculo = (chassi: string, cor: string) => ({ chassi, numeroMotor: null, marca: 'M', modelo: 'H', cor, ano: null, nfEntrada: null })
+
+    await gravarVeiculosHistorico([veiculo('HIST325A', 'AZUL')], contaA, tx)
+    await gravarVeiculosHistorico([veiculo('HIST325B', 'VERDE'), veiculo('HIST325A', 'ROSA')], contaB, tx)
+
+    assert.deepEqual((await buscarHistoricoPorChassi('HIST325', contaB, 10, tx)).map(v => v.chassi), ['HIST325B'], 'B só acha o próprio')
+    const daA = await buscarHistoricoPorChassi('HIST325', contaA, 10, tx)
+    assert.deepEqual(daA.map(v => [v.chassi, v.cor]), [['HIST325A', 'AZUL']], 'importação da B não sobrescreve o da A')
+    assert.equal((await buscarHistoricoPorChassi('HIST325', null, 10, tx)).length, 2, 'admin_geral acha os dois')
     throw new Desfazer()
   }), Desfazer)
 })

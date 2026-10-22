@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { veiculosHistorico, clientes } from '@/lib/db/schema'
 import { and, eq, ilike } from 'drizzle-orm'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
-import { buscarMotosPorChassi } from '@/lib/busca-chassi'
+import { buscarMotosPorChassi, buscarHistoricoPorChassi } from '@/lib/busca-chassi'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -39,11 +39,7 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
   // 2. Busca no banco histórico (chassis que não estão no estoque)
   const chassisEstoque = new Set(motosBD.map(m => m.chassi).filter(Boolean) as string[])
 
-  const historico = await db
-    .select()
-    .from(veiculosHistorico)
-    .where(ilike(veiculosHistorico.chassi, padrao))
-    .limit(8)
+  const historico = await buscarHistoricoPorChassi(termo, usuario.papel === 'admin_geral' ? null : conta, 8)
 
   const resultados: VeiculoEncontrado[] = [
     ...motosBD.map(m => ({
@@ -113,6 +109,7 @@ export async function cadastrarVeiculoHistoricoAction(input: {
       modelo,
       cor:         input.cor?.trim() || null,
       numeroMotor: input.numeroMotor?.trim() || null,
+      contaId:     await contaDoGrupoAtivo(usuario),
     }).returning()
 
     return {

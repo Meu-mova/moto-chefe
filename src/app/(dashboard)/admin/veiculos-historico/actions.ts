@@ -2,7 +2,10 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { veiculosHistorico, motos } from '@/lib/db/schema'
-import { sql, inArray } from 'drizzle-orm'
+import { and, eq, sql, inArray } from 'drizzle-orm'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { lojasDaConta } from '@/lib/conta'
+import { gravarVeiculosHistorico } from '@/lib/busca-chassi'
 
 export type VeiculoImportRow = {
   chassi: string
@@ -45,23 +48,10 @@ export async function importarVeiculosAction(rows: VeiculoImportRow[]) {
   const valores = Array.from(mapaDedup.values())
 
   // Insere em lotes de 500 para não estourar o limite de 65535 parâmetros do PostgreSQL
+  const contaId = await contaDoGrupoAtivo(usuario)
   const LOTE = 500
   for (let i = 0; i < valores.length; i += LOTE) {
-    await db
-      .insert(veiculosHistorico)
-      .values(valores.slice(i, i + LOTE))
-      .onConflictDoUpdate({
-        target: veiculosHistorico.chassi,
-        set: {
-          numeroMotor: sql`excluded.numero_motor`,
-          marca:       sql`excluded.marca`,
-          modelo:      sql`excluded.modelo`,
-          cor:         sql`excluded.cor`,
-          ano:         sql`excluded.ano`,
-          nfEntrada:   sql`excluded.nf_entrada`,
-          importadoEm: sql`now()`,
-        },
-      })
+    await gravarVeiculosHistorico(valores.slice(i, i + LOTE), contaId)
   }
 
   return { importados: valores.length }
@@ -74,6 +64,8 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
   if (!chassiList.length) return new Set()
 
   const normalizados = chassiList.map(c => c.trim().toUpperCase())
+  // Só as motos da Conta (#325): não revela chassi de outro cliente do MOVA.
+  const daConta = usuario.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(usuario)
 
   // inArray também tem limite — busca em lotes de 1000
   const LOTE = 1000
@@ -83,7 +75,7 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
     const resultado = await db
       .select({ chassi: motos.chassi })
       .from(motos)
-      .where(inArray(motos.chassi, lote))
+      .where(and(inArray(motos.chassi, lote), daConta ? inArray(motos.lojaId, lojasDaConta(daConta)) : undefined))
     todoEncontrados.push(...resultado.map(r => r.chassi).filter(Boolean) as string[])
   }
 
@@ -94,5 +86,6 @@ export async function contarVeiculosHistoricoAction() {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) return 0
   const [r] = await db.select({ total: sql<number>`count(*)::int` }).from(veiculosHistorico)
+    .where(usuario.papel === 'admin_geral' ? undefined : eq(veiculosHistorico.contaId, await contaDoGrupoAtivo(usuario)))
   return r?.total ?? 0
 }
