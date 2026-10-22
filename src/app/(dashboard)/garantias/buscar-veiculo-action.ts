@@ -2,9 +2,10 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, vendas, clientes, historicoEstoque } from '@/lib/db/schema'
-import { and, eq, ilike } from 'drizzle-orm'
+import { motos, modelos, lojas, historicoEstoque } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { buscarMotosPorChassi } from '@/lib/busca-chassi'
 
 const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
 
@@ -20,35 +21,23 @@ export type VeiculoGarantia = {
   clienteNome?: string | null
 }
 
-// Busca em toda a base de motos (estoque, vendidas, qualquer loja/grupo — mesmo
-// escopo do módulo Radar), pois a garantia é sempre aberta na loja da própria moto.
+// Motos da Conta do grupo ativo, em qualquer loja dela (estoque ou vendidas): a garantia
+// é aberta na loja da própria moto. admin_geral acha de qualquer Conta (#325).
 export async function buscarVeiculoGarantiaAction(chassi: string): Promise<VeiculoGarantia[]> {
   const usuario = await getUsuarioLogado()
   const termo = chassi.trim().toUpperCase()
   if (termo.length < 3) return []
 
-  const resultados = await db
-    .select({
-      motoId:      motos.id,
-      chassi:      motos.chassi,
-      marca:       modelos.marca,
-      modelo:      modelos.modelo,
-      cor:         motos.cor,
-      status:      motos.status,
-      lojaId:      motos.lojaId,
-      lojaNome:    lojas.nome,
-      clienteNome: clientes.nome,
-    })
-    .from(motos)
-    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
-    .leftJoin(vendas,   eq(vendas.motoId,  motos.id))
-    // Comprador só da Conta: a moto pode ter sido vendida por outro cliente do MOVA.
-    .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
-    .where(ilike(motos.chassi, `%${termo}%`))
-    .limit(10)
-
-  return resultados
+  const conta = await contaDoGrupoAtivo(usuario)
+  const resultados = await buscarMotosPorChassi(termo, {
+    contaDasMotos: usuario.papel === 'admin_geral' ? null : conta,
+    contaDoComprador: conta,
+    limite: 10,
+  })
+  return resultados.map(m => ({
+    motoId: m.motoId, chassi: m.chassi, marca: m.marca, modelo: m.modelo, cor: m.cor,
+    status: m.status, lojaId: m.lojaId, lojaNome: m.lojaNome, clienteNome: m.clienteNome,
+  }))
 }
 
 export async function cadastrarVeiculoGarantiaAction(input: {

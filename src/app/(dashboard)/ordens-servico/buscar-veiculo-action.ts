@@ -1,9 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, veiculosHistorico, clientes, vendas } from '@/lib/db/schema'
-import { and, eq, ilike, sql } from 'drizzle-orm'
+import { veiculosHistorico, clientes } from '@/lib/db/schema'
+import { and, eq, ilike } from 'drizzle-orm'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { buscarMotosPorChassi } from '@/lib/busca-chassi'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -27,26 +28,13 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
 
   const padrao = `%${termo}%`
 
-  // 1. Busca no estoque (motos cadastradas)
-  const motosBD = await db
-    .select({
-      id:          motos.id,
-      chassi:      motos.chassi,
-      cor:         motos.cor,
-      marca:       modelos.marca,
-      modelo:      modelos.modelo,
-      clienteId:   clientes.id,
-      clienteNome: clientes.nome,
-      clienteCpf:  clientes.cpfCnpj,
-      clienteFone: clientes.celular,
-    })
-    .from(motos)
-    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .leftJoin(vendas,   eq(vendas.motoId,   motos.id))
-    // Comprador só da Conta: a moto pode ter sido vendida por outro cliente do MOVA.
-    .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
-    .where(ilike(motos.chassi, padrao))
-    .limit(8)
+  // 1. Busca no estoque (motos cadastradas): só da Conta; admin_geral acha de qualquer uma (#325)
+  const conta = await contaDoGrupoAtivo(usuario)
+  const motosBD = (await buscarMotosPorChassi(termo, {
+    contaDasMotos: usuario.papel === 'admin_geral' ? null : conta,
+    contaDoComprador: conta,
+    limite: 8,
+  })).map(m => ({ ...m, id: m.motoId }))
 
   // 2. Busca no banco histórico (chassis que não estão no estoque)
   const chassisEstoque = new Set(motosBD.map(m => m.chassi).filter(Boolean) as string[])
