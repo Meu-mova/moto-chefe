@@ -670,6 +670,8 @@ export const veiculosHistorico = pgTable('veiculos_historico', {
   cor:          text('cor'),
   ano:          integer('ano'),
   nfEntrada:    text('nf_entrada'),
+  // Conta que importou (#325): cada Conta só vê o próprio histórico.
+  contaId:      uuid('conta_id').notNull().references(() => contas.id),
   importadoEm:  timestamp('importado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
