@@ -39,6 +39,9 @@ function gruposDe(alvo: AlvoGestao): string[] {
 export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, alvo: AlvoGestao): boolean {
   if (gestor.papel === 'admin_geral') return true
   if (gestor.papel !== 'admin_socio') return false
+  // admin_geral deveria estar sem loja, mas nada impõe isso: com loja num grupo do
+  // sócio, ele trocaria a senha do admin_geral e entraria como tal.
+  if (alvo.papel === 'admin_geral') return false
   const grupos = gruposDe(alvo)
   return grupos.length > 0 && grupos.every(g => gestor.gruposVisiveis.includes(g))
 }

@@ -89,3 +89,8 @@ test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', ()
   assert.match(recusaDaGravacao(semPoder, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })) ?? '', /pagamento/)
   assert.equal(recusaDaGravacao({ ...semPoder, aprovaPagamentoSensivel: true }, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })), null)
 })
+
+test('sócio não alcança um admin_geral, mesmo com loja de grupo que ele vê', () => {
+  assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_geral')), false)
+  assert.equal(gravar(cadastro(), { ...cadastro({ papel: 'admin_geral' }), id: 'geral' }), 'Usuário fora do seu alcance')
+})
