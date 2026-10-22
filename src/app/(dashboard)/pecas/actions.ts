@@ -104,11 +104,6 @@ export async function reativarPecaAction(id: string) {
 // Vendida junto com OS (via os_itens, já existente) ou avulsa no balcão (aqui).
 // Não emite nota fiscal — só baixa estoque e registra o recebimento.
 
-// `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
-// balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
-// registrarVendaPecaAction.
-export type { ItemVendaPecaInput, PagamentoVendaPecaInput, DadosVendaPeca } from '@/lib/venda-peca'
-
 // 'financiamento' precisa da mesma aprovação exigida em venda de moto/OS — só quem tem
 // podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_PECA = new Set(['financiamento'])

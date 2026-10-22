@@ -65,7 +65,6 @@ export default async function GarantiasPage({
 
   const lojaUsuarioNome = lojaUsuarioRow[0]?.nome ?? null
 
-
   const ativas      = lista.filter(g => g.status === 'ativa')
   const encerradas  = lista.filter(g => g.status === 'encerrada')
   const criticas    = ativas.filter(g => g.statusFabrica && STATUS_FABRICA_CRITICOS.has(g.statusFabrica))

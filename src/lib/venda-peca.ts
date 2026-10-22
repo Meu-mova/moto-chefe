@@ -2,6 +2,9 @@ import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
 import { eq, inArray, sql } from 'drizzle-orm'
 
+// `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
+// balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
+// registrarVendaPecaAction.
 export type ItemVendaPecaInput = { pecaId: string; quantidade: number; valorUnitario?: number }
 export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
 export type DadosVendaPeca = {
