@@ -1,6 +1,6 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { PrintButtons } from './print-buttons'
 import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
@@ -43,16 +43,17 @@ export default async function GarantiasRelatorioPage({
 
   const params = await searchParams
   const isAdmin = ADMINS.includes(usuario.papel)
-  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
+  const lojaIds = await lojasDoEscopoDeGarantias(usuario, params.lojaId)
+  // Nome no cabeçalho só quando a loja pedida está no escopo.
   const lojaIdFiltro = isAdmin
-    ? (params.lojaId && lojaIdsGrupo.includes(params.lojaId) ? params.lojaId : undefined)
+    ? (params.lojaId && lojaIds.includes(params.lojaId) ? params.lojaId : undefined)
     : (usuario.lojaId ?? undefined)
   const grupo = await getGrupoAtivo(usuario)
 
-  const [rowsBrutas, lojasDb] = await Promise.all([
+  const [rows, lojasDb] = await Promise.all([
     exportarRelatorioGarantias({
       status:        params.status        || undefined,
-      lojaIds:       await lojasDoEscopoDeGarantias(usuario, params.lojaId),
+      lojaIds,
       modeloId:      params.modeloId      || undefined,
       statusFabrica: params.statusFabrica || undefined,
       dataInicio:    params.dataInicio    || undefined,
@@ -60,8 +61,6 @@ export default async function GarantiasRelatorioPage({
     }),
     isAdmin ? listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }) : Promise.resolve([]),
   ])
-
-  const rows = rowsBrutas
 
   const agora = new Date().toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',

@@ -205,8 +205,6 @@ export async function atualizarOSAction(osId: string, dados: {
 // podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
 
-export type { DadosPagamentoOS } from '@/lib/pagamento-os'
-
 export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
 
