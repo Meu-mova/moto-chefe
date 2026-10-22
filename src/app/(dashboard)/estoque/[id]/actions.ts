@@ -18,6 +18,7 @@ import {
   type VendaVinculada,
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
+import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 
@@ -159,10 +160,13 @@ export async function editarMotoAction(
     if (cor !== moto.cor) updates.cor = cor
   }
   if (dados.motor !== undefined && dados.motor !== moto.motor) updates.motor = dados.motor || null
-  if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) updates.modeloId = dados.modeloId
   if (dados.lojaId !== undefined && dados.lojaId !== moto.lojaId) {
     if (!(await podeAbrirRegistroDaLoja(usuario, dados.lojaId))) throw new Error('Loja fora do seu grupo')
     updates.lojaId = dados.lojaId
+  }
+  if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) {
+    if (!(await modeloUsavelNaLoja(dados.lojaId ?? moto.lojaId, dados.modeloId))) throw new Error('Modelo não encontrado')
+    updates.modeloId = dados.modeloId
   }
   if (dados.notaFiscalEntrada !== undefined && dados.notaFiscalEntrada !== moto.notaFiscalEntrada) updates.notaFiscalEntrada = dados.notaFiscalEntrada
   if (dados.status !== undefined && dados.status !== moto.status) updates.status = dados.status

@@ -1,12 +1,12 @@
 'use server'
 import { db } from '@/lib/db'
-import { modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
-import { eq, and, ne, inArray } from 'drizzle-orm'
+import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
-import { salvarMarcasDaConta } from '@/lib/modelos-da-conta'
+import { salvarApelidosDoModelo, salvarMarcasDaConta } from '@/lib/modelos-da-conta'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -81,28 +81,7 @@ export async function salvarApelidosAction(modeloId: string, texto: string) {
     texto.split(',').map(a => normalizarModelo(a)).filter(Boolean),
   )]
 
-  const conflitos = apelidos.length
-    ? await db
-        .select({ apelido: modeloApelidos.apelido, modelo: modelos.modelo })
-        .from(modeloApelidos)
-        .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
-        .where(and(
-          inArray(modeloApelidos.apelido, apelidos),
-          ne(modeloApelidos.modeloId, modeloId),
-        ))
-    : []
-
-  if (conflitos.length) {
-    const lista = conflitos.map(c => `"${c.apelido}" já é do ${c.modelo}`).join('; ')
-    throw new Error(lista)
-  }
-
-  await db.transaction(async tx => {
-    await tx.delete(modeloApelidos).where(eq(modeloApelidos.modeloId, modeloId))
-    if (apelidos.length) {
-      await tx.insert(modeloApelidos).values(apelidos.map(apelido => ({ apelido, modeloId })))
-    }
-  })
+  await salvarApelidosDoModelo(modeloId, apelidos)
 
   revalidatePath('/admin/modelos')
 }

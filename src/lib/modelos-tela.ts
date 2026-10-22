@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contas, contaMarcas, modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -19,11 +19,11 @@ export async function carregarTelaModelos(
     exec.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
       .from(modeloBlingCodigos)
       .where(eq(modeloBlingCodigos.grupoId, quem.grupoId)),
-    // Apelidos nao sao por grupo: e como a NOTA escreve o produto, e a mesma
-    // LAIOUNS vende para os dois CNPJs.
-    exec.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
-      .from(modeloApelidos)
-      .orderBy(modeloApelidos.apelido),
+    quem.adminGeral
+      ? exec.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
+        .from(modeloApelidos)
+        .orderBy(modeloApelidos.apelido)
+      : listarApelidosDaConta(quem.contaId, exec).then(l => l.map(a => ({ modeloId: a.modeloId, apelido: a.nome }))),
     quem.adminGeral ? listarContasComMarcas(exec) : null,
   ])
   return { modelos: lista, codigos, apelidos, contas: contasComMarcas }
