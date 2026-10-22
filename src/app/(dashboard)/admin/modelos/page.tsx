@@ -1,9 +1,7 @@
 import { AdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { contas, contaMarcas, modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
-import { asc, eq } from 'drizzle-orm'
+import { getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { carregarTelaModelos } from '@/lib/modelos-tela'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { BlingCodigoCell } from './components/bling-codigo-cell'
@@ -15,23 +13,12 @@ export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 
-  const [todos, codigos, apelidos, listaContas, escolhas] = await Promise.all([
-    db.select().from(modelos).orderBy(modelos.marca),
-    db.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
-      .from(modeloBlingCodigos)
-      .where(eq(modeloBlingCodigos.grupoId, grupo.id)),
-    // Apelidos nao sao por grupo: e como a NOTA escreve o produto, e a mesma
-    // LAIOUNS vende para os dois CNPJs.
-    db.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
-      .from(modeloApelidos)
-      .orderBy(modeloApelidos.apelido),
-    db.select({ id: contas.id, nome: contas.nome }).from(contas).orderBy(asc(contas.nome)),
-    db.select().from(contaMarcas),
-  ])
+  // Só o admin_geral edita (as actions exigem admin_geral); o sócio só consulta.
+  const adminGeral = usuario.papel === 'admin_geral'
+  const { modelos: todos, codigos, apelidos, contas } = await carregarTelaModelos(adminGeral
+    ? { adminGeral: true, contaId: null, grupoId: grupo.id }
+    : { adminGeral: false, contaId: await contaDoGrupoAtivo(usuario), grupoId: grupo.id })
   const marcas = [...new Set(todos.map(m => m.marca))].sort()
-  const contasComMarcas = listaContas.map(c => ({
-    ...c, marcas: escolhas.filter(e => e.contaId === c.id).map(e => e.marca),
-  }))
   const codigoPorModelo = new Map(codigos.map(c => [c.modeloId, c.codigo]))
   const apelidosPorModelo = new Map<string, string[]>()
   for (const a of apelidos) {
@@ -44,15 +31,15 @@ export default async function ModelosPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">Modelos</h1>
-            <p className="text-slate-500 text-sm">
-              Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
+            <p className="text-muted-foreground text-sm">
+              {adminGeral ? <>Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
               <strong>Apelidos na NF</strong> para editar inline. Apelido é como a nota de entrada
-              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.
+              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : <>Modelos das marcas da sua Conta. Só a plataforma edita.</>}
             </p>
           </div>
-          <ModeloFormButton />
+          {adminGeral && <ModeloFormButton />}
         </div>
-        <div className="bg-white rounded-lg border">
+        <div className="bg-card rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -75,23 +62,27 @@ export default async function ModelosPage() {
                   </TableCell>
                   <TableCell>{m.potenciaW}W</TableCell>
                   <TableCell>
-                    <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />
+                    {adminGeral
+                      ? <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />
+                      : codigoPorModelo.get(m.id) ?? '—'}
                   </TableCell>
                   <TableCell>
-                    <ApelidosCell modeloId={m.id} valores={apelidosPorModelo.get(m.id) ?? []} />
+                    {adminGeral
+                      ? <ApelidosCell modeloId={m.id} valores={apelidosPorModelo.get(m.id) ?? []} />
+                      : (apelidosPorModelo.get(m.id) ?? []).join(', ') || '—'}
                   </TableCell>
                   <TableCell>
-                    <ModeloFormButton modelo={{
+                    {adminGeral && <ModeloFormButton modelo={{
                       id: m.id, marca: m.marca, modelo: m.modelo,
                       categoria: m.categoria, potenciaW: m.potenciaW,
-                    }} />
+                    }} />}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
-        <MarcasDaConta contas={contasComMarcas} marcas={marcas} />
+        {contas && <MarcasDaConta contas={contas} marcas={marcas} />}
       </div>
     </AdminGuard>
   )
