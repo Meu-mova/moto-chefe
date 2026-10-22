@@ -1,17 +1,18 @@
 import { db } from '@/lib/db'
 import { usuarios, lojas } from '@/lib/db/schema'
-import { asc, eq, inArray } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
+import { ehGestorDeUsuarios, podeGerenciar, type Gestor } from '@/lib/gestao-usuarios'
 
 type Exec = Pick<typeof db, 'select'>
 
-// Lista de /admin/usuarios recortada pela mesma regra de @/lib/gestao-usuarios: o sócio
-// recebe só quem é de loja de grupo que ele vê (#322).
+// Lista de /admin/usuarios recortada pela regra de @/lib/gestao-usuarios (#322). Filtra
+// em memória para não ter uma segunda cópia da regra em SQL: são dezenas de usuários.
 export async function listarUsuariosGerenciaveis(
-  gestor: { papel: string; gruposVisiveis: string[] },
+  gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>,
   exec: Exec = db,
 ) {
-  if (gestor.papel !== 'admin_geral' && (gestor.papel !== 'admin_socio' || gestor.gruposVisiveis.length === 0)) return []
-  return exec
+  if (!ehGestorDeUsuarios(gestor)) return []
+  const todos = await exec
     .select({
       id:       usuarios.id,
       nome:     usuarios.nome,
@@ -33,6 +34,8 @@ export async function listarUsuariosGerenciaveis(
     })
     .from(usuarios)
     .leftJoin(lojas, eq(usuarios.lojaId, lojas.id))
-    .where(gestor.papel === 'admin_geral' ? undefined : inArray(lojas.grupoId, gestor.gruposVisiveis))
     .orderBy(asc(usuarios.nome))
+  return todos.filter(u => podeGerenciar(gestor, {
+    papel: u.papel, grupoDaLoja: u.grupoDaLojaId, gruposAcesso: u.gruposAcesso ?? [], gruposAprovacao: u.gruposAprovacao ?? [],
+  }))
 }

@@ -5,19 +5,20 @@ import { podeExcluir, podeGerenciar, recusaDaGravacao } from './gestao-usuarios'
 const VALE = 'grupo-vale'
 const BH = 'grupo-bh'
 const socioDoVale = { id: 'socio-vale', papel: 'admin_socio', gruposVisiveis: [VALE] }
+const alvo = (grupoDaLoja: string | null, papel = 'vendedor') => ({ papel, grupoDaLoja, gruposAcesso: [], gruposAprovacao: [] })
 
 test('sócio gerencia quem é de loja de grupo que ele vê, e não quem é de outro grupo', () => {
-  assert.equal(podeGerenciar(socioDoVale, { papel: 'vendedor', grupoDaLoja: VALE }), true)
-  assert.equal(podeGerenciar(socioDoVale, { papel: 'vendedor', grupoDaLoja: BH }), false)
+  assert.equal(podeGerenciar(socioDoVale, alvo(VALE)), true)
+  assert.equal(podeGerenciar(socioDoVale, alvo(BH)), false)
 })
 
 const cadastro = (extra = {}) => ({
   papel: 'vendedor', grupoDaLoja: VALE as string | null, gruposAcesso: [] as string[], gruposAprovacao: [] as string[],
-  modulosExtras: [] as string[], ativo: true, ...extra,
+  modulosExtras: [] as string[], aprovaPagamentoSensivel: false, ativo: true, ...extra,
 })
 type Cadastro = ReturnType<typeof cadastro>
 const gravar = (depois: Cadastro = cadastro(), antes: (Cadastro & { id: string }) | null = null) =>
-  recusaDaGravacao({ ...socioDoVale, itensLiberaveis: ['estoque'] }, antes, depois)
+  recusaDaGravacao({ ...socioDoVale, itensLiberaveis: ['estoque'], aprovaPagamentoSensivel: false }, antes, depois)
 
 test('sócio cria vendedor e outro sócio na loja do grupo dele', () => {
   assert.equal(gravar(), null)
@@ -53,10 +54,10 @@ test('sócio não desativa nem rebaixa a si mesmo, mas edita o resto do próprio
 })
 
 test('aux_adm não gerencia usuários; admin_geral grava qualquer coisa', () => {
-  const aux = { id: 'aux', papel: 'aux_adm', gruposVisiveis: [VALE], itensLiberaveis: [] }
-  assert.equal(podeGerenciar(aux, { papel: 'vendedor', grupoDaLoja: VALE }), false)
+  const aux = { id: 'aux', papel: 'aux_adm', gruposVisiveis: [VALE], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  assert.equal(podeGerenciar(aux, alvo(VALE)), false)
   assert.match(recusaDaGravacao(aux, null, cadastro()) ?? '', /permissão/)
-  const geral = { id: 'geral', papel: 'admin_geral', gruposVisiveis: [], itensLiberaveis: [] }
+  const geral = { id: 'geral', papel: 'admin_geral', gruposVisiveis: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'admin_geral', grupoDaLoja: null, modulosExtras: ['dre'] })), null)
 })
 
@@ -65,8 +66,26 @@ test('só o admin_geral exclui de vez; o sócio só desativa', () => {
   assert.equal(podeExcluir({ papel: 'admin_socio' }), false)
 })
 
-test('sócio edita quem já tem tela ou grupo que ele não tem, desde que não acrescente', () => {
-  const comDre = { id: 'v', ...cadastro({ papel: 'admin_socio', modulosExtras: ['dre'], gruposAprovacao: [BH] }) }
-  assert.equal(gravar(cadastro({ papel: 'admin_socio', modulosExtras: ['dre'], gruposAprovacao: [BH] }), comDre), null)
-  assert.match(gravar(cadastro({ papel: 'admin_socio', modulosExtras: ['dre', 'caixa'], gruposAprovacao: [BH] }), comDre) ?? '', /tela/)
+test('sócio edita quem já tem tela que ele não tem, desde que não acrescente', () => {
+  const comDre = { id: 'v', ...cadastro({ modulosExtras: ['dre'] }) }
+  assert.equal(gravar(cadastro({ modulosExtras: ['dre'] }), comDre), null)
+  assert.match(gravar(cadastro({ modulosExtras: ['dre', 'caixa'] }), comDre) ?? '', /tela/)
+})
+
+test('sócio não alcança quem vê grupo que ele não vê, nem sendo da loja dele', () => {
+  // Trocar a senha de um sócio com mais grupos daria ao gestor esses grupos.
+  assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: VALE, gruposAcesso: [BH], gruposAprovacao: [] }), false)
+  assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: VALE, gruposAcesso: [], gruposAprovacao: [BH] }), false)
+})
+
+test('sócio alcança e cria outro sócio sem loja, só com grupo que ele vê', () => {
+  assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE], gruposAprovacao: [] }), true)
+  assert.equal(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE] })), null)
+  assert.match(gravar(cadastro({ grupoDaLoja: null })) ?? '', /loja/)
+})
+
+test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', () => {
+  const semPoder = { ...socioDoVale, itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  assert.match(recusaDaGravacao(semPoder, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })) ?? '', /pagamento/)
+  assert.equal(recusaDaGravacao({ ...semPoder, aprovaPagamentoSensivel: true }, null, cadastro({ papel: 'admin_socio', aprovaPagamentoSensivel: true })), null)
 })

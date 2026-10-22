@@ -2,28 +2,50 @@
 // Regra pura, sem banco nem sessão. As actions de /admin/usuarios montam o gestor
 // (grupos que ele vê, de @/lib/acesso-grupo) e o alvo, e recusam o que daqui vier.
 //
-// O sócio gerencia só quem é de loja de grupo que ele vê, não a Conta inteira:
-// sócio marcado só num grupo não mexe em quem trabalha em outro (adendo #193).
+// O sócio gerencia só quem está inteiro dentro dos grupos que ele vê, não a Conta
+// inteira (adendo #193). "Inteiro": loja, grupos de acesso e de aprovação. Basta um
+// grupo de fora para o usuário sair do alcance; senão o sócio trocaria a senha de um
+// par com mais grupos e entraria por ele.
 
-export type Gestor = { id: string; papel: string; gruposVisiveis: string[] }
-export type AlvoGestao = { papel: string; grupoDaLoja: string | null }
+export type Gestor = {
+  id: string
+  papel: string
+  gruposVisiveis: string[]
+  itensLiberaveis: string[]
+  aprovaPagamentoSensivel: boolean
+}
 
-export function podeGerenciar(gestor: Gestor, alvo: AlvoGestao): boolean {
-  if (gestor.papel === 'admin_geral') return true
-  if (gestor.papel !== 'admin_socio') return false
-  return alvo.grupoDaLoja !== null && gestor.gruposVisiveis.includes(alvo.grupoDaLoja)
+export type AlvoGestao = {
+  papel: string
+  grupoDaLoja: string | null
+  gruposAcesso: string[]
+  gruposAprovacao: string[]
 }
 
 export type CadastroGestao = AlvoGestao & {
-  gruposAcesso: string[]
-  gruposAprovacao: string[]
   modulosExtras: string[]
+  aprovaPagamentoSensivel: boolean
   ativo: boolean
+}
+
+export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
+  return gestor.papel === 'admin_geral' || gestor.papel === 'admin_socio'
+}
+
+function gruposDe(alvo: AlvoGestao): string[] {
+  return [...(alvo.grupoDaLoja ? [alvo.grupoDaLoja] : []), ...alvo.gruposAcesso, ...alvo.gruposAprovacao]
+}
+
+export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, alvo: AlvoGestao): boolean {
+  if (gestor.papel === 'admin_geral') return true
+  if (gestor.papel !== 'admin_socio') return false
+  const grupos = gruposDe(alvo)
+  return grupos.length > 0 && grupos.every(g => gestor.gruposVisiveis.includes(g))
 }
 
 /** Mensagem de recusa, ou null se o gestor pode gravar. `antes` null = criação. */
 export function recusaDaGravacao(
-  gestor: Gestor & { itensLiberaveis: string[] },
+  gestor: Gestor,
   antes: (CadastroGestao & { id: string }) | null,
   depois: CadastroGestao,
 ): string | null {
@@ -35,22 +57,20 @@ export function recusaDaGravacao(
     return 'Você não pode desativar nem trocar o papel de si mesmo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
-  // Sem loja, o usuário sairia do alcance do próprio sócio que o criou.
-  if (depois.grupoDaLoja === null) return 'Escolha a loja do usuário'
-  // Só o que o sócio acrescenta passa pelo limite: o que o admin_geral já deu ao
-  // usuário fica, senão o sócio não conseguiria nem corrigir o nome dele.
-  const novos = (ids: string[], deAntes: string[] = []) => ids.filter(id => !deAntes.includes(id))
-  const vê = (g: string) => gestor.gruposVisiveis.includes(g)
-  const gruposNovos = [
-    ...novos([depois.grupoDaLoja], antes?.grupoDaLoja ? [antes.grupoDaLoja] : []),
-    ...novos(depois.gruposAcesso, antes?.gruposAcesso),
-    ...novos(depois.gruposAprovacao, antes?.gruposAprovacao),
-  ]
-  if (!gruposNovos.every(vê)) {
-    return 'Você só pode usar lojas e grupos que você mesmo vê'
+  // Sem loja nem grupo, o usuário sairia do alcance do próprio sócio que o criou.
+  // Só o sócio usa grupos de acesso; os demais papéis precisam de loja.
+  if (depois.grupoDaLoja === null && (depois.papel !== 'admin_socio' || depois.gruposAcesso.length === 0)) {
+    return 'Escolha a loja do usuário'
   }
-  if (!novos(depois.modulosExtras, antes?.modulosExtras).every(id => gestor.itensLiberaveis.includes(id))) {
+  if (!podeGerenciar(gestor, depois)) return 'Você só pode usar lojas e grupos que você mesmo vê'
+  // Só o que o sócio acrescenta passa pelo limite de telas: o que o admin_geral já deu
+  // ao usuário fica, senão o sócio não conseguiria nem corrigir o nome dele.
+  const telasNovas = depois.modulosExtras.filter(id => !(antes?.modulosExtras ?? []).includes(id))
+  if (!telasNovas.every(id => gestor.itensLiberaveis.includes(id))) {
     return 'Você só pode liberar telas que você mesmo tem'
+  }
+  if (depois.aprovaPagamentoSensivel && !antes?.aprovaPagamentoSensivel && !gestor.aprovaPagamentoSensivel) {
+    return 'Você só pode dar aprovação de pagamento sensível se você mesmo aprova'
   }
   return null
 }

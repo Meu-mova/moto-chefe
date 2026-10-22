@@ -5,7 +5,7 @@ import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoIdDaLoja, listarGruposVisiveis } from '@/lib/grupo'
-import { podeExcluir, recusaDaGravacao, type CadastroGestao, type Gestor } from '@/lib/gestao-usuarios'
+import { ehGestorDeUsuarios, podeExcluir, recusaDaGravacao, type CadastroGestao, type Gestor } from '@/lib/gestao-usuarios'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS, itensVisiveis } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
@@ -28,13 +28,13 @@ function getAdminClient() {
 }
 
 // admin_geral ou sócio (#322). O que cada um pode gravar decide @/lib/gestao-usuarios.
-async function gestorDaSessao(): Promise<Gestor & { itensLiberaveis: string[] }> {
+async function gestorDaSessao(): Promise<Gestor> {
   const u = await getUsuarioLogado()
-  if (u.papel !== 'admin_geral' && u.papel !== 'admin_socio') throw new Error('Sem permissão para gerenciar usuários')
+  if (!ehGestorDeUsuarios(u)) throw new Error('Sem permissão para gerenciar usuários')
   const gruposVisiveis = u.papel === 'admin_geral' ? [] : (await listarGruposVisiveis(u)).map(g => g.id)
   // Sem as regras próprias: tela que depende delas não se libera pelo sócio.
   const itensLiberaveis = itensVisiveis(u, {}).map(i => i.id)
-  return { id: u.id, papel: u.papel, gruposVisiveis, itensLiberaveis }
+  return { id: u.id, papel: u.papel, gruposVisiveis, itensLiberaveis, aprovaPagamentoSensivel: u.aprovaPagamentoSensivel === true }
 }
 
 function exigir(recusa: string | null) {
@@ -47,14 +47,16 @@ async function cadastroAtual(id: string): Promise<(CadastroGestao & { id: string
     .select({
       id: usuarios.id, papel: usuarios.papel, grupoDaLoja: lojas.grupoId, ativo: usuarios.ativo,
       gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao, modulosExtras: usuarios.modulosExtras,
+      aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
     })
     .from(usuarios).leftJoin(lojas, eq(usuarios.lojaId, lojas.id)).where(eq(usuarios.id, id)).limit(1)
   if (!u) return null
   return { ...u, gruposAcesso: u.gruposAcesso ?? [], gruposAprovacao: u.gruposAprovacao ?? [], modulosExtras: u.modulosExtras ?? [] }
 }
 
-async function cadastroPedido(dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[] }, ativo: boolean): Promise<CadastroGestao> {
+async function cadastroPedido(dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; aprovaPagamentoSensivel: boolean }, ativo: boolean): Promise<CadastroGestao> {
   return {
+    aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
     papel: dados.papel, grupoDaLoja: dados.lojaId ? await getGrupoIdDaLoja(dados.lojaId) : null, ativo,
     gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras,
   }
@@ -268,6 +270,12 @@ export async function editarUsuarioAction(id: string, dados: {
       `)
     }
   })
+
+  // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login.
+  if (admin.papel === 'admin_socio' && dados.novaSenha?.trim()) {
+    const { error } = await getAdminClient().auth.admin.updateUserById(id, { user_metadata: { must_change_password: true } })
+    if (error) throw new Error(error.message)
+  }
 
   const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
