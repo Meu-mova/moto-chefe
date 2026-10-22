@@ -2,13 +2,14 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { pecasCatalogo, usuarios } from '@/lib/db/schema'
-import { asc, inArray } from 'drizzle-orm'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { pecasCatalogo } from '@/lib/db/schema'
+import { asc } from 'drizzle-orm'
+import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { listarVendasPecasAction } from './actions'
-import { podeGerirPecas, podeVenderPeca } from './papeis'
+import { PAPEIS_VENDA_PECA, podeGerirPecas, podeVenderPeca } from './papeis'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { buttonVariants } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -60,11 +61,7 @@ export default async function PecasPage({
   ])
 
   const vendedoresOpts = podeVender && lojaIdsGrupo.length > 0
-    ? await db
-        .select({ id: usuarios.id, nome: usuarios.nome })
-        .from(usuarios)
-        .where(inArray(usuarios.lojaId, lojaIdsGrupo))
-        .orderBy(asc(usuarios.nome))
+    ? await listarUsuariosDoGrupo((await getGrupoAtivo(usuario)).id, { papeis: PAPEIS_VENDA_PECA })
     : []
 
   // Cards do recorte. Bonificada é a venda que fechou em R$ 0,00 — conta como

@@ -37,13 +37,10 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
       fd.set('modelo', nome.trim())
       fd.set('categoria', categoria)
       fd.set('potencia_w', potencia.trim())
-      if (modelo) {
-        await editarModeloAction(modelo.id, fd)
-        toast.success('Modelo atualizado')
-      } else {
-        await criarModeloAction(fd)
-        toast.success('Modelo criado')
-      }
+      const { aviso } = modelo ? await editarModeloAction(modelo.id, fd) : await criarModeloAction(fd)
+      // Nome repetido avisa e deixa gravar.
+      if (aviso) toast.warning(aviso)
+      else toast.success(modelo ? 'Modelo atualizado' : 'Modelo criado')
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')

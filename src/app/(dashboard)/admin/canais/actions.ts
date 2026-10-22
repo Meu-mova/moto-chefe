@@ -5,6 +5,7 @@ import { eq, and, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
+import { funisParaAdmin } from '@/lib/queries/marketing'
 
 // aux_adm entra junto: é quem opera a loja e vai lançar a verba na prática.
 const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
@@ -70,6 +71,9 @@ export async function salvarInvestimentoAction(dados: {
   if (!plataforma) throw new Error('Informe a plataforma (ex.: Meta Ads)')
   if (!/^\d{4}-\d{2}$/.test(dados.mes)) throw new Error('Mês inválido')
   if (!(dados.valor >= 0)) throw new Error('Valor inválido')
+  if (dados.pipelineId && !(await funisParaAdmin(grupo.id)).some(f => f.pipelineId === dados.pipelineId)) {
+    throw new Error('Funil não encontrado')
+  }
 
   // Sempre dia 1: a unidade do lançamento é o mês. Como string — Date cru vira
   // meia-noite UTC e volta um dia em BRT.

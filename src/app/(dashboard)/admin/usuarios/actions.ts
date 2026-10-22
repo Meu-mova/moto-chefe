@@ -3,14 +3,16 @@ import { db } from '@/lib/db'
 import { usuarios, grupos } from '@/lib/db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { gestorDaSessao } from '@/lib/gestor-da-sessao'
+import { podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
+import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
 // Item só do admin_geral não se libera individualmente: gravar seria liberação sem efeito.
-const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral).map(i => i.id))
+const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral && !i.soPeloPapel).map(i => i.id))
 
 // Grava só ids que existem hoje na tabela de navegação — evita lixo permanente
 // no banco se um id de item mudar de nome (o valor antigo nunca mais casaria
@@ -26,10 +28,8 @@ function getAdminClient() {
   )
 }
 
-async function assertAdmin() {
-  const u = await getUsuarioLogado()
-  if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
-  return u
+function exigir(recusa: string | null) {
+  if (recusa) throw new Error(recusa)
 }
 
 /** Grupo da loja do alvo e Conta dele: é onde o admin da Conta vê a mudança. */
@@ -145,8 +145,9 @@ export async function criarUsuarioAction(dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
-  const admin = await assertAdmin()
+  const admin = await gestorDaSessao()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
+  exigir(recusaDaGravacao(admin, null, await cadastroPedido(dados, true)))
   const conecta = validarConecta(dados.conecta)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
@@ -158,6 +159,8 @@ export async function criarUsuarioAction(dados: {
     email: dados.email,
     password: dados.senha,
     email_confirm: true,
+    // Senha definida pelo sócio: o usuário troca no 1º login (/trocar-senha).
+    ...(admin.papel === 'admin_socio' ? { user_metadata: { must_change_password: true } } : {}),
   })
   if (error) throw new Error(error.message)
 
@@ -193,13 +196,19 @@ export async function editarUsuarioAction(id: string, dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
 }) {
-  const admin = await assertAdmin()
+  const admin = await gestorDaSessao()
+  const atual = await cadastroAtual(id)
+  if (!atual) throw new Error('Usuário não encontrado')
+  exigir(recusaDaGravacao(admin, atual, await cadastroPedido(dados, atual.ativo)))
   const [antes] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
   await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
 
+  // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
+  // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
+  const forcarTroca = admin.papel === 'admin_socio' && id !== admin.id
   await db.transaction(async (tx) => {
     await tx.update(usuarios).set({
       nome: dados.nome,
@@ -220,6 +229,7 @@ export async function editarUsuarioAction(id: string, dados: {
         UPDATE auth.users
         SET email = ${dados.email},
             encrypted_password = crypt(${dados.novaSenha}, gen_salt('bf')),
+            raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || ${forcarTroca ? sql`'{"must_change_password": true}'::jsonb` : sql`'{}'::jsonb`},
             email_confirmed_at = COALESCE(email_confirmed_at, now()),
             updated_at = now()
         WHERE id = ${id}::uuid
@@ -248,7 +258,10 @@ export async function editarUsuarioAction(id: string, dados: {
 }
 
 export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
-  const admin = await assertAdmin()
+  const admin = await gestorDaSessao()
+  const atual = await cadastroAtual(id)
+  if (!atual) throw new Error('Usuário não encontrado')
+  exigir(recusaDaGravacao(admin, atual, { ...atual, ativo }))
   const [alvo] = await db.update(usuarios).set({ ativo }).where(eq(usuarios.id, id))
     .returning(colunasAlvo)
   if (alvo) await registrarPermissao(admin.id, alvo, { acao: ativo ? 'ativado' : 'desativado' })
@@ -256,7 +269,8 @@ export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
 }
 
 export async function excluirUsuarioAction(id: string) {
-  const admin = await assertAdmin()
+  const admin = await gestorDaSessao()
+  if (!podeExcluir(admin)) throw new Error('Só o Admin Geral exclui usuário; desative em vez de excluir')
   const supabase = getAdminClient()
 
   const [alvo] = await db.delete(usuarios).where(eq(usuarios.id, id)).returning(colunasAlvo)

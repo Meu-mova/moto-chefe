@@ -1,43 +1,28 @@
 import { SuperAdminGuard } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
-import { db } from '@/lib/db'
-import { usuarios, lojas } from '@/lib/db/schema'
-import { eq, asc } from 'drizzle-orm'
+import { gestorDaSessao } from '@/lib/gestor-da-sessao'
+import { ehGestorDeUsuarios, limitesDaTela } from '@/lib/gestao-usuarios'
+import { redirect } from 'next/navigation'
+import { listarUsuariosGerenciaveis, lojasDosGruposVisiveis } from '@/lib/usuarios-gerenciaveis'
 import { UsuariosTable } from './components/usuarios-table'
 
 export default async function UsuariosPage() {
   const usuario = await getUsuarioLogado()
+  // Item liberado por tela a quem não é sócio nem admin_geral não abre: as actions recusariam tudo.
+  if (!ehGestorDeUsuarios(usuario)) redirect('/dashboard')
+  const gestor = await gestorDaSessao()
+  const ehGeral = gestor.papel === 'admin_geral'
 
-  const [todos, lojasOpts, gruposOpts] = await Promise.all([
-    db
-      .select({
-        id:       usuarios.id,
-        nome:     usuarios.nome,
-        email:    usuarios.email,
-        papel:    usuarios.papel,
-        papeisExtras: usuarios.papeisExtras,
-        lojaId:   usuarios.lojaId,
-        lojaNome: lojas.nome,
-        conecta:  usuarios.conecta,
-        gruposAprovacao:         usuarios.gruposAprovacao,
-        aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
-        gruposAcesso:            usuarios.gruposAcesso,
-        ativo:                   usuarios.ativo,
-        modulosExtras:           usuarios.modulosExtras,
-        modulosBloqueados:       usuarios.modulosBloqueados,
-        // Grupo da loja fixa: já aprova nele por padrão, então o formulário
-        // mostra esse grupo como fixo em vez de oferecê-lo como opção.
-        grupoDaLojaId:           lojas.grupoId,
-      })
-      .from(usuarios)
-      .leftJoin(lojas, eq(usuarios.lojaId, lojas.id))
-      .orderBy(asc(usuarios.nome)),
-    listarLojasDoGrupoAtivo(usuario),
+  const [todos, lojasOpts, gruposAtivos] = await Promise.all([
+    listarUsuariosGerenciaveis(gestor),
+    // admin_geral segue com as lojas do grupo ativo; o sócio escolhe entre todos os grupos que vê.
+    ehGeral ? listarLojasDoGrupoAtivo(usuario) : lojasDosGruposVisiveis(gestor.gruposVisiveis),
     // Todos os grupos, não só o ativo: a liberação é justamente para o sócio
-    // aprovar num grupo diferente do que ele está olhando.
+    // aprovar num grupo diferente do que ele está olhando. Para o sócio, só os que ele vê.
     listarGruposAtivos(),
   ])
+  const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
   return (
     <SuperAdminGuard href="/admin/usuarios">
@@ -50,6 +35,7 @@ export default async function UsuariosPage() {
           usuarios={todos}
           lojas={lojasOpts}
           grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
+          limites={limitesDaTela(gestor)}
         />
       </div>
     </SuperAdminGuard>

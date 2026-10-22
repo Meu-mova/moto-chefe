@@ -13,6 +13,7 @@ import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica
 import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
+import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -51,6 +52,7 @@ export async function abrirGarantiaAction(params: {
     .where(eq(motos.id, params.motoId))
     .limit(1)
   if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  await conferirVinculosDaConta(moto.lojaId, { osId: params.osId })
 
   // Prazo fixo de 30 dias a partir da data de abertura
   const fim = new Date(params.dataInicio)

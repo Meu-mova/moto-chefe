@@ -29,7 +29,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'marketing', 'metas', 'modelos', 'montagens', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
-    'transferencias', 'vendas', 'veiculos-historico',
+    'transferencias', 'usuarios', 'vendas', 'veiculos-historico',
   ].sort())
 })
 
@@ -89,6 +89,12 @@ test('modulos_extras libera item fora do papel', () => {
   const joao: UsuarioNav = { papel: 'vendedor', modulosExtras: ['marketing'] }
   assert.ok(ids(joao).includes('marketing'))
   assert.ok(podeAcessar(joao, '/marketing', SEM_REGRA_PROPRIA))
+})
+
+test('Usuários não se libera por item: só o papel abre (#322)', () => {
+  const joao: UsuarioNav = { papel: 'vendedor', modulosExtras: ['usuarios'] }
+  assert.ok(!ids(joao).includes('usuarios'))
+  assert.ok(!podeAcessar(joao, '/admin/usuarios', SEM_REGRA_PROPRIA))
 })
 
 test('modulos_bloqueados tira item que o papel dá', () => {

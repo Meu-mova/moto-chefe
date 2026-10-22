@@ -1,11 +1,13 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { motos, lojas, historicoEstoque, modelos, motosFiscal } from '@/lib/db/schema'
+import { motos, lojas, historicoEstoque, motosFiscal } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { contaDaLoja } from '@/lib/conta'
+import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
@@ -111,6 +113,7 @@ export async function registrarEntrada(formData: {
   const destino = await resolverLojaDestino(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
+  if (!(await modeloUsavelNaLoja(loja.id, formData.modeloId))) return { error: 'Modelo não encontrado' }
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
@@ -218,12 +221,12 @@ export async function registrarEntradaLote(formData: {
 
   // O modelo e o preço de cada moto chegam já revisados na tela (o de-para do XML
   // é só a sugestão inicial). Aqui o id vindo do payload é conferido contra o
-  // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum.
-  const allModelos = await db
-    .select({ id: modelos.id })
-    .from(modelos)
-
-  const idsValidos = new Set(allModelos.map(m => m.id))
+  // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum
+  // nem para o modelo de outra Conta.
+  const idsValidos = await modelosUsaveisPelaConta(
+    await contaDaLoja(loja.id),
+    [...new Set(formData.motos.map(m => m.modeloId).filter(Boolean))],
+  )
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
