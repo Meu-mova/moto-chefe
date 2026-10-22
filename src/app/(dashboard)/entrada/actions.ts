@@ -7,7 +7,7 @@ import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
-import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
+import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
@@ -113,8 +113,7 @@ export async function registrarEntrada(formData: {
   const destino = await resolverLojaDestino(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
-  const usaveis = await modelosUsaveisPelaConta(await contaDaLoja(loja.id), [formData.modeloId])
-  if (!usaveis.has(formData.modeloId)) return { error: 'Modelo não encontrado' }
+  if (!(await modeloUsavelNaLoja(loja.id, formData.modeloId))) return { error: 'Modelo não encontrado' }
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []

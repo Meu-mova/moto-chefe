@@ -5,8 +5,7 @@ import { db } from '@/lib/db'
 import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { contaDaLoja } from '@/lib/conta'
-import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
+import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { pagamentosFecham, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente } from '@/lib/documento'
 
@@ -92,7 +91,7 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   if (!effectiveLojaId) throw new Error('Usuário sem loja associada')
   if (!(await podeAgirNaLoja(usuario, effectiveLojaId))) throw new Error('Sem permissão para esta loja')
   if (!dados.modelo.trim() || !dados.cor.trim()) throw new Error('Modelo e cor são obrigatórios')
-  if (dados.modeloId && !(await modelosUsaveisPelaConta(await contaDaLoja(effectiveLojaId), [dados.modeloId])).has(dados.modeloId)) {
+  if (dados.modeloId && !(await modeloUsavelNaLoja(effectiveLojaId, dados.modeloId))) {
     throw new Error('Modelo não encontrado')
   }
 

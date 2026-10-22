@@ -1,6 +1,7 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
+import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
 import { motos, modelos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -62,6 +63,7 @@ export async function cadastrarVeiculoGarantiaAction(input: {
     : usuario.lojaId
   if (!lojaId) throw new Error('Loja é obrigatória')
   if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
+  if (!(await modeloUsavelNaLoja(lojaId, input.modeloId))) throw new Error('Modelo não encontrado')
 
   try {
     const [nova] = await db.insert(motos).values({

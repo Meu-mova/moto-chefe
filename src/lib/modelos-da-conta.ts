@@ -1,8 +1,13 @@
-import { and, asc, eq, inArray, isNull, notExists, or } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, notExists, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contaMarcas, modeloApelidos, modelos } from '@/lib/db/schema'
+import { contaDaLoja } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
+
+// O que a Conta pode usar: o catálogo da plataforma (conta_id nulo) e o dela.
+const daPlataformaOuDa = (coluna: typeof modelos.contaId | typeof modeloApelidos.contaId, contaId: string) =>
+  or(isNull(coluna), eq(coluna, contaId))
 
 // Visibilidade das marcas por Conta (#287, adendo ao ADR-0018). Vale só para as
 // listas de escolha: moto já gravada com modelo de marca escondida continua aparecendo.
@@ -29,7 +34,7 @@ export async function listarApelidosDaConta(contaId: string, exec: Executor = db
     .select({ nome: modeloApelidos.apelido, canonico: modelos.modelo, modeloId: modelos.id })
     .from(modeloApelidos)
     .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
-    .where(or(isNull(modeloApelidos.contaId), eq(modeloApelidos.contaId, contaId)))
+    .where(daPlataformaOuDa(modeloApelidos.contaId, contaId))
     .orderBy(asc(modeloApelidos.apelido))
 }
 
@@ -38,8 +43,45 @@ export async function listarApelidosDaConta(contaId: string, exec: Executor = db
 export async function modelosUsaveisPelaConta(contaId: string, ids: string[], exec: Executor = db): Promise<Set<string>> {
   if (!ids.length) return new Set()
   const linhas = await exec.select({ id: modelos.id }).from(modelos)
-    .where(and(inArray(modelos.id, ids), or(isNull(modelos.contaId), eq(modelos.contaId, contaId))))
+    .where(and(inArray(modelos.id, ids), daPlataformaOuDa(modelos.contaId, contaId)))
   return new Set(linhas.map(l => l.id))
+}
+
+export async function modeloUsavelNaLoja(lojaId: string, modeloId: string, exec: Executor = db): Promise<boolean> {
+  return (await modelosUsaveisPelaConta(await contaDaLoja(lojaId, exec), [modeloId], exec)).has(modeloId)
+}
+
+// O apelido leva a Conta do modelo e só conflita com os da mesma Conta (ou com os da
+// plataforma entre si): o erro nunca cita modelo de outra Conta.
+export async function salvarApelidosDoModelo(
+  modeloId: string,
+  apelidos: string[],
+  exec: Pick<typeof db, 'select' | 'transaction'> = db,
+) {
+  const [modelo] = await exec.select({ contaId: modelos.contaId }).from(modelos).where(eq(modelos.id, modeloId)).limit(1)
+  if (!modelo) throw new Error('Modelo não encontrado')
+
+  const conflitos = apelidos.length
+    ? await exec
+        .select({ apelido: modeloApelidos.apelido, modelo: modelos.modelo })
+        .from(modeloApelidos)
+        .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
+        .where(and(
+          inArray(modeloApelidos.apelido, apelidos),
+          ne(modeloApelidos.modeloId, modeloId),
+          sql`${modeloApelidos.contaId} is not distinct from ${modelo.contaId}`,
+        ))
+    : []
+  if (conflitos.length) {
+    throw new Error(conflitos.map(c => `"${c.apelido}" já é do ${c.modelo}`).join('; '))
+  }
+
+  await exec.transaction(async tx => {
+    await tx.delete(modeloApelidos).where(eq(modeloApelidos.modeloId, modeloId))
+    if (apelidos.length) {
+      await tx.insert(modeloApelidos).values(apelidos.map(apelido => ({ apelido, modeloId, contaId: modelo.contaId })))
+    }
+  })
 }
 
 export async function listarMarcasDaConta(contaId: string, exec: Executor = db): Promise<string[]> {
