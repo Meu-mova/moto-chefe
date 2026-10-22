@@ -13,7 +13,7 @@ import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEn
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
-import { aplicarPagamentoOS, type DadosPagamentoOS } from '../ordens-servico/actions'
+import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import { aplicarVendaPeca, type DadosVendaPeca } from '../pecas/actions'
 import { virarLeadKommo, type ResultadoVirarLead } from '@/lib/kommo'
 import { notificarVendaWhatsapp, type ResultadoAvisoVenda } from '@/lib/whatsapp/venda'
