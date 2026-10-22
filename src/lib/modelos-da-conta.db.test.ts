@@ -17,11 +17,13 @@ let db: Db['db']
 let listarModelosDaConta: Mod['listarModelosDaConta']
 let salvarMarcasDaConta: Mod['salvarMarcasDaConta']
 let listarMarcasDaConta: Mod['listarMarcasDaConta']
+let listarApelidosDaConta: Mod['listarApelidosDaConta']
+let modelosUsaveisPelaConta: Mod['modelosUsaveisPelaConta']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -52,6 +54,62 @@ test('Conta com marcas escolhidas não vê as outras; Conta sem escolha vê toda
 
     await salvarMarcasDaConta(eco.id, [], tx)
     assert.ok((await listarModelosDaConta(eco.id, tx)).some(m => m.marca === 'TESTE-VOE'), 'limpar a escolha volta a ver todas')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('a Conta vê os modelos da plataforma e os próprios, nunca os de outra Conta (#321)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    await tx.execute(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values
+      ('TESTE-MC', 'Plataforma', 'autopropelido', '1000', '', '', null),
+      ('TESTE-LIVRE', 'Da A', 'autopropelido', '1000', '', '', ${contaA.id}),
+      ('TESTE-MC', 'Da B', 'autopropelido', '1000', '', '', ${contaB.id})`)
+    await salvarMarcasDaConta(contaA.id, ['TESTE-MC'], tx)
+
+    const daA = (await listarModelosDaConta(contaA.id, tx)).map(m => m.modelo).filter(m => ['Plataforma', 'Da A', 'Da B'].includes(m))
+    assert.deepEqual(daA.sort(), ['Da A', 'Plataforma'], 'plataforma da marca escolhida + o próprio, mesmo de marca fora da escolha; nunca o da B')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('apelidos da NF: os da plataforma e os da própria Conta, nunca os de outra (#321)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const plataforma = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-MC', 'Plataforma', 'autopropelido', '1000', '', '') returning id`)
+    const daA = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', 'Da A', 'autopropelido', '1000', '', '', ${contaA.id}) returning id`)
+    const daB = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', 'Da B', 'autopropelido', '1000', '', '', ${contaB.id}) returning id`)
+    await tx.execute(sql`insert into modelo_apelidos (apelido, modelo_id, conta_id) values
+      ('TESTE-PLAT', ${plataforma.id}, null), ('TESTE-X', ${daA.id}, ${contaA.id}), ('TESTE-X', ${daB.id}, ${contaB.id})`)
+
+    const deA = (await listarApelidosDaConta(contaA.id, tx)).filter(a => a.nome.startsWith('TESTE-'))
+    assert.deepEqual(
+      deA.map(a => `${a.nome}>${a.canonico}`).sort(),
+      ['TESTE-PLAT>Plataforma', 'TESTE-X>Da A'],
+      'o mesmo apelido em duas Contas: cada uma vê só o seu',
+    )
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('entrada só aceita modelo da plataforma ou da própria Conta (#321)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const plataforma = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-VOE', 'Plataforma', 'autopropelido', '1000', '', '') returning id`)
+    const daA = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', 'Da A', 'autopropelido', '1000', '', '', ${contaA.id}) returning id`)
+    const daB = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', 'Da B', 'autopropelido', '1000', '', '', ${contaB.id}) returning id`)
+    await salvarMarcasDaConta(contaA.id, ['TESTE-MC'], tx)
+
+    const usaveis = await modelosUsaveisPelaConta(contaA.id, [plataforma.id, daA.id, daB.id], tx)
+    assert.ok(usaveis.has(daA.id), 'o próprio')
+    assert.ok(usaveis.has(plataforma.id), 'o da plataforma, mesmo de marca fora da escolha (a escolha só enxuga as listas)')
+    assert.ok(!usaveis.has(daB.id), 'nunca o de outra Conta')
     throw new Desfazer()
   }), Desfazer)
 })
