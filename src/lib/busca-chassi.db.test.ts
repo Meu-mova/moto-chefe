@@ -70,13 +70,20 @@ test('histórico de veículos: Conta B não acha nem sobrescreve veículo da Con
     const veiculo = (chassi: string, cor: string) => ({ chassi, numeroMotor: null, marca: 'M', modelo: 'H', cor, ano: null, nfEntrada: null })
 
     await gravarVeiculosHistorico([veiculo('HIST325A', 'AZUL')], contaA, tx)
+    // A B tem o próprio veículo com o mesmo chassi: entra para ela, sem tocar no da A.
     const gravadosB = await gravarVeiculosHistorico([veiculo('HIST325B', 'VERDE'), veiculo('HIST325A', 'ROSA')], contaB, tx)
-    assert.equal(gravadosB, 1, 'conta só o que entrou: o chassi da A fica de fora')
+    assert.equal(gravadosB, 2)
 
-    assert.deepEqual((await buscarHistoricoPorChassi('HIST325', contaB, 10, tx)).map(v => v.chassi), ['HIST325B'], 'B só acha o próprio')
-    const daA = await buscarHistoricoPorChassi('HIST325', contaA, 10, tx)
-    assert.deepEqual(daA.map(v => [v.chassi, v.cor]), [['HIST325A', 'AZUL']], 'importação da B não sobrescreve o da A')
-    assert.equal((await buscarHistoricoPorChassi('HIST325', null, 10, tx)).length, 2, 'admin_geral acha os dois')
+    assert.deepEqual((await buscarHistoricoPorChassi('HIST325', contaB, 10, tx)).map(v => [v.chassi, v.cor]).sort(),
+      [['HIST325A', 'ROSA'], ['HIST325B', 'VERDE']], 'B vê só as próprias linhas')
+    assert.deepEqual((await buscarHistoricoPorChassi('HIST325', contaA, 10, tx)).map(v => [v.chassi, v.cor]),
+      [['HIST325A', 'AZUL']], 'a linha da A continua intacta')
+
+    // Reimportar na própria Conta atualiza.
+    await gravarVeiculosHistorico([veiculo('HIST325A', 'PRETO')], contaA, tx)
+    assert.equal((await buscarHistoricoPorChassi('HIST325A', contaA, 10, tx))[0].cor, 'PRETO')
+    assert.equal((await buscarHistoricoPorChassi('HIST325A', contaB, 10, tx))[0].cor, 'ROSA', 'e não mexe na B')
+    assert.equal((await buscarHistoricoPorChassi('HIST325', null, 10, tx)).length, 3, 'admin_geral acha todas')
     throw new Desfazer()
   }), Desfazer)
 })

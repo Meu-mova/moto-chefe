@@ -56,15 +56,15 @@ type VeiculoHistorico = {
   cor: string | null; ano: number | null; nfEntrada: string | null
 }
 
-// O chassi é único na base toda: reimportar atualiza só se a linha for da mesma Conta;
-// chassi que já é de outra Conta fica como está. Devolve quantos entraram de fato.
+// Chassi é único por Conta: reimportar atualiza a linha da própria Conta e nunca toca na
+// de outra, que pode ter o mesmo chassi. Devolve quantos entraram.
 export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], contaId: string, exec: Pick<typeof db, 'insert'> = db): Promise<number> {
   if (!valores.length) return 0
   const gravados = await exec
     .insert(veiculosHistorico)
     .values(valores.map(v => ({ ...v, contaId })))
     .onConflictDoUpdate({
-      target: veiculosHistorico.chassi,
+      target: [veiculosHistorico.contaId, veiculosHistorico.chassi],
       set: {
         numeroMotor: sql`excluded.numero_motor`,
         marca:       sql`excluded.marca`,
@@ -74,7 +74,6 @@ export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], conta
         nfEntrada:   sql`excluded.nf_entrada`,
         importadoEm: sql`now()`,
       },
-      setWhere: sql`${veiculosHistorico.contaId} = excluded.conta_id`,
     })
     .returning({ id: veiculosHistorico.id })
   return gravados.length

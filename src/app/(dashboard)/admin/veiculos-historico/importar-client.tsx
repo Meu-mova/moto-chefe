@@ -61,7 +61,7 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
   const [pendingVerif,  startVerif]  = useTransition()
   const [preview,    setPreview]    = useState<PreviewRow[] | null>(null)
   const [arquivo,    setArquivo]    = useState<string>('')
-  const [resultado,  setResultado]  = useState<{ importados: number; ignorados: number; deOutraConta: number } | null>(null)
+  const [resultado,  setResultado]  = useState<{ importados: number; ignorados: number } | null>(null)
   const [erro,       setErro]       = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -99,7 +99,7 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
     startImport(async () => {
       try {
         const r = await importarVeiculosAction(paraImportar.map(({ _linha, _erro, _ignorado, ...v }) => v))
-        setResultado({ importados: r.importados, ignorados, deOutraConta: r.deOutraConta })
+        setResultado({ importados: r.importados, ignorados })
         setPreview(null)
       } catch (e: any) { setErro(e.message) }
     })
@@ -244,11 +244,6 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
             {resultado.ignorados > 0 && (
               <p className="text-sm text-amber-600">
                 {resultado.ignorados.toLocaleString('pt-BR')} ignorados — já existiam no sistema
-              </p>
-            )}
-            {resultado.deOutraConta > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {resultado.deOutraConta.toLocaleString('pt-BR')} não importados — chassi já cadastrado
               </p>
             )}
           </div>

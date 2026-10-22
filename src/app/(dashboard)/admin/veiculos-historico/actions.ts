@@ -54,8 +54,7 @@ export async function importarVeiculosAction(rows: VeiculoImportRow[]) {
     importados += await gravarVeiculosHistorico(valores.slice(i, i + LOTE), contaId)
   }
 
-  // Chassi que já é de outra Conta não entra: a tela mostra só o que foi gravado.
-  return { importados, deOutraConta: valores.length - importados }
+  return { importados }
 }
 
 // Retorna o Set de chassis que já existem na tabela motos (estoque ativo/vendido)
