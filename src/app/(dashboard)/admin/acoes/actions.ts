@@ -21,7 +21,7 @@ export async function reatribuirLojaMotaAction(motoId: string, novaLojaId: strin
   if (moto.status !== 'faturada') throw new Error('Reatribuição de loja só permitida para motos com status "faturada"')
   if (!observacao) throw new Error('Observação obrigatória para reatribuição de loja')
   // Reatribuir é trocar de loja dentro da mesma Conta; levar a moto para outra Conta, não.
-  await conferirVinculosDaConta(moto.lojaId, { lojaId: novaLojaId })
+  await conferirVinculosDaConta(moto.lojaId, { novaLojaId })
 
   const lojaAnteriorId = moto.lojaId
 

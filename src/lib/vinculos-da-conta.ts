@@ -9,14 +9,14 @@ type Executor = Pick<typeof db, 'select'>
 // mesma Conta da loja do registro. O id vem do navegador; de outra Conta, ele "não existe".
 export async function conferirVinculosDaConta(
   lojaId: string,
-  vinculos: { lojaId?: string; motoId?: string | null; clienteId?: string | null; osId?: string | null; mecanicoId?: string | null },
+  vinculos: { novaLojaId?: string; motoId?: string | null; clienteId?: string | null; osId?: string | null; mecanicoId?: string | null },
   exec: Executor = db,
 ): Promise<void> {
   const contaId = await contaDaLoja(lojaId, exec)
 
-  if (vinculos.lojaId) {
+  if (vinculos.novaLojaId) {
     const [loja] = await exec.select({ id: lojas.id }).from(lojas)
-      .where(and(eq(lojas.id, vinculos.lojaId), inArray(lojas.id, lojasDaConta(contaId)))).limit(1)
+      .where(and(eq(lojas.id, vinculos.novaLojaId), inArray(lojas.id, lojasDaConta(contaId)))).limit(1)
     if (!loja) throw new Error('Loja não encontrada')
   }
 

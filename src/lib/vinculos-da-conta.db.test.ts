@@ -53,13 +53,13 @@ async function comDuasContas(caso: (ids: Record<'A' | 'B', Ids>, tx: Parameters<
 
 test('vínculos da própria Conta passam, e vazios são ignorados (#328)', () => comDuasContas(async (ids, tx) => {
   const b = ids.B
-  await conferirVinculosDaConta(b.loja, { lojaId: b.loja, motoId: b.moto, clienteId: b.cliente, osId: b.os, mecanicoId: b.mecanico }, tx)
+  await conferirVinculosDaConta(b.loja, { novaLojaId: b.loja, motoId: b.moto, clienteId: b.cliente, osId: b.os, mecanicoId: b.mecanico }, tx)
   await conferirVinculosDaConta(b.loja, { mecanicoId: b.socio }, tx)
   await conferirVinculosDaConta(b.loja, { motoId: null, clienteId: undefined, osId: null, mecanicoId: null }, tx)
 }))
 
 test('loja da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { lojaId: ids.A.loja }, tx), /Loja não encontrada/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { novaLojaId: ids.A.loja }, tx), /Loja não encontrada/)
 }))
 
 test('moto da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
