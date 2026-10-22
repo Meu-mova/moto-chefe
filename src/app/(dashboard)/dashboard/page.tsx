@@ -60,7 +60,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 // Por grupo: a lista global mostrava vendedores de outros clientes do MOVA. O grupoId
 // entra na chave do cache como argumento.
 const getVendedoresOpts = unstable_cache(
-  (grupoId: string) => listarUsuariosDoGrupo(grupoId, { papel: 'vendedor' }),
+  (grupoId: string) => listarUsuariosDoGrupo(grupoId, { papeis: ['vendedor'] }),
   ['vendedores-opts-grupo'], { revalidate: 300 },
 )
 

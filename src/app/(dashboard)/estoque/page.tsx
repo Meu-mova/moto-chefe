@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
@@ -12,6 +11,7 @@ import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
@@ -67,6 +67,7 @@ export default async function EstoquePage({
   const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
   const dir = params.dir === 'desc' ? 'desc' : 'asc'
 
+  const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
   const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await withTimeout(Promise.all([
     listarMotos({
       status:          parseParam(params.status),
@@ -87,15 +88,14 @@ export default async function EstoquePage({
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
-    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id)),
-    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id, { papel: 'mecanico' })),
+    listarUsuariosDoGrupo(grupo.id),
+    listarUsuariosDoGrupo(grupo.id, { papeis: ['mecanico'] }),
   ]), 20000)
 
   // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)
   const demandasComSinal = await withTimeout(listarDemandasComSinalAbertas(lojaValues), 20000)
 
   // Origem da venda: o catálogo é do grupo, e o /estoque já é escopado por grupo.
-  const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
   const origens = await withTimeout(listarOrigensAtivasDoGrupo(grupo.id), 8000)
 
   const counts = {

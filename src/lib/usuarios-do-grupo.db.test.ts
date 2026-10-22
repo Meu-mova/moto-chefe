@@ -51,20 +51,16 @@ test('listas de usuários da tela trazem só quem é do grupo', async () => {
     await usuario('Admin geral sem loja', 'admin_geral', null)
     await usuario('Sócio de outra Conta marcado em A', 'admin_socio', lojaX.id, [], [grupoA.id], outraConta.id)
 
-    const nomes = async (papel?: 'mecanico' | 'vendedor') =>
-      (await listarUsuariosDoGrupo(grupoA.id, { papel }, tx)).map(u => u.nome)
+    const nomes = async (papeis?: ('mecanico' | 'vendedor' | 'aux_adm')[]) =>
+      (await listarUsuariosDoGrupo(grupoA.id, { papeis }, tx)).map(u => u.nome)
 
-    assert.deepEqual(await nomes('mecanico'), ['Mecânico A'], 'mecânicos: só os de loja do grupo A')
-    assert.deepEqual(await nomes('vendedor'), ['Aux que vende A', 'Vendedor A'], 'vendedores: do grupo A, inclusive quem vende como papel extra')
+    assert.deepEqual(await nomes(['mecanico']), ['Mecânico A'], 'mecânicos: só os de loja do grupo A')
+    assert.deepEqual(await nomes(['vendedor']), ['Aux que vende A', 'Vendedor A'], 'vendedores: do grupo A, inclusive quem vende como papel extra')
+    assert.deepEqual(await nomes(['mecanico', 'aux_adm']), ['Aux que vende A', 'Mecânico A'], 'vários papéis: qualquer um deles, principal ou extra')
     assert.deepEqual(
       await nomes(),
       ['Aux que vende A', 'Mecânico A', 'Sócio de B com acesso a A', 'Vendedor A'],
       'todos: loja do grupo A ou grupo A no grupos_acesso, em ordem de nome; admin_geral sem loja e sócio de outra Conta ficam de fora',
-    )
-    assert.deepEqual(
-      (await listarUsuariosDoGrupo(grupoA.id, { papeis: ['aux_adm', 'vendedor'] }, tx)).map(u => u.nome),
-      ['Aux que vende A', 'Vendedor A'],
-      'por papel principal: só os papéis pedidos, do grupo A',
     )
     throw new Desfazer()
   }), Desfazer)

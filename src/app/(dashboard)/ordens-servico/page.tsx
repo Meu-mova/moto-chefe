@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
-import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTodasOS } from '@/lib/queries/ordens-servico'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { OSLista } from './components/os-lista'
 import { STATUS_OS } from './status-os'
 import { Kpi } from '@/components/kpi'
@@ -51,9 +51,10 @@ export default async function OrdensServicoPage({
   const dataInicio = params.de  ?? dataDefaultMesAtual()
   const dataFim    = params.ate ?? undefined
 
+  const grupo = await getGrupoAtivo(usuario)
   const [recorte, mecanicos, lojasOpts] = await Promise.all([
     listarTodasOS({ busca: params.q, lojaId: lojaScope, dataInicio, dataFim, mecanicoId: mecanicoFiltro }),
-    getGrupoAtivo(usuario).then(g => listarUsuariosDoGrupo(g.id, { papel: 'mecanico' })),
+    listarUsuariosDoGrupo(grupo.id, { papeis: ['mecanico'] }),
     listarLojasDoGrupoAtivo(usuario),
   ])
 

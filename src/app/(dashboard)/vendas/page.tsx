@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
-import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
@@ -82,7 +82,7 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
+const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
 
 export default async function VendasPage({
   searchParams,
