@@ -1,7 +1,7 @@
 import { AdminGuard } from '../components/admin-guard'
-import { db } from '@/lib/db'
-import { usuarios, usuariosDados } from '@/lib/db/schema'
-import { eq, asc } from 'drizzle-orm'
+import { getUsuarioLogado } from '@/lib/auth'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarDadosFuncionarios } from '@/lib/dados-funcionarios'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TIPOS_CHAVE_PIX } from '@/lib/dados-funcionario'
 
@@ -17,18 +17,9 @@ function formatData(iso: string) {
 }
 
 export default async function DadosFuncionariosPage() {
-  const linhas = await db
-    .select({
-      id: usuarios.id,
-      nome: usuarios.nome,
-      cpf: usuariosDados.cpf,
-      pixTipo: usuariosDados.pixTipo,
-      pixChave: usuariosDados.pixChave,
-      dataNascimento: usuariosDados.dataNascimento,
-    })
-    .from(usuarios)
-    .leftJoin(usuariosDados, eq(usuariosDados.usuarioId, usuarios.id))
-    .orderBy(asc(usuarios.nome))
+  const usuario = await getUsuarioLogado()
+  const contaId = usuario.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(usuario)
+  const linhas = await listarDadosFuncionarios(contaId)
 
   const rotulo = (t: string | null) => TIPOS_CHAVE_PIX.find(x => x.valor === t)?.rotulo ?? '—'
   const faltando = linhas.filter(l => !l.cpf).length
@@ -38,7 +29,7 @@ export default async function DadosFuncionariosPage() {
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Dados dos funcionários</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Preenchidos pelo próprio funcionário no primeiro acesso.
             {faltando > 0 && ` ${faltando} ainda não preencheram.`}
           </p>
