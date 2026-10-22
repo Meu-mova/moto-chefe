@@ -111,7 +111,7 @@ export async function abrirOSAction(input: AbrirOSInput) {
   if (!input.clienteId && tipoPessoa === 'juridica' && !input.clienteNomeExterno?.trim()) {
     throw new Error('Informe a razão social da empresa')
   }
-  await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, usuarioIds: [input.mecanicoId] })
+  await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, mecanicoId: input.mecanicoId })
 
   await db.insert(ordensServico).values({
     lojaId,
@@ -189,7 +189,7 @@ export async function atualizarOSAction(osId: string, dados: {
   clienteFoneExterno?: string | null
 }) {
   const { os } = await verificarAcessoOS(osId, EDITORES)
-  await conferirVinculosDaConta(os.lojaId, { usuarioIds: [dados.mecanicoId] })
+  await conferirVinculosDaConta(os.lojaId, { mecanicoId: dados.mecanicoId })
   await db.update(ordensServico).set({
     mecanicoId:         dados.mecanicoId !== undefined ? (dados.mecanicoId || null) : undefined,
     descricao:          dados.descricao  !== undefined ? dados.descricao            : undefined,

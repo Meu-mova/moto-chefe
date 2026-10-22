@@ -36,7 +36,7 @@ export async function criarAgendamentoAction(input: CriarAgendamentoInput) {
   const lojaId  = isAdmin ? input.lojaId : usuario.lojaId
   if (!lojaId) throw new Error('Loja não identificada')
   if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
-  await conferirVinculosDaConta(lojaId, { usuarioIds: [input.mecanicoId] })
+  await conferirVinculosDaConta(lojaId, { mecanicoId: input.mecanicoId })
 
   const [ag] = await db.insert(agendamentos).values({
     lojaId,
@@ -120,7 +120,7 @@ export async function agendamentoVirarOSAction(agendamentoId: string, input: Vir
     throw new Error('Informe a razão social da empresa')
   }
   const mecanicoId = input.mecanicoId !== undefined ? (input.mecanicoId || null) : (ag.mecanicoId || null)
-  await conferirVinculosDaConta(ag.lojaId, { motoId: input.motoId, clienteId, usuarioIds: [mecanicoId] })
+  await conferirVinculosDaConta(ag.lojaId, { motoId: input.motoId, clienteId, mecanicoId })
 
   const [os] = await db.insert(ordensServico).values({
     lojaId:       ag.lojaId,

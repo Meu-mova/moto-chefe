@@ -1,18 +1,24 @@
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { clientes, motos, ordensServico, usuarios } from '@/lib/db/schema'
+import { clientes, lojas, motos, ordensServico, usuarios } from '@/lib/db/schema'
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
-// Gravação que liga um registro a moto, cliente, OS ou usuário confere que eles são da
+// Gravação que liga um registro a loja, moto, cliente, OS ou mecânico confere que eles são da
 // mesma Conta da loja do registro. O id vem do navegador; de outra Conta, ele "não existe".
 export async function conferirVinculosDaConta(
   lojaId: string,
-  vinculos: { motoId?: string | null; clienteId?: string | null; osId?: string | null; usuarioIds?: (string | null | undefined)[] },
+  vinculos: { lojaId?: string; motoId?: string | null; clienteId?: string | null; osId?: string | null; mecanicoId?: string | null },
   exec: Executor = db,
 ): Promise<void> {
   const contaId = await contaDaLoja(lojaId, exec)
+
+  if (vinculos.lojaId) {
+    const [loja] = await exec.select({ id: lojas.id }).from(lojas)
+      .where(and(eq(lojas.id, vinculos.lojaId), inArray(lojas.id, lojasDaConta(contaId)))).limit(1)
+    if (!loja) throw new Error('Loja não encontrada')
+  }
 
   if (vinculos.motoId) {
     const [moto] = await exec.select({ id: motos.id }).from(motos)
@@ -32,14 +38,13 @@ export async function conferirVinculosDaConta(
     if (!os) throw new Error('OS não encontrada')
   }
 
-  for (const usuarioId of vinculos.usuarioIds ?? []) {
-    if (!usuarioId) continue
+  if (vinculos.mecanicoId) {
     // Funcionário de loja costuma ter só loja_id; sócio, só conta_id.
-    const [usuario] = await exec.select({ id: usuarios.id }).from(usuarios)
+    const [mecanico] = await exec.select({ id: usuarios.id }).from(usuarios)
       .where(and(
-        eq(usuarios.id, usuarioId),
+        eq(usuarios.id, vinculos.mecanicoId),
         or(eq(usuarios.contaId, contaId), inArray(usuarios.lojaId, lojasDaConta(contaId))),
       )).limit(1)
-    if (!usuario) throw new Error('Usuário não encontrado')
+    if (!mecanico) throw new Error('Mecânico não encontrado')
   }
 }
