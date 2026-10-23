@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { codigosDaRecusa, fraseDaRecusa, gruposDaRecusa } from './recusa'
+import { codigosDaRecusa, fraseDaRecusa, gruposDaRecusa, telaDaRecusa } from './recusa'
 
 test('lê o código da SEFAZ no início do motivo, com qualquer separador', () => {
   assert.deepEqual(codigosDaRecusa('237 - Rejeição: CPF do destinatário inválido'), ['237'])
@@ -47,4 +47,15 @@ test('o "Por quê?" diz a causa em linguagem de loja, sem travessão', () => {
 test('código sem frase devolve nulo: a tela mostra o motivo como veio', () => {
   assert.equal(fraseDaRecusa('999 - Rejeição: Erro não catalogado'), null)
   assert.equal(fraseDaRecusa(null), null)
+})
+
+test('a tela da recusa: campos só quando há o que corrigir no cadastro (#347)', () => {
+  const t = (motivo: string) => telaDaRecusa({ status: 'Negada', motivoStatus: motivo })
+  assert.deepEqual(t('237 - Rejeição: CPF do destinatário inválido'), { tipo: 'corrigir', abertos: ['comprador'], empresa: false })
+  assert.deepEqual(t('523 - Rejeição: CFOP'), { tipo: 'corrigir', abertos: ['comprador'], empresa: true })
+  assert.deepEqual(t('999 - Rejeição: Erro não catalogado'), { tipo: 'corrigir', abertos: ['comprador', 'moto'], empresa: false })
+  assert.deepEqual(t('Código: GW7324\r\nDescrição: x'), { tipo: 'empresa' })
+  assert.deepEqual(t('302 - Uso Denegado'), { tipo: 'denegada_cliente' })
+  assert.deepEqual(t('303 - Uso Denegado'), { tipo: 'denegada_cliente' })
+  assert.deepEqual(t('301 - Uso Denegado'), { tipo: 'denegada_empresa' })
 })

@@ -4,6 +4,8 @@
  * Gateway. A da SEFAZ vem no início do motivo ("237 - Rejeição: ..."); a da
  * Nota Gateway vem como "Código: GW7324\r\nDescrição: ...", às vezes várias.
  */
+import { codigoRecusa, ehDenegada } from './status'
+
 export type GrupoCorrecao = 'comprador' | 'moto' | 'empresa'
 
 const GRUPOS: Record<string, GrupoCorrecao[]> = {}
@@ -79,4 +81,22 @@ const FRASES: Record<string, string> = {
 export function fraseDaRecusa(motivo: string | null): string | null {
   for (const c of codigosDaRecusa(motivo)) if (FRASES[c]) return FRASES[c]
   return null
+}
+
+export type TelaRecusa =
+  | { tipo: 'corrigir'; abertos: GrupoCorrecao[]; empresa: boolean }
+  | { tipo: 'empresa' }
+  | { tipo: 'denegada_cliente' }
+  | { tipo: 'denegada_empresa' }
+
+/**
+ * Qual tela a recusa abre: denegada pelo cliente corrige só a IE dele; pela
+ * empresa, ou recusa só da configuração fiscal, não tem campos aqui.
+ */
+export function telaDaRecusa(nota: { status: string; motivoStatus: string | null }): TelaRecusa {
+  if (ehDenegada(nota)) return codigoRecusa(nota.motivoStatus) === 301 ? { tipo: 'denegada_empresa' } : { tipo: 'denegada_cliente' }
+  const grupos = gruposDaRecusa(nota.motivoStatus)
+  const abertos = grupos.filter(g => g !== 'empresa')
+  if (!abertos.length) return { tipo: 'empresa' }
+  return { tipo: 'corrigir', abertos, empresa: grupos.includes('empresa') }
 }

@@ -62,6 +62,7 @@ export type PreviaNfe =
   | {
       ok: true
       vendaId: string
+      vendaNumero: number
       ambiente: 'Homologacao' | 'Producao'
       jaFaturada: string | null
       pendencias: string[]
@@ -279,6 +280,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
     return {
       ok: true,
       vendaId: e.venda.id,
+      vendaNumero: e.venda.numero,
       ambiente: e.cfg.ambiente,
       jaFaturada: e.venda.notaFiscalSaida,
       pendencias: e.pendencias,
