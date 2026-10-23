@@ -249,7 +249,10 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // recente que cria notas_fiscais_saida_uma_viva_idx).
 export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   id:           uuid('id').primaryKey().defaultRandom(),
-  vendaId:      uuid('venda_id').notNull(),
+  /** Nulo depois que a venda é cancelada: a NF fica como histórico (#347). */
+  vendaId:      uuid('venda_id'),
+  /** Número da venda, que continua identificando a NF depois do cancelamento. */
+  vendaNumero:  integer('venda_numero').notNull(),
   grupoId:      uuid('grupo_id').notNull(),
   idExterno:    text('id_externo').notNull().unique(),
   ambiente:     text('ambiente').notNull(),
