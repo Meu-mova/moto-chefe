@@ -369,6 +369,7 @@ async function main() {
       const pagina = await (await navegador.newContext({ locale: 'pt-BR', ...t.opcoes })).newPage()
       await entrar(pagina, SOCIO)
       await telaDoCaso(pagina, CASOS.find(c => c.sufixo === 'X')!, `socio-${t.nome}`)
+      await pagina.context().close()
     }
 
     if (!SO_PARTE_1) {
