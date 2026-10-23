@@ -106,6 +106,17 @@ test('reenvio de Negada sem log anterior (antes do deploy) registra o status e o
   })
 })
 
+test('erro GW da Nota Gateway: o reenvio usa o mesmo id na mesma linha (#347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await semearConta(tx, 'A', '00000000134707')
+    const venda = await semearVenda(tx, c, 'RE347G')
+    const notaId = await semearNota(tx, venda, c.grupoId, 1, 'Negada', 'Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.')
+    const escolha = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
+    assert.equal(escolha.notaId, notaId)
+    assert.equal(escolha.idExterno, `mova-${venda.numero}-1`)
+  })
+})
+
 test('denegada: a próxima tentativa sai com id novo, numa linha nova (#347)', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await semearConta(tx, 'A', '00000000134702')

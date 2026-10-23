@@ -299,3 +299,12 @@ test('o painel abre na recusa só se a última tentativa do ambiente foi recusad
   assert.equal(recusaParaAbrir([nota('1', 'Producao', 'Negada')], 'Homologacao'), null)
   assert.equal(recusaParaAbrir([], 'Producao'), null)
 })
+
+test('erro de validação da própria Nota Gateway (código com letras) é recusa comum (#347)', () => {
+  const motivo = 'Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.'
+  const nota = { status: 'Negada', motivoStatus: motivo }
+  assert.equal(codigoRecusa(motivo), null)
+  assert.equal(ehDenegada(nota), false)
+  assert.equal(ehDuplicidade(nota), false)
+  assert.equal(reenviaMesmoNumero(nota), true)
+})
