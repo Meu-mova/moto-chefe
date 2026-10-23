@@ -6,6 +6,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { cifrar } from '@/lib/cripto'
 import { revalidatePath } from 'next/cache'
+import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
 
 /**
  * Configuração fiscal por grupo. Cada grupo é um CNPJ com contabilidade
@@ -15,7 +16,7 @@ import { revalidatePath } from 'next/cache'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(u.papel)) {
+  if (!podeConfigurarFiscal(u.papel)) {
     throw new Error('Acesso restrito a Admin Geral e Sócio')
   }
   return u

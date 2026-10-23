@@ -14,7 +14,7 @@ import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { escolherTentativa, gravarEnvio, registrarEnvio } from '@/lib/notagateway/tentativa'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
-import { podeOperarNfSaida } from './papeis-nf-saida'
+import { podeConfigurarFiscal, podeOperarNfSaida } from './papeis-nf-saida'
 import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, normalizarContador, podeCancelarExtemporaneo, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
 import { diaEHoraBrt } from '@/lib/data-venda'
 import { espera } from '@/lib/espera'
@@ -22,9 +22,6 @@ import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
-
-// Mesma lista de admin/notas-fiscais/actions.ts.
-const PAPEIS_CONFIG_FISCAL = ['admin_geral', 'admin_socio']
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -301,7 +298,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
         },
         moto: { ncm: e.ficha?.ncm ?? '', cest: e.ficha?.cest ?? '' },
       },
-      podeConfigurarFiscal: PAPEIS_CONFIG_FISCAL.includes(usuario.papel),
+      podeConfigurarFiscal: podeConfigurarFiscal(usuario.papel),
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
