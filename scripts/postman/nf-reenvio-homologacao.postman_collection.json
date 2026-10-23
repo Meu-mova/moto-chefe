@@ -1,0 +1,754 @@
+{
+  "info": {
+    "name": "MOVA - NG reenvio com mesmo id (homologação, #347)",
+    "description": "Prova na Nota Gateway em HOMOLOGAÇÃO: (1) Negada reenviada com o mesmo id sai com o mesmo número; (2) 400 da NG não registra id nem consome número. Rode por scripts/ng-reenvio-homologacao.ts. Sem segredo: token e empresaId chegam por --env-var. Payload no formato do montarNfeVendaMoto (src/lib/notagateway/payload.ts).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Trava: nada sai se não for homologação na NG, com as variáveis preenchidas.",
+          "const corpo = pm.request.body && pm.request.body.raw ? pm.request.body.raw : '';",
+          "const okAmbiente = pm.request.method !== 'POST' || (/\"ambienteEmissao\"\\s*:\\s*\"Homologacao\"/.test(corpo) && !/Producao/.test(corpo));",
+          "const okBase = String(pm.variables.get('baseUrl') || '').startsWith('https://api.notagateway.com.br/');",
+          "const okVars = ['token', 'empresaId', 'idTeste'].every(v => !!pm.variables.get(v));",
+          "if (!okAmbiente || !okBase || !okVars) {",
+          "  pm.test('trava: ambienteEmissao Homologacao, baseUrl da NG e variáveis presentes', () => pm.expect.fail('recusado: ' + JSON.stringify({ okAmbiente, okBase, okVars })));",
+          "  pm.execution.skipRequest();",
+          "}",
+          "const id = pm.variables.get('idTeste');",
+          "pm.variables.set('idA', id + '-a');",
+          "pm.variables.set('idC', id + '-c');"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.notagateway.com.br/v2"
+    },
+    {
+      "key": "empresaId",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "idTeste",
+      "value": ""
+    },
+    {
+      "key": "esperaMs",
+      "value": "4000"
+    },
+    {
+      "key": "maxTentativas",
+      "value": "20"
+    }
+  ],
+  "item": [
+    {
+      "name": "a1. POST id A com NCM inexistente",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG aceitou o envio (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{idA}}\",\n  \"ambienteEmissao\": \"Homologacao\",\n  \"naturezaOperacao\": \"Venda de mercadoria\",\n  \"tipoOperacao\": \"Saida\",\n  \"finalidade\": \"Normal\",\n  \"consumidorFinal\": true,\n  \"enviarPorEmail\": false,\n  \"pedido\": {\n    \"presencaConsumidor\": \"OperacaoPresencial\",\n    \"pagamento\": {\n      \"formas\": [\n        {\n          \"tipo\": \"PagamentoInstantaneoPix\",\n          \"valor\": 9990\n        }\n      ]\n    }\n  },\n  \"cliente\": {\n    \"tipoPessoa\": \"F\",\n    \"indicadorContribuinteICMS\": \"NaoContribuinte\",\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"cpfCnpj\": \"35281765043\",\n    \"endereco\": {\n      \"uf\": \"MG\",\n      \"cidade\": \"Belo Horizonte\",\n      \"logradouro\": \"Rua Teste\",\n      \"numero\": \"100\",\n      \"bairro\": \"Centro\",\n      \"cep\": \"30110000\"\n    }\n  },\n  \"itens\": [\n    {\n      \"cfop\": \"5102\",\n      \"codigo\": \"TESTE-REENVIO\",\n      \"descricao\": \"MOTO ELETRICA TESTE REENVIO\",\n      \"ncm\": \"99999999\",\n      \"quantidade\": 1,\n      \"unidadeMedida\": \"UN\",\n      \"valorUnitario\": 9990,\n      \"impostos\": {\n        \"icms\": {\n          \"situacaoTributaria\": \"102\",\n          \"origem\": 0\n        },\n        \"pis\": {\n          \"situacaoTributaria\": \"49\"\n        },\n        \"cofins\": {\n          \"situacaoTributaria\": \"49\"\n        }\n      }\n    }\n  ],\n  \"informacoesAdicionais\": \"Teste de reenvio com o mesmo id (#347). Sem valor fiscal.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e"
+          ]
+        }
+      }
+    },
+    {
+      "name": "a2. GET id A até Negada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Negada', () => pm.expect(status).to.eql('Negada'));",
+              "",
+              "pm.test('Negada tem número', () => pm.expect(j && j.numero).to.not.be.oneOf([null, undefined, '']));",
+              "pm.collectionVariables.set('numeroA', String(j && j.numero));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idA}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "b1. POST mesmo id A corrigido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG aceitou o envio (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{idA}}\",\n  \"ambienteEmissao\": \"Homologacao\",\n  \"naturezaOperacao\": \"Venda de mercadoria\",\n  \"tipoOperacao\": \"Saida\",\n  \"finalidade\": \"Normal\",\n  \"consumidorFinal\": true,\n  \"enviarPorEmail\": false,\n  \"pedido\": {\n    \"presencaConsumidor\": \"OperacaoPresencial\",\n    \"pagamento\": {\n      \"formas\": [\n        {\n          \"tipo\": \"PagamentoInstantaneoPix\",\n          \"valor\": 9990\n        }\n      ]\n    }\n  },\n  \"cliente\": {\n    \"tipoPessoa\": \"F\",\n    \"indicadorContribuinteICMS\": \"NaoContribuinte\",\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"cpfCnpj\": \"35281765043\",\n    \"endereco\": {\n      \"uf\": \"MG\",\n      \"cidade\": \"Belo Horizonte\",\n      \"logradouro\": \"Rua Teste\",\n      \"numero\": \"100\",\n      \"bairro\": \"Centro\",\n      \"cep\": \"30110000\"\n    }\n  },\n  \"itens\": [\n    {\n      \"cfop\": \"5102\",\n      \"codigo\": \"TESTE-REENVIO\",\n      \"descricao\": \"MOTO ELETRICA TESTE REENVIO\",\n      \"ncm\": \"87116000\",\n      \"quantidade\": 1,\n      \"unidadeMedida\": \"UN\",\n      \"valorUnitario\": 9990,\n      \"impostos\": {\n        \"icms\": {\n          \"situacaoTributaria\": \"102\",\n          \"origem\": 0\n        },\n        \"pis\": {\n          \"situacaoTributaria\": \"49\"\n        },\n        \"cofins\": {\n          \"situacaoTributaria\": \"49\"\n        }\n      }\n    }\n  ],\n  \"informacoesAdicionais\": \"Teste de reenvio com o mesmo id (#347). Sem valor fiscal.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e"
+          ]
+        }
+      }
+    },
+    {
+      "name": "b2. GET id A até Autorizada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
+              "",
+              "pm.test('número igual ao da Negada (mesmo id = mesmo número)', () => pm.expect(String(j && j.numero)).to.eql(pm.collectionVariables.get('numeroA')));",
+              "pm.collectionVariables.set('numeroB', String(j && j.numero));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idA}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "c1. POST id C com JSON inválido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log('c1: HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG recusou com 400', () => pm.expect(pm.response.code).to.eql(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"id\": \"{{idC}}\", \"ambienteEmissao\": \"Homologacao\", \"itens\": [ { \"quantidade\": \"um\" ",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e"
+          ]
+        }
+      }
+    },
+    {
+      "name": "c2. GET id C (não pode existir)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "console.log('c2: HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300));",
+              "pm.test('id C não foi registrado (NFe0001 ou 404)', () => {",
+              "  const naoEncontrada = Array.isArray(j) && j.some(e => e && e.codigo === 'NFe0001');",
+              "  pm.expect(naoEncontrada || pm.response.code === 404).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idC}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idC}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "d1. POST id C corrigido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG aceitou o envio (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{idC}}\",\n  \"ambienteEmissao\": \"Homologacao\",\n  \"naturezaOperacao\": \"Venda de mercadoria\",\n  \"tipoOperacao\": \"Saida\",\n  \"finalidade\": \"Normal\",\n  \"consumidorFinal\": true,\n  \"enviarPorEmail\": false,\n  \"pedido\": {\n    \"presencaConsumidor\": \"OperacaoPresencial\",\n    \"pagamento\": {\n      \"formas\": [\n        {\n          \"tipo\": \"PagamentoInstantaneoPix\",\n          \"valor\": 9990\n        }\n      ]\n    }\n  },\n  \"cliente\": {\n    \"tipoPessoa\": \"F\",\n    \"indicadorContribuinteICMS\": \"NaoContribuinte\",\n    \"nome\": \"NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL\",\n    \"cpfCnpj\": \"35281765043\",\n    \"endereco\": {\n      \"uf\": \"MG\",\n      \"cidade\": \"Belo Horizonte\",\n      \"logradouro\": \"Rua Teste\",\n      \"numero\": \"100\",\n      \"bairro\": \"Centro\",\n      \"cep\": \"30110000\"\n    }\n  },\n  \"itens\": [\n    {\n      \"cfop\": \"5102\",\n      \"codigo\": \"TESTE-REENVIO\",\n      \"descricao\": \"MOTO ELETRICA TESTE REENVIO\",\n      \"ncm\": \"87116000\",\n      \"quantidade\": 1,\n      \"unidadeMedida\": \"UN\",\n      \"valorUnitario\": 9990,\n      \"impostos\": {\n        \"icms\": {\n          \"situacaoTributaria\": \"102\",\n          \"origem\": 0\n        },\n        \"pis\": {\n          \"situacaoTributaria\": \"49\"\n        },\n        \"cofins\": {\n          \"situacaoTributaria\": \"49\"\n        }\n      }\n    }\n  ],\n  \"informacoesAdicionais\": \"Teste de reenvio com o mesmo id (#347). Sem valor fiscal.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e"
+          ]
+        }
+      }
+    },
+    {
+      "name": "d2. GET id C até Autorizada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
+              "",
+              "pm.test('número = número(b) + 1 (o 400 não consumiu número)', () => pm.expect(Number(j && j.numero)).to.eql(Number(pm.collectionVariables.get('numeroB')) + 1));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idC}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idC}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "e1. DELETE id A (limpeza)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300));",
+              "pm.test('pedido de cancelamento aceito (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idA}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "e2. DELETE id C (limpeza)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300));",
+              "pm.test('pedido de cancelamento aceito (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idC}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idC}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "e3. GET id A até Cancelada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Cancelada', () => pm.expect(status).to.eql('Cancelada'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idA}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "e4. GET id C até Cancelada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Cancelada', () => pm.expect(status).to.eql('Cancelada'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idC}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idC}}"
+          ]
+        }
+      }
+    }
+  ]
+}
