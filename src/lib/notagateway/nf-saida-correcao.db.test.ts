@@ -55,16 +55,17 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   }
 }
 
-async function semearVenda(tx: Tx, c: Awaited<ReturnType<typeof semearConta>>, chassi: string, statusNota: string | null) {
+async function semearVenda(tx: Tx, c: Awaited<ReturnType<typeof semearConta>>, chassi: string, statusNota: string | null,
+  motivo = '237 - Rejeição: CPF do destinatário inválido', documento = '529.982.247-25') {
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${chassi}, ${c.modeloId}, ${c.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)
   await linhas(tx, sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, cest, x_prod) values (${moto.id}, 'X', '87116000', null, 'MOTO LITERAL')`)
   const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${c.lojaId}, ${c.auxId}) returning id`)
   const [venda] = await linhas(tx, sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, cliente_celular, cliente_cidade, valor, forma_pagamento)
-    values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, 'Cliente', '529.982.247-25', '35999990000', 'Cidade Velha', 1000, 'pix') returning id, numero`)
+    values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, 'Cliente', ${documento}, '35999990000', 'Cidade Velha', 1000, 'pix') returning id, numero`)
   if (statusNota) {
     await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, payload)
-      values (${venda.id}, ${venda.numero}, ${c.grupoId}, ${`mova-${venda.numero}-1`}, 'Producao', ${statusNota}, '237 - Rejeição: CPF do destinatário inválido', '{}'::jsonb)`)
+      values (${venda.id}, ${venda.numero}, ${c.grupoId}, ${`mova-${venda.numero}-1`}, 'Producao', ${statusNota}, ${motivo}, '{}'::jsonb)`)
   }
   return { id: venda.id as string, numero: venda.numero as number, motoId: moto.id as string }
 }
@@ -145,5 +146,33 @@ test('usuário da Conta B não corrige a venda da Conta A e o erro não revela q
     assert.equal((await vendaDb(tx, venda.id)).cliente_nome, 'Cliente')
     const [f] = await linhas(tx, sql`select ncm from motos_fiscal where moto_id = ${venda.motoId}`)
     assert.equal(f.ncm, '87116000')
+  })
+})
+
+const CNPJ_FORMATADO = '11.222.333/0001-81'
+
+test('denegada 302: corrige só a IE do comprador, na venda e no cliente da Conta (#347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000234708')
+    const b = await semearConta(tx, 'B', '00000000234709')
+    const venda = await semearVenda(tx, a, 'CO347D', 'Negada', '302 - Uso Denegado: Irregularidade fiscal do destinatário', CNPJ_FORMATADO)
+    await gravarCorrecaoDaNf(tx, a.usuario, venda.motoId, 'Producao', { ieComprador: { clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null } })
+    const v = await vendaDb(tx, venda.id)
+    assert.equal(v.cliente_indicador_ie, 'isento')
+    assert.equal(v.cliente_inscricao_estadual, null)
+    assert.equal(v.cliente_nome, 'Cliente', 'o resto do comprador fica')
+    const ies = await linhas(tx, sql`select conta_id, indicador_ie from clientes where cpf_cnpj = ${CNPJ} and conta_id in (${a.contaId}, ${b.contaId})`)
+    assert.equal(ies.find(r => r.conta_id === a.contaId)?.indicador_ie, 'isento')
+    assert.equal(ies.find(r => r.conta_id === b.contaId)?.indicador_ie, 'contribuinte', 'o cliente da Conta B não é tocado')
+  })
+})
+
+test('denegada 302 não aceita outros campos; 301 não aceita nenhum (#347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000234710')
+    const d302 = await semearVenda(tx, a, 'CO347D2', 'Negada', '302 - Uso Denegado', CNPJ_FORMATADO)
+    await assert.rejects(gravarCorrecaoDaNf(tx, a.usuario, d302.motoId, 'Producao', { moto: { ncm: '87116000', cest: '' } }), /Inscrição Estadual/)
+    const d301 = await semearVenda(tx, a, 'CO347D1', 'Negada', '301 - Uso Denegado: Irregularidade fiscal do emitente', CNPJ_FORMATADO)
+    await assert.rejects(gravarCorrecaoDaNf(tx, a.usuario, d301.motoId, 'Producao', { ieComprador: { clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null } }), /não há o que corrigir/)
   })
 })

@@ -79,7 +79,7 @@ export type PreviaNfe =
       } | null
       notas: NotaResumo[]
       /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
-      correcao: Required<CorrecaoNf>
+      correcao: Required<Pick<CorrecaoNf, 'comprador' | 'moto'>>
       /** Só Admin Geral e Sócio gravam a configuração fiscal do grupo. */
       podeConfigurarFiscal: boolean
     }
