@@ -463,7 +463,7 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
     const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
 
     const [nova] = await db.insert(notasFiscaisSaida).values({
-      vendaId: e.venda.id, grupoId: e.grupoId, idExterno, ambiente: e.cfg.ambiente,
+      vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, idExterno, ambiente: e.cfg.ambiente,
       status: 'Enviando', payload, emitidaPor: usuario.id,
     }).returning({ id: notasFiscaisSaida.id })
     notaId = nova.id
@@ -527,8 +527,10 @@ async function carregarNota(notaId: string, usuario: Usuario) {
   await exigirGrupo(usuario, r.grupoId)
   const cfg = await configNotaGateway(r.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
-  const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1)
-  return { r, cfg, motoId: v.motoId }
+  const vendaId = r.vendaId
+  if (!vendaId) throw new Error(`A venda ${r.vendaNumero} desta nota foi cancelada`)
+  const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  return { r: { ...r, vendaId }, cfg, motoId: v.motoId }
 }
 
 type NotaCarregada = Awaited<ReturnType<typeof carregarNota>>
