@@ -62,6 +62,7 @@ export type PreviaNfe =
   | {
       ok: true
       vendaId: string
+      vendaNumero: number
       ambiente: 'Homologacao' | 'Producao'
       jaFaturada: string | null
       pendencias: string[]
@@ -79,7 +80,7 @@ export type PreviaNfe =
       } | null
       notas: NotaResumo[]
       /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
-      correcao: Required<CorrecaoNf>
+      correcao: Required<Pick<CorrecaoNf, 'comprador' | 'moto'>>
       /** Só Admin Geral e Sócio gravam a configuração fiscal do grupo. */
       podeConfigurarFiscal: boolean
     }
@@ -279,6 +280,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
     return {
       ok: true,
       vendaId: e.venda.id,
+      vendaNumero: e.venda.numero,
       ambiente: e.cfg.ambiente,
       jaFaturada: e.venda.notaFiscalSaida,
       pendencias: e.pendencias,
@@ -352,23 +354,18 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
   }
 }
 
-/** Grava a correção da nota recusada no cadastro de origem, sem reenviar (#347). */
-export async function salvarCorrecaoNfAction(motoId: string, correcao: CorrecaoNf): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * "Salvar e reenviar nº N" (#347): grava a correção no cadastro de origem e a nota é
+ * remontada dele. Não há salvar sem enviar: deixaria a venda sem nota.
+ */
+export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf): Promise<ResultadoTransmissao> {
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
-    revalidatePath('/vendas')
-    return { ok: true }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
-}
-
-/** "Salvar e reenviar nº N": a nota é remontada do cadastro corrigido e sai com o mesmo número. */
-export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf): Promise<ResultadoTransmissao> {
-  const salvo = await salvarCorrecaoNfAction(motoId, correcao)
-  if (!salvo.ok) return salvo
   return transmitirNfePropriaAction(motoId)
 }
 

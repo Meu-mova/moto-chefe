@@ -135,11 +135,11 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             <>
                               <GarantiaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                               />
                               <NfSaidaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 blingNfeId={moto.blingNfeId}
                               />
                             </>
@@ -150,7 +150,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             {podeAlterar && podeGarantia.has(papel) && (
                               <GarantiaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 disabled={moto.status === 'caixa'}
                               />
                             )}
@@ -162,7 +162,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -177,7 +177,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -220,7 +220,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 {moto.disponibilidade === 'reservada' && moto.reservaId && podeAlterar && podeCancelarReserva.has(papel) && (
                                   <CancelarReservaButton
                                     reservaId={moto.reservaId}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     clienteNome={moto.reservaClienteNome}
                                     valorEntrada={moto.reservaValorEntrada}
                                   />
@@ -230,7 +230,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -247,7 +247,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             {podeAlterar && podeMontar.has(papel) && moto.status === 'caixa' && (
                               <MontarButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 mecanicos={mecanicos}
                               />
                             )}
@@ -265,7 +265,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 : (
                                   <LogisticaButton
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     lojaAtualId={moto.lojaId}
                                     lojas={lojas}
                                   />

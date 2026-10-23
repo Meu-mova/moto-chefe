@@ -36,7 +36,7 @@ const TEXTO_ETAPA: Record<Estado, string> = { ok: 'text-primary-text', andamento
 const LEITURA: Record<Estado, string> = { ok: 'feito', andamento: 'em andamento', nada: 'pendente' }
 
 /** Descrição da moto usada nos diálogos (NF, cancelamento). */
-export const descricaoMoto = (v: VendaComDetalhes) => `${v.modelo} — ${v.chassi}`
+export const descricaoMoto = (v: VendaComDetalhes) => `${v.modelo} · ${v.chassi}`
 
 const CONC: Record<StatusConc, { estado: Estado; texto: string }> = {
   conciliada: { estado: 'ok', texto: 'Conciliada' },
