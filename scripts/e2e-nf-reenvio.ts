@@ -254,7 +254,8 @@ async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
   await registrar('2b.venda', { numero: v.numero, idDenegada })
   await abrirNf(pagina, v, false)
   const dialogo = dialogoNf(pagina)
-  await dialogo.getByText('Não tem', { exact: true }).click()
+  // O rádio fica dentro do <label>: o nome acessível é o rótulo com a dica ("Não tem Cliente consumidor final").
+  await dialogo.getByRole('radio', { name: /^Não tem/ }).check()
   await dialogo.getByRole('button', { name: 'Salvar e emitir a nova nota' }).click()
   const r = await esperarResultado(pagina)
   const notas = await notasDaVenda(v.id)
