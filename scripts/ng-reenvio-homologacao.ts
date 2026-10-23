@@ -13,12 +13,15 @@
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/ng-reenvio-homologacao.ts --dry-run
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/ng-reenvio-homologacao.ts
  *
+ * A saída completa (com o corpo de cada requisição e resposta, sem headers nem token) vai
+ * também para ~/Development/work/moto-chefe/ng-reenvio-logs/<idTeste>.log (0600, fora do repo).
+ *
  * Consome 3 números da série de homologação da empresa na NG. Requer o Postman CLI
  * (`npm install -g postman-cli`); não usa login nem POSTMAN_API_KEY.
  */
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync, writeSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import postgres from 'postgres'
 import { descreverAlvo, motivoRecusaForaDoStaging, rotuloAlvo } from './lib/alvo-banco'
@@ -29,6 +32,41 @@ import { formaPagamentoNfe } from '../src/lib/notagateway/venda'
 const GRUPO = 'Grupo Teste Sul'
 const COLECAO = resolve(process.cwd(), 'scripts/postman/nf-reenvio-homologacao.postman_collection.json')
 const dryRun = process.argv.includes('--dry-run')
+const LOG_DIR = join(homedir(), 'Development/work/moto-chefe/ng-reenvio-logs')
+
+// Tudo o que vai à tela passa por aqui: antes do idTeste existir, as linhas ficam no buffer.
+const logBuffer: string[] = []
+let logFd: number | null = null
+const segredos: string[] = []
+const limparSegredos = (s: string) => segredos.reduce((acc, seg) => acc.split(seg).join('****'), s)
+function gravarLog(texto: string) {
+  const limpo = limparSegredos(texto)
+  if (logFd === null) logBuffer.push(limpo)
+  else writeSync(logFd, limpo)
+}
+function log(...partes: unknown[]) {
+  const linha = partes.map(p => (typeof p === 'string' ? p : String(p))).join(' ')
+  console.error(limparSegredos(linha))
+  gravarLog(linha + '\n')
+}
+function abrirLog(idTeste: string): string {
+  mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 })
+  const caminho = join(LOG_DIR, `${idTeste}.log`)
+  logFd = openSync(caminho, 'wx', 0o600)
+  for (const l of logBuffer.splice(0)) writeSync(logFd, l)
+  return caminho
+}
+// Repassa a saída do Postman por linha: o token nunca fica partido entre dois pedaços.
+function repassar(origem: NodeJS.ReadableStream, destino: NodeJS.WriteStream) {
+  let resto = ''
+  origem.setEncoding('utf8')
+  origem.on('data', (pedaco: string) => {
+    const linhas = (resto + pedaco).split('\n')
+    resto = linhas.pop() ?? ''
+    for (const l of linhas) { destino.write(limparSegredos(l) + '\n'); gravarLog(l + '\n') }
+  })
+  origem.on('end', () => { if (resto) { destino.write(limparSegredos(resto) + '\n'); gravarLog(resto + '\n') } })
+}
 
 const mascarar = (s: string) => (s.length <= 8 ? '****' : `${s.slice(0, 4)}…${s.slice(-4)}`)
 // Comprador e moto sintéticos. NCM 9999.99.99 não existe na tabela: a SEFAZ nega (a1).
@@ -97,7 +135,7 @@ async function ufDoEmitente(token: string, empresaId: string): Promise<string> {
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
   if (!databaseUrl) throw new Error('DATABASE_URL não definida — rode via `npx dotenv-cli -e .env.local -- ...`')
-  console.error(rotuloAlvo(descreverAlvo(databaseUrl)))
+  log(rotuloAlvo(descreverAlvo(databaseUrl)))
   const recusa = motivoRecusaForaDoStaging(databaseUrl, process.env.NEXT_PUBLIC_SUPABASE_URL)
   if (recusa) throw new Error(recusa)
 
@@ -133,9 +171,11 @@ async function main() {
   if (!cfg.empresa_id) throw new Error(`"${GRUPO}" sem empresaId na Nota Gateway`)
   const token = decifrar(cfg.token).toString('utf8')
   if (!token) throw new Error('Token decifrado vazio')
+  segredos.push(token)
 
   // Curto de propósito: id longo a NG devolve 500 (ver idExternoNfe).
   const idTeste = `mova-homolog-rv-${Date.now().toString(36)}`
+  log(`Log: ${abrirLog(idTeste)}`)
   const args = (envFile: string) => [
     'collection', 'run', COLECAO,
     '--environment', envFile,
@@ -144,25 +184,25 @@ async function main() {
     '--no-report-events',
   ]
 
-  console.error(`Grupo: ${GRUPO} | ambiente: ${cfg.ambiente} | empresaId: ${mascarar(cfg.empresa_id)} | token: decifrado (${token.length} caracteres)`)
+  log(`Grupo: ${GRUPO} | ambiente: ${cfg.ambiente} | empresaId: ${mascarar(cfg.empresa_id)} | token: decifrado (${token.length} caracteres)`)
   // Token e empresaId vão num environment temporário (0600), não em --env-var: argumento
   // de processo aparece no `ps` de qualquer usuário da máquina.
   const exibido = ['postman', ...args('<tmp>/ng.postman_environment.json (token=****, empresaId=' + mascarar(cfg.empresa_id) + ', payload*)')]
-  console.error(`Comando: ${exibido.join(' ')}`)
+  log(`Comando: ${exibido.join(' ')}`)
 
   const ufEmitente = dryRun ? UF_EMITENTE_DRY_RUN : await ufDoEmitente(token, cfg.empresa_id)
   const { base, variantes } = payloads(idTeste, ufEmitente, regra!)
   const item = base.itens[0]
-  console.error(`Payload base (montarNfeVendaMoto + regra do grupo; UF emitente ${ufEmitente}${dryRun ? ' presumida no dry-run' : ' lida na NG'}):`)
-  console.error(JSON.stringify({
+  log(`Payload base (montarNfeVendaMoto + regra do grupo; UF emitente ${ufEmitente}${dryRun ? ' presumida no dry-run' : ' lida na NG'}):`)
+  log(JSON.stringify({
     id: base.id, ambienteEmissao: base.ambienteEmissao, naturezaOperacao: base.naturezaOperacao,
     enviarPorEmail: base.enviarPorEmail, pagamento: base.pedido.pagamento.formas,
     cliente: { ...base.cliente, cpfCnpj: mascarar(base.cliente.cpfCnpj) },
     item: { cfop: item.cfop, ncm: item.ncm, cest: item.cest, descricao: item.descricao, valorUnitario: item.valorUnitario, impostos: item.impostos },
   }, null, 2))
-  console.error('Variantes:', Object.entries(variantes).map(([k, v]) => `${k} (${v.length} bytes)`).join(', '))
+  log('Variantes:', Object.entries(variantes).map(([k, v]) => `${k} (${v.length} bytes)`).join(', '))
   if (dryRun) {
-    console.error('--dry-run: config e payloads válidos; nada enviado à Nota Gateway.')
+    log('--dry-run: config e payloads válidos; nada enviado à Nota Gateway.')
     return
   }
 
@@ -178,9 +218,11 @@ async function main() {
       ],
     }), { mode: 0o600 })
     const codigo = await new Promise<number>((ok, falha) => {
-      const p = spawn('postman', args(envFile), { stdio: 'inherit' })
+      const p = spawn('postman', args(envFile), { stdio: ['ignore', 'pipe', 'pipe'] })
+      repassar(p.stdout!, process.stdout)
+      repassar(p.stderr!, process.stderr)
       p.on('error', falha)
-      p.on('exit', c => ok(c ?? 1))
+      p.on('close', c => ok(c ?? 1))
     })
     process.exitCode = codigo
   } finally {
@@ -189,6 +231,8 @@ async function main() {
 }
 
 main().catch((e: unknown) => {
-  console.error('FALHOU:', e instanceof Error ? e.message : String(e))
-  process.exit(1)
+  log('FALHOU:', e instanceof Error ? e.message : String(e))
+  process.exitCode = 1
+}).finally(() => {
+  if (logFd !== null) closeSync(logFd)
 })

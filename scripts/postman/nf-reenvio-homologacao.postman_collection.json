@@ -25,6 +25,18 @@
           "pm.variables.set('idD', id + '-d');"
         ]
       }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Corpo de ida e volta para o log do script; headers ficam de fora (Authorization leva o token).",
+          "const corpoReq = pm.request.body && pm.request.body.raw ? pm.variables.replaceIn(pm.request.body.raw) : '';",
+          "console.log('REQ ' + pm.info.requestName + ': ' + pm.request.method + ' ' + pm.request.url.getPathWithQuery() + (corpoReq ? '\\n' + corpoReq : ''));",
+          "console.log('RES ' + pm.info.requestName + ': HTTP ' + pm.response.code + '\\n' + pm.response.text());"
+        ]
+      }
     }
   ],
   "variable": [
@@ -527,16 +539,23 @@
       }
     },
     {
-      "name": "d1. POST id D com CFOP com letras (JSON válido)",
+      "name": "d1. POST id D com CFOP com letras (400 GW7324 ou 2xx)",
       "event": [
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
+              "// A NG pode recusar já no POST (400) ou aceitar e negar na consulta (d2); o caminho fica em caminhoD.",
               "console.log('d1: HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
-              "pm.test('NG recusou com 400', () => pm.expect(pm.response.code).to.eql(400));",
-              "pm.test('erro GW7324 (CFOP deve conter apenas números)', () => pm.expect(pm.response.text()).to.include('GW7324'));"
+              "const code = pm.response.code;",
+              "const caminho = code === 400 ? '400' : (code >= 200 && code < 300 ? '2xx' : 'outro');",
+              "pm.collectionVariables.set('caminhoD', caminho);",
+              "pm.collectionVariables.set('d2Final', 'nao');",
+              "pm.test('NG respondeu 400 com GW7324 ou 2xx', () => {",
+              "  if (caminho === '400') pm.expect(pm.response.text()).to.include('GW7324');",
+              "  else pm.expect(caminho).to.eql('2xx');",
+              "});"
             ]
           }
         }
@@ -580,19 +599,52 @@
       }
     },
     {
-      "name": "d2. GET id D (não pode existir)",
+      "name": "d2. GET id D (não registrado se 400; Negada GW7324 se 2xx)",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const caminho = pm.collectionVariables.get('caminhoD');",
               "let j = null; try { j = pm.response.json(); } catch (e) {}",
-              "console.log('d2: HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300));",
-              "pm.test('id D não foi registrado (NFe0001 ou 404)', () => {",
-              "  const naoEncontrada = Array.isArray(j) && j.some(e => e && e.codigo === 'NFe0001');",
-              "  pm.expect(naoEncontrada || pm.response.code === 404).to.eql(true);",
-              "});"
+              "if (caminho !== '2xx') {",
+              "  console.log('d2 (caminho ' + caminho + '): HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300));",
+              "  pm.test('id D não foi registrado (NFe0001 ou 404)', () => {",
+              "    const naoEncontrada = Array.isArray(j) && j.some(e => e && e.codigo === 'NFe0001');",
+              "    pm.expect(naoEncontrada || pm.response.code === 404).to.eql(true);",
+              "  });",
+              "  pm.collectionVariables.set('d2Final', 'sim');",
+              "  return;",
+              "}",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.collectionVariables.set('d2Final', FINAIS.includes(status) ? 'sim' : 'nao');",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Negada', () => pm.expect(status).to.eql('Negada'));",
+              "pm.test('motivoStatus contém GW7324', () => pm.expect(String((j && j.motivoStatus) || '')).to.include('GW7324'));"
             ]
           }
         }
@@ -630,6 +682,19 @@
     {
       "name": "d3. POST mesmo id D corrigido",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Reenviar com a primeira ainda em processamento mistura as duas tentativas; só sai após status final em d2.",
+              "if (pm.collectionVariables.get('d2Final') !== 'sim') {",
+              "  pm.test('d2 terminou em status final antes do reenvio', () => pm.expect.fail('d2Final=' + pm.collectionVariables.get('d2Final')));",
+              "  pm.execution.skipRequest();",
+              "}"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
