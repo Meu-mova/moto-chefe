@@ -14,10 +14,13 @@ process.env.DATABASE_URL = url
 type Db = typeof import('@/lib/db')
 let db: Db['db']
 let listarNotasEmitidas: typeof import('@/lib/queries/notas-emitidas')['listarNotasEmitidas']
+let HOJE: { de: string; ate: string }
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas'))
+  const hoje = (await import('@/lib/data-venda')).hojeBrt()
+  HOJE = { de: hoje, ate: hoje }
 })
 
 after(async () => {
@@ -44,22 +47,30 @@ test('Notas Emitidas: a Conta B não vê nota da Conta A, e cada lista fica no g
         await tx.execute(sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, status, numero, serie, payload)
           values (${venda.id}, ${grupo.id}, ${'ext348' + nome + nf}, ${ambiente}, ${status}, ${nome + nf}, '1', '{}'::jsonb)`)
       }
+      if (nome === 'A') {
+        await tx.execute(sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, status, numero, serie, payload, criado_em)
+          values (${venda.id}, ${grupo.id}, 'ext348A4', 'Producao', 'Cancelada', 'A4', '1', '{}'::jsonb, '2026-09-30T02:30:00Z'::timestamptz)`)
+      }
       ids[nome] = { conta: conta.id, grupo: grupo.id, venda: venda.numero }
     }
 
-    const daB = await listarNotasEmitidas({ grupoId: ids.B.grupo, contaId: ids.B.conta, ambiente: 'Producao' }, tx)
-    assert.deepEqual(daB.map(n => [n.numero, n.categoria, n.vendaNumero, n.clienteNome]).sort(),
-      [['B1', 'autorizada', ids.B.venda, 'Cliente B'], ['B2', 'recusada', ids.B.venda, 'Cliente B']])
+    const daB = await listarNotasEmitidas({ grupoId: ids.B.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, tx)
+    assert.deepEqual(daB.map(n => [n.numero, n.categoria, n.vendaNumero, n.clienteNome, n.chassi]).sort(),
+      [['B1', 'autorizada', ids.B.venda, 'Cliente B', 'NOTAS348B'], ['B2', 'recusada', ids.B.venda, 'Cliente B', 'NOTAS348B']])
 
     // Grupo da A pedido com a Conta da B (cookie adulterado, por exemplo): nada volta.
-    assert.deepEqual(await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.B.conta, ambiente: 'Producao' }, tx), [])
+    assert.deepEqual(await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, tx), [])
 
-    const homologacaoA = await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.A.conta, ambiente: 'Homologacao' }, tx)
+    const homologacaoA = await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.A.conta, ambiente: 'Homologacao', ...HOJE }, tx)
     assert.deepEqual(homologacaoA.map(n => n.numero), ['A3'])
 
     // admin_geral (sem Conta): continua preso ao grupo pedido.
-    const geral = await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: null, ambiente: 'Producao' }, tx)
+    const geral = await listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: null, ambiente: 'Producao', ...HOJE }, tx)
     assert.deepEqual(geral.map(n => n.numero).sort(), ['A1', 'A2'])
+    // A A4 saiu às 23h30 de 29/09 em Brasília (02h30 de 30/09 em UTC): conta no dia 29, não no 30.
+    const periodo = (de: string, ate: string) => listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.A.conta, ambiente: 'Producao', de, ate }, tx)
+    assert.deepEqual((await periodo('2026-09-29', '2026-09-29')).map(n => n.numero), ['A4'])
+    assert.deepEqual(await periodo('2026-09-30', '2026-09-30'), [])
     throw new Desfazer()
   }), Desfazer)
 })
