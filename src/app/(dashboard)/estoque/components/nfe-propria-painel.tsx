@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { codigoRecusa, ehDenegada, ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
+import { codigoRecusa, ehDenegada, ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -60,17 +60,20 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
 
-  function carregar() {
+  function carregar(abrirRecusa: boolean) {
     setErro('')
     startTransition(async () => {
       const r = await previsualizarNfePropriaAction(motoId)
       if (!r.ok) { setErro(r.error); return }
       setPrevia(r)
       setFicha(r.ficha ? null : r.sugestao)
+      // "Reenviar" volta à conferência: ali não reabre a recusa.
+      const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
+      if (recusa) setResultado({ nota: recusa })
     })
   }
 
-  useEffect(carregar, [motoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => carregar(true), [motoId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function salvarFicha() {
     if (!ficha) return
@@ -135,7 +138,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   function tentarDeNovo() {
     setResultado(null)
     setConferido(false)
-    carregar()
+    carregar(false)
   }
 
   if (!previa) {

@@ -72,6 +72,15 @@ export function reenviaMesmoNumero(n: NotaComMotivo): boolean {
 }
 
 /**
+ * Ao abrir o painel, a última tentativa do ambiente, se recusada: a tela da
+ * recusa aparece sem enviar nem consultar de novo (#347). Lista do mais recente.
+ */
+export function recusaParaAbrir<N extends NotaComMotivo & { ambiente: string }>(notas: N[], ambiente: string): N | null {
+  const ultima = notas.find(n => n.ambiente === ambiente)
+  return ultima && ehRecusada(ultima.status) ? ultima : null
+}
+
+/**
  * O statusSefaz só serve de motivo à nota recusada: na nota cancelada do teste no
  * staging (09/10/2026), ele veio "100 - Autorizado o uso da NF-e".
  */

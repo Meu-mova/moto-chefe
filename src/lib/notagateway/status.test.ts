@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, codigoRecusa, ehDenegada, ehDuplicidade, reenviaMesmoNumero, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, codigoRecusa, ehDenegada, recusaParaAbrir, ehDuplicidade, reenviaMesmoNumero, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -288,4 +288,14 @@ test('reenvia com o mesmo número a recusa comum, a 539 e o erro da Nota Gateway
   for (const status of ['Autorizada', 'Cancelada', 'Descartada', 'Enviando']) {
     assert.equal(reenviaMesmoNumero({ status, motivoStatus: null }), false, status)
   }
+})
+
+test('o painel abre na recusa só se a última tentativa do ambiente foi recusada (#347)', () => {
+  const nota = (id: string, ambiente: string, status: string) => ({ id, ambiente, status, motivoStatus: null })
+  // Mais recente primeiro, como a lista do painel.
+  assert.equal(recusaParaAbrir([nota('2', 'Producao', 'Negada'), nota('1', 'Producao', 'Cancelada')], 'Producao')?.id, '2')
+  assert.equal(recusaParaAbrir([nota('3', 'Homologacao', 'Autorizada'), nota('2', 'Producao', 'Negada')], 'Producao')?.id, '2')
+  assert.equal(recusaParaAbrir([nota('2', 'Producao', 'Descartada'), nota('1', 'Producao', 'Negada')], 'Producao'), null)
+  assert.equal(recusaParaAbrir([nota('1', 'Producao', 'Negada')], 'Homologacao'), null)
+  assert.equal(recusaParaAbrir([], 'Producao'), null)
 })
