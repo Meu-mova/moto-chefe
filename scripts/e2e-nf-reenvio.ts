@@ -148,6 +148,19 @@ async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
     if (cod === 'D') confere(v.cliente_indicador_ie === 'isento', `${tela} ${cod}: IE "isento" gravada na venda`, String(v.cliente_indicador_ie))
     await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}-salvo.png`, fullPage: true })
   }
+
+  // O mesmo painel abre também pela ficha da moto em /estoque: lá o "Só salvar" também não fecha o diálogo.
+  if (tela === 'desktop' && cod === 'C') {
+    await pagina.goto(`${base}/estoque/${caso.venda!.motoId}`, { waitUntil: 'networkidle' })
+    await pagina.getByTitle('Emitir NF de saída').first().click()
+    await dialogo.getByLabel('Bairro', { exact: true }).fill(`Bairro ${MARCA}`)
+    await botao('Só salvar').click()
+    confere(await ve('Correção salva na venda.'), `${tela} ${cod} /estoque: "Só salvar" confirma`)
+    confere(await ve(`Nota nº ${n} · venda nº ${caso.venda!.numero}`), `${tela} ${cod} /estoque: o diálogo continua aberto na recusa`)
+    const [v] = (await execRows(sql`select cliente_bairro from vendas where id = ${caso.venda!.id}`)) as { cliente_bairro: string | null }[]
+    confere(v.cliente_bairro === `Bairro ${MARCA}`, `${tela} ${cod} /estoque: bairro gravado na venda`, String(v.cliente_bairro))
+    await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}-estoque.png`, fullPage: true })
+  }
 }
 
 async function limpar() {

@@ -34,7 +34,7 @@ type Props = {
  */
 export function NfeRecusa({ nota, previa, pending, aviso, onSalvar, onSalvarEReenviar, onEmitirDeNovo, onVoltar }: Props) {
   const tela = telaDaRecusa(nota)
-  const bloqueada = tela.tipo === 'denegada_cliente' || tela.tipo === 'denegada_empresa'
+  const bloqueada = tela.tipo === 'denegada_cliente' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada'
   const n = nota.numero
   const porque = fraseDaRecusa(nota.motivoStatus) ?? nota.motivoStatus ?? 'A SEFAZ não informou o motivo.'
 
@@ -163,7 +163,7 @@ export function NfeRecusa({ nota, previa, pending, aviso, onSalvar, onSalvarERee
             </div>
           </>
         )}
-        {(tela.tipo === 'empresa' || tela.tipo === 'denegada_empresa') && (
+        {(tela.tipo === 'empresa' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada') && (
           <>
             <Button onClick={onEmitirDeNovo} disabled={pending} className="h-11 w-full">
               {tela.tipo === 'empresa' ? `Reenviar${n ? ` nº ${n}` : ''}` : 'Emitir a nova nota'}

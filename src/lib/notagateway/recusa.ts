@@ -88,13 +88,20 @@ export type TelaRecusa =
   | { tipo: 'empresa' }
   | { tipo: 'denegada_cliente' }
   | { tipo: 'denegada_empresa' }
+  /** Denegada sem código que diga de quem é a IE: sem campos, como no servidor. */
+  | { tipo: 'denegada' }
 
 /**
  * Qual tela a recusa abre: denegada pelo cliente corrige só a IE dele; pela
  * empresa, ou recusa só da configuração fiscal, não tem campos aqui.
  */
 export function telaDaRecusa(nota: { status: string; motivoStatus: string | null }): TelaRecusa {
-  if (ehDenegada(nota)) return codigoRecusa(nota.motivoStatus) === 301 ? { tipo: 'denegada_empresa' } : { tipo: 'denegada_cliente' }
+  if (ehDenegada(nota)) {
+    const codigo = codigoRecusa(nota.motivoStatus)
+    if (codigo === 301) return { tipo: 'denegada_empresa' }
+    // Mesma regra do gravarCorrecaoDaNf: só 302/303 corrigem a IE do cliente aqui.
+    return codigo === 302 || codigo === 303 ? { tipo: 'denegada_cliente' } : { tipo: 'denegada' }
+  }
   const grupos = gruposDaRecusa(nota.motivoStatus)
   const abertos = grupos.filter(g => g !== 'empresa')
   if (!abertos.length) return { tipo: 'empresa' }

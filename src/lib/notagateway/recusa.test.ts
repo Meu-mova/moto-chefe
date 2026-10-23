@@ -59,3 +59,8 @@ test('a tela da recusa: campos só quando há o que corrigir no cadastro (#347)'
   assert.deepEqual(t('303 - Uso Denegado'), { tipo: 'denegada_cliente' })
   assert.deepEqual(t('301 - Uso Denegado'), { tipo: 'denegada_empresa' })
 })
+
+test('denegada sem código conhecido não abre campos: só emite a nova nota (#347)', () => {
+  assert.deepEqual(telaDaRecusa({ status: 'Denegada', motivoStatus: null }), { tipo: 'denegada' })
+  assert.deepEqual(telaDaRecusa({ status: 'Denegada', motivoStatus: 'Uso denegado' }), { tipo: 'denegada' })
+})
