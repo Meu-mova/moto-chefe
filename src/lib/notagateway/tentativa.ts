@@ -57,7 +57,18 @@ export async function gravarEnvio(
   const [anterior] = await tx.select({ numero: notasFiscaisSaida.numero, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus })
     .from(notasFiscaisSaida).where(mesmaLinha).limit(1)
   if (!anterior) throw new Error('A nota recusada mudou enquanto o reenvio era preparado. Atualize a tela e tente de novo.')
-  // O UPDATE apaga o motivo: a recusa de antes do deploy, sem log, se perderia (#347).
+  const [reenvio] = await tx.update(notasFiscaisSaida)
+    .set({
+      status: 'Enviando', motivoStatus: null, payload: v.payload, emitidaPor: v.emitidaPor,
+      chave: null, protocolo: null, linkDanfe: null, linkXml: null, dataAutorizacao: null,
+      atualizadoEm: sql`now()` as unknown as Date,
+    })
+    .where(mesmaLinha)
+    .returning({ id: notasFiscaisSaida.id })
+  if (!reenvio) throw new Error('A nota recusada mudou enquanto o reenvio era preparado. Atualize a tela e tente de novo.')
+  // O UPDATE apagou o motivo: a recusa de antes do deploy, sem log, se perderia (#347).
+  // Depois do UPDATE, para a corrida perdida não deixar reenvio fantasma. O catch
+  // supõe o db solto (como a action passa): numa tx, o erro do log a abortaria.
   try {
     await registrarAcaoSensivel({
       tipo: 'nf_emitida', usuarioId: v.emitidaPor, grupoId: v.grupoId,
@@ -69,15 +80,6 @@ export async function gravarEnvio(
   } catch (e) {
     console.error('[log-acoes] falha ao registrar o reenvio:', e instanceof Error ? e.message : e)
   }
-  const [reenvio] = await tx.update(notasFiscaisSaida)
-    .set({
-      status: 'Enviando', motivoStatus: null, payload: v.payload, emitidaPor: v.emitidaPor,
-      chave: null, protocolo: null, linkDanfe: null, linkXml: null, dataAutorizacao: null,
-      atualizadoEm: sql`now()` as unknown as Date,
-    })
-    .where(mesmaLinha)
-    .returning({ id: notasFiscaisSaida.id })
-  if (!reenvio) throw new Error('A nota recusada mudou enquanto o reenvio era preparado. Atualize a tela e tente de novo.')
   return reenvio.id
 }
 
