@@ -7,9 +7,11 @@
  * cliente), sem travessão e sem "Só salvar", no desktop e no celular.
  *
  * Parte 2, com a Nota Gateway REAL em HOMOLOGAÇÃO (Grupo Teste Sul): recusa se o
- * grupo não estiver em homologação. (a) Emite pela tela uma venda com CPF de dígito
- * errado, para a SEFAZ recusar de verdade; corrige o CPF no diálogo e "Salvar e
- * reenviar nº N" tem de chegar a Autorizada com o MESMO número, sem o diálogo fechar.
+ * grupo não estiver em homologação. (a) Emite pela tela uma moto com NCM inexistente,
+ * que a SEFAZ nega com número; corrige o NCM no diálogo e "Salvar e reenviar nº N" tem
+ * de chegar a Autorizada com o MESMO número, sem o diálogo fechar. Também emite com CPF
+ * de dígito errado, que a Nota Gateway barra antes da SEFAZ (sem número): o reenvio
+ * corrigido, com o mesmo id, tem de autorizar.
  * (b) Denegada 302 semeada no banco (a SEFAZ de homologação não denega sob encomenda):
  * "Salvar e emitir a nova nota" tem de autorizar com id e número NOVOS. No fim cancela
  * as autorizadas na Nota Gateway. Log sem token em ~/Development/work/moto-chefe/ng-reenvio-logs/.
@@ -158,10 +160,14 @@ async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
 
 // ── Parte 2: Nota Gateway real em homologação ─────────────────────────────────
 
+/** O diálogo "NF de saída": no celular a gaveta da venda também é um dialog. */
+const dialogoNf = (pagina: Page) =>
+  pagina.getByRole('dialog').filter({ has: pagina.getByText('NF de saída', { exact: true }) })
+
 type VendaReal = { id: string; numero: number; chassi: string; motoId: string }
 
 /** Venda que a SEFAZ de homologação aceitaria: endereço completo, pagamento e ficha fiscal. */
-async function semearVendaReal(c: Ctx, sufixo: string, documento: string): Promise<VendaReal> {
+async function semearVendaReal(c: Ctx, sufixo: string, documento: string, ncm?: string): Promise<VendaReal> {
   const chassi = `${MARCA}${sufixo}${Date.now().toString(36).toUpperCase()}`
   const [moto] = (await execRows(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${chassi}, ${c.modeloId}, ${c.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)) as { id: string }[]
@@ -171,7 +177,7 @@ async function semearVendaReal(c: Ctx, sufixo: string, documento: string): Promi
   const [ref] = (await execRows(sql`select ncm, cest, origem, unidade from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} limit 1`)) as
     { ncm: string; cest: string; origem: string | null; unidade: string | null }[]
   await execRows(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, cest, origem, unidade, x_prod)
-    values (${moto.id}, ${MARCA}, ${ref?.ncm ?? '87116000'}, ${ref?.cest ?? null}, ${ref?.origem ?? '0'}, ${ref?.unidade ?? 'UN'}, ${'MOTO ELETRICA ' + MARCA})`)
+    values (${moto.id}, ${MARCA}, ${ncm ?? ref?.ncm ?? '87116000'}, ${ref?.cest ?? null}, ${ref?.origem ?? '0'}, ${ref?.unidade ?? 'UN'}, ${'MOTO ELETRICA ' + MARCA})`)
   const [venda] = (await execRows(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf,
       cliente_cep, cliente_logradouro, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, valor, forma_pagamento, pagamentos, nf_liberada_em)
     values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, ${'Cliente ' + MARCA}, ${documento},
@@ -186,7 +192,7 @@ const notasDaVenda = async (vendaId: string) =>
 
 /** Espera a tela de resultado: autorizada, recusada ou bloqueada. Consulta de novo se a SEFAZ demorar. */
 async function esperarResultado(pagina: Page): Promise<'autorizada' | 'recusa' | 'tempo'> {
-  const dialogo = pagina.getByRole('dialog').last()
+  const dialogo = dialogoNf(pagina)
   for (let i = 0; i < 40; i++) {
     if (await dialogo.getByText(/NF-e .* autorizada/).count()) return 'autorizada'
     if (await dialogo.getByText('Por quê?').count()) return 'recusa'
@@ -197,31 +203,44 @@ async function esperarResultado(pagina: Page): Promise<'autorizada' | 'recusa' |
   return 'tempo'
 }
 
-async function reenvioMesmoNumero(pagina: Page, c: Ctx) {
-  console.log('\n▶ Parte 2a: recusa real (CPF com dígito errado), corrige e reenvia com o mesmo número')
-  const v = await semearVendaReal(c, 'R', '529.982.247-26')
-  await registrar('2a.venda', { numero: v.numero })
+const NCM_BOM = async () =>
+  ((await execRows(sql`select ncm from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} limit 1`)) as { ncm: string }[])[0]?.ncm ?? '87116000'
+
+/**
+ * Recusa real, corrige no diálogo e reenvia com o mesmo id.
+ * - 'ncm': NCM inexistente passa pela Nota Gateway e a SEFAZ nega com número; o
+ *   reenvio tem de sair com o MESMO número.
+ * - 'cpf': CPF de dígito errado a Nota Gateway barra antes da SEFAZ (4xx, sem
+ *   número); o reenvio com o mesmo id tem de autorizar.
+ */
+async function reenvioMesmoId(pagina: Page, c: Ctx, caso: 'ncm' | 'cpf') {
+  const ncm = caso === 'ncm'
+  console.log(`\n▶ Parte 2a (${caso}): recusa real, corrige e reenvia com o mesmo id`)
+  const v = ncm ? await semearVendaReal(c, 'S', CPF, '99999999') : await semearVendaReal(c, 'R', '529.982.247-26')
+  await registrar(`2a-${caso}.venda`, { numero: v.numero })
   await abrirNf(pagina, v, false)
-  const dialogo = pagina.getByRole('dialog').last()
+  const dialogo = dialogoNf(pagina)
   await dialogo.getByRole('checkbox').first().check()
   await dialogo.getByRole('button', { name: /Transmitir teste/ }).click()
   const primeiro = await esperarResultado(pagina)
   const [n1] = await notasDaVenda(v.id)
-  await registrar('2a.primeiro_envio', { tela: primeiro, nota: n1 })
-  confere(primeiro === 'recusa' && n1?.status === 'Negada', 'a primeira nota foi recusada', JSON.stringify(n1))
+  await registrar(`2a-${caso}.primeiro_envio`, { tela: primeiro, nota: n1 })
+  confere(primeiro === 'recusa' && n1?.status === 'Negada', `${caso}: a primeira nota foi recusada`, JSON.stringify(n1))
   if (primeiro !== 'recusa') return
-  confere(!!n1.numero, 'a recusa veio com número (a nota chegou à SEFAZ)', `motivo: ${n1.motivo_status}`)
+  if (ncm) confere(!!n1.numero, 'ncm: a SEFAZ negou com número', `motivo: ${n1.motivo_status}`)
+  else confere(!n1.numero, 'cpf: a Nota Gateway barrou antes da SEFAZ, sem número', JSON.stringify(n1))
 
-  await dialogo.getByLabel('CPF ou CNPJ', { exact: true }).fill('529.982.247-25')
+  if (ncm) await dialogo.getByLabel('NCM', { exact: true }).fill(await NCM_BOM())
+  else await dialogo.getByLabel('CPF ou CNPJ', { exact: true }).fill(CPF)
   await dialogo.getByRole('button', { name: /^Salvar e reenviar/ }).click()
   const segundo = await esperarResultado(pagina)
   const notas = await notasDaVenda(v.id)
-  await registrar('2a.reenvio', { tela: segundo, notas })
-  confere(await pagina.getByRole('dialog').last().isVisible(), 'o diálogo não fechou sozinho depois do reenvio')
-  confere(segundo === 'autorizada', 'o reenvio foi autorizado', segundo)
-  confere(notas.length === 1 && notas[0].id_externo === n1.id_externo, 'mesma linha e mesmo id', JSON.stringify(notas))
-  confere(notas[0]?.status === 'Autorizada' && notas[0].numero === n1.numero, `mesmo número (${n1.numero})`, JSON.stringify(notas[0]))
-  await pagina.screenshot({ path: `${PASTA}/ng-2a-autorizada.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
+  await registrar(`2a-${caso}.reenvio`, { tela: segundo, notas })
+  confere(await dialogoNf(pagina).isVisible(), `${caso}: o diálogo não fechou sozinho depois do reenvio`)
+  confere(segundo === 'autorizada', `${caso}: o reenvio foi autorizado`, segundo)
+  confere(notas.length === 1 && notas[0].id_externo === n1.id_externo, `${caso}: mesma linha e mesmo id`, JSON.stringify(notas))
+  if (ncm) confere(notas[0]?.status === 'Autorizada' && notas[0].numero === n1.numero, `ncm: mesmo número (${n1.numero})`, JSON.stringify(notas[0]))
+  await pagina.screenshot({ path: `${PASTA}/ng-2a-${caso}-autorizada.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
 }
 
 async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
@@ -234,13 +253,13 @@ async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
     values (${v.id}, ${v.numero}, ${c.grupoId}, ${idDenegada}, ${c.ambiente}, 'Negada', '302 - Uso Denegado: Irregularidade fiscal do destinatário', '999999', '{}'::jsonb)`)
   await registrar('2b.venda', { numero: v.numero, idDenegada })
   await abrirNf(pagina, v, false)
-  const dialogo = pagina.getByRole('dialog').last()
+  const dialogo = dialogoNf(pagina)
   await dialogo.getByText('Não tem', { exact: true }).click()
   await dialogo.getByRole('button', { name: 'Salvar e emitir a nova nota' }).click()
   const r = await esperarResultado(pagina)
   const notas = await notasDaVenda(v.id)
   await registrar('2b.emissao', { tela: r, notas })
-  confere(await pagina.getByRole('dialog').last().isVisible(), 'o diálogo não fechou sozinho depois de emitir')
+  confere(await dialogoNf(pagina).isVisible(), 'o diálogo não fechou sozinho depois de emitir')
   confere(r === 'autorizada', 'a nova nota foi autorizada', r)
   const nova = notas.find(n => n.id_externo !== idDenegada)
   confere(!!nova && nova.status === 'Autorizada' && nova.numero !== '999999', 'nova nota com id e número novos', JSON.stringify(notas))
@@ -334,7 +353,8 @@ async function main() {
       await registrar('inicio', { grupoId: c.grupoId, ambiente: c.ambiente })
       const pagina = await (await navegador.newContext({ locale: 'pt-BR', viewport: { width: 1440, height: 900 } })).newPage()
       await entrar(pagina)
-      await reenvioMesmoNumero(pagina, c)
+      await reenvioMesmoId(pagina, c, 'ncm')
+      await reenvioMesmoId(pagina, c, 'cpf')
       await denegadaNumeroNovo(pagina, c)
       console.log(`\n  Log: ${LOG}`)
     }
