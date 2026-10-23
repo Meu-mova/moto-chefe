@@ -246,10 +246,15 @@ async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
   await pagina.screenshot({ path: `${PASTA}/ng-2b-autorizada.png`, fullPage: true })
 }
 
-/** Cancela na Nota Gateway (homologação) as notas autorizadas do teste. */
-async function cancelarAutorizadas(c: Ctx) {
+/**
+ * Cancela na Nota Gateway (homologação) as notas autorizadas do teste e marca a linha
+ * como Cancelada. A limpeza não apaga nota ainda Autorizada: se o cancelamento falhar
+ * (ou nem rodar), ela fica no banco em vez de órfã na Nota Gateway.
+ */
+async function cancelarAutorizadas(c: Ctx): Promise<string[]> {
+  const naoCanceladas: string[] = []
   const cfg = await configNotaGateway(c.grupoId)
-  if (!cfg || cfg.ambiente !== 'Homologacao') return
+  if (!cfg || cfg.ambiente !== 'Homologacao') return naoCanceladas
   const autorizadas = (await execRows(sql`select n.id_externo from notas_fiscais_saida n join vendas v on v.id = n.venda_id
     join motos m on m.id = v.moto_id where m.chassi like ${MARCA + '%'} and n.status = 'Autorizada'`)) as { id_externo: string }[]
   for (const { id_externo } of autorizadas) {
@@ -262,17 +267,22 @@ async function cancelarAutorizadas(c: Ctx) {
       }
       await registrar('cancelamento', { idExterno: id_externo, status })
       confere(status === 'Cancelada', `nota ${id_externo} cancelada na Nota Gateway`, status)
+      if (status === 'Cancelada') await execRows(sql`update notas_fiscais_saida set status = 'Cancelada' where id_externo = ${id_externo}`)
+      else naoCanceladas.push(id_externo)
     } catch (e) {
+      naoCanceladas.push(id_externo)
       await registrar('cancelamento.falha', { idExterno: id_externo, erro: (e as Error).message })
       confere(false, `cancelar ${id_externo}`, (e as Error).message)
     }
   }
+  return naoCanceladas
 }
 
 async function limpar() {
   const motos = sql`(select id from motos where chassi like ${MARCA + '%'})`
-  const notas = sql`(select id from notas_fiscais_saida where id_externo like ${MARCA + '-%'}
-    or venda_id in (select id from vendas where moto_id in ${motos}))`
+  const notas = sql`(select id from notas_fiscais_saida
+    where (id_externo like ${MARCA + '-%'} or venda_id in (select id from vendas where moto_id in ${motos}))
+      and status <> 'Autorizada')`
   const contagem = (await execRows(sql`select
     (select count(*) from notas_fiscais_saida where id in ${notas})::int as notas,
     (select count(*) from motos_fiscal where moto_id in ${motos})::int as fichas,
@@ -336,7 +346,8 @@ async function main() {
     }
   } finally {
     await navegador.close()
-    if (!SO_PARTE_1) await cancelarAutorizadas(c).catch(e => { falhas++; console.error(`Cancelamento falhou: ${(e as Error).message}`) })
+    const manter = SO_PARTE_1 ? [] : await cancelarAutorizadas(c).catch(e => { falhas++; console.error(`Cancelamento falhou: ${(e as Error).message}`); return [] as string[] })
+    if (manter.length) console.error(`Notas mantidas no banco (não cancelaram na Nota Gateway): ${manter.join(', ')}`)
     await limpar().catch(e => { falhas++; console.error(`Limpeza falhou: ${(e as Error).message}`) })
     await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
   }
