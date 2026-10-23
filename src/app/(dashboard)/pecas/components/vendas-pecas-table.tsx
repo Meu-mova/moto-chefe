@@ -10,6 +10,7 @@ import { formatarCpfCnpj } from '@/lib/documento'
 import { ConcBadge } from '@/components/conciliacao-badge'
 import { cn } from '@/lib/utils'
 import { ConciliacaoPecaDialog } from './conciliacao-peca-dialog'
+import { EditarClienteVendaPecaDialog } from './editar-cliente-venda-peca-dialog'
 import { ExcluirVendaPecaButton } from './excluir-venda-peca-button'
 import { VendaPecaDialog } from './venda-peca-dialog'
 import { podeGerirPecas } from '../papeis'
@@ -209,6 +210,13 @@ function DetalheVendaPeca({ v, status, papel, pecas }: { v: VendaPeca; status: S
           isAdmin={false}
           podeDefinirPreco={gestor}
           edicao={{ vendaId: v.id, numero: v.numero }}
+        />
+        <EditarClienteVendaPecaDialog
+          vendaId={v.id}
+          numero={v.numero}
+          clienteNome={v.clienteNome}
+          clienteDocumento={v.clienteDocumento}
+          clienteTipoPessoa={v.clienteTipoPessoa}
         />
         {gestor && <ExcluirVendaPecaButton vendaId={v.id} numero={v.numero} />}
       </div>

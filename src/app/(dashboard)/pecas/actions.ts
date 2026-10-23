@@ -2,7 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
+import { pecasCatalogo, vendasPecas, vendasPecasItens, vendasPecasEdicoes, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
@@ -304,7 +304,55 @@ export async function editarVendaPecaAction(
   return { aguardandoAprovacao: false as const, numero: r.numero, avisos: await avisosDaVenda(venda) }
 }
 
-export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
+// ─── Correção do cliente da venda de peças ───────────────────────────────────
+// Nome digitado errado no balcão: antes o único jeito era excluir e refazer, o que
+// solta a conciliação e mexe no estoque. Aqui só muda o tomador (nome, documento,
+// tipo de pessoa); itens, pagamentos e conciliação ficam como estão. Mesma permissão
+// e mesmas regras de documento da criação. Fica no histórico de edições da venda.
+export async function editarClienteVendaPecaAction(
+  vendaId: string,
+  input: { clienteNome: string | null; clienteTipoPessoa: string; clienteDocumento: string | null },
+) {
+  const { usuario, venda } = await vendaEditavel(vendaId)
+
+  const tipoPessoa = isTipoPessoa(input.clienteTipoPessoa) ? input.clienteTipoPessoa : 'fisica'
+  const doc = validarDocumento(tipoPessoa, input.clienteDocumento)
+  if (!doc.ok) throw new Error(doc.erro)
+  const clienteNome = input.clienteNome?.trim() || null
+  if (tipoPessoa === 'juridica' && !clienteNome) throw new Error('Informe a razão social da empresa')
+
+  const numero = await db.transaction(async tx => {
+    const [atual] = await tx.select({
+      numero: vendasPecas.numero,
+      clienteNome: vendasPecas.clienteNome,
+      clienteDocumento: vendasPecas.clienteDocumento,
+      clienteTipoPessoa: vendasPecas.clienteTipoPessoa,
+    }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)).for('update')
+    if (!atual) throw new Error('Venda não encontrada')
+
+    const depois = { clienteNome, clienteDocumento: doc.documento, clienteTipoPessoa: tipoPessoa }
+    const antes = { clienteNome: atual.clienteNome, clienteDocumento: atual.clienteDocumento, clienteTipoPessoa: atual.clienteTipoPessoa }
+    if (antes.clienteNome === depois.clienteNome && antes.clienteDocumento === depois.clienteDocumento && antes.clienteTipoPessoa === depois.clienteTipoPessoa) {
+      return atual.numero
+    }
+
+    await tx.update(vendasPecas).set(depois).where(eq(vendasPecas.id, vendaId))
+    await tx.insert(vendasPecasEdicoes).values({
+      grupoId: venda.grupoId,
+      vendaPecaId: vendaId,
+      usuarioId: usuario.id,
+      resumo: `Cliente: ${antes.clienteNome ?? 'não informado'} → ${depois.clienteNome ?? 'não informado'}`,
+      antes,
+      depois,
+    })
+    return atual.numero
+  })
+
+  revalidatePath('/pecas')
+  return { numero }
+}
+
+export type VendaPecaResumo =Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
 
 export type FiltrosVendasPecas = {
   /** 'YYYY-MM-DD'. A página manda o mês corrente quando ninguém escolheu nada. */

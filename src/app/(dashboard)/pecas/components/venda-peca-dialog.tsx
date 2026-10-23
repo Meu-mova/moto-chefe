@@ -248,7 +248,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             {edicao && (
               <div className="space-y-2">
                 <p className="text-muted-foreground">
-                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. Loja e cliente não mudam na edição.`}
+                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. A loja não muda; o cliente se corrige pelo botão "Cliente".`}
                 </p>
                 {avisos.map(a => (
                   <p key={a} className="border-l-2 border-warning pl-3 text-foreground">{a}</p>
