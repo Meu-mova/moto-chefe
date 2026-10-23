@@ -150,8 +150,9 @@ async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
     }
   }
   confere(await botao('Só salvar').count() === 0, `${tela} ${cod}: sem "Só salvar"`)
-  confere(await botao('Fechar').count() === 1, `${tela} ${cod}: "Fechar"`)
-  await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}.png`, fullPage: true })
+  // O X do cabeçalho também se chama "Fechar" (aria-label), mas não tem texto: este é o do conteúdo.
+  confere(await botao('Fechar').filter({ hasText: /^Fechar$/ }).count() === 1, `${tela} ${cod}: "Fechar"`)
+  await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
 
 }
 
@@ -220,7 +221,7 @@ async function reenvioMesmoNumero(pagina: Page, c: Ctx) {
   confere(segundo === 'autorizada', 'o reenvio foi autorizado', segundo)
   confere(notas.length === 1 && notas[0].id_externo === n1.id_externo, 'mesma linha e mesmo id', JSON.stringify(notas))
   confere(notas[0]?.status === 'Autorizada' && notas[0].numero === n1.numero, `mesmo número (${n1.numero})`, JSON.stringify(notas[0]))
-  await pagina.screenshot({ path: `${PASTA}/ng-2a-autorizada.png`, fullPage: true })
+  await pagina.screenshot({ path: `${PASTA}/ng-2a-autorizada.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
 }
 
 async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
@@ -244,7 +245,7 @@ async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
   const nova = notas.find(n => n.id_externo !== idDenegada)
   confere(!!nova && nova.status === 'Autorizada' && nova.numero !== '999999', 'nova nota com id e número novos', JSON.stringify(notas))
   confere(notas.find(n => n.id_externo === idDenegada)?.status === 'Negada', 'a denegada ficou como estava')
-  await pagina.screenshot({ path: `${PASTA}/ng-2b-autorizada.png`, fullPage: true })
+  await pagina.screenshot({ path: `${PASTA}/ng-2b-autorizada.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
 }
 
 /**
@@ -343,7 +344,7 @@ async function main() {
     const pagina = navegador.contexts().at(-1)?.pages()[0]
     if (pagina) {
       const arquivo = `${PASTA}/falha-${Date.now()}.png`
-      await pagina.screenshot({ path: arquivo, fullPage: true }).then(() => console.error(`Tela no momento: ${arquivo}`), () => null)
+      await pagina.screenshot({ path: arquivo, fullPage: true, animations: 'disabled', timeout: 60_000 }).then(() => console.error(`Tela no momento: ${arquivo}`), () => null)
     }
   } finally {
     await navegador.close()

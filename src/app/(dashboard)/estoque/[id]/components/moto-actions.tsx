@@ -88,7 +88,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
   const podeVenderAqui = podeAlterar || ((isVendedor ?? papel === 'vendedor') && podeVendedorReservarForaDaLoja(moto.lojaId))
-  const descricao = `${moto.modelo} — ${moto.cor} (${moto.lojaNome})`
+  const descricao = `${moto.modelo} · ${moto.cor} (${moto.lojaNome})`
 
   const acoes: React.ReactNode[] = []
 
