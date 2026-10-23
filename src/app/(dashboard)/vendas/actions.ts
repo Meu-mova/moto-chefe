@@ -12,6 +12,7 @@ import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import { aplicarVendaPeca, type DadosVendaPeca } from '@/lib/venda-peca'
@@ -23,7 +24,7 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
-import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
@@ -64,51 +65,6 @@ async function garantirOrigemValida(
   return {
     origemId: origem!.id,
     origemDetalhe: normalizarDetalhe(origemDetalhe, origem!.pedeDetalhe),
-  }
-}
-
-/**
- * Confere o CPF/CNPJ do comprador. A tela também barra, mas o navegador não é
- * fonte de verdade. Documento inválido bloqueia, exceção ao "avise, não
- * bloqueie" (ADR-0015): a SEFAZ recusaria a nota. Devolve o documento
- * formatado, como a máscara da tela grava, e o representante só quando é
- * pessoa jurídica.
- *
- * `documentoGravado`: na edição, a venda antiga pode ter um documento que não
- * passa na conferência de hoje (ou nenhum). Se ele não mudou, segue como está;
- * corrigir o valor da venda não pode travar por causa do CPF.
- */
-function conferirComprador(
-  clienteCpf: string,
-  representante?: { nome?: string | null; cpf?: string | null },
-  documentoGravado?: string | null,
-): { clienteCpf: string; tipoPessoa: TipoPessoa; representanteNome: string | null; representanteCpf: string | null } {
-  const digitos = soDigitosDoc(clienteCpf)
-  let tipoPessoa: TipoPessoa
-  let documento: string
-  if (documentoGravado != null && digitos === soDigitosDoc(documentoGravado)) {
-    tipoPessoa = tipoPessoaDoDocumento(digitos)
-    documento = clienteCpf
-  } else {
-    const doc = lerDocumentoCliente(clienteCpf)
-    if (!doc.ok) throw new Error(doc.erro)
-    tipoPessoa = doc.tipoPessoa
-    documento = formatarCpfCnpj(doc.documento)
-  }
-
-  if (tipoPessoa === 'fisica') {
-    return { clienteCpf: documento, tipoPessoa, representanteNome: null, representanteCpf: null }
-  }
-
-  // O CPF do representante não vai para a nota, então não barra (ADR-0011):
-  // grava os dígitos recebidos, com máscara só quando formam um CPF.
-  const cpfRepresentante = soDigitosDoc(representante?.cpf)
-  return {
-    clienteCpf: documento,
-    tipoPessoa,
-    representanteNome: representante?.nome?.trim() || null,
-    representanteCpf: !cpfRepresentante ? null
-      : cpfRepresentante.length === 11 ? formatarCpfCnpj(cpfRepresentante) : cpfRepresentante,
   }
 }
 
@@ -1452,16 +1408,7 @@ export async function editarVendaAction(vendaId: string, dados: {
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
 
-  const comprador = conferirComprador(
-    dados.clienteCpf,
-    { nome: dados.representanteNome, cpf: dados.representanteCpf },
-    vendaAtual.clienteCpf,
-  )
-  // Venda que virou pessoa física não guarda representante, mesmo sem os campos no payload.
-  const gravaRepresentante = comprador.tipoPessoa === 'fisica'
-    || dados.representanteNome !== undefined || dados.representanteCpf !== undefined
-  const gravaIcms = comprador.tipoPessoa === 'fisica' || dados.clienteIndicadorIe !== undefined
-  const icms = lerContribuinteIcms(comprador.clienteCpf, dados.clienteIndicadorIe, dados.clienteInscricaoEstadual)
+  const comprador = conferirCompradorDaVenda(dados, vendaAtual.clienteCpf)
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
@@ -1498,44 +1445,30 @@ export async function editarVendaAction(vendaId: string, dados: {
         pagamentos:         dados.pagamentos,
         formaPagamento,
         ...(dados.vendedorId ? { vendedorId: dados.vendedorId } : {}),
-        clienteNome:        dados.clienteNome,
-        clienteCpf:         comprador.clienteCpf,
-        ...(gravaRepresentante ? {
-          representanteNome: comprador.representanteNome,
-          representanteCpf:  comprador.representanteCpf,
-        } : {}),
-        ...(gravaIcms ? {
-          clienteIndicadorIe:       icms.indicadorIe,
-          clienteInscricaoEstadual: icms.inscricaoEstadual,
-        } : {}),
-        clienteCelular:     dados.clienteCelular || null,
-        clienteEmail:       dados.clienteEmail || null,
-        clienteCep:         dados.clienteCep || null,
-        clienteLogradouro:  dados.clienteLogradouro || null,
-        clienteNumero:      dados.clienteNumero || null,
-        clienteComplemento: dados.clienteComplemento || null,
-        clienteBairro:      dados.clienteBairro || null,
-        clienteCidade:      dados.clienteCidade || null,
-        clienteEstado:      dados.clienteEstado || null,
         ...(origemCorrigida ? {
           origemId:      origemCorrigida.origemId,
           origemDetalhe: origemCorrigida.origemDetalhe,
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, {
+      ...comprador,
+      // A edição manda o formulário inteiro: campo vazio apaga, como antes.
+      dados: {
+        ...dados,
+        clienteCelular: dados.clienteCelular ?? null, clienteEmail: dados.clienteEmail ?? null,
+        clienteCep: dados.clienteCep ?? null, clienteLogradouro: dados.clienteLogradouro ?? null,
+        clienteNumero: dados.clienteNumero ?? null, clienteComplemento: dados.clienteComplemento ?? null,
+        clienteBairro: dados.clienteBairro ?? null, clienteCidade: dados.clienteCidade ?? null,
+        clienteEstado: dados.clienteEstado ?? null,
+      },
+    })
 
     // Os cards de pedido leem o vendedor do pedido; sem isso, a correção só aparece na venda.
     if (dados.vendedorId) {
       await tx.update(pedidosVenda)
         .set({ vendedorId: dados.vendedorId })
         .where(eq(pedidosVenda.id, vendaAtual.pedidoVendaId))
-    }
-
-    // A IE é da empresa: a correção vale também para a próxima venda a ela.
-    if (gravaIcms && icms.indicadorIe) {
-      await tx.update(clientes)
-        .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-        .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(vendaAtual.lojaId, tx))))
     }
 
     // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria
