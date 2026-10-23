@@ -54,8 +54,9 @@ async function semear(c: Ctx, caso: Caso) {
   const chassi = `${MARCA}${caso.sufixo}${Date.now().toString(36).toUpperCase()}`
   const [moto] = (await execRows(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${chassi}, ${c.modeloId}, ${c.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)) as { id: string }[]
-  const [pedido] = (await execRows(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id)
-    values (${moto.id}, ${c.lojaId}, ${c.auxId}) returning id`)) as { id: string }[]
+  // Efetivado, como o pedido de uma venda de verdade: pendente apareceria em "Pedidos Pendentes".
+  const [pedido] = (await execRows(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
+    values (${moto.id}, ${c.lojaId}, ${c.auxId}, 'efetivado') returning id`)) as { id: string }[]
   // NF liberada sem contrato: senão o diálogo para na trava da assinatura.
   const [venda] = (await execRows(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, nf_liberada_em)
     values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, ${'Cliente ' + MARCA}, '52998224725', 1000, 'pix', now()) returning id, numero`)) as { id: string; numero: number }[]
@@ -74,15 +75,23 @@ async function entrar(pagina: Page) {
   ])
 }
 
-/** Abre "Emitir NF de saída" pela busca de chassi; no celular as ações ficam na gaveta da venda. */
-async function abrirNf(pagina: Page, v: { numero: number; chassi: string }) {
+/**
+ * Abre "Emitir NF de saída" pela busca de chassi. Desktop: "Abrir venda #N" abre o
+ * painel lateral. Celular: o cartão da venda ("#N · data …") abre a gaveta.
+ */
+async function abrirNf(pagina: Page, v: { numero: number; chassi: string }, celular: boolean) {
   await pagina.goto(`${base}/vendas?q=${v.chassi}`, { waitUntil: 'networkidle' })
-  await pagina.getByRole('button', { name: `Abrir venda #${v.numero}`, exact: true }).locator('visible=true').first().click()
-  await pagina.getByRole('button', { name: 'Emitir NF de saída' }).locator('visible=true').first().click()
+  if (celular) {
+    await pagina.getByRole('button', { name: new RegExp(`^#${v.numero} · `) }).click()
+    await pagina.getByRole('dialog').getByRole('button', { name: 'Emitir NF de saída' }).click()
+  } else {
+    await pagina.getByRole('button', { name: `Abrir venda #${v.numero}`, exact: true }).locator('visible=true').click()
+    await pagina.getByRole('complementary', { name: `Venda #${v.numero}`, exact: true }).getByRole('button', { name: 'Emitir NF de saída' }).click()
+  }
 }
 
 async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
-  await abrirNf(pagina, caso.venda!)
+  await abrirNf(pagina, caso.venda!, tela === 'celular')
   const ok = (texto: string | RegExp) => pagina.getByText(texto).first().waitFor({ timeout: 30_000 }).then(() => true, () => false)
   const reenviar = pagina.getByRole('button', { name: `Reenviar nº ${caso.numero}` })
   if (caso.sufixo === 'C') {
