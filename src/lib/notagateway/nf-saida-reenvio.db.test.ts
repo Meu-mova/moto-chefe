@@ -83,9 +83,26 @@ test('recusa comum: o reenvio usa o mesmo id e atualiza a mesma linha; a recusa 
     assert.deepEqual(notas[0].payload, { novo: true })
     assert.equal(notas[0].numero, '1001', 'o número da nota continua o mesmo')
 
-    const log = await linhas(tx, sql`select detalhe from log_acoes where tipo = 'nf_emitida' and grupo_id = ${c.grupoId}`)
+    const log = await linhas(tx, sql`select detalhe from log_acoes where tipo = 'nf_emitida' and grupo_id = ${c.grupoId} and detalhe->>'motivoStatus' is not null`)
     assert.equal(log.length, 1)
     assert.equal(log[0].detalhe.motivoStatus, '225 - Rejeição: Falha no Schema XML')
+  })
+})
+
+test('reenvio de Negada sem log anterior (antes do deploy) registra o status e o motivo que a linha tinha (#347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await semearConta(tx, 'A', '00000000134706')
+    const venda = await semearVenda(tx, c, 'RE347L')
+    const notaId = await semearNota(tx, venda, c.grupoId, 1, 'Negada', 'Nota Gateway recusou a nota: GEN002')
+
+    const escolha = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
+    await gravarEnvio(tx, escolha, { vendaId: venda.id, vendaNumero: venda.numero, grupoId: c.grupoId, ambiente: 'Producao', payload: {}, emitidaPor: c.vendId })
+
+    const log = await linhas(tx, sql`select detalhe from log_acoes where tipo = 'nf_emitida' and grupo_id = ${c.grupoId}`)
+    assert.equal(log.length, 1)
+    assert.equal(log[0].detalhe.notaId, notaId)
+    assert.equal(log[0].detalhe.statusAnterior, 'Negada')
+    assert.equal(log[0].detalhe.motivoAnterior, 'Nota Gateway recusou a nota: GEN002')
   })
 })
 

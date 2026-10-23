@@ -47,19 +47,35 @@ export async function gravarEnvio(
     }).returning({ id: notasFiscaisSaida.id })
     return nova.id
   }
+  const mesmaLinha = and(
+    eq(notasFiscaisSaida.id, tentativa.notaId),
+    eq(notasFiscaisSaida.idExterno, tentativa.idExterno),
+    eq(notasFiscaisSaida.vendaId, v.vendaId),
+    eq(notasFiscaisSaida.grupoId, v.grupoId),
+    eq(notasFiscaisSaida.status, 'Negada'),
+  )
+  const [anterior] = await tx.select({ numero: notasFiscaisSaida.numero, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus })
+    .from(notasFiscaisSaida).where(mesmaLinha).limit(1)
+  if (!anterior) throw new Error('A nota recusada mudou enquanto o reenvio era preparado. Atualize a tela e tente de novo.')
+  // O UPDATE apaga o motivo: a recusa de antes do deploy, sem log, se perderia (#347).
+  try {
+    await registrarAcaoSensivel({
+      tipo: 'nf_emitida', usuarioId: v.emitidaPor, grupoId: v.grupoId,
+      detalhe: {
+        origem: 'mova', etapa: 'reenvio', notaId: tentativa.notaId, vendaId: v.vendaId, numeroVenda: v.vendaNumero, numeroNf: anterior.numero,
+        ambiente: v.ambiente, statusAnterior: anterior.status, motivoAnterior: anterior.motivoStatus,
+      },
+    }, tx)
+  } catch (e) {
+    console.error('[log-acoes] falha ao registrar o reenvio:', e instanceof Error ? e.message : e)
+  }
   const [reenvio] = await tx.update(notasFiscaisSaida)
     .set({
       status: 'Enviando', motivoStatus: null, payload: v.payload, emitidaPor: v.emitidaPor,
       chave: null, protocolo: null, linkDanfe: null, linkXml: null, dataAutorizacao: null,
       atualizadoEm: sql`now()` as unknown as Date,
     })
-    .where(and(
-      eq(notasFiscaisSaida.id, tentativa.notaId),
-      eq(notasFiscaisSaida.idExterno, tentativa.idExterno),
-      eq(notasFiscaisSaida.vendaId, v.vendaId),
-      eq(notasFiscaisSaida.grupoId, v.grupoId),
-      eq(notasFiscaisSaida.status, 'Negada'),
-    ))
+    .where(mesmaLinha)
     .returning({ id: notasFiscaisSaida.id })
   if (!reenvio) throw new Error('A nota recusada mudou enquanto o reenvio era preparado. Atualize a tela e tente de novo.')
   return reenvio.id
