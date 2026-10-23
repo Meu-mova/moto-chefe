@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type UsuarioNav } from './navegacao'
+import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = { entrada: false }
 
@@ -26,7 +27,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log',
-    'marketing', 'metas', 'modelos', 'montagens', 'notas-fiscais', 'ordens-servico',
+    'marketing', 'metas', 'modelos', 'montagens', 'notas-emitidas', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'usuarios', 'vendas', 'veiculos-historico',
@@ -37,7 +38,7 @@ test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
   assert.deepEqual(ids(AUX), [
     'agenda', 'atendimento', 'caixa', 'calendario', 'canais', 'clientes',
     'conciliacao', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas', 'meus-documentos',
-    'montagens', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
+    'montagens', 'notas-emitidas', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
     'radar', 'radar-fiscal', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas',
   ].sort())
@@ -162,4 +163,17 @@ test('Grupos e Lojas: só o admin_geral, nem com liberação individual (#306)',
   assert.equal(podeAcessar(ADMIN_GERAL, '/admin/lojas', SEM_REGRA_PROPRIA), true)
   const menu = itensDoMenu(ADMIN_GERAL, SEM_REGRA_PROPRIA).map(i => i.id)
   assert.ok(menu.includes('grupos') && menu.includes('lojas'), 'aparecem no menu do admin_geral')
+})
+
+test('Notas Emitidas: só quem emite NF de saída, nunca por liberação individual (#348)', () => {
+  for (const u of [ADMIN_GERAL, SOCIO, AUX]) assert.ok(podeAcessar(u, '/notas-emitidas', SEM_REGRA_PROPRIA), u.papel)
+  assert.ok(!podeAcessar(VENDEDOR, '/notas-emitidas', SEM_REGRA_PROPRIA))
+  assert.ok(!podeAcessar({ papel: 'vendedor', modulosExtras: ['notas-emitidas'] }, '/notas-emitidas', SEM_REGRA_PROPRIA))
+})
+
+test('Notas Emitidas abre para exatamente os papéis que operam NF de saída (#348)', () => {
+  const papeis: Papel[] = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+  for (const papel of papeis) {
+    assert.equal(podeAcessar({ papel }, '/notas-emitidas', SEM_REGRA_PROPRIA), podeOperarNfSaida(papel), papel)
+  }
 })
