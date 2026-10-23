@@ -11,7 +11,8 @@ import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
 import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
-import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, proximaTentativa, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
+import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
+import { escolherTentativa, gravarEnvio, registrarEnvio } from '@/lib/notagateway/tentativa'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
 import { podeOperarNfSaida } from './papeis-nf-saida'
 import { STATUS_MORTOS, cancelamentoConcluido, efeitoNaVenda, ehFinal, ehRecusada, emCancelamento, limiteCancelamento, MINUTOS_PARA_DESCARTAR, motivoDoStatus, normalizarContador, podeCancelarExtemporaneo, podeDescartarTentativa, situacaoCancelamento, travaDoCancelamentoDaVenda, type SituacaoCancelamento, type TravaDoCancelamento } from '@/lib/notagateway/status'
@@ -448,25 +449,34 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
       }
     }
 
-    const existentes = await db.select({ id: notasFiscaisSaida.idExterno }).from(notasFiscaisSaida)
-      .where(eq(notasFiscaisSaida.vendaId, e.venda.id))
-    let tentativa = proximaTentativa(existentes.map(x => x.id), e.venda.numero, e.cfg.ambiente)
-    // O id pode existir na API sem existir aqui (linha apagada, falha antes de
-    // gravar). Reusar um id da API devolveria a nota ANTIGA como se fosse nova.
-    while (await consultarNfe(e.cfg, idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente))) {
-      tentativa++
-      if (tentativa > 50) throw new Error('Não achei um número de controle livre para esta nota')
+    const escolha = await escolherTentativa(db, { vendaId: e.venda.id, grupoId: e.grupoId, numeroVenda: e.venda.numero, ambiente: e.cfg.ambiente })
+    if (escolha.notaId) {
+      // A recusa pode ter mudado na Nota Gateway depois da última consulta: só
+      // reenvia o mesmo id se lá ela ainda estiver recusada ou nem existir (4xx).
+      const naApi = await consultarNfe(e.cfg, escolha.idExterno)
+      if (naApi && !ehRecusada(naApi.status)) {
+        await aplicarRetorno(escolha.notaId, naApi, e.cfg.ambiente, e.venda.id, motoId)
+        return { ok: true, nota: await resumoDaNota(escolha.notaId) }
+      }
+    } else {
+      // O id pode existir na API sem existir aqui (linha apagada, falha antes de
+      // gravar). Reusar um id da API devolveria a nota ANTIGA como se fosse nova.
+      let tentativa = escolha.tentativa
+      while (await consultarNfe(e.cfg, idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente))) {
+        tentativa++
+        if (tentativa > 50) throw new Error('Não achei um número de controle livre para esta nota')
+      }
+      escolha.idExterno = idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente)
     }
-    const idExterno = idExternoNfe(e.venda.numero, tentativa, e.cfg.ambiente)
+    const idExterno = escolha.idExterno
 
     const uf = await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
 
-    const [nova] = await db.insert(notasFiscaisSaida).values({
-      vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, idExterno, ambiente: e.cfg.ambiente,
-      status: 'Enviando', payload, emitidaPor: usuario.id,
-    }).returning({ id: notasFiscaisSaida.id })
-    notaId = nova.id
+    notaId = await gravarEnvio(db, escolha, {
+      vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, ambiente: e.cfg.ambiente, payload, emitidaPor: usuario.id,
+    })
+    const envio = { usuarioId: usuario.id, grupoId: e.grupoId, vendaId: e.venda.id, numeroVenda: e.venda.numero, ambiente: e.cfg.ambiente }
 
     try {
       await enviarNfe(e.cfg, payload)
@@ -479,7 +489,9 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
         await db.update(notasFiscaisSaida)
           .set({ status: 'Negada', motivoStatus: msg, atualizadoEm: sql`now()` as unknown as Date })
           .where(eq(notasFiscaisSaida.id, notaId))
-        return { ok: false, error: msg, nota: await resumoDaNota(notaId) }
+        const recusada = await resumoDaNota(notaId)
+        await registrarEnvioSemFalhar(envio, recusada)
+        return { ok: false, error: msg, nota: recusada }
       }
       throw err
     }
@@ -492,11 +504,8 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
     if (n) await aplicarRetorno(notaId, n, e.cfg.ambiente, e.venda.id, motoId)
 
     const nota = await resumoDaNota(notaId)
-    // Só a nota que a Nota Gateway aceitou; recusa da SEFAZ também entra, com o status.
-    await registrarAcaoSensivelSemFalhar({
-      tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: e.grupoId,
-      detalhe: { origem: 'mova', notaId, vendaId: e.venda.id, numeroVenda: e.venda.numero, numeroNf: nota.numero, ambiente: e.cfg.ambiente, status: nota.status },
-    })
+    // Um registro por envio, com o motivo da recusa (#347).
+    await registrarEnvioSemFalhar(envio, nota)
     if (ehRecusada(nota.status)) {
       return { ok: false, error: `A SEFAZ não autorizou: ${nota.motivoStatus ?? 'sem motivo informado'}`, nota }
     }
@@ -504,6 +513,15 @@ export async function transmitirNfePropriaAction(motoId: string): Promise<Result
   } catch (err) {
     const nota = notaId ? await resumoDaNota(notaId).catch(() => undefined) : undefined
     return { ok: false, error: (err as Error).message, nota }
+  }
+}
+
+/** Erro no log não desfaz a resposta da emissão. */
+async function registrarEnvioSemFalhar(envio: Parameters<typeof registrarEnvio>[1], nota: Parameters<typeof registrarEnvio>[2]) {
+  try {
+    await registrarEnvio(db, envio, nota)
+  } catch (e) {
+    console.error('[log-acoes] falha ao registrar nf_emitida:', e instanceof Error ? e.message : e)
   }
 }
 

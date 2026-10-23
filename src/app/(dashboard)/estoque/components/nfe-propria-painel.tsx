@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
+import { codigoRecusa, ehDenegada, ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -423,17 +423,41 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
     )
   }
 
+  const numero = nota.numero ? ` nº ${nota.numero}` : ''
+  const motivo = nota.motivoStatus ?? r.erro ?? 'Sem motivo informado.'
+
+  if (ehDenegada(nota)) {
+    // O número fica registrado na SEFAZ: não se reenvia nem se cancela (#347).
+    const doEmitente = codigoRecusa(nota.motivoStatus) === 301
+    return (
+      <div className="space-y-4 py-2">
+        <div className="border-l-4 border-l-destructive pl-3">
+          <p className="text-lg font-semibold">A SEFAZ denegou a nota{numero}</p>
+          <p className="whitespace-pre-line text-sm text-muted-foreground">{motivo}</p>
+        </div>
+        <p className="text-sm">
+          {doEmitente
+            ? 'A Inscrição Estadual da empresa está irregular na SEFAZ (suspensa, baixada, cancelada…). Consulte no SINTEGRA ou no Cadastro Centralizado de Contribuintes e regularize com a SEFAZ.'
+            : 'A Inscrição Estadual do comprador está irregular na SEFAZ (suspensa, baixada, cancelada…). Consulte no SINTEGRA ou no Cadastro Centralizado de Contribuintes e peça ao comprador que regularize com a SEFAZ.'}
+          {' '}Esta nota fica registrada como denegada e a próxima sai com número novo.
+        </p>
+        <Button onClick={onTentarDeNovo} className="h-11 w-full">Emitir com número novo</Button>
+        <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 py-2">
       <div className="border-l-4 border-l-destructive pl-3">
-        <p className="text-lg font-semibold">A SEFAZ recusou a nota</p>
-        <p className="whitespace-pre-line text-sm text-muted-foreground">{nota.motivoStatus ?? r.erro ?? 'Sem motivo informado.'}</p>
+        <p className="text-lg font-semibold">A SEFAZ recusou a nota{numero}</p>
+        <p className="whitespace-pre-line text-sm text-muted-foreground">{motivo}</p>
       </div>
       <p className="text-sm">
-        Nada foi faturado. Corrija o que a SEFAZ apontou (em geral, dados do cliente na venda) e tente de novo —
-        a nova tentativa usa um número de controle novo.
+        Nada foi faturado. Corrija o que a SEFAZ apontou (em geral, dados do cliente na venda) e reenvie: a nota
+        sai de novo com o mesmo número.
       </p>
-      <Button onClick={onTentarDeNovo} className="h-11 w-full">Tentar de novo</Button>
+      <Button onClick={onTentarDeNovo} className="h-11 w-full">Reenviar{numero}</Button>
       <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
     </div>
   )

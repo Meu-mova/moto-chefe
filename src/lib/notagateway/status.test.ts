@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, codigoRecusa, ehDenegada, ehDuplicidade, reenviaMesmoNumero, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -252,5 +252,38 @@ test('o contador é guardado como foi digitado, sem os espaços das pontas', () 
 test('contador vazio é recusado', () => {
   for (const bruto of ['', '   ']) {
     assert.equal(normalizarContador(bruto).ok, false, JSON.stringify(bruto))
+  }
+})
+
+test('codigoRecusa lê o número do início do motivo, com qualquer separador (#347)', () => {
+  assert.equal(codigoRecusa('301 - Uso Denegado: Irregularidade fiscal do emitente'), 301)
+  assert.equal(codigoRecusa('539: Duplicidade de NF-e'), 539)
+  assert.equal(codigoRecusa('  225 Falha no Schema'), 225)
+  assert.equal(codigoRecusa('Nota Gateway recusou a nota: GEN002'), null)
+  assert.equal(codigoRecusa(null), null)
+})
+
+test('denegada é a Negada com motivo 301, 302 ou 303; a API não devolve "Denegada" (#347)', () => {
+  for (const motivo of ['301 - Uso Denegado: Irregularidade fiscal do emitente', '302 - Uso Denegado', '303-Uso Denegado']) {
+    assert.equal(ehDenegada({ status: 'Negada', motivoStatus: motivo }), true, motivo)
+  }
+  assert.equal(ehDenegada({ status: 'Negada', motivoStatus: '539 - Duplicidade de NF-e' }), false)
+  assert.equal(ehDenegada({ status: 'Negada', motivoStatus: '3010 - outro' }), false)
+  assert.equal(ehDenegada({ status: 'Autorizada', motivoStatus: '301 - Uso Denegado' }), false)
+})
+
+test('539 é a duplicidade de número (#347)', () => {
+  assert.equal(ehDuplicidade({ status: 'Negada', motivoStatus: '539 - Rejeição: Duplicidade de NF-e' }), true)
+  assert.equal(ehDuplicidade({ status: 'Negada', motivoStatus: '225 - Falha no Schema' }), false)
+})
+
+test('reenvia com o mesmo número a recusa comum, a 539 e o erro da Nota Gateway; a denegada não (#347)', () => {
+  assert.equal(reenviaMesmoNumero({ status: 'Negada', motivoStatus: '225 - Rejeição: Falha no Schema XML' }), true)
+  assert.equal(reenviaMesmoNumero({ status: 'Negada', motivoStatus: '539 - Duplicidade de NF-e' }), true)
+  assert.equal(reenviaMesmoNumero({ status: 'Negada', motivoStatus: 'Nota Gateway recusou a nota: GEN002' }), true)
+  assert.equal(reenviaMesmoNumero({ status: 'Negada', motivoStatus: null }), true)
+  assert.equal(reenviaMesmoNumero({ status: 'Negada', motivoStatus: '301 - Uso Denegado' }), false)
+  for (const status of ['Autorizada', 'Cancelada', 'Descartada', 'Enviando']) {
+    assert.equal(reenviaMesmoNumero({ status, motivoStatus: null }), false, status)
   }
 })
