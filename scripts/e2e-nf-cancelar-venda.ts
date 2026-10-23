@@ -10,6 +10,7 @@
  * Recusa fora do staging. Grava venda, moto e NFs sintéticas marcadas com E2E347 e
  * apaga tudo no fim. --ver abre o navegador visível e devagar.
  */
+import { mkdir } from 'node:fs/promises'
 import { chromium, type Page } from 'playwright'
 import { sql } from 'drizzle-orm'
 import { db, execRows } from '@/lib/db'
@@ -66,10 +67,15 @@ async function entrar(pagina: Page) {
   ])
 }
 
-/** Abre o "Cancelar venda" da venda pela busca de chassi e devolve o diálogo. */
+/**
+ * Abre o "Cancelar venda" pela busca de chassi: no desktop as ações ficam no painel
+ * lateral da venda, aberto por "Abrir venda #N", e o botão ali se chama "Cancelar".
+ */
 async function abrirCancelamento(pagina: Page, v: Venda) {
   await pagina.goto(`${base}/vendas?q=${v.chassi}`, { waitUntil: 'networkidle' })
-  await pagina.getByTitle('Cancelar Venda').first().click()
+  await pagina.getByRole('button', { name: `Abrir venda #${v.numero}`, exact: true }).locator('visible=true').click()
+  const painel = pagina.getByRole('complementary', { name: `Venda #${v.numero}`, exact: true })
+  await painel.getByRole('button', { name: 'Cancelar', exact: true }).click()
   const dialogo = pagina.getByRole('dialog')
   await dialogo.waitFor()
   return dialogo
@@ -137,6 +143,15 @@ async function main() {
     confere(recusou, 'mostra a orientação do ADR-0014 (cancelar a NF antes)')
     confere(await d2.getByRole('button', { name: 'Cancelar venda' }).count() === 0, 'sem o botão de confirmar')
     confere(await vendaExiste(viva.id), 'a venda continua no banco')
+  } catch (e) {
+    falhas++
+    console.error(e instanceof Error ? e.message : e)
+    const pagina = navegador.contexts()[0]?.pages()[0]
+    if (pagina) {
+      const arquivo = `/tmp/e2e-347/falha-${Date.now()}.png`
+      await mkdir('/tmp/e2e-347', { recursive: true })
+      await pagina.screenshot({ path: arquivo, fullPage: true }).then(() => console.error(`Tela no momento: ${arquivo}`), () => null)
+    }
   } finally {
     await navegador.close()
     await limpar().catch(e => { falhas++; console.error(`Limpeza falhou: ${(e as Error).message}`) })
