@@ -76,7 +76,7 @@ export default async function NotasEmitidasPage({
   if (!usuarioPodeAcessar(usuario, '/notas-emitidas')) redirect('/dashboard')
 
   const params = await searchParams
-  const filtro: Filtro = params.status && params.status in TITULO ? (params.status as Filtro) : 'ativas'
+  const filtro: Filtro = params.status && Object.hasOwn(TITULO, params.status) ? (params.status as Filtro) : 'ativas'
   const ambiente = params.ambiente === 'Homologacao' ? 'Homologacao' : 'Producao'
   const periodo = periodoEmissao(params)
   const grupo = await grupoAtivoDaRequisicao(usuario)
@@ -111,7 +111,7 @@ export default async function NotasEmitidasPage({
           return (
             // Clicar no indicador ativo volta para "Emitidas".
             <Link key={i.categoria} href={href(ativo ? 'ativas' : i.categoria)} aria-current={ativo ? 'page' : undefined}
-              className={`flex items-center justify-between border-b border-border px-4 py-3 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-5 sm:py-4 sm:last:border-r-0 ${ativo ? 'bg-primary-soft shadow-[inset_0_-3px_0_var(--primary)]' : 'hover:bg-muted'}`}>
+              className={`flex items-center justify-between border-b border-border px-4 py-3 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-5 sm:py-4 sm:last:border-r-0 ${ativo ? 'bg-primary-soft ring-2 ring-inset ring-primary' : 'hover:bg-muted'}`}>
               <span className="block">
                 <span className="block text-xs font-medium text-muted-foreground">{i.rotulo}</span>
                 {i.dica && <span className="block text-xs text-muted-foreground sm:order-last">{i.dica}</span>}
