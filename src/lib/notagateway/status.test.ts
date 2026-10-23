@@ -267,6 +267,8 @@ test('denegada é a Negada com motivo 301, 302 ou 303; a API não devolve "Deneg
   for (const motivo of ['301 - Uso Denegado: Irregularidade fiscal do emitente', '302 - Uso Denegado', '303-Uso Denegado']) {
     assert.equal(ehDenegada({ status: 'Negada', motivoStatus: motivo }), true, motivo)
   }
+  assert.equal(ehDenegada({ status: 'Denegada', motivoStatus: null }), true, 'status literal, se a API passar a devolvê-lo')
+  assert.equal(reenviaMesmoNumero({ status: 'Denegada', motivoStatus: 'sem código' }), false)
   assert.equal(ehDenegada({ status: 'Negada', motivoStatus: '539 - Duplicidade de NF-e' }), false)
   assert.equal(ehDenegada({ status: 'Negada', motivoStatus: '3010 - outro' }), false)
   assert.equal(ehDenegada({ status: 'Autorizada', motivoStatus: '301 - Uso Denegado' }), false)

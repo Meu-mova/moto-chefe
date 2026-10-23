@@ -51,6 +51,7 @@ type NotaComMotivo = { status: string; motivoStatus: string | null }
  * registrado na SEFAZ e não volta a ser usado.
  */
 export function ehDenegada(n: NotaComMotivo): boolean {
+  if (n.status === 'Denegada') return true
   if (!ehRecusada(n.status)) return false
   const codigo = codigoRecusa(n.motivoStatus)
   return codigo === 301 || codigo === 302 || codigo === 303
