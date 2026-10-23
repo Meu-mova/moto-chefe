@@ -27,6 +27,7 @@ import { chromium, type Page } from 'playwright'
 import { sql } from 'drizzle-orm'
 import { db, execRows } from '@/lib/db'
 import { cancelarNfe, configNotaGateway, consultarNfe } from '@/lib/notagateway/client'
+import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { motivoRecusaForaDoStaging } from './lib/alvo-banco'
 import { motivoRecusa } from './lib/e2e-mensalidade'
 import { DOMINIO_TESTE } from './lib/seed-dados'
@@ -248,8 +249,8 @@ async function denegadaNumeroNovo(pagina: Page, c: Ctx) {
 
 /**
  * Cancela na Nota Gateway (homologação) as notas autorizadas do teste e marca a linha
- * como Cancelada. A limpeza não apaga nota ainda Autorizada: se o cancelamento falhar
- * (ou nem rodar), ela fica no banco em vez de órfã na Nota Gateway.
+ * como Cancelada. A limpeza só apaga nota morta (STATUS_MORTOS): a viva na Nota Gateway
+ * (autorizada sem cancelar, em envio ou em cancelamento) fica no banco em vez de órfã.
  */
 async function cancelarAutorizadas(c: Ctx): Promise<string[]> {
   const naoCanceladas: string[] = []
@@ -282,7 +283,7 @@ async function limpar() {
   const motos = sql`(select id from motos where chassi like ${MARCA + '%'})`
   const notas = sql`(select id from notas_fiscais_saida
     where (id_externo like ${MARCA + '-%'} or venda_id in (select id from vendas where moto_id in ${motos}))
-      and status <> 'Autorizada')`
+      and status in ${STATUS_MORTOS})`
   const contagem = (await execRows(sql`select
     (select count(*) from notas_fiscais_saida where id in ${notas})::int as notas,
     (select count(*) from motos_fiscal where moto_id in ${motos})::int as fichas,
