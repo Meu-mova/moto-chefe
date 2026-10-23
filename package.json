@@ -18,7 +18,8 @@
     "test:db": "node --import tsx --test src/lib/queries/notas-emitidas.db.test.ts src/lib/notagateway/nf-saida-cancelar-venda.db.test.ts src/lib/notagateway/nf-saida-reenvio.db.test.ts src/lib/notagateway/nf-saida-correcao.db.test.ts src/lib/usuarios-gerenciaveis.db.test.ts src/lib/pedido-venda.db.test.ts src/lib/mensalidade/bloqueio.db.test.ts src/lib/mensalidade/baixa.db.test.ts src/lib/editar-venda-peca.db.test.ts src/lib/acesso-registro.db.test.ts src/lib/usuarios-do-grupo.db.test.ts src/lib/conta.db.test.ts src/lib/modelos-da-conta.db.test.ts src/lib/dados-funcionarios.db.test.ts src/lib/ativacao-cliente.db.test.ts src/lib/ativacao-usuarios.db.test.ts src/lib/log-acoes.db.test.ts src/lib/queries/conciliacao-pendentes.db.test.ts src/lib/queries/dashboard-fuso.db.test.ts src/lib/queries/showroom.db.test.ts src/lib/queries/radar.db.test.ts src/lib/busca-chassi.db.test.ts src/lib/queries/garantias.db.test.ts src/lib/queries/marketing-funis.db.test.ts src/lib/vinculos-da-conta.db.test.ts",
     "e2e:mensalidade": "node --import tsx scripts/e2e-mensalidade.ts",
     "e2e:isolamento": "node --import tsx scripts/e2e-isolamento.ts",
-    "e2e:notas-emitidas": "node --import tsx scripts/e2e-notas-emitidas.ts"
+    "e2e:notas-emitidas": "node --import tsx scripts/e2e-notas-emitidas.ts",
+    "e2e:xlsx": "node --import tsx scripts/e2e-xlsx.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
@@ -52,6 +53,7 @@
     "tailwind-merge": "^3.7.0",
     "tw-animate-css": "^1.4.0",
     "unpdf": "^1.9.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -71,7 +73,6 @@
     "shadcn": "^4.22.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5",
-    "xlsx": "^0.18.5"
+    "typescript": "^5"
   }
 }
