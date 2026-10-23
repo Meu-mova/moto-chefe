@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type UsuarioNav } from './navegacao'
+import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = { entrada: false }
 
@@ -168,4 +169,11 @@ test('Notas Emitidas: só quem emite NF de saída, nunca por liberação individ
   for (const u of [ADMIN_GERAL, SOCIO, AUX]) assert.ok(podeAcessar(u, '/notas-emitidas', SEM_REGRA_PROPRIA), u.papel)
   assert.ok(!podeAcessar(VENDEDOR, '/notas-emitidas', SEM_REGRA_PROPRIA))
   assert.ok(!podeAcessar({ papel: 'vendedor', modulosExtras: ['notas-emitidas'] }, '/notas-emitidas', SEM_REGRA_PROPRIA))
+})
+
+test('Notas Emitidas abre para exatamente os papéis que operam NF de saída (#348)', () => {
+  const papeis: Papel[] = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+  for (const papel of papeis) {
+    assert.equal(podeAcessar({ papel }, '/notas-emitidas', SEM_REGRA_PROPRIA), podeOperarNfSaida(papel), papel)
+  }
 })

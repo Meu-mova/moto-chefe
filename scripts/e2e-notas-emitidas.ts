@@ -126,6 +126,15 @@ async function contadores(pagina: Page) {
 
 const tabela = (pagina: Page) => pagina.locator('table').innerText()
 
+// O sidebar só põe no DOM os itens de categoria aberta (sidebar.tsx), e no /dashboard a Comercial
+// começa fechada: abre a categoria antes de procurar. "Clientes" prova que ela abriu de fato.
+async function itensDaComercial(pagina: Page) {
+  const botao = pagina.locator("aside button[aria-expanded]", { hasText: "Comercial" }).first()
+  if ((await botao.getAttribute("aria-expanded")) !== "true") await botao.click()
+  await pagina.locator("aside a[href=\"/clientes\"]").first().waitFor({ timeout: 10_000 })
+  return pagina.locator("aside a[href=\"/notas-emitidas\"]").count()
+}
+
 async function main() {
   const A = await grupoPorNome(GRUPO_A)
   const B = await grupoPorNome(GRUPO_B)
@@ -163,13 +172,13 @@ async function main() {
     for (const [nome, grupo] of [['aux.sul', undefined], ['socio.sul', undefined], ['geral', A.id]] as const) {
       const p = await entrar(navegador, USUARIO(nome), grupo)
       await abrir(p, '/dashboard')
-      confere(await p.locator('a[href="/notas-emitidas"]').count() > 0, `${nome} vê o item no menu`)
+      confere(await itensDaComercial(p) > 0, `${nome} vê o item no menu`)
       await p.context().close()
     }
     {
       const p = await entrar(navegador, USUARIO('vendedor.sul'))
       await abrir(p, '/dashboard')
-      confere(await p.locator('a[href="/notas-emitidas"]').count() === 0, 'vendedor não vê o item no menu')
+      confere(await itensDaComercial(p) === 0, 'vendedor não vê o item no menu')
       await abrir(p, '/notas-emitidas')
       confere(new URL(p.url()).pathname === '/dashboard', 'vendedor pelo endereço volta ao dashboard', p.url())
       await p.context().close()
@@ -231,8 +240,9 @@ async function main() {
     const url = new URL(aux.url())
     const diaVenda = hojeBrt(new Date(va1.data_venda))
     confere(url.searchParams.get('q') === va1.chassi && url.searchParams.get('de') === diaVenda, 'link da venda abre /vendas?q=<chassi>&de=<dia>', url.search)
-    await aux.waitForLoadState('networkidle')
-    confere((await aux.locator('body').innerText()).includes(va1.chassi), 'Vendas mostra a venda da nota')
+    // Navegação pelo cliente: o networkidle pode passar ainda no loading; espera a linha da venda.
+    const achou = await aux.locator("table tbody tr", { hasText: va1.chassi }).first().waitFor({ timeout: 15_000 }).then(() => true, () => false)
+    confere(achou, "Vendas mostra a venda da nota", aux.url())
     await aux.context().close()
 
     console.log('\n▶ Celular')
