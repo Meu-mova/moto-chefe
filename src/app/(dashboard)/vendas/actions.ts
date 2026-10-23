@@ -25,6 +25,7 @@ import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
+import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
@@ -1008,15 +1009,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
 
   const notaVivaNoMeio = await db.transaction(async (tx) => {
     // Uma emissão na mesma hora gravaria a nota e iria à SEFAZ, e o DELETE da
-    // venda a apagaria junto (CASCADE). Com a linha da venda travada, a emissão
+    // venda a deixaria órfã e viva. Com a linha da venda travada, a emissão
     // espera e falha na chave; a que chegou antes aparece na conferência abaixo.
     const [travada] = await tx.select({ notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
     // Um "Confirmar NF" entre a conferência e aqui também trava o aux_adm (#191).
     if (travada && travaDoPapel(usuario.papel, travada.notaFiscalSaida)) return true
-    const [viva] = await tx.select({ id: notasFiscaisSaida.id }).from(notasFiscaisSaida)
-      .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.ambiente, 'Producao'), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
-      .limit(1)
-    if (viva) return true
+    if (await vendaTemNfViva(tx, vendaId)) return true
 
     // Reverter moto para montada/disponível
     await tx.update(motos)

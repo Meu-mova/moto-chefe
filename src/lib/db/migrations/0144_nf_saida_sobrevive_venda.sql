@@ -1,0 +1,21 @@
+-- #347: cancelar a venda apagava as NFs de saída dela (ON DELETE CASCADE),
+-- inclusive negadas e canceladas, que a contabilidade precisa. A NF passa a
+-- sobreviver com venda_id nulo e guarda o número da venda.
+-- O nome da FK vem do catálogo: drop com nome errado não falha nem avisa.
+DO $$
+DECLARE fk text;
+BEGIN
+  SELECT c.conname INTO STRICT fk
+    FROM pg_constraint c
+    JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+   WHERE c.conrelid = 'notas_fiscais_saida'::regclass AND c.contype = 'f' AND a.attname = 'venda_id';
+  EXECUTE format('ALTER TABLE notas_fiscais_saida DROP CONSTRAINT %I', fk);
+END $$;
+
+ALTER TABLE notas_fiscais_saida ALTER COLUMN venda_id DROP NOT NULL;
+ALTER TABLE notas_fiscais_saida
+  ADD CONSTRAINT notas_fiscais_saida_venda_id_fkey FOREIGN KEY (venda_id) REFERENCES vendas(id) ON DELETE SET NULL;
+
+ALTER TABLE notas_fiscais_saida ADD COLUMN venda_numero integer;
+UPDATE notas_fiscais_saida n SET venda_numero = v.numero FROM vendas v WHERE v.id = n.venda_id;
+ALTER TABLE notas_fiscais_saida ALTER COLUMN venda_numero SET NOT NULL;
