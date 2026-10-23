@@ -10,7 +10,7 @@ import { NfSaidaCard } from './nf-saida-card'
 import { NfeRecusa } from './nfe-recusa'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
-  previsualizarNfePropriaAction, transmitirNfePropriaAction, salvarCorrecaoNfAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
+  previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
 } from '../../vendas/nfe-propria-actions'
 
@@ -61,7 +61,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [cestEdicao, setCestEdicao] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
-  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [erroCorrecao, setErroCorrecao] = useState<string | null>(null)
 
   function carregar(abrirRecusa: boolean) {
     setErro('')
@@ -138,26 +138,14 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     setPrevia(p => p && { ...p, notas: p.notas.map(n => (n.id === nota.id ? nota : n)) })
   }
 
-  function salvarCorrecao(c: CorrecaoNf) {
-    setAviso(null)
-    startTransition(async () => {
-      const r = await salvarCorrecaoNfAction(motoId, c)
-      if (!r.ok) { setAviso({ ok: false, texto: r.error }); return }
-      // A prévia guarda os valores do cadastro: recarrega sem sair da tela da recusa.
-      const p = await previsualizarNfePropriaAction(motoId)
-      if (p.ok) setPrevia(p)
-      setAviso({ ok: true, texto: 'Correção salva na venda. Reenvie quando quiser.' })
-    })
-  }
-
   function salvarEReenviar(c: CorrecaoNf) {
-    setAviso(null)
+    setErroCorrecao(null)
     setTransmitindo(true)
     startTransition(async () => {
       const r = await corrigirEReenviarNfAction(motoId, c)
       setTransmitindo(false)
       if (r.nota) setResultado({ nota: r.nota, erro: r.ok ? undefined : r.error })
-      else if (!r.ok) setAviso({ ok: false, texto: r.error })
+      else if (!r.ok) setErroCorrecao(r.error)
     })
   }
 
@@ -197,9 +185,9 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   if (resultado) {
     return (
       <Resultado
-        r={resultado} teste={teste} previa={previa} aviso={aviso} pending={pending}
+        r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
         onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo}
-        onSalvarCorrecao={salvarCorrecao} onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
+        onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
       />
     )
   }
@@ -405,12 +393,11 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
   )
 }
 
-function Resultado({ r, teste, previa, aviso, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarCorrecao, onSalvarEReenviar, onVoltar }: {
+function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   previa: Previa | null
-  aviso: { ok: boolean; texto: string } | null
-  onSalvarCorrecao: (c: CorrecaoNf) => void
+  erroCorrecao: string | null
   onSalvarEReenviar: (c: CorrecaoNf) => void
   pending: boolean
   onReconsultar: (id: string) => void
@@ -469,8 +456,8 @@ function Resultado({ r, teste, previa, aviso, pending, onReconsultar, onAtualiza
     <NfeRecusa
       // Recusa nova depois do reenvio: os campos partem do cadastro de novo.
       key={`${nota.id}-${nota.motivoStatus}`}
-      nota={nota} previa={previa!} pending={pending} aviso={aviso}
-      onSalvar={onSalvarCorrecao} onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
+      nota={nota} previa={previa!} pending={pending} erro={erroCorrecao}
+      onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
     />
   )
 }

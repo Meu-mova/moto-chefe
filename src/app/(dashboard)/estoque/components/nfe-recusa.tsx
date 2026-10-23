@@ -18,9 +18,8 @@ type Props = {
   nota: NotaResumo
   previa: Previa
   pending: boolean
-  /** Mensagem do último "Só salvar", ou o erro dele. */
-  aviso: { ok: boolean; texto: string } | null
-  onSalvar: (c: CorrecaoNf) => void
+  /** Erro da última correção (o envio em si volta como outro resultado). */
+  erro: string | null
   onSalvarEReenviar: (c: CorrecaoNf) => void
   /** Volta à conferência para emitir de novo, sem correção aqui. */
   onEmitirDeNovo: () => void
@@ -32,7 +31,7 @@ type Props = {
  * "E o número N?", "O que fazer" quando couber, e o código só em "Detalhes técnicos".
  * A correção grava no cadastro de origem e a nota é remontada dele.
  */
-export function NfeRecusa({ nota, previa, pending, aviso, onSalvar, onSalvarEReenviar, onEmitirDeNovo, onVoltar }: Props) {
+export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEmitirDeNovo, onVoltar }: Props) {
   const tela = telaDaRecusa(nota)
   const bloqueada = tela.tipo === 'denegada_cliente' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada'
   const n = nota.numero
@@ -133,11 +132,7 @@ export function NfeRecusa({ nota, previa, pending, aviso, onSalvar, onSalvarERee
         </div>
       )}
 
-      {aviso && (
-        <p role="status" className={cn('border-l-2 pl-3 text-sm', aviso.ok ? 'border-l-primary text-primary-text' : 'border-l-destructive text-destructive')}>
-          {aviso.texto}
-        </p>
-      )}
+      {erro && <p role="alert" className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
 
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Detalhes técnicos</summary>
@@ -148,19 +143,13 @@ export function NfeRecusa({ nota, previa, pending, aviso, onSalvar, onSalvarERee
         {tela.tipo === 'corrigir' && (
           <>
             <Button onClick={() => onSalvarEReenviar(correcao())} disabled={pending} className="h-11 w-full">Salvar e reenviar{n ? ` nº ${n}` : ''}</Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => onSalvar(correcao())} disabled={pending} className="h-11">Só salvar</Button>
-              <Button variant="outline" onClick={onVoltar} className="h-11">Fechar</Button>
-            </div>
+            <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
           </>
         )}
         {tela.tipo === 'denegada_cliente' && (
           <>
             <Button onClick={() => onSalvarEReenviar(correcaoIe())} disabled={pending || !ie.indicador} className="h-11 w-full">Salvar e emitir a nova nota</Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => onSalvar(correcaoIe())} disabled={pending || !ie.indicador} className="h-11">Só salvar</Button>
-              <Button variant="outline" onClick={onVoltar} className="h-11">Fechar</Button>
-            </div>
+            <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
           </>
         )}
         {(tela.tipo === 'empresa' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada') && (
