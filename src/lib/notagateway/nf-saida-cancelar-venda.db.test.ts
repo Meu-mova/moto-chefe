@@ -101,12 +101,16 @@ test('NF viva em produção trava o cancelamento só da própria venda (#347, AD
   })
 })
 
-test('NF de saída sem o número da venda não grava (#347)', async () => {
+test('NF gravada sem o número da venda (código anterior à 0144) recebe o da venda; sem venda, não grava (#347)', async () => {
   await emTransacaoDesfeita(async tx => {
     const conta = await semearConta(tx, 'N', '00000000034704')
     const venda = await semearVenda(tx, conta, 'NF347SEMNUM')
-    await assert.rejects(tx.execute(sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, payload)
-      values (${venda.id}, ${conta.grupoId}, 'NF347-SEM', 'Producao', '{}'::jsonb)`),
+    const [nota] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, payload)
+      values (${venda.id}, ${conta.grupoId}, 'NF347-SEM', 'Producao', '{}'::jsonb) returning venda_numero`)
+    assert.equal(nota.venda_numero, venda.numero)
+
+    await assert.rejects(tx.execute(sql`insert into notas_fiscais_saida (grupo_id, id_externo, ambiente, payload)
+      values (${conta.grupoId}, 'NF347-SEMVENDA', 'Producao', '{}'::jsonb)`),
       (err: Error & { cause?: { column?: string } }) => err.cause?.column === 'venda_numero')
   })
 })
