@@ -21,6 +21,10 @@ import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
+import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
+
+// Mesma lista de admin/notas-fiscais/actions.ts.
+const PAPEIS_CONFIG_FISCAL = ['admin_geral', 'admin_socio']
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -77,6 +81,10 @@ export type PreviaNfe =
         interestadual: boolean
       } | null
       notas: NotaResumo[]
+      /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
+      correcao: Required<CorrecaoNf>
+      /** Só Admin Geral e Sócio gravam a configuração fiscal do grupo. */
+      podeConfigurarFiscal: boolean
     }
 
 const numOuNulo = (v: string | null) => (v == null ? null : v)
@@ -227,7 +235,8 @@ const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, 
 
 export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
   try {
-    const e = await montarEmissao(motoId, await exigirPapel())
+    const usuario = await exigirPapel()
+    const e = await montarEmissao(motoId, usuario)
     const notas = await notasDaVenda(e.venda.id)
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
@@ -282,6 +291,17 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       sugestao: e.sugestao,
       resumo,
       notas,
+      correcao: {
+        comprador: {
+          clienteNome: e.venda.clienteNome, clienteCpf: e.venda.clienteCpf,
+          clienteCep: e.venda.clienteCep, clienteLogradouro: e.venda.clienteLogradouro, clienteNumero: e.venda.clienteNumero,
+          clienteComplemento: e.venda.clienteComplemento, clienteBairro: e.venda.clienteBairro,
+          clienteCidade: e.venda.clienteCidade, clienteEstado: e.venda.clienteEstado,
+          clienteIndicadorIe: e.venda.clienteIndicadorIe, clienteInscricaoEstadual: e.venda.clienteInscricaoEstadual,
+        },
+        moto: { ncm: e.ficha?.ncm ?? '', cest: e.ficha?.cest ?? '' },
+      },
+      podeConfigurarFiscal: PAPEIS_CONFIG_FISCAL.includes(usuario.papel),
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -333,6 +353,26 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
+}
+
+/** Grava a correção da nota recusada no cadastro de origem, sem reenviar (#347). */
+export async function salvarCorrecaoNfAction(motoId: string, correcao: CorrecaoNf): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const usuario = await exigirPapel('corrigir')
+    const e = await montarEmissao(motoId, usuario)
+    await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
+    revalidatePath('/vendas')
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** "Salvar e reenviar nº N": a nota é remontada do cadastro corrigido e sai com o mesmo número. */
+export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf): Promise<ResultadoTransmissao> {
+  const salvo = await salvarCorrecaoNfAction(motoId, correcao)
+  if (!salvo.ok) return salvo
+  return transmitirNfePropriaAction(motoId)
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
