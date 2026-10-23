@@ -285,7 +285,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
             <footer className="shrink-0 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <NfSaidaButton
                 motoId={v.motoId}
-                descricao={`${v.modelo} — ${v.chassi}`}
+                descricao={`${v.modelo} · ${v.chassi}`}
                 gatilho={abrir => (
                   <button type="button" onClick={abrir} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary-hover">
                     <FileText className="size-4" /> Emitir NF de saída
