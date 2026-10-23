@@ -35,7 +35,9 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
   const tela = telaDaRecusa(nota)
   const bloqueada = tela.tipo === 'denegada_cliente' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada'
   const n = nota.numero
-  const porque = fraseDaRecusa(nota.motivoStatus) ?? nota.motivoStatus ?? 'A SEFAZ não informou o motivo.'
+  const porque = tela.tipo === 'duplicidade' && n
+    ? `O número ${n} já foi usado em outra nota da empresa (em geral, uma nota emitida fora do MOVA, como no Bling).`
+    : fraseDaRecusa(nota.motivoStatus) ?? nota.motivoStatus ?? 'A SEFAZ não informou o motivo.'
 
   const [comprador, setComprador] = useState<Comprador>(() => ({ ...previa.correcao.comprador }))
   const [moto, setMoto] = useState(previa.correcao.moto)
@@ -75,6 +77,8 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
             <b>E o número {n}?</b>{' '}
             {bloqueada
               ? 'Fica bloqueado e não volta. A nova nota sai com outro número. Isso é normal.'
+              : tela.tipo === 'duplicidade'
+                ? 'A numeração precisa ser acertada na Nota Gateway. Enquanto isso não acontece, reenviar volta com esta mesma recusa.'
               : tela.tipo === 'corrigir'
                 ? `Continua o mesmo. Corrija abaixo e reenvie: a nota sai de novo com o nº ${n}.`
                 : `Continua o mesmo. Depois da correção, a nota sai de novo com o nº ${n}.`}
@@ -114,6 +118,25 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
 
       {tela.tipo === 'empresa' && <OQueFazerEmpresa podeConfigurar={previa.podeConfigurarFiscal} />}
 
+      {tela.tipo === 'duplicidade' && (
+        // Sem número sugerido: o MOVA não vê as notas emitidas fora dele (Bling), e
+        // "maior número nosso + 1" poderia repetir a recusa.
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">O que fazer</p>
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
+            {previa.podeConfigurarFiscal ? (
+              <>
+                <li>Peça à Nota Gateway para limpar a numeração, informando o próximo número correto: o seguinte ao da última nota emitida pela empresa, somando as do MOVA e as do Bling.</li>
+                <li>Confira o próximo número no cadastro da empresa, no painel da Nota Gateway.</li>
+              </>
+            ) : (
+              <li>Peça a um Admin Geral ou Sócio para acertar a numeração com a Nota Gateway.</li>
+            )}
+            <li>Depois, volte aqui e reenvie.</li>
+          </ol>
+        </div>
+      )}
+
       {tela.tipo === 'denegada_cliente' && (
         <IeDoCliente comprador={comprador} ie={ie} onChange={setIe} />
       )}
@@ -152,10 +175,10 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
             <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
           </>
         )}
-        {(tela.tipo === 'empresa' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada') && (
+        {(tela.tipo === 'empresa' || tela.tipo === 'duplicidade' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada') && (
           <>
             <Button onClick={onEmitirDeNovo} disabled={pending} className="h-11 w-full">
-              {tela.tipo === 'empresa' ? `Reenviar${n ? ` nº ${n}` : ''}` : 'Emitir a nova nota'}
+              {tela.tipo === 'empresa' || tela.tipo === 'duplicidade' ? `Reenviar${n ? ` nº ${n}` : ''}` : 'Emitir a nova nota'}
             </Button>
             <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
           </>

@@ -4,7 +4,7 @@
  * Gateway. A da SEFAZ vem no início do motivo ("237 - Rejeição: ..."); a da
  * Nota Gateway vem como "Código: GW7324\r\nDescrição: ...", às vezes várias.
  */
-import { codigoRecusa, ehDenegada } from './status'
+import { codigoRecusa, ehDenegada, ehDuplicidade } from './status'
 
 export type GrupoCorrecao = 'comprador' | 'moto' | 'empresa'
 
@@ -90,6 +90,8 @@ export type TelaRecusa =
   | { tipo: 'denegada_empresa' }
   /** Denegada sem código que diga de quem é a IE: sem campos, como no servidor. */
   | { tipo: 'denegada' }
+  /** 539: o número já foi usado em outra nota; avisa e deixa reenviar o mesmo. */
+  | { tipo: 'duplicidade' }
 
 /**
  * Qual tela a recusa abre: denegada pelo cliente corrige só a IE dele; pela
@@ -102,6 +104,7 @@ export function telaDaRecusa(nota: { status: string; motivoStatus: string | null
     // Mesma regra do gravarCorrecaoDaNf: só 302/303 corrigem a IE do cliente aqui.
     return codigo === 302 || codigo === 303 ? { tipo: 'denegada_cliente' } : { tipo: 'denegada' }
   }
+  if (ehDuplicidade(nota)) return { tipo: 'duplicidade' }
   const grupos = gruposDaRecusa(nota.motivoStatus)
   const abertos = grupos.filter(g => g !== 'empresa')
   if (!abertos.length) return { tipo: 'empresa' }
