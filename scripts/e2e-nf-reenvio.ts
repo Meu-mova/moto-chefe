@@ -1,9 +1,10 @@
 /**
- * Teste de ponta a ponta da #347 (PR 2a) contra o staging: ao abrir "Emitir NF de
- * saída" de uma venda cuja última tentativa foi recusada, o diálogo abre na tela da
- * recusa: a comum oferece "Reenviar nº N"; a denegada (301 e 302) explica a IE
- * irregular e não oferece reenviar o mesmo número. Desktop e celular, com telas em
- * /tmp/e2e-347-pr2/.
+ * Teste de ponta a ponta da #347 (PR 2a e 2b-2) contra o staging: ao abrir "Emitir NF
+ * de saída" de uma venda cuja última tentativa foi recusada, o diálogo abre na tela da
+ * recusa, com os campos que o código aponta: 237 o cliente, 778 a moto, GW7324 só a
+ * orientação da configuração fiscal (o aux_adm pede a um Admin), 302 a IE do cliente
+ * e 301 só a orientação. "Só salvar" grava na venda e na ficha, e o diálogo continua
+ * aberto. Desktop e celular, com telas em /tmp/e2e-347-pr2/.
  *
  *   E2E_URL=http://localhost:3349 \
  *     npx dotenv-cli -e .env.local -- node --import tsx scripts/e2e-nf-reenvio.ts [--ver]
@@ -11,8 +12,8 @@
  * Usa do .env.local (staging): DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL e SEED_SENHA.
  * Recusa fora do staging. Grava vendas, motos e NFs sintéticas marcadas com E2E347R
  * e apaga tudo no fim. Não envia nem consulta nota: abrir o diálogo só lê a empresa
- * na Nota Gateway (homologação do grupo do aux.sul) para montar a conferência.
- * --ver abre o navegador visível e devagar.
+ * na Nota Gateway (homologação do grupo do aux.sul) para montar a conferência, e
+ * "Salvar e reenviar" não é clicado. --ver abre o navegador visível e devagar.
  */
 import { mkdir } from 'node:fs/promises'
 import { chromium, type Page } from 'playwright'
@@ -42,12 +43,16 @@ function confere(ok: boolean, descricao: string, detalhe = '') {
 }
 
 type Ctx = { lojaId: string; grupoId: string; auxId: string; modeloId: string; ambiente: string }
-type Caso = { sufixo: string; motivo: string; numero: string; venda?: { numero: number; chassi: string } }
+type Caso = { sufixo: string; motivo: string; numero: string; documento: string; venda?: { id: string; numero: number; chassi: string; motoId: string } }
 
+const CPF = '529.982.247-25'
+const CNPJ = '11.222.333/0001-81'
 const CASOS: Caso[] = [
-  { sufixo: 'C', motivo: '225 - Rejeição: Falha no Schema XML da NFe', numero: '9347101' },
-  { sufixo: 'E', motivo: '301 - Uso Denegado: Irregularidade fiscal do emitente', numero: '9347102' },
-  { sufixo: 'D', motivo: '302 - Uso Denegado: Irregularidade fiscal do destinatário', numero: '9347103' },
+  { sufixo: 'C', motivo: '237 - Rejeição: CPF do destinatário inválido', numero: '9347101', documento: CPF },
+  { sufixo: 'M', motivo: '778 - Rejeição: Informado NCM inexistente', numero: '9347104', documento: CPF },
+  { sufixo: 'G', motivo: 'Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.', numero: '9347105', documento: CPF },
+  { sufixo: 'E', motivo: '301 - Uso Denegado: Irregularidade fiscal do emitente', numero: '9347102', documento: CPF },
+  { sufixo: 'D', motivo: '302 - Uso Denegado: Irregularidade fiscal do destinatário', numero: '9347103', documento: CNPJ },
 ]
 
 async function semear(c: Ctx, caso: Caso) {
@@ -57,12 +62,13 @@ async function semear(c: Ctx, caso: Caso) {
   // Efetivado, como o pedido de uma venda de verdade: pendente apareceria em "Pedidos Pendentes".
   const [pedido] = (await execRows(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
     values (${moto.id}, ${c.lojaId}, ${c.auxId}, 'efetivado') returning id`)) as { id: string }[]
+  await execRows(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod) values (${moto.id}, ${MARCA}, '87116000', ${'MOTO ' + MARCA})`)
   // NF liberada sem contrato: senão o diálogo para na trava da assinatura.
   const [venda] = (await execRows(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, nf_liberada_em)
-    values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, ${'Cliente ' + MARCA}, '52998224725', 1000, 'pix', now()) returning id, numero`)) as { id: string; numero: number }[]
+    values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.auxId}, ${c.auxId}, ${'Cliente ' + MARCA}, ${caso.documento}, 1000, 'pix', now()) returning id, numero`)) as { id: string; numero: number }[]
   await execRows(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, numero, payload)
     values (${venda.id}, ${venda.numero}, ${c.grupoId}, ${`${MARCA}-${caso.sufixo}-${venda.numero}`}, ${c.ambiente}, 'Negada', ${caso.motivo}, ${caso.numero}, '{}'::jsonb)`)
-  caso.venda = { numero: venda.numero, chassi }
+  caso.venda = { id: venda.id, numero: venda.numero, chassi, motoId: moto.id }
 }
 
 async function entrar(pagina: Page) {
@@ -92,20 +98,56 @@ async function abrirNf(pagina: Page, v: { numero: number; chassi: string }, celu
 
 async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
   await abrirNf(pagina, caso.venda!, tela === 'celular')
-  const ok = (texto: string | RegExp) => pagina.getByText(texto).first().waitFor({ timeout: 30_000 }).then(() => true, () => false)
-  const reenviar = pagina.getByRole('button', { name: `Reenviar nº ${caso.numero}` })
-  if (caso.sufixo === 'C') {
-    confere(await ok(`A SEFAZ recusou a nota nº ${caso.numero}`), `${tela}: título da recusa comum com o número`)
-    confere(await ok('sai de novo com o mesmo número'), `${tela}: explica que reenvia com o mesmo número`)
-    confere(await reenviar.count() === 1, `${tela}: botão "Reenviar nº ${caso.numero}"`)
+  const dialogo = pagina.getByRole('dialog').filter({ hasText: 'Por quê?' })
+  const ve = (texto: string | RegExp) => dialogo.getByText(texto).first().waitFor({ timeout: 30_000 }).then(() => true, () => false)
+  const botao = (nome: string | RegExp) => dialogo.getByRole('button', { name: nome })
+  const n = caso.numero
+  const cod = caso.sufixo
+  confere(await ve(`Nota nº ${n} · venda nº ${caso.venda!.numero}`), `${tela} ${cod}: número da nota e da venda`)
+  confere(!(await dialogo.innerText()).includes('—'), `${tela} ${cod}: sem travessão`)
+
+  if (cod === 'C' || cod === 'M') {
+    confere(await ve('A SEFAZ recusou esta nota'), `${tela} ${cod}: título da recusa`)
+    confere(await ve('Corrigir aqui'), `${tela} ${cod}: grupo apontado marcado`)
+    const campo = cod === 'C' ? 'CPF ou CNPJ' : 'NCM'
+    confere(await dialogo.getByLabel(campo, { exact: true }).isVisible(), `${tela} ${cod}: campo ${campo} aberto`)
+    confere(await botao(`Salvar e reenviar nº ${n}`).count() === 1, `${tela} ${cod}: "Salvar e reenviar nº ${n}"`)
+    confere(await botao('Só salvar').count() === 1, `${tela} ${cod}: "Só salvar"`)
+  } else if (cod === 'G') {
+    confere(await ve('O CFOP do produto está num formato que a nota não aceita.'), `${tela} ${cod}: "Por quê?" em linguagem de loja`)
+    confere(await ve('Peça a um Admin Geral ou Sócio para corrigir.'), `${tela} ${cod}: aux_adm é orientado a pedir ao Admin`)
+    confere(await dialogo.getByRole('textbox').count() === 0, `${tela} ${cod}: sem campos`)
+    confere(await botao(`Reenviar nº ${n}`).count() === 1, `${tela} ${cod}: "Reenviar nº ${n}"`)
   } else {
-    const quem = caso.sufixo === 'E' ? 'da empresa' : 'do comprador'
-    confere(await ok(`A SEFAZ denegou a nota nº ${caso.numero}`), `${tela}: título da denegada ${caso.motivo.slice(0, 3)}`)
-    confere(await ok(`A Inscrição Estadual ${quem} está irregular`), `${tela}: aponta a IE ${quem}`)
-    confere(await ok('a próxima sai com número novo'), `${tela}: avisa que a próxima sai com número novo`)
-    confere(await reenviar.count() === 0, `${tela}: sem "Reenviar nº ${caso.numero}"`)
+    confere(await ve('A SEFAZ bloqueou esta nota'), `${tela} ${cod}: título da bloqueada`)
+    confere(await ve('Fica bloqueado e não volta.'), `${tela} ${cod}: o número não volta`)
+    confere(await botao(new RegExp(`Reenviar nº ${n}`)).count() === 0, `${tela} ${cod}: sem reenviar o mesmo número`)
+    if (cod === 'D') {
+      confere(await ve('O cliente tem Inscrição Estadual?'), `${tela} ${cod}: pergunta da IE`)
+      confere(await botao('Salvar e emitir a nova nota').count() === 1, `${tela} ${cod}: "Salvar e emitir a nova nota"`)
+    } else {
+      confere(await ve('Consulte a Inscrição Estadual da empresa no SINTEGRA.'), `${tela} ${cod}: orientação da IE da empresa`)
+      confere(await dialogo.getByRole('textbox').count() === 0, `${tela} ${cod}: sem campos`)
+    }
   }
-  await pagina.screenshot({ path: `${PASTA}/${tela}-${caso.sufixo}.png`, fullPage: true })
+  await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}.png`, fullPage: true })
+
+  // Só salvar: grava no cadastro e o diálogo continua na recusa (revalidatePath não o desmonta).
+  if (tela === 'desktop' && (cod === 'C' || cod === 'M' || cod === 'D')) {
+    if (cod === 'C') await dialogo.getByLabel('Cidade', { exact: true }).fill(`Cidade ${MARCA}`)
+    if (cod === 'M') await dialogo.getByLabel('CEST', { exact: true }).fill('0107700')
+    if (cod === 'D') await dialogo.getByText('É isento').click()
+    await botao('Só salvar').click()
+    const salvou = await ve('Correção salva na venda.')
+    confere(salvou, `${tela} ${cod}: "Só salvar" confirma`)
+    confere(await ve(`Nota nº ${n} · venda nº ${caso.venda!.numero}`), `${tela} ${cod}: o diálogo continua aberto na recusa`)
+    const [v] = (await execRows(sql`select v.cliente_cidade, v.cliente_indicador_ie, f.cest from vendas v
+      join motos_fiscal f on f.moto_id = v.moto_id where v.id = ${caso.venda!.id}`)) as { cliente_cidade: string | null; cliente_indicador_ie: string | null; cest: string | null }[]
+    if (cod === 'C') confere(v.cliente_cidade === `Cidade ${MARCA}`, `${tela} ${cod}: cidade gravada na venda`, String(v.cliente_cidade))
+    if (cod === 'M') confere(v.cest === '0107700', `${tela} ${cod}: CEST gravado na ficha da moto`, String(v.cest))
+    if (cod === 'D') confere(v.cliente_indicador_ie === 'isento', `${tela} ${cod}: IE "isento" gravada na venda`, String(v.cliente_indicador_ie))
+    await pagina.screenshot({ path: `${PASTA}/${tela}-${cod}-salvo.png`, fullPage: true })
+  }
 }
 
 async function limpar() {
@@ -113,6 +155,7 @@ async function limpar() {
   const notas = sql`(select id from notas_fiscais_saida where id_externo like ${MARCA + '-%'})`
   const contagem = (await execRows(sql`select
     (select count(*) from notas_fiscais_saida where id in ${notas})::int as notas,
+    (select count(*) from motos_fiscal where moto_id in ${motos})::int as fichas,
     (select count(*) from vendas where moto_id in ${motos})::int as vendas,
     (select count(*) from pedidos_venda where moto_id in ${motos})::int as pedidos,
     (select count(*) from historico_estoque where moto_id in ${motos})::int as historico,
@@ -123,6 +166,7 @@ async function limpar() {
     await tx.execute(sql`delete from vendas where moto_id in ${motos}`)
     await tx.execute(sql`delete from pedidos_venda where moto_id in ${motos}`)
     await tx.execute(sql`delete from historico_estoque where moto_id in ${motos}`)
+    await tx.execute(sql`delete from motos_fiscal where moto_id in ${motos}`)
     await tx.execute(sql`delete from motos where id in ${motos}`)
   })
 }
