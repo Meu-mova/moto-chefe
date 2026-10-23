@@ -174,7 +174,7 @@ async function semearVendaReal(c: Ctx, sufixo: string, documento: string, ncm?: 
   const [pedido] = (await execRows(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
     values (${moto.id}, ${c.lojaId}, ${c.auxId}, 'efetivado') returning id`)) as { id: string }[]
   // Ficha copiada de uma moto do staging com CEST: sem ele a SEFAZ recusa a saída com ICMS-ST.
-  const [ref] = (await execRows(sql`select ncm, cest, origem, unidade from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} limit 1`)) as
+  const [ref] = (await execRows(sql`select ncm, cest, origem, unidade from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} order by moto_id limit 1`)) as
     { ncm: string; cest: string; origem: string | null; unidade: string | null }[]
   await execRows(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, cest, origem, unidade, x_prod)
     values (${moto.id}, ${MARCA}, ${ncm ?? ref?.ncm ?? '87116000'}, ${ref?.cest ?? null}, ${ref?.origem ?? '0'}, ${ref?.unidade ?? 'UN'}, ${'MOTO ELETRICA ' + MARCA})`)
@@ -204,7 +204,7 @@ async function esperarResultado(pagina: Page): Promise<'autorizada' | 'recusa' |
 }
 
 const NCM_BOM = async () =>
-  ((await execRows(sql`select ncm from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} limit 1`)) as { ncm: string }[])[0]?.ncm ?? '87116000'
+  ((await execRows(sql`select ncm from motos_fiscal where cest is not null and emitente_cnpj <> ${MARCA} order by moto_id limit 1`)) as { ncm: string }[])[0]?.ncm ?? '87116000'
 
 /**
  * Recusa real, corrige no diálogo e reenvia com o mesmo id.
