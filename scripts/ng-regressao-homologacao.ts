@@ -168,6 +168,8 @@ async function main() {
     '--env-var', 'baseUrl=https://api.notagateway.com.br/v2',
     '--env-var', `idTeste=${idTeste}`,
     '--no-report-events',
+    // Para na primeira falha: carta e cancelamento dependem da nota autorizada.
+    '--bail',
   ]
 
   log(`Grupo: ${GRUPO} | ambiente: ${cfg.ambiente} | empresaId: ${mascarar(cfg.empresa_id)} | token: decifrado (${token.length} caracteres)`)
