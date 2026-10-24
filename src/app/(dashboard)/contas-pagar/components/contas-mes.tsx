@@ -21,10 +21,10 @@ function fmtCompetencia(mes: string) {
 }
 
 const SITUACAO_BADGE: Record<SituacaoConta, { label: string; cls: string }> = {
-  paga:       { label: 'Paga',        cls: 'border-green-300 text-green-700 bg-green-50' },
-  vencida:    { label: 'Vencida',     cls: 'border-red-300 text-red-700 bg-red-50' },
-  vence_hoje: { label: 'Vence hoje',  cls: 'border-amber-300 text-amber-800 bg-amber-50' },
-  a_vencer:   { label: 'A vencer',    cls: 'border-slate-200 text-slate-600 bg-slate-50' },
+  paga:       { label: 'Paga',        cls: 'border-success/50 text-success bg-success/10' },
+  vencida:    { label: 'Vencida',     cls: 'border-destructive/50 text-destructive bg-destructive/10' },
+  vence_hoje: { label: 'Vence hoje',  cls: 'border-warning/50 text-warning bg-warning/10' },
+  a_vencer:   { label: 'A vencer',    cls: 'border-border text-muted-foreground bg-muted' },
 }
 
 function Linha({ o, hoje, mostrarCompetencia }: {
@@ -63,7 +63,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
   }
 
   return (
-    <div className={`flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0 ${o.pago ? 'bg-slate-50/60' : ''}`}>
+    <div className={`flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0 ${o.pago ? 'bg-muted/60' : ''}`}>
       {/* O check é o ponto todo do módulo: um clique resolve o "a data passou e eu
           perdi o pagamento". Por isso ele fica na linha, não dentro de um dialog. */}
       <button
@@ -72,21 +72,21 @@ function Linha({ o, hoje, mostrarCompetencia }: {
         title={o.pago ? 'Desmarcar' : 'Marcar como paga'}
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
           o.pago
-            ? 'border-green-600 bg-green-600 text-white'
+            ? 'border-primary bg-primary text-primary-foreground'
             : situacao === 'vencida'
-              ? 'border-red-300 hover:border-red-500'
-              : 'border-slate-300 hover:border-slate-500'
+              ? 'border-destructive/50 hover:border-destructive/50'
+              : 'border-input hover:border-ring'
         } disabled:opacity-40`}
       >
         {o.pago && <Check size={13} />}
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${o.pago ? 'text-slate-400 line-through' : ''}`}>
+        <p className={`text-sm font-medium ${o.pago ? 'text-muted-foreground line-through' : ''}`}>
           {o.descricao}
         </p>
-        <p className="text-xs text-slate-400">
-          {mostrarCompetencia && <span className="text-red-600">{fmtCompetencia(o.competencia)} · </span>}
+        <p className="text-xs text-muted-foreground">
+          {mostrarCompetencia && <span className="text-destructive">{fmtCompetencia(o.competencia)} · </span>}
           venc. {fmtData(o.vencimento)}
           {o.categoria ? ` · ${o.categoria}` : ''}
           {o.lojaNome ? ` · ${o.lojaNome}` : ' · empresa'}
@@ -99,7 +99,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
 
       <Badge variant="outline" className={`${badge.cls} shrink-0`}>{badge.label}</Badge>
 
-      <span className={`w-28 shrink-0 text-right text-sm font-semibold tabular-nums ${o.pago ? 'text-slate-400' : ''}`}>
+      <span className={`w-28 shrink-0 text-right text-sm font-semibold tabular-nums ${o.pago ? 'text-muted-foreground' : ''}`}>
         {fmt(o.valor)}
       </span>
 
@@ -107,7 +107,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
           edição seria desfeita sem aviso. A action recusa também. */}
       {o.tipo !== 'automatica' && !o.pago && (
         <button onClick={editarValor} disabled={pending} title="Ajustar o valor deste mês"
-          className="shrink-0 text-slate-300 hover:text-slate-600">
+          className="shrink-0 text-muted-foreground hover:text-muted-foreground">
           <Pencil size={13} />
         </button>
       )}
@@ -134,23 +134,23 @@ export function ContasMes({ doMes, atrasadas, hoje }: {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border bg-white px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total do mês</p>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total do mês</p>
           <p className="mt-0.5 text-xl font-bold">{fmt(total)}</p>
         </div>
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-green-600">Pago</p>
-          <p className="mt-0.5 text-xl font-bold text-green-700">{fmt(pago)}</p>
+        <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-success">Pago</p>
+          <p className="mt-0.5 text-xl font-bold text-success">{fmt(pago)}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Em aberto</p>
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Em aberto</p>
           <p className="mt-0.5 text-xl font-bold">{fmt(emAberto)}</p>
         </div>
-        <div className={`rounded-lg border px-4 py-3 ${atrasadas.length > 0 ? 'border-red-200 bg-red-50' : 'bg-white'}`}>
-          <p className={`text-xs uppercase tracking-wide ${atrasadas.length > 0 ? 'text-red-600' : 'text-slate-500'}`}>
+        <div className={`rounded-lg border px-4 py-3 ${atrasadas.length > 0 ? 'border-destructive/30 bg-destructive/10' : 'bg-card'}`}>
+          <p className={`text-xs uppercase tracking-wide ${atrasadas.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
             Atrasadas
           </p>
-          <p className={`mt-0.5 text-xl font-bold ${atrasadas.length > 0 ? 'text-red-700' : ''}`}>
+          <p className={`mt-0.5 text-xl font-bold ${atrasadas.length > 0 ? 'text-destructive' : ''}`}>
             {fmt(totalAtrasado)}
           </p>
         </div>
@@ -160,10 +160,10 @@ export function ContasMes({ doMes, atrasadas, hoje }: {
           tela: é exatamente o compromisso que hoje se perde quando a data passa. */}
       {atrasadas.length > 0 && (
         <section className="space-y-2">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-red-700">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
             <AlertTriangle size={15} /> Atrasadas de meses anteriores ({atrasadas.length})
           </h2>
-          <div className="overflow-hidden rounded-lg border border-red-200 bg-white">
+          <div className="overflow-hidden rounded-lg border border-destructive/30 bg-card">
             {atrasadas.map(o => <Linha key={o.id} o={o} hoje={hoje} mostrarCompetencia />)}
           </div>
         </section>
@@ -171,21 +171,21 @@ export function ContasMes({ doMes, atrasadas, hoje }: {
 
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Do mês ({doMes.length})</h2>
-          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+          <h2 className="text-sm font-semibold text-foreground">Do mês ({doMes.length})</h2>
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={ocultarPagas}
               onChange={e => setOcultarPagas(e.target.checked)}
-              className="rounded border-slate-300"
+              className="rounded border-input"
             />
             Ocultar pagas
           </label>
         </div>
-        <div className="overflow-hidden rounded-lg border bg-white">
+        <div className="overflow-hidden rounded-lg border bg-card">
           {visiveis.map(o => <Linha key={o.id} o={o} hoje={hoje} />)}
           {visiveis.length === 0 && (
-            <p className="py-10 text-center text-sm text-slate-400">
+            <p className="py-10 text-center text-sm text-muted-foreground">
               {doMes.length === 0
                 ? 'Nenhuma conta vence neste mês.'
                 : 'Todas as contas do mês estão pagas.'}

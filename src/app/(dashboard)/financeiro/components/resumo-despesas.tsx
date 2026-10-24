@@ -19,32 +19,32 @@ export function ResumoDespesas({ resumo }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-slate-500">Despesas Operacionais</CardTitle>
-        <p className="text-2xl font-bold text-red-600">{fmt(resumo.total)}</p>
-        <p className="text-xs text-slate-400">saídas do banco + contas pagas fora dele</p>
+        <CardTitle className="text-sm text-muted-foreground">Despesas Operacionais</CardTitle>
+        <p className="text-2xl font-bold text-destructive">{fmt(resumo.total)}</p>
+        <p className="text-xs text-muted-foreground">saídas do banco + contas pagas fora dele</p>
       </CardHeader>
       <CardContent>
         <div className="space-y-1.5">
           {resumo.porCategoria.map(c => (
             <div key={c.categoria} className="flex justify-between text-sm">
-              <span className="text-slate-600">{c.categoria}</span>
-              <span className="font-mono text-slate-700">{fmt(c.total)}</span>
+              <span className="text-muted-foreground">{c.categoria}</span>
+              <span className="font-mono text-foreground">{fmt(c.total)}</span>
             </div>
           ))}
           {resumo.porCategoria.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-2">Sem despesas no período</p>
+            <p className="text-xs text-muted-foreground text-center py-2">Sem despesas no período</p>
           )}
         </div>
 
         {/* Sem isso o número parece pequeno demais pra quem acabou de ver o extrato:
             estas saídas existem, só não são custo de operar a loja. */}
         {fora.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-            <p className="text-xs text-slate-400">Saiu da conta, mas não conta como despesa:</p>
+          <div className="mt-3 pt-3 border-t border-border space-y-1">
+            <p className="text-xs text-muted-foreground">Saiu da conta, mas não conta como despesa:</p>
             {fora.map(f => (
               <div key={f.chave} className="flex justify-between text-xs">
-                <span className="text-slate-400">{ROTULO_FORA[f.chave]}</span>
-                <span className="font-mono text-slate-400">{fmt(f.valor)}</span>
+                <span className="text-muted-foreground">{ROTULO_FORA[f.chave]}</span>
+                <span className="font-mono text-muted-foreground">{fmt(f.valor)}</span>
               </div>
             ))}
           </div>
