@@ -5,7 +5,7 @@ type Dado = { nome: string; volume: number; ganhos: number }
 
 export function AtendimentoChart({ dados }: { dados: Dado[] }) {
   if (dados.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-12">Sem dados no período.</p>
+    return <p className="text-sm text-muted-foreground text-center py-12">Sem dados no período.</p>
   }
   return (
     <ResponsiveContainer width="100%" height={Math.max(240, dados.length * 38)}>
