@@ -6,7 +6,9 @@
  *
  * <usuario> é o prefixo do login de teste (geral, aux.sul...). Cada rota sai em 2 temas x
  * desktop e 390px, com o axe (regra color-contrast). Depois, no escuro, cada rota com link no menu
- * é aberta pelo clique e fotografada 120 ms depois, para pegar o esqueleto de carregamento. Enquanto o tema está forçado claro, o
+ * é aberta pelo clique; 120 ms depois mede o fundo do esqueleto (animate-pulse) e fotografa. O axe
+ * dessa etapa roda depois da foto, quando a tela pode já ter carregado. Só no desktop: em 390px o
+ * menu fica escondido e a etapa não roda. Enquanto o tema está forçado claro, o
  * escuro é aplicado pondo a classe "dark" no <html>, como o next-themes faz.
  * Só lê telas: não cria nem altera dado.
  */
@@ -73,13 +75,25 @@ async function rodar(navegador: Browser) {
       if (new URL(pagina.url()).pathname === rota || !(await link.isVisible().catch(() => false))) continue
       await link.click()
       await pagina.waitForTimeout(120)
+      // O axe não acusa um bloco claro sem texto; mede o fundo do esqueleto (animate-pulse) direto.
+      // Em string: o tsx põe __name nas funções declaradas aqui dentro, que não existe no navegador.
+      const claros: string[] = await pagina.evaluate(`(() => {
+        const ctx = document.createElement('canvas').getContext('2d')
+        return [...document.querySelectorAll('[class*="animate-pulse"], [class*="animate-pulse"] *')].filter((el) => {
+          ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = getComputedStyle(el).backgroundColor; ctx.fillRect(0, 0, 1, 1)
+          const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+          return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 * (a / 255) > 0.6
+        }).map((el) => el.outerHTML.slice(0, 110))
+      })()`)
       const nome = `${rota.replace(/^\//, '').replace(/[/?=&]/g, '_') || 'inicio'}-transicao-escuro-${nomeVp}`
       await pagina.screenshot({ path: `${pasta}/${nome}.png` })
       const { violations } = await new AxeBuilder({ page: pagina }).withRules(['color-contrast']).analyze()
       const nos = violations.flatMap((v) => v.nodes)
       violacoes += nos.length
       for (const n of nos) lista.push({ tela: nome, alvo: n.target.join(' '), html: n.html, mensagem: n.any[0]?.message ?? '' })
-      console.log(`${nos.length ? 'FALHA' : 'ok   '} ${nome}${nos.length ? `: ${nos.length} contraste` : ''}`)
+      for (const html of claros) lista.push({ tela: nome, alvo: 'esqueleto', html, mensagem: 'esqueleto com fundo claro no escuro' })
+      violacoes += claros.length
+      console.log(`${nos.length + claros.length ? 'FALHA' : 'ok   '} ${nome}${nos.length ? `: ${nos.length} contraste` : ''}${claros.length ? `: ${claros.length} esqueleto claro` : ''}`)
       await pagina.waitForLoadState('networkidle')
     }
     await contexto.close()
