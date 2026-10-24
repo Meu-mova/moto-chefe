@@ -20,14 +20,14 @@ export default async function AreaPage({ params }: { params: Promise<{ slug: str
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{categoria.nome}</h1>
-        <p className="text-slate-500 text-sm">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</p>
+        <p className="text-muted-foreground text-sm">{itens.length} {itens.length === 1 ? 'item' : 'itens'}</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {itens.map(({ id, href, label, icon: Icon }) => (
           <Link key={id} href={href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardHeader className="flex-row gap-3 items-center pb-2">
-                <Icon className="text-slate-600" size={20} />
+                <Icon className="text-muted-foreground" size={20} />
                 <CardTitle className="text-base">{label}</CardTitle>
               </CardHeader>
             </Card>

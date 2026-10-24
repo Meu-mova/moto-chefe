@@ -86,6 +86,10 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-press` | botão principal pressionado ou enviando | `#024d33` | `#1fc684` |
 | `primary-glow` | sombra do botão no hover (decorativa) | `#047a4f` a 35% | `#2ee09a` a 35% |
 | `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
+| `success` | texto e ícone de sucesso (pago, concluído); mesmo verde do `primary-text`; fundo como o de `warning` | `#036443` | `#4ee8a8` |
+| `info` | texto e ícone informativo (em andamento, aviso neutro); fundo como o de `warning` | `#1d4ed8` | `#8ab4ff` |
+| `assinatura-quadro` / `assinatura-tinta` | quadro e traço da assinatura do cliente; iguais nos dois temas, porque o traço vira PNG do contrato impresso | `#f8fafc` / `#0f172a` | `#f8fafc` / `#0f172a` |
+| `camera-fundo` | tarja em volta do vídeo da câmera (selfie da assinatura); igual nos dois temas | `#000000` | `#000000` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
@@ -118,6 +122,13 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `destructive` / `card` | 6.57 | 7.61 | 4.5 |
 | `destructive` / fundo de erro (sobre `card`) | 5.57 | 5.34 | 4.5 |
 | `destructive` / fundo de erro (sobre `background`, claro) | 5.16 | — | 4.5 |
+| `success` / `card` | 7.22 | 11.12 | 4.5 |
+| `success` / `background` | 6.67 | 12.04 | 4.5 |
+| `success` / fundo de sucesso (sobre `card`) | 6.20 | 6.92 | 4.5 |
+| `info` / `card` | 6.70 | 8.32 | 4.5 |
+| `info` / `background` | 6.19 | 9.01 | 4.5 |
+| `info` / fundo informativo (sobre `card`) | 5.72 | 5.54 | 4.5 |
+| `assinatura-tinta` / `assinatura-quadro` | 17.06 | 17.06 | 3 |
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
