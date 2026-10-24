@@ -29,14 +29,14 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-slate-500">Despesas da Loja por Categoria</CardTitle>
-        <p className="text-xs text-slate-400">
+        <CardTitle className="text-sm text-muted-foreground">Despesas da Loja por Categoria</CardTitle>
+        <p className="text-xs text-muted-foreground">
           só o que tem loja atribuída — o resto está em Geral (Empresa)
         </p>
       </CardHeader>
       <CardContent>
         {!loja ? (
-          <p className="text-sm text-slate-400 py-4 text-center">
+          <p className="text-sm text-muted-foreground py-4 text-center">
             Nenhuma despesa com loja atribuída no período.
           </p>
         ) : (
@@ -50,8 +50,8 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
                     onClick={() => setAtiva(l.lojaId)}
                     className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                       l.lojaId === loja.lojaId
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     {l.nome}
@@ -64,10 +64,10 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
               {loja.categorias.map(c => (
                 <div key={c.categoria} className="flex items-baseline justify-between gap-3 text-sm">
                   <span>{c.categoria}</span>
-                  <span className="font-mono text-red-600 whitespace-nowrap">
+                  <span className="font-mono text-destructive whitespace-nowrap">
                     {fmt(c.total)}
                     {loja.total > 0 && (
-                      <span className="ml-2 text-xs text-slate-400">
+                      <span className="ml-2 text-xs text-muted-foreground">
                         {((c.total / loja.total) * 100).toFixed(0)}%
                       </span>
                     )}
@@ -75,7 +75,7 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
                 </div>
               ))}
               {loja.categorias.length === 0 && (
-                <p className="text-sm text-slate-400 py-4 text-center">
+                <p className="text-sm text-muted-foreground py-4 text-center">
                   Nenhuma despesa desta loja no período.
                 </p>
               )}
@@ -84,7 +84,7 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
             {loja.categorias.length > 0 && (
               <div className="flex items-baseline justify-between gap-3 text-sm border-t mt-2 pt-2 font-semibold">
                 <span>Total {lojas.length > 1 ? `— ${loja.nome}` : ''}</span>
-                <span className="font-mono text-red-700">{fmt(loja.total)}</span>
+                <span className="font-mono text-destructive">{fmt(loja.total)}</span>
               </div>
             )}
           </>

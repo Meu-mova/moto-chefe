@@ -165,7 +165,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
   }
 
   if (lancamentos.length === 0) {
-    return <p className="text-sm text-slate-400 py-8 text-center">Nenhum lançamento encontrado.</p>
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lançamento encontrado.</p>
   }
 
   return (
@@ -184,7 +184,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
             <TableHead>Registrado por</TableHead>
             {isAdmin && <TableHead className="w-10" />}
           </TableRow>
-          <TableRow className="bg-slate-50 hover:bg-slate-50">
+          <TableRow className="bg-muted hover:bg-muted">
             <TableHead className="py-1" />
             <TableHead className="py-1">
               <Select value={filtros.tipo || 'todos'} onValueChange={v => setFiltro('tipo', v ?? '')}>
@@ -257,7 +257,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
         <TableBody>
           {dados.length === 0 && (
             <TableRow>
-              <TableCell colSpan={isAdmin ? 10 : 9} className="py-8 text-center text-sm text-slate-400">
+              <TableCell colSpan={isAdmin ? 10 : 9} className="py-8 text-center text-sm text-muted-foreground">
                 Nenhum lançamento encontrado para os filtros aplicados.
               </TableCell>
             </TableRow>
@@ -273,9 +273,9 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                 </Badge>
               </TableCell>
               <TableCell>{l.categoria}</TableCell>
-              <TableCell className="max-w-[200px] truncate text-slate-500">{l.descricao ?? '—'}</TableCell>
+              <TableCell className="max-w-[200px] truncate text-muted-foreground">{l.descricao ?? '—'}</TableCell>
               <TableCell>{l.lojaNome}</TableCell>
-              <TableCell className={`text-right font-mono ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+              <TableCell className={`text-right font-mono ${l.tipo === 'entrada' ? 'text-success' : 'text-destructive'}`}>
                 {l.tipo === 'entrada' ? '+' : '-'}{formatCurrency(l.valor)}
               </TableCell>
 
@@ -284,7 +284,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                 {l.comprovanteUrl ? (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 text-info hover:text-info disabled:opacity-40"
                     disabled={abrindo === l.comprovanteUrl}
                     onClick={() => handleVerComprovante(l)}
                   >
@@ -294,7 +294,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                     }
                   </button>
                 ) : (
-                  <span className="text-slate-300">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
 
@@ -309,17 +309,17 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                     onReprovar={handleReprovar}
                   />
                 ) : (
-                  <span className="text-slate-300">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
 
-              <TableCell className="text-xs text-slate-400">{l.usuarioNome}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{l.usuarioNome}</TableCell>
               {isAdmin && (
                 <TableCell>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-red-400 hover:text-red-600"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
                     onClick={() => handleExcluir(l.id)}
                     disabled={excluindo === l.id}
                   >
@@ -343,7 +343,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                   href={preview.signedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700"
+                  className="inline-flex items-center gap-1.5 text-xs text-info hover:text-info"
                 >
                   <ExternalLink size={13} />
                   Abrir em nova aba
@@ -374,7 +374,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                   title="Comprovante PDF"
                 />
               ) : (
-                <div className="flex justify-center bg-slate-50 rounded border p-2">
+                <div className="flex justify-center bg-muted rounded border p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={preview.signedUrl}
@@ -403,7 +403,7 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
   if (lancamento.statusAprovacao === 'aprovado') {
     return (
       <span
-        className="inline-flex items-center gap-1 text-green-600 text-xs"
+        className="inline-flex items-center gap-1 text-success text-xs"
         title={lancamento.aprovadoPorNome ? `Aprovado por ${lancamento.aprovadoPorNome} em ${fmtDateTime(lancamento.aprovadoEm)}` : undefined}
       >
         <ShieldCheck size={15} />
@@ -416,7 +416,7 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
     return (
       <span className="inline-flex items-center gap-1">
         <span
-          className="inline-flex items-center gap-1 text-red-600 text-xs"
+          className="inline-flex items-center gap-1 text-destructive text-xs"
           title={lancamento.aprovadoPorNome ? `Reprovado por ${lancamento.aprovadoPorNome} em ${fmtDateTime(lancamento.aprovadoEm)}` : undefined}
         >
           <ShieldX size={15} />
@@ -425,7 +425,7 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
         {podeAprovar && (
           <button
             type="button"
-            className="ml-1 text-xs text-slate-400 hover:text-green-700 underline disabled:opacity-40"
+            className="ml-1 text-xs text-muted-foreground hover:text-success underline disabled:opacity-40"
             disabled={busy}
             onClick={() => onAprovar(lancamento.id)}
           >
@@ -439,21 +439,21 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
   // pendente
   return (
     <span className="inline-flex items-center gap-1">
-      <ShieldAlert size={15} className="text-amber-500 shrink-0" />
+      <ShieldAlert size={15} className="text-warning shrink-0" />
       {podeAprovar && lancamento.comprovanteUrl && (
         <>
           <button
             type="button"
-            className="text-xs text-green-600 hover:text-green-800 underline disabled:opacity-40"
+            className="text-xs text-success hover:text-success underline disabled:opacity-40"
             disabled={busy}
             onClick={() => onAprovar(lancamento.id)}
           >
             {busy ? <Loader2 size={11} className="animate-spin inline" /> : 'Aprovar'}
           </button>
-          <span className="text-slate-300">·</span>
+          <span className="text-muted-foreground">·</span>
           <button
             type="button"
-            className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-40"
+            className="text-xs text-destructive hover:text-destructive underline disabled:opacity-40"
             disabled={busy}
             onClick={() => onReprovar(lancamento.id)}
           >
@@ -476,7 +476,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
 }) {
   if (status === 'aprovado') {
     return (
-      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-success bg-success/10 border border-success/30 rounded-md px-3 py-2">
         <ShieldCheck size={16} />
         <span>
           Aprovado{aprovadoPorNome && <> por <strong>{aprovadoPorNome}</strong></>}
@@ -485,7 +485,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
         {podeAprovar && (
           <button
             type="button"
-            className="ml-auto text-xs text-red-500 hover:text-red-700 underline disabled:opacity-40"
+            className="ml-auto text-xs text-destructive hover:text-destructive underline disabled:opacity-40"
             disabled={agindo}
             onClick={onReprovar}
           >
@@ -498,7 +498,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
 
   if (status === 'reprovado') {
     return (
-      <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
         <ShieldX size={16} />
         <span>
           Reprovado{aprovadoPorNome && <> por <strong>{aprovadoPorNome}</strong></>}
@@ -507,7 +507,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
         {podeAprovar && (
           <Button
             size="sm"
-            className="ml-auto bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
+            className="ml-auto bg-primary hover:bg-primary-hover text-primary-foreground h-7 text-xs"
             disabled={agindo}
             onClick={onAprovar}
           >
@@ -521,8 +521,8 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
 
   // pendente
   return (
-    <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-      <span className="flex items-center gap-1.5 text-sm text-amber-700">
+    <div className="flex items-center justify-between gap-2 bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
+      <span className="flex items-center gap-1.5 text-sm text-warning">
         <ShieldAlert size={16} />
         Pendente de aprovação
       </span>
@@ -531,7 +531,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
           <Button
             size="sm"
             variant="outline"
-            className="border-red-300 text-red-600 hover:bg-red-50 h-7 text-xs"
+            className="border-destructive/50 text-destructive hover:bg-destructive/10 h-7 text-xs"
             disabled={agindo}
             onClick={onReprovar}
           >
@@ -540,7 +540,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
           </Button>
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
+            className="bg-primary hover:bg-primary-hover text-primary-foreground h-7 text-xs"
             disabled={agindo}
             onClick={onAprovar}
           >
