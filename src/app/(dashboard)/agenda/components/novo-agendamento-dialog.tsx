@@ -85,7 +85,7 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
               <div className="space-y-1.5">
                 <Label>Loja</Label>
                 <select value={form.lojaId} onChange={e => set('lojaId', e.target.value)}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                   <option value="">Selecione...</option>
                   {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
                 </select>
@@ -94,19 +94,19 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Nome do cliente <span className="text-red-500">*</span></Label>
+                <Label>Nome do cliente <span className="text-destructive">*</span></Label>
                 <Input value={form.clienteNome} onChange={e => set('clienteNome', e.target.value)} placeholder="Nome completo" />
               </div>
               <div className="space-y-1.5">
-                <Label>Telefone <span className="text-red-500">*</span></Label>
+                <Label>Telefone <span className="text-destructive">*</span></Label>
                 <Input value={form.clienteFone} onChange={e => set('clienteFone', e.target.value)} placeholder="(35) 99999-9999" />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Tipo de serviço <span className="text-red-500">*</span></Label>
+              <Label>Tipo de serviço <span className="text-destructive">*</span></Label>
               <select value={form.tipoServico} onChange={e => set('tipoServico', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                 <option value="">Selecione...</option>
                 {TIPOS_SERVICO.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -114,14 +114,14 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Data e horário <span className="text-red-500">*</span></Label>
+                <Label>Data e horário <span className="text-destructive">*</span></Label>
                 <Input type="datetime-local" value={form.dataHoraInicio}
                   onChange={e => set('dataHoraInicio', e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>Duração estimada</Label>
                 <select value={form.duracaoMinutos} onChange={e => set('duracaoMinutos', e.target.value)}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                   <option value="30">30 minutos</option>
                   <option value="60">1 hora</option>
                   <option value="90">1h30</option>
@@ -135,7 +135,7 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
             <div className="space-y-1.5">
               <Label>Mecânico responsável</Label>
               <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                 <option value="">Sem mecânico definido</option>
                 {mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>

@@ -62,7 +62,7 @@ export default async function AgendaPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Agenda da Oficina</h1>
-          <p className="text-slate-500 text-sm">Agendamentos e ordens de serviço</p>
+          <p className="text-muted-foreground text-sm">Agendamentos e ordens de serviço</p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && lojasOpts.length > 0 && (
@@ -83,17 +83,17 @@ export default async function AgendaPage({
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">Pendentes</p>
-          <p className="text-2xl font-bold text-amber-700 mt-0.5">{pendentes}</p>
+        <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-warning uppercase tracking-wide">Pendentes</p>
+          <p className="text-2xl font-bold text-warning mt-0.5">{pendentes}</p>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Confirmados</p>
-          <p className="text-2xl font-bold text-blue-700 mt-0.5">{confirmados}</p>
+        <div className="bg-info/10 border border-info/30 rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-info uppercase tracking-wide">Confirmados</p>
+          <p className="text-2xl font-bold text-info mt-0.5">{confirmados}</p>
         </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total no período</p>
-          <p className="text-2xl font-bold text-slate-700 mt-0.5">{lista.length}</p>
+        <div className="bg-muted border border-border rounded-lg px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total no período</p>
+          <p className="text-2xl font-bold text-foreground mt-0.5">{lista.length}</p>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ function AgendaDia({ agendamentos, podeGerenciar, mecanicos }: {
 }) {
   if (agendamentos.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-slate-400">
+      <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
         <CalendarX size={40} strokeWidth={1.5} />
         <p className="text-sm">Nenhum agendamento neste dia.</p>
       </div>
@@ -148,16 +148,16 @@ function AgendaSemana({ dias, agendamentos, podeGerenciar, mecanicos }: {
         return (
           <div key={dia.toISOString()}>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-semibold text-slate-700 capitalize">{labelDia}</h3>
+              <h3 className="text-sm font-semibold text-foreground capitalize">{labelDia}</h3>
               {dodia.length > 0 && (
-                <span className="text-xs bg-slate-200 text-slate-600 rounded-full px-1.5 py-0.5 font-medium">
+                <span className="text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 font-medium">
                   {dodia.length}
                 </span>
               )}
             </div>
             {dodia.length === 0
-              ? <p className="text-xs text-slate-400 pl-2 py-2">Sem agendamentos</p>
-              : <div className="space-y-2 pl-2 border-l-2 border-slate-100">
+              ? <p className="text-xs text-muted-foreground pl-2 py-2">Sem agendamentos</p>
+              : <div className="space-y-2 pl-2 border-l-2 border-border">
                   {dodia.map(ag => <AgendamentoCard key={ag.id} ag={ag} podeGerenciar={podeGerenciar} mecanicos={mecanicos} />)}
                 </div>
             }
