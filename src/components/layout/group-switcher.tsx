@@ -8,6 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { corDoGrupo } from '@/lib/grupo-cores'
 import { trocarGrupoAtivoAction } from './group-selector-actions'
 
+// Escurecer (e não clarear) mantém o texto da barra acima de 4.5:1 em todas as cores e temas.
+const REALCE = 'bg-black/15 hover:bg-black/25' // cor-fixa-ok: realce translúcido sobre a barra do grupo
+
 type Grupo = { id: string; nome: string; cor: string | null }
 
 export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: string }) {
@@ -44,13 +47,13 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
         <div className="flex items-center gap-3 min-w-0">
           <Building2 size={20} className="shrink-0 opacity-90" />
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider opacity-80 leading-none">Empresa / grupo ativo</p>
+            <p className="text-[10px] uppercase tracking-wider leading-none">Empresa / grupo ativo</p>
             <p className="text-lg font-bold leading-tight truncate">{ativo.nome}</p>
           </div>
         </div>
         <button
           onClick={abrir}
-          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-white/15 ${corAtivo.barHover} hover:bg-white/25 px-3 py-1.5 text-sm font-medium transition-colors`}
+          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md ${REALCE} ${corAtivo.barHover} px-3 py-1.5 text-sm font-medium transition-colors`}
         >
           <ArrowRightLeft size={14} /> Trocar
           <ChevronsUpDown size={14} className="opacity-70" />

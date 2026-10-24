@@ -2,15 +2,16 @@
 // A barra de "grupo ativo" fica na cor da bandeira, forte e sempre visível, para
 // ninguém lançar entrada/saída na empresa errada. As classes precisam aparecer
 // literalmente aqui para o Tailwind incluí-las (não dá para montar nome dinâmico).
+// Os valores, claro e escuro, ficam no globals.css (--grupo-*).
 
 export const GRUPO_CORES = {
-  emerald: { label: 'Verde',   bar: 'bg-emerald-600', barHover: 'hover:bg-emerald-700', text: 'text-emerald-50', chip: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-500', swatch: 'bg-emerald-600' },
-  blue:    { label: 'Azul',    bar: 'bg-blue-700',    barHover: 'hover:bg-blue-800',    text: 'text-blue-50',    chip: 'bg-blue-100 text-blue-800',       dot: 'bg-blue-500',    swatch: 'bg-blue-700' },
-  amber:   { label: 'Âmbar',   bar: 'bg-amber-600',   barHover: 'hover:bg-amber-700',   text: 'text-amber-50',   chip: 'bg-amber-100 text-amber-900',     dot: 'bg-amber-500',   swatch: 'bg-amber-600' },
-  violet:  { label: 'Roxo',    bar: 'bg-violet-700',  barHover: 'hover:bg-violet-800',  text: 'text-violet-50',  chip: 'bg-violet-100 text-violet-800',   dot: 'bg-violet-500',  swatch: 'bg-violet-700' },
-  rose:    { label: 'Vermelho',bar: 'bg-rose-700',    barHover: 'hover:bg-rose-800',    text: 'text-rose-50',    chip: 'bg-rose-100 text-rose-800',       dot: 'bg-rose-500',    swatch: 'bg-rose-700' },
-  cyan:    { label: 'Ciano',   bar: 'bg-cyan-700',    barHover: 'hover:bg-cyan-800',    text: 'text-cyan-50',    chip: 'bg-cyan-100 text-cyan-800',       dot: 'bg-cyan-500',    swatch: 'bg-cyan-700' },
-  slate:   { label: 'Cinza',   bar: 'bg-slate-700',   barHover: 'hover:bg-slate-800',   text: 'text-slate-50',   chip: 'bg-slate-100 text-slate-800',     dot: 'bg-slate-500',   swatch: 'bg-slate-700' },
+  emerald: { label: 'Verde',    bar: 'bg-grupo-emerald', barHover: 'hover:bg-grupo-emerald-hover', text: 'text-grupo-emerald-texto', chip: 'bg-grupo-emerald-selo text-grupo-emerald-selo-texto', dot: 'bg-grupo-emerald-ponto', swatch: 'bg-grupo-emerald' },
+  blue:    { label: 'Azul',     bar: 'bg-grupo-blue', barHover: 'hover:bg-grupo-blue-hover', text: 'text-grupo-blue-texto', chip: 'bg-grupo-blue-selo text-grupo-blue-selo-texto', dot: 'bg-grupo-blue-ponto', swatch: 'bg-grupo-blue' },
+  amber:   { label: 'Âmbar',    bar: 'bg-grupo-amber', barHover: 'hover:bg-grupo-amber-hover', text: 'text-grupo-amber-texto', chip: 'bg-grupo-amber-selo text-grupo-amber-selo-texto', dot: 'bg-grupo-amber-ponto', swatch: 'bg-grupo-amber' },
+  violet:  { label: 'Roxo',     bar: 'bg-grupo-violet', barHover: 'hover:bg-grupo-violet-hover', text: 'text-grupo-violet-texto', chip: 'bg-grupo-violet-selo text-grupo-violet-selo-texto', dot: 'bg-grupo-violet-ponto', swatch: 'bg-grupo-violet' },
+  rose:    { label: 'Vermelho', bar: 'bg-grupo-rose', barHover: 'hover:bg-grupo-rose-hover', text: 'text-grupo-rose-texto', chip: 'bg-grupo-rose-selo text-grupo-rose-selo-texto', dot: 'bg-grupo-rose-ponto', swatch: 'bg-grupo-rose' },
+  cyan:    { label: 'Ciano',    bar: 'bg-grupo-cyan', barHover: 'hover:bg-grupo-cyan-hover', text: 'text-grupo-cyan-texto', chip: 'bg-grupo-cyan-selo text-grupo-cyan-selo-texto', dot: 'bg-grupo-cyan-ponto', swatch: 'bg-grupo-cyan' },
+  slate:   { label: 'Cinza',    bar: 'bg-grupo-slate', barHover: 'hover:bg-grupo-slate-hover', text: 'text-grupo-slate-texto', chip: 'bg-grupo-slate-selo text-grupo-slate-selo-texto', dot: 'bg-grupo-slate-ponto', swatch: 'bg-grupo-slate' },
 } as const
 
 export type GrupoCor = keyof typeof GRUPO_CORES
