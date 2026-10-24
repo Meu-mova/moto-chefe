@@ -15,7 +15,7 @@ function rotulo(periodo: string, gran: 'dia' | 'mes') {
 
 export function EvolucaoChart({ dados, gran }: { dados: Ponto[]; gran: 'dia' | 'mes' }) {
   if (dados.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-12">Sem leads no período.</p>
+    return <p className="text-sm text-muted-foreground text-center py-12">Sem leads no período.</p>
   }
   const data = dados.map(d => ({ ...d, label: rotulo(d.periodo, gran) }))
   return (
