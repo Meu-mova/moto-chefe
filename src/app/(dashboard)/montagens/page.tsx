@@ -44,7 +44,7 @@ export default async function MontagensPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Montagens</h1>
-        <p className="text-slate-500 text-sm">Motos montadas por mecânico</p>
+        <p className="text-muted-foreground text-sm">Motos montadas por mecânico</p>
       </div>
 
       <MontagensFiltros
@@ -54,15 +54,15 @@ export default async function MontagensPage({
         dataFimInicial={params.ate ?? ''}
       />
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <div className="flex items-center justify-between border-b px-4 py-2.5">
           <h2 className="font-semibold text-sm">Total por mecânico</h2>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             {total} montagem{total !== 1 ? 'ns' : ''} no período
           </span>
         </div>
         {porMecanico.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-12">
+          <p className="text-sm text-muted-foreground text-center py-12">
             Nenhuma montagem registrada no período.
           </p>
         ) : (
@@ -81,13 +81,13 @@ export default async function MontagensPage({
               {porMecanico.map(m => (
                 <TableRow key={m.mecanicoId}>
                   <TableCell className="font-medium">{m.mecanico}</TableCell>
-                  <TableCell className="text-slate-500">{m.loja ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{m.loja ?? '—'}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">{m.total}</TableCell>
-                  <TableCell className="text-right tabular-nums text-slate-600">{m.diasTrabalhados}</TableCell>
-                  <TableCell className="text-right tabular-nums text-slate-600">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">{m.diasTrabalhados}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {m.diasTrabalhados > 0 ? (m.total / m.diasTrabalhados).toFixed(1) : '—'}
                   </TableCell>
-                  <TableCell className="text-slate-500 text-xs">
+                  <TableCell className="text-muted-foreground text-xs">
                     {m.primeira?.split('-').reverse().join('/')} a {m.ultima?.split('-').reverse().join('/')}
                   </TableCell>
                 </TableRow>
@@ -97,19 +97,19 @@ export default async function MontagensPage({
         )}
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <div className="flex items-center justify-between border-b px-4 py-2.5">
           <h2 className="font-semibold text-sm">
             Motos montadas{selecionado ? ` — ${selecionado.mecanico}` : ''}
           </h2>
           {detalhe.length === 500 && (
-            <span className="text-xs text-amber-600">
+            <span className="text-xs text-warning">
               mostrando as 500 mais recentes — reduza o período
             </span>
           )}
         </div>
         {detalhe.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-12">Nada a listar.</p>
+          <p className="text-sm text-muted-foreground text-center py-12">Nada a listar.</p>
         ) : (
           <Table>
             <TableHeader>
@@ -125,14 +125,14 @@ export default async function MontagensPage({
             <TableBody>
               {detalhe.map(d => (
                 <TableRow key={d.chassi}>
-                  <TableCell className="text-slate-500 whitespace-nowrap">
+                  <TableCell className="text-muted-foreground whitespace-nowrap">
                     {d.data?.split('-').reverse().join('/')}
                   </TableCell>
                   <TableCell>{d.mecanico}</TableCell>
                   <TableCell className="font-medium">{d.marca} {d.modelo}</TableCell>
-                  <TableCell className="font-mono text-xs text-slate-500">{d.chassi}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{d.chassi}</TableCell>
                   <TableCell>{d.cor}</TableCell>
-                  <TableCell className="text-slate-500">{d.loja ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{d.loja ?? '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

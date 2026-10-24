@@ -62,8 +62,8 @@ export function GarantiaButton({ motoId, descricao, showLabel, disabled, gatilho
         onClick={() => setOpen(true)}
         disabled={disabled}
         className={showLabel
-          ? 'h-8 gap-1.5 text-xs border-orange-300 text-orange-600 hover:bg-orange-50'
-          : 'h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50'}
+          ? 'h-8 gap-1.5 text-xs border-warning/50 text-warning hover:bg-warning/10'
+          : 'h-8 w-8 text-warning hover:text-warning hover:bg-warning/10'}
       >
         <ShieldAlert size={showLabel ? 14 : 16} />
         {showLabel && 'Garantia'}
@@ -75,7 +75,7 @@ export function GarantiaButton({ motoId, descricao, showLabel, disabled, gatilho
             <DialogTitle>Abrir Garantia</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">{descricao}</p>
+            <p className="text-sm text-muted-foreground">{descricao}</p>
             <div className="space-y-2">
               <Label>Descrição do Problema</Label>
               <Textarea
@@ -88,7 +88,7 @@ export function GarantiaButton({ motoId, descricao, showLabel, disabled, gatilho
             <div className="space-y-2">
               <Label>Data do Pedido</Label>
               <Input type="date" value={dataPedido} onChange={e => setDataPedido(e.target.value)} />
-              <p className="text-xs text-slate-400">O prazo de resolução é de 30 dias a partir desta data.</p>
+              <p className="text-xs text-muted-foreground">O prazo de resolução é de 30 dias a partir desta data.</p>
             </div>
             <div className="space-y-2">
               <Label>Número do Pedido na Fábrica (opcional)</Label>
