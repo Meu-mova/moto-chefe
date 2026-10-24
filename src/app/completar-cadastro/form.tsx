@@ -68,7 +68,7 @@ export function CompletarCadastroForm({ inicial }: { inicial: Inicial | null }) 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="pixChave">Chave PIX</Label>
         <Input id="pixChave" value={pixChave} onChange={e => setPixChave(e.target.value)} />
-        <p className="text-xs text-slate-500">{AJUDA[pixTipo]}</p>
+        <p className="text-xs text-muted-foreground">{AJUDA[pixTipo]}</p>
       </div>
 
       <div className="flex flex-col gap-1.5">

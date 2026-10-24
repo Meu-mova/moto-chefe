@@ -87,15 +87,15 @@ export function AgendarForm({ lojaId }: Props) {
   if (sucesso) {
     return (
       <div className="flex flex-col items-center gap-4 py-8 text-center">
-        <CheckCircle2 size={52} className="text-green-500" />
+        <CheckCircle2 size={52} className="text-success" />
         <div>
-          <h3 className="text-xl font-bold text-slate-800">Agendamento enviado!</h3>
-          <p className="text-slate-500 text-sm mt-1">
+          <h3 className="text-xl font-bold text-foreground">Agendamento enviado!</h3>
+          <p className="text-muted-foreground text-sm mt-1">
             Recebemos sua solicitação. Nossa equipe entrará em contato pelo número <strong>{form.fone}</strong> para confirmar.
           </p>
         </div>
         <button onClick={() => { setSucesso(false); setForm({ nome: '', fone: '', tipoServico: '', descricao: '', dia: '', horario: '' }) }}
-          className="text-sm text-blue-600 hover:underline">
+          className="text-sm text-info hover:underline">
           Fazer outro agendamento
         </button>
       </div>
@@ -148,14 +148,14 @@ export function AgendarForm({ lojaId }: Props) {
               <button key={h} type="button" onClick={() => set('horario', h)}
                 className={`py-2 rounded-lg text-sm border font-medium transition-colors ${
                   form.horario === h
-                    ? 'bg-slate-800 text-white border-slate-800'
-                    : 'border-slate-200 text-slate-700 hover:border-slate-400'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-foreground hover:border-ring'
                 }`}>
                 {h}
               </button>
             ))}
           </div>
-          {erros.horario && <p className="text-red-500 text-xs mt-1">{erros.horario}</p>}
+          {erros.horario && <p className="text-destructive text-xs mt-1">{erros.horario}</p>}
         </Field>
       )}
 
@@ -163,16 +163,16 @@ export function AgendarForm({ lojaId }: Props) {
       <Field label="Observações (opcional)">
         <textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
           placeholder="Descreva o problema ou o que precisa ser feito..." rows={3}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-300" />
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" />
       </Field>
 
       {/* Aviso */}
-      <p className="text-xs text-slate-400 bg-slate-50 rounded-lg p-3">
+      <p className="text-xs text-muted-foreground bg-muted rounded-lg p-3">
         Ao enviar, você receberá uma confirmação por telefone. O agendamento fica pendente até nossa equipe confirmar a disponibilidade.
       </p>
 
       <button onClick={enviar} disabled={pending}
-        className="w-full py-3 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+        className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
         {pending ? <><Loader2 size={16} className="animate-spin" /> Enviando…</> : 'Solicitar agendamento'}
       </button>
     </div>
@@ -180,15 +180,15 @@ export function AgendarForm({ lojaId }: Props) {
 }
 
 function input(erro?: string) {
-  return `w-full border ${erro ? 'border-red-400' : 'border-slate-200'} rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-300`
+  return `w-full border ${erro ? 'border-destructive/50' : 'border-border'} rounded-lg px-3 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring`
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <label className="text-sm font-medium text-foreground">{label}</label>
       {children}
-      {error && <p className="text-red-500 text-xs">{error}</p>}
+      {error && <p className="text-destructive text-xs">{error}</p>}
     </div>
   )
 }
