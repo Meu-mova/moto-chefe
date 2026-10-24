@@ -49,6 +49,8 @@ async function rodar(navegador: Browser) {
           document.documentElement.classList.toggle('light', !escuro)
           document.documentElement.style.colorScheme = escuro ? 'dark' : 'light'
         }, tema === 'escuro')
+        // Botões com transition-all levam até ~300ms para assumir a cor do tema; antes disso o axe mede a cor do meio.
+        await pagina.waitForTimeout(500)
         const nome = `${rota.replace(/^\//, '').replace(/[/?=&]/g, '_') || 'inicio'}-${tema}-${nomeVp}`
         await pagina.screenshot({ path: `${pasta}/${nome}.png`, fullPage: true })
         const { violations } = await new AxeBuilder({ page: pagina }).withRules(['color-contrast']).analyze()
