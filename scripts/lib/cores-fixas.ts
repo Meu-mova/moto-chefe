@@ -19,7 +19,7 @@ const PADROES = [
 export const LIBERA = 'cor-fixa-ok'
 
 export function acharCoresFixas(linha: string): string[] {
-  if (/^\s*(\/\/|\/?\*)/.test(linha) || linha.includes(LIBERA)) return []
+  if (/^\s*(\/\/|\/?\*|\{\/\*)/.test(linha) || new RegExp(`${LIBERA}: \\S`).test(linha)) return []
   const achados: { pos: number; texto: string }[] = []
   for (const padrao of PADROES) {
     for (const m of linha.matchAll(padrao)) {

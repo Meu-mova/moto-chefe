@@ -27,6 +27,8 @@ test('cor com nome e texto comum não contam', () => {
 test('comentário e linha liberada com cor-fixa-ok não contam', () => {
   assert.deepEqual(acharCoresFixas('// troca bg-white por bg-card'), [])
   assert.deepEqual(acharCoresFixas(' * bg-slate-900'), [])
+  assert.deepEqual(acharCoresFixas('{/* bg-white antigo */}'), [])
+  assert.deepEqual(acharCoresFixas('bg-white // cor-fixa-ok'), ['bg-white'])
   assert.deepEqual(acharCoresFixas('.match(/<p class="text-white">/) // cor-fixa-ok: HTML da fábrica'), [])
 })
 
