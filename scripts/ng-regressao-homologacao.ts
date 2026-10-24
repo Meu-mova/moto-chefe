@@ -157,7 +157,8 @@ async function main() {
   if (!cfg.empresa_id) throw new Error(`"${GRUPO}" sem empresaId na Nota Gateway`)
   const token = decifrar(cfg.token).toString('utf8')
   if (!token) throw new Error('Token decifrado vazio')
-  segredos.push(token)
+  // empresaId também sai do log: o Postman imprime a URL inteira de cada requisição.
+  segredos.push(token, cfg.empresa_id)
 
   // Curto de propósito: id longo a NG devolve 500 (ver idExternoNfe).
   const idTeste = `mova-homolog-rg-${Date.now().toString(36)}`

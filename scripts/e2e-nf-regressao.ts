@@ -140,7 +140,8 @@ async function fluxoCompleto(pagina: Page, c: Ctx) {
   if (emitida?.status !== 'Autorizada') return
   await pagina.screenshot({ path: `${PASTA}/1-emitida.png`, fullPage: true, animations: 'disabled', timeout: 60_000 })
 
-  // Carta de correção
+  // Carta de correção. Enviada 2 s depois da autorização, voltou Negada sem motivo (24/10/2026).
+  await pagina.waitForTimeout(90_000)
   await dialogo.getByRole('button', { name: 'Carta de correção' }).click()
   await dialogo.getByLabel(/^Carta de correção nº/).fill(TEXTO_CARTA)
   await dialogo.getByRole('button', { name: 'Enviar à SEFAZ' }).click()

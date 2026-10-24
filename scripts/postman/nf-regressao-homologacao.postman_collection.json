@@ -32,7 +32,7 @@
         "exec": [
           "// Corpo de ida e volta para o log do script; headers ficam de fora (Authorization leva o token).",
           "const corpoReq = pm.request.body && pm.request.body.raw ? pm.variables.replaceIn(pm.request.body.raw) : '';",
-          "console.log('REQ ' + pm.info.requestName + ': ' + pm.request.method + ' ' + pm.request.url.getPathWithQuery() + (corpoReq ? '\\n' + corpoReq : ''));",
+          "console.log('REQ ' + pm.info.requestName + ': ' + pm.request.method + ' ' + pm.request.url.getPathWithQuery().split(pm.variables.get('empresaId')).join('****') + (corpoReq ? '\\n' + corpoReq : ''));",
           "console.log('RES ' + pm.info.requestName + ': HTTP ' + pm.response.code + '\\n' + pm.response.text());"
         ]
       }
@@ -170,6 +170,17 @@
     {
       "name": "3. POST carta de correção",
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Carta enviada 2 s depois da autorização voltou Negada sem motivo (24/10/2026); a que passou mais rápido saiu 67 s depois.",
+              "const fim = Date.now() + Number(pm.collectionVariables.get('esperaCartaMs') || 90000);",
+              "while (Date.now() < fim) {}"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
@@ -431,6 +442,10 @@
     {
       "key": "maxTentativas",
       "value": "20"
+    },
+    {
+      "key": "esperaCartaMs",
+      "value": "90000"
     }
   ]
 }
