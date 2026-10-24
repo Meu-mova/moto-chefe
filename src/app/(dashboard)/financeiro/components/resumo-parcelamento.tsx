@@ -66,8 +66,8 @@ export function ResumoParcelamento({ linhas }: { linhas: LinhaParcelamento[] }) 
                 onClick={() => setAba(a.valor)}
                 className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
                   aba === a.valor
-                    ? 'border-slate-800 bg-slate-800 text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-ring'
                 }`}
               >
                 {a.label}
@@ -78,7 +78,7 @@ export function ResumoParcelamento({ linhas }: { linhas: LinhaParcelamento[] }) 
       </CardHeader>
       <CardContent>
         {dados.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-400">Nenhuma venda nesta forma no período.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma venda nesta forma no período.</p>
         ) : (
           <Table>
             <TableHeader>
@@ -97,7 +97,7 @@ export function ResumoParcelamento({ linhas }: { linhas: LinhaParcelamento[] }) 
                   <TableRow key={String(d.parcelas)}>
                     <TableCell className="font-medium">
                       {d.parcelas === null
-                        ? <span className="text-slate-400">não informado</span>
+                        ? <span className="text-muted-foreground">não informado</span>
                         : `${d.parcelas}x`}
                     </TableCell>
                     <TableCell className="text-right">{d.qtdVendas}</TableCell>
@@ -105,17 +105,17 @@ export function ResumoParcelamento({ linhas }: { linhas: LinhaParcelamento[] }) 
                       {/* A barra é o que faz a comparação saltar aos olhos: a
                           tabela sozinha vira uma coluna de números parecidos. */}
                       <div className="flex items-center justify-end gap-2">
-                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
                           <div
-                            className="h-full rounded-full bg-slate-700"
+                            className="h-full rounded-full bg-foreground"
                             style={{ width: `${(d.qtdVendas / maiorQtd) * 100}%` }}
                           />
                         </div>
-                        <span className="w-11 text-right text-sm text-slate-500">{pct.toFixed(1)}%</span>
+                        <span className="w-11 text-right text-sm text-muted-foreground">{pct.toFixed(1)}%</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">{fmt(d.total)}</TableCell>
-                    <TableCell className="text-right font-mono text-slate-500">
+                    <TableCell className="text-right font-mono text-muted-foreground">
                       {fmt(d.qtdVendas > 0 ? d.total / d.qtdVendas : 0)}
                     </TableCell>
                   </TableRow>
@@ -136,7 +136,7 @@ export function ResumoParcelamento({ linhas }: { linhas: LinhaParcelamento[] }) 
           </Table>
         )}
 
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-muted-foreground">
           Conta a parcela lançada em cada pagamento da venda de moto. Uma venda com cartão e PIX aparece aqui só
           pela parte do cartão, e uma venda dividida em dois cartões de prazos diferentes conta nas duas linhas.
         </p>

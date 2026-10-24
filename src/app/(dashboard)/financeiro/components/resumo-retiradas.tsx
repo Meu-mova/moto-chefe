@@ -19,22 +19,22 @@ export function ResumoRetiradas({ foraPorCategoria, lucroLiquido }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-slate-500">Retiradas de Sócios</CardTitle>
-        <p className="text-xs text-slate-400">
+        <CardTitle className="text-sm text-muted-foreground">Retiradas de Sócios</CardTitle>
+        <p className="text-xs text-muted-foreground">
           distribuição de lucro — fora das despesas operacionais
         </p>
       </CardHeader>
       <CardContent>
-        <p className="text-2xl font-bold text-slate-700 mb-3">{fmt(total)}</p>
+        <p className="text-2xl font-bold text-foreground mb-3">{fmt(total)}</p>
 
         <div className="space-y-1.5">
           {retiradas.map(r => (
             <div key={r.categoria} className="flex items-baseline justify-between gap-3 text-sm">
               <span>{r.categoria}</span>
-              <span className="font-mono text-slate-600 whitespace-nowrap">
+              <span className="font-mono text-muted-foreground whitespace-nowrap">
                 {fmt(r.total)}
                 {total > 0 && (
-                  <span className="ml-2 text-xs text-slate-400">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {((r.total / total) * 100).toFixed(0)}%
                   </span>
                 )}
@@ -42,12 +42,12 @@ export function ResumoRetiradas({ foraPorCategoria, lucroLiquido }: Props) {
             </div>
           ))}
           {retiradas.length === 0 && (
-            <p className="text-sm text-slate-400 py-4 text-center">Nenhuma retirada no período.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma retirada no período.</p>
           )}
         </div>
 
         {total > 0 && lucroLiquido > 0 && (
-          <p className={`text-xs mt-3 pt-2 border-t ${acimaDoLucro ? 'text-red-600' : 'text-slate-400'}`}>
+          <p className={`text-xs mt-3 pt-2 border-t ${acimaDoLucro ? 'text-destructive' : 'text-muted-foreground'}`}>
             {acimaDoLucro
               ? `Acima do resultado do mês — o lucro líquido foi ${fmt(lucroLiquido)}.`
               : `${((total / lucroLiquido) * 100).toFixed(0)}% do lucro líquido do mês.`}

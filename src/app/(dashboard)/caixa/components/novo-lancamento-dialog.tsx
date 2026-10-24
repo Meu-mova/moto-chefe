@@ -197,18 +197,18 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
           {/* Comprovante */}
           <div className="space-y-2">
             <Label>
-              Comprovante {isSaida && <span className="text-red-500">*</span>}
-              {!isSaida && <span className="text-slate-400 text-xs ml-1">(opcional)</span>}
+              Comprovante {isSaida && <span className="text-destructive">*</span>}
+              {!isSaida && <span className="text-muted-foreground text-xs ml-1">(opcional)</span>}
             </Label>
             {arquivo ? (
-              <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-green-50 border-green-200">
-                <FileCheck size={16} className="text-green-600 shrink-0" />
-                <span className="text-sm text-green-700 truncate flex-1">{arquivo.name}</span>
-                <span className="text-xs text-green-500">{(arquivo.size / 1024).toFixed(0)} KB</span>
+              <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-success/10 border-success/30">
+                <FileCheck size={16} className="text-success shrink-0" />
+                <span className="text-sm text-success truncate flex-1">{arquivo.name}</span>
+                <span className="text-xs text-success">{(arquivo.size / 1024).toFixed(0)} KB</span>
                 <button
                   type="button"
                   onClick={() => setArquivo(null)}
-                  className="text-green-400 hover:text-red-500 p-0.5"
+                  className="text-success hover:text-destructive p-0.5"
                 >
                   <X size={14} />
                 </button>
@@ -218,7 +218,7 @@ export function NovoLancamentoDialog({ lojas, lojaUsuarioId }: { lojas: Loja[]; 
                 type="file"
                 accept="image/jpeg,image/png,image/webp,application/pdf"
                 onChange={handleFileChange}
-                className="cursor-pointer file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                className="cursor-pointer file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted"
               />
             )}
           </div>
