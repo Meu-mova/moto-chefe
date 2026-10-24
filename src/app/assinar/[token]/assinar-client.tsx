@@ -16,11 +16,6 @@ type Passo = 'leitura' | 'codigo' | 'selfie' | 'traco'
  * Server Actions do fluxo, recebidas por propriedade: a mesma tela serve aos
  * documentos de venda e ao contrato de adesão (#165), cada um com as suas.
  */
-
-// A assinatura vira PNG com tinta escura e vai para o contrato impresso: o quadro fica claro nos dois temas.
-const QUADRO = 'bg-slate-50' // cor-fixa-ok: quadro de assinatura, sempre claro
-const TINTA = '#0f172a' // cor-fixa-ok: tinta da assinatura gravada no PNG
-const FUNDO_CAMERA = 'bg-black' // cor-fixa-ok: tarja da câmera em volta do vídeo
 export type AcoesAssinatura = {
   solicitar: (token: string, forcarNovo?: boolean) => Promise<RespostaCodigo>
   conferir: (token: string, digitado: string) => Promise<{ ok: boolean; error?: string }>
@@ -435,7 +430,7 @@ function Selfie({ alternativa, onOk, onFoto }: { alternativa: string; onOk: () =
         ref={videoRef}
         playsInline
         muted
-        className={`w-full rounded-lg ${FUNDO_CAMERA} ${stream ? 'block' : 'hidden'}`}
+        className={`w-full rounded-lg bg-camera-fundo ${stream ? 'block' : 'hidden'}`}
       />
 
       {stream && (
@@ -480,7 +475,8 @@ function Traco({
     ctx.moveTo(p.x, p.y)
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
-    ctx.strokeStyle = TINTA
+    // O traço vira PNG que vai para o contrato impresso: tinta escura nos dois temas (--assinatura-tinta).
+    ctx.strokeStyle = getComputedStyle(e.currentTarget).getPropertyValue('--assinatura-tinta').trim()
   }
 
   function mover(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -545,7 +541,7 @@ function Traco({
         onPointerMove={mover}
         onPointerUp={fim}
         onPointerLeave={fim}
-        className={`w-full rounded-lg border-2 border-dashed border-input ${QUADRO}`}
+        className="w-full rounded-lg border-2 border-dashed border-input bg-assinatura-quadro"
         style={{ touchAction: 'none' }}
       />
 
