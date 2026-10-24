@@ -70,11 +70,11 @@ export function EmitirCupomDialog({ lojas, lojaUsuarioId, isAdmin }: Props) {
 
           {emitido ? (
             <div className="space-y-3 py-2">
-              <p className="text-sm text-slate-600">Cupom emitido. Anote o código no comprovante do cliente:</p>
-              <p className="text-3xl font-mono font-bold text-center bg-slate-50 border rounded-lg py-4 tracking-widest">
+              <p className="text-sm text-muted-foreground">Cupom emitido. Anote o código no comprovante do cliente:</p>
+              <p className="text-3xl font-mono font-bold text-center bg-muted border rounded-lg py-4 tracking-widest">
                 {emitido}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Vale em qualquer loja do grupo, até {validoAte.slice(8, 10)}/{validoAte.slice(5, 7)}/{validoAte.slice(0, 4)}.
                 Cobre a mão de obra da OS; peças e óleo continuam sendo cobrados.
               </p>
@@ -87,7 +87,7 @@ export function EmitirCupomDialog({ lojas, lojaUsuarioId, isAdmin }: Props) {
                   <select
                     value={lojaId}
                     onChange={e => setLojaId(e.target.value)}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card"
                   >
                     <option value="">Selecione…</option>
                     {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
@@ -126,7 +126,7 @@ export function EmitirCupomDialog({ lojas, lojaUsuarioId, isAdmin }: Props) {
               </div>
 
               {!podeSalvar && (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-warning">
                   Informe ao menos o cliente ou o chassi — sem isso o cupom não identifica de quem é.
                 </p>
               )}
