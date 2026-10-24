@@ -5,7 +5,8 @@
  *     npx dotenv-cli -e .env.local -- node --import tsx scripts/e2e-tema.ts <usuario> <rota>... [--ver]
  *
  * <usuario> é o prefixo do login de teste (geral, aux.sul...). Cada rota sai em 2 temas x
- * desktop e 390px, com o axe (regra color-contrast). Enquanto o tema está forçado claro, o
+ * desktop e 390px, com o axe (regra color-contrast). Depois, no escuro, cada rota com link no menu
+ * é aberta pelo clique e fotografada 120 ms depois, para pegar o esqueleto de carregamento. Enquanto o tema está forçado claro, o
  * escuro é aplicado pondo a classe "dark" no <html>, como o next-themes faz.
  * Só lê telas: não cria nem altera dado.
  */
@@ -60,6 +61,26 @@ async function rodar(navegador: Browser) {
         console.log(`${nos.length ? 'FALHA' : 'ok   '} ${nome}${nos.length ? `: ${nos.length} contraste` : ''}`)
         for (const n of nos.slice(0, 5)) console.log(`        ${n.target.join(' ')} ${n.any[0]?.message ?? ''}`)
       }
+    }
+    // Troca de tela pelo menu no escuro: o esqueleto de carregamento só aparece por instantes.
+    await pagina.evaluate(() => {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+      document.documentElement.style.colorScheme = 'dark'
+    })
+    for (const rota of rotas) {
+      const link = pagina.locator(`nav a[href="${rota}"]`).first()
+      if (new URL(pagina.url()).pathname === rota || !(await link.isVisible().catch(() => false))) continue
+      await link.click()
+      await pagina.waitForTimeout(120)
+      const nome = `${rota.replace(/^\//, '').replace(/[/?=&]/g, '_') || 'inicio'}-transicao-escuro-${nomeVp}`
+      await pagina.screenshot({ path: `${pasta}/${nome}.png` })
+      const { violations } = await new AxeBuilder({ page: pagina }).withRules(['color-contrast']).analyze()
+      const nos = violations.flatMap((v) => v.nodes)
+      violacoes += nos.length
+      for (const n of nos) lista.push({ tela: nome, alvo: n.target.join(' '), html: n.html, mensagem: n.any[0]?.message ?? '' })
+      console.log(`${nos.length ? 'FALHA' : 'ok   '} ${nome}${nos.length ? `: ${nos.length} contraste` : ''}`)
+      await pagina.waitForLoadState('networkidle')
     }
     await contexto.close()
   }
