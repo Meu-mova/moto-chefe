@@ -51,7 +51,7 @@ export function UploadRelatorio() {
         ref={fileRef}
         type="file"
         accept=".csv,.txt"
-        className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer"
+        className="text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-xs file:font-medium file:bg-card file:text-foreground hover:file:bg-muted cursor-pointer"
       />
 
       <Button type="submit" size="sm" disabled={loading}>

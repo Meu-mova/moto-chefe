@@ -110,7 +110,7 @@ export default async function ConciliacaoPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Conciliação de Cartão</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {totalPendentes} pendente{totalPendentes !== 1 ? 's' : ''} · {totalConciliadas} conciliada{totalConciliadas !== 1 ? 's' : ''}
           </p>
         </div>
@@ -125,8 +125,8 @@ export default async function ConciliacaoPage({
             href={`/conciliacao?filtro=${f}`}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               filtro === f
-                ? 'bg-slate-900 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border border-border text-muted-foreground hover:bg-muted'
             }`}
           >
             {f === 'pendentes' ? 'Pendentes' : f === 'conciliadas' ? 'Conciliadas' : 'Todas'}
@@ -136,7 +136,7 @@ export default async function ConciliacaoPage({
 
       {/* Tabela */}
       {transacoes.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-sm">
             {filtro === 'pendentes'
               ? 'Nenhuma transação pendente. Importe um relatório acima.'
@@ -144,21 +144,21 @@ export default async function ConciliacaoPage({
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Data</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Operadora</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Tipo</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Portador</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Bruto</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Líquido</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">NSU</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Venda</th>
+              <tr className="bg-muted border-b border-border">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Data</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Operadora</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tipo</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Portador</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Bruto</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Líquido</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">NSU</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Venda</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {transacoes.map(t => {
                 const raw = t.rawData as Record<string, string> | null
                 const bandeira = raw?.bandeira ?? ''
@@ -174,11 +174,11 @@ export default async function ConciliacaoPage({
                   t.vendaId ? 'moto' : t.pecaVendaId ? 'peca' : t.osId ? 'os' : undefined
 
                 return (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                  <tr key={t.id} className="hover:bg-muted transition-colors">
+                    <td className="px-4 py-3 text-foreground whitespace-nowrap">
                       {new Date(t.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR')}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {OPERADORA_LABEL[t.operadora] ?? t.operadora}
                     </td>
                     <td className="px-4 py-3">
@@ -186,19 +186,19 @@ export default async function ConciliacaoPage({
                         <Badge variant={t.tipo === 'credito' ? 'default' : 'secondary'} className="text-xs">
                           {t.tipo === 'credito' ? `Cré ${t.parcelas}x` : 'Déb'}
                         </Badge>
-                        {bandeira && <span className="text-xs text-slate-400 capitalize">{bandeira}</span>}
+                        {bandeira && <span className="text-xs text-muted-foreground capitalize">{bandeira}</span>}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 max-w-[140px] truncate" title={portador}>
+                    <td className="px-4 py-3 text-muted-foreground max-w-[140px] truncate" title={portador}>
                       {portador || '—'}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
+                    <td className="px-4 py-3 text-right font-medium text-foreground whitespace-nowrap">
                       {fmt(t.valorBruto)}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
                       {t.valorLiquido ? fmt(t.valorLiquido) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-400 font-mono max-w-[120px] truncate" title={t.nsu ?? ''}>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono max-w-[120px] truncate" title={t.nsu ?? ''}>
                       {t.nsu ? t.nsu.slice(-8) : '—'}
                     </td>
                     <td className="px-4 py-3">
