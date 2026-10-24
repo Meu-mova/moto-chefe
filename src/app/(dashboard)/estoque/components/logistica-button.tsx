@@ -52,8 +52,8 @@ export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas, showLab
         title="Solicitar Transferência"
         onClick={handleOpen}
         className={showLabel
-          ? 'h-8 gap-1.5 text-xs border-purple-300 text-purple-600 hover:bg-purple-50'
-          : 'h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50'}
+          ? 'h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10'
+          : 'h-8 w-8 text-info hover:text-info hover:bg-info/10'}
       >
         <Truck size={showLabel ? 14 : 16} />
         {showLabel && 'Transferir'}
@@ -64,7 +64,7 @@ export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas, showLab
             <DialogTitle>Solicitar Transferência</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">{descricao}</p>
+            <p className="text-sm text-muted-foreground">{descricao}</p>
             <div className="space-y-2">
               <Label>Loja Destino</Label>
               <Select value={lojaDestinoId} onValueChange={v => setLojaDestinoId(v ?? '')}>

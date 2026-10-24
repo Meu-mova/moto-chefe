@@ -112,7 +112,7 @@ export default async function EstoquePage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           {!isAdmin && usuario.lojaId
             ? `Motos da loja ${lojasOpts.find(l => l.id === usuario.lojaId)?.nome ?? ''}`
             : 'Todas as motos do grupo'}
@@ -126,7 +126,7 @@ export default async function EstoquePage({
         lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
         chassiInicial={params.q ?? ''}
       />
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <MotoTable
           motos={motosList}
           demandasComSinal={demandasComSinal}

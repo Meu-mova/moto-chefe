@@ -159,7 +159,7 @@ export function EstoqueFiltros({ lojas, modelos, cores, lojaIdDefault, chassiIni
       </Button>
 
       {temFiltro && (
-        <Button variant="ghost" size="sm" onClick={limpar} className="text-slate-500">
+        <Button variant="ghost" size="sm" onClick={limpar} className="text-muted-foreground">
           Limpar filtros
         </Button>
       )}
