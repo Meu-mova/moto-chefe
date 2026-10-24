@@ -77,7 +77,7 @@ export function AtualizarSefaz({
         type="button"
         onClick={() => clicar(false)}
         disabled={!liberado || ocupado}
-        className="inline-flex items-center gap-2 rounded-md bg-slate-800 text-white px-3 h-9 text-sm hover:bg-slate-700 disabled:opacity-60 disabled:hover:bg-slate-800"
+        className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-3 h-9 text-sm hover:bg-primary-hover disabled:opacity-60 disabled:hover:bg-primary"
       >
         <RefreshCw size={14} className={consultando === 'normal' ? 'animate-spin' : undefined} />
         {rotulo}
@@ -87,25 +87,25 @@ export function AtualizarSefaz({
         type="button"
         onClick={() => clicar(true)}
         disabled={!liberado || ocupado}
-        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white text-slate-700 px-3 h-9 text-sm hover:bg-slate-50 disabled:opacity-60 disabled:hover:bg-white"
+        className="inline-flex items-center gap-2 rounded-md border border-input bg-card text-foreground px-3 h-9 text-sm hover:bg-muted disabled:opacity-60 disabled:hover:bg-card"
       >
         <History size={14} className={consultando === 'releitura' ? 'animate-spin' : undefined} />
         {consultando === 'releitura' ? 'Relendo os últimos 90 dias…' : 'Reler os últimos 90 dias'}
       </button>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         A releitura pede a fila inteira de novo, do começo — é o que traz nota que a SEFAZ já
         entregou e que não apareceu aqui. Não duplica nada, mas gasta a mesma janela de 1 hora, e
         uma fila grande pode precisar de mais de uma rodada.
       </p>
 
       {ocupado && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           Pode levar até um minuto: quando há fila acumulada, o sistema lê tudo de uma vez.
         </p>
       )}
       {msg && (
-        <p className={`text-sm ${msg.ok ? 'text-green-700' : 'text-amber-700'}`}>{msg.texto}</p>
+        <p className={`text-sm ${msg.ok ? 'text-success' : 'text-warning'}`}>{msg.texto}</p>
       )}
     </div>
   )
