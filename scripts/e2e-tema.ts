@@ -1,7 +1,7 @@
 /**
  * Capturas e contraste das telas nos temas claro e escuro (#90), contra o staging.
  *
- *   E2E_URL=http://localhost:3390 E2E_PASTA=~/.../tema-90-capturas/<pr> \
+ *   E2E_URL=http://localhost:3390 E2E_PASTA=$HOME/.../tema-90-capturas/<pr> \
  *     npx dotenv-cli -e .env.local -- node --import tsx scripts/e2e-tema.ts <usuario> <rota>... [--ver]
  *
  * <usuario> é o prefixo do login de teste (geral, aux.sul...). Cada rota sai em 2 temas x
@@ -9,7 +9,7 @@
  * escuro é aplicado pondo a classe "dark" no <html>, como o next-themes faz.
  * Só lê telas: não cria nem altera dado.
  */
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { chromium, type Browser } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
 import { motivoRecusaForaDoStaging } from './lib/alvo-banco'
@@ -29,6 +29,7 @@ const VIEWPORTS = { desktop: { width: 1440, height: 900 }, celular: { width: 390
 
 async function rodar(navegador: Browser) {
   let violacoes = 0
+  const lista: { tela: string; alvo: string; html: string; mensagem: string }[] = []
   for (const [nomeVp, viewport] of Object.entries(VIEWPORTS)) {
     const contexto = await navegador.newContext({ locale: 'pt-BR', viewport })
     const pagina = await contexto.newPage()
@@ -53,12 +54,15 @@ async function rodar(navegador: Browser) {
         const { violations } = await new AxeBuilder({ page: pagina }).withRules(['color-contrast']).analyze()
         const nos = violations.flatMap((v) => v.nodes)
         violacoes += nos.length
+        for (const n of nos) lista.push({ tela: nome, alvo: n.target.join(' '), html: n.html, mensagem: n.any[0]?.message ?? '' })
         console.log(`${nos.length ? 'FALHA' : 'ok   '} ${nome}${nos.length ? `: ${nos.length} contraste` : ''}`)
         for (const n of nos.slice(0, 5)) console.log(`        ${n.target.join(' ')} ${n.any[0]?.message ?? ''}`)
       }
     }
     await contexto.close()
   }
+  // Lista inteira, para provar que nenhuma violação vem dos arquivos que o PR tocou.
+  writeFileSync(`${pasta}/axe.json`, JSON.stringify(lista, null, 2))
   return violacoes
 }
 
