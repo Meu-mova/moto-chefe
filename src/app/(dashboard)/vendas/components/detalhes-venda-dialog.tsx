@@ -123,7 +123,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
         size="icon"
         title="Ver detalhes"
         onClick={abrirDialog}
-        className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+        className="h-8 w-8 text-info hover:text-info hover:bg-info/10"
       >
         <Eye size={16} />
       </Button>

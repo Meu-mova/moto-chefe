@@ -15,9 +15,9 @@ import { ptBR } from 'date-fns/locale'
 import { Bike, User, Store, CalendarDays, Hash, X, CheckCheck } from 'lucide-react'
 
 const STATUS_CONFIG = {
-  pendente:  { label: 'Pendente',  cls: 'border-amber-300 bg-amber-50 text-amber-700' },
-  efetivado: { label: 'Efetivado', cls: 'border-green-300 bg-green-50 text-green-700' },
-  cancelado: { label: 'Cancelado', cls: 'border-slate-300 bg-slate-50 text-slate-500' },
+  pendente:  { label: 'Pendente',  cls: 'border-warning/40 bg-warning/10 text-warning' },
+  efetivado: { label: 'Efetivado', cls: 'border-success/40 bg-success/10 text-success' },
+  cancelado: { label: 'Cancelado', cls: 'border-input bg-muted text-muted-foreground' },
 }
 
 type Props = {
@@ -57,34 +57,34 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
 
   return (
     <>
-      <div className={`rounded-xl border bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden ${
+      <div className={`rounded-xl border bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden ${
         p.status === 'cancelado' ? 'opacity-60' : ''
       }`}>
         {/* Faixa de status no topo */}
         <div className={`h-1 w-full ${
-          p.status === 'pendente'  ? 'bg-amber-400' :
-          p.status === 'efetivado' ? 'bg-green-400' : 'bg-slate-300'
+          p.status === 'pendente'  ? 'bg-warning' :
+          p.status === 'efetivado' ? 'bg-success' : 'bg-muted-foreground'
         }`} />
 
         <div className="p-4 space-y-3">
           {/* Cabeçalho: modelo + número */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="p-1.5 bg-slate-100 rounded-lg shrink-0">
-                <Bike size={16} className="text-slate-600" />
+              <div className="p-1.5 bg-muted rounded-lg shrink-0">
+                <Bike size={16} className="text-muted-foreground" />
               </div>
               <div className="min-w-0">
-                <p className="font-semibold text-slate-800 text-sm leading-tight truncate">
+                <p className="font-semibold text-foreground text-sm leading-tight truncate">
                   {p.marca} {p.modelo}
                 </p>
-                <p className="text-xs font-mono text-slate-400 truncate">{p.chassi} · {p.cor}</p>
+                <p className="text-xs font-mono text-muted-foreground truncate">{p.chassi} · {p.cor}</p>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${cfg.cls}`}>
                 {cfg.label}
               </span>
-              <span className="text-[11px] font-mono text-slate-400 flex items-center gap-0.5">
+              <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-0.5">
                 <Hash size={10} />{p.numero}
               </span>
             </div>
@@ -92,20 +92,20 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
 
           {/* Infos em grid */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <Store size={12} className="shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Store size={12} className="shrink-0 text-muted-foreground" />
               <span className="truncate">{p.lojaNome}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <User size={12} className="shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <User size={12} className="shrink-0 text-muted-foreground" />
               <span className="truncate">{p.vendedorNome}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-slate-500 col-span-2">
-              <CalendarDays size={12} className="shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-muted-foreground col-span-2">
+              <CalendarDays size={12} className="shrink-0 text-muted-foreground" />
               <span>{p.dataPedido ? format(new Date(p.dataPedido), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '—'}</span>
             </div>
             {p.observacao && (
-              <div className="col-span-2 text-slate-400 italic truncate" title={p.observacao}>
+              <div className="col-span-2 text-muted-foreground italic truncate" title={p.observacao}>
                 "{p.observacao}"
               </div>
             )}
@@ -113,13 +113,13 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
 
           {/* Ações */}
           {(podeEfetivar || podeCancelar) && (
-            <div className="flex gap-2 pt-1 border-t border-slate-100">
+            <div className="flex gap-2 pt-1 border-t border-border">
               {podeEfetivar && (
                 <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} />
               )}
               {podeCancelar && (
                 <Button size="sm" variant="ghost"
-                  className="text-slate-400 hover:text-red-600 hover:bg-red-50 gap-1 text-xs"
+                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1 text-xs"
                   onClick={() => setCancelarOpen(true)}>
                   <X size={13} /> Cancelar
                 </Button>
@@ -132,7 +132,7 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
       <Dialog open={cancelarOpen} onOpenChange={setCancelarOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Cancelar Pedido #{p.numero}</DialogTitle></DialogHeader>
-          <p className="text-sm text-slate-500">{p.marca} {p.modelo} · {p.chassi}</p>
+          <p className="text-sm text-muted-foreground">{p.marca} {p.modelo} · {p.chassi}</p>
           <Textarea
             placeholder="Motivo do cancelamento (opcional)"
             value={observacao}

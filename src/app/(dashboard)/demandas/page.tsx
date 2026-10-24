@@ -45,9 +45,9 @@ export default async function DemandasPage({
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Demandas</h1>
-          <p className="text-slate-500 text-sm">Pedidos de motos que não estão no estoque</p>
+          <p className="text-muted-foreground text-sm">Pedidos de motos que não estão no estoque</p>
         </div>
-        <p className="text-sm text-slate-400 text-center py-12">
+        <p className="text-sm text-muted-foreground text-center py-12">
           Seu usuário não está vinculado a nenhuma loja.
         </p>
       </div>
@@ -99,7 +99,7 @@ export default async function DemandasPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Demandas</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Pedidos de motos que não estão no estoque
         </p>
       </div>

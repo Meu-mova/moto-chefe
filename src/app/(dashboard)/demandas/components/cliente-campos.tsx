@@ -113,14 +113,14 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 h-5">
-        {buscandoCliente && <Loader2 size={13} className="animate-spin text-slate-400" />}
+        {buscandoCliente && <Loader2 size={13} className="animate-spin text-muted-foreground" />}
         {!buscandoCliente && status === 'encontrado' && (
-          <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+          <span className="flex items-center gap-1 text-xs text-success bg-success/10 border border-success/30 rounded px-1.5 py-0.5">
             <UserCheck size={11} /> Dados carregados do cadastro
           </span>
         )}
         {!buscandoCliente && status === 'nao-encontrado' && (
-          <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5">
             <UserX size={11} /> Novo cliente — preencha os dados abaixo
           </span>
         )}
@@ -129,15 +129,15 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>CPF/CNPJ <span className="text-red-500">*</span></Label>
+          <Label>CPF/CNPJ <span className="text-destructive">*</span></Label>
           <DocumentoClienteInput value={value.clienteCpf} onChange={handleDocumento} ocultarValido={buscandoCliente} />
         </div>
         <div className="space-y-1">
-          <Label>Celular <span className="text-red-500">*</span></Label>
+          <Label>Celular <span className="text-destructive">*</span></Label>
           <Input value={value.clienteCelular} onChange={e => handleCelular(e.target.value)} placeholder="(00) 00000-0000" />
         </div>
         <div className="sm:col-span-2 space-y-1">
-          <Label>{juridica ? 'Razão social' : 'Nome completo'} <span className="text-red-500">*</span></Label>
+          <Label>{juridica ? 'Razão social' : 'Nome completo'} <span className="text-destructive">*</span></Label>
           <Input value={value.clienteNome} onChange={e => set({ clienteNome: e.target.value })} placeholder={juridica ? 'Razão social da empresa' : 'Nome completo do cliente'} />
         </div>
         <div className="sm:col-span-2 space-y-1">
