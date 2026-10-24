@@ -266,7 +266,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
             {dados.porLoja.map((l, i) => (
               <button key={l.lojaId} onClick={() => setLojaIdx(i)}
                 className={`text-sm font-semibold px-3.5 py-2 rounded-lg border ${i === lojaIdx ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border hover:border-input'}`}>
-                {l.loja}<span className="ml-1.5 font-normal text-xs opacity-75">{brlk(l.faturamento)}</span>
+                {l.loja}<span className="ml-1.5 font-normal text-xs">{brlk(l.faturamento)}</span>
               </button>
             ))}
           </div>
