@@ -32,7 +32,12 @@ test('segredo partido entre duas linhas não aparece em nenhuma das duas', () =>
 
 test('continuação recuada pelo Postman também é mascarada', () => {
   const saida = filtrar([`│ ${EMPRESA.slice(0, 20)}`, `│   ${EMPRESA.slice(20)} fim`], [EMPRESA])
-  assert.ok(saida.every(l => !l.includes(EMPRESA.slice(0, 20)) && !l.includes(EMPRESA.slice(20))), saida.join('\n'))
+  assert.deepEqual(saida, ['│ ****', '│   **** fim'])
+})
+
+test('corte com \\r no fim da linha e cor ANSI na continuação também é mascarado', () => {
+  const saida = filtrar([`url ${EMPRESA.slice(0, 10)}\r`, `\x1b[90m  ${EMPRESA.slice(10)}\x1b[0m`], [EMPRESA])
+  assert.deepEqual(saida, ['url ****\r', '\x1b[90m  ****\x1b[0m'])
 })
 
 test('vários segredos, um inteiro e outro partido, saem todos mascarados', () => {

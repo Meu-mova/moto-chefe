@@ -20,15 +20,18 @@ export const mascarar = (s: string) => (s.length <= 8 ? '****' : `${s.slice(0, 4
 export const mascararTexto = (s: string, segredos: readonly string[]) =>
   segredos.reduce((acc, seg) => (seg ? acc.split(seg).join('****') : acc), s)
 
-// O Postman quebra linha longa no meio da URL; a continuação pode vir recuada.
-const RECUO = /^[\s│]*/
+// O Postman quebra linha longa no meio da URL; a continuação pode vir recuada ou com cor ANSI.
+// Segredo partido em 3 linhas ou mais não é coberto (o maior, o empresaId, tem 36 caracteres).
+const RECUO = /^(?:[\s│]|\x1b\[[0-9;]*m)*/
 
 function mascararCorte(anterior: string, atual: string, segredo: string): [string, string] {
+  const cr = anterior.endsWith('\r') ? '\r' : ''
+  const cabeca = anterior.slice(0, anterior.length - cr.length)
   const recuo = RECUO.exec(atual)![0]
   const corpo = atual.slice(recuo.length)
   for (let k = 1; k < segredo.length; k++) {
-    if (anterior.endsWith(segredo.slice(0, k)) && corpo.startsWith(segredo.slice(k))) {
-      return [anterior.slice(0, -k) + '****', recuo + '****' + corpo.slice(segredo.length - k)]
+    if (cabeca.endsWith(segredo.slice(0, k)) && corpo.startsWith(segredo.slice(k))) {
+      return [cabeca.slice(0, -k) + '****' + cr, recuo + '****' + corpo.slice(segredo.length - k)]
     }
   }
   return [anterior, atual]
