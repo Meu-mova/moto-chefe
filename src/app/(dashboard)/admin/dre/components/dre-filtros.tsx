@@ -20,7 +20,7 @@ export function DreFiltros({ mes, aba }: { mes: string; aba: 'lojas' | 'evolucao
 
   const abaCls = (v: string) =>
     `rounded-full px-3 py-1 text-sm transition-colors ${
-      aba === v ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      aba === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted'
     }`
 
   return (
@@ -38,7 +38,7 @@ export function DreFiltros({ mes, aba }: { mes: string; aba: 'lojas' | 'evolucao
       <Link
         href={`/dre/imprimir?mes=${mes}&aba=${aba}`}
         target="_blank"
-        className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm text-slate-600 hover:bg-slate-50"
+        className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm text-muted-foreground hover:bg-muted"
       >
         <Printer size={14} /> Imprimir
       </Link>

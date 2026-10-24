@@ -28,16 +28,16 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Headset size={22} /> Kommo (CRM)
           </h1>
-          <p className="text-slate-500 text-sm">Integração para métricas de atendimento por colaborador</p>
+          <p className="text-muted-foreground text-sm">Integração para métricas de atendimento por colaborador</p>
         </div>
 
         {params.ok && (
-          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+          <div className="bg-success/10 border border-success/30 rounded-lg px-4 py-3 text-sm text-success flex items-center gap-2">
             <CheckCircle2 size={16} /> Conta Kommo conectada com sucesso!
           </div>
         )}
         {params.erro && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3 text-sm text-destructive flex items-center gap-2">
             <XCircle size={16} /> {ERROS[params.erro] ?? 'Erro na conexão. Tente novamente.'}
           </div>
         )}
@@ -46,13 +46,13 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
           <CardHeader><CardTitle className="text-base">Status da conexão</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              {status.conectado ? <CheckCircle2 className="text-green-500" size={20} /> : <XCircle className="text-slate-400" size={20} />}
+              {status.conectado ? <CheckCircle2 className="text-success" size={20} /> : <XCircle className="text-muted-foreground" size={20} />}
               <div>
                 <p className="font-medium text-sm">
                   {status.conectado ? `Conectado${status.subdominio ? ` — ${status.subdominio}.kommo.com` : ''}` : 'Não conectado'}
                 </p>
                 {status.atualizadoEm && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     Última atualização: {format(new Date(status.atualizadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 )}
@@ -65,7 +65,7 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Conectar por token de longa duração</CardTitle>
-            <p className="text-xs text-slate-500">Método mais simples — cole o token da integração privada (Kommo → sua integração → aba Chaves e escopos).</p>
+            <p className="text-xs text-muted-foreground">Método mais simples — cole o token da integração privada (Kommo → sua integração → aba Chaves e escopos).</p>
           </CardHeader>
           <CardContent>
             <KommoTokenForm subdominio={status.subdominio} />
@@ -73,7 +73,7 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
         </Card>
 
         <details className="rounded-lg border">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-600">Alternativa: conectar por OAuth (Client ID/Secret)</summary>
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground">Alternativa: conectar por OAuth (Client ID/Secret)</summary>
           <div className="border-t p-4">
             <KommoCredenciaisForm subdominio={status.subdominio} temCredenciais={status.temCredenciais} />
           </div>
@@ -81,10 +81,10 @@ export default async function KommoPage({ searchParams }: { searchParams: Promis
 
         <Card>
           <CardHeader><CardTitle className="text-base">Como configurar no Kommo</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm text-slate-600">
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
             <ol className="list-decimal list-inside space-y-1.5">
               <li>No Kommo: <strong>Configurações → Integrações → criar integração</strong> (privada).</li>
-              <li>No campo <strong>Redirect URL</strong>, cole exatamente: <code className="bg-slate-100 px-1 rounded text-xs break-all">{status.redirectUri}</code></li>
+              <li>No campo <strong>Redirect URL</strong>, cole exatamente: <code className="bg-muted px-1 rounded text-xs break-all">{status.redirectUri}</code></li>
               <li>Marque os escopos de acesso (leads, contatos, eventos, usuários).</li>
               <li>Copie o <strong>Client ID (ID da integração)</strong> e a <strong>chave secreta</strong> e salve acima.</li>
               <li>Clique em <strong>Conectar ao Kommo</strong> e autorize.</li>

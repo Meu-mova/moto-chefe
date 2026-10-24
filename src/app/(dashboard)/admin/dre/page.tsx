@@ -61,7 +61,7 @@ export default async function DrePage({
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold">DRE — {grupo.nome}</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Demonstração do resultado. {aba === 'lojas'
             ? `${MESES[mes - 1]} de ${ano}, loja a loja.`
             : 'Últimos 12 meses, consolidado do grupo.'}
@@ -71,7 +71,7 @@ export default async function DrePage({
 
       <DreFiltros mes={texto} aba={aba} />
 
-      <div className="bg-white rounded-lg border p-4">
+      <div className="bg-card rounded-lg border p-4">
         {aba === 'lojas' && porLoja && <DreTabela colunas={porLoja.colunas} />}
         {aba === 'evolucao' && evolucao && (
           <DreTabela colunas={evolucao} mostrarPercentual={false} />
@@ -80,9 +80,9 @@ export default async function DrePage({
 
       <ExportContabil {...doisMesesFechados(mesBrt())} />
 
-      <div className="space-y-2 text-xs text-slate-500">
+      <div className="space-y-2 text-xs text-muted-foreground">
         <p className="flex gap-2">
-          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-500" />
+          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
           <span>
             <strong>Só moto tem custo cadastrado.</strong> Serviço de OS e peça entram como receita
             sem CMV correspondente (a compra de peças é lançada como não operacional), então o
@@ -91,7 +91,7 @@ export default async function DrePage({
           </span>
         </p>
         <p className="flex gap-2">
-          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-500" />
+          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
           <span>
             <strong>Taxa de cartão só é descontada do que já foi conciliado.</strong> Enquanto a
             conciliação do mês não termina, a Receita Líquida está otimista e o resultado também.
@@ -99,7 +99,7 @@ export default async function DrePage({
         </p>
         {porLoja && porLoja.semGrupo.length > 0 && (
           <p className="flex gap-2">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-500" />
+            <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
             <span>
               Sem grupo do DRE, caíram em <strong>Outras</strong>:{' '}
               {porLoja.semGrupo.join(', ')}. Categoria que não existe no cadastro de despesas

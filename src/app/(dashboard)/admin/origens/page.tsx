@@ -16,7 +16,7 @@ export default async function OrigensPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Origens da venda — {grupo.nome}</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Por onde o cliente chegou. O vendedor escolhe uma delas ao fechar a venda, e é o que
           alimenta o relatório de Marketing. Cada grupo tem o seu catálogo.
         </p>

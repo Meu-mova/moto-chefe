@@ -94,10 +94,10 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
             <div className="space-y-1.5">
               <Label className="text-xs">CEP</Label>
               <CepInput value={cep} onChange={setCep} className="h-9 text-sm" />
-              <p className="text-[11px] text-slate-400">Usado pra calcular frete no Simulador.</p>
+              <p className="text-[11px] text-muted-foreground">Usado pra calcular frete no Simulador.</p>
             </div>
             <div className="border-t pt-3 space-y-3">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Portal da fábrica</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Portal da fábrica</p>
               <div className="space-y-1.5">
                 <Label className="text-xs">E-mail</Label>
                 <Input value={fabricaEmail} onChange={e => setFabricaEmail(e.target.value)} className="h-9 text-sm" />
@@ -113,7 +113,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
                   className="h-9 text-sm"
                 />
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Cada loja tem o cadastro dela no portal. Em branco, esta loja fica
                 de fora da sincronização de garantias e do aviso de pedidos.
               </p>

@@ -104,23 +104,23 @@ export function MetasForm({ ano, mes, linhas }: { ano: number; mes: number; linh
           <Copy size={14} className="mr-1.5" />
           {copiando ? 'Carregando…' : `Copiar de ${MESES[anterior.mes - 1]}`}
         </Button>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-muted-foreground">
           Copiar só preenche os campos — nada é salvo até você clicar em Salvar metas.
         </span>
       </div>
 
       {linhas.length === 0 ? (
-        <p className="text-sm text-slate-400 py-6 text-center bg-white border rounded-lg">
+        <p className="text-sm text-muted-foreground py-6 text-center bg-card border rounded-lg">
           Nenhuma loja ativa neste grupo.
         </p>
       ) : (
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-card border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Loja</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-slate-600 w-52">Meta do mês (R$)</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Realizado</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Loja</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground w-52">Meta do mês (R$)</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Realizado</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -128,10 +128,10 @@ export function MetasForm({ ano, mes, linhas }: { ano: number; mes: number; linh
                 const n = numeros.find(x => x.lojaId === l.lojaId)
                 const invalido = n?.valor === null && (valores[l.lojaId] ?? '').trim() !== ''
                 return (
-                  <tr key={l.lojaId} className="hover:bg-slate-50">
+                  <tr key={l.lojaId} className="hover:bg-muted">
                     <td className="px-4 py-2">
                       {l.loja}
-                      <span className="block text-xs text-slate-400">{l.cidade}</span>
+                      <span className="block text-xs text-muted-foreground">{l.cidade}</span>
                     </td>
                     <td className="px-4 py-2">
                       <Input
@@ -139,15 +139,15 @@ export function MetasForm({ ano, mes, linhas }: { ano: number; mes: number; linh
                         onChange={e => setValores(v => ({ ...v, [l.lojaId]: e.target.value }))}
                         placeholder="sem meta"
                         inputMode="decimal"
-                        className={`text-right ${invalido ? 'border-red-400' : ''}`}
+                        className={`text-right ${invalido ? 'border-destructive/50' : ''}`}
                       />
                     </td>
-                    <td className="px-4 py-2 text-right text-slate-600">{fmtBRL(l.realizado)}</td>
+                    <td className="px-4 py-2 text-right text-muted-foreground">{fmtBRL(l.realizado)}</td>
                   </tr>
                 )
               })}
             </tbody>
-            <tfoot className="bg-slate-50 border-t font-medium">
+            <tfoot className="bg-muted border-t font-medium">
               <tr>
                 <td className="px-4 py-2">Total do grupo</td>
                 <td className="px-4 py-2 text-right">{fmtBRL(totalMeta)}</td>
@@ -160,7 +160,7 @@ export function MetasForm({ ano, mes, linhas }: { ano: number; mes: number; linh
 
       <div className="flex items-center justify-end gap-3">
         {invalidos.length > 0 && (
-          <span className="text-xs text-red-600">
+          <span className="text-xs text-destructive">
             {invalidos.length} valor(es) que não dá pra ler
           </span>
         )}
