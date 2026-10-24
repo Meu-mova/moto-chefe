@@ -104,7 +104,7 @@ export function AbrirGarantiaDialog({ ordens, papel, modelos, lojas, isAdmin, lo
             <div className="space-y-2">
               <Label>Data do Pedido</Label>
               <Input type="date" value={dataPedido} onChange={e => setDataPedido(e.target.value)} />
-              <p className="text-xs text-slate-400">O prazo de resolução é de 30 dias a partir desta data.</p>
+              <p className="text-xs text-muted-foreground">O prazo de resolução é de 30 dias a partir desta data.</p>
             </div>
             <div className="space-y-2">
               <Label>Número do Pedido na Fábrica (opcional)</Label>
