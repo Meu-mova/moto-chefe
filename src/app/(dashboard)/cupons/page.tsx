@@ -41,23 +41,23 @@ export default async function CuponsPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Cupons de Revisão</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Revisão gratuita de cortesia. O cupom cobre a mão de obra da OS — peças e óleo continuam sendo cobrados.
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-3 sm:max-w-md">
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Ativos</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold text-green-700">{ativos}</p></CardContent>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Ativos</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold text-success">{ativos}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Utilizados</CardTitle></CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Utilizados</CardTitle></CardHeader>
           <CardContent><p className="text-xl font-bold">{usados}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500">Vencidos</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold text-amber-700">{vencidos}</p></CardContent>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Vencidos</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold text-warning">{vencidos}</p></CardContent>
         </Card>
       </div>
 

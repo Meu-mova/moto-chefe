@@ -95,25 +95,25 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
         disabled={pending}
         className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors text-sm ${
           force
-            ? 'border-orange-200 hover:border-orange-400 hover:bg-orange-50'
-            : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50'
+            ? 'border-warning/30 hover:border-warning/50 hover:bg-warning/10'
+            : 'border-border hover:border-info/50 hover:bg-info/10'
         }`}
       >
         <div className="flex items-center justify-between">
-          <span className="font-medium text-slate-800">
+          <span className="font-medium text-foreground">
             {v.tipo === 'peca' && (
-              <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1.5 py-0.5 mr-1.5">PA</span>
+              <span className="text-xs font-semibold text-info bg-info/10 rounded px-1.5 py-0.5 mr-1.5">PA</span>
             )}
             {v.tipo === 'os' && (
-              <span className="text-xs font-semibold text-teal-600 bg-teal-50 rounded px-1.5 py-0.5 mr-1.5">OS</span>
+              <span className="text-xs font-semibold text-info bg-info/10 rounded px-1.5 py-0.5 mr-1.5">OS</span>
             )}
             {v.tipo === 'os' ? `OS #${v.numero}` : `Venda #${v.numero}`} — {v.clienteNome}
           </span>
-          <span className="font-semibold text-slate-900">
+          <span className="font-semibold text-foreground">
             {v.valor ? parseFloat(v.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
           </span>
         </div>
-        <div className="text-xs text-slate-500 mt-0.5">
+        <div className="text-xs text-muted-foreground mt-0.5">
           {v.dataVenda
             ? new Date(v.dataVenda).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
             : '—'}
@@ -125,7 +125,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
               <span
                 key={i}
                 className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                  force ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                  force ? 'bg-warning/15 text-warning' : 'bg-info/15 text-info'
                 }`}
               >
                 {TIPO_CARTAO_LABEL[p.tipo]}
@@ -144,13 +144,13 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
   if (vendaVinculada) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="flex items-center gap-1 text-xs text-emerald-700 font-medium">
+        <span className="flex items-center gap-1 text-xs text-success font-medium">
           <CheckCircle2 size={12} />
           {tipoVinculado === 'peca' && (
-            <span className="text-xs font-semibold text-purple-600 bg-purple-50 rounded px-1 py-0.5">PA</span>
+            <span className="text-xs font-semibold text-info bg-info/10 rounded px-1 py-0.5">PA</span>
           )}
           {tipoVinculado === 'os' && (
-            <span className="text-xs font-semibold text-teal-600 bg-teal-50 rounded px-1 py-0.5">OS</span>
+            <span className="text-xs font-semibold text-info bg-info/10 rounded px-1 py-0.5">OS</span>
           )}
           #{vendaVinculada.numero} — {vendaVinculada.clienteNome.split(' ')[0]}
         </span>
@@ -158,7 +158,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
           onClick={desvincular}
           disabled={pending}
           title="Desvincular"
-          className="text-slate-400 hover:text-red-500 transition-colors"
+          className="text-muted-foreground hover:text-destructive transition-colors"
         >
           {pending ? <Loader2 size={12} className="animate-spin" /> : <Link2Off size={12} />}
         </button>
@@ -168,7 +168,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
 
   return (
     <>
-      <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-slate-500" onClick={abrirModal}>
+      <Button variant="ghost" size="sm" className="h-7 text-xs px-2 text-muted-foreground" onClick={abrirModal}>
         <Link2 size={12} className="mr-1" /> Vincular
       </Button>
 
@@ -176,7 +176,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vincular a uma venda</DialogTitle>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Recebimento de{' '}
               <span className="font-semibold">{valorRef.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               {' '}em {new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR')}
@@ -185,18 +185,18 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
 
           {/* ── Sugestões automáticas ── */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Sugestões por valor
             </p>
 
             {carregando && (
               <div className="flex items-center justify-center py-6">
-                <Loader2 size={20} className="animate-spin text-slate-400" />
+                <Loader2 size={20} className="animate-spin text-muted-foreground" />
               </div>
             )}
 
             {!carregando && vendas.length === 0 && (
-              <p className="text-sm text-slate-400 py-2">
+              <p className="text-sm text-muted-foreground py-2">
                 Nenhuma venda com cartão no valor exato encontrada.
               </p>
             )}
@@ -210,10 +210,10 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
 
           {/* ── Forçar vínculo ── */}
           <div className="border-t pt-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
               Forçar vínculo
             </p>
-            <p className="text-xs text-slate-500 mb-2">
+            <p className="text-xs text-muted-foreground mb-2">
               Pesquise pelo número da venda ou nome do cliente para vincular manualmente.
             </p>
 
@@ -224,14 +224,14 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
                 onChange={e => { setBuscaQuery(e.target.value); setBuscouManual(false) }}
                 onKeyDown={e => e.key === 'Enter' && buscarManual()}
                 placeholder="Nº da venda ou nome do cliente"
-                className="flex-1 border border-slate-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="flex-1 border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
               />
               <Button
                 size="sm"
                 variant="outline"
                 onClick={buscarManual}
                 disabled={buscandoManual || !buscaQuery.trim()}
-                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="border-warning/30 text-warning hover:bg-warning/10"
               >
                 {buscandoManual
                   ? <Loader2 size={13} className="animate-spin" />
@@ -241,7 +241,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
             </div>
 
             {buscouManual && buscaResultados.length === 0 && (
-              <p className="text-xs text-slate-400 mt-2">Nenhuma venda encontrada.</p>
+              <p className="text-xs text-muted-foreground mt-2">Nenhuma venda encontrada.</p>
             )}
 
             {buscaResultados.length > 0 && (
