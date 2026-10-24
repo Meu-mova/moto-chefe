@@ -74,16 +74,16 @@ function TaxaGrid({
       {chunks.map((chunk, ci) => (
         <div key={ci} className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium">Parcelas</th>
-                <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium">Taxa (%)</th>
+                <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">Parcelas</th>
+                <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">Taxa (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {chunk.map(n => (
-                <tr key={n} className="hover:bg-slate-50/50">
-                  <td className="px-3 py-1.5 font-semibold text-slate-700 w-16">{n}x</td>
+                <tr key={n} className="hover:bg-muted/50">
+                  <td className="px-3 py-1.5 font-semibold text-foreground w-16">{n}x</td>
                   <td className="px-3 py-1.5">
                     <Input
                       type="number"
@@ -144,11 +144,11 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm">
+    <div className="bg-card rounded-xl border shadow-sm">
       <div className="px-6 py-4 border-b flex items-center justify-between">
         <div>
-          <h2 className="font-semibold text-slate-900">Configuração de Taxas Globais</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Aplicadas sobre o valor mínimo de cada modelo</p>
+          <h2 className="font-semibold text-foreground">Configuração de Taxas Globais</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Aplicadas sobre o valor mínimo de cada modelo</p>
         </div>
         <Button onClick={handleSave} disabled={loading} className="gap-2">
           <Save size={15} />
@@ -173,7 +173,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
 
           <TabsContent value="debito" className="mt-4">
             <div className="max-w-xs">
-              <p className="text-xs text-slate-400 mb-3">Taxa aplicada em transações à vista no cartão de débito.</p>
+              <p className="text-xs text-muted-foreground mb-3">Taxa aplicada em transações à vista no cartão de débito.</p>
               <TaxaGrid parcelas={PARCELAS_DEBITO} rates={debito} onChange={setDebitoRate} />
             </div>
           </TabsContent>
@@ -188,7 +188,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
 
           <TabsContent value="frete" className="mt-4">
             <div className="max-w-xs space-y-4">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 Usado na simulação de frete de entrega (Simulador), calculado sobre a distância ida e volta entre a loja e o CEP de destino.
               </p>
               <div className="space-y-1.5">
@@ -205,19 +205,19 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
               <div className="space-y-1.5">
                 <Label className="text-xs">Valor até o limite (R$)</Label>
                 <CurrencyInput value={freteValorFixo} onChange={setFreteValorFixo} className="h-9 text-sm" />
-                <p className="text-[11px] text-slate-400">Deixe 0 para frete grátis dentro do limite.</p>
+                <p className="text-[11px] text-muted-foreground">Deixe 0 para frete grátis dentro do limite.</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Valor por km excedente (R$)</Label>
                 <CurrencyInput value={freteValorKm} onChange={setFreteValorKm} className="h-9 text-sm" />
-                <p className="text-[11px] text-slate-400">Cobrado sobre o km que passar do limite acima.</p>
+                <p className="text-[11px] text-muted-foreground">Cobrado sobre o km que passar do limite acima.</p>
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="imposto" className="mt-4">
             <div className="max-w-xs space-y-4">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 Aplicado sobre o valor bruto de todas as vendas de motos no cálculo do Lucro Líquido (Financeiro).
               </p>
               <div className="space-y-1.5">

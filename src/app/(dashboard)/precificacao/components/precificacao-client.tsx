@@ -58,9 +58,9 @@ function calcMargem(valorMinimo: string | null, custo: string | null): Margem | 
 }
 
 function corMargem(pct: number) {
-  if (pct >= 20) return { badge: 'text-green-700 bg-green-50 border-green-200', text: 'text-green-700' }
-  if (pct >= 10) return { badge: 'text-yellow-700 bg-yellow-50 border-yellow-200', text: 'text-yellow-700' }
-  return { badge: 'text-red-700 bg-red-50 border-red-200', text: 'text-red-700' }
+  if (pct >= 20) return { badge: 'text-success bg-success/10 border-success/30', text: 'text-success' }
+  if (pct >= 10) return { badge: 'text-warning bg-warning/10 border-warning/30', text: 'text-warning' }
+  return { badge: 'text-destructive bg-destructive/10 border-destructive/30', text: 'text-destructive' }
 }
 
 export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
@@ -108,14 +108,14 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
       <TaxasForm taxas={taxas} />
 
       {/* Lista de modelos */}
-      <div className="bg-white rounded-xl border shadow-sm">
+      <div className="bg-card rounded-xl border shadow-sm">
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-slate-900">Modelos</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <h2 className="font-semibold text-foreground">Modelos</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {modelos.length} modelo{modelos.length !== 1 ? 's' : ''} no catálogo
               {semPreco.length > 0 && (
-                <> · <span className="text-amber-600 font-medium">{semPreco.length} sem preço em {grupoNome}</span></>
+                <> · <span className="text-warning font-medium">{semPreco.length} sem preço em {grupoNome}</span></>
               )}
             </p>
           </div>
@@ -125,26 +125,26 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
         </div>
 
         {modelos.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-sm">Nenhum modelo cadastrado.</div>
+          <div className="py-16 text-center text-muted-foreground text-sm">Nenhum modelo cadastrado.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Modelo</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600">Custo</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600">Valor Mínimo (PIX)</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Modelo</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Custo</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Valor Mínimo (PIX)</th>
                   {temCusto && (
                     <>
-                      <th className="text-right px-4 py-3 font-medium text-slate-600">
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">
                         <span className="flex items-center justify-end gap-1">
                           <TrendingUp size={12} />Margem R$
                         </span>
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-slate-600">Margem %</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Margem %</th>
                     </>
                   )}
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Status</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="px-4 py-3 w-28" />
                 </tr>
               </thead>
@@ -154,16 +154,16 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                   const cor = margem ? corMargem(margem.pct) : null
                   const precificado = m.precId !== null
                   return (
-                    <tr key={m.id} className={precificado ? 'hover:bg-slate-50/50' : 'bg-amber-50/30 hover:bg-amber-50/60'}>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                    <tr key={m.id} className={precificado ? 'hover:bg-muted/50' : 'bg-warning/5 hover:bg-warning/10'}>
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {m.nome}
-                        {m.marca && <span className="ml-2 font-normal text-xs text-slate-400">{m.marca}</span>}
+                        {m.marca && <span className="ml-2 font-normal text-xs text-muted-foreground">{m.marca}</span>}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-500 text-xs">
+                      <td className="px-4 py-3 text-right font-mono text-muted-foreground text-xs">
                         {fmtBRLStr(m.custo)}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold text-slate-700">
-                        {m.valorMinimo ? fmtBRL(parseFloat(m.valorMinimo)) : <span className="text-slate-300">—</span>}
+                      <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">
+                        {m.valorMinimo ? fmtBRL(parseFloat(m.valorMinimo)) : <span className="text-muted-foreground">—</span>}
                       </td>
                       {temCusto && (
                         <>
@@ -171,7 +171,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                             {margem && cor ? (
                               <span className={`font-semibold ${cor.text}`}>{fmtBRL(margem.reais)}</span>
                             ) : (
-                              <span className="text-slate-300">—</span>
+                              <span className="text-muted-foreground">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -180,7 +180,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                                 {margem.pct.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-slate-300">—</span>
+                              <span className="text-muted-foreground">—</span>
                             )}
                           </td>
                         </>
@@ -190,7 +190,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                           {!precificado ? (
                             <span
                               title="Modelo cadastrado em Modelos, mas ainda sem valor mínimo neste grupo — fora do Simulador até ter preço"
-                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
+                              className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold text-warning"
                             >
                               <Tag size={12} /> Sem preço
                             </span>
@@ -202,7 +202,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                           {precificado && !m.ativo && m.estoqueDisponivel > 0 && (
                             <span
                               title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} disponíve${m.estoqueDisponivel !== 1 ? 'is' : 'l'} em estoque, mas fora do Simulador`}
-                              className="inline-flex items-center gap-1 text-amber-600 text-xs font-medium"
+                              className="inline-flex items-center gap-1 text-warning text-xs font-medium"
                             >
                               <AlertTriangle size={12} />
                               {m.estoqueDisponivel} em estoque
@@ -211,7 +211,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                           {!precificado && m.estoqueDisponivel > 0 && (
                             <span
                               title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} em estoque sem preço mínimo definido`}
-                              className="inline-flex items-center gap-1 text-amber-600 text-xs font-medium"
+                              className="inline-flex items-center gap-1 text-warning text-xs font-medium"
                             >
                               <AlertTriangle size={12} />
                               {m.estoqueDisponivel} em estoque
@@ -234,14 +234,14 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                                 variant="ghost" size="sm"
                                 onClick={() => handleToggle(m)}
                                 title={m.ativo ? 'Desativar' : 'Ativar'}
-                                className={m.ativo ? 'text-slate-400' : 'text-green-600'}
+                                className={m.ativo ? 'text-muted-foreground' : 'text-success'}
                               >
                                 {m.ativo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                               </Button>
                               <Button
                                 variant="ghost" size="sm"
                                 onClick={() => handleExcluir(m)}
-                                className="text-red-400 hover:text-red-600"
+                                className="text-destructive hover:text-destructive"
                                 title={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
                               >
                                 <Trash2 size={14} />
@@ -251,7 +251,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                             <Button
                               variant="outline" size="sm"
                               onClick={() => { setModeloEdicao(m); setDialogAberto(true) }}
-                              className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-100"
+                              className="gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
                             >
                               <Tag size={13} /> Definir preço
                             </Button>

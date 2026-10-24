@@ -74,8 +74,8 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
   return (
     <div className="rounded-xl border p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Truck size={15} className="text-slate-600" />
-        <span className="font-semibold text-sm text-slate-800">Frete de Entrega</span>
+        <Truck size={15} className="text-muted-foreground" />
+        <span className="font-semibold text-sm text-foreground">Frete de Entrega</span>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -98,7 +98,7 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
         )}
 
         {lojaSelecionada && !lojaSelecionada.temCep ? (
-          <p className="text-xs text-amber-600 pb-1.5">
+          <p className="text-xs text-warning pb-1.5">
             Configure o CEP desta loja em Admin &gt; Lojas para calcular o frete.
           </p>
         ) : (
@@ -114,27 +114,27 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
             </div>
 
             {!loading && resultado?.ok && (
-              <p className="text-xs text-slate-500 pb-1.5 max-w-xs">{resultado.endereco}</p>
+              <p className="text-xs text-muted-foreground pb-1.5 max-w-xs">{resultado.endereco}</p>
             )}
 
             {(loading || erroInesperado || resultado) && (
-              <div className="rounded-lg bg-slate-50 border px-3 py-1.5 text-xs">
-                {loading && <p className="text-slate-400">Calculando frete...</p>}
+              <div className="rounded-lg bg-muted border px-3 py-1.5 text-xs">
+                {loading && <p className="text-muted-foreground">Calculando frete...</p>}
 
                 {!loading && resultado && !resultado.ok && (
-                  <p className="text-red-500">
+                  <p className="text-destructive">
                     {resultado.motivo === 'cep_invalido' ? 'CEP inválido.' : 'Não foi possível calcular a distância para este CEP.'}
                   </p>
                 )}
 
                 {!loading && erroInesperado && (
-                  <p className="text-red-500">Erro ao calcular o frete. Tente novamente.</p>
+                  <p className="text-destructive">Erro ao calcular o frete. Tente novamente.</p>
                 )}
 
                 {!loading && resultado?.ok && (
-                  <div className="text-slate-600 space-y-0.5">
+                  <div className="text-muted-foreground space-y-0.5">
                     <p>Distância: {resultado.kmIdaEVolta.toFixed(1)} km (ida e volta)</p>
-                    <p className="font-semibold text-slate-800">
+                    <p className="font-semibold text-foreground">
                       Frete: {resultado.gratis ? 'Grátis' : fmt(resultado.custo)}
                     </p>
                   </div>
