@@ -162,3 +162,39 @@ test('a Conta B não reenvia nem sobrescreve a nota recusada da Conta A (#347)',
     assert.deepEqual(n.payload, { velho: true })
   })
 })
+
+test('primeira emissão: id com sufixo 1, numa linha nova em Enviando com o número da venda (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await semearConta(tx, 'A', '00000000134708')
+    const venda = await semearVenda(tx, c, 'RE347P')
+    const escolha = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
+    assert.deepEqual(escolha, { notaId: null, idExterno: `mova-${venda.numero}-1`, tentativa: 1 })
+    const notaId = await gravarEnvio(tx, escolha, { vendaId: venda.id, vendaNumero: venda.numero, grupoId: c.grupoId, ambiente: 'Producao', payload: { a: 1 }, emitidaPor: c.vendId })
+    const [n] = await linhas(tx, sql`select id_externo, status, venda_numero, grupo_id from notas_fiscais_saida where id = ${notaId}`)
+    assert.deepEqual({ ...n }, { id_externo: `mova-${venda.numero}-1`, status: 'Enviando', venda_numero: venda.numero, grupo_id: c.grupoId })
+  })
+})
+
+test('tentativa descartada não é reenviada: a próxima sai com id novo (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await semearConta(tx, 'A', '00000000134709')
+    const venda = await semearVenda(tx, c, 'RE347X')
+    await semearNota(tx, venda, c.grupoId, 1, 'Descartada', null)
+    const escolha = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
+    assert.deepEqual(escolha, { notaId: null, idExterno: `mova-${venda.numero}-2`, tentativa: 2 })
+  })
+})
+
+test('homologação e produção numeram separadas: a recusa de um ambiente não vira reenvio no outro (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await semearConta(tx, 'A', '00000000134710')
+    const venda = await semearVenda(tx, c, 'RE347H')
+    const [homolog] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, payload)
+      values (${venda.id}, ${venda.numero}, ${c.grupoId}, ${`mova-homolog-${venda.numero}-1`}, 'Homologacao', 'Negada', '225 - Falha', '{}'::jsonb) returning id`)
+
+    const producao = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
+    assert.deepEqual(producao, { notaId: null, idExterno: `mova-${venda.numero}-1`, tentativa: 1 })
+    const homologacao = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Homologacao' })
+    assert.deepEqual(homologacao, { notaId: homolog.id, idExterno: `mova-homolog-${venda.numero}-1`, tentativa: 1 })
+  })
+})
