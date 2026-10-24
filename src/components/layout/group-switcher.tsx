@@ -44,13 +44,13 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
         <div className="flex items-center gap-3 min-w-0">
           <Building2 size={20} className="shrink-0 opacity-90" />
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider opacity-80 leading-none">Empresa / grupo ativo</p>
+            <p className="text-[10px] uppercase tracking-wider leading-none">Empresa / grupo ativo</p>
             <p className="text-lg font-bold leading-tight truncate">{ativo.nome}</p>
           </div>
         </div>
         <button
           onClick={abrir}
-          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-white/15 ${corAtivo.barHover} hover:bg-white/25 px-3 py-1.5 text-sm font-medium transition-colors`}
+          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-grupo-realce hover:bg-grupo-realce-hover px-3 py-1.5 text-sm font-medium transition-colors`}
         >
           <ArrowRightLeft size={14} /> Trocar
           <ChevronsUpDown size={14} className="opacity-70" />
