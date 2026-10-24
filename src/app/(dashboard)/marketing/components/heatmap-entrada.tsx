@@ -8,7 +8,7 @@ const FAIXAS: [string, number, number][] = [
 ]
 
 export function HeatmapEntrada({ dados }: { dados: { dia: number; hora: number; leads: number }[] }) {
-  if (dados.length === 0) return <p className="text-sm text-slate-400 text-center py-8">Sem leads no período.</p>
+  if (dados.length === 0) return <p className="text-sm text-muted-foreground text-center py-8">Sem leads no período.</p>
 
   const grade = DIAS.map((_, d) => FAIXAS.map(([, ini, fim]) =>
     dados.filter(x => x.dia === d && x.hora >= ini && x.hora <= fim).reduce((a, x) => a + x.leads, 0)))
@@ -22,13 +22,13 @@ export function HeatmapEntrada({ dados }: { dados: { dia: number; hora: number; 
           <thead>
             <tr>
               <th className="w-10" />
-              {FAIXAS.map(([rot]) => <th key={rot} className="font-medium text-slate-500 px-1">{rot}h</th>)}
+              {FAIXAS.map(([rot]) => <th key={rot} className="font-medium text-muted-foreground px-1">{rot}h</th>)}
             </tr>
           </thead>
           <tbody>
             {DIAS.map((dia, d) => (
               <tr key={dia}>
-                <td className="text-slate-500 pr-1 text-right">{dia}</td>
+                <td className="text-muted-foreground pr-1 text-right">{dia}</td>
                 {grade[d].map((n, i) => {
                   const intensidade = n / max
                   return (
@@ -36,8 +36,8 @@ export function HeatmapEntrada({ dados }: { dados: { dia: number; hora: number; 
                       <div
                         className="h-7 min-w-11 rounded flex items-center justify-center tabular-nums"
                         style={{
-                          backgroundColor: n === 0 ? '#f8fafc' : `rgba(99, 102, 241, ${0.12 + intensidade * 0.78})`,
-                          color: intensidade > 0.55 ? '#fff' : '#334155',
+                          backgroundColor: n === 0 ? 'var(--muted)' : `color-mix(in oklch, var(--info) ${Math.round((0.12 + intensidade * 0.78) * 100)}%, transparent)`,
+                          color: intensidade > 0.55 ? 'var(--background)' : 'var(--foreground)',
                         }}
                         title={`${DIAS[d]}, ${FAIXAS[i][0]}h — ${n} lead(s)`}
                       >
@@ -51,7 +51,7 @@ export function HeatmapEntrada({ dados }: { dados: { dia: number; hora: number; 
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted-foreground">
         {total.toLocaleString('pt-BR')} leads no período, por horário de Brasília. Serve para escalar atendimento
         e ajustar a veiculação: lead que chega quando não tem ninguém para responder é verba desperdiçada.
       </p>
