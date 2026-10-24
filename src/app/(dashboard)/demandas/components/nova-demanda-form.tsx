@@ -82,11 +82,11 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
 
   if (reciboId) {
     return (
-      <div className="bg-white border rounded-lg p-6 flex flex-col items-center gap-4 text-center">
-        <CheckCircle2 size={40} className="text-green-600" />
+      <div className="bg-card border rounded-lg p-6 flex flex-col items-center gap-4 text-center">
+        <CheckCircle2 size={40} className="text-success" />
         <div>
-          <p className="font-semibold text-slate-800">Demanda com sinal registrada!</p>
-          <p className="text-sm text-slate-500 mt-1">Entregue o recibo ao cliente.</p>
+          <p className="font-semibold text-foreground">Demanda com sinal registrada!</p>
+          <p className="text-sm text-muted-foreground mt-1">Entregue o recibo ao cliente.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setReciboId(null)}>Nova demanda</Button>
@@ -94,7 +94,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
             href={`/demandas/${reciboId}/imprimir`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-900 text-white text-sm font-medium h-9 px-4 hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium h-9 px-4 hover:bg-primary-hover"
           >
             Imprimir recibo
           </a>
@@ -104,7 +104,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-4 space-y-4">
+    <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-4 space-y-4">
       <h2 className="font-semibold text-sm">Nova demanda</h2>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
@@ -152,26 +152,26 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-slate-600">
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <input
           type="checkbox"
           checked={sinalRecebido}
           onChange={e => setSinalRecebido(e.target.checked)}
-          className="rounded border-slate-300"
+          className="rounded border-input"
         />
         Já recebi um sinal / recebimento prévio do cliente
       </label>
 
       {sinalRecebido && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4 space-y-4">
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest">Sinal — cadastro do cliente (gera recibo)</p>
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 space-y-4">
+          <p className="text-xs font-semibold text-warning uppercase tracking-widest">Sinal — cadastro do cliente (gera recibo)</p>
           <div className="space-y-1 sm:max-w-[240px]">
-            <Label>Valor do sinal <span className="text-red-500">*</span></Label>
+            <Label>Valor do sinal <span className="text-destructive">*</span></Label>
             <CurrencyInput value={valorSinal} onChange={setValorSinal} placeholder="0,00" />
           </div>
 
           <div className="space-y-2">
-            <Label>Formas de pagamento do sinal <span className="text-red-500">*</span></Label>
+            <Label>Formas de pagamento do sinal <span className="text-destructive">*</span></Label>
             <PagamentosFields
               pgtos={pgtosSinal}
               onAdd={() => setPgtosSinal(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])}
@@ -186,7 +186,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
 
           {valorSinalNum > 0 && (
             <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
-              somaSinalOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+              somaSinalOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
             }`}>
               {somaSinalOk
                 ? `✓ Somatório confere: R$ ${somaSinal.toFixed(2).replace('.', ',')}`
