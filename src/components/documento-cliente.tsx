@@ -73,7 +73,7 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
           className={digitos && !valido ? 'border-warning focus-visible:ring-warning/50' : ''}
         />
         {digitos && !valido && (
-          <p className="text-xs text-warning">⚠ CPF parece inválido — confira. Dá para salvar assim.</p>
+          <p className="text-xs text-warning">⚠ CPF parece inválido. Confira. Dá para salvar assim.</p>
         )}
         {valido && <p className="text-xs text-success">✓ CPF válido</p>}
       </div>
