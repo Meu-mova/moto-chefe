@@ -25,8 +25,15 @@ const MINIMO_TRECHO = 8
  * como o Postman quebra a linha: o pedaço que ficou de cada lado da quebra é mascarado sozinho.
  */
 export function mascararTrechos(s: string, segredos: readonly string[]): { texto: string; trechos: number } {
-  let texto = ''
   let trechos = 0
+  // Segredo curto demais para a busca por trecho ainda sai mascarado quando aparece inteiro.
+  for (const seg of segredos) {
+    if (!seg) continue
+    const partes = s.split(seg)
+    trechos += partes.length - 1
+    s = partes.join('****')
+  }
+  let texto = ''
   for (let p = 0; p < s.length;) {
     let maior = 0
     for (const seg of segredos) {
@@ -44,7 +51,11 @@ export function mascararTrechos(s: string, segredos: readonly string[]): { texto
 
 export const mascararTexto = (s: string, segredos: readonly string[]) => mascararTrechos(s, segredos).texto
 
-/** Rede de segurança: reescreve o arquivo mascarado (0600) se achar trecho de segredo. */
+/**
+ * Reescreve o arquivo mascarado (0600) se achar trecho de segredo. No log dos runners só acha
+ * algo se alguma linha for gravada sem passar por log/repassar; o resíduo de até 7 caracteres
+ * de cada lado de uma quebra continua aceito.
+ */
 export function varrerArquivo(caminho: string, segredos: readonly string[]): number {
   const { texto, trechos } = mascararTrechos(readFileSync(caminho, 'utf8'), segredos)
   if (trechos > 0) {

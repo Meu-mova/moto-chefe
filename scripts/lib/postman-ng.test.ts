@@ -34,6 +34,10 @@ test('pedaço de até 7 caracteres fica: não dá para distinguir de texto comum
   assert.deepEqual(mascararTrechos(`fim ${EMPRESA.slice(0, 7)}`, [EMPRESA]), { texto: `fim ${EMPRESA.slice(0, 7)}`, trechos: 0 })
 })
 
+test('segredo com menos de 8 caracteres sai mascarado quando aparece inteiro', () => {
+  assert.deepEqual(mascararTrechos('x abc123 y abc12', ['abc123']), { texto: 'x **** y abc12', trechos: 1 })
+})
+
 test('linha sem segredo sai igual e sem trecho contado', () => {
   assert.deepEqual(mascararTrechos('POST /v2/empresas/****/nf-e [200 OK]', [TOKEN, EMPRESA]), { texto: 'POST /v2/empresas/****/nf-e [200 OK]', trechos: 0 })
 })
