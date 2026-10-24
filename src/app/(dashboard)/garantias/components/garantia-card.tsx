@@ -35,9 +35,9 @@ function calcUrgencia(dias: number | null): Urgencia {
 }
 
 const urgenciaBorder: Record<NonNullable<Urgencia>, string> = {
-  verde:    'border-l-4 border-l-green-400',
-  amarelo:  'border-l-4 border-l-amber-400',
-  vermelho: 'border-l-4 border-l-red-500',
+  verde:    'border-l-4 border-l-success',
+  amarelo:  'border-l-4 border-l-warning',
+  vermelho: 'border-l-4 border-l-destructive',
 }
 
 const urgenciaText: Record<NonNullable<Urgencia>, string> = {
