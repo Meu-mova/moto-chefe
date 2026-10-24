@@ -35,7 +35,7 @@ export default async function CalendarioPage({
     <div className="space-y-5 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold">Calendário</h1>
-        <p className="text-slate-500 text-sm">Pagamentos, aniversários, eventos e ausências · {grupo.nome}</p>
+        <p className="text-muted-foreground text-sm">Pagamentos, aniversários, eventos e ausências · {grupo.nome}</p>
       </div>
 
       <CalendarioMes
