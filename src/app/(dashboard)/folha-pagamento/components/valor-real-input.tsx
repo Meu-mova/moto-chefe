@@ -74,8 +74,8 @@ export function ValorRealInput({
       />
       {diferenca !== null && (
         bate
-          ? <span className="text-[11px] text-emerald-600">ok</span>
-          : <span className="text-[11px] text-red-600 whitespace-nowrap">
+          ? <span className="text-[11px] text-success">ok</span>
+          : <span className="text-[11px] text-destructive whitespace-nowrap">
               {diferenca > 0 ? '+' : '-'}{fmt(Math.abs(diferenca))} vs calc.
             </span>
       )}
