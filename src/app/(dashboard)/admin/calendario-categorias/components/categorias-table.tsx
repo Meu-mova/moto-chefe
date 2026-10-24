@@ -55,9 +55,9 @@ function CategoriaDialog({ open, onClose, inicial }: { open: boolean; onClose: (
                   type="button"
                   onClick={() => setCor(k)}
                   title={CORES[k].label}
-                  className={`h-8 w-8 rounded-full ${CORES[k].swatch} flex items-center justify-center ring-offset-2 ${cor === k ? 'ring-2 ring-slate-800' : ''}`}
+                  className={`h-8 w-8 rounded-full ${CORES[k].swatch} flex items-center justify-center ring-offset-2 ${cor === k ? 'ring-2 ring-ring' : ''}`}
                 >
-                  {cor === k && <Check size={15} className="text-white" />}
+                  {cor === k && <Check size={15} className="text-primary-foreground" />}
                 </button>
               ))}
             </div>
@@ -99,7 +99,7 @@ export function CategoriasCalendarioTable({ categorias }: { categorias: Categori
       <div className="flex justify-end">
         <Button onClick={() => setCriando(true)} size="sm"><Plus size={16} className="mr-1.5" /> Nova categoria</Button>
       </div>
-      <div className="bg-white rounded-lg border mt-4">
+      <div className="bg-card rounded-lg border mt-4">
         <Table>
           <TableHeader>
             <TableRow>
@@ -119,7 +119,7 @@ export function CategoriasCalendarioTable({ categorias }: { categorias: Categori
                       <span className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} />{cat.nome}
                     </span>
                   </TableCell>
-                  <TableCell className="text-slate-500 text-sm">{meta.label}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{meta.label}</TableCell>
                   <TableCell>
                     <button onClick={() => toggle(cat)} disabled={pending} className="cursor-pointer">
                       <Badge variant={cat.ativo ? 'default' : 'secondary'}>{cat.ativo ? 'Ativa' : 'Inativa'}</Badge>
@@ -128,14 +128,14 @@ export function CategoriasCalendarioTable({ categorias }: { categorias: Categori
                   <TableCell>
                     <div className="flex gap-1 justify-end">
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditando(cat)}><Pencil size={14} /></Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => excluir(cat)}><Trash2 size={14} /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => excluir(cat)}><Trash2 size={14} /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
               )
             })}
             {categorias.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-slate-400 py-8">Nenhuma categoria ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhuma categoria ainda.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
