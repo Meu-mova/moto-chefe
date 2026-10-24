@@ -72,7 +72,7 @@ export function RelatorioGarantiasButton({ lojas, modelos, isAdmin }: Props) {
         variant="outline"
         size="sm"
         onClick={() => { resetar(); setAberto(true) }}
-        className="h-9 gap-1.5 text-slate-600"
+        className="h-9 gap-1.5 text-muted-foreground"
       >
         <FileText size={15} />
         Relatório
@@ -82,7 +82,7 @@ export function RelatorioGarantiasButton({ lojas, modelos, isAdmin }: Props) {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Gerar Relatório de Garantias</DialogTitle>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Selecione os filtros e abra o relatório em PDF.
             </p>
           </DialogHeader>
@@ -161,7 +161,7 @@ export function RelatorioGarantiasButton({ lojas, modelos, isAdmin }: Props) {
                   onChange={e => setDataInicio(e.target.value)}
                   className="h-9 text-sm flex-1"
                 />
-                <span className="text-slate-400 text-sm">até</span>
+                <span className="text-muted-foreground text-sm">até</span>
                 <Input
                   type="date"
                   value={dataFim}

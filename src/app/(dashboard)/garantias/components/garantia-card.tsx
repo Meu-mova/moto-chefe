@@ -41,15 +41,15 @@ const urgenciaBorder: Record<NonNullable<Urgencia>, string> = {
 }
 
 const urgenciaText: Record<NonNullable<Urgencia>, string> = {
-  verde:    'text-green-700',
-  amarelo:  'text-amber-700',
-  vermelho: 'text-red-700',
+  verde:    'text-success',
+  amarelo:  'text-warning',
+  vermelho: 'text-destructive',
 }
 
 const urgenciaBadge: Record<NonNullable<Urgencia>, string> = {
-  verde:    'border-green-300 text-green-700 bg-green-50',
-  amarelo:  'border-amber-300 text-amber-700 bg-amber-50',
-  vermelho: 'border-red-300 text-red-700 bg-red-50',
+  verde:    'border-success/50 text-success bg-success/10',
+  amarelo:  'border-warning/50 text-warning bg-warning/10',
+  vermelho: 'border-destructive/50 text-destructive bg-destructive/10',
 }
 
 function formatDate(d: unknown) {
@@ -58,22 +58,22 @@ function formatDate(d: unknown) {
 }
 
 const STATUS_FABRICA_CLS: Record<string, string> = {
-  'Aguardando Separação':          'bg-blue-50 text-blue-700 border-blue-200',
-  'Aguardando Reposição':          'bg-amber-50 text-amber-700 border-amber-200',
-  'Em Separação':                  'bg-indigo-50 text-indigo-700 border-indigo-200',
-  'Em Exigência':                  'bg-red-50 text-red-700 border-red-300',
-  'Em auditoria':                  'bg-purple-50 text-purple-700 border-purple-200',
-  'Em avaliação SAC':              'bg-purple-50 text-purple-700 border-purple-200',
-  'Em avaliação do técnico':       'bg-purple-50 text-purple-700 border-purple-200',
-  'Em conferência':                'bg-yellow-50 text-yellow-700 border-yellow-200',
-  'Separado':                      'bg-teal-50 text-teal-700 border-teal-200',
-  'Pedido enviado':                'bg-green-50 text-green-700 border-green-200',
-  'Entregue':                      'bg-green-100 text-green-800 border-green-300',
-  'Garantia concluída':            'bg-green-100 text-green-800 border-green-300',
-  'Aguardando Postagem Reversa':   'bg-orange-50 text-orange-700 border-orange-200',
-  'Aguardando devolução':          'bg-orange-50 text-orange-700 border-orange-200',
-  'Rejeitado':                     'bg-red-100 text-red-800 border-red-400',
-  'Cancelado':                     'bg-gray-100 text-gray-600 border-gray-300',
+  'Aguardando Separação':          'bg-info/10 text-info border-info/30',
+  'Aguardando Reposição':          'bg-warning/10 text-warning border-warning/30',
+  'Em Separação':                  'bg-info/10 text-info border-info/30',
+  'Em Exigência':                  'bg-destructive/10 text-destructive border-destructive/50',
+  'Em auditoria':                  'bg-info/10 text-info border-info/30',
+  'Em avaliação SAC':              'bg-info/10 text-info border-info/30',
+  'Em avaliação do técnico':       'bg-info/10 text-info border-info/30',
+  'Em conferência':                'bg-warning/10 text-warning border-warning/30',
+  'Separado':                      'bg-info/10 text-info border-info/30',
+  'Pedido enviado':                'bg-success/10 text-success border-success/30',
+  'Entregue':                      'bg-success/15 text-success border-success/50',
+  'Garantia concluída':            'bg-success/15 text-success border-success/50',
+  'Aguardando Postagem Reversa':   'bg-warning/10 text-warning border-warning/30',
+  'Aguardando devolução':          'bg-warning/10 text-warning border-warning/30',
+  'Rejeitado':                     'bg-destructive/15 text-destructive border-destructive/50',
+  'Cancelado':                     'bg-muted text-muted-foreground border-input',
 }
 
 const STATUS_FABRICA_CRITICOS = new Set(['Em Exigência', 'Rejeitado', 'Aguardando Postagem Reversa'])
@@ -115,7 +115,7 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
         <div className="flex justify-between items-start">
           <div>
             <p className="font-medium text-sm">{g.marca} {g.modelo}</p>
-            <p className="text-xs font-mono text-slate-500">{g.chassi}</p>
+            <p className="text-xs font-mono text-muted-foreground">{g.chassi}</p>
           </div>
           {g.status === 'ativa' && urgencia
             ? (
@@ -131,7 +131,7 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
           }
         </div>
 
-        <p className="text-sm text-slate-700">{g.descricao}</p>
+        <p className="text-sm text-foreground">{g.descricao}</p>
 
         {/* Status da fábrica */}
         {g.numeroPedidoFabrica && (
@@ -140,26 +140,26 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
               href={`https://motochefebrasil.store/clientes/trocas/detalhes/${g.numeroPedidoFabrica}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
             >
               Pedido #{g.numeroPedidoFabrica}
             </a>
             {g.statusFabrica && (
-              <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${STATUS_FABRICA_CLS[g.statusFabrica] ?? 'bg-slate-50 text-slate-600 border-slate-200'} ${STATUS_FABRICA_CRITICOS.has(g.statusFabrica) ? 'ring-1 ring-red-400' : ''}`}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${STATUS_FABRICA_CLS[g.statusFabrica] ?? 'bg-muted text-muted-foreground border-border'} ${STATUS_FABRICA_CRITICOS.has(g.statusFabrica) ? 'ring-1 ring-destructive/50' : ''}`}>
                 {STATUS_FABRICA_CRITICOS.has(g.statusFabrica) && '⚠ '}
                 {g.statusFabrica}
               </span>
             )}
             {!g.statusFabrica && (
-              <span className="text-xs text-slate-400">status não sincronizado</span>
+              <span className="text-xs text-muted-foreground">status não sincronizado</span>
             )}
           </div>
         )}
 
-        <div className="text-xs text-slate-500 space-y-1">
-          <p>Loja: <span className="text-slate-700">{g.lojaNome}</span></p>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>Loja: <span className="text-foreground">{g.lojaNome}</span></p>
           <p>Abertura: {formatDate(g.dataInicio)} — Prazo: {formatDate(g.dataFim)}</p>
-          {g.dataEncerramento && <p>Encerrada em: <span className="text-slate-700 font-medium">{formatDate(g.dataEncerramento)}</span></p>}
+          {g.dataEncerramento && <p>Encerrada em: <span className="text-foreground font-medium">{formatDate(g.dataEncerramento)}</span></p>}
           {g.dataPedidoPeca && <p>Pedido peça: {formatDate(g.dataPedidoPeca)}</p>}
           {g.statusFabricaSyncEm && (
             <p>Última sync: {new Date(g.statusFabricaSyncEm as unknown as string).toLocaleString('pt-BR')}</p>
@@ -184,7 +184,7 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
             href={`/garantias/${g.id}/comprovante`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-400 rounded-md px-3 py-1.5 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-ring rounded-md px-3 py-1.5 transition-colors"
           >
             <Printer size={13} /> Comprovante de encerramento
           </a>
@@ -195,13 +195,13 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Encerrar Garantia</DialogTitle>
-            <p className="text-sm text-slate-500 pt-1">
+            <p className="text-sm text-muted-foreground pt-1">
               {g.descricao} · Abertura: {formatDate(g.dataInicio)}
             </p>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Data de encerramento <span className="text-red-500">*</span></Label>
+              <Label>Data de encerramento <span className="text-destructive">*</span></Label>
               <Input
                 type="date"
                 value={dataEncerramento}
