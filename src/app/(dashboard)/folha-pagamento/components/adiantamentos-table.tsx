@@ -76,48 +76,48 @@ export function AdiantamentosTable({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Dinheiro entregue ao funcionário antes do fechamento do mês. Desconta do total a pagar da folha e aparece
         no impresso da contabilidade. Não vira despesa nem saída de caixa — o salário cheio já é contabilizado
         quando é pago, e lançar os dois contaria o mesmo dinheiro duas vezes.
       </p>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-card border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Loja</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Data</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Valor</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Observação</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Loja</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Data</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Observação</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {adiantamentos.map(a => (
-              <tr key={a.id} className="hover:bg-slate-50">
+              <tr key={a.id} className="hover:bg-muted">
                 <td className="px-4 py-2">{a.usuarioNome ?? '—'}</td>
-                <td className="px-4 py-2 text-slate-500">{a.lojaNome}</td>
-                <td className="px-4 py-2 text-slate-500">{fmtData(a.data)}</td>
-                <td className="px-4 py-2 text-right font-medium text-amber-700">{fmt(a.valor)}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">{a.observacao}</td>
+                <td className="px-4 py-2 text-muted-foreground">{a.lojaNome}</td>
+                <td className="px-4 py-2 text-muted-foreground">{fmtData(a.data)}</td>
+                <td className="px-4 py-2 text-right font-medium text-warning">{fmt(a.valor)}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{a.observacao}</td>
                 <td className="px-4 py-2 text-right">
-                  <button onClick={() => excluir(a.id)} disabled={pending} className="text-slate-400 hover:text-red-500">
+                  <button onClick={() => excluir(a.id)} disabled={pending} className="text-muted-foreground hover:text-destructive">
                     <Trash2 size={14} />
                   </button>
                 </td>
               </tr>
             ))}
             {adiantamentos.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-slate-400 py-6">Nenhum adiantamento neste mês.</td></tr>
+              <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum adiantamento neste mês.</td></tr>
             )}
           </tbody>
           {adiantamentos.length > 0 && (
-            <tfoot className="border-t bg-slate-50">
+            <tfoot className="border-t bg-muted">
               <tr>
-                <td colSpan={3} className="px-4 py-2 text-xs font-medium text-slate-600">Total do mês</td>
-                <td className="px-4 py-2 text-right font-bold text-amber-700">
+                <td colSpan={3} className="px-4 py-2 text-xs font-medium text-muted-foreground">Total do mês</td>
+                <td className="px-4 py-2 text-right font-bold text-warning">
                   {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </td>
                 <td colSpan={2} />
@@ -127,28 +127,28 @@ export function AdiantamentosTable({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 bg-white border rounded-lg p-3">
+      <div className="flex flex-wrap items-end gap-2 bg-card border rounded-lg p-3">
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Funcionário</label>
+          <label className="text-xs text-muted-foreground">Funcionário</label>
           <select
             value={usuarioId}
             onChange={e => setUsuarioId(e.target.value)}
-            className="h-8 text-xs w-52 border border-slate-200 rounded-md px-2 bg-white block"
+            className="h-8 text-xs w-52 border border-border rounded-md px-2 bg-card block"
           >
             <option value="">Selecione…</option>
             {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Valor (R$)</label>
+          <label className="text-xs text-muted-foreground">Valor (R$)</label>
           <Input value={valor} onChange={e => setValor(e.target.value)} className="h-8 text-xs w-32" placeholder="0,00" />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Data do adiantamento</label>
+          <label className="text-xs text-muted-foreground">Data do adiantamento</label>
           <Input type="date" value={data} onChange={e => setData(e.target.value)} className="h-8 text-xs w-40" />
         </div>
         <div className="space-y-1 flex-1 min-w-48">
-          <label className="text-xs text-slate-500">Observação (opcional)</label>
+          <label className="text-xs text-muted-foreground">Observação (opcional)</label>
           <Input
             value={observacao}
             onChange={e => setObservacao(e.target.value)}

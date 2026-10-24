@@ -17,7 +17,7 @@ export default async function MeusDocumentosPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Meus Documentos</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Seus holerites de adiantamento e de pagamento do salário. Só você e o escritório enxergam estes arquivos.
         </p>
       </div>

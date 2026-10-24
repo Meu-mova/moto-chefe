@@ -80,10 +80,10 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
   }
 
   return (
-    <tr className="hover:bg-slate-50 align-top">
+    <tr className="hover:bg-muted align-top">
       <td className="px-4 py-2">
         <p className="font-medium">{f.nome}</p>
-        <p className="text-xs text-slate-400">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+        <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
       </td>
       <td className="px-4 py-2">
         <Input value={salario} onChange={e => setSalario(e.target.value)} className="h-8 text-xs w-28" placeholder="0,00" />
@@ -92,16 +92,16 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         {/* Só leitura: uma pessoa pode ter várias regras, e editá-las numa célula de
             tabela esconderia a vigência. O cadastro fica na aba Comissões. */}
         {f.regras.length === 0 ? (
-          <span className="text-xs text-slate-300">sem regra</span>
+          <span className="text-xs text-muted-foreground">sem regra</span>
         ) : (
           <div className="space-y-0.5">
             {f.regras.map((r, i) => (
               <p key={i} className="text-xs whitespace-nowrap">
-                <span className={r.tipo === 'premiacao' ? 'text-violet-700' : 'text-teal-700'}>
+                <span className={r.tipo === 'premiacao' ? 'text-info' : 'text-info'}>
                   {fmtPercent(r.percentual)}%
                 </span>
                 {' '}{labelDaBase(r.base).toLowerCase()}
-                <span className="text-slate-400"> · {r.tipo === 'premiacao' ? 'premiação' : 'comissão'}</span>
+                <span className="text-muted-foreground"> · {r.tipo === 'premiacao' ? 'premiação' : 'comissão'}</span>
               </p>
             ))}
           </div>
@@ -121,7 +121,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         />
       </td>
       <td className="px-4 py-2 text-center">
-        <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="rounded border-slate-300" />
+        <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="rounded border-input" />
       </td>
       <td className="px-4 py-2">
         <Button size="sm" className="h-8 text-xs" disabled={pending} onClick={salvar}>
@@ -134,25 +134,25 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
 
 export function FuncionariosConfigTable({ funcionarios }: { funcionarios: FuncionarioRow[] }) {
   if (funcionarios.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-8">Nenhum funcionário encontrado nas lojas do grupo.</p>
+    return <p className="text-sm text-muted-foreground text-center py-8">Nenhum funcionário encontrado nas lojas do grupo.</p>
   }
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Adiantamento fixo é o vale combinado que desconta <strong>todo mês</strong>, sem precisar lançar nada.
         Adiantamento de um mês só continua na aba <strong>Adiantamentos</strong> — os dois se somam no desconto.
         Comissão e premiação ficam na aba <strong>Comissões</strong>, onde cada pessoa pode ter várias regras.
       </p>
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-card border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Salário (R$)</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Regras de comissão/premiação</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo (R$)</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Adiantamento fixo (R$)</th>
-              <th className="text-center px-4 py-2 text-xs font-medium text-slate-600">Ativo</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Salário (R$)</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Regras de comissão/premiação</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Ajuda de Custo (R$)</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Adiantamento fixo (R$)</th>
+              <th className="text-center px-4 py-2 text-xs font-medium text-muted-foreground">Ativo</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
