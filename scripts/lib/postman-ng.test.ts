@@ -40,6 +40,11 @@ test('corte com \\r no fim da linha e cor ANSI na continuação também é masca
   assert.deepEqual(saida, ['url ****\r', '\x1b[90m  ****\x1b[0m'])
 })
 
+test('cor ANSI no fim da linha antes da quebra também é mascarada', () => {
+  const saida = filtrar([`url ${EMPRESA.slice(0, 10)}\x1b[39m\r`, `${EMPRESA.slice(10)}/nfe`], [EMPRESA])
+  assert.deepEqual(saida, ['url ****\x1b[39m\r', '****/nfe'])
+})
+
 test('vários segredos, um inteiro e outro partido, saem todos mascarados', () => {
   const saida = filtrar([`Basic ${TOKEN} /empresas/${EMPRESA.slice(0, 5)}`, `${EMPRESA.slice(5)}`], [TOKEN, EMPRESA])
   assert.deepEqual(saida, ['Basic **** /empresas/****', '****'])
