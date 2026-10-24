@@ -177,7 +177,7 @@ test('denegada 302 não aceita outros campos; 301 não aceita nenhum (#347)', as
   })
 })
 
-test('edição que troca CNPJ por CPF apaga representante e IE da venda e não mexe em cliente nenhum (regressão #347)', async () => {
+test('edição que troca CNPJ por CPF apaga representante e IE da venda e não mexe na IE dos clientes com o CNPJ antigo (regressão #347)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000234710')
     const b = await semearConta(tx, 'B', '00000000234711')
@@ -195,8 +195,9 @@ test('edição que troca CNPJ por CPF apaga representante e IE da venda e não m
     assert.equal(v.representante_nome, null)
     assert.equal(v.representante_cpf, null)
     assert.equal(v.cliente_inscricao_estadual, null)
-    const ies = await linhas(tx, sql`select inscricao_estadual from clientes where cpf_cnpj = ${CNPJ} and conta_id in (${a.contaId}, ${b.contaId})`)
-    assert.deepEqual(ies.map(r => r.inscricao_estadual), ['111', '111'])
+    const ies = await linhas(tx, sql`select conta_id, inscricao_estadual from clientes where cpf_cnpj = ${CNPJ} and conta_id in (${a.contaId}, ${b.contaId})`)
+    assert.equal(ies.find(r => r.conta_id === a.contaId)?.inscricao_estadual, '111')
+    assert.equal(ies.find(r => r.conta_id === b.contaId)?.inscricao_estadual, '111')
   })
 })
 
