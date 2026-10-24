@@ -36,8 +36,9 @@ export function HeatmapEntrada({ dados }: { dados: { dia: number; hora: number; 
                       <div
                         className="h-7 min-w-11 rounded flex items-center justify-center tabular-nums"
                         style={{
-                          backgroundColor: n === 0 ? 'var(--muted)' : `color-mix(in oklch, var(--info) ${Math.round((0.12 + intensidade * 0.78) * 100)}%, transparent)`,
-                          color: intensidade > 0.55 ? 'var(--background)' : 'var(--foreground)',
+                          backgroundColor: n === 0 ? 'var(--muted)' : `color-mix(in oklch, var(--info) ${Math.round(8 + intensidade * 42)}%, transparent)`,
+                          // Até 50% de info o texto do tema fica acima de 4.5:1 nos dois temas; sem troca de cor no meio.
+                          color: 'var(--foreground)',
                         }}
                         title={`${DIAS[d]}, ${FAIXAS[i][0]}h — ${n} lead(s)`}
                       >
