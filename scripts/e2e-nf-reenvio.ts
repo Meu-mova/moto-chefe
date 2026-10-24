@@ -1,10 +1,11 @@
 /**
- * Teste de ponta a ponta da #347 (PR 2a e 2b-2) contra o staging, em duas partes.
+ * Teste de ponta a ponta da #347 (PR 2a, 2b-2 e 2c) contra o staging, em duas partes.
  *
  * Parte 1, sem Nota Gateway: ao abrir "Emitir NF de saída" de uma venda cuja última
  * tentativa foi recusada, o diálogo abre na tela da recusa com os campos que o código
  * aponta (237 cliente, 778 moto, GW7324 só orientação, 301 só orientação, 302 a IE do
- * cliente), sem travessão e sem "Só salvar", no desktop e no celular.
+ * cliente; 539 avisa e deixa reenviar, com o passo da numeração só para o sócio), sem
+ * travessão e sem "Só salvar", no desktop e no celular.
  *
  * Parte 2, com a Nota Gateway REAL em HOMOLOGAÇÃO (Grupo Teste Sul): recusa se o
  * grupo não estiver em homologação. (a) Emite pela tela uma moto com NCM inexistente,
@@ -44,6 +45,7 @@ if (recusa || !process.env.SEED_SENHA) {
 
 const VER = process.argv.includes('--ver')
 const AUX = `aux.sul@${DOMINIO_TESTE}`
+const SOCIO = `socio.sul@${DOMINIO_TESTE}`
 const MARCA = 'E2E347R'
 const PASTA = '/tmp/e2e-347-pr2'
 const LOGS = `${homedir()}/Development/work/moto-chefe/ng-reenvio-logs`
@@ -74,6 +76,7 @@ const CASOS: Caso[] = [
   { sufixo: 'G', motivo: 'Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.', numero: '9347105', documento: CPF },
   { sufixo: 'E', motivo: '301 - Uso Denegado: Irregularidade fiscal do emitente', numero: '9347102', documento: CPF },
   { sufixo: 'D', motivo: '302 - Uso Denegado: Irregularidade fiscal do destinatário', numero: '9347103', documento: CNPJ },
+  { sufixo: 'X', motivo: '539 - Rejeição: Duplicidade de NF-e, com diferença na Chave de Acesso', numero: '9347106', documento: CPF },
 ]
 
 async function semear(c: Ctx, caso: Caso) {
@@ -92,9 +95,9 @@ async function semear(c: Ctx, caso: Caso) {
   caso.venda = { id: venda.id, numero: venda.numero, chassi, motoId: moto.id }
 }
 
-async function entrar(pagina: Page) {
+async function entrar(pagina: Page, email = AUX) {
   await pagina.goto(`${base}/login`)
-  await pagina.fill('#email', AUX)
+  await pagina.fill('#email', email)
   await pagina.fill('#password', process.env.SEED_SENHA!)
   await Promise.all([
     pagina.waitForURL(url => !url.pathname.startsWith('/login') || url.searchParams.has('error'), { timeout: 30_000 }),
@@ -118,7 +121,7 @@ async function abrirNf(pagina: Page, v: { numero: number; chassi: string }, celu
 }
 
 async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
-  await abrirNf(pagina, caso.venda!, tela === 'celular')
+  await abrirNf(pagina, caso.venda!, tela.endsWith('celular'))
   const dialogo = pagina.getByRole('dialog').filter({ hasText: 'Por quê?' })
   const ve = (texto: string | RegExp) => dialogo.getByText(texto).first().waitFor({ timeout: 30_000 }).then(() => true, () => false)
   const botao = (nome: string | RegExp) => dialogo.getByRole('button', { name: nome })
@@ -134,6 +137,19 @@ async function telaDoCaso(pagina: Page, caso: Caso, tela: string) {
     confere(await dialogo.getByLabel(campo, { exact: true }).isVisible(), `${tela} ${cod}: campo ${campo} aberto`)
     confere(await botao(`Salvar e reenviar nº ${n}`).count() === 1, `${tela} ${cod}: "Salvar e reenviar nº ${n}"`)
 
+  } else if (cod === 'X') {
+    confere(await ve('A SEFAZ recusou esta nota'), `${tela} ${cod}: título da recusa`)
+    confere(await ve(`O número ${n} já foi usado em outra nota da empresa`), `${tela} ${cod}: "Por quê?" do número já usado`)
+    confere(await ve('reenviar volta com esta mesma recusa.'), `${tela} ${cod}: avisa que reenviar antes do acerto repete a recusa`)
+    confere(!(await dialogo.innerText()).includes('sem gastar número'), `${tela} ${cod}: não promete "sem gastar número"`)
+    if (tela.startsWith('socio')) {
+      confere(await ve('somando as do MOVA e as do Bling.'), `${tela} ${cod}: sócio vê como achar o próximo número`)
+    } else {
+      confere(await ve('Peça a um Admin Geral ou Sócio para acertar a numeração com a Nota Gateway.'), `${tela} ${cod}: aux_adm pede ao Admin`)
+      confere(await dialogo.getByText('somando as do MOVA').count() === 0, `${tela} ${cod}: aux_adm não vê o passo da numeração`)
+    }
+    confere(await dialogo.getByRole('textbox').count() === 0, `${tela} ${cod}: sem campos`)
+    confere(await botao(`Reenviar nº ${n}`).count() === 1, `${tela} ${cod}: "Reenviar nº ${n}" liberado`)
   } else if (cod === 'G') {
     confere(await ve('O CFOP do produto está num formato que a nota não aceita.'), `${tela} ${cod}: "Por quê?" em linguagem de loja`)
     confere(await ve('Peça a um Admin Geral ou Sócio para corrigir.'), `${tela} ${cod}: aux_adm é orientado a pedir ao Admin`)
@@ -346,6 +362,14 @@ async function main() {
       const pagina = await (await navegador.newContext({ locale: 'pt-BR', ...t.opcoes })).newPage()
       await entrar(pagina)
       for (const caso of CASOS) await telaDoCaso(pagina, caso, t.nome)
+    }
+    // 539 na visão do sócio: o passo de acertar a numeração é da configuração fiscal.
+    for (const t of telas) {
+      console.log(`\n▶ sócio ${t.nome}`)
+      const pagina = await (await navegador.newContext({ locale: 'pt-BR', ...t.opcoes })).newPage()
+      await entrar(pagina, SOCIO)
+      await telaDoCaso(pagina, CASOS.find(c => c.sufixo === 'X')!, `socio-${t.nome}`)
+      await pagina.context().close()
     }
 
     if (!SO_PARTE_1) {

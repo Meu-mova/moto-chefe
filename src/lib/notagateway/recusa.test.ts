@@ -64,3 +64,7 @@ test('denegada sem código conhecido não abre campos: só emite a nova nota (#3
   assert.deepEqual(telaDaRecusa({ status: 'Denegada', motivoStatus: null }), { tipo: 'denegada' })
   assert.deepEqual(telaDaRecusa({ status: 'Denegada', motivoStatus: 'Uso denegado' }), { tipo: 'denegada' })
 })
+
+test('539 abre a tela do número já usado, sem campos (#347)', () => {
+  assert.deepEqual(telaDaRecusa({ status: 'Negada', motivoStatus: '539 - Rejeição: Duplicidade de NF-e, com diferença na Chave de Acesso' }), { tipo: 'duplicidade' })
+})
