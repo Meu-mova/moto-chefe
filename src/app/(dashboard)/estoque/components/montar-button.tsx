@@ -56,8 +56,8 @@ export function MontarButton({ motoId, descricao, mecanicos, showLabel }: Props)
         title="Montar"
         onClick={handleOpen}
         className={showLabel
-          ? 'h-8 gap-1.5 text-xs border-blue-300 text-blue-600 hover:bg-blue-50'
-          : 'h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50'}
+          ? 'h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10'
+          : 'h-8 w-8 text-info hover:text-info hover:bg-info/10'}
       >
         <Wrench size={showLabel ? 14 : 16} />
         {showLabel && 'Montar'}
@@ -68,9 +68,9 @@ export function MontarButton({ motoId, descricao, mecanicos, showLabel }: Props)
             <DialogTitle>Montar Moto</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">{descricao}</p>
+            <p className="text-sm text-muted-foreground">{descricao}</p>
             <div className="space-y-2">
-              <Label>Mecânico Responsável <span className="text-red-500">*</span></Label>
+              <Label>Mecânico Responsável <span className="text-destructive">*</span></Label>
               <Select value={mecanicoId} onValueChange={v => setMecanicoId(v ?? '')}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar mecânico...">
@@ -86,11 +86,11 @@ export function MontarButton({ motoId, descricao, mecanicos, showLabel }: Props)
                 </SelectContent>
               </Select>
               {mecanicos.length === 0 && (
-                <p className="text-xs text-red-500">Nenhum mecânico cadastrado.</p>
+                <p className="text-xs text-destructive">Nenhum mecânico cadastrado.</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label>Data da Montagem <span className="text-red-500">*</span></Label>
+              <Label>Data da Montagem <span className="text-destructive">*</span></Label>
               <Input
                 type="date"
                 value={dataMontagem}

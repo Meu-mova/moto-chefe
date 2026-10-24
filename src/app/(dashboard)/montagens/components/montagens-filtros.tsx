@@ -27,14 +27,14 @@ export function MontagensFiltros({ lojas, mecanicos, dataInicioInicial, dataFimI
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1.5">
-        <CalendarRange size={15} className="text-slate-400" />
+        <CalendarRange size={15} className="text-muted-foreground" />
         <input
           type="date"
           defaultValue={dataInicioInicial}
           onChange={e => update('de', e.target.value)}
           className="h-8 rounded-md border px-2 text-sm"
         />
-        <span className="text-slate-400 text-sm">até</span>
+        <span className="text-muted-foreground text-sm">até</span>
         <input
           type="date"
           defaultValue={dataFimInicial}

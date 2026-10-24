@@ -9,10 +9,10 @@ export default function MotoDetailError({
 }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-      <p className="text-slate-600">Erro ao carregar os dados da moto.</p>
+      <p className="text-muted-foreground">Erro ao carregar os dados da moto.</p>
       <button
         onClick={reset}
-        className="text-sm text-blue-600 underline"
+        className="text-sm text-info underline"
       >
         Tentar novamente
       </button>
