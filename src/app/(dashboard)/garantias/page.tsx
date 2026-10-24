@@ -82,7 +82,7 @@ export default async function GarantiasPage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Garantias</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Acompanhamento — uma moto pode ter múltiplas garantias ao longo do tempo
           </p>
         </div>
@@ -120,12 +120,12 @@ export default async function GarantiasPage({
 
       {/* Banner fábrica — status críticos */}
       {!statusFiltro && criticas.length > 0 && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm space-y-1">
-          <p className="font-semibold text-red-800">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm space-y-1">
+          <p className="font-semibold text-destructive">
             🚨 {criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
           </p>
           {criticas.map(g => (
-            <p key={g.id} className="text-red-700 text-xs">
+            <p key={g.id} className="text-destructive text-xs">
               · {g.marca} {g.modelo} ({g.chassi.slice(-6)}) — <strong>{g.statusFabrica}</strong>
               {g.numeroPedidoFabrica && (
                 <a
@@ -144,14 +144,14 @@ export default async function GarantiasPage({
 
       {/* Banner de urgência — só quando não há filtro de status */}
       {!statusFiltro && ativas.length > 0 && (urgentes.length > 0 || atencao.length > 0) && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm space-y-1">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm space-y-1">
           {urgentes.length > 0 && (
-            <p className="font-medium text-red-700">
+            <p className="font-medium text-destructive">
               ⚠ {urgentes.length} {urgentes.length === 1 ? 'garantia urgente (≥ 20 dias)' : 'garantias urgentes (≥ 20 dias)'}
             </p>
           )}
           {atencao.length > 0 && (
-            <p className="text-amber-700">
+            <p className="text-warning">
               ⚠ {atencao.length} {atencao.length === 1 ? 'garantia requer atenção (10–19 dias)' : 'garantias requerem atenção (10–19 dias)'}
             </p>
           )}
@@ -160,7 +160,7 @@ export default async function GarantiasPage({
 
       {/* Resultados */}
       {lista.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-12">
+        <p className="text-sm text-muted-foreground text-center py-12">
           {temFiltro ? 'Nenhuma garantia corresponde aos filtros.' : 'Nenhuma garantia registrada.'}
         </p>
       )}
@@ -168,7 +168,7 @@ export default async function GarantiasPage({
       {/* Quando filtro de status está ativo: lista plana */}
       {statusFiltro && lista.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             {statusFiltro === 'ativa' ? 'Ativas' : 'Encerradas'} ({lista.length})
           </h2>
           {lista.map(g => (
@@ -182,7 +182,7 @@ export default async function GarantiasPage({
         <>
           {ativas.length > 0 && (
             <section className="space-y-3">
-              <h2 className="font-semibold text-sm text-slate-700">Ativas ({ativas.length})</h2>
+              <h2 className="font-semibold text-sm text-foreground">Ativas ({ativas.length})</h2>
               {ativas.map(g => (
                 <GarantiaCard key={g.id} garantia={g} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
               ))}
@@ -191,7 +191,7 @@ export default async function GarantiasPage({
 
           {encerradas.length > 0 && (
             <section className="space-y-3">
-              <h2 className="font-semibold text-sm text-slate-700">Encerradas ({encerradas.length})</h2>
+              <h2 className="font-semibold text-sm text-foreground">Encerradas ({encerradas.length})</h2>
               {encerradas.map(g => (
                 <GarantiaCard key={g.id} garantia={g} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
               ))}

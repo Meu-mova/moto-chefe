@@ -105,15 +105,15 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
               onKeyDown={e => e.key === 'Enter' && buscar()}
               onFocus={() => resultados.length > 0 && setListaAberta(true)}
               placeholder="Digite o chassi ou parte dele (mín. 3 caracteres)…"
-              className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-slate-300 ${
-                erro ? 'border-amber-400' : 'border-slate-200'
+              className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-ring ${
+                erro ? 'border-warning/50' : 'border-border'
               }`}
             />
             <button
               type="button"
               onClick={buscar}
               disabled={pendingBusca || chassi.trim().length < 3}
-              className="px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               {pendingBusca ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
             </button>
@@ -121,29 +121,29 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
 
           {listaAberta && resultados.length > 0 && (
             <div ref={listaRef}
-              className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-              <p className="px-3 py-2 text-[11px] text-slate-400 border-b bg-slate-50">
+              className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+              <p className="px-3 py-2 text-[11px] text-muted-foreground border-b bg-muted">
                 {resultados.length} resultado{resultados.length > 1 ? 's' : ''} — clique para selecionar
               </p>
-              <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+              <ul className="max-h-64 overflow-y-auto divide-y divide-border">
                 {resultados.map(r => (
                   <li key={r.motoId}>
                     <button
                       type="button"
                       onClick={() => selecionar(r)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors flex items-center gap-3"
                     >
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">
+                        <p className="text-sm font-medium text-foreground truncate">
                           {r.marca} {r.modelo}
-                          {r.cor && <span className="font-normal text-slate-500"> · {r.cor}</span>}
+                          {r.cor && <span className="font-normal text-muted-foreground"> · {r.cor}</span>}
                         </p>
-                        <p className="text-xs font-mono text-slate-400">{r.chassi} · {r.lojaNome}</p>
+                        <p className="text-xs font-mono text-muted-foreground">{r.chassi} · {r.lojaNome}</p>
                         {r.clienteNome && (
-                          <p className="text-xs text-blue-600">{r.clienteNome}</p>
+                          <p className="text-xs text-info">{r.clienteNome}</p>
                         )}
                       </div>
-                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-slate-100 text-slate-600">
+                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-muted text-muted-foreground">
                         {statusLabel_legado[r.status] ?? r.status}
                       </span>
                     </button>
@@ -155,14 +155,14 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
 
           {erro && !cadastrando && (
             <div className="mt-1 space-y-1.5">
-              <p className="text-xs text-amber-600 flex items-center gap-1">
+              <p className="text-xs text-warning flex items-center gap-1">
                 <AlertCircle size={12} /> {erro}
               </p>
               {chassi.trim().length >= 3 && (
                 <button
                   type="button"
                   onClick={() => { setCadastrando(true); setErro(null) }}
-                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-xs text-info hover:underline flex items-center gap-1"
                 >
                   <UserPlus size={12} /> Cadastrar este veículo
                 </button>
@@ -171,12 +171,12 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
           )}
 
           {cadastrando && (
-            <div className="mt-2 border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+            <div className="mt-2 border border-border rounded-lg p-3 space-y-2 bg-muted">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Cadastrar veículo — chassi {chassi}
               </p>
               {erro && (
-                <p className="text-xs text-amber-600 flex items-center gap-1">
+                <p className="text-xs text-warning flex items-center gap-1">
                   <AlertCircle size={12} /> {erro}
                 </p>
               )}
@@ -184,7 +184,7 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                 <select
                   value={novo.modeloId}
                   onChange={e => setNovo(n => ({ ...n, modeloId: e.target.value }))}
-                  className="col-span-2 border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white"
+                  className="col-span-2 border border-border rounded-md px-2 py-1.5 text-sm bg-card"
                 >
                   <option value="">Modelo *</option>
                   {modelos.map(m => (
@@ -195,13 +195,13 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                   value={novo.cor}
                   onChange={e => setNovo(n => ({ ...n, cor: e.target.value }))}
                   placeholder="Cor *"
-                  className="border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  className="border border-border rounded-md px-2 py-1.5 text-sm"
                 />
                 {isAdmin ? (
                   <select
                     value={novo.lojaId}
                     onChange={e => setNovo(n => ({ ...n, lojaId: e.target.value }))}
-                    className="border border-slate-200 rounded-md px-2 py-1.5 text-sm bg-white"
+                    className="border border-border rounded-md px-2 py-1.5 text-sm bg-card"
                   >
                     <option value="">Loja *</option>
                     {lojas.map(l => (
@@ -209,7 +209,7 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                     ))}
                   </select>
                 ) : (
-                  <div className="flex items-center px-2 text-sm text-slate-500 border border-transparent">
+                  <div className="flex items-center px-2 text-sm text-muted-foreground border border-transparent">
                     Loja: {lojaUsuarioNome ?? '—'}
                   </div>
                 )}
@@ -217,7 +217,7 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                   value={novo.notaFiscalEntrada}
                   onChange={e => setNovo(n => ({ ...n, notaFiscalEntrada: e.target.value }))}
                   placeholder="Nota fiscal de entrada *"
-                  className="col-span-2 border border-slate-200 rounded-md px-2 py-1.5 text-sm"
+                  className="col-span-2 border border-border rounded-md px-2 py-1.5 text-sm"
                 />
               </div>
               <div className="flex gap-2">
@@ -225,7 +225,7 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                   type="button"
                   onClick={cadastrar}
                   disabled={pendingCadastro}
-                  className="flex-1 bg-slate-800 text-white text-xs font-medium rounded-md py-1.5 hover:bg-slate-700 disabled:opacity-50"
+                  className="flex-1 bg-primary text-primary-foreground text-xs font-medium rounded-md py-1.5 hover:bg-primary-hover disabled:opacity-50"
                 >
                   {pendingCadastro ? 'Salvando…' : 'Salvar veículo'}
                 </button>
@@ -233,7 +233,7 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
                   type="button"
                   onClick={() => { setCadastrando(false); setErro(null) }}
                   disabled={pendingCadastro}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-2"
+                  className="text-xs text-muted-foreground hover:text-foreground px-2"
                 >
                   Cancelar
                 </button>
@@ -248,20 +248,20 @@ export function VeiculoGarantiaLookup({ modelos, lojas, isAdmin, lojaUsuarioNome
 
 function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoGarantia; onLimpar: () => void }) {
   return (
-    <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
-      <CheckCircle2 size={16} className="text-green-500 mt-0.5 shrink-0" />
+    <div className="flex items-start gap-3 bg-success/10 border border-success/30 rounded-lg p-3">
+      <CheckCircle2 size={16} className="text-success mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800">
+        <p className="text-sm font-semibold text-foreground">
           {veiculo.marca} {veiculo.modelo}
-          {veiculo.cor && <span className="font-normal text-slate-500"> · {veiculo.cor}</span>}
+          {veiculo.cor && <span className="font-normal text-muted-foreground"> · {veiculo.cor}</span>}
         </p>
-        <p className="text-xs font-mono text-slate-500">{veiculo.chassi} · {veiculo.lojaNome}</p>
-        {veiculo.clienteNome && <p className="text-xs text-blue-600">{veiculo.clienteNome}</p>}
-        <p className="text-[10px] mt-0.5 text-slate-400">
+        <p className="text-xs font-mono text-muted-foreground">{veiculo.chassi} · {veiculo.lojaNome}</p>
+        {veiculo.clienteNome && <p className="text-xs text-info">{veiculo.clienteNome}</p>}
+        <p className="text-[10px] mt-0.5 text-muted-foreground">
           {statusLabel_legado[veiculo.status] ?? veiculo.status}
         </p>
       </div>
-      <button type="button" onClick={onLimpar} className="text-slate-400 hover:text-slate-600">
+      <button type="button" onClick={onLimpar} className="text-muted-foreground hover:text-muted-foreground">
         <X size={14} />
       </button>
     </div>
