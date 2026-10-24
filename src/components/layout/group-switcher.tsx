@@ -64,7 +64,7 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
             <DialogTitle>Trocar de empresa / grupo</DialogTitle>
           </DialogHeader>
 
-          <p className="text-sm text-slate-500 -mt-1">
+          <p className="text-sm text-muted-foreground -mt-1">
             Escolha a empresa. Todos os novos lançamentos (caixa, entrada, vendas, despesas) passam a ser registrados nela.
           </p>
 
@@ -78,13 +78,13 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
                   key={g.id}
                   onClick={() => setSelecionado(g.id)}
                   className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                    isSel ? 'border-slate-900 bg-slate-50 ring-1 ring-slate-900' : 'border-slate-200 hover:bg-slate-50'
+                    isSel ? 'border-foreground bg-muted ring-1 ring-foreground' : 'border-border hover:bg-muted'
                   }`}
                 >
                   <span className={`h-3.5 w-3.5 rounded-full shrink-0 ${cor.dot}`} />
                   <span className="font-medium flex-1">{g.nome}</span>
-                  {isAtivo && <span className="text-xs text-slate-400">Atual</span>}
-                  {isSel && !isAtivo && <Check size={16} className="text-slate-900" />}
+                  {isAtivo && <span className="text-xs text-muted-foreground">Atual</span>}
+                  {isSel && !isAtivo && <Check size={16} className="text-foreground" />}
                 </button>
               )
             })}
