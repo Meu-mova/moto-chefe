@@ -35,34 +35,34 @@ export function DemandasTable({ demandas, isAdmin }: Props) {
 
   if (demandas.length === 0) {
     return (
-      <p className="text-sm text-slate-400 text-center py-12">
+      <p className="text-sm text-muted-foreground text-center py-12">
         Nenhuma demanda registrada.
       </p>
     )
   }
 
   return (
-    <div className="bg-white border rounded-lg overflow-hidden">
+    <div className="bg-card border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b">
+        <thead className="bg-muted border-b">
           <tr>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Modelo</th>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Cor</th>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Loja</th>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Solicitante</th>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Data</th>
-            <th className="text-left px-4 py-3 font-medium text-slate-600">Prioridade</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Modelo</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Cor</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Loja</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Solicitante</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Data</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Prioridade</th>
             {isAdmin && <th className="px-4 py-3" />}
           </tr>
         </thead>
         <tbody className="divide-y">
           {demandas.map(d => (
-            <tr key={d.id} className={`hover:bg-slate-50 ${d.sinalRecebido ? 'bg-amber-50/60' : ''}`}>
+            <tr key={d.id} className={`hover:bg-muted ${d.sinalRecebido ? 'bg-warning/10' : ''}`}>
               <td className="px-4 py-3 font-medium">{d.modelo}</td>
-              <td className="px-4 py-3 text-slate-600">{d.cor}</td>
-              <td className="px-4 py-3 text-slate-600">{d.lojaNome}</td>
-              <td className="px-4 py-3 text-slate-600">{d.solicitanteNome}</td>
-              <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+              <td className="px-4 py-3 text-muted-foreground">{d.cor}</td>
+              <td className="px-4 py-3 text-muted-foreground">{d.lojaNome}</td>
+              <td className="px-4 py-3 text-muted-foreground">{d.solicitanteNome}</td>
+              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                 {new Date(d.criadoEm).toLocaleDateString('pt-BR')}
               </td>
               <td className="px-4 py-3">

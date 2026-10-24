@@ -70,14 +70,14 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
   if (sinalRecebido) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-xs font-semibold text-amber-700 bg-amber-100 rounded px-2 py-1">
+        <span className="text-xs font-semibold text-warning bg-warning/10 rounded px-2 py-1">
           Prioridade{valorSinal ? ` · ${fmt(valorSinal)}` : ''}
         </span>
         <a
           href={`/demandas/${demandaId}/imprimir`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 underline"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline"
           title="Imprimir recibo do sinal"
         >
           <Printer size={12} /> Recibo
@@ -86,7 +86,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
           <button
             onClick={desmarcar}
             disabled={pending}
-            className="text-xs text-slate-400 hover:text-red-500 underline"
+            className="text-xs text-muted-foreground hover:text-destructive underline"
           >
             desmarcar
           </button>
@@ -106,16 +106,16 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
             <DialogTitle>Recebimento de sinal</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Registrar o sinal exige o cadastro completo do cliente — isso gera o recibo.
             </p>
             <div className="space-y-1 sm:max-w-[240px]">
-              <Label>Valor do sinal <span className="text-red-500">*</span></Label>
+              <Label>Valor do sinal <span className="text-destructive">*</span></Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
             </div>
 
             <div className="space-y-2">
-              <Label>Formas de pagamento <span className="text-red-500">*</span></Label>
+              <Label>Formas de pagamento <span className="text-destructive">*</span></Label>
               <PagamentosFields
                 pgtos={pgtos}
                 onAdd={() => setPgtos(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])}
@@ -130,7 +130,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
 
             {valorNum > 0 && (
               <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
-                somaOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                somaOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
               }`}>
                 {somaOk
                   ? `✓ Somatório confere: R$ ${soma.toFixed(2).replace('.', ',')}`

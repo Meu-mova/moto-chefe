@@ -12,9 +12,9 @@ const TOM_KPI = {
 export function Kpi({ tom, titulo, valor, nota }: { tom: keyof typeof TOM_KPI; titulo: string; valor: React.ReactNode; nota?: string }) {
   return (
     <div className={`min-w-40 shrink-0 snap-start rounded-lg px-4 py-3 lg:min-w-0 ${TOM_KPI[tom]}`}>
-      <p className="text-xs font-medium tracking-wide uppercase opacity-80">{titulo}</p>
+      <p className="text-xs font-medium tracking-wide uppercase">{titulo}</p>
       <p className="mt-0.5 text-2xl font-bold">{valor}</p>
-      {nota && <p className="mt-0.5 text-xs opacity-80">{nota}</p>}
+      {nota && <p className="mt-0.5 text-xs">{nota}</p>}
     </div>
   )
 }

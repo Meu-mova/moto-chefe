@@ -113,17 +113,17 @@ export default async function ClienteDetalhePage({ params }: Props) {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">Tipo</span>
+              <span className="text-muted-foreground">Tipo</span>
               <Badge variant="outline">
                 {cliente.tipoPessoa === 'juridica' ? 'PJ' : 'PF'}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">Celular</span>
+              <span className="text-muted-foreground">Celular</span>
               <span>{cliente.celular ?? '—'}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">E-mail</span>
+              <span className="text-muted-foreground">E-mail</span>
               <span>{cliente.email ?? '—'}</span>
             </div>
           </CardContent>
@@ -134,7 +134,7 @@ export default async function ClienteDetalhePage({ params }: Props) {
             <CardTitle className="text-base">Endereço</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            <p className="text-slate-700">{enderecoCompleto || '—'}</p>
+            <p className="text-foreground">{enderecoCompleto || '—'}</p>
           </CardContent>
         </Card>
       </div>
@@ -146,14 +146,14 @@ export default async function ClienteDetalhePage({ params }: Props) {
         </CardHeader>
         <CardContent>
           {historico.vendas.length === 0 && historico.os.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhuma movimentação registrada.</p>
+            <p className="text-sm text-muted-foreground">Nenhuma movimentação registrada.</p>
           ) : (
             <div className="space-y-3">
               {historico.vendas.map(v => (
                 <div key={v.id} className="flex items-start justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">Venda #{v.numero} — {v.marca} {v.modelo}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Chassi: {v.chassi ?? '—'} · {formatarData(v.dataVenda)} · {formatarFormaPagamento(v.formaPagamento)}
                     </p>
                   </div>
@@ -162,10 +162,10 @@ export default async function ClienteDetalhePage({ params }: Props) {
               ))}
               {historico.os.map(o => (
                 <Link key={o.id} href={`/ordens-servico/${o.id}`}
-                  className="flex items-start justify-between rounded-lg border p-3 hover:border-slate-400 hover:shadow-sm transition-all">
+                  className="flex items-start justify-between rounded-lg border p-3 hover:border-ring hover:shadow-sm transition-all">
                   <div className="flex-1 min-w-0 pr-3">
                     <div className="flex items-center gap-2 mb-0.5">
-                      {o.numero && <span className="text-xs font-bold text-slate-500">OS #{o.numero}</span>}
+                      {o.numero && <span className="text-xs font-bold text-muted-foreground">OS #{o.numero}</span>}
                       <Badge variant={osStatusVariant[o.status ?? 'aberta'] ?? 'outline'}>
                         {osStatusLabel[o.status ?? 'aberta'] ?? o.status}
                       </Badge>
@@ -173,11 +173,11 @@ export default async function ClienteDetalhePage({ params }: Props) {
                     <p className="text-sm font-medium">
                       {o.marca && o.modelo ? `${o.marca} ${o.modelo}` : 'Moto externa'}
                     </p>
-                    <p className="text-xs text-slate-500 line-clamp-1">{o.descricao ?? '—'}</p>
-                    <p className="text-xs text-slate-400">Aberta em {formatarData(o.dataAbertura)}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{o.descricao ?? '—'}</p>
+                    <p className="text-xs text-muted-foreground">Aberta em {formatarData(o.dataAbertura)}</p>
                   </div>
                   {o.valorTotal && parseFloat(String(o.valorTotal)) > 0 && (
-                    <span className="text-sm font-semibold text-green-700 shrink-0">
+                    <span className="text-sm font-semibold text-success shrink-0">
                       {formatarMoeda(o.valorTotal)}
                     </span>
                   )}

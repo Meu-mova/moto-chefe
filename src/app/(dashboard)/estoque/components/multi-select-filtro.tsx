@@ -66,32 +66,32 @@ export function MultiSelectFiltro({ placeholder, opcoes, selecionados, onChange,
         className={cn(
           'flex w-full items-center justify-between gap-2 h-9 px-3 rounded-md border text-sm whitespace-nowrap',
           ativo
-            ? 'border-slate-700 bg-slate-100 text-slate-800 font-medium'
-            : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+            ? 'border-foreground bg-muted text-foreground font-medium'
+            : 'border-input bg-card text-muted-foreground hover:border-ring'
         )}
       >
         <span>{label}</span>
-        <ChevronDown size={13} className="shrink-0 text-slate-400" />
+        <ChevronDown size={13} className="shrink-0 text-muted-foreground" />
       </button>
 
       {aberto && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-full bg-white border border-slate-200 rounded-md shadow-lg">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-full bg-popover text-popover-foreground border border-border rounded-md shadow-lg">
           {comBusca && (
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
-              <Search size={13} className="text-slate-400 shrink-0" />
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+              <Search size={13} className="text-muted-foreground shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
                 value={busca}
                 onChange={e => setBusca(e.target.value)}
                 placeholder="Buscar..."
-                className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                className="flex-1 text-sm outline-none bg-transparent text-foreground placeholder:text-muted-foreground"
               />
             </div>
           )}
           <div className="py-1 max-h-56 overflow-y-auto">
             {opcoesFiltradas.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-slate-400">Nenhum resultado</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum resultado</p>
             ) : opcoesFiltradas.map(o => {
               const sel = selecionados.includes(o.value)
               return (
@@ -99,13 +99,13 @@ export function MultiSelectFiltro({ placeholder, opcoes, selecionados, onChange,
                   key={o.value}
                   type="button"
                   onClick={() => toggle(o.value)}
-                  className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-slate-50 text-left text-slate-700"
+                  className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm hover:bg-muted text-left text-foreground"
                 >
                   <span className={cn(
                     'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
-                    sel ? 'bg-slate-800 border-slate-800' : 'border-slate-300'
+                    sel ? 'bg-primary border-primary' : 'border-input'
                   )}>
-                    {sel && <Check size={10} className="text-white" strokeWidth={3} />}
+                    {sel && <Check size={10} className="text-primary-foreground" strokeWidth={3} />}
                   </span>
                   {o.label}
                 </button>
