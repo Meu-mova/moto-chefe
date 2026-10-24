@@ -10,7 +10,7 @@
  * O migrate.ts só aceita loopback com CI=true; aqui ele vai só para o Postgres que
  * este script acabou de subir, na porta que o pg_ctl conseguiu ocupar.
  */
-import { spawnSync, type SpawnSyncOptions } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -18,10 +18,37 @@ import { join } from 'node:path'
 
 const manter = process.argv.includes('--manter')
 
-function rodar(cmd: string, args: string[], opcoes: SpawnSyncOptions = {}) {
-  const r = spawnSync(cmd, args, { stdio: 'inherit', ...opcoes })
-  if (r.error) throw new Error(`${cmd}: ${r.error.message}`)
-  if (r.status !== 0) throw new Error(`${cmd} ${args[0] ?? ''} saiu com ${r.status}`)
+const SAIDA_POR_SINAL = { SIGINT: 130, SIGTERM: 143 } as const
+type Sinal = keyof typeof SAIDA_POR_SINAL
+let sinalRecebido: Sinal | null = null
+let filhoAtual: ChildProcess | null = null
+
+// Ctrl+C ou kill no meio: repassa ao comando em andamento e deixa o finally derrubar o Postgres.
+for (const sinal of Object.keys(SAIDA_POR_SINAL) as Sinal[]) {
+  process.on(sinal, () => {
+    sinalRecebido ??= sinal
+    filhoAtual?.kill(sinal)
+  })
+}
+
+/** Resolve com o código de saída; rejeita se o comando não abrir ou se veio um sinal. */
+function executar(cmd: string, args: string[], opcoes: SpawnOptions = {}): Promise<number> {
+  if (sinalRecebido) return Promise.reject(new Error(`interrompido (${sinalRecebido})`))
+  return new Promise((ok, falha) => {
+    const filho = spawn(cmd, args, { stdio: 'inherit', ...opcoes })
+    filhoAtual = filho
+    filho.once('error', e => { filhoAtual = null; falha(new Error(`${cmd}: ${e.message}`)) })
+    filho.once('close', (status, sinal) => {
+      filhoAtual = null
+      if (sinalRecebido || sinal) falha(new Error(`interrompido (${sinalRecebido ?? sinal})`))
+      else ok(status ?? 1)
+    })
+  })
+}
+
+async function rodar(cmd: string, args: string[], opcoes: SpawnOptions = {}) {
+  const status = await executar(cmd, args, opcoes)
+  if (status !== 0) throw new Error(`${cmd} ${args[0] ?? ''} saiu com ${status}`)
 }
 
 /** Porta que o sistema dá como livre agora; o pg_ctl é que confirma, ao ocupá-la. */
@@ -47,21 +74,20 @@ async function main() {
   let subiu = false
   let codigo = 1
   try {
-    rodar('initdb', ['-U', 'postgres', '-A', 'trust', dir], { stdio: 'ignore' })
-    rodar('pg_ctl', ['-D', dir, '-o', `-p ${porta} -k ${dir}`, '-l', join(dir, 'log'), '-w', 'start'], { stdio: 'ignore' })
+    await rodar('initdb', ['-U', 'postgres', '-A', 'trust', dir], { stdio: 'ignore' })
+    await rodar('pg_ctl', ['-D', dir, '-o', `-p ${porta} -k '${dir}'`, '-l', join(dir, 'log'), '-w', 'start'], { stdio: 'ignore' })
     subiu = true
     console.log(`Postgres descartável em localhost:${porta} (${dir})`)
 
     const psql = (arquivo: string, extra: string[] = []) =>
       rodar('psql', [url, '-X', '-q', '-v', 'ON_ERROR_STOP=1', ...extra, '-f', arquivo])
-    psql('supabase/ci-stubs.sql')
-    psql('supabase/schema-baseline.sql', ['-1'])
+    await psql('supabase/ci-stubs.sql')
+    await psql('supabase/schema-baseline.sql', ['-1'])
     const env = { ...process.env, CI: 'true', DATABASE_URL: url }
-    rodar('node', ['--import', 'tsx', 'scripts/migrate.ts', '--baseline-ate', '110'], { env })
-    rodar('node', ['--import', 'tsx', 'scripts/migrate.ts', '--aplicar'], { env })
+    await rodar('node', ['--import', 'tsx', 'scripts/migrate.ts', '--baseline-ate', '110'], { env })
+    await rodar('node', ['--import', 'tsx', 'scripts/migrate.ts', '--aplicar'], { env })
 
-    const teste = spawnSync('npm', ['run', 'test:db'], { stdio: 'inherit', env: { ...process.env, TEST_DATABASE_URL: url } })
-    codigo = teste.status ?? 1
+    codigo = await executar('npm', ['run', 'test:db'], { env: { ...process.env, TEST_DATABASE_URL: url } })
   } catch (e) {
     console.error(e instanceof Error ? e.message : e)
     if (!subiu) {
@@ -73,12 +99,12 @@ async function main() {
   } finally {
     if (manter && subiu) {
       console.log(`\nPostgres mantido de pé. Repetir só os testes:\n  TEST_DATABASE_URL=${url} npm run test:db`)
-      console.log(`Derrubar e apagar:\n  pg_ctl -D ${dir} -m fast stop && rm -rf ${dir}`)
+      console.log(`Derrubar e apagar:\n  pg_ctl -D '${dir}' -m fast stop && rm -rf '${dir}'`)
     } else {
       parar()
     }
   }
-  process.exit(codigo)
+  process.exit(sinalRecebido ? SAIDA_POR_SINAL[sinalRecebido] : codigo)
 }
 
 main()
