@@ -45,6 +45,9 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
   rodando na máquina dele**: trabalhe em branch e abra Pull Request para `dev`
   (ver `CONTRIBUTING.md` e `docs/adr/0002-branches-dev-main-e-revisao.md`).
   O responsável técnico (Luis) revisa e decide o que sobe.
+- Antes de criar a branch, confira se os arquivos da issue existem na `origin/dev`.
+  Se só existirem num PR aberto, crie a branch sobre a dele, diga isso no plano e
+  abra o PR para a `dev` só depois do merge daquele, conferindo conflito (#362).
 - Na Vercel, só o Owner do time MOVA (Luis) publica. Commit de outro autor
   chega à `main` mas o deploy é recusado ("Deployment failed"); foi o que
   aconteceu com o `30150e3` em 2026-10-06.
