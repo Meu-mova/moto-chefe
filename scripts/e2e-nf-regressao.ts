@@ -203,8 +203,9 @@ async function travasDoAux(pagina: Page, c: Ctx) {
 }
 
 /**
- * Cancela na Nota Gateway (homologação) o que ficou autorizado. A limpeza só apaga
- * nota morta: a viva fica no banco em vez de órfã.
+ * Cancela na Nota Gateway (homologação) o que ficou autorizado. A limpeza apaga a
+ * nota real só se morta (a viva fica no banco em vez de órfã) e a sintética
+ * E2E347G em qualquer status: ela nunca foi à Nota Gateway.
  */
 async function cancelarAutorizadas(c: Ctx) {
   const cfg = await configNotaGateway(c.grupoId)
@@ -220,7 +221,7 @@ async function cancelarAutorizadas(c: Ctx) {
         status = (await consultarNfe(cfg, id_externo))?.status ?? 'sem retorno'
       }
       await registrar('cancelamento_limpeza', { idExterno: id_externo, status })
-      if (status === 'Cancelada') await execRows(sql`update notas_fiscais_saida set status = 'Cancelada' where id_externo = ${id_externo}`)
+      if (status === 'Cancelada') await execRows(sql`update notas_fiscais_saida set status = 'Cancelada' where id_externo = ${id_externo} and grupo_id = ${c.grupoId} and ambiente = 'Homologacao'`)
       else console.error(`Nota mantida no banco (não cancelou na Nota Gateway): ${id_externo}`)
     } catch (e) {
       falhas++

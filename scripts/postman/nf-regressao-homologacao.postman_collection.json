@@ -48,7 +48,9 @@
             "type": "text/javascript",
             "exec": [
               "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
-              "pm.test('NG aceitou a emissão (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+              "pm.test('NG aceitou a emissão (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (pm.response.code < 200 || pm.response.code > 299) pm.execution.setNextRequest(null);"
             ]
           }
         }
@@ -128,7 +130,9 @@
               "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
               "pm.test('veio chave de acesso com 44 dígitos', () => pm.expect(String(j && j.chaveAcesso)).to.match(/^\\d{44}$/));",
               "pm.collectionVariables.set('chave', String(j && j.chaveAcesso));",
-              "pm.collectionVariables.set('numeroNota', String(j && j.numero));"
+              "pm.collectionVariables.set('numeroNota', String(j && j.numero));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (status !== 'Autorizada') pm.execution.setNextRequest(null);"
             ]
           }
         }
@@ -250,7 +254,9 @@
               "}",
               "pm.collectionVariables.unset(k);",
               "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
-              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));"
+              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (status !== 'Autorizada') pm.execution.setNextRequest(null);"
             ]
           }
         }
