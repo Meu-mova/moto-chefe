@@ -45,6 +45,11 @@ test('cor ANSI no fim da linha antes da quebra também é mascarada', () => {
   assert.deepEqual(saida, ['url ****\x1b[39m\r', '****/nfe'])
 })
 
+test('corpo de resposta quebrado com "  | " no começo da continuação é mascarado', () => {
+  const saida = filtrar([`  | r/file/${EMPRESA.slice(0, 14)}`, `  | ${EMPRESA.slice(14)}/pdf","link`], [EMPRESA])
+  assert.deepEqual(saida, ['  | r/file/****', '  | ****/pdf","link'])
+})
+
 test('vários segredos, um inteiro e outro partido, saem todos mascarados', () => {
   const saida = filtrar([`Basic ${TOKEN} /empresas/${EMPRESA.slice(0, 5)}`, `${EMPRESA.slice(5)}`], [TOKEN, EMPRESA])
   assert.deepEqual(saida, ['Basic **** /empresas/****', '****'])
