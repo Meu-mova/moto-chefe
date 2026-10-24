@@ -55,7 +55,7 @@ function CategoriaDialog({ open, onClose, inicial }: { open: boolean; onClose: (
                   type="button"
                   onClick={() => setCor(k)}
                   title={CORES[k].label}
-                  className={`h-8 w-8 rounded-full ${CORES[k].swatch} flex items-center justify-center ring-offset-2 ${cor === k ? 'ring-2 ring-ring' : ''}`}
+                  className={`h-8 w-8 rounded-full ${CORES[k].swatch} flex items-center justify-center ring-offset-2 ring-offset-background ${cor === k ? 'ring-2 ring-ring' : ''}`}
                 >
                   {cor === k && <Check size={15} className="text-primary-foreground" />}
                 </button>
