@@ -109,7 +109,7 @@ function TabelaOpcoes({
                       checked={checked}
                       onChange={() => onToggle!(parcelas)}
                       onClick={e => e.stopPropagation()}
-                      className="h-4 w-4 rounded border-input accent-blue-600"
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
                   </td>
                 )}
