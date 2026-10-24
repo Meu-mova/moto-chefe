@@ -5,7 +5,7 @@
  * com um environment temporário 0600.
  */
 import { spawn } from 'node:child_process'
-import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync, writeSync } from 'node:fs'
+import { chmodSync, closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import postgres from 'postgres'
@@ -17,48 +17,41 @@ export type Regra = { [K in keyof RegraSaida]: RegraSaida[K] }
 
 export const mascarar = (s: string) => (s.length <= 8 ? '****' : `${s.slice(0, 4)}…${s.slice(-4)}`)
 
-export const mascararTexto = (s: string, segredos: readonly string[]) =>
-  segredos.reduce((acc, seg) => (seg ? acc.split(seg).join('****') : acc), s)
-
-// O Postman quebra linha longa no meio da URL; a continuação pode vir recuada, com `  | ` (corpo
-// de resposta) ou com cor ANSI.
-// Segredo partido em 3 linhas ou mais não é coberto (o maior, o empresaId, tem 36 caracteres).
-const RECUO = /^(?:[\s│|]|\x1b\[[0-9;]*m)*/
-const FIM = /(?:\x1b\[[0-9;]*m|\r)*$/
-
-function mascararCorte(anterior: string, atual: string, segredo: string): [string, string] {
-  const fim = FIM.exec(anterior)![0]
-  const cabeca = anterior.slice(0, anterior.length - fim.length)
-  const recuo = RECUO.exec(atual)![0]
-  const corpo = atual.slice(recuo.length)
-  for (let k = 1; k < segredo.length; k++) {
-    if (cabeca.endsWith(segredo.slice(0, k)) && corpo.startsWith(segredo.slice(k))) {
-      return [cabeca.slice(0, -k) + '****' + fim, recuo + '****' + corpo.slice(segredo.length - k)]
-    }
-  }
-  return [anterior, atual]
-}
+// Trecho menor que isso não se distingue de texto comum; maior já não pode aparecer.
+const MINIMO_TRECHO = 8
 
 /**
- * Mascara linha a linha, segurando sempre a última: o segredo partido entre duas linhas
- * só se reconhece quando a seguinte chega. `fim()` solta a que ficou.
+ * Mascara todo trecho de MINIMO_TRECHO caracteres ou mais de qualquer segredo. Não depende de
+ * como o Postman quebra a linha: o pedaço que ficou de cada lado da quebra é mascarado sozinho.
  */
-export function criarFiltroLinhas(segredos: readonly string[], emitir: (linha: string) => void) {
-  let pendente: string | null = null
-  return {
-    linha(bruta: string) {
-      let atual = mascararTexto(bruta, segredos)
-      if (pendente !== null) {
-        for (const seg of segredos) if (seg) [pendente, atual] = mascararCorte(pendente, atual, seg)
-        emitir(pendente)
+export function mascararTrechos(s: string, segredos: readonly string[]): { texto: string; trechos: number } {
+  let texto = ''
+  let trechos = 0
+  for (let p = 0; p < s.length;) {
+    let maior = 0
+    for (const seg of segredos) {
+      for (let i = 0; i + MINIMO_TRECHO <= seg.length; i++) {
+        let k = 0
+        while (p + k < s.length && i + k < seg.length && s[p + k] === seg[i + k]) k++
+        if (k > maior) maior = k
       }
-      pendente = atual
-    },
-    fim() {
-      if (pendente !== null) emitir(pendente)
-      pendente = null
-    },
+    }
+    if (maior >= MINIMO_TRECHO) { texto += '****'; trechos++; p += maior }
+    else { texto += s[p]; p++ }
   }
+  return { texto, trechos }
+}
+
+export const mascararTexto = (s: string, segredos: readonly string[]) => mascararTrechos(s, segredos).texto
+
+/** Rede de segurança: reescreve o arquivo mascarado (0600) se achar trecho de segredo. */
+export function varrerArquivo(caminho: string, segredos: readonly string[]): number {
+  const { texto, trechos } = mascararTrechos(readFileSync(caminho, 'utf8'), segredos)
+  if (trechos > 0) {
+    writeFileSync(caminho, texto, { mode: 0o600 })
+    chmodSync(caminho, 0o600)
+  }
+  return trechos
 }
 
 /** Tudo o que vai à tela e ao log passa por aqui; antes de `abrir`, o log fica em memória. */
@@ -66,6 +59,7 @@ export function criarRegistro(dirLog: string) {
   const segredos: string[] = []
   const buffer: string[] = []
   let fd: number | null = null
+  let caminho: string | null = null
   const gravar = (linha: string) => {
     if (fd === null) buffer.push(linha + '\n')
     else writeSync(fd, linha + '\n')
@@ -79,25 +73,28 @@ export function criarRegistro(dirLog: string) {
     },
     abrir(idTeste: string): string {
       mkdirSync(dirLog, { recursive: true, mode: 0o700 })
-      const caminho = join(dirLog, `${idTeste}.log`)
+      caminho = join(dirLog, `${idTeste}.log`)
       fd = openSync(caminho, 'wx', 0o600)
       for (const l of buffer.splice(0)) writeSync(fd, l)
       return caminho
     },
     repassar(origem: NodeJS.ReadableStream, destino: NodeJS.WriteStream) {
-      const filtro = criarFiltroLinhas(segredos, l => { destino.write(l + '\n'); gravar(l) })
+      const emitir = (bruta: string) => { const l = mascararTexto(bruta, segredos); destino.write(l + '\n'); gravar(l) }
       let resto = ''
       origem.setEncoding('utf8')
       origem.on('data', (pedaco: string) => {
         const linhas = (resto + pedaco).split('\n')
         resto = linhas.pop() ?? ''
-        for (const l of linhas) filtro.linha(l)
+        for (const l of linhas) emitir(l)
       })
-      origem.on('end', () => { if (resto) filtro.linha(resto); filtro.fim() })
+      origem.on('end', () => { if (resto) emitir(resto) })
     },
-    fechar() {
-      if (fd !== null) closeSync(fd)
+    /** Fecha o log e varre o arquivo inteiro; devolve quantos trechos de segredo achou. */
+    fechar(): number {
+      if (fd === null) return 0
+      closeSync(fd)
       fd = null
+      return caminho ? varrerArquivo(caminho, segredos) : 0
     },
   }
 }

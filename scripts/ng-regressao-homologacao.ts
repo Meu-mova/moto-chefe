@@ -111,5 +111,9 @@ main().catch((e: unknown) => {
   log('FALHOU:', e instanceof Error ? e.message : String(e))
   process.exitCode = 1
 }).finally(() => {
-  registro.fechar()
+  const trechos = registro.fechar()
+  if (trechos > 0) {
+    console.error(`\n!!! A máscara deixou passar ${trechos} trecho(s) de segredo no log; o arquivo foi reescrito mascarado. A tela acima pode ter o segredo: limpe o terminal. !!!`)
+    process.exitCode = 1
+  }
 })
