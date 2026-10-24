@@ -94,7 +94,7 @@ export function GerenciarDialog({ modelo, onClose }: Props) {
                 onChange={e => setTaxaFisico(e.target.value)}
                 placeholder="Ex: 8.77"
               />
-              <p className="text-xs text-slate-400">Acréscimo sobre o preço à vista</p>
+              <p className="text-xs text-muted-foreground">Acréscimo sobre o preço à vista</p>
             </div>
             <div className="space-y-1">
               <Label>Taxa Link de Pagamento (%) *</Label>
@@ -104,7 +104,7 @@ export function GerenciarDialog({ modelo, onClose }: Props) {
                 onChange={e => setTaxaLink(e.target.value)}
                 placeholder="Ex: 14.74"
               />
-              <p className="text-xs text-slate-400">Acréscimo sobre o preço à vista</p>
+              <p className="text-xs text-muted-foreground">Acréscimo sobre o preço à vista</p>
             </div>
           </div>
           <DialogFooter>

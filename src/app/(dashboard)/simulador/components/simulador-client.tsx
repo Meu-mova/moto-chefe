@@ -72,24 +72,24 @@ function TabelaOpcoes({
   onToggle?: (parcelas: number) => void
 }) {
   if (linhas.length === 0) {
-    return <p className="text-sm text-slate-400 py-4 text-center">Nenhuma opção configurada</p>
+    return <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma opção configurada</p>
   }
   const comCheckbox = !!selecionados && !!onToggle
   return (
     <div className="overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b">
+        <thead className="bg-muted border-b">
           <tr>
             {comCheckbox && <th className="w-8 px-3 py-2" />}
-            <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium">Parcelas</th>
-            <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Valor da Parcela</th>
+            <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">Parcelas</th>
+            <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">Valor da Parcela</th>
             {mostrarTotal && (
-              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">
                 Total{entrada > 0 ? ' (s/ entrada)' : ''}
               </th>
             )}
             {!mostrarTotal && entrada > 0 && (
-              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">{labelCredito}</th>
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">{labelCredito}</th>
             )}
           </tr>
         </thead>
@@ -99,7 +99,7 @@ function TabelaOpcoes({
             return (
               <tr
                 key={parcelas}
-                className={`hover:bg-slate-50/50 ${comCheckbox ? 'cursor-pointer' : ''} ${checked ? 'bg-blue-50/60' : ''}`}
+                className={`hover:bg-muted/50 ${comCheckbox ? 'cursor-pointer' : ''} ${checked ? 'bg-info/10' : ''}`}
                 onClick={comCheckbox ? () => onToggle!(parcelas) : undefined}
               >
                 {comCheckbox && (
@@ -109,17 +109,17 @@ function TabelaOpcoes({
                       checked={checked}
                       onChange={() => onToggle!(parcelas)}
                       onClick={e => e.stopPropagation()}
-                      className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
                   </td>
                 )}
-                <td className="px-3 py-2 font-semibold text-slate-700">{parcelas}x</td>
+                <td className="px-3 py-2 font-semibold text-foreground">{parcelas}x</td>
                 <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmt(parcela)}</td>
                 {mostrarTotal && (
-                  <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
                 )}
                 {!mostrarTotal && entrada > 0 && (
-                  <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
                 )}
               </tr>
             )
@@ -127,7 +127,7 @@ function TabelaOpcoes({
         </tbody>
       </table>
       {comCheckbox && selecionados!.size > 0 && (
-        <p className="px-3 py-1.5 text-xs text-blue-600 bg-blue-50 border-t">
+        <p className="px-3 py-1.5 text-xs text-info bg-info/10 border-t">
           {selecionados!.size} opção(ões) selecionada(s) para impressão
         </p>
       )}
@@ -358,52 +358,52 @@ function PrecosDestaque({
   return (
     <div className="grid grid-cols-3 gap-3">
       {/* Valor de Tabela — 21x */}
-      <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Valor de Tabela</p>
+      <div className="rounded-xl border-2 border-border bg-muted p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
-            <p className="text-lg font-bold text-slate-700">{fmt(cartao21.credito)}</p>
-            <p className="text-xs text-slate-400 mt-1">21x de {fmt(cartao21.parcela)}</p>
+            <p className="text-lg font-bold text-foreground">{fmt(cartao21.credito)}</p>
+            <p className="text-xs text-muted-foreground mt-1">21x de {fmt(cartao21.parcela)}</p>
             {c21Entrada && (
-              <div className="mt-2 pt-2 border-t border-slate-200">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-slate-700">{fmt(c21Entrada.credito)} no cartão</p>
-                <p className="text-xs text-slate-500">21x de {fmt(c21Entrada.parcela)}</p>
+              <div className="mt-2 pt-2 border-t border-border">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-foreground">{fmt(c21Entrada.credito)} no cartão</p>
+                <p className="text-xs text-muted-foreground">21x de {fmt(c21Entrada.parcela)}</p>
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-300 mt-2">—</p>
+          <p className="text-sm text-muted-foreground mt-2">—</p>
         )}
       </div>
 
       {/* Valor com Desconto — 12x */}
-      <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-2">Valor com Desconto</p>
+      <div className="rounded-xl border-2 border-info/30 bg-info/10 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-info mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
-            <p className="text-lg font-bold text-blue-700">{fmt(cartao12.credito)}</p>
-            <p className="text-xs text-blue-400 mt-1">12x de {fmt(cartao12.parcela)}</p>
-            <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-blue-100 text-blue-700" corEcon="text-blue-500" />
+            <p className="text-lg font-bold text-info">{fmt(cartao12.credito)}</p>
+            <p className="text-xs text-info mt-1">12x de {fmt(cartao12.parcela)}</p>
+            <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-info/10 text-info" corEcon="text-info" />
             {c12Entrada && (
-              <div className="mt-2 pt-2 border-t border-blue-200">
-                <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-blue-700">{fmt(c12Entrada.credito)} no cartão</p>
-                <p className="text-xs text-blue-500">12x de {fmt(c12Entrada.parcela)}</p>
+              <div className="mt-2 pt-2 border-t border-info/30">
+                <p className="text-[10px] text-info uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-info">{fmt(c12Entrada.credito)} no cartão</p>
+                <p className="text-xs text-info">12x de {fmt(c12Entrada.parcela)}</p>
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm text-blue-200 mt-2">—</p>
+          <p className="text-sm text-info mt-2">—</p>
         )}
       </div>
 
       {/* Valor Promocional — PIX/Dinheiro */}
-      <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-2">Valor Promocional</p>
-        <p className="text-lg font-bold text-green-700">{fmt(base)}</p>
-        <p className="text-xs text-green-500 mt-1">PIX / Dinheiro</p>
-        <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-green-100 text-green-700" corEcon="text-green-600" />
+      <div className="rounded-xl border-2 border-success/50 bg-success/10 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-success mb-2">Valor Promocional</p>
+        <p className="text-lg font-bold text-success">{fmt(base)}</p>
+        <p className="text-xs text-success mt-1">PIX / Dinheiro</p>
+        <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-success/10 text-success" corEcon="text-success" />
       </div>
     </div>
   )
@@ -484,9 +484,9 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
   return (
     <>
       {/* Seletor */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="max-w-sm space-y-1.5">
-          <Label className="text-sm font-medium text-slate-700">Selecione o modelo</Label>
+          <Label className="text-sm font-medium text-foreground">Selecione o modelo</Label>
           <Select value={modeloId} onValueChange={v => setModeloId(v ?? '')}>
             <SelectTrigger className="h-11 text-base w-full">
               <span className={modeloId ? 'text-foreground' : 'text-muted-foreground'}>
@@ -504,18 +504,18 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
 
       {/* Resultado */}
       {modelo && (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="border-b bg-slate-50 flex items-center gap-5 px-6 py-4">
+        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+          <div className="border-b bg-muted flex items-center gap-5 px-6 py-4">
             {modelo.imagemUrl && (
               <img
                 src={modelo.imagemUrl}
                 alt={modelo.nome}
-                className="h-24 w-36 object-contain rounded-lg bg-white border p-1 shrink-0"
+                className="h-24 w-36 object-contain rounded-lg bg-card border p-1 shrink-0"
               />
             )}
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">{modelo.nome}</h2>
-              <p className="text-sm text-slate-400 mt-0.5">Condições de pagamento</p>
+              <h2 className="text-2xl font-bold text-foreground">{modelo.nome}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Condições de pagamento</p>
             </div>
           </div>
 
@@ -536,7 +536,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
             />
 
             {freteResultado?.ok && (
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 Total com frete (PIX): {fmt(base + freteResultado.custo)}
               </p>
             )}
@@ -546,7 +546,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
               <Label>Entrada (R$) — opcional</Label>
               <CurrencyInput value={entrada} onChange={setEntrada} placeholder="0,00" />
               {entradaInvalida && (
-                <p className="text-xs text-red-500">Entrada deve ser menor que o valor mínimo</p>
+                <p className="text-xs text-destructive">Entrada deve ser menor que o valor mínimo</p>
               )}
             </div>
 
@@ -556,24 +556,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('cartao')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <CreditCard size={15} className="text-blue-600" />
-                      <span className="font-semibold text-sm text-blue-800">Cartão de Crédito</span>
-                      <span className="text-xs text-blue-400">{linhasCartao.length} opções</span>
+                      <CreditCard size={15} className="text-info" />
+                      <span className="font-semibold text-sm text-info">Cartão de Crédito</span>
+                      <span className="text-xs text-info">{linhasCartao.length} opções</span>
                       {selCartao.size > 0 && (
-                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
                           {selCartao.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-blue-500 transition-transform ${aberto.cartao ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-info transition-transform ${aberto.cartao ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.cartao && (
                     <TabelaOpcoes
                       linhas={linhasCartao}
-                      cor="text-blue-700"
+                      cor="text-info"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selCartao}
@@ -587,24 +587,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                   <div className="rounded-xl border overflow-hidden">
                     <button
                       onClick={() => toggle('debito')}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 hover:bg-teal-100 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <Wallet size={15} className="text-teal-600" />
-                        <span className="font-semibold text-sm text-teal-800">Cartão de Débito</span>
-                        <span className="text-xs text-teal-400">{linhasDebito.length} opções</span>
+                        <Wallet size={15} className="text-info" />
+                        <span className="font-semibold text-sm text-info">Cartão de Débito</span>
+                        <span className="text-xs text-info">{linhasDebito.length} opções</span>
                         {selDebito.size > 0 && (
-                          <span className="text-xs bg-teal-600 text-white px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
                             {selDebito.size} selecionada(s)
                           </span>
                         )}
                       </div>
-                      <ChevronDown size={16} className={`text-teal-500 transition-transform ${aberto.debito ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`text-info transition-transform ${aberto.debito ? 'rotate-180' : ''}`} />
                     </button>
                     {aberto.debito && (
                       <TabelaOpcoes
                         linhas={linhasDebito}
-                        cor="text-teal-700"
+                        cor="text-info"
                         entrada={entradaNum}
                         mostrarTotal
                         selecionados={selDebito}
@@ -618,24 +618,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('link')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Link2 size={15} className="text-purple-600" />
-                      <span className="font-semibold text-sm text-purple-800">Link de Pagamento</span>
-                      <span className="text-xs text-purple-400">{linhasLink.length} opções</span>
+                      <Link2 size={15} className="text-info" />
+                      <span className="font-semibold text-sm text-info">Link de Pagamento</span>
+                      <span className="text-xs text-info">{linhasLink.length} opções</span>
                       {selLink.size > 0 && (
-                        <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
                           {selLink.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-purple-500 transition-transform ${aberto.link ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-info transition-transform ${aberto.link ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.link && (
                     <TabelaOpcoes
                       linhas={linhasLink}
-                      cor="text-purple-700"
+                      cor="text-info"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selLink}
@@ -649,24 +649,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('financiamento')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-warning/10 hover:bg-warning/10 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Building2 size={15} className="text-amber-600" />
-                      <span className="font-semibold text-sm text-amber-800">Financiamento</span>
-                      <span className="text-xs text-amber-400">sujeito a aprovação de crédito</span>
+                      <Building2 size={15} className="text-warning" />
+                      <span className="font-semibold text-sm text-warning">Financiamento</span>
+                      <span className="text-xs text-warning">sujeito a aprovação de crédito</span>
                       {selFinanciamento.size > 0 && (
-                        <span className="text-xs bg-amber-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-warning/10 text-warning px-1.5 py-0.5 rounded-full">
                           {selFinanciamento.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-amber-500 transition-transform ${aberto.financiamento ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-warning transition-transform ${aberto.financiamento ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.financiamento && (
                     <TabelaOpcoes
                       linhas={linhasFinanciamento}
-                      cor="text-amber-700"
+                      cor="text-warning"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selFinanciamento}
@@ -681,7 +681,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                   return (
                     <div className="flex items-center justify-end gap-3 pt-2">
                       {total > 0 && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {total} opção(ões) selecionada(s) serão incluídas no PDF
                         </p>
                       )}
@@ -699,7 +699,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       )}
 
       {!modelo && (
-        <div className="rounded-xl border bg-white shadow-sm flex items-center justify-center py-24 text-slate-400">
+        <div className="rounded-xl border bg-card shadow-sm flex items-center justify-center py-24 text-muted-foreground">
           <p>Selecione um modelo acima para ver as condições</p>
         </div>
       )}
