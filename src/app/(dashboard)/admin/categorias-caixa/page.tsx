@@ -28,7 +28,7 @@ export default async function CategoriasCaixaPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Categorias</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Gerencie as categorias usadas nos lançamentos de caixa e nas despesas, e a quem se destinam as retiradas
           </p>
         </div>

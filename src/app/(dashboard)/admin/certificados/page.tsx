@@ -31,7 +31,7 @@ export default async function CertificadosPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Certificado digital — {grupo.nome}</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           O certificado A1 é a credencial que o MOVA usa para falar com a SEFAZ. Ele fica
           guardado cifrado no nosso banco e não é enviado a nenhum terceiro.
         </p>
@@ -42,12 +42,12 @@ export default async function CertificadosPage() {
           {atual ? (
             <>
               <p className="text-sm"><strong>{atual.titular}</strong> — CNPJ {atual.cnpj} — {atual.uf}</p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Válido até {atual.validoAte.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                 {diasRestantes !== null && ` (${diasRestantes} dias)`}
               </p>
               {diasRestantes !== null && diasRestantes <= DIAS_DE_AVISO && (
-                <p className="flex gap-2 text-sm text-amber-700 bg-amber-50 rounded p-2">
+                <p className="flex gap-2 text-sm text-warning bg-warning/10 rounded p-2">
                   <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                   <span>
                     Vence em {diasRestantes} dias. Quando vencer, o radar de notas para de
@@ -57,7 +57,7 @@ export default async function CertificadosPage() {
               )}
             </>
           ) : (
-            <p className="text-sm text-slate-500">Nenhum certificado cadastrado para este grupo.</p>
+            <p className="text-sm text-muted-foreground">Nenhum certificado cadastrado para este grupo.</p>
           )}
         </CardContent>
       </Card>

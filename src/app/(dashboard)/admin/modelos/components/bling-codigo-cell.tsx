@@ -27,7 +27,7 @@ export function BlingCodigoCell({ modeloId, valor }: { modeloId: string; valor: 
           placeholder="cód. produto"
           disabled={pending}
         />
-        <button onClick={salvar} disabled={pending} className="text-green-600 hover:text-green-700">
+        <button onClick={salvar} disabled={pending} className="text-success hover:text-success">
           <Check size={14} />
         </button>
       </div>
@@ -40,10 +40,10 @@ export function BlingCodigoCell({ modeloId, valor }: { modeloId: string; valor: 
       className="flex items-center gap-1 text-xs group"
       title="Clique para editar"
     >
-      <span className={texto ? 'font-mono text-slate-700' : 'text-slate-400 italic'}>
+      <span className={texto ? 'font-mono text-foreground' : 'text-muted-foreground italic'}>
         {texto || 'não configurado'}
       </span>
-      <Pencil size={11} className="text-slate-300 group-hover:text-slate-500" />
+      <Pencil size={11} className="text-muted-foreground group-hover:text-muted-foreground" />
     </button>
   )
 }
