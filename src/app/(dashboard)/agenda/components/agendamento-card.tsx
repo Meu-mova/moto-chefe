@@ -10,10 +10,10 @@ import Link from 'next/link'
 import type { AgendamentoComDetalhes } from '@/lib/queries/agendamentos'
 
 const statusCor: Record<string, string> = {
-  pendente:   'border-l-amber-400 bg-warning/10',
-  confirmado: 'border-l-blue-400 bg-info/10',
-  concluido:  'border-l-green-400 bg-success/10',
-  cancelado:  'border-l-slate-300 bg-muted opacity-60',
+  pendente:   'border-l-warning bg-warning/10',
+  confirmado: 'border-l-info bg-info/10',
+  concluido:  'border-l-success bg-success/10',
+  cancelado:  'border-l-border bg-muted opacity-60',
 }
 const statusBadge: Record<string, string> = {
   pendente:   'bg-warning/10 text-warning',
