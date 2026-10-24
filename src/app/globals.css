@@ -293,6 +293,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Campo de data, <select> nativo e barra de rolagem desenhados pelo navegador seguem o tema. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
   html {
     @apply font-sans;
   }
