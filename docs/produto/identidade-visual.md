@@ -86,6 +86,8 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-press` | botão principal pressionado ou enviando | `#024d33` | `#1fc684` |
 | `primary-glow` | sombra do botão no hover (decorativa) | `#047a4f` a 35% | `#2ee09a` a 35% |
 | `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
+| `success` | texto e ícone de sucesso (pago, concluído); mesmo verde do `primary-text`; fundo como o de `warning` | `#036443` | `#4ee8a8` |
+| `info` | texto e ícone informativo (em andamento, aviso neutro); fundo como o de `warning` | `#1d4ed8` | `#8ab4ff` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
@@ -118,11 +120,35 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `destructive` / `card` | 6.57 | 7.61 | 4.5 |
 | `destructive` / fundo de erro (sobre `card`) | 5.57 | 5.34 | 4.5 |
 | `destructive` / fundo de erro (sobre `background`, claro) | 5.16 | — | 4.5 |
+| `success` / `card` | 7.22 | 11.12 | 4.5 |
+| `success` / `background` | 6.67 | 12.04 | 4.5 |
+| `success` / fundo de sucesso (sobre `card`) | 6.20 | 6.92 | 4.5 |
+| `info` / `card` | 6.70 | 8.32 | 4.5 |
+| `info` / `background` | 6.19 | 9.01 | 4.5 |
+| `info` / fundo informativo (sobre `card`) | 5.72 | 5.54 | 4.5 |
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
 
 Cor nova só entra nesta tabela com o par medido.
+
+### Cor do grupo (barra do grupo ativo e selo)
+
+Cada grupo escolhe uma cor (`src/lib/grupo-cores.ts`); os valores ficam em `--grupo-*` no
+`globals.css`. No claro, os tons do Tailwind de antes; no escuro, barra no tom 800 e texto claro
+na cor (decisão do Luis no protótipo de 2026-10-24, #90). Texto da barra e do selo, mínimo 4.5:
+
+| Grupo | barra / texto (claro) | barra / texto (escuro) | selo (claro) | selo (escuro) |
+|---|---|---|---|---|
+| `emerald` | 3.48 ⚠ | 4.61 | 6.68 | 6.29 |
+| `blue` | 6.26 | 6.44 | 7.25 | 5.00 |
+| `amber` | 3.08 ⚠ | 4.62 | 8.17 | 7.02 |
+| `violet` | 6.64 | 6.50 | 7.71 | 4.77 |
+| `rose` | 5.51 | 5.69 | 6.59 | 4.92 |
+| `cyan` | 5.07 | 5.79 | 6.47 | 6.57 |
+| `slate` | 9.88 | 10.92 | 13.37 | 4.96 |
+
+⚠ Verde e âmbar no claro ficam abaixo de 4.5, como já estavam: o claro não mudou nesta decisão.
 
 ## Tema
 

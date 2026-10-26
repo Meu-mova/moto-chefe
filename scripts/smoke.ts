@@ -86,7 +86,13 @@ async function main() {
         falhas += usuario.telas.length
       } else {
         for (const tela of usuario.telas) {
-          const motivos = motivosDeFalha(await visitar(contexto, tela))
+          let motivos = motivosDeFalha(await visitar(contexto, tela))
+          // Uma 2ª tentativa separa engasgo do staging (500 passageiro) de tela quebrada de fato.
+          if (motivos.length > 0) {
+            console.log(`  … ${tela} falhou, tentando de novo em 10 s`)
+            await new Promise(r => setTimeout(r, 10_000))
+            motivos = motivosDeFalha(await visitar(contexto, tela))
+          }
           if (motivos.length === 0) console.log(`  ✓ ${tela}`)
           else {
             falhas++

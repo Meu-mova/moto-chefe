@@ -280,11 +280,11 @@ export async function buscarDetalhePedidoGarantia(
   const html = await resp.text()
 
   const chassi = html
-    .match(/<p class="text-gray-400 text-sm">Chassi<\/p>\s*<p class="text-white">([^<]+)<\/p>/)?.[1]
+    .match(/<p class="text-gray-400 text-sm">Chassi<\/p>\s*<p class="text-white">([^<]+)<\/p>/)?.[1] // cor-fixa-ok: classes do HTML do portal da fábrica
     ?.trim() ?? null
 
   const peca = html
-    .match(/<h3 class="text-white font-semibold text-lg mb-2">\s*([^<]+?)\s*<\/h3>/)?.[1]
+    .match(/<h3 class="text-white font-semibold text-lg mb-2">\s*([^<]+?)\s*<\/h3>/)?.[1] // cor-fixa-ok: classes do HTML do portal da fábrica
     ?.trim() ?? null
 
   const status = html

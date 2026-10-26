@@ -99,7 +99,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
         size="icon"
         title="Cancelar Venda"
         onClick={abrir}
-        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
       >
         <XCircle size={16} />
       </Button>
