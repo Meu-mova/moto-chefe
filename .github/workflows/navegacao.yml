@@ -89,16 +89,8 @@ jobs:
 
       - run: npm ci
 
-      # Chromium em cache pela versão do playwright do lockfile; o sistema ainda precisa das libs.
-      - id: cache-chromium
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.cache-chromium.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - if: steps.cache-chromium.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+      # Sem cache do Chromium: o actions/cache recusa o evento deployment_status.
+      - run: npx playwright install --with-deps chromium
 
       - name: navegação
         env:
