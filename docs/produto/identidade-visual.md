@@ -132,6 +132,24 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 
 Cor nova só entra nesta tabela com o par medido.
 
+### Cor do grupo (barra do grupo ativo e selo)
+
+Cada grupo escolhe uma cor (`src/lib/grupo-cores.ts`); os valores ficam em `--grupo-*` no
+`globals.css`. No claro, os tons do Tailwind de antes; no escuro, barra no tom 800 e texto claro
+na cor (decisão do Luis no protótipo de 2026-10-24, #90). Texto da barra e do selo, mínimo 4.5:
+
+| Grupo | barra / texto (claro) | barra / texto (escuro) | selo (claro) | selo (escuro) |
+|---|---|---|---|---|
+| `emerald` | 3.48 ⚠ | 4.61 | 6.68 | 6.29 |
+| `blue` | 6.26 | 6.44 | 7.25 | 5.00 |
+| `amber` | 3.08 ⚠ | 4.62 | 8.17 | 7.02 |
+| `violet` | 6.64 | 6.50 | 7.71 | 4.77 |
+| `rose` | 5.51 | 5.69 | 6.59 | 4.92 |
+| `cyan` | 5.07 | 5.79 | 6.47 | 6.57 |
+| `slate` | 9.88 | 10.92 | 13.37 | 4.96 |
+
+⚠ Verde e âmbar no claro ficam abaixo de 4.5, como já estavam: o claro não mudou nesta decisão.
+
 ## Tema
 
 - Padrão: **segue o sistema** (claro ou escuro, conforme o celular ou o computador).
