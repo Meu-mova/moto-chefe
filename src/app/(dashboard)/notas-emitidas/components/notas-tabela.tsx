@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { NotaEmitida } from '@/lib/queries/notas-emitidas'
-import { linkDaVenda, selecaoDaPagina, temDocumento, type CategoriaNota, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
+import { linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, type CategoriaNota, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
 
 const POR_PAGINA = 50
 const ROTA = '/api/notas-emitidas/arquivos'
@@ -71,12 +71,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
   }
 
   function marcar(id: string, marcar: boolean) {
-    setTodasDoFiltro(false)
-    setMarcadas(prev => {
-      const novo = new Set(prev)
-      if (marcar) novo.add(id); else novo.delete(id)
-      return novo
-    })
+    setMarcadas(prev => marcarNota(prev, todasDoFiltro, id, marcar))
   }
 
   // fetch e não navegação: o erro aparece na tela em vez de abrir uma página com JSON.
@@ -178,7 +173,8 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                 <tr key={n.id} className="hover:bg-muted">
                   <td className="py-2 pr-3 align-top">
                     {doc && (
-                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="size-4 cursor-pointer accent-primary"
+                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                        disabled={todasDoFiltro} title={todasDoFiltro ? 'Limpe a seleção para escolher notas' : undefined}
                         checked={todasDoFiltro || marcadas.has(n.id)} onChange={e => marcar(n.id, e.target.checked)} />
                     )}
                   </td>

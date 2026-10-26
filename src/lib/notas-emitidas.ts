@@ -66,6 +66,17 @@ export function nomeDoArquivo(n: { id: string; numero: string | null; serie: str
   return `NF-${n.numero}${n.serie ? `-serie-${n.serie}` : ''}.${tipo}`
 }
 
+/**
+ * Caixa de uma linha. Com "todas do filtro" ativo ela não muda nada: desmarcar uma nota de outra página
+ * derrubava a seleção para só as marcadas à mão. Sai desse modo só pelo cabeçalho ou "Limpar seleção".
+ */
+export function marcarNota(marcadas: Set<string>, todasDoFiltro: boolean, id: string, marcar: boolean): Set<string> {
+  if (todasDoFiltro) return marcadas
+  const novo = new Set(marcadas)
+  if (marcar) novo.add(id); else novo.delete(id)
+  return novo
+}
+
 /** Seleção estilo Gmail: "filtro" é todas as notas do filtro, inclusive as de outras páginas e além do teto da lista. */
 export function selecaoDaPagina(pagina: string[], marcadas: Set<string>, todasDoFiltro: boolean): 'nenhuma' | 'parte' | 'pagina' | 'filtro' {
   if (todasDoFiltro) return 'filtro'
