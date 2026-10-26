@@ -172,7 +172,7 @@ export default async function VendasPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Vendas</h1>
-          <p className="text-slate-500 text-sm">Pedidos e histórico de vendas</p>
+          <p className="text-muted-foreground text-sm">Pedidos e histórico de vendas</p>
         </div>
         <CriarPedidoDialog motos={motosDisponiveis} papel={usuario.papel} />
       </div>
@@ -185,7 +185,7 @@ export default async function VendasPage({
 
       {pendentes.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             Pedidos Pendentes ({pendentes.length})
           </h2>
           {pendentes.map(p => (
@@ -202,7 +202,7 @@ export default async function VendasPage({
       )}
 
       <section className="space-y-4">
-        <h2 className="font-semibold text-sm text-slate-700">
+        <h2 className="font-semibold text-sm text-foreground">
           Vendas Realizadas ({vendasList.length})
         </h2>
 
@@ -253,13 +253,13 @@ export default async function VendasPage({
         />
         <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         {resumoDesconto && resumoDesconto.estimados > 0 && (
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a
             tabela de preços atual — as aprovações anteriores a 21/08/2026 não guardavam o preço mínimo da época.
           </p>
         )}
         {podeVerDescontos && periodoAnteriorAoRegistro(dataInicio) && (
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             Desconto só é registrado a partir de 10/07/2026 — antes disso o pedido de aprovação não existia no sistema.
           </p>
         )}
