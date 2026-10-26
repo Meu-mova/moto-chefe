@@ -106,7 +106,7 @@ export function TransferenciasFiltros({ lojas, modelos, isAdmin }: Props) {
       )}
 
       {temFiltro && (
-        <Button variant="ghost" size="sm" onClick={limpar} className="text-slate-500">
+        <Button variant="ghost" size="sm" onClick={limpar} className="text-muted-foreground">
           Limpar filtros
         </Button>
       )}

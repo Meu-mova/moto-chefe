@@ -50,13 +50,13 @@ export function EncerrarGarantiaButton({ garantiaId, descricao, dataInicio, pape
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Encerrar Garantia</DialogTitle>
-            <p className="text-sm text-slate-500 pt-1">
+            <p className="text-sm text-muted-foreground pt-1">
               {descricao} · Abertura: {dataInicio}
             </p>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Data de encerramento <span className="text-red-500">*</span></Label>
+              <Label>Data de encerramento <span className="text-destructive">*</span></Label>
               <Input
                 type="date"
                 value={dataEncerramento}
