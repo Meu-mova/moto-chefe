@@ -563,7 +563,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                       <span className="font-semibold text-sm text-info">Cartão de Crédito</span>
                       <span className="text-xs text-info">{linhasCartao.length} opções</span>
                       {selCartao.size > 0 && (
-                        <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                           {selCartao.size} selecionada(s)
                         </span>
                       )}
@@ -594,7 +594,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                         <span className="font-semibold text-sm text-info">Cartão de Débito</span>
                         <span className="text-xs text-info">{linhasDebito.length} opções</span>
                         {selDebito.size > 0 && (
-                          <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                             {selDebito.size} selecionada(s)
                           </span>
                         )}
@@ -625,7 +625,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                       <span className="font-semibold text-sm text-info">Link de Pagamento</span>
                       <span className="text-xs text-info">{linhasLink.length} opções</span>
                       {selLink.size > 0 && (
-                        <span className="text-xs bg-info/10 text-info px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                           {selLink.size} selecionada(s)
                         </span>
                       )}
@@ -656,7 +656,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                       <span className="font-semibold text-sm text-warning">Financiamento</span>
                       <span className="text-xs text-warning">sujeito a aprovação de crédito</span>
                       {selFinanciamento.size > 0 && (
-                        <span className="text-xs bg-warning/10 text-warning px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-warning text-background px-1.5 py-0.5 rounded-full">
                           {selFinanciamento.size} selecionada(s)
                         </span>
                       )}
