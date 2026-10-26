@@ -438,7 +438,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           }
         }
       } else {
-        const resultado = await registrarReservaAction({
+        const r = await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda,
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
@@ -451,8 +451,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           dataPrevistaFinalizacao: dataPrevista,
           dataReserva: dataVenda || undefined,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Reserva registrada com sucesso!')
-        setReservaCriadaId(resultado.id)
+        setReservaCriadaId(r.dados.id)
         return
       }
       setOpen(false)

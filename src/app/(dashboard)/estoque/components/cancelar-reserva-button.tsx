@@ -31,8 +31,9 @@ export function CancelarReservaButton({ reservaId, descricao, clienteNome, valor
   async function confirmar() {
     setLoading(true)
     try {
-      await cancelarReservaAction(reservaId, motivo)
-      toast.success('Reserva cancelada — a moto voltou para venda.')
+      const r = await cancelarReservaAction(reservaId, motivo)
+      if (!r.ok) { toast.error(r.erro); return }
+      toast.success('Reserva cancelada. A moto voltou para venda.')
       setOpen(false)
       setMotivo('')
     } catch (e) {
