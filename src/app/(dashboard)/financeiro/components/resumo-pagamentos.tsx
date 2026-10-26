@@ -45,7 +45,7 @@ export function ResumoPagamentos({ resumo }: { resumo: ResumoPagamento[] }) {
                   <TableCell className="font-medium">{LABELS[r.tipo] ?? r.tipo}</TableCell>
                   <TableCell className="text-right">{r.qtdVendas}</TableCell>
                   <TableCell className="text-right font-mono">{fmt(r.total)}</TableCell>
-                  <TableCell className="text-right text-slate-500 text-sm">{pct.toFixed(1)}%</TableCell>
+                  <TableCell className="text-right text-muted-foreground text-sm">{pct.toFixed(1)}%</TableCell>
                 </TableRow>
               )
             })}

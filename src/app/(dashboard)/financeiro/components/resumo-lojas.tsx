@@ -12,13 +12,13 @@ function fmt(v: number) {
 }
 
 function corDoLucro(v: number) {
-  return v < 0 ? 'text-red-600' : 'text-emerald-700'
+  return v < 0 ? 'text-destructive' : 'text-success'
 }
 
 function corDaMargem(m: number) {
-  if (m < 0) return 'bg-red-50 text-red-700'
-  if (m < 5) return 'bg-amber-50 text-amber-700'
-  return 'bg-emerald-50 text-emerald-700'
+  if (m < 0) return 'bg-destructive/10 text-destructive'
+  if (m < 5) return 'bg-warning/10 text-warning'
+  return 'bg-success/10 text-success'
 }
 
 export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
@@ -36,7 +36,7 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Resultado por Loja</CardTitle>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
           receita líquida − custo das motos − despesas · valores em R$ · da maior para a menor
         </p>
       </CardHeader>
@@ -45,7 +45,7 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky left-0 bg-white z-10">Loja</TableHead>
+                <TableHead className="sticky left-0 bg-card z-10">Loja</TableHead>
                 <TableHead className="text-right">Vendas</TableHead>
                 <TableHead className="text-right">Receita</TableHead>
                 <TableHead className="text-right">Custo motos</TableHead>
@@ -57,29 +57,29 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
             </TableHeader>
             <TableBody>
               {lojas.map(l => (
-                <TableRow key={l.lojaId} className="even:bg-slate-50/40">
+                <TableRow key={l.lojaId} className="even:bg-muted/40">
                   <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-inherit z-10">
                     {l.lojaNome}
                     {l.qtdSemCusto > 0 && (
                       <span
-                        className="ml-1.5 text-amber-600 text-xs"
+                        className="ml-1.5 text-warning text-xs"
                         title={`${l.qtdSemCusto} moto(s) sem preço de compra cadastrado — o custo delas conta como zero`}
                       >
                         ⚠
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums text-slate-500">{l.qtdVendas}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">{l.qtdVendas}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{num(l.receitaLiquida)}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums text-slate-400">
+                  <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
                     {num(l.custoMotos)}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{num(l.lucroBruto)}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums text-slate-400">
+                  <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
                     {num(l.despesaPropria + l.despesaRateada)}
                     {l.despesaRateada > 0 && (
                       <span
-                        className="block text-[10px] text-slate-400"
+                        className="block text-[10px] text-muted-foreground"
                         title="Parte da despesa que não tem loja atribuída no Importar do Banco, rateada pelo faturamento"
                       >
                         rateio {num(l.despesaRateada)}
@@ -89,16 +89,16 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                   <TableCell className={`text-right font-mono tabular-nums font-semibold ${corDoLucro(l.lucroLiquido)}`}>
                     {num(l.lucroLiquido)}
                     {/* Barra proporcional: compara as lojas de relance, sem ler número por número */}
-                    <span className="block mt-1 h-1 rounded-full bg-slate-100 overflow-hidden">
+                    <span className="block mt-1 h-1 rounded-full bg-muted overflow-hidden">
                       <span
-                        className={`block h-full rounded-full ${l.lucroLiquido < 0 ? 'bg-red-400' : 'bg-emerald-500'}`}
+                        className={`block h-full rounded-full ${l.lucroLiquido < 0 ? 'bg-destructive' : 'bg-success'}`}
                         style={{ width: `${Math.min(100, (Math.abs(l.lucroLiquido) / maiorLucro) * 100)}%` }}
                       />
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
                     {l.margem === null ? (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-muted-foreground">—</span>
                     ) : (
                       <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${corDaMargem(l.margem)}`}>
                         {l.margem.toFixed(1)}%
@@ -108,21 +108,21 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                 </TableRow>
               ))}
 
-              <TableRow className="border-t-2 border-slate-300 font-semibold bg-slate-100/70 hover:bg-slate-100/70">
-                <TableCell className="sticky left-0 bg-slate-100/70 z-10">Total</TableCell>
+              <TableRow className="border-t-2 border-input font-semibold bg-muted/70 hover:bg-muted/70">
+                <TableCell className="sticky left-0 bg-muted/70 z-10">Total</TableCell>
                 <TableCell className="text-right tabular-nums">
                   {lojas.reduce((a, l) => a + l.qtdVendas, 0)}
                 </TableCell>
                 <TableCell className="text-right font-mono tabular-nums">{num(totais.receitaLiquida)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-slate-500">{num(totais.custoMotos)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(totais.custoMotos)}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">{num(totais.lucroBruto)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-slate-500">{num(totais.despesa)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{num(totais.despesa)}</TableCell>
                 <TableCell className={`text-right font-mono tabular-nums ${corDoLucro(totais.lucroLiquido)}`}>
                   {num(totais.lucroLiquido)}
                 </TableCell>
                 <TableCell className="text-right">
                   {totais.margem === null ? (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-muted-foreground">—</span>
                   ) : (
                     <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${corDaMargem(totais.margem)}`}>
                       {totais.margem.toFixed(1)}%
@@ -136,13 +136,13 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
 
         <div className="mt-3 space-y-1">
           {despesaGeralRateada > 0 && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               {fmt(despesaGeralRateada)} em despesas não têm loja atribuída no Importar do Banco e
               foram rateadas entre as lojas na proporção do faturamento.
             </p>
           )}
           {semCusto > 0 && (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-warning">
               ⚠ {semCusto} moto(s) vendida(s) sem preço de compra cadastrado — o custo delas
               entra como zero, então o lucro dessas lojas está superestimado.
             </p>
