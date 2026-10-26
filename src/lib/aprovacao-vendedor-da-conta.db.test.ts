@@ -44,6 +44,8 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values (gen_random_uuid(), 'Vendedor', ${'vend-av404' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
   const [socio] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, grupos_acesso)
     values (gen_random_uuid(), 'Socio', ${'socio-av404' + nome + '@teste.invalid'}, 'admin_socio', null, array[${grupo.id}]::uuid[]) returning id`)
+  const [socioSoConta] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
+    values (gen_random_uuid(), 'Socio conta', ${'socioc-av404' + nome + '@teste.invalid'}, 'admin_socio', null, ${conta.id}) returning id`)
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${'AV404 ' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${'AV404-' + nome}, ${modelo.id}, ${loja.id}, 'CINZA', '1', 'montada', 'aguardando_aprovacao') returning id`)
@@ -54,6 +56,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     aprovacaoId: aprovacao.id as string,
     vendedorId: vendedor.id as string,
     socioId: socio.id as string,
+    socioSoContaId: socioSoConta.id as string,
     aux: { papel: 'aux_adm', contaId: conta.id as string },
     socio: { papel: 'admin_socio', contaId: conta.id as string },
   }
@@ -79,14 +82,16 @@ test('Conta B (aux e sócio) não acha o pedido de aprovação da Conta A, igual
   })
 })
 
-test('vendedor escolhido: vale o da loja e o sócio da Conta da moto; o da Conta B não (#404)', async () => {
+test('vendedor escolhido: vale o da loja, o sócio com acesso e o sócio só com conta_id da Conta da moto; o da Conta B não (#404)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000040434')
     const b = await semearConta(tx, 'B', '00000000040435')
     assert.equal(await vendedorDaConta(a.vendedorId, a.lojaId, tx), true)
     assert.equal(await vendedorDaConta(a.socioId, a.lojaId, tx), true)
+    assert.equal(await vendedorDaConta(a.socioSoContaId, a.lojaId, tx), true)
     assert.equal(await vendedorDaConta(b.vendedorId, a.lojaId, tx), false)
     assert.equal(await vendedorDaConta(b.socioId, a.lojaId, tx), false)
+    assert.equal(await vendedorDaConta(b.socioSoContaId, a.lojaId, tx), false)
     assert.equal(await vendedorDaConta(crypto.randomUUID(), a.lojaId, tx), false)
   })
 })
