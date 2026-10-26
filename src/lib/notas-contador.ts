@@ -7,6 +7,15 @@ export const LIMITE_ANEXO_BYTES = 28 * 1024 * 1024
 
 export const VALIDADE_LINK_DIAS = 7
 
+// Média do staging (#402, 26/10): DANFE ~23 KB e XML ~8 KB por nota. Só para o resumo do diálogo.
+const BYTES_POR_NOTA = 31 * 1024
+
+export function tamanhoEstimado(notas: number): { texto: string; porLink: boolean } {
+  const bytes = notas * BYTES_POR_NOTA
+  const mb = Math.round(bytes / (1024 * 1024))
+  return { texto: mb < 1 ? 'menos de 1 MB' : `cerca de ${mb} MB`, porLink: bytes > LIMITE_ANEXO_BYTES }
+}
+
 const dataBr = (iso: string) => iso.split('-').reverse().join('/')
 
 export function periodoBr(de: string, ate: string): string {

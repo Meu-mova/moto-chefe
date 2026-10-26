@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { strToU8, unzipSync } from 'fflate'
-import { emailAoContador, enviarAoContador } from './notas-contador'
+import { emailAoContador, enviarAoContador, tamanhoEstimado } from './notas-contador'
 
 test('emailAoContador: assunto com grupo e período; texto com as contagens', () => {
   const e = emailAoContador({ grupo: 'Grupo Sul', de: '2026-10-01', ate: '2026-10-31', autorizadas: 3, canceladas: 1, faltaram: 0 })
@@ -68,4 +68,10 @@ test('enviarAoContador: sem nota não envia nada', async () => {
 test('enviarAoContador: falha do e-mail volta como erro', async () => {
   const d = { ...dependencias(), enviar: async () => false }
   assert.deepEqual(await enviarAoContador({ grupo: 'G', de: '2026-10-01', ate: '2026-10-01', notas: [nota('1', 'autorizada')] }, d), { ok: false, erro: 'email' })
+})
+
+test('tamanhoEstimado: menos de 1 MB, MB arredondado, e se passa do anexo', () => {
+  assert.deepEqual(tamanhoEstimado(10), { texto: 'menos de 1 MB', porLink: false })
+  assert.deepEqual(tamanhoEstimado(300), { texto: 'cerca de 9 MB', porLink: false })
+  assert.equal(tamanhoEstimado(1000).porLink, true)
 })
