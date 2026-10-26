@@ -4,10 +4,13 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { contarPorCategoria, listarNotasEmitidas } from '@/lib/queries/notas-emitidas'
-import { naSituacao, periodoEmissao, type Situacao } from '@/lib/notas-emitidas'
+import { naSituacao, periodoBr, periodoEmissao, type Situacao } from '@/lib/notas-emitidas'
+import { tamanhoEstimado } from '@/lib/notas-contador'
+import { emailDoContador, ultimoEnvioAoContador } from '@/lib/queries/notas-contador'
 import { Secao } from '../dashboard/components/painel-secoes'
 import { NotasFiltros } from './components/notas-filtros'
 import { NotasTabela } from './components/notas-tabela'
+import { EnviarContador } from './components/enviar-contador'
 
 // Filtro explícito (#402): os indicadores da #348 pareciam resumo, não filtro. A Descartada nunca virou nota e fica fora.
 const SITUACOES: { valor: Situacao; rotulo: string }[] = [
@@ -17,6 +20,8 @@ const SITUACOES: { valor: Situacao; rotulo: string }[] = [
   { valor: 'recusada', rotulo: 'Recusadas' },
   { valor: 'em_andamento', rotulo: 'Em andamento' },
 ]
+
+const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 export default async function NotasEmitidasPage({
   searchParams,
@@ -31,7 +36,15 @@ export default async function NotasEmitidasPage({
   const grupo = await grupoAtivoDaRequisicao(usuario)
 
   const filtro = { grupoId: grupo.id, contaId: usuario.papel === 'admin_geral' ? null : grupo.contaId, ambiente, ...periodo } as const
-  const [notas, contagem] = await Promise.all([listarNotasEmitidas(filtro), contarPorCategoria(filtro)])
+  const doGrupo = { grupoId: filtro.grupoId, contaId: filtro.contaId }
+  const [notas, contagem, contagemProducao, emailSalvo, ultimo] = await Promise.all([
+    listarNotasEmitidas(filtro), contarPorCategoria(filtro),
+    // Ao contador vai só produção, mesmo com a tela em homologação.
+    ambiente === 'Producao' ? null : contarPorCategoria({ ...filtro, ambiente: 'Producao' }),
+    emailDoContador(doGrupo), ultimoEnvioAoContador(doGrupo),
+  ])
+  const producao = contagemProducao ?? contagem
+  const ultimoEnvio = ultimo && `${data(ultimo.em)}, para ${ultimo.para}, ${ultimo.notas} ${ultimo.notas === 1 ? 'nota' : 'notas'}`
   const visiveis = notas.filter(n => naSituacao(n, situacao))
   const total = (s: Situacao) => (s === 'todas' ? contagem.autorizada + contagem.cancelada + contagem.recusada + contagem.em_andamento : contagem[s])
   const comDocumento = situacao === 'todas' ? contagem.autorizada + contagem.cancelada
@@ -72,8 +85,19 @@ export default async function NotasEmitidasPage({
 
       <Secao
         titulo={rotulo}
-        acao={<span className="text-sm text-muted-foreground">{total(situacao)} {total(situacao) === 1 ? 'nota' : 'notas'}</span>}
+        acao={
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{total(situacao)} {total(situacao) === 1 ? 'nota' : 'notas'}</span>
+            <EnviarContador resumo={{
+              grupo: grupo.nome, ...periodo, periodo: periodoBr(periodo.de, periodo.ate),
+              autorizadas: producao.autorizada, canceladas: producao.cancelada,
+              tamanho: tamanhoEstimado(producao.autorizada + producao.cancelada),
+              emailSalvo, ultimoEnvio,
+            }} />
+          </div>
+        }
       >
+        <p className="pt-2 text-sm text-muted-foreground">Último envio ao contador: {ultimoEnvio ?? 'nenhum ainda'}</p>
         {total(situacao) > visiveis.length && (
           <p className="pt-2 text-sm text-muted-foreground">
             A tabela mostra as {visiveis.length} mais recentes de {total(situacao)}. O download do filtro leva todas.
