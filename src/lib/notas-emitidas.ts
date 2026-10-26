@@ -33,3 +33,43 @@ export function periodoEmissao(params: { de?: string; ate?: string }, agora: Dat
     ate: diaValido(params.ate) ? params.ate : hojeBrt(agora),
   }
 }
+
+/** Filtro "Situação" da tela (#402). "Todas" deixa de fora a Descartada, que nunca virou nota. */
+export type Situacao = Exclude<CategoriaNota, 'descartada'> | 'todas'
+
+export function naSituacao(n: { categoria: CategoriaNota }, situacao: Situacao): boolean {
+  return situacao === 'todas' ? n.categoria !== 'descartada' : n.categoria === situacao
+}
+
+/** Só a autorizada e a cancelada têm documento: a recusada e a em andamento não valem na SEFAZ. */
+export function temDocumento(n: { categoria: CategoriaNota }): boolean {
+  return n.categoria === 'autorizada' || n.categoria === 'cancelada'
+}
+
+/**
+ * Notas do download em lote: as marcadas na tabela ou, sem nenhuma marcada, as do filtro.
+ * A seleção só escolhe dentro da lista, que já vem filtrada pela Conta na consulta.
+ */
+export function notasDoLote<N extends { id: string; categoria: CategoriaNota }>(
+  notas: N[],
+  pedido: { situacao: Situacao; ids: string[] },
+): N[] {
+  const marcadas = new Set(pedido.ids)
+  const escolhida = (n: N) => (marcadas.size === 0 ? naSituacao(n, pedido.situacao) : marcadas.has(n.id))
+  return notas.filter(n => temDocumento(n) && escolhida(n))
+}
+
+export type TipoArquivo = 'xml' | 'pdf'
+
+export function nomeDoArquivo(n: { id: string; numero: string | null; serie: string | null }, tipo: TipoArquivo): string {
+  if (!n.numero) return `NF-sem-numero-${n.id}.${tipo}`
+  return `NF-${n.numero}${n.serie ? `-serie-${n.serie}` : ''}.${tipo}`
+}
+
+/** Seleção estilo Gmail: "filtro" é todas as notas do filtro, inclusive as de outras páginas e além do teto da lista. */
+export function selecaoDaPagina(pagina: string[], marcadas: Set<string>, todasDoFiltro: boolean): 'nenhuma' | 'parte' | 'pagina' | 'filtro' {
+  if (todasDoFiltro) return 'filtro'
+  const naPagina = pagina.filter(id => marcadas.has(id)).length
+  if (naPagina === 0) return 'nenhuma'
+  return naPagina === pagina.length ? 'pagina' : 'parte'
+}

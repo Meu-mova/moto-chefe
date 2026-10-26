@@ -14,11 +14,13 @@ process.env.DATABASE_URL = url
 type Db = typeof import('@/lib/db')
 let db: Db['db']
 let listarNotasEmitidas: typeof import('@/lib/queries/notas-emitidas')['listarNotasEmitidas']
+let contarPorCategoria: typeof import('@/lib/queries/notas-emitidas')['contarPorCategoria']
+let notasParaBaixar: typeof import('@/lib/queries/notas-emitidas')['notasParaBaixar']
 let HOJE: { de: string; ate: string }
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas'))
+  ;({ listarNotasEmitidas, notasParaBaixar, contarPorCategoria } = await import('@/lib/queries/notas-emitidas'))
   const hoje = (await import('@/lib/data-venda')).hojeBrt()
   HOJE = { de: hoje, ate: hoje }
 })
@@ -71,6 +73,21 @@ test('Notas Emitidas: a Conta B não vê nota da Conta A, e cada lista fica no g
     const periodo = (de: string, ate: string) => listarNotasEmitidas({ grupoId: ids.A.grupo, contaId: ids.A.conta, ambiente: 'Producao', de, ate }, tx)
     assert.deepEqual((await periodo('2026-09-29', '2026-09-29')).map(n => n.numero), ['A4'])
     assert.deepEqual(await periodo('2026-09-30', '2026-09-30'), [])
+
+    // Download (#402): a Conta B marca o id de uma nota da A (URL adulterada): nada volta, nem misturado às dela.
+    const [a1] = await periodo(HOJE.de, HOJE.ate).then(ns => ns.filter(n => n.numero === 'A1'))
+    const [b1] = daB.filter(n => n.numero === 'B1')
+    assert.deepEqual(await notasParaBaixar({ grupoId: ids.B.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, { situacao: 'todas', ids: [a1.id] }, tx), [])
+    assert.deepEqual((await notasParaBaixar({ grupoId: ids.B.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, { situacao: 'todas', ids: [a1.id, b1.id] }, tx)).map(n => n.numero), ['B1'])
+    // Grupo da A com a Conta da B: nem o filtro nem a seleção devolvem nota.
+    assert.deepEqual(await notasParaBaixar({ grupoId: ids.A.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, { situacao: 'todas', ids: [a1.id] }, tx), [])
+    assert.deepEqual(await notasParaBaixar({ grupoId: ids.A.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, { situacao: 'todas', ids: [] }, tx), [])
+
+    // Contagem da tela (#402): não tem o teto da lista e também fica presa à Conta.
+    assert.deepEqual(await contarPorCategoria({ grupoId: ids.B.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, tx),
+      { autorizada: 1, cancelada: 0, recusada: 1, em_andamento: 0, descartada: 0 })
+    assert.deepEqual(await contarPorCategoria({ grupoId: ids.A.grupo, contaId: ids.B.conta, ambiente: 'Producao', ...HOJE }, tx),
+      { autorizada: 0, cancelada: 0, recusada: 0, em_andamento: 0, descartada: 0 })
     throw new Desfazer()
   }), Desfazer)
 })
