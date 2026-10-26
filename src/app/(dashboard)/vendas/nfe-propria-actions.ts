@@ -1,11 +1,12 @@
 'use server'
 import { db } from '@/lib/db'
 import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida, usuarios } from '@/lib/db/schema'
-import { and, desc, eq, notInArray, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
+import { lojasDaConta } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
@@ -22,6 +23,8 @@ import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
+import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
+import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -89,18 +92,13 @@ const numOuNulo = (v: string | null) => (v == null ? null : v)
 
 /** Junta tudo o que a nota precisa. Pré-visualização e transmissão usam a MESMA montagem. */
 async function montarEmissao(motoId: string, usuario: Usuario) {
-  const [venda] = await db
-    .select()
-    .from(vendas)
-    .where(eq(vendas.motoId, motoId))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
+  const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.motoId, motoId))
   if (!venda) throw new Error('Nenhuma venda encontrada para esta moto')
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   await exigirGrupo(usuario, grupoId)
   const cfg = await configNotaGateway(grupoId)
-  if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo — veja Admin → Notas fiscais')
+  if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo. Veja Admin → Notas fiscais')
 
   const [moto] = await db
     .select({ chassi: motos.chassi, cor: motos.cor, motor: motos.motor, modeloId: motos.modeloId })
@@ -567,16 +565,20 @@ async function exigirGrupo(usuario: Usuario, grupoId: string) {
 }
 
 async function exigirGrupoDaMoto(motoId: string, usuario: Usuario) {
-  const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
-  await exigirGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId))
+  // Moto de outra Conta responde como inexistente (#404).
+  const daConta = usuario.papel === 'admin_geral' ? undefined
+    : usuario.contaId ? inArray(motos.lojaId, lojasDaConta(usuario.contaId)) : null
+  if (daConta === null) throw new Error('Moto não encontrada')
+  const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos)
+    .where(and(eq(motos.id, motoId), daConta))
+    .limit(1)
+  if (!moto || !(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(moto.lojaId)))) throw new Error('Moto não encontrada')
 }
 
 /** A nota, a configuração do grupo dela e a moto da venda, com a permissão no grupo da nota. */
 async function carregarNota(notaId: string, usuario: Usuario) {
-  const [r] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
+  const r = await notaSaidaDoUsuario(usuario, notaId)
   if (!r) throw new Error('Nota não encontrada')
-  await exigirGrupo(usuario, r.grupoId)
   const cfg = await configNotaGateway(r.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
   const vendaId = r.vendaId
@@ -607,9 +609,8 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 
 /** A permissão é no grupo da loja da venda. */
 async function exigirGrupoDaVenda(vendaId: string, usuario: Usuario) {
-  const [venda] = await db.select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.id, vendaId))
   if (!venda) throw new Error('Venda não encontrada')
-  await exigirGrupo(usuario, await getGrupoIdDaLoja(venda.lojaId))
   return venda
 }
 

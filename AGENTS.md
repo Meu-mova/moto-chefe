@@ -179,6 +179,9 @@ leitura e gravação:
   ramo da condição que a própria action muda — o diálogo fecha sozinho e a tela
   de sucesso some. Dê a mesma `key` às variantes, ou dispare o efeito
   (`window.open`) logo que a action volta. Só aparece testando no navegador.
+- Trocou `throw` por retorno `{ ok: false, erro }` numa Server Action (#404)? Confira
+  cada ramo da tela que lê o erro: um ramo feito para outro erro pode embrulhar a
+  recusa com um texto errado ("Não deu para conferir a NF..." no cancelar venda, #415).
 - Formulário controlado + busca assíncrona: `onChange(prev => ({ ...prev, ...patch }))`,
   nunca `{ ...value, ...patch }` — a resposta async desfaz a última tecla.
 - **Avise, não bloqueie**: validação que discorda do usuário vira aviso e deixa
