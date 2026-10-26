@@ -10,10 +10,16 @@ export type Baixar = (url: string) => Promise<Uint8Array | null>
 const SIMULTANEOS = 5
 
 /**
- * Zip, em stream, com os arquivos pedidos de cada nota; o que não veio fica listado num .txt no fim.
+ * Zip, em stream, com os arquivos pedidos de cada nota; o que não veio, ou não deu tempo, fica listado num .txt no fim.
  * Stream porque a Vercel recusa resposta acima de 4,5 MB que não seja em stream.
  */
-export function zipDasNotas(notas: NotaComLinks[], tipos: TipoArquivo[], baixar: Baixar): ReadableStream<Uint8Array> {
+export function zipDasNotas(
+  notas: NotaComLinks[],
+  tipos: TipoArquivo[],
+  baixar: Baixar,
+  // A função morre no maxDuration com o zip pela metade: antes disso, fecha e lista o resto no .txt.
+  tempoEsgotado: () => boolean = () => false,
+): ReadableStream<Uint8Array> {
   const pedidos = notas.flatMap(n => tipos.map(tipo => ({ nome: nomeDoArquivo(n, tipo), url: tipo === 'xml' ? n.linkXml : n.linkDanfe })))
   const usados = new Map<string, number>()
   for (const p of pedidos) {
@@ -37,6 +43,10 @@ export function zipDasNotas(notas: NotaComLinks[], tipos: TipoArquivo[], baixar:
       const faltando: string[] = []
       for (let i = 0; i < pedidos.length; i += SIMULTANEOS) {
         const lote = pedidos.slice(i, i + SIMULTANEOS)
+        if (tempoEsgotado()) {
+          faltando.push(...pedidos.slice(i).map(p => p.nome))
+          break
+        }
         const conteudos = await Promise.all(lote.map(p => (p.url ? baixar(p.url).catch(() => null) : null)))
         lote.forEach((p, j) => { const c = conteudos[j]; if (c) adicionar(p.nome, c); else faltando.push(p.nome) })
       }

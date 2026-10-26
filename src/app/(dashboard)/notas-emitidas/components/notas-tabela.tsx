@@ -25,10 +25,6 @@ const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZo
 const link = 'text-primary-text underline-offset-4 hover:underline'
 const vazio = <span className="text-muted-foreground">-</span>
 
-function hrefArquivo(filtro: FiltroDownload, id: string, tipo: TipoArquivo) {
-  return `${ROTA}?${new URLSearchParams({ ...filtro, tipo, id })}`
-}
-
 // O nome do arquivo vem no Content-Disposition da rota.
 function nomeDaResposta(r: Response) {
   return r.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'notas.zip'
@@ -84,8 +80,9 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
   }
 
   // fetch e não navegação: o erro aparece na tela em vez de abrir uma página com JSON.
-  async function baixar(tipo: TipoArquivo | 'ambos', ids: string[]) {
-    setBaixando(tipo)
+  // `chave` diz qual botão gira enquanto baixa.
+  async function baixar(tipo: TipoArquivo | 'ambos', ids: string[], chave: string = tipo) {
+    setBaixando(chave)
     setErro(null)
     try {
       const r = await fetch(ROTA, {
@@ -202,8 +199,12 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                   <td className="py-2 text-right align-top">
                     {doc ? (
                       <span className="inline-flex gap-3">
-                        <a href={hrefArquivo(filtro, n.id, 'pdf')} download className={link}>PDF</a>
-                        <a href={hrefArquivo(filtro, n.id, 'xml')} download className={link}>XML</a>
+                        {(['pdf', 'xml'] as const).map(tipo => (
+                          <button key={tipo} type="button" className={`inline-flex items-center gap-1 ${link} disabled:opacity-60`} disabled={baixando !== null}
+                            onClick={() => baixar(tipo, [n.id], `${tipo}:${n.id}`)}>
+                            {baixando === `${tipo}:${n.id}` && <Loader2 className="size-3 animate-spin" />}{tipo.toUpperCase()}
+                          </button>
+                        ))}
                       </span>
                     ) : <span className="text-muted-foreground">sem documento</span>}
                   </td>

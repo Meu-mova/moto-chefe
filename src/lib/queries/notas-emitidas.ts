@@ -24,7 +24,7 @@ export type NotaEmitida = {
 }
 
 /** Teto da lista: a tela não pagina ainda, e um grupo emite poucas centenas de notas por ano. */
-const LIMITE = 500
+export const LIMITE_DA_LISTA = 500
 
 type FiltroNotas = { grupoId: string; contaId: string | null; ambiente: 'Producao' | 'Homologacao'; de: string; ate: string }
 
@@ -46,8 +46,10 @@ function doFiltro(filtro: FiltroNotas) {
 export async function listarNotasEmitidas(
   filtro: FiltroNotas,
   exec: Executor = db,
+  // null: sem teto, para o download do filtro inteiro (#402).
+  limite: number | null = LIMITE_DA_LISTA,
 ): Promise<NotaEmitida[]> {
-  const linhas = await exec
+  const consulta = exec
     .select({
       id: notasFiscaisSaida.id,
       numero: notasFiscaisSaida.numero,
@@ -70,18 +72,18 @@ export async function listarNotasEmitidas(
     .leftJoin(motos, eq(motos.id, vendas.motoId))
     .where(doFiltro(filtro))
     .orderBy(desc(notasFiscaisSaida.criadoEm))
-    .limit(LIMITE)
+  const linhas = await (limite === null ? consulta : consulta.limit(limite))
 
   return linhas.map(l => ({ ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status) }))
 }
 
-/** Notas do download (#402): a mesma lista da tela, presa à Conta na consulta, com a seleção aplicada por cima. */
+/** Notas do download (#402): a lista da tela sem o teto, presa à Conta na consulta, com a seleção aplicada por cima. */
 export async function notasParaBaixar(
   filtro: FiltroNotas,
   pedido: { situacao: Situacao; ids: string[] },
   exec: Executor = db,
 ): Promise<NotaEmitida[]> {
-  return notasDoLote(await listarNotasEmitidas(filtro, exec), pedido)
+  return notasDoLote(await listarNotasEmitidas(filtro, exec, null), pedido)
 }
 
 /** Total do filtro por categoria, sem o teto da lista: a tela mostra o total mesmo acima de 500 (#402). */

@@ -74,6 +74,11 @@ export default async function NotasEmitidasPage({
         titulo={rotulo}
         acao={<span className="text-sm text-muted-foreground">{total(situacao)} {total(situacao) === 1 ? 'nota' : 'notas'}</span>}
       >
+        {total(situacao) > visiveis.length && (
+          <p className="pt-2 text-sm text-muted-foreground">
+            A tabela mostra as {visiveis.length} mais recentes de {total(situacao)}. O download do filtro leva todas.
+          </p>
+        )}
         {/* key: trocar de filtro limpa a seleção e volta à primeira página. */}
         <NotasTabela key={`${situacao}|${ambiente}|${periodo.de}|${periodo.ate}`} notas={visiveis} totalComDocumento={comDocumento}
           filtro={{ situacao, ambiente, ...periodo }} />

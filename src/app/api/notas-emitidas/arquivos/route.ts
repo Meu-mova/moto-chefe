@@ -8,6 +8,8 @@ import { zipDasNotas, type Baixar } from '@/lib/notas-emitidas-arquivos'
 
 // Route Handler e não Server Action: um lote grande leva minutos e Server Action trava as outras (hotfix v1.2.2).
 export const maxDuration = 300
+// Folga para o último lote de downloads (até 30 s) e o fim do zip.
+const PRAZO_DOWNLOADS_MS = 240_000
 export const dynamic = 'force-dynamic'
 
 const SITUACOES: Situacao[] = ['todas', 'autorizada', 'cancelada', 'recusada', 'em_andamento']
@@ -40,7 +42,8 @@ async function responder(req: NextRequest, p: URLSearchParams) {
   try {
     usuario = await getUsuarioLogado()
   } catch {
-    return NextResponse.redirect(new URL('/login', req.url))
+    // JSON e não redirect: o fetch da tela seguiria o redirect e baixaria a página de login como zip.
+    return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   }
   if (!usuarioPodeAcessar(usuario, '/notas-emitidas')) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
 
@@ -69,7 +72,8 @@ async function responder(req: NextRequest, p: URLSearchParams) {
     } })
   }
 
-  return new NextResponse(zipDasNotas(notas, tipos, baixar), { headers: {
+  const inicio = Date.now()
+  return new NextResponse(zipDasNotas(notas, tipos, baixar, () => Date.now() - inicio > PRAZO_DOWNLOADS_MS), { headers: {
     'Content-Type': 'application/zip',
     'Content-Disposition': `attachment; filename="notas-${grupo.nome.replace(/[^\w-]+/g, '-')}-${periodo.de}-a-${periodo.ate}.zip"`,
   } })

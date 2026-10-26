@@ -91,3 +91,18 @@ test('Notas Emitidas: a Conta B não vê nota da Conta A, e cada lista fica no g
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('Notas Emitidas: o download do filtro passa do teto de 500 da lista (#402)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const conta = await linha(sql`insert into contas (nome) values ('Notas 402') returning id`)
+    const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Notas 402', '00000000040201', ${conta.id}) returning id`)
+    // venda_id nulo: a nota sobrevive à venda cancelada (0144).
+    await tx.execute(sql`insert into notas_fiscais_saida (grupo_id, venda_numero, id_externo, ambiente, status, numero, serie, payload)
+      select ${grupo.id}, i, 'ext402-' || i, 'Producao', 'Autorizada', i::text, '1', '{}'::jsonb from generate_series(1, 501) i`)
+    const filtro = { grupoId: grupo.id, contaId: conta.id, ambiente: 'Producao' as const, ...HOJE }
+    assert.equal((await listarNotasEmitidas(filtro, tx)).length, 500)
+    assert.equal((await notasParaBaixar(filtro, { situacao: 'todas', ids: [] }, tx)).length, 501)
+    throw new Desfazer()
+  }), Desfazer)
+})
