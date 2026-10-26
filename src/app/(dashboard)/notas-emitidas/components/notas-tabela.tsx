@@ -173,7 +173,8 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                 <tr key={n.id} className="hover:bg-muted">
                   <td className="py-2 pr-3 align-top">
                     {doc && (
-                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="size-4 cursor-pointer accent-primary"
+                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                        disabled={todasDoFiltro} title={todasDoFiltro ? 'Limpe a seleção para escolher notas' : undefined}
                         checked={todasDoFiltro || marcadas.has(n.id)} onChange={e => marcar(n.id, e.target.checked)} />
                     )}
                   </td>
