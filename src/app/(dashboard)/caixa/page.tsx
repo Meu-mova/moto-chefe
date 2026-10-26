@@ -136,25 +136,25 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Anterior</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Saldo Anterior</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${saldoAnterior >= 0 ? 'text-slate-700' : 'text-red-600'}`}>{fmt(saldoAnterior)}</p>
-            <p className="text-xs text-slate-400 mt-1">acumulado até {new Date(inicioMes + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+            <p className={`text-2xl font-bold ${saldoAnterior >= 0 ? 'text-foreground' : 'text-destructive'}`}>{fmt(saldoAnterior)}</p>
+            <p className="text-xs text-muted-foreground mt-1">acumulado até {new Date(inicioMes + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Entradas do Mês</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-green-600">{fmt(totalEntradas)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Entradas do Mês</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold text-success">{fmt(totalEntradas)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saídas do Mês</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-red-600">{fmt(totalSaidas)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Saídas do Mês</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold text-destructive">{fmt(totalSaidas)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Total</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Saldo Total</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${saldoTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(saldoTotal)}</p>
-            <p className="text-xs text-slate-400 mt-1">anterior + mês atual</p>
+            <p className={`text-2xl font-bold ${saldoTotal >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(saldoTotal)}</p>
+            <p className="text-xs text-muted-foreground mt-1">anterior + mês atual</p>
           </CardContent>
         </Card>
       </div>
@@ -166,13 +166,13 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
             <div className="space-y-2">
               {saidasPorCategoria.map(c => (
                 <div key={c.categoria} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">{c.categoria}</span>
-                  <span className="font-mono text-red-600">{fmt(Number(c.total))}</span>
+                  <span className="text-muted-foreground">{c.categoria}</span>
+                  <span className="font-mono text-destructive">{fmt(Number(c.total))}</span>
                 </div>
               ))}
               <div className="flex items-center justify-between text-sm font-semibold border-t pt-2 mt-2">
-                <span className="text-slate-700">Total saídas</span>
-                <span className="font-mono text-red-700">{fmt(totalSaidas)}</span>
+                <span className="text-foreground">Total saídas</span>
+                <span className="font-mono text-destructive">{fmt(totalSaidas)}</span>
               </div>
             </div>
           </CardContent>

@@ -47,18 +47,18 @@ function Documento({ holerite }: { holerite: MeuHoleriteRow }) {
     <button
       onClick={abrir}
       disabled={abrindo}
-      className="w-full flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40 disabled:opacity-60"
+      className="w-full flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-info/50 hover:bg-info/5 disabled:opacity-60"
     >
-      <FileText size={18} className="shrink-0 text-blue-600" />
+      <FileText size={18} className="shrink-0 text-info" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{TIPO_LABEL[holerite.tipo] ?? holerite.tipo}</p>
-        <p className="truncate text-xs text-slate-400">
+        <p className="truncate text-xs text-muted-foreground">
           {holerite.arquivoNome}
           {holerite.tamanho ? ` · ${fmtTamanho(holerite.tamanho)}` : ''}
         </p>
       </div>
-      <span className="shrink-0 text-xs text-slate-400">{abrindo ? 'abrindo…' : 'abrir'}</span>
-      <ExternalLink size={14} className="shrink-0 text-slate-300" />
+      <span className="shrink-0 text-xs text-muted-foreground">{abrindo ? 'abrindo…' : 'abrir'}</span>
+      <ExternalLink size={14} className="shrink-0 text-muted-foreground" />
     </button>
   )
 }
@@ -66,10 +66,10 @@ function Documento({ holerite }: { holerite: MeuHoleriteRow }) {
 export function MeusHolerites({ holerites }: { holerites: MeuHoleriteRow[] }) {
   if (holerites.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 py-16 text-center">
-        <FileText size={28} className="mx-auto mb-3 text-slate-300" />
-        <p className="text-sm text-slate-500">Nenhum holerite disponível ainda.</p>
-        <p className="mt-1 text-xs text-slate-400">
+      <div className="rounded-lg border border-dashed border-border py-16 text-center">
+        <FileText size={28} className="mx-auto mb-3 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Nenhum holerite disponível ainda.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
           Eles aparecem aqui assim que o escritório recebe os arquivos da contabilidade.
         </p>
       </div>
@@ -88,7 +88,7 @@ export function MeusHolerites({ holerites }: { holerites: MeuHoleriteRow[] }) {
     <div className="space-y-6">
       {meses.map(({ mes, itens }) => (
         <section key={mes} className="space-y-2">
-          <h2 className="text-sm font-semibold text-slate-700">{fmtMes(mes)}</h2>
+          <h2 className="text-sm font-semibold text-foreground">{fmtMes(mes)}</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {itens.map(h => <Documento key={h.id} holerite={h} />)}
           </div>

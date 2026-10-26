@@ -101,7 +101,7 @@ function CategoriaDespesaDialog({
                 <input type="radio" checked={operacional} onChange={() => aoTrocarTipo(true)} className="mt-1" />
                 <span>
                   <span className="font-medium">Operacional</span>
-                  <span className="block text-xs text-slate-500">
+                  <span className="block text-xs text-muted-foreground">
                     custo de tocar a loja — entra em Despesas Operacionais e reduz o lucro
                   </span>
                 </span>
@@ -110,7 +110,7 @@ function CategoriaDespesaDialog({
                 <input type="radio" checked={!operacional} onChange={() => aoTrocarTipo(false)} className="mt-1" />
                 <span>
                   <span className="font-medium">Não operacional</span>
-                  <span className="block text-xs text-slate-500">
+                  <span className="block text-xs text-muted-foreground">
                     saída real, mas não é custo de operar — fica fora do cálculo do lucro
                   </span>
                 </span>
@@ -131,7 +131,7 @@ function CategoriaDespesaDialog({
                   <option key={m.valor} value={m.valor}>{m.rotulo}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 O card &quot;Retiradas de Sócios&quot; do Financeiro só mostra o que estiver
                 como retirada de sócio.
               </p>
@@ -151,7 +151,7 @@ function CategoriaDespesaDialog({
                   <option key={g.valor} value={g.valor}>{g.rotulo}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Em que linha do DRE esta categoria entra. Sem grupo, ela cai em &quot;Outras&quot;
                 — nada some do total.
               </p>
@@ -159,7 +159,7 @@ function CategoriaDespesaDialog({
           )}
 
           {trocouTipo && (
-            <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="flex gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>
                 A classificação vale para o histórico inteiro, não só para os próximos
@@ -211,7 +211,7 @@ function ConfirmarExclusaoDespesaDialog({
         <DialogHeader>
           <DialogTitle>Excluir categoria?</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
           Despesas já lançadas não serão afetadas.
         </p>
@@ -252,7 +252,7 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
   return (
     <>
       <div className="flex items-start justify-between gap-4">
-        <p className="text-xs text-slate-500 max-w-2xl">
+        <p className="text-xs text-muted-foreground max-w-2xl">
           <strong>Operacional</strong> é custo de tocar a loja e reduz o lucro.{' '}
           <strong>Não operacional</strong> é saída real que não é custo de operar — compra de
           mercadoria, retirada de sócio, transferência interna, estorno ao cliente — e fica
@@ -265,7 +265,7 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -288,10 +288,10 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
                       <Badge variant="outline">Operacional</Badge>
                     ) : (
                       <span className="inline-flex flex-col gap-0.5">
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 w-fit">
+                        <Badge className="bg-warning/15 text-warning hover:bg-warning/15 w-fit">
                           Não operacional
                         </Badge>
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-muted-foreground">
                           {rotuloMotivo(cat.motivoNaoOperacional)}
                         </span>
                       </span>
@@ -299,12 +299,12 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
                   </button>
                 </TableCell>
                 <TableCell>
-                  <button onClick={() => setEditando(cat)} className="cursor-pointer text-left text-slate-600">
+                  <button onClick={() => setEditando(cat)} className="cursor-pointer text-left text-muted-foreground">
                     {cat.contaComoDespesa
                       ? (cat.grupoDre
                           ? rotuloGrupo(cat.grupoDre)
-                          : <span className="text-amber-600">sem grupo</span>)
-                      : <span className="text-slate-300">—</span>}
+                          : <span className="text-warning">sem grupo</span>)
+                      : <span className="text-muted-foreground">—</span>}
                   </button>
                 </TableCell>
                 <TableCell>
@@ -331,7 +331,7 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => setExcluindo(cat)}
                     >
                       <Trash2 size={14} />

@@ -46,10 +46,10 @@ export function NfSaidaVendaDialog({ nf, onFechar }: { nf: NfDaVenda; onFechar: 
           <DialogDescription>Venda #{nf.vendaNumero} · {nf.descricao}</DialogDescription>
         </DialogHeader>
         {erro ? (
-          <p className="text-sm text-red-600">{erro}</p>
+          <p className="text-sm text-destructive">{erro}</p>
         ) : !notas ? (
-          <p className="flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 size={14} className="animate-spin text-teal-600" /> Carregando a nota…
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={14} className="animate-spin text-info" /> Carregando a nota…
           </p>
         ) : (
           <div className="space-y-3">
@@ -58,14 +58,14 @@ export function NfSaidaVendaDialog({ nf, onFechar }: { nf: NfDaVenda; onFechar: 
                 {daNf.map(n => <NfSaidaCard key={n.id} nota={n} onAtualizada={nota => setNotas(comNota(nota))} />)}
               </div>
             ) : (
-              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="rounded-md border border-border bg-muted p-3 text-sm text-foreground">
                 Esta NF não foi emitida pelo MOVA: veio do Bling ou foi registrada em &quot;Nota já emitida&quot;. O MOVA
                 não acompanha o status dela, e o cancelamento é feito onde ela foi emitida (em geral, no Bling).
               </p>
             )}
             {outras.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Outras notas do MOVA desta venda</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Outras notas do MOVA desta venda</p>
                 {outras.map(n => <NfSaidaCard key={n.id} nota={n} onAtualizada={nota => setNotas(comNota(nota))} />)}
               </div>
             )}

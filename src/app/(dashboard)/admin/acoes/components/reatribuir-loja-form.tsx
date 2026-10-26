@@ -38,7 +38,7 @@ export function ReatribuirLojaForm({ motos, lojas }: { motos: Moto[]; lojas: Loj
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Reatribuir Loja de Moto Faturada</CardTitle>
-        <p className="text-sm text-slate-500">Corrige o loja_id de motos cadastradas na loja errada. Apenas motos com status "Faturada".</p>
+        <p className="text-sm text-muted-foreground">Corrige o loja_id de motos cadastradas na loja errada. Apenas motos com status "Faturada".</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

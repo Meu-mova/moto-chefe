@@ -57,29 +57,29 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Premiação mensal do vendedor de acordo com o valor total vendido no mês (motos). Aplica-se a faixa de maior
         valor mínimo que ele atingiu.
       </p>
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-card border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Venda mínima no mês</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Venda mínima no mês</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Premiação</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {ordenadas.map(f => (
-              <tr key={f.id} className="hover:bg-slate-50">
+              <tr key={f.id} className="hover:bg-muted">
                 <td className="px-4 py-2">{fmt(f.valorMinimoVendas)}</td>
                 <td className="px-4 py-2 font-medium">{fmt(f.premiacao)}</td>
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => excluir(f.id)}
                     disabled={pending && excluindoId === f.id}
-                    className="text-slate-400 hover:text-red-500"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -87,18 +87,18 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
               </tr>
             ))}
             {ordenadas.length === 0 && (
-              <tr><td colSpan={3} className="text-center text-slate-400 py-6">Nenhuma faixa cadastrada.</td></tr>
+              <tr><td colSpan={3} className="text-center text-muted-foreground py-6">Nenhuma faixa cadastrada.</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      <div className="flex items-end gap-2 bg-white border rounded-lg p-3">
+      <div className="flex items-end gap-2 bg-card border rounded-lg p-3">
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Venda mínima (R$)</label>
+          <label className="text-xs text-muted-foreground">Venda mínima (R$)</label>
           <Input value={novoMinimo} onChange={e => setNovoMinimo(e.target.value)} className="h-8 text-xs w-36" placeholder="0,00" />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Premiação (R$)</label>
+          <label className="text-xs text-muted-foreground">Premiação (R$)</label>
           <Input value={novoPremio} onChange={e => setNovoPremio(e.target.value)} className="h-8 text-xs w-36" placeholder="0,00" />
         </div>
         <Button size="sm" className="h-8 text-xs" disabled={pending} onClick={adicionar}>

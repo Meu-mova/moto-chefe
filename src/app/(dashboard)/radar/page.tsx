@@ -35,13 +35,13 @@ export default async function RadarPage({
 
       <form method="GET" className="flex gap-2 max-w-md">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             name="q"
             defaultValue={busca}
             placeholder="Digite o chassi ou parte dele..."
             autoFocus
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <button
@@ -53,17 +53,17 @@ export default async function RadarPage({
       </form>
 
       {!busca && (
-        <p className="text-slate-400 text-sm">Digite um chassi acima para começar a busca.</p>
+        <p className="text-muted-foreground text-sm">Digite um chassi acima para começar a busca.</p>
       )}
 
       {busca && motos.length === 0 && (
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Nenhuma moto encontrada para o chassi <strong>{busca}</strong>.
         </p>
       )}
 
       {motos.length > 0 && (
-        <div className="bg-white rounded-lg border">
+        <div className="bg-card rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>

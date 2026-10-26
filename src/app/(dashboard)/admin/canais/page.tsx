@@ -38,7 +38,7 @@ export default async function CanaisPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><Megaphone size={22} /> Canais e verba — {grupo.nome}</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Configuração do relatório de <Link href="/marketing" className="underline">Marketing</Link>:
           nome dos canais, grupo de cada funil e investimento em mídia
         </p>

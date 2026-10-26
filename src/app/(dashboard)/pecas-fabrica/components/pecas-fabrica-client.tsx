@@ -72,7 +72,7 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
             <select
               value={filtroStatus}
               onChange={e => setFiltroStatus(e.target.value)}
-              className="border border-slate-200 rounded-md px-3 py-1.5 text-sm bg-white"
+              className="border border-border rounded-md px-3 py-1.5 text-sm bg-card"
             >
               <option value="">Todos os status</option>
               {statusDisponiveis.map(s => <option key={s} value={s}>{s}</option>)}
@@ -82,7 +82,7 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
             <select
               value={filtroLoja}
               onChange={e => setFiltroLoja(e.target.value)}
-              className="border border-slate-200 rounded-md px-3 py-1.5 text-sm bg-white"
+              className="border border-border rounded-md px-3 py-1.5 text-sm bg-card"
             >
               <option value="">Todas as lojas</option>
               {resultado.map(l => <option key={l.lojaId} value={l.lojaId}>{l.loja}</option>)}
@@ -98,7 +98,7 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
               Imprimir para a fábrica
             </Button>
 
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-muted-foreground">
               {totalPecas} peça(s) para retirar
               {filtrando ? ' (filtrado)' : ` · ${resultado.length} loja(s) consultada(s)`}
             </span>
@@ -107,36 +107,36 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
       </div>
 
       {!resultado && !loading && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Clique em <strong>Sincronizar</strong> para ler as peças separadas e conferidas na fábrica.
         </p>
       )}
 
       {filtradas?.map(loja => (
-        <div key={loja.lojaId} className="rounded-lg border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-800">{loja.loja}</h2>
+        <div key={loja.lojaId} className="rounded-lg border border-border overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-muted border-b border-border">
+            <h2 className="font-semibold text-foreground">{loja.loja}</h2>
             {loja.status === 'ok' && (
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted-foreground">
                 {loja.pecas.length === 0 ? 'sem peças' : `${loja.pecas.length} peça(s)`}
               </span>
             )}
           </div>
 
           {loja.status === 'erro' && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-red-600">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-destructive">
               <AlertTriangle size={15} /> Não foi possível ler esta loja{loja.erro ? ` (${loja.erro})` : ''}.
             </p>
           )}
 
           {loja.status === 'sem_credencial' && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <KeyRound size={15} /> Sem login da fábrica cadastrado para esta loja.
             </p>
           )}
 
           {loja.status === 'ok' && loja.pecas.length === 0 && (
-            <p className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500">
+            <p className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <Package2 size={15} />
               {filtroStatus ? `Nenhuma peça com status "${filtroStatus}".` : 'Nenhuma peça pronta para retirada.'}
             </p>
@@ -146,7 +146,7 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-100">
+                  <tr className="text-left text-muted-foreground border-b border-border">
                     <th className="px-4 py-2 font-medium">Peça</th>
                     <th className="px-4 py-2 font-medium">Qtd</th>
                     <th className="px-4 py-2 font-medium">Modelo</th>
@@ -157,18 +157,18 @@ export function PecasFabricaClient({ grupo }: { grupo: string }) {
                 </thead>
                 <tbody>
                   {loja.pecas.map((p, i) => (
-                    <tr key={`${p.numeroPedido}-${i}`} className="border-b border-slate-50 last:border-0">
-                      <td className="px-4 py-2 font-medium text-slate-800">{p.peca}</td>
-                      <td className="px-4 py-2 text-slate-600">{p.quantidade ?? '—'}</td>
-                      <td className="px-4 py-2 text-slate-600">{p.categoria ?? '—'}</td>
-                      <td className="px-4 py-2 text-slate-600">#{p.numeroPedido}</td>
-                      <td className="px-4 py-2 text-slate-600">{p.dataPedido?.split(' ')[0] ?? '—'}</td>
+                    <tr key={`${p.numeroPedido}-${i}`} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2 font-medium text-foreground">{p.peca}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.quantidade ?? '—'}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.categoria ?? '—'}</td>
+                      <td className="px-4 py-2 text-muted-foreground">#{p.numeroPedido}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.dataPedido?.split(' ')[0] ?? '—'}</td>
                       <td className="px-4 py-2">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium border ${
                             p.status.toLowerCase() === 'conferido'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-teal-50 text-teal-700 border-teal-200'
+                              ? 'bg-success/10 text-success border-success/30'
+                              : 'bg-info/10 text-info border-info/30'
                           }`}
                         >
                           {p.status}

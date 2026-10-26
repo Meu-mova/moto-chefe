@@ -37,23 +37,23 @@ export function BeneficiariosTable({ beneficiarios }: { beneficiarios: Beneficia
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         A quem se destinam as retiradas e o pró-labore. Aparecem na hora de lançar a despesa nas categorias marcadas
         com <strong>exige beneficiário</strong>. A lista é <strong>por grupo</strong> — cada bandeira tem seus sócios.
       </p>
 
-      <div className="overflow-hidden rounded-lg border bg-white">
+      <div className="overflow-hidden rounded-lg border bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b bg-slate-50">
+          <thead className="border-b bg-muted">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-600">Nome</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-600">Situação</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Nome</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Situação</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {beneficiarios.map(b => (
-              <tr key={b.id} className={`hover:bg-slate-50 ${b.ativo ? '' : 'text-slate-400'}`}>
+              <tr key={b.id} className={`hover:bg-muted ${b.ativo ? '' : 'text-muted-foreground'}`}>
                 <td className="px-4 py-2 font-medium">{b.nome}</td>
                 <td className="px-4 py-2 text-xs">{b.ativo ? 'Ativo' : 'Desativado'}</td>
                 <td className="px-4 py-2 text-right">
@@ -64,7 +64,7 @@ export function BeneficiariosTable({ beneficiarios }: { beneficiarios: Beneficia
                     onClick={() => alternar(b)}
                     disabled={pending}
                     title={b.ativo ? 'Desativar' : 'Reativar'}
-                    className="text-slate-400 hover:text-amber-600"
+                    className="text-muted-foreground hover:text-warning"
                   >
                     <Power size={14} />
                   </button>
@@ -72,15 +72,15 @@ export function BeneficiariosTable({ beneficiarios }: { beneficiarios: Beneficia
               </tr>
             ))}
             {beneficiarios.length === 0 && (
-              <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum beneficiário cadastrado.</td></tr>
+              <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Nenhum beneficiário cadastrado.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-end gap-2 rounded-lg border bg-white p-3">
+      <div className="flex items-end gap-2 rounded-lg border bg-card p-3">
         <div className="flex-1 space-y-1">
-          <label className="text-xs text-slate-500">Nome</label>
+          <label className="text-xs text-muted-foreground">Nome</label>
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-8 text-xs" placeholder="Ex.: Cesar" />
         </div>
         <Button size="sm" className="h-8 text-xs" disabled={pending || !nome.trim()} onClick={criar}>

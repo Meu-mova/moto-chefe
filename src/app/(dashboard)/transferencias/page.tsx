@@ -93,7 +93,7 @@ export default async function TransferenciasPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Transferências</h1>
-          <p className="text-slate-500 text-sm">Movimentações entre lojas</p>
+          <p className="text-muted-foreground text-sm">Movimentações entre lojas</p>
         </div>
         <SolicitarDialog
           lojas={lojasParaSolicitar}
@@ -107,7 +107,7 @@ export default async function TransferenciasPage({
 
       {paraAceitar.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             {isAdmin ? `Pendentes (${paraAceitar.length})` : `Para aceitar (${paraAceitar.length})`}
           </h2>
           {paraAceitar.map(t => (
@@ -123,7 +123,7 @@ export default async function TransferenciasPage({
 
       {aguardando.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             Aguardando resposta ({aguardando.length})
           </h2>
           {aguardando.map(t => (
@@ -139,7 +139,7 @@ export default async function TransferenciasPage({
 
       {outrasLojas.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             Em andamento em outras lojas ({outrasLojas.length})
           </h2>
           {outrasLojas.map(t => (
@@ -155,7 +155,7 @@ export default async function TransferenciasPage({
 
       {historico.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">Histórico ({historico.length})</h2>
+          <h2 className="font-semibold text-sm text-foreground">Histórico ({historico.length})</h2>
           {historico.map(t => (
             <TransferenciaCard
               key={t.id}
@@ -168,7 +168,7 @@ export default async function TransferenciasPage({
       )}
 
       {lista.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-12">
+        <p className="text-sm text-muted-foreground text-center py-12">
           Nenhuma transferência encontrada.
         </p>
       )}

@@ -88,6 +88,8 @@ Paleta 1 (neutro frio + verde da marca):
 | `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
 | `success` | texto e ícone de sucesso (pago, concluído); mesmo verde do `primary-text`; fundo como o de `warning` | `#036443` | `#4ee8a8` |
 | `info` | texto e ícone informativo (em andamento, aviso neutro); fundo como o de `warning` | `#1d4ed8` | `#8ab4ff` |
+| `assinatura-quadro` / `assinatura-tinta` | quadro e traço da assinatura do cliente; iguais nos dois temas, porque o traço vira PNG do contrato impresso | `#f8fafc` / `#0f172a` | `#f8fafc` / `#0f172a` |
+| `camera-fundo` | tarja em volta do vídeo da câmera (selfie da assinatura); igual nos dois temas | `#000000` | `#000000` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
@@ -126,11 +128,21 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `info` / `card` | 6.70 | 8.32 | 4.5 |
 | `info` / `background` | 6.19 | 9.01 | 4.5 |
 | `info` / fundo informativo (sobre `card`) | 5.72 | 5.54 | 4.5 |
+| `assinatura-tinta` / `assinatura-quadro` | 17.06 | 17.06 | 3 |
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
+| `brand-instagram` / `card` | 3.85 | 4.52 | — (logo) |
+| `brand-whatsapp` / `card` | 1.98 | 8.76 | — (logo) |
+| `brand-facebook` / `card` | 4.82 | 3.60 | — (logo) |
+| `brand-telegram` / `card` | 2.77 | 6.28 | — (logo) |
 
 Cor nova só entra nesta tabela com o par medido.
+
+`brand-*` é a cor oficial de cada marca (Simple Icons), igual nos dois temas, só para o logo do canal
+(`src/components/marca-canal.tsx`). O logo sai sempre ao lado do nome do canal escrito, então não
+carrega informação sozinho e fica fora do 3:1 do 1.4.11; WhatsApp e Telegram no claro ficam abaixo
+disso. Logo de marca nunca vira texto nem controle sem o nome ao lado.
 
 ### Cor do grupo (barra do grupo ativo e selo)
 

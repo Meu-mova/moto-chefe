@@ -93,7 +93,7 @@ export function VirarOSDialog({
   return (
     <>
       <button onClick={() => setOpen(true)} disabled={disabled}
-        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50">
+        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50">
         <FileText size={11} /> Virar OS
       </button>
 
@@ -105,7 +105,7 @@ export function VirarOSDialog({
 
           <div className="space-y-5 py-1">
             {/* Busca chassi + CPF */}
-            <div className="border border-slate-200 rounded-xl p-4 space-y-1 bg-slate-50">
+            <div className="border border-border rounded-xl p-4 space-y-1 bg-muted">
               <ChassiLookup
                 onVeiculoEncontrado={setVeiculo}
                 onClienteEncontrado={setCliente}
@@ -126,7 +126,7 @@ export function VirarOSDialog({
                   <select
                     value={form.clienteTipoPessoaExterno}
                     onChange={e => set('clienteTipoPessoaExterno', e.target.value)}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card"
                   >
                     <option value="fisica">Pessoa física</option>
                     <option value="juridica">Empresa (CNPJ)</option>
@@ -158,7 +158,7 @@ export function VirarOSDialog({
             <div className="space-y-1.5">
               <Label>Mecânico responsável</Label>
               <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                 <option value="">Sem mecânico definido</option>
                 {mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
@@ -170,7 +170,7 @@ export function VirarOSDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Descrição / Reclamação do cliente <span className="text-red-500">*</span></Label>
+              <Label>Descrição / Reclamação do cliente <span className="text-destructive">*</span></Label>
               <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
                 placeholder="Descreva o que o cliente relatou..." rows={3} />
             </div>

@@ -130,7 +130,7 @@ export default async function FolhaPagamentoPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Folha de Pagamento</h1>
-        <p className="text-slate-500 text-sm">Salários, comissões, premiação e ajuda de custo</p>
+        <p className="text-muted-foreground text-sm">Salários, comissões, premiação e ajuda de custo</p>
       </div>
 
       <Tabs defaultValue="mes">
@@ -146,7 +146,7 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="mes" className="mt-4 space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
             <div className="flex items-center gap-2">
@@ -161,64 +161,64 @@ export default async function FolhaPagamentoPage({
 
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Salários</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Salários</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Comissões</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Comissões</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.comissoes)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Premiações</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Premiações</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.premiacoes)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Ajuda de Custo</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ajuda de Custo</CardTitle></CardHeader>
               <CardContent><p className="text-xl font-bold">{fmt(folha.totais.ajudaCusto)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Adiantamentos</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold text-amber-700">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : fmt(0)}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Adiantamentos</CardTitle></CardHeader>
+              <CardContent><p className="text-xl font-bold text-warning">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : fmt(0)}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Geral</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold text-emerald-700">{fmt(folha.totais.geral)}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Geral</CardTitle></CardHeader>
+              <CardContent><p className="text-xl font-bold text-success">{fmt(folha.totais.geral)}</p></CardContent>
             </Card>
             {/* Soma o valor real de quem já teve o valor informado e o calculado de
                 quem não teve — é este número que o compromisso de folha usa em
                 Contas a Pagar, e por isso ele nunca fica menor do que a realidade
                 só porque a coluna ainda está pela metade. */}
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Pago (real)</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pago (real)</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-xl font-bold text-sky-700">{fmt(folha.totais.efetivo)}</p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xl font-bold text-info">{fmt(folha.totais.efetivo)}</p>
+                <p className="text-[11px] text-muted-foreground">
                   {folha.totais.reaisInformados} de {folha.ativos.length} informados
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="bg-card border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Salário</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Comissão</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Ajuda de Custo</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Adiantamento</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Total a Pagar</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Valor Real Pago</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Salário</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Comissão</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Premiação</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Ajuda de Custo</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Adiantamento</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Total a Pagar</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor Real Pago</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {folha.ativos.map(f => (
-                  <tr key={f.id} className="hover:bg-slate-50">
+                  <tr key={f.id} className="hover:bg-muted">
                     <td className="px-4 py-2">
                       <p className="font-medium">{f.nome}</p>
-                      <p className="text-xs text-slate-400">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+                      <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
                     </td>
                     <td className="px-4 py-2 text-right">{fmt(f.salario)}</td>
                     {/* A base saiu de coluna própria: com N regras por pessoa, cada
@@ -226,7 +226,7 @@ export default async function FolhaPagamentoPage({
                     <td className="px-4 py-2 text-right align-top">
                       {f.comissao > 0 ? fmt(f.comissao) : '—'}
                       {f.regras.filter(r => r.tipo !== 'premiacao').map(r => (
-                        <span key={r.id} className="block text-[11px] text-slate-400 whitespace-nowrap">
+                        <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
                           {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
                         </span>
                       ))}
@@ -234,12 +234,12 @@ export default async function FolhaPagamentoPage({
                     <td className="px-4 py-2 text-right align-top">
                       {f.premiacao > 0 ? fmt(f.premiacao) : '—'}
                       {f.premiacaoFaixa > 0 && (
-                        <span className="block text-[11px] text-slate-400 whitespace-nowrap">
+                        <span className="block text-[11px] text-muted-foreground whitespace-nowrap">
                           faixa OTE · {fmt(f.premiacaoFaixa)}
                         </span>
                       )}
                       {f.regras.filter(r => r.tipo === 'premiacao').map(r => (
-                        <span key={r.id} className="block text-[11px] text-slate-400 whitespace-nowrap">
+                        <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
                           {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
                         </span>
                       ))}
@@ -248,19 +248,19 @@ export default async function FolhaPagamentoPage({
                     {/* Uma coluna só, com a quebra no title: fixo e eventual descontam
                         igual, e separar em duas colunas alargaria a tabela por nada. */}
                     <td
-                      className="px-4 py-2 text-right text-amber-700"
+                      className="px-4 py-2 text-right text-warning"
                       title={f.adiantamento > 0
                         ? `Fixo ${fmt(f.adiantamentoFixo)} + eventual ${fmt(f.adiantamentoEventual)}`
                         : undefined}
                     >
                       {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
                       {f.adiantamentoFixo > 0 && f.adiantamentoEventual > 0 && (
-                        <span className="block text-[11px] text-amber-500">
+                        <span className="block text-[11px] text-warning">
                           fixo {fmt(f.adiantamentoFixo)} + {fmt(f.adiantamentoEventual)}
                         </span>
                       )}
                     </td>
-                    <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-red-600' : ''}`}>{fmt(f.totalPagar)}</td>
+                    <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-destructive' : ''}`}>{fmt(f.totalPagar)}</td>
                     {/* O que a contabilidade pagou de verdade. Em branco, a folha
                         segue valendo o calculado — ver valorEfetivo em queries/folha. */}
                     <td className="px-4 py-2">
@@ -274,7 +274,7 @@ export default async function FolhaPagamentoPage({
                   </tr>
                 ))}
                 {folha.ativos.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-slate-400 py-8">Nenhum funcionário ativo configurado.</td></tr>
+                  <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Nenhum funcionário ativo configurado.</td></tr>
                 )}
               </tbody>
             </table>
@@ -290,7 +290,7 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="comissoes" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               Vigência conferida contra {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
             <MesSelectorFolha mesAtual={mesParam} />
@@ -302,7 +302,7 @@ export default async function FolhaPagamentoPage({
         </TabsContent>
 
         <TabsContent value="premiacao" className="mt-4 space-y-3">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Faixa OTE é premiação em <strong>valor fixo</strong> por meta batida, só para vendedor e sempre sobre as
             motos que a própria pessoa vendeu. Ela <strong>soma</strong> com as regras de premiação em percentual
             cadastradas na aba Comissões.
@@ -312,7 +312,7 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="adiantamentos" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
             <MesSelectorFolha mesAtual={mesParam} />
@@ -326,7 +326,7 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="holerites" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
             <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export default async function FolhaPagamentoPage({
 
         <TabsContent value="ajustes" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500 capitalize">
+            <p className="text-sm text-muted-foreground capitalize">
               {new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
             </p>
             <MesSelectorFolha mesAtual={mesParam} />

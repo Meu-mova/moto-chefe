@@ -24,7 +24,7 @@ function formatCurrency(v: string) {
 
 export function VendasTable({ vendas }: { vendas: Venda[] }) {
   if (vendas.length === 0) {
-    return <p className="text-sm text-slate-400 py-8 text-center">Nenhuma venda no período.</p>
+    return <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma venda no período.</p>
   }
 
   return (
@@ -53,19 +53,19 @@ export function VendasTable({ vendas }: { vendas: Venda[] }) {
               </TableCell>
               <TableCell>
                 <div className="text-sm font-medium">{v.marca} {v.modelo}</div>
-                <div className="text-xs text-slate-400">{v.cor} — {v.chassi}</div>
+                <div className="text-xs text-muted-foreground">{v.cor} — {v.chassi}</div>
               </TableCell>
               <TableCell>
                 <div className="text-sm">{v.clienteNome}</div>
-                <div className="text-xs text-slate-400">{v.clienteCpf}</div>
+                <div className="text-xs text-muted-foreground">{v.clienteCpf}</div>
               </TableCell>
               <TableCell>{v.vendedorNome}</TableCell>
               <TableCell>{v.lojaNome}</TableCell>
               <TableCell className="capitalize">{v.formaPagamento}</TableCell>
-              <TableCell className="text-right font-mono text-sm text-slate-500">
+              <TableCell className="text-right font-mono text-sm text-muted-foreground">
                 {v.precoCompra ? formatCurrency(v.precoCompra) : '—'}
               </TableCell>
-              <TableCell className={`text-right font-mono text-sm font-medium ${lucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <TableCell className={`text-right font-mono text-sm font-medium ${lucro >= 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatCurrency(String(lucro))}
               </TableCell>
               <TableCell className="text-right font-mono font-medium">{formatCurrency(v.valor)}</TableCell>

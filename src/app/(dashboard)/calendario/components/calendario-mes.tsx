@@ -57,10 +57,10 @@ function ChipConta({ conta, hoje }: { conta: ContaNoCalendario; hoje: string }) 
   const vencida = !conta.pago && conta.vencimento.slice(0, 10) < hoje
 
   const cls = conta.pago
-    ? 'border-green-200 bg-green-50 text-green-700 line-through'
+    ? 'border-success/30 bg-success/10 text-success line-through'
     : vencida
-      ? 'border-red-300 bg-red-50 text-red-700 font-medium'
-      : 'border-amber-200 bg-amber-50 text-amber-800'
+      ? 'border-destructive/50 bg-destructive/10 text-destructive font-medium'
+      : 'border-warning/30 bg-warning/10 text-warning'
 
   function alternar(e: React.MouseEvent) {
     e.stopPropagation()
@@ -161,10 +161,10 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
         </Button>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-7 border-b bg-slate-50">
+      <div className="bg-card border rounded-lg overflow-hidden">
+        <div className="grid grid-cols-7 border-b bg-muted">
           {DIAS_SEMANA.map(d => (
-            <div key={d} className="px-2 py-1.5 text-center text-xs font-medium text-slate-500 capitalize">{d}</div>
+            <div key={d} className="px-2 py-1.5 text-center text-xs font-medium text-muted-foreground capitalize">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -177,10 +177,10 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
               <div
                 key={key}
                 onClick={() => abrirNovo(key)}
-                className={`min-h-[92px] border-b border-r p-1.5 cursor-pointer hover:bg-slate-50/70 ${noMes ? '' : 'bg-slate-50/40'}`}
+                className={`min-h-[92px] border-b border-r p-1.5 cursor-pointer hover:bg-muted/70 ${noMes ? '' : 'bg-muted/40'}`}
               >
                 <div className={`text-xs mb-1 inline-flex items-center justify-center h-5 w-5 rounded-full ${
-                  ehHoje ? 'bg-slate-900 text-white font-semibold' : noMes ? 'text-slate-600' : 'text-slate-300'
+                  ehHoje ? 'bg-primary text-primary-foreground font-semibold' : noMes ? 'text-foreground' : 'text-muted-foreground'
                 }`}>
                   {dia.getDate()}
                 </div>
@@ -206,7 +206,7 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
                     )
                   })}
                   {doDia.length > 3 && (
-                    <button onClick={e => { e.stopPropagation(); setDetalhe(doDia[3]) }} className="text-[11px] text-slate-400 px-1.5">
+                    <button onClick={e => { e.stopPropagation(); setDetalhe(doDia[3]) }} className="text-[11px] text-muted-foreground px-1.5">
                       +{doDia.length - 3} mais
                     </button>
                   )}
@@ -245,27 +245,27 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2.5 text-sm py-1">
-                  <p className="text-slate-500">{detalhe.categoriaNome}</p>
+                  <p className="text-muted-foreground">{detalhe.categoriaNome}</p>
                   <p className="flex items-center gap-2">
-                    <Clock size={14} className="text-slate-400" />
+                    <Clock size={14} className="text-muted-foreground" />
                     {multi
                       ? <span>{fmtData(detalhe.inicio)} — {fmtData(detalhe.fim)}</span>
                       : <span>{format(new Date(`${detalhe.inicio}T12:00:00Z`), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>}
                     {detalhe.hora && <span className="tabular-nums">· {detalhe.hora}</span>}
                   </p>
                   {detalhe.recorrencia !== 'nenhuma' && (
-                    <p className="flex items-center gap-2 text-slate-500"><Repeat size={14} className="text-slate-400" />{RECORRENCIA_META[detalhe.recorrencia as keyof typeof RECORRENCIA_META]}</p>
+                    <p className="flex items-center gap-2 text-muted-foreground"><Repeat size={14} className="text-muted-foreground" />{RECORRENCIA_META[detalhe.recorrencia as keyof typeof RECORRENCIA_META]}</p>
                   )}
-                  <p className="flex items-center gap-2 text-slate-500">
-                    <Eye size={14} className="text-slate-400" />
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <Eye size={14} className="text-muted-foreground" />
                     {VISIBILIDADE_META[detalhe.visibilidade as keyof typeof VISIBILIDADE_META]?.label ?? detalhe.visibilidade}
                     {detalhe.visibilidade === 'loja' && detalhe.lojaNome && <span className="inline-flex items-center gap-1"><MapPin size={12} />{detalhe.lojaNome}</span>}
                   </p>
                   {detalhe.criadoPorNome && (
-                    <p className="flex items-center gap-2 text-slate-500"><User size={14} className="text-slate-400" />Criado por {detalhe.criadoPorNome}</p>
+                    <p className="flex items-center gap-2 text-muted-foreground"><User size={14} className="text-muted-foreground" />Criado por {detalhe.criadoPorNome}</p>
                   )}
                   {detalhe.descricao && (
-                    <p className="bg-slate-50 border rounded px-2.5 py-2 text-slate-700 whitespace-pre-wrap">{detalhe.descricao}</p>
+                    <p className="bg-muted border rounded px-2.5 py-2 text-foreground whitespace-pre-wrap">{detalhe.descricao}</p>
                   )}
                 </div>
                 {podeEditar(detalhe) && (

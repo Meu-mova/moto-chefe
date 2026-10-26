@@ -54,7 +54,7 @@ export default async function MetasPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Metas de vendas — {grupo.nome}</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Quanto cada loja precisa faturar no mês, em reais. É o que o card de meta do dashboard
           acompanha, medido pelo valor cheio das vendas. Cada mês guarda a sua meta: mexer em
           setembro não muda como agosto foi julgado. Loja deixada em branco fica fora do card.

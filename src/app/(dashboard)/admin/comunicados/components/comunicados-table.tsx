@@ -48,7 +48,7 @@ export function ComunicadosTable({ comunicados }: { comunicados: Comunicado[] })
   }
 
   if (comunicados.length === 0) {
-    return <p className="text-sm text-slate-400 py-4">Nenhum comunicado criado ainda.</p>
+    return <p className="text-sm text-muted-foreground py-4">Nenhum comunicado criado ainda.</p>
   }
 
   return (
@@ -63,23 +63,23 @@ export function ComunicadosTable({ comunicados }: { comunicados: Comunicado[] })
                 <span className="font-medium text-sm">{c.titulo}</span>
                 <Badge variant={variant}>{label}</Badge>
               </div>
-              <p className="text-xs text-slate-500 line-clamp-2">{c.conteudo}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{c.conteudo}</p>
               <div className="flex items-center gap-3 mt-1">
                 {agendado ? (
-                  <span className="flex items-center gap-1 text-xs text-amber-600">
+                  <span className="flex items-center gap-1 text-xs text-warning">
                     <Clock size={11} />
                     Postagem em {new Date(c.dataPostagem!).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {new Date(c.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </span>
                 )}
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-muted-foreground">
                   · {c.totalLidos} confirmação{c.totalLidos !== 1 ? 'ões' : ''}
                 </span>
                 {c.papeis && c.papeis.length > 0 && (
-                  <span className="text-xs text-blue-600 font-medium">
+                  <span className="text-xs text-info font-medium">
                     · {c.papeis.map(p => PAPEIS_LABEL[p] ?? p).join(', ')}
                   </span>
                 )}
@@ -99,7 +99,7 @@ export function ComunicadosTable({ comunicados }: { comunicados: Comunicado[] })
                 size="sm"
                 disabled={loading === c.id}
                 onClick={() => handleExcluir(c.id)}
-                className="text-red-500 hover:text-red-700"
+                className="text-destructive hover:text-destructive"
               >
                 Excluir
               </Button>

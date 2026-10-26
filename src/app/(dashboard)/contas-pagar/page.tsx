@@ -34,7 +34,7 @@ export default async function ContasPagarPage({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Contas a Pagar</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Compromissos de pagamento. Não entram em Despesas, Caixa nem no DRE — quem paga continua lançando a
             despesa pelo caminho normal.
           </p>

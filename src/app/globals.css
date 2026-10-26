@@ -40,6 +40,8 @@
   --color-warning: var(--warning);
   --color-success: var(--success);
   --color-info: var(--info);
+  --color-assinatura-quadro: var(--assinatura-quadro);
+  --color-camera-fundo: var(--camera-fundo);
   --color-primary-hover: var(--primary-hover);
   --color-primary-press: var(--primary-press);
   --color-popover-foreground: var(--popover-foreground);
@@ -90,6 +92,10 @@
   --color-grupo-slate-ponto: var(--grupo-slate-ponto);
   --color-grupo-realce: var(--grupo-realce);
   --color-grupo-realce-hover: var(--grupo-realce-hover);
+  --color-brand-instagram: var(--brand-instagram);
+  --color-brand-whatsapp: var(--brand-whatsapp);
+  --color-brand-facebook: var(--brand-facebook);
+  --color-brand-telegram: var(--brand-telegram);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -127,6 +133,10 @@
   /* Mesmo verde do primary-text: sucesso não ganha um segundo verde. */
   --success: #036443;
   --info: #1d4ed8;
+  /* Iguais nos dois temas: a assinatura vira PNG com tinta escura para o contrato impresso. */
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #dde3ea;
   /* Borda de campo e controle: 3:1 (WCAG 1.4.11). A border decorativa não chega lá. */
   --input: #7c8aa0;
@@ -190,6 +200,11 @@
   /* Botão sobre a barra do grupo: escurecer, e não clarear, não reduz o contraste do texto. */
   --grupo-realce: rgb(0 0 0 / 0.15);
   --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #047a4f;
@@ -224,6 +239,9 @@
   --warning: #ffc861;
   --success: #4ee8a8;
   --info: #8ab4ff;
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #26324a;
   --input: #64748f;
   --ring: #2ee09a;
@@ -276,6 +294,11 @@
   --grupo-slate-ponto: #94a3b8;
   --grupo-realce: rgb(0 0 0 / 0.15);
   --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #0e1526;
   --sidebar-foreground: #e8edf5;
   --sidebar-primary: #2ee09a;
@@ -292,6 +315,13 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Campo de data, <select> nativo e barra de rolagem desenhados pelo navegador seguem o tema. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
   }
   html {
     @apply font-sans;

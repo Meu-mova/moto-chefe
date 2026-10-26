@@ -33,7 +33,7 @@ export function KommoCredenciaisForm({ subdominio, temCredenciais }: Props) {
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label>Subdomínio da conta <span className="text-slate-400 text-xs">(opcional — capturado no login)</span></Label>
+        <Label>Subdomínio da conta <span className="text-muted-foreground text-xs">(opcional — capturado no login)</span></Label>
         <Input value={sub} onChange={e => setSub(e.target.value)} placeholder="ex.: minhaempresa (de minhaempresa.kommo.com)" />
       </div>
       <div className="space-y-1.5">

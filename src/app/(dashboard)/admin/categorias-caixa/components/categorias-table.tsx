@@ -34,9 +34,9 @@ const TIPO_LABEL: Record<string, string> = {
 }
 
 const TIPO_CLS: Record<string, string> = {
-  entrada: 'bg-green-50 text-green-700 border-green-200',
-  saida:   'bg-red-50 text-red-700 border-red-200',
-  ambos:   'bg-blue-50 text-blue-700 border-blue-200',
+  entrada: 'bg-success/10 text-success border-success/30',
+  saida:   'bg-destructive/10 text-destructive border-destructive/30',
+  ambos:   'bg-info/10 text-info border-info/30',
 }
 
 function CategoriaDialog({
@@ -132,7 +132,7 @@ function ConfirmarExclusaoDialog({
         <DialogHeader>
           <DialogTitle>Excluir categoria?</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
           Lançamentos existentes não serão afetados.
         </p>
@@ -190,7 +190,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
   return (
     <>
       <div className="flex items-start justify-between gap-4">
-        <p className="text-xs text-slate-500 max-w-2xl">
+        <p className="text-xs text-muted-foreground max-w-2xl">
           Categoria de saída marcada como <strong>não operacional</strong> fica fora do cálculo do
           lucro no Financeiro: &quot;Depósito&quot; é dinheiro indo da gaveta pro banco, não gasto.
           A regra vale para o histórico inteiro, então muda também os meses já fechados.
@@ -200,7 +200,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -222,7 +222,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
                 </TableCell>
                 <TableCell>
                   {cat.tipo === 'entrada' ? (
-                    <span className="text-xs text-slate-300">--</span>
+                    <span className="text-xs text-muted-foreground">--</span>
                   ) : (
                     <button
                       onClick={() => handleToggleDespesa(cat)}
@@ -232,7 +232,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
                       {cat.contaComoDespesa ? (
                         <Badge variant="outline">Operacional</Badge>
                       ) : (
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                        <Badge className="bg-warning/15 text-warning hover:bg-warning/15">
                           Não operacional
                         </Badge>
                       )}
@@ -263,7 +263,7 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => setExcluindo(cat)}
                     >
                       <Trash2 size={14} />

@@ -23,12 +23,12 @@ type Origem = {
 }
 
 const TIPO_CLS: Record<string, string> = {
-  Digital:    'bg-blue-50 text-blue-700 border-blue-200',
-  Presencial: 'bg-amber-50 text-amber-700 border-amber-200',
-  Relacional: 'bg-green-50 text-green-700 border-green-200',
-  Parceria:   'bg-purple-50 text-purple-700 border-purple-200',
-  Ativo:      'bg-cyan-50 text-cyan-700 border-cyan-200',
-  Outro:      'bg-slate-50 text-slate-600 border-slate-200',
+  Digital:    'bg-info/10 text-info border-info/30',
+  Presencial: 'bg-warning/10 text-warning border-warning/30',
+  Relacional: 'bg-success/10 text-success border-success/30',
+  Parceria:   'bg-info/10 text-info border-info/30',
+  Ativo:      'bg-info/10 text-info border-info/30',
+  Outro:      'bg-muted text-muted-foreground border-border',
 }
 
 function OrigemDialog({
@@ -80,11 +80,11 @@ function OrigemDialog({
             <select
               value={tipo}
               onChange={e => setTipo(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {TIPOS_ORIGEM.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Agrupa a origem no relatório — é o que permite somar todo o Digital mesmo com
               campanhas cadastradas uma a uma.
             </p>
@@ -98,7 +98,7 @@ function OrigemDialog({
             />
             <span>
               Exigir detalhe na venda
-              <span className="block text-xs text-slate-500">
+              <span className="block text-xs text-muted-foreground">
                 Ligue em Indicação, Evento, Parceiro: o vendedor é obrigado a dizer quem/qual.
               </span>
             </span>
@@ -143,7 +143,7 @@ export function OrigensTable({ origens }: { origens: Origem[] }) {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-x-auto">
+      <div className="bg-card rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -158,7 +158,7 @@ export function OrigensTable({ origens }: { origens: Origem[] }) {
           <TableBody>
             {origens.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-slate-500 py-6">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">
                   Nenhuma origem cadastrada neste grupo.
                 </TableCell>
               </TableRow>
@@ -169,14 +169,14 @@ export function OrigensTable({ origens }: { origens: Origem[] }) {
                 <TableCell>
                   <Badge variant="outline" className={TIPO_CLS[o.tipo] ?? TIPO_CLS.Outro}>{o.tipo}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-slate-600">
+                <TableCell className="text-sm text-muted-foreground">
                   {o.pedeDetalhe ? 'Obrigatório' : '—'}
                 </TableCell>
-                <TableCell className="text-right text-sm text-slate-600">{o.ordem}</TableCell>
+                <TableCell className="text-right text-sm text-muted-foreground">{o.ordem}</TableCell>
                 <TableCell>
                   {o.ativo
-                    ? <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ativa</Badge>
-                    : <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">Inativa</Badge>}
+                    ? <Badge variant="outline" className="bg-success/10 text-success border-success/30">Ativa</Badge>
+                    : <Badge variant="outline" className="bg-muted text-muted-foreground border-border">Inativa</Badge>}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1 justify-end">
