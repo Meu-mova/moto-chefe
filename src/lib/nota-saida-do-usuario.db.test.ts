@@ -2,7 +2,7 @@
 // (roteiro para rodar local no topo de src/lib/efetivar-pedido.db.test.ts).
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -15,10 +15,15 @@ type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let notaSaidaDoUsuario: typeof import('@/lib/nota-saida-do-usuario')['notaSaidaDoUsuario']
+let vendaDoUsuario: typeof import('@/lib/venda-do-usuario')['vendaDoUsuario']
+let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
+let vendas: typeof import('@/lib/db/schema')['vendas']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ notaSaidaDoUsuario } = await import('@/lib/nota-saida-do-usuario'))
+  ;({ vendaDoUsuario, vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
+  ;({ vendas } = await import('@/lib/db/schema'))
 })
 
 after(async () => {
@@ -50,6 +55,8 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values (${venda.id}, ${grupo.id}, ${'NS404-' + nome}, 'Homologacao', 'Autorizada', '1', '1', '{}'::jsonb) returning id`)
   return {
     notaId: nota.id as string,
+    grupoId: grupo.id as string,
+    vendaId: venda.id as string,
     aux: { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
     socio: { papel: 'admin_socio', lojaId: null, gruposAcesso: [grupo.id as string], contaId: conta.id as string },
   }
@@ -71,6 +78,23 @@ test('Conta B (aux e sócio) não acha a NF de saída da Conta A, igual a um id 
     for (const usuario of [b.aux, b.socio]) {
       assert.equal(await notaSaidaDoUsuario(usuario, a.notaId, tx), null)
       assert.equal(await notaSaidaDoUsuario(usuario, crypto.randomUUID(), tx), null)
+    }
+  })
+})
+
+test('grupo inativo: sócio e aux da Conta seguem achando venda e nota nas rotas de NF; a Conta B não (#404)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000040464')
+    const b = await semearConta(tx, 'B', '00000000040465')
+    await linhas(tx, sql`update grupos set ativo = false where id = ${a.grupoId}`)
+    for (const usuario of [a.aux, a.socio]) {
+      assert.equal(await vendaDoUsuario(usuario, eq(vendas.id, a.vendaId), tx), null)
+      assert.equal((await vendaDoUsuarioParaNf(usuario, eq(vendas.id, a.vendaId), tx))?.id, a.vendaId)
+      assert.equal((await notaSaidaDoUsuario(usuario, a.notaId, tx))?.id, a.notaId)
+    }
+    for (const usuario of [b.aux, b.socio]) {
+      assert.equal(await vendaDoUsuarioParaNf(usuario, eq(vendas.id, a.vendaId), tx), null)
+      assert.equal(await vendaDoUsuarioParaNf(usuario, eq(vendas.id, crypto.randomUUID()), tx), null)
     }
   })
 })

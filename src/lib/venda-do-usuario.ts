@@ -1,7 +1,8 @@
-import { and, desc, inArray, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { vendas } from '@/lib/db/schema'
+import { grupos, lojas, vendas } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { lojasDaConta } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
@@ -26,4 +27,36 @@ export async function vendaDoUsuario(
     .limit(1)
   if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId, exec))) return null
   return venda
+}
+
+/**
+ * Como vendaDoUsuario, para as rotas de NF de saída: a Conta continua no where, mas o
+ * grupo inativo não barra quem ainda o vê (sócio, aux_adm). Cancelar ou corrigir a nota
+ * de um grupo recém-desativado tem prazo fiscal (decisão do Luis, #404).
+ */
+export async function vendaDoUsuarioParaNf(
+  usuario: Parameters<typeof podeAbrirRegistroDaLoja>[0],
+  filtro: SQL,
+  exec: Executor = db,
+) {
+  const daConta = usuario.papel === 'admin_geral' ? undefined
+    : usuario.contaId ? inArray(vendas.lojaId, lojasDaConta(usuario.contaId)) : null
+  if (daConta === null) return null
+  const [linha] = await exec.select({ venda: vendas, grupoId: lojas.grupoId, contaId: grupos.contaId })
+    .from(vendas)
+    .innerJoin(lojas, eq(lojas.id, vendas.lojaId))
+    .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .where(and(filtro, daConta))
+    .orderBy(desc(vendas.dataVenda))
+    .limit(1)
+  if (!linha) return null
+  const [propria] = usuario.lojaId
+    ? await exec.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, usuario.lojaId)).limit(1)
+    : []
+  const pode = podeVerGrupo(
+    { papel: usuario.papel, gruposAcesso: usuario.gruposAcesso ? [...usuario.gruposAcesso] : null, contaId: usuario.contaId },
+    propria?.grupoId ?? null,
+    { id: linha.grupoId, contaId: linha.contaId },
+  )
+  return pode ? linha.venda : null
 }

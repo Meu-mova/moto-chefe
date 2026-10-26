@@ -24,7 +24,7 @@ import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
-import { vendaDoUsuario } from '@/lib/venda-do-usuario'
+import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -92,7 +92,7 @@ const numOuNulo = (v: string | null) => (v == null ? null : v)
 
 /** Junta tudo o que a nota precisa. Pré-visualização e transmissão usam a MESMA montagem. */
 async function montarEmissao(motoId: string, usuario: Usuario) {
-  const venda = await vendaDoUsuario(usuario, eq(vendas.motoId, motoId))
+  const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.motoId, motoId))
   if (!venda) throw new Error('Nenhuma venda encontrada para esta moto')
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
@@ -609,7 +609,7 @@ export async function consultarNfePropriaAction(notaId: string): Promise<Resulta
 
 /** A permissão é no grupo da loja da venda. */
 async function exigirGrupoDaVenda(vendaId: string, usuario: Usuario) {
-  const venda = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
+  const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.id, vendaId))
   if (!venda) throw new Error('Venda não encontrada')
   return venda
 }
