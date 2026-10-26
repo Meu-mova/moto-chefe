@@ -24,7 +24,7 @@ test('venda para CNPJ exige CNPJ válido (#399, ADR-0015)', () => {
   assert.deepEqual(validarDocumento('juridica', '11.222.333/0001-81'), { ok: true, documento: '11222333000181' })
   assert.equal(validarDocumento('juridica', '').ok, false)
   assert.equal(validarDocumento('juridica', '52998224725').ok, false)
-  assert.deepEqual(validarDocumento('juridica', '11.222.333/0001-82'), { ok: false, erro: 'CNPJ inválido — confira os números' })
+  assert.deepEqual(validarDocumento('juridica', '11.222.333/0001-82'), { ok: false, erro: 'CNPJ inválido. Confira os números.' })
   assert.equal(validarDocumento('juridica', '00.000.000/0000-00').ok, false)
 })
 
@@ -32,7 +32,7 @@ test('pessoa física pode vender sem CPF, mas não com CPF pela metade ou com d�
   assert.deepEqual(validarDocumento('fisica', ''), { ok: true, documento: null })
   assert.deepEqual(validarDocumento('fisica', '529.982.247-25'), { ok: true, documento: '52998224725' })
   assert.equal(validarDocumento('fisica', '1234').ok, false)
-  assert.deepEqual(validarDocumento('fisica', '529.982.247-24'), { ok: false, erro: 'CPF inválido — confira os números' })
+  assert.deepEqual(validarDocumento('fisica', '529.982.247-24'), { ok: false, erro: 'CPF inválido. Confira os números.' })
   assert.equal(validarDocumento('fisica', '111.111.111-11').ok, false)
 })
 
@@ -42,7 +42,7 @@ test('CPF válido vira pessoa física, só com os dígitos', () => {
 })
 
 test('CPF com dígito verificador errado é recusado', () => {
-  assert.deepEqual(lerDocumentoCliente('529.982.247-26'), { ok: false, erro: 'CPF inválido — confira os números' })
+  assert.deepEqual(lerDocumentoCliente('529.982.247-26'), { ok: false, erro: 'CPF inválido. Confira os números.' })
 })
 
 test('CNPJ válido vira pessoa jurídica, só com os dígitos', () => {
@@ -50,7 +50,7 @@ test('CNPJ válido vira pessoa jurídica, só com os dígitos', () => {
 })
 
 test('CNPJ com dígito verificador errado é recusado', () => {
-  assert.deepEqual(lerDocumentoCliente('11.222.333/0001-82'), { ok: false, erro: 'CNPJ inválido — confira os números' })
+  assert.deepEqual(lerDocumentoCliente('11.222.333/0001-82'), { ok: false, erro: 'CNPJ inválido. Confira os números.' })
 })
 
 test('CNPJ só de dígitos repetidos é recusado', () => {

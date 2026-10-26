@@ -7,19 +7,21 @@ import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
 import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
+import { excluirVendaPecaTx } from '@/lib/excluir-venda-peca'
 import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
 
 
 async function verificarAcesso() {
   const usuario = await getUsuarioLogado()
   if (!podeGerirPecas(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   return usuario
 }
@@ -27,7 +29,7 @@ async function verificarAcesso() {
 async function verificarAcessoVenda() {
   const usuario = await getUsuarioLogado()
   if (!podeVenderPeca(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   return usuario
 }
@@ -47,12 +49,15 @@ export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
 // Vendedor também cria: a peça nova aparece no balcão antes de alguém do escritório
 // cadastrar, e sem isso a venda não sai. Editar preço/estoque e inativar seguem só
 // com gestor — ver atualizarPecaAction abaixo.
-export async function criarPecaAction(input: PecaInput) {
+export async function criarPecaAction(...a: Parameters<typeof criarPeca>) {
+  return acao(() => criarPeca(...a))
+}
+async function criarPeca(input: PecaInput) {
   await verificarAcessoVenda()
   const nome = input.nome.trim()
-  if (!nome) throw new Error('Nome é obrigatório')
-  if (input.valor < 0) throw new Error('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new Error('Estoque não pode ser negativo')
+  if (!nome) throw new RecusaUsuario('Nome é obrigatório')
+  if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
+  if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
   const [nova] = await db.insert(pecasCatalogo).values({
     nome,
@@ -69,12 +74,15 @@ export async function criarPecaAction(input: PecaInput) {
   return nova
 }
 
-export async function atualizarPecaAction(id: string, input: PecaInput) {
+export async function atualizarPecaAction(...a: Parameters<typeof atualizarPeca>) {
+  return acao(() => atualizarPeca(...a))
+}
+async function atualizarPeca(id: string, input: PecaInput) {
   await verificarAcesso()
   const nome = input.nome.trim()
-  if (!nome) throw new Error('Nome é obrigatório')
-  if (input.valor < 0) throw new Error('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new Error('Estoque não pode ser negativo')
+  if (!nome) throw new RecusaUsuario('Nome é obrigatório')
+  if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
+  if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
   await db.update(pecasCatalogo).set({
     nome,
@@ -86,7 +94,10 @@ export async function atualizarPecaAction(id: string, input: PecaInput) {
   revalidatePath('/pecas')
 }
 
-export async function inativarPecaAction(id: string) {
+export async function inativarPecaAction(...a: Parameters<typeof inativarPeca>) {
+  return acao(() => inativarPeca(...a))
+}
+async function inativarPeca(id: string) {
   await verificarAcesso()
   await db.update(pecasCatalogo)
     .set({ ativo: false, atualizadoEm: new Date() })
@@ -94,7 +105,10 @@ export async function inativarPecaAction(id: string) {
   revalidatePath('/pecas')
 }
 
-export async function reativarPecaAction(id: string) {
+export async function reativarPecaAction(...a: Parameters<typeof reativarPeca>) {
+  return acao(() => reativarPeca(...a))
+}
+async function reativarPeca(id: string) {
   await verificarAcesso()
   await db.update(pecasCatalogo)
     .set({ ativo: true, atualizadoEm: new Date() })
@@ -128,22 +142,25 @@ function zerarBonificacoes(pagamentos: PagamentoVendaPecaInput[]): PagamentoVend
 function sanearPagamentos(entrada: PagamentoVendaPecaInput[]) {
   const pagamentos = zerarBonificacoes(entrada)
   const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
-  if (valorTotal < 0) throw new Error('Valor total inválido')
+  if (valorTotal < 0) throw new RecusaUsuario('Valor total inválido')
   if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
-    throw new Error('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
+    throw new RecusaUsuario('Valor total inválido. Para entregar sem cobrar, lance o pagamento como Bonificação')
   }
   return { pagamentos, valorTotal }
 }
 
-export async function registrarVendaPecaAction(input: DadosVendaPeca) {
+export async function registrarVendaPecaAction(...a: Parameters<typeof registrarVendaPeca>) {
+  return acao(() => registrarVendaPeca(...a))
+}
+async function registrarVendaPeca(input: DadosVendaPeca) {
   const usuario = await verificarAcessoVenda()
-  if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
-  if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
+  if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
+  if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
+  if (!lojaIdsGrupo.includes(input.lojaId)) throw new RecusaUsuario('Sem permissão para esta loja')
   // Como na tela: quem não é admin vende peça só pela própria loja.
-  if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new Error('Sem permissão para esta loja')
+  if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
 
   // Venda para empresa: sem CNPJ o recibo não identifica o tomador, e é justamente
   // o recibo que a empresa leva pra lançar a compra.
@@ -151,9 +168,9 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
     ? input.clienteTipoPessoa
     : 'fisica'
   const doc = validarDocumento(tipoPessoa, input.clienteDocumento)
-  if (!doc.ok) throw new Error(doc.erro)
+  if (!doc.ok) throw new RecusaUsuario(doc.erro)
   if (tipoPessoa === 'juridica' && !input.clienteNome?.trim()) {
-    throw new Error('Informe a razão social da empresa')
+    throw new RecusaUsuario('Informe a razão social da empresa')
   }
 
   const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
@@ -196,7 +213,7 @@ async function vendaEditavel(vendaId: string) {
   const usuario = await verificarAcessoVenda()
   // Venda de outra Conta responde como inexistente (regra de isolamento).
   const venda = await vendaPecaEditavel(db, usuario, vendaId)
-  if (!venda) throw new Error('Venda não encontrada')
+  if (!venda) throw new RecusaUsuario('Venda não encontrada')
   return { usuario, venda }
 }
 
@@ -213,7 +230,10 @@ async function avisosDaVenda(venda: { id: string; dataVenda: Date }) {
  * que aparecem antes de salvar. `pecas` traz as peças da venda mesmo inativas,
  * para a busca mostrar o nome.
  */
-export async function carregarVendaPecaParaEdicaoAction(vendaId: string) {
+export async function carregarVendaPecaParaEdicaoAction(...a: Parameters<typeof carregarVendaPecaParaEdicao>) {
+  return acao(() => carregarVendaPecaParaEdicao(...a))
+}
+async function carregarVendaPecaParaEdicao(vendaId: string) {
   const { venda } = await vendaEditavel(vendaId)
   const [[cab], itens, avisos] = await Promise.all([
     db.select({ clienteNome: vendasPecas.clienteNome, pagamentos: vendasPecas.pagamentos }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)),
@@ -235,13 +255,16 @@ export async function carregarVendaPecaParaEdicaoAction(vendaId: string) {
   }
 }
 
-export async function editarVendaPecaAction(
+export async function editarVendaPecaAction(...a: Parameters<typeof editarVendaPeca>) {
+  return acao(() => editarVendaPeca(...a))
+}
+async function editarVendaPeca(
   vendaId: string,
   input: { itens: ItemVendaPecaInput[]; pagamentos: PagamentoVendaPecaInput[] },
 ) {
   const { usuario, venda } = await vendaEditavel(vendaId)
-  if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
-  if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
+  if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
+  if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
 
   const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
   const itens = podeGerirPecas(usuario.papel)
@@ -257,7 +280,7 @@ export async function editarVendaPecaAction(
   const r = await db.transaction(async tx => {
     const [atual] = await tx.select({ numero: vendasPecas.numero, clienteNome: vendasPecas.clienteNome })
       .from(vendasPecas).where(eq(vendasPecas.id, vendaId)).for('update')
-    if (!atual) throw new Error('Venda não encontrada')
+    if (!atual) throw new RecusaUsuario('Venda não encontrada')
 
     // Uma edição esperando aprovação por vez: duas na fila se sobreporiam na hora de aprovar.
     // Vale também para o gestor, senão a aprovação depois desfaria a edição dele.
@@ -266,7 +289,7 @@ export async function editarVendaPecaAction(
       eq(aprovacoesVenda.status, 'pendente'),
       sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
     )).limit(1)
-    if (pendente) throw new Error('Esta venda já tem uma edição aguardando aprovação — aprove ou recuse o pedido em Vendas antes de editar de novo')
+    if (pendente) throw new RecusaUsuario('Esta venda já tem uma edição aguardando aprovação. Aprove ou recuse o pedido em Vendas antes de editar de novo')
 
     // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
     // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
@@ -304,7 +327,10 @@ export async function editarVendaPecaAction(
 // solta a conciliação e mexe no estoque. Aqui só muda o tomador (nome, documento,
 // tipo de pessoa); itens, pagamentos e conciliação ficam como estão. Mesma permissão
 // e mesmas regras de documento da criação. Fica no histórico de edições da venda.
-export async function editarClienteVendaPecaAction(
+export async function editarClienteVendaPecaAction(...a: Parameters<typeof editarClienteVendaPeca>) {
+  return acao(() => editarClienteVendaPeca(...a))
+}
+async function editarClienteVendaPeca(
   vendaId: string,
   input: { clienteNome: string | null; clienteTipoPessoa: string; clienteDocumento: string | null },
 ) {
@@ -422,63 +448,16 @@ export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) 
 // corrigem pelo editar, #242). Devolve o estoque dos itens e SOLTA as transações que
 // estavam casadas com essa venda — o dinheiro continua lá na conciliação, livre pra ser
 // vinculado ao lançamento certo. Gestor da loja (inclui aux_adm) resolve sozinho.
-export async function excluirVendaPecaAction(vendaId: string) {
+export async function excluirVendaPecaAction(...a: Parameters<typeof excluirVendaPeca>) {
+  return acao(() => excluirVendaPeca(...a))
+}
+async function excluirVendaPeca(vendaId: string) {
   const usuario = await verificarAcesso()
-
-  const [venda] = await db
-    .select({ id: vendasPecas.id, numero: vendasPecas.numero, lojaId: vendasPecas.lojaId })
-    .from(vendasPecas)
-    .where(eq(vendasPecas.id, vendaId))
-    .limit(1)
-  if (!venda) throw new Error('Venda não encontrada')
-
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
-  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) throw new Error('Sem permissão para esta loja')
-
-  await db.transaction(async tx => {
-    // Pedido de edição pendente desta venda perde o objeto: recusa junto, senão ficaria
-    // no painel de aprovações falhando com "venda não encontrada".
-    await tx.update(aprovacoesVenda)
-      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
-      .where(and(
-        eq(aprovacoesVenda.origem, 'peca_edicao'),
-        eq(aprovacoesVenda.status, 'pendente'),
-        sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
-      ))
-
-    const itens = await tx
-      .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
-      .from(vendasPecasItens)
-      .where(eq(vendasPecasItens.vendaPecaId, vendaId))
-
-    // Devolve na mesma forma que a venda baixou (incremento relativo) — duas linhas da
-    // mesma peça no carrinho têm que somar as duas de volta.
-    for (const item of itens) {
-      await tx.update(pecasCatalogo)
-        .set({
-          quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} + ${Number(item.quantidade)}`,
-          atualizadoEm: new Date(),
-        })
-        .where(eq(pecasCatalogo.id, item.pecaId))
-    }
-
-    // Soltar antes do DELETE: as duas colunas são FK pra vendas_pecas e segurariam a
-    // exclusão. Volta ao estado de transação não conciliada, como desvincular na mão.
-    await tx.update(conciliacoesCartao)
-      .set({ pecaVendaId: null, conciliado: false, conciliadoEm: null })
-      .where(eq(conciliacoesCartao.pecaVendaId, vendaId))
-    await tx.update(pixRecebimentosMcp)
-      .set({ tipoCorrespondencia: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null })
-      .where(eq(pixRecebimentosMcp.pecaVendaId, vendaId))
-
-    await tx.delete(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, vendaId))
-    await tx.delete(vendasPecas).where(eq(vendasPecas.id, vendaId))
-  })
+  const { numero } = await db.transaction(tx => excluirVendaPecaTx(tx, usuario, vendaId))
 
   revalidatePath('/pecas')
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
   revalidatePath('/vendas')
-  return { numero: venda.numero }
+  return { numero }
 }

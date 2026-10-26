@@ -40,11 +40,12 @@ export function EditarClienteVendaPecaDialog({ vendaId, numero, clienteNome, cli
   function salvar() {
     start(async () => {
       try {
-        await editarClienteVendaPecaAction(vendaId, {
+        const r = await editarClienteVendaPecaAction(vendaId, {
           clienteNome: nome.trim() || null,
           clienteTipoPessoa: tipoPessoa,
           clienteDocumento: digitosDoc || null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(`Cliente da venda #${numero} atualizado`)
         setOpen(false)
       } catch (e: unknown) {

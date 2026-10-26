@@ -23,7 +23,8 @@ export function ExcluirVendaPecaButton({ vendaId, numero }: Props) {
     if (!ok) return
     start(async () => {
       try {
-        await excluirVendaPecaAction(vendaId)
+        const r = await excluirVendaPecaAction(vendaId)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(`Venda #${numero} excluída`)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao excluir a venda')

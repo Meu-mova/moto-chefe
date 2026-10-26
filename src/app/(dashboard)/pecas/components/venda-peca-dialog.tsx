@@ -167,7 +167,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     setCarregando(true)
     startTransition(async () => {
       try {
-        const v = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        const r = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        if (!r.ok) { toast.error(r.erro); setOpen(false); return }
+        const v = r.dados
         setClienteNome(v.clienteNome ?? '')
         setPecasNovas(prev => [...prev, ...v.pecas.filter(p => !pecas.some(x => x.id === p.id))])
         // O preço gravado vai na linha: é ele que vale, não o do catálogo de hoje.
@@ -191,7 +193,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     startTransition(async () => {
       try {
         const r = await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
-        toast.success(r.aguardandoAprovacao
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(r.dados.aguardandoAprovacao
           ? `Edição da venda #${edicao.numero} enviada para aprovação (financiamento)`
           : `Venda #${edicao.numero} atualizada`)
         setOpen(false)
@@ -217,7 +220,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           itens: itensParaEnviar(),
           pagamentos: pgtosParaEnviar(),
         })
-        toast.success(resultado.aguardandoAprovacao
+        if (!resultado.ok) { toast.error(resultado.erro); return }
+        toast.success(resultado.dados.aguardandoAprovacao
           ? 'Venda com financiamento enviada para aprovação'
           : 'Venda registrada!')
         setOpen(false)
