@@ -92,12 +92,14 @@ export function PecaForm({
     setLoading(true)
     try {
       if (isEdit && pecaInicial) {
-        await atualizarPecaAction(pecaInicial.id, input)
+        const r = await atualizarPecaAction(pecaInicial.id, input)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Peça atualizada!')
       } else {
-        const nova = await criarPecaAction(input)
+        const r = await criarPecaAction(input)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Peça cadastrada!')
-        onCriada?.(nova)
+        onCriada?.(r.dados)
       }
       mudarAberto(false)
       onSaved?.()

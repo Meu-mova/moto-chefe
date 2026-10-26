@@ -9,6 +9,7 @@ import { podeDescartarCarta, proximoNumeroCarta, recusaNaGateway, situacaoCarta,
 import { podeOperarNfSaida } from './papeis-nf-saida'
 import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
+import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 
 /**
  * Carta de correção da NF de saída (#187). Mesma permissão do cancelamento, no
@@ -40,9 +41,8 @@ export type ResultadoCartas = { ok: true; cartas: CartaResumo[] } | { ok: false;
 async function carregarNotaDaCarta(notaId: string, acao: string) {
   const u = await getUsuarioLogado()
   if (!podeOperarNfSaida(u.papel)) throw new Error(`Sem permissão para ${acao} carta de correção`)
-  const [nota] = await db.select().from(notasFiscaisSaida).where(eq(notasFiscaisSaida.id, notaId)).limit(1)
+  const nota = await notaSaidaDoUsuario(u, notaId)
   if (!nota) throw new Error('Nota não encontrada')
-  if (!(await podeUsuarioVerGrupo(u, nota.grupoId))) throw new Error('Sem permissão para NF de saída deste grupo')
   const cfg = await configNotaGateway(nota.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
   return { u, nota, cfg }
@@ -178,7 +178,8 @@ export async function descartarCartaAction(notaId: string, cartaId: string): Pro
     }
     await db.update(notasFiscaisSaidaCartas).set({
       situacao: 'recusada', status: naGateway ? naGateway.status : 'Descartada',
-      motivoStatus: recusa || 'Descartada: o envio não chegou à Nota Gateway',
+      // Recusa sem motivo grava null: o aviso de falar com o suporte é texto do MOVA, a tela é que mostra.
+      motivoStatus: naGateway ? naGateway.motivoStatus?.trim() || null : 'Descartada: o envio não chegou à Nota Gateway',
       atualizadoEm: sql`now()` as unknown as Date,
     }).where(aindaPendente(cartaId))
     return { ok: true, cartas: await cartasDaNota(notaId) }

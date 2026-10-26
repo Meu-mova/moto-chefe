@@ -12,6 +12,7 @@ import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import { aplicarVendaPeca, type DadosVendaPeca } from '@/lib/venda-peca'
@@ -23,14 +24,22 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
-import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
+import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
 import { travaDoValorVenda } from '@/lib/valor-venda'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
+import { motoDoUsuario } from '@/lib/moto-do-usuario'
+import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
+import { vendedorDaConta } from '@/lib/vendedor-da-conta'
+import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
+import { vendaDoUsuario } from '@/lib/venda-do-usuario'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -59,55 +68,10 @@ async function garantirOrigemValida(
     buscarOrigemParaValidar(origemId),
   ])
   const resultado = validarOrigemVenda(origem, origemDetalhe, grupoId)
-  if (!resultado.ok) throw new Error(resultado.erro)
+  if (!resultado.ok) throw new RecusaUsuario(resultado.erro)
   return {
     origemId: origem!.id,
     origemDetalhe: normalizarDetalhe(origemDetalhe, origem!.pedeDetalhe),
-  }
-}
-
-/**
- * Confere o CPF/CNPJ do comprador. A tela também barra, mas o navegador não é
- * fonte de verdade. Documento inválido bloqueia, exceção ao "avise, não
- * bloqueie" (ADR-0015): a SEFAZ recusaria a nota. Devolve o documento
- * formatado, como a máscara da tela grava, e o representante só quando é
- * pessoa jurídica.
- *
- * `documentoGravado`: na edição, a venda antiga pode ter um documento que não
- * passa na conferência de hoje (ou nenhum). Se ele não mudou, segue como está;
- * corrigir o valor da venda não pode travar por causa do CPF.
- */
-function conferirComprador(
-  clienteCpf: string,
-  representante?: { nome?: string | null; cpf?: string | null },
-  documentoGravado?: string | null,
-): { clienteCpf: string; tipoPessoa: TipoPessoa; representanteNome: string | null; representanteCpf: string | null } {
-  const digitos = soDigitosDoc(clienteCpf)
-  let tipoPessoa: TipoPessoa
-  let documento: string
-  if (documentoGravado != null && digitos === soDigitosDoc(documentoGravado)) {
-    tipoPessoa = tipoPessoaDoDocumento(digitos)
-    documento = clienteCpf
-  } else {
-    const doc = lerDocumentoCliente(clienteCpf)
-    if (!doc.ok) throw new Error(doc.erro)
-    tipoPessoa = doc.tipoPessoa
-    documento = formatarCpfCnpj(doc.documento)
-  }
-
-  if (tipoPessoa === 'fisica') {
-    return { clienteCpf: documento, tipoPessoa, representanteNome: null, representanteCpf: null }
-  }
-
-  // O CPF do representante não vai para a nota, então não barra (ADR-0011):
-  // grava os dígitos recebidos, com máscara só quando formam um CPF.
-  const cpfRepresentante = soDigitosDoc(representante?.cpf)
-  return {
-    clienteCpf: documento,
-    tipoPessoa,
-    representanteNome: representante?.nome?.trim() || null,
-    representanteCpf: !cpfRepresentante ? null
-      : cpfRepresentante.length === 11 ? formatarCpfCnpj(cpfRepresentante) : cpfRepresentante,
   }
 }
 
@@ -168,17 +132,17 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
   }
 }
 
-export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
+export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedidoVenda>) {
+  return acao(() => criarPedidoVenda(...a))
+}
+
+async function criarPedidoVenda(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
   if (!podeCriarPedido(usuario.papel)) {
-    throw new Error('Sem permissão para criar pedido de venda')
+    throw new RecusaUsuario('Sem permissão para criar pedido de venda')
   }
 
-  const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
-  if (!(await podeVenderMotoDaLoja(usuario, moto.lojaId))) {
-    throw new Error('Sem permissão para criar pedido desta loja')
-  }
+  if (!(await motoDoUsuario(usuario, motoId))) throw new RecusaUsuario('Moto não encontrada')
 
   await db.transaction(tx => criarPedidoTx(tx, {
     motoId,
@@ -190,14 +154,14 @@ export async function criarPedidoVendaAction(motoId: string, observacao?: string
   revalidatePath('/estoque')
 }
 
-export async function cancelarPedidoAction(pedidoId: string, observacao?: string) {
+export async function cancelarPedidoAction(...a: Parameters<typeof cancelarPedido>) {
+  return acao(() => cancelarPedido(...a))
+}
+
+async function cancelarPedido(pedidoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
 
-  const [pedido] = await db.select({ lojaId: pedidosVenda.lojaId }).from(pedidosVenda).where(eq(pedidosVenda.id, pedidoId)).limit(1)
-  if (!pedido) throw new Error('Pedido não encontrado')
-  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
-    throw new Error('Sem permissão para cancelar pedido deste grupo')
-  }
+  if (!(await pedidoDoUsuario(usuario, pedidoId))) throw new RecusaUsuario('Pedido não encontrado')
 
   await db.transaction(tx => cancelarPedidoTx(tx, {
     pedidoId,
@@ -208,7 +172,11 @@ export async function cancelarPedidoAction(pedidoId: string, observacao?: string
   revalidatePath('/estoque')
 }
 
-export async function efetivarVendaAction(
+export async function efetivarVendaAction(...a: Parameters<typeof efetivarVenda>) {
+  return acao(() => efetivarVenda(...a))
+}
+
+async function efetivarVenda(
   pedidoId: string,
   clienteNome: string,
   clienteCpf: string,
@@ -220,26 +188,19 @@ export async function efetivarVendaAction(
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para efetivar venda')
+    throw new RecusaUsuario('Sem permissão para efetivar venda')
   }
 
   // A loja sai do pedido, não do usuário: é a loja da moto que define de qual
   // grupo a origem tem de ser — e em qual grupo a aprovação é avaliada.
-  const [pedido] = await db
-    .select({ lojaId: pedidosVenda.lojaId })
-    .from(pedidosVenda)
-    .where(eq(pedidosVenda.id, pedidoId))
-    .limit(1)
-  if (!pedido) throw new Error('Pedido não encontrado')
-  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
-    throw new Error('Sem permissão para efetivar venda deste grupo')
-  }
+  const pedido = await pedidoDoUsuario(usuario, pedidoId)
+  if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
 
   const valorNum = parseFloat(valor)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
-    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
+    throw new RecusaUsuario('Venda com financiamento ou transferência bancária precisa de aprovação. Use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
   }
 
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
@@ -472,37 +433,41 @@ async function criarVendaTx(
   return { vendaId: venda.id }
 }
 
-export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
+export async function registrarVendaCompletaAction(...a: Parameters<typeof registrarVendaCompleta>) {
+  return acao(() => registrarVendaCompleta(...a))
+}
+
+async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar venda')
+    throw new RecusaUsuario('Sem permissão para registrar venda')
   }
   data = comCompradorConferido(data)
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   if (moto.status === 'caixa') {
-    throw new Error('Moto ainda não foi montada — não pode ser vendida')
+    throw new RecusaUsuario('Moto ainda não foi montada. Não pode ser vendida.')
   }
   if (moto.status === 'vendida') {
-    throw new Error('Moto já foi vendida')
+    throw new RecusaUsuario('Moto já foi vendida')
   }
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de vender')
+    throw new RecusaUsuario('Moto tem uma venda aguardando aprovação. Aprove ou recuse antes de vender.')
   }
 
   const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
-    throw new Error('Somatório das formas de pagamento difere do valor da venda')
+    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
   }
 
   // Transferência bancária sempre precisa da aprovação do responsável,
   // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
   if (temPagamentoSensivel(data.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId))) {
-    throw new Error('Venda com transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
+    throw new RecusaUsuario('Venda com transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
   }
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
@@ -513,14 +478,17 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido < prec.valorMinimoPix - 0.01) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-      throw new Error(
-        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)} — mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
+      throw new RecusaUsuario(
+        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)}, mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
       )
     }
   }
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
@@ -562,25 +530,23 @@ async function avisarVendaNoWhatsapp(params: {
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
 
-export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string): Promise<{ vendaId: string }> {
+export async function confirmarNFSaidaAction(...a: Parameters<typeof confirmarNFSaida>) {
+  return acao(() => confirmarNFSaida(...a))
+}
+
+async function confirmarNFSaida(motoId: string, notaFiscal: string): Promise<{ vendaId: string }> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para confirmar NF de saída')
+    throw new RecusaUsuario('Sem permissão para confirmar NF de saída')
   }
 
-  const [venda] = await db
-    .select({ id: vendas.id, lojaId: vendas.lojaId })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-
-  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
+  const venda = await vendaDoUsuario(usuario, and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida))!)
+  if (!venda) throw new RecusaUsuario('Nenhuma venda pendente de NF encontrada para esta moto')
 
   // Trava: sem contrato assinado não registra NF — nem pelo caminho "nota já
   // emitida", senão bastaria emitir direto no Bling e voltar aqui.
   const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
-  if (bloqueio) throw new Error(bloqueio)
+  if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   await db.transaction(async (tx) => {
     await tx.update(vendas)
@@ -843,38 +809,18 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
 
 // ─── Emitir NF-e no Bling ───────────────────────────────────────────────────
 
-export async function emitirNFBlingAction(motoId: string): Promise<void> {
+export async function emitirNFBlingAction(...a: Parameters<typeof emitirNFBling>) {
+  return acao(() => emitirNFBling(...a))
+}
+
+async function emitirNFBling(motoId: string): Promise<void> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para emitir NF')
+    throw new RecusaUsuario('Sem permissão para emitir NF')
   }
 
-  const [venda] = await db
-    .select({
-      id: vendas.id,
-      lojaId: vendas.lojaId,
-      valor: vendas.valor,
-      formaPagamento: vendas.formaPagamento,
-      pagamentos: vendas.pagamentos,
-      vendedorId: vendas.vendedorId,
-      clienteNome: vendas.clienteNome,
-      clienteCpf: vendas.clienteCpf,
-      clienteCelular: vendas.clienteCelular,
-      clienteEmail: vendas.clienteEmail,
-      clienteCep: vendas.clienteCep,
-      clienteLogradouro: vendas.clienteLogradouro,
-      clienteNumero: vendas.clienteNumero,
-      clienteComplemento: vendas.clienteComplemento,
-      clienteBairro: vendas.clienteBairro,
-      clienteCidade: vendas.clienteCidade,
-      clienteEstado: vendas.clienteEstado,
-    })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-
-  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada')
+  const venda = await vendaDoUsuario(usuario, and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida))!)
+  if (!venda) throw new RecusaUsuario('Nenhuma venda pendente de NF encontrada')
 
   const [motoRow] = await db
     .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
@@ -882,7 +828,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .where(eq(motos.id, motoId))
     .limit(1)
 
-  if (!motoRow) throw new Error('Moto não encontrada')
+  if (!motoRow) throw new RecusaUsuario('Moto não encontrada')
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
 
@@ -898,7 +844,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
 
-  if (!modelo) throw new Error('Modelo não encontrado')
+  if (!modelo) throw new RecusaUsuario('Modelo não encontrado')
 
   const [codigoRow] = await db
     .select({ codigo: modeloBlingCodigos.codigo })
@@ -907,7 +853,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .limit(1)
 
   if (!codigoRow?.codigo) {
-    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.`)
+    throw new RecusaUsuario(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.`)
   }
 
   const [vendedorRow] = await db
@@ -968,28 +914,19 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
 export async function cancelarVendaCompletaAction(vendaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_QUE_CANCELAM_VENDA.has(usuario.papel)) {
-    throw new Error('Apenas administradores, sócios e auxiliares administrativos podem cancelar vendas')
+    return { ok: false as const, error: 'Apenas administradores, sócios e auxiliares administrativos podem cancelar vendas' }
   }
 
   if (!motivo.trim()) {
-    throw new Error('Informe o motivo do cancelamento')
+    return { ok: false as const, error: 'Informe o motivo do cancelamento' }
   }
 
-  const [vendaRecord] = await db
-    .select({
-      id: vendas.id,
-      numero: vendas.numero,
-      motoId: vendas.motoId,
-      lojaId: vendas.lojaId,
-      pedidoVendaId: vendas.pedidoVendaId,
-      clienteNome: vendas.clienteNome,
-      valor: vendas.valor,
-    })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-
-  if (!vendaRecord) throw new Error('Venda não encontrada')
+  const vendaRecord = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
+  if (!vendaRecord) return { ok: false as const, error: 'Venda não encontrada' }
+  // O aux_adm cancela só venda da própria loja; sócio e admin, no grupo que veem (decisão do Luis, #404).
+  if (usuario.papel === 'aux_adm' && vendaRecord.lojaId !== usuario.lojaId) {
+    return { ok: false as const, error: 'Sem permissão para cancelar venda de outra loja' }
+  }
 
   // ADR-0014. A recusa volta como valor porque, em produção, o Next não leva ao
   // cliente a mensagem de um erro lançado na action.
@@ -1008,15 +945,12 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
 
   const notaVivaNoMeio = await db.transaction(async (tx) => {
     // Uma emissão na mesma hora gravaria a nota e iria à SEFAZ, e o DELETE da
-    // venda a apagaria junto (CASCADE). Com a linha da venda travada, a emissão
+    // venda a deixaria órfã e viva. Com a linha da venda travada, a emissão
     // espera e falha na chave; a que chegou antes aparece na conferência abaixo.
     const [travada] = await tx.select({ notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
     // Um "Confirmar NF" entre a conferência e aqui também trava o aux_adm (#191).
     if (travada && travaDoPapel(usuario.papel, travada.notaFiscalSaida)) return true
-    const [viva] = await tx.select({ id: notasFiscaisSaida.id }).from(notasFiscaisSaida)
-      .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.ambiente, 'Producao'), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
-      .limit(1)
-    if (viva) return true
+    if (await vendaTemNfViva(tx, vendaId)) return true
 
     // Reverter moto para montada/disponível
     await tx.update(motos)
@@ -1161,22 +1095,26 @@ type DadosReserva = {
   dataReserva?: string
 }
 
-export async function registrarReservaAction(data: DadosReserva) {
+export async function registrarReservaAction(...a: Parameters<typeof registrarReserva>) {
+  return acao(() => registrarReserva(...a))
+}
+
+async function registrarReserva(data: DadosReserva) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar reserva')
+    throw new RecusaUsuario('Sem permissão para registrar reserva')
   }
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
-    throw new Error('Moto já foi vendida')
+    throw new RecusaUsuario('Moto já foi vendida')
   }
   if (moto.disponibilidade === 'reservada') {
-    throw new Error('Moto já está reservada')
+    throw new RecusaUsuario('Moto já está reservada')
   }
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de reservar')
+    throw new RecusaUsuario('Moto tem uma venda aguardando aprovação. Aprove ou recuse antes de reservar.')
   }
 
   // A checagem acima olha a disponibilidade da MOTO, que é editável no "Editar
@@ -1188,22 +1126,22 @@ export async function registrarReservaAction(data: DadosReserva) {
     .where(and(eq(reservas.motoId, data.motoId), eq(reservas.status, 'ativa')))
     .limit(1)
   if (jaReservada) {
-    throw new Error(
-      `Moto já tem reserva ativa${jaReservada.cliente ? ` (${jaReservada.cliente})` : ''} — cancele antes de reservar de novo`,
+    throw new RecusaUsuario(
+      `Moto já tem reserva ativa${jaReservada.cliente ? ` (${jaReservada.cliente})` : ''}. Cancele antes de reservar de novo.`,
     )
   }
 
   const valorNum = parseFloat(data.valorReserva)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor de reserva inválido')
 
   const { clienteCpf } = conferirComprador(data.clienteCpf)
 
   const pagamentos = data.pagamentos ?? []
   if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
-    throw new Error('Toda forma de pagamento precisa de tipo e valor')
+    throw new RecusaUsuario('Toda forma de pagamento precisa de tipo e valor')
   }
   if (!pagamentosFecham(pagamentos, valorNum)) {
-    throw new Error(
+    throw new RecusaUsuario(
       `A soma das formas de pagamento (${somaPagamentos(pagamentos).toFixed(2)}) não bate com a entrada (${valorNum.toFixed(2)})`,
     )
   }
@@ -1217,7 +1155,7 @@ export async function registrarReservaAction(data: DadosReserva) {
     const valorTotalNum = parseFloat(data.valorTotalVenda)
     const check = validarReserva(valorNum, isNaN(valorTotalNum) ? 0 : valorTotalNum, prec.valorMinimoPix)
     if (!check.entradaOk) {
-      throw new Error(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
+      throw new RecusaUsuario(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
     }
     // Total negociado é livre — depende da forma de pagamento (PIX, cartão, etc.)
     // Apenas a entrada mínima de 30% é obrigatória para reservas
@@ -1225,6 +1163,9 @@ export async function registrarReservaAction(data: DadosReserva) {
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   let reservaId = ''
 
@@ -1302,37 +1243,30 @@ const PAPEIS_CANCELAR_RESERVA = ['admin_geral', 'admin_socio', 'aux_adm']
  * Com venda aguardando aprovação o cancelamento é recusado (ver
  * motivoBloqueioCancelarReserva): primeiro se aprova ou recusa a venda.
  */
-export async function cancelarReservaAction(reservaId: string, motivo: string) {
+export async function cancelarReservaAction(...a: Parameters<typeof cancelarReserva>) {
+  return acao(() => cancelarReserva(...a))
+}
+
+async function cancelarReserva(reservaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_CANCELAR_RESERVA.includes(usuario.papel)) {
-    throw new Error('Sem permissão para cancelar reserva')
+    throw new RecusaUsuario('Sem permissão para cancelar reserva')
   }
 
   const motivoLimpo = motivo.trim()
-  if (motivoLimpo.length < 3) throw new Error('Informe o motivo do cancelamento')
+  if (motivoLimpo.length < 3) throw new RecusaUsuario('Informe o motivo do cancelamento')
 
-  const [reserva] = await db
-    .select({
-      id: reservas.id,
-      motoId: reservas.motoId,
-      lojaId: reservas.lojaId,
-      status: reservas.status,
-      clienteNome: reservas.clienteNome,
-      valorReserva: reservas.valorReserva,
-    })
-    .from(reservas)
-    .where(eq(reservas.id, reservaId))
-    .limit(1)
-  if (!reserva) throw new Error('Reserva não encontrada')
-
-  if (reserva.status === 'cancelada') throw new Error('Reserva já está cancelada')
-  if (reserva.status === 'convertida') {
-    throw new Error('Reserva já virou venda — cancele a venda, não a reserva')
-  }
+  const reserva = await reservaDoUsuario(usuario, reservaId)
+  if (!reserva) throw new RecusaUsuario('Reserva não encontrada')
 
   // Quem tem loja fica nela; quem não tem (admin_geral, sócio sem loja) só no grupo que vê.
   if (usuario.lojaId ? reserva.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, reserva.lojaId))) {
-    throw new Error('Sem permissão para cancelar reserva de outra loja')
+    throw new RecusaUsuario('Sem permissão para cancelar reserva de outra loja')
+  }
+
+  if (reserva.status === 'cancelada') throw new RecusaUsuario('Reserva já está cancelada')
+  if (reserva.status === 'convertida') {
+    throw new RecusaUsuario('Reserva já virou venda. Cancele a venda, não a reserva.')
   }
 
   await db.transaction(async (tx) => {
@@ -1345,9 +1279,9 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       .where(eq(motos.id, reserva.motoId))
       .limit(1)
       .for('update')
-    if (!moto) throw new Error('Moto não encontrada')
+    if (!moto) throw new RecusaUsuario('Moto não encontrada')
     const bloqueio = motivoBloqueioCancelarReserva(moto)
-    if (bloqueio) throw new Error(bloqueio)
+    if (bloqueio) throw new RecusaUsuario(bloqueio)
 
     // O filtro por status no UPDATE evita corrida com quem estiver convertendo
     // a reserva em venda neste instante.
@@ -1360,7 +1294,7 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       })
       .where(and(eq(reservas.id, reservaId), eq(reservas.status, 'ativa')))
       .returning({ id: reservas.id })
-    if (cancelada.length === 0) throw new Error('A reserva mudou de estado — recarregue a página')
+    if (cancelada.length === 0) throw new RecusaUsuario('A reserva mudou de estado. Recarregue a página.')
 
     // Uma moto não deveria ter duas reservas ativas, mas tem na base (o buraco
     // que este botão fecha). Enquanto sobrar outra, a moto continua reservada.
@@ -1403,7 +1337,11 @@ export type PagamentoEditar = {
   autorizacao?: string
 }
 
-export async function editarVendaAction(vendaId: string, dados: {
+export async function editarVendaAction(...a: Parameters<typeof editarVenda>) {
+  return acao(() => editarVenda(...a))
+}
+
+async function editarVenda(vendaId: string, dados: {
   valor:              string
   dataVenda:          string
   notaFiscalSaida?:   string | null
@@ -1432,19 +1370,15 @@ export async function editarVendaAction(vendaId: string, dados: {
   const usuario = await getUsuarioLogado()
 
   const ADMINS_EDIT = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS_EDIT.includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!ADMINS_EDIT.includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
 
   // Busca venda atual para validações de acesso e sincronização
-  const [vendaAtual] = await db
-    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, pedidoVendaId: vendas.pedidoVendaId, valor: vendas.valor })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-  if (!vendaAtual) throw new Error('Venda não encontrada')
+  const vendaAtual = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
+  if (!vendaAtual) throw new RecusaUsuario('Venda não encontrada')
 
   // Quem tem loja só edita venda dela; quem não tem, só no grupo que vê.
   if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
-    throw new Error('Sem permissão para editar vendas de outra loja')
+    throw new RecusaUsuario('Sem permissão para editar vendas de outra loja')
   }
 
   // Origem é corrigível: campo obrigatório que só pudesse ser preenchido uma vez
@@ -1454,30 +1388,25 @@ export async function editarVendaAction(vendaId: string, dados: {
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
 
-  const comprador = conferirComprador(
-    dados.clienteCpf,
-    { nome: dados.representanteNome, cpf: dados.representanteCpf },
-    vendaAtual.clienteCpf,
-  )
-  // Venda que virou pessoa física não guarda representante, mesmo sem os campos no payload.
-  const gravaRepresentante = comprador.tipoPessoa === 'fisica'
-    || dados.representanteNome !== undefined || dados.representanteCpf !== undefined
-  const gravaIcms = comprador.tipoPessoa === 'fisica' || dados.clienteIndicadorIe !== undefined
-  const icms = lerContribuinteIcms(comprador.clienteCpf, dados.clienteIndicadorIe, dados.clienteInscricaoEstadual)
+  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
+
+  const comprador = conferirCompradorDaVenda(dados, vendaAtual.clienteCpf)
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
-  if (!valorNum || valorNum <= 0) throw new Error('Valor da venda inválido')
+  if (!valorNum || valorNum <= 0) throw new RecusaUsuario('Valor da venda inválido')
   const travaValor = travaDoValorVenda(usuario.papel, Number(vendaAtual.valor), valorNum)
-  if (travaValor) throw new Error(travaValor)
+  if (travaValor) throw new RecusaUsuario(travaValor)
 
   for (const p of dados.pagamentos) {
-    if (!p.valor || p.valor <= 0) throw new Error('Valor de pagamento inválido')
+    if (!p.valor || p.valor <= 0) throw new RecusaUsuario('Valor de pagamento inválido')
   }
 
   const somaPayments = dados.pagamentos.reduce((s, p) => s + Number(p.valor), 0)
   if (Math.abs(somaPayments - valorNum) > 0.01) {
-    throw new Error('Soma dos pagamentos não confere com o valor total')
+    throw new RecusaUsuario('Soma dos pagamentos não confere com o valor total')
   }
 
   // ── NF de saída: só permite corrigir uma NF já existente ────────────────────
@@ -1500,44 +1429,30 @@ export async function editarVendaAction(vendaId: string, dados: {
         pagamentos:         dados.pagamentos,
         formaPagamento,
         ...(dados.vendedorId ? { vendedorId: dados.vendedorId } : {}),
-        clienteNome:        dados.clienteNome,
-        clienteCpf:         comprador.clienteCpf,
-        ...(gravaRepresentante ? {
-          representanteNome: comprador.representanteNome,
-          representanteCpf:  comprador.representanteCpf,
-        } : {}),
-        ...(gravaIcms ? {
-          clienteIndicadorIe:       icms.indicadorIe,
-          clienteInscricaoEstadual: icms.inscricaoEstadual,
-        } : {}),
-        clienteCelular:     dados.clienteCelular || null,
-        clienteEmail:       dados.clienteEmail || null,
-        clienteCep:         dados.clienteCep || null,
-        clienteLogradouro:  dados.clienteLogradouro || null,
-        clienteNumero:      dados.clienteNumero || null,
-        clienteComplemento: dados.clienteComplemento || null,
-        clienteBairro:      dados.clienteBairro || null,
-        clienteCidade:      dados.clienteCidade || null,
-        clienteEstado:      dados.clienteEstado || null,
         ...(origemCorrigida ? {
           origemId:      origemCorrigida.origemId,
           origemDetalhe: origemCorrigida.origemDetalhe,
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, {
+      ...comprador,
+      // A edição manda o formulário inteiro: campo vazio apaga, como antes.
+      dados: {
+        ...dados,
+        clienteCelular: dados.clienteCelular ?? null, clienteEmail: dados.clienteEmail ?? null,
+        clienteCep: dados.clienteCep ?? null, clienteLogradouro: dados.clienteLogradouro ?? null,
+        clienteNumero: dados.clienteNumero ?? null, clienteComplemento: dados.clienteComplemento ?? null,
+        clienteBairro: dados.clienteBairro ?? null, clienteCidade: dados.clienteCidade ?? null,
+        clienteEstado: dados.clienteEstado ?? null,
+      },
+    })
 
     // Os cards de pedido leem o vendedor do pedido; sem isso, a correção só aparece na venda.
     if (dados.vendedorId) {
       await tx.update(pedidosVenda)
         .set({ vendedorId: dados.vendedorId })
         .where(eq(pedidosVenda.id, vendaAtual.pedidoVendaId))
-    }
-
-    // A IE é da empresa: a correção vale também para a próxima venda a ela.
-    if (gravaIcms && icms.indicadorIe) {
-      await tx.update(clientes)
-        .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-        .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(vendaAtual.lojaId, tx))))
     }
 
     // Sincroniza lançamentos de dinheiro no caixa: apaga os antigos e recria
@@ -1623,19 +1538,25 @@ export async function buscarClientePorCpfAction(cpf: string) {
   return null
 }
 
-export async function buscarHistoricoMotoAction(motoId: string) {
+export async function buscarHistoricoMotoAction(...a: Parameters<typeof buscarHistoricoMoto>) {
+  return acao(() => buscarHistoricoMoto(...a))
+}
+
+async function buscarHistoricoMoto(motoId: string) {
   const usuario = await getUsuarioLogado()
 
+  // Moto de outra Conta responde como inexistente: lista vazia (#404).
+  if (usuario.papel !== 'admin_geral' && !usuario.contaId) return []
   const [moto] = await db
     .select({ lojaId: motos.lojaId })
     .from(motos)
-    .where(eq(motos.id, motoId))
+    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDaConta(usuario.contaId!))))
     .limit(1)
   if (!moto) return []
 
   const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
   if (ADMINS.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId)) : moto.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
 
   return db
@@ -1656,16 +1577,14 @@ export async function buscarHistoricoMotoAction(motoId: string) {
 
 // ─── Baixar DANFE da NF-e autorizada ─────────────────────────────────────────
 
-export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
+export async function buscarDanfeAction(...a: Parameters<typeof buscarDanfe>) {
+  return acao(() => buscarDanfe(...a))
+}
+
+async function buscarDanfe(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
   const usuario = await getUsuarioLogado()
 
-  const [venda] = await db
-    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-  if (venda && !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Esta moto não tem venda registrada.')
+  const venda = await vendaDoUsuario(usuario, eq(vendas.motoId, motoId))
 
   // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling: a nota viva
   // mais recente que tem DANFE, inclusive a com cancelamento negado.
@@ -1684,7 +1603,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     if (propria?.linkDanfe) return { linkDanfe: propria.linkDanfe, linkPDF: propria.linkDanfe }
   }
 
-  if (!venda) throw new Error('Esta moto não tem venda registrada.')
+  if (!venda) throw new RecusaUsuario('Esta moto não tem venda registrada.')
 
   // Nota do Bling: abre a cópia arquivada no Storage, que continua valendo
   // depois que a conta do Bling for encerrada.
@@ -1727,41 +1646,45 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     if (data?.signedUrl) return { linkDanfe: data.signedUrl, linkPDF: data.signedUrl }
   }
 
-  if (!venda.blingNfeId) throw new Error('Esta NF foi registrada à mão, fora do MOVA — o DANFE não está disponível aqui.')
+  if (!venda.blingNfeId) throw new RecusaUsuario('Esta NF foi registrada à mão, fora do MOVA. O DANFE não está disponível aqui.')
 
   const { buscarLinksDanfe } = await import('@/lib/bling')
   const links = await buscarLinksDanfe(grupoId, venda.blingNfeId)
 
-  if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
+  if (!links.linkDanfe && !links.linkPDF) throw new RecusaUsuario('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
 
   return links
 }
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
 
-export async function solicitarAprovacaoVendaAction(
+export async function solicitarAprovacaoVendaAction(...a: Parameters<typeof solicitarAprovacaoVenda>) {
+  return acao(() => solicitarAprovacaoVenda(...a))
+}
+
+async function solicitarAprovacaoVenda(
   data: DadosVendaCompleta,
   motivo: string,
   tipoAprovacao: 'valor_minimo' | 'pagamento_sensivel' = 'valor_minimo',
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar venda')
+    throw new RecusaUsuario('Sem permissão para registrar venda')
   }
   // Confere já no pedido: documento inválido só quebraria na hora de aprovar.
   data = comCompradorConferido(data)
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
-  if (bloqueio) throw new Error(bloqueio)
+  if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
-    throw new Error('Somatório das formas de pagamento difere do valor da venda')
+    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
   }
 
   // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
@@ -1774,19 +1697,19 @@ export async function solicitarAprovacaoVendaAction(
   let snapshot: { valorMinimo: string; liquido: string } | null = null
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
-      throw new Error('Nenhum pagamento por transferência bancária nesta venda')
+      throw new RecusaUsuario('Nenhum pagamento por transferência bancária nesta venda')
     }
     const tiposUsados = data.pagamentos
       .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
       .map(() => 'Transferência Bancária')
     motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
   } else {
-    if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')
+    if (!motivo.trim()) throw new RecusaUsuario('Informe o motivo do pedido de aprovação')
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-    if (!prec) throw new Error('Sem preço mínimo configurado para este modelo — use o fluxo normal de venda')
+    if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido >= prec.valorMinimoPix - 0.01) {
-      throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
+      throw new RecusaUsuario('Valor está dentro do mínimo. Use o fluxo normal de venda')
     }
     // Congela os dois lados da conta que acabou de reprovar a venda. Recalcular
     // isso depois usaria a precificação de então, que muda — ver a migração 0065.
@@ -1796,6 +1719,9 @@ export async function solicitarAprovacaoVendaAction(
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   await db.transaction(async (tx) => {
     await tx.insert(aprovacoesVenda).values({
@@ -1831,19 +1757,23 @@ export async function solicitarAprovacaoVendaAction(
   revalidatePath(`/estoque/${data.motoId}`)
 }
 
-export async function aprovarVendaAction(aprovacaoId: string) {
+export async function aprovarVendaAction(...a: Parameters<typeof aprovarVenda>) {
+  return acao(() => aprovarVenda(...a))
+}
+
+async function aprovarVenda(aprovacaoId: string) {
   const usuario = await getUsuarioLogado()
 
-  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
-  if (!aprovacao) throw new Error('Solicitação não encontrada')
-  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+  const aprovacao = await aprovacaoDoUsuario(usuario, aprovacaoId)
+  if (!aprovacao) throw new RecusaUsuario('Solicitação não encontrada')
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
     ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
-    throw new Error('Sem permissão para aprovar esta venda')
+    throw new RecusaUsuario('Sem permissão para aprovar esta venda')
   }
+  if (aprovacao.status !== 'pendente') throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
   // OS: a linha já existe (aberta antes do pagamento) — só aplica o pagamento retido.
   if (aprovacao.origem === 'os') {
@@ -1853,7 +1783,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
     })
     await aplicarPagamentoOS(aprovacao.osId, aprovacao.dadosVenda as unknown as DadosPagamentoOS)
     revalidatePath('/vendas')
@@ -1869,7 +1799,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
       await aplicarEdicaoAprovadaTx(tx, aprovacao.dadosVenda as unknown as EdicaoPendente, aprovacao.vendedorId)
     })
@@ -1885,7 +1815,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
       await aplicarVendaPeca(tx, aprovacao.vendedorId, aprovacao.dadosVenda as unknown as DadosVendaPeca)
     })
@@ -1897,7 +1827,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   // Moto (fluxo original): a venda também não existe ainda.
   if (!aprovacao.motoId) throw new Error('Aprovação de moto sem moto_id')
   const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
 
   const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
@@ -1914,7 +1844,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
       .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
   })
@@ -1934,19 +1864,23 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   })
 }
 
-export async function recusarVendaAction(aprovacaoId: string, observacao?: string) {
+export async function recusarVendaAction(...a: Parameters<typeof recusarVenda>) {
+  return acao(() => recusarVenda(...a))
+}
+
+async function recusarVenda(aprovacaoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
 
-  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
-  if (!aprovacao) throw new Error('Solicitação não encontrada')
-  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+  const aprovacao = await aprovacaoDoUsuario(usuario, aprovacaoId)
+  if (!aprovacao) throw new RecusaUsuario('Solicitação não encontrada')
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
     ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
-    throw new Error('Sem permissão para recusar esta venda')
+    throw new RecusaUsuario('Sem permissão para recusar esta venda')
   }
+  if (aprovacao.status !== 'pendente') throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
   // OS/Peça: nada foi criado/reservado ainda (a OS continua como estava, sem pagamento
   // aplicado; a venda de peça nunca chegou a existir) — só marca a solicitação como recusada.
@@ -1955,7 +1889,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
       .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     revalidatePath('/vendas')
     if (aprovacao.origem === 'os')   revalidatePath(`/ordens-servico/${aprovacao.osId}`)
@@ -1970,7 +1904,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
       .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     await tx.update(motos)
       .set({ disponibilidade: aprovacao.disponibilidadeAnterior })

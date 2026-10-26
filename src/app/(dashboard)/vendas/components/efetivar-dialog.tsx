@@ -46,10 +46,11 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
     if (!podeEfetivar) return
     setLoading(true)
     try {
-      await efetivarVendaAction(
+      const r = await efetivarVendaAction(
         pedidoId, clienteNome, clienteCpf, valor, formaPagamento, clienteId ?? undefined,
         origemId, origemDetalhe.trim() || undefined,
       )
+      if (!r.ok) { toast.error(r.erro); return }
       setOpen(false)
     } catch (e: any) {
       toast.error(e.message)

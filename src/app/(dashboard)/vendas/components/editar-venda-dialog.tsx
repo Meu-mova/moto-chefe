@@ -154,7 +154,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
     }
     startTransition(async () => {
       try {
-        await editarVendaAction(v.id, {
+        const r = await editarVendaAction(v.id, {
           valor:              lerValor(valor).toFixed(2),
           dataVenda,
           notaFiscalSaida:    nf.trim() || null,
@@ -184,6 +184,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
           } : {}),
           ...(origemId ? { origemId, origemDetalhe: origemDetalhe.trim() || null } : {}),
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Venda atualizada')
         setOpen(false)
       } catch (e: unknown) {
@@ -200,7 +201,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
         size="icon"
         title="Editar venda"
         onClick={() => setOpen(true)}
-        className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+        className="h-8 w-8 text-warning hover:text-warning hover:bg-warning/10"
       >
         <Pencil size={15} />
       </Button>
@@ -210,13 +211,13 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Venda #{v.numero}</DialogTitle>
-            <p className="text-sm text-slate-500">{v.marca} {v.modelo} — {v.chassi}</p>
+            <p className="text-sm text-muted-foreground">{v.marca} {v.modelo} — {v.chassi}</p>
           </DialogHeader>
 
           <div className="space-y-6 text-sm">
             {/* ── Venda ── */}
             <div className="space-y-3">
-              <p className="font-semibold text-slate-700 text-base">Dados da Venda</p>
+              <p className="font-semibold text-foreground text-base">Dados da Venda</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Valor Total (R$)</Label>
@@ -245,7 +246,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                   {v.notaFiscalSaida ? (
                     <Input value={nf} onChange={e => setNf(e.target.value)} placeholder="Número da NF" />
                   ) : (
-                    <p className="text-xs text-slate-400 pt-1.5">Use o botão de NF para emitir</p>
+                    <p className="text-xs text-muted-foreground pt-1.5">Use o botão de NF para emitir</p>
                   )}
                 </div>
               </div>
@@ -283,18 +284,18 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
             {/* ── Pagamentos ── */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700 text-base">Pagamentos</p>
+                <p className="font-semibold text-foreground text-base">Pagamentos</p>
                 <Button variant="outline" size="sm" onClick={addPgto} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar
                 </Button>
               </div>
 
               {pgtos.map((p, idx) => (
-                <div key={p.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                <div key={p.id} className="border rounded-lg p-3 space-y-2 bg-muted">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Pagamento {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} className="text-red-400 hover:text-red-600">
+                      <button onClick={() => removePgto(p.id)} className="text-destructive hover:opacity-80">
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -368,7 +369,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
             {/* ── Cliente ── */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <p className="font-semibold text-slate-700 text-base">Dados do Cliente</p>
+                <p className="font-semibold text-foreground text-base">Dados do Cliente</p>
                 <TipoPessoaEtiqueta documento={clienteCpf} />
               </div>
               <div className="grid grid-cols-2 gap-3">

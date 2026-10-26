@@ -22,7 +22,8 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
     if (!motoId) return
     setLoading(true)
     try {
-      await criarPedidoVendaAction(motoId, observacao)
+      const r = await criarPedidoVendaAction(motoId, observacao)
+      if (!r.ok) { toast.error(r.erro); return }
       setOpen(false)
       setMotoId('')
       setObservacao('')

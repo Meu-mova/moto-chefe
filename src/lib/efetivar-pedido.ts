@@ -3,6 +3,7 @@ import type { db } from '@/lib/db'
 import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, reservas, vendas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
 import { contaDaLoja } from '@/lib/conta'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -31,9 +32,9 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .from(pedidosVenda)
     .where(eq(pedidosVenda.id, d.pedidoId))
     .for('update')
-  if (!pedido) throw new Error('Pedido não encontrado')
+  if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
   if (pedido.status !== 'pendente') {
-    throw new Error(`Pedido não está pendente (status: ${pedido.status})`)
+    throw new RecusaUsuario('Este pedido não está mais pendente. Recarregue a página.')
   }
 
   const [moto] = await tx
@@ -41,14 +42,14 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .from(motos)
     .where(eq(motos.id, pedido.motoId))
     .for('update')
-  if (!moto) throw new Error('Moto não encontrada')
-  if (moto.status === 'vendida') throw new Error('Moto já foi vendida')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  if (moto.status === 'vendida') throw new RecusaUsuario('Moto já foi vendida')
 
   if (d.clienteId) {
     // Cliente de outra Conta não existe para esta venda (ADR-0018).
     const [cliente] = await tx.select({ id: clientes.id }).from(clientes)
       .where(and(eq(clientes.id, d.clienteId), eq(clientes.contaId, await contaDaLoja(pedido.lojaId, tx)))).limit(1)
-    if (!cliente) throw new Error('Cliente não encontrado')
+    if (!cliente) throw new RecusaUsuario('Cliente não encontrado')
   }
 
   const [reservaAtiva] = await tx

@@ -35,7 +35,7 @@ function LinhaCanal({ canal }: { canal: Canal }) {
   return (
     <TableRow>
       <TableCell className="font-medium whitespace-nowrap">{canal.rotulo}</TableCell>
-      <TableCell className="text-slate-500 text-xs whitespace-nowrap">
+      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
         {canal.funilPrincipal ? `mais em ${canal.funilPrincipal}` : '—'}
       </TableCell>
       <TableCell className="text-right tabular-nums">{canal.leads90.toLocaleString('pt-BR')}</TableCell>
@@ -61,19 +61,19 @@ export function CanaisTable({ canais }: { canais: Canal[] }) {
   const semNome = canais.filter(c => !c.nome && !c.perfil && c.leads90 > 0).length
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         O Kommo não devolve o nome do canal pela API — o sistema deduz o perfil quando consegue
         (Instagram, Facebook e alguns WhatsApp). O que ficou só com número, batize aqui: a coluna
         <strong> onde mais aparece</strong> é a pista de qual loja é aquele número.
         Deixar em branco volta ao nome automático.
       </p>
       {semNome > 0 && (
-        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2">
           {semNome} canal(is) com movimento nos últimos 90 dias ainda sem nome — no relatório aparecem
           como &quot;Canal 57985&quot;.
         </p>
       )}
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -87,7 +87,7 @@ export function CanaisTable({ canais }: { canais: Canal[] }) {
             {canais.map(c => <LinhaCanal key={c.sourceId} canal={c} />)}
             {canais.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                   Nenhum canal catalogado ainda — abra o Marketing e use &quot;Atualizar agora&quot;.
                 </TableCell>
               </TableRow>

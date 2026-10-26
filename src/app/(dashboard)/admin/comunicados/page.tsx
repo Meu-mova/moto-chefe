@@ -13,7 +13,7 @@ export default async function ComunicadosPage() {
       <div className="space-y-6 max-w-3xl">
         <div>
           <h1 className="text-2xl font-bold">Comunicados</h1>
-          <p className="text-slate-500 text-sm">Canal oficial de comunicação interna</p>
+          <p className="text-muted-foreground text-sm">Canal oficial de comunicação interna</p>
         </div>
 
         <Card>

@@ -40,26 +40,26 @@ export function SimuladorComissaoOTE({
   const faltamParaProxima = proximaFaixa ? parseFloat(proximaFaixa.valorMinimoVendas) - valor : null
 
   return (
-    <div className="bg-white rounded-lg border p-4 space-y-4">
+    <div className="bg-card rounded-lg border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-700">Simulador de Ganhos</h3>
-          <p className="text-xs text-slate-400">Arraste para simular o total de vendas no mês e veja sua comissão + premiação OTE</p>
+          <h3 className="text-sm font-semibold text-foreground">Simulador de Ganhos</h3>
+          <p className="text-xs text-muted-foreground">Arraste para simular o total de vendas no mês e veja sua comissão + premiação OTE</p>
           <button
             onClick={() => setTabelaAberta(true)}
-            className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
             <Table2 size={12} />
             Ver tabela completa
           </button>
         </div>
-        <TrendingUp size={18} className="text-emerald-500 shrink-0" />
+        <TrendingUp size={18} className="text-success shrink-0" />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">Valor de vendas simulado</span>
-          <span className="text-lg font-bold text-slate-800">{fmt(valor)}</span>
+          <span className="text-xs text-muted-foreground">Valor de vendas simulado</span>
+          <span className="text-lg font-bold text-foreground">{fmt(valor)}</span>
         </div>
         <Slider
           min={0}
@@ -68,40 +68,40 @@ export function SimuladorComissaoOTE({
           value={valor}
           onValueChange={(v) => setValor(v as number)}
         />
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
           <span>R$ 0</span>
           <span>{fmt(max)}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-slate-50 rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-1.5 text-slate-500">
+        <div className="bg-muted rounded-lg p-3 space-y-1">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <HandCoins size={13} />
             <span className="text-[11px]">Comissão ({comissaoPercentual}%)</span>
           </div>
-          <p className="text-sm font-semibold text-slate-800">{fmt(comissao)}</p>
+          <p className="text-sm font-semibold text-foreground">{fmt(comissao)}</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-1.5 text-slate-500">
+        <div className="bg-muted rounded-lg p-3 space-y-1">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <Trophy size={13} />
             <span className="text-[11px]">Premiação OTE</span>
           </div>
-          <p className="text-sm font-semibold text-slate-800">{fmt(premiacao)}</p>
+          <p className="text-sm font-semibold text-foreground">{fmt(premiacao)}</p>
         </div>
-        <div className="bg-emerald-50 rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-1.5 text-emerald-700">
+        <div className="bg-success/10 rounded-lg p-3 space-y-1">
+          <div className="flex items-center gap-1.5 text-success">
             <Wallet size={13} />
             <span className="text-[11px]">Total estimado</span>
           </div>
-          <p className="text-sm font-semibold text-emerald-700">{fmt(total)}</p>
+          <p className="text-sm font-semibold text-success">{fmt(total)}</p>
         </div>
       </div>
 
       {proximaFaixa && faltamParaProxima != null && (
-        <p className="text-xs text-slate-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          Faltam <span className="font-semibold text-amber-700">{fmt(faltamParaProxima)}</span> em vendas para subir a
-          premiação para <span className="font-semibold text-amber-700">{fmt(parseFloat(proximaFaixa.premiacao))}</span>.
+        <p className="text-xs text-muted-foreground bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+          Faltam <span className="font-semibold text-warning">{fmt(faltamParaProxima)}</span> em vendas para subir a
+          premiação para <span className="font-semibold text-warning">{fmt(parseFloat(proximaFaixa.premiacao))}</span>.
         </p>
       )}
 
@@ -110,27 +110,27 @@ export function SimuladorComissaoOTE({
           <DialogHeader>
             <DialogTitle>Tabela de Premiação OTE</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Premiação mensal do vendedor de acordo com o valor total vendido no mês (motos). Aplica-se a faixa de
             maior valor mínimo que ele atingiu.
           </p>
-          <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="bg-card border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Venda mínima no mês</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Premiação</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Venda mínima no mês</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Premiação</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {ordenadas.map((f, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
+                  <tr key={i} className="hover:bg-muted">
                     <td className="px-4 py-2">{fmt(parseFloat(f.valorMinimoVendas))}</td>
                     <td className="px-4 py-2 font-medium">{fmt(parseFloat(f.premiacao))}</td>
                   </tr>
                 ))}
                 {ordenadas.length === 0 && (
-                  <tr><td colSpan={2} className="text-center text-slate-400 py-6">Nenhuma faixa cadastrada.</td></tr>
+                  <tr><td colSpan={2} className="text-center text-muted-foreground py-6">Nenhuma faixa cadastrada.</td></tr>
                 )}
               </tbody>
             </table>

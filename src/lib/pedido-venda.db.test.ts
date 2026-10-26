@@ -1,15 +1,8 @@
 // Teste de banco: roda contra o Postgres descartável do CI (job `banco` do ci.yml)
 // ou um local montado igual. Os casos que gravam rodam numa transação desfeita no
 // fim; os de rpc só leem. A trava de loopback pega erro de configuração, não um
-// túnel para outro banco em localhost. Para rodar local:
-//   initdb -U postgres -A trust /tmp/mova-pg-teste
-//   pg_ctl -D /tmp/mova-pg-teste -o "-p 55432 -k /tmp" -l /tmp/mova-pg-teste/log start
-//   U=postgresql://postgres@localhost:55432/postgres
-//   psql "$U" -X -q -v ON_ERROR_STOP=1 -f supabase/ci-stubs.sql
-//   psql "$U" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/schema-baseline.sql
-//   CI=true DATABASE_URL=$U node --import tsx scripts/migrate.ts --baseline-ate 110
-//   CI=true DATABASE_URL=$U node --import tsx scripts/migrate.ts --aplicar
-//   TEST_DATABASE_URL=$U npm run test:db
+// túnel para outro banco em localhost. Para rodar local: `npm run test:db:local`
+// (scripts/test-db-local.ts sobe um Postgres próprio numa porta livre).
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -138,7 +131,7 @@ describe('efetivarPedidoTx (#181)', () => {
         origem: { origemId: s.origemId, origemDetalhe: null },
       }
       await efetivarPedidoTx(tx, dados)
-      await assert.rejects(efetivarPedidoTx(tx, dados), /não está pendente/)
+      await assert.rejects(efetivarPedidoTx(tx, dados), /não está mais pendente/)
     })
   })
 })

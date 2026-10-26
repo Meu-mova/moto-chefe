@@ -248,7 +248,7 @@ export function EditarGrupoButton({ grupo }: { grupo: Grupo }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-slate-400 hover:text-slate-700 p-1" title="Editar">
+      <button type="button" onClick={() => setOpen(true)} className="text-muted-foreground hover:text-foreground p-1" title="Editar">
         <Pencil size={14} />
       </button>
       <GrupoDialog key={grupo.id} modo="editar" inicial={grupo} open={open} onOpenChange={setOpen} />

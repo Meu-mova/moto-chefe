@@ -24,6 +24,7 @@ import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
 import { somaCustoMotoExpr, qtdSemCustoExpr } from '@/lib/queries/custo-moto'
+import { TriangleAlert } from 'lucide-react'
 
 /** Valor do filtro de loja que significa "só o balde da empresa". */
 const ESCOPO_GERAL = 'geral'
@@ -446,7 +447,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       <FinanceiroFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} />
 
       {escopoGeral && (
-        <p className="text-sm text-slate-500 bg-slate-50 border rounded-lg px-4 py-2">
+        <p className="text-sm text-muted-foreground bg-muted border rounded-lg px-4 py-2">
           Recorte <strong>Geral (Empresa)</strong>: só as despesas que ficaram sem loja atribuída no
           Importar do Banco. Não há faturamento aqui — venda, OS e peça pertencem sempre a uma
           loja —, então o lucro abaixo é o custo da estrutura, negativo por natureza.
@@ -455,119 +456,119 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="md:col-span-2 xl:col-span-1 xl:row-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Vendas no Período</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Vendas no Período</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-baseline justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Motos</p>
-                <p className="text-xs text-slate-400">{qtdVendas} venda{qtdVendas === 1 ? '' : 's'}</p>
+                <p className="text-xs text-muted-foreground">{qtdVendas} venda{qtdVendas === 1 ? '' : 's'}</p>
               </div>
               <p className="text-lg font-bold">{fmt(receitaVendas)}</p>
             </div>
             <div className="flex items-baseline justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Ordem de Serviço</p>
-                <p className="text-xs text-slate-400">{qtdOS} OS · só mão de obra</p>
+                <p className="text-xs text-muted-foreground">{qtdOS} OS · só mão de obra</p>
               </div>
-              <p className="text-lg font-bold text-teal-600">{fmt(totalServicosOS)}</p>
+              <p className="text-lg font-bold text-info">{fmt(totalServicosOS)}</p>
             </div>
             <div className="flex items-baseline justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Peças</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   {qtdPecasAvulsas} avulsa{qtdPecasAvulsas === 1 ? '' : 's'} + usadas em OS
                 </p>
               </div>
-              <p className="text-lg font-bold text-purple-600">{fmt(faturamentoPecas)}</p>
+              <p className="text-lg font-bold text-info">{fmt(faturamentoPecas)}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Faturamento Bruto</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Faturamento Bruto</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{fmt(faturamentoBruto)}</p>
-            <p className="text-xs text-slate-400">motos + OS + peças</p>
+            <p className="text-xs text-muted-foreground">motos + OS + peças</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Faturamento Líquido</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Faturamento Líquido</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">{fmt(faturamentoLiquido)}</p>
-            <p className="text-xs text-slate-400">bruto − taxas de cartão</p>
+            <p className="text-2xl font-bold text-success">{fmt(faturamentoLiquido)}</p>
+            <p className="text-xs text-muted-foreground">bruto − taxas de cartão</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Taxas Cartão</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Taxas Cartão</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">-{fmt(taxasCartao)}</p>
+            <p className="text-2xl font-bold text-destructive">-{fmt(taxasCartao)}</p>
             {faturamentoBruto > 0 && (
-              <p className="text-xs text-slate-400">{((taxasCartao / faturamentoBruto) * 100).toFixed(1)}% do bruto</p>
+              <p className="text-xs text-muted-foreground">{((taxasCartao / faturamentoBruto) * 100).toFixed(1)}% do bruto</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesas Operac.</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Despesas Operac.</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">{totalDespesas > 0 ? '-' : ''}{fmt(totalDespesas)}</p>
+            <p className="text-2xl font-bold text-destructive">{totalDespesas > 0 ? '-' : ''}{fmt(totalDespesas)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Despesa s/ Faturamento</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Despesa s/ Faturamento</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600">
+            <p className="text-2xl font-bold text-warning">
               {percentualDespesa.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
             </p>
-            <p className="text-xs text-slate-400">despesa operac. ÷ faturamento líquido</p>
+            <p className="text-xs text-muted-foreground">despesa operac. ÷ faturamento líquido</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Custo Total (Motos Vendidas)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Custo Total (Motos Vendidas)</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">{totalCusto > 0 ? '-' : ''}{fmt(totalCusto)}</p>
+            <p className="text-2xl font-bold text-destructive">{totalCusto > 0 ? '-' : ''}{fmt(totalCusto)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Compras (Motos, Capacetes, Peças)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Compras (Motos, Capacetes, Peças)</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-slate-500">{fmt(totalCompras)}</p>
-            <p className="text-xs text-slate-400">fora do lucro — é estoque, não despesa</p>
+            <p className="text-2xl font-bold text-muted-foreground">{fmt(totalCompras)}</p>
+            <p className="text-xs text-muted-foreground">fora do lucro — é estoque, não despesa</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Receita Bruta</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Receita Bruta</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${receitaBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-2xl font-bold ${receitaBruta >= 0 ? 'text-success' : 'text-destructive'}`}>
               {fmt(receitaBruta)}
             </p>
-            <p className="text-xs text-slate-400">líquido − custo das motos</p>
+            <p className="text-xs text-muted-foreground">líquido − custo das motos</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lucro Líquido</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Lucro Líquido</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-2xl font-bold ${lucroLiquido >= 0 ? 'text-success' : 'text-destructive'}`}>
               {fmt(lucroLiquido)}
             </p>
-            <p className="text-xs text-slate-400">receita bruta − despesas</p>
+            <p className="text-xs text-muted-foreground">receita bruta − despesas</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">% de Lucro</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">% de Lucro</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${percentualLucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-2xl font-bold ${percentualLucro >= 0 ? 'text-success' : 'text-destructive'}`}>
               {percentualLucro.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
             </p>
-            <p className="text-xs text-slate-400">lucro líquido ÷ faturamento líquido</p>
+            <p className="text-xs text-muted-foreground">lucro líquido ÷ faturamento líquido</p>
           </CardContent>
         </Card>
       </div>
 
       {qtdSemCusto > 0 && (
-        <p className="text-xs text-amber-600">
-          ⚠ {qtdSemCusto} venda{qtdSemCusto > 1 ? 's' : ''} sem custo de moto registrado (conta{qtdSemCusto > 1 ? 'm' : ''} como R$ 0,00 no cálculo).
+        <p className="text-xs text-warning">
+          <TriangleAlert size={12} className="inline -mt-0.5 mr-1" aria-hidden />{qtdSemCusto} venda{qtdSemCusto > 1 ? 's' : ''} sem custo de moto registrado (conta{qtdSemCusto > 1 ? 'm' : ''} como R$ 0,00 no cálculo).
         </p>
       )}
 

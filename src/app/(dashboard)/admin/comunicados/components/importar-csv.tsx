@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Upload, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Upload, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react'
 import { importarComunicadosAction } from '../actions'
 
 type Linha = { titulo: string; conteudo: string; ativo: boolean; dataPostagem: string | null }
@@ -76,10 +76,10 @@ export function ImportarCsv() {
 
   return (
     <div className="space-y-4">
-      <div className="text-xs text-slate-500 space-y-1">
+      <div className="text-xs text-muted-foreground space-y-1">
         <p>Formato esperado: arquivo <strong>.csv</strong> com separador <strong>ponto e vírgula (;)</strong></p>
-        <p>Colunas: <code className="bg-slate-100 px-1 rounded">titulo</code> <code className="bg-slate-100 px-1 rounded">conteudo</code> <code className="bg-slate-100 px-1 rounded">data_postagem</code> (opcional) <code className="bg-slate-100 px-1 rounded">ativo</code> (opcional, padrão: true)</p>
-        <p>Data no formato ISO: <code className="bg-slate-100 px-1 rounded">2026-07-15T09:00:00</code></p>
+        <p>Colunas: <code className="bg-muted px-1 rounded">titulo</code> <code className="bg-muted px-1 rounded">conteudo</code> <code className="bg-muted px-1 rounded">data_postagem</code> (opcional) <code className="bg-muted px-1 rounded">ativo</code> (opcional, padrão: true)</p>
+        <p>Data no formato ISO: <code className="bg-muted px-1 rounded">2026-07-15T09:00:00</code></p>
       </div>
 
       <div className="flex items-center gap-2">
@@ -90,14 +90,14 @@ export function ImportarCsv() {
       </div>
 
       {erro && (
-        <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-3">
           <AlertCircle size={14} className="mt-0.5 shrink-0" />
           {erro}
         </div>
       )}
 
       {sucesso && (
-        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+        <div className="flex items-center gap-2 text-sm text-success bg-success/10 border border-success/30 rounded-lg p-3">
           <CheckCircle2 size={14} />
           Comunicados importados com sucesso!
         </div>
@@ -110,10 +110,10 @@ export function ImportarCsv() {
             {preview.map((l, i) => (
               <div key={i} className="px-3 py-2 space-y-0.5">
                 <div className="font-medium">{l.titulo}</div>
-                <div className="text-slate-500 line-clamp-1">{l.conteudo}</div>
-                <div className="flex gap-3 text-slate-400">
-                  {l.dataPostagem && <span>📅 {new Date(l.dataPostagem).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
-                  <span>{l.ativo ? '✓ ativo' : '✗ inativo'}</span>
+                <div className="text-muted-foreground line-clamp-1">{l.conteudo}</div>
+                <div className="flex gap-3 text-muted-foreground">
+                  {l.dataPostagem && <span><CalendarDays size={12} className="inline -mt-0.5 mr-1" aria-hidden />{new Date(l.dataPostagem).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                  <span>{l.ativo ? 'ativo' : 'inativo'}</span>
                 </div>
               </div>
             ))}

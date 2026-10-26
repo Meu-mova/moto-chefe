@@ -16,7 +16,7 @@ export function AgendaLojaSelect({ lojas, lojaAtual }: Props) {
 
   return (
     <select value={lojaAtual} onChange={e => onChange(e.target.value)}
-      className="border border-slate-200 rounded-md px-3 py-1.5 text-sm bg-white">
+      className="border border-border rounded-md px-3 py-1.5 text-sm bg-card">
       <option value="">Todas as lojas</option>
       {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
     </select>

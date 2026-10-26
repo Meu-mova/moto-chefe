@@ -72,7 +72,7 @@ export function RadarFiltros({
           onChange={e => atualizarData('de', e.target.value)}
           className="h-9 w-36"
         />
-        <span className="text-xs text-slate-400">até</span>
+        <span className="text-xs text-muted-foreground">até</span>
         <Input
           type="date"
           value={ateInicial}
@@ -107,7 +107,7 @@ export function RadarFiltros({
       </Button>
 
       {temFiltro && (
-        <Button variant="ghost" size="sm" onClick={limpar} className="text-slate-500">
+        <Button variant="ghost" size="sm" onClick={limpar} className="text-muted-foreground">
           Limpar filtros
         </Button>
       )}

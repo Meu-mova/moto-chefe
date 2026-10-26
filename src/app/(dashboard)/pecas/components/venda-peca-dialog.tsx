@@ -1,5 +1,6 @@
 'use client'
 
+import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -141,8 +142,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
   // Espelha validarDocumento do servidor só pra desabilitar o botão — a trava de
   // verdade está em registrarVendaPecaAction.
-  const digitosDoc = documento.replace(/D/g, '')
-  const clientePJOk = tipoPessoa !== 'juridica' || (digitosDoc.length === 14 && clienteNome.trim().length > 0)
+  const digitosDoc = soDigitosDoc(documento)
+  const clientePJOk = tipoPessoa !== 'juridica' || (cnpjValido(digitosDoc) && clienteNome.trim().length > 0)
   const podeSalvar = edicao
     ? !carregando && itensValidos.length > 0 && pgtosValidos.length > 0
     : !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
@@ -166,7 +167,9 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     setCarregando(true)
     startTransition(async () => {
       try {
-        const v = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        const r = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        if (!r.ok) { toast.error(r.erro); setOpen(false); return }
+        const v = r.dados
         setClienteNome(v.clienteNome ?? '')
         setPecasNovas(prev => [...prev, ...v.pecas.filter(p => !pecas.some(x => x.id === p.id))])
         // O preço gravado vai na linha: é ele que vale, não o do catálogo de hoje.
@@ -190,7 +193,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
     startTransition(async () => {
       try {
         const r = await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
-        toast.success(r.aguardandoAprovacao
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(r.dados.aguardandoAprovacao
           ? `Edição da venda #${edicao.numero} enviada para aprovação (financiamento)`
           : `Venda #${edicao.numero} atualizada`)
         setOpen(false)
@@ -216,7 +220,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           itens: itensParaEnviar(),
           pagamentos: pgtosParaEnviar(),
         })
-        toast.success(resultado.aguardandoAprovacao
+        if (!resultado.ok) { toast.error(resultado.erro); return }
+        toast.success(resultado.dados.aguardandoAprovacao
           ? 'Venda com financiamento enviada para aprovação'
           : 'Venda registrada!')
         setOpen(false)
@@ -248,7 +253,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
             {edicao && (
               <div className="space-y-2">
                 <p className="text-muted-foreground">
-                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. Loja e cliente não mudam na edição.`}
+                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. A loja não muda; o cliente se corrige pelo botão "Cliente".`}
                 </p>
                 {avisos.map(a => (
                   <p key={a} className="border-l-2 border-warning pl-3 text-foreground">{a}</p>
@@ -302,7 +307,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   className="font-mono"
                 />
                 {tipoPessoa === 'juridica' && !clientePJOk && (
-                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ válido.</p>
                 )}
               </div>
             </div>

@@ -80,86 +80,86 @@ export function AjustesBaseTable({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Venda que aconteceu de verdade mas não foi lançada no sistema. Entra só no cálculo da folha — não aparece
         em Financeiro, Despesas nem no estoque. O valor sempre soma à base da loja; se você escolher um funcionário,
         soma também à base individual dele. Valor negativo corrige um lançamento a maior.
       </p>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-card border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Loja</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Tipo</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-slate-600">Valor</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Motivo</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Loja</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Tipo</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Motivo</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y">
             {ajustes.map(a => (
-              <tr key={a.id} className="hover:bg-slate-50">
+              <tr key={a.id} className="hover:bg-muted">
                 <td className="px-4 py-2">{a.lojaNome}</td>
                 <td className="px-4 py-2">{TIPO_LABEL[a.tipo] ?? a.tipo}</td>
-                <td className="px-4 py-2">{a.usuarioNome ?? <span className="text-slate-400">só a loja</span>}</td>
+                <td className="px-4 py-2">{a.usuarioNome ?? <span className="text-muted-foreground">só a loja</span>}</td>
                 <td className="px-4 py-2 text-right font-medium">{fmt(a.valor)}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">{a.observacao}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{a.observacao}</td>
                 <td className="px-4 py-2 text-right">
-                  <button onClick={() => excluir(a.id)} disabled={pending} className="text-slate-400 hover:text-red-500">
+                  <button onClick={() => excluir(a.id)} disabled={pending} className="text-muted-foreground hover:text-destructive">
                     <Trash2 size={14} />
                   </button>
                 </td>
               </tr>
             ))}
             {ajustes.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-slate-400 py-6">Nenhum ajuste neste mês.</td></tr>
+              <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum ajuste neste mês.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 bg-white border rounded-lg p-3">
+      <div className="flex flex-wrap items-end gap-2 bg-card border rounded-lg p-3">
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Loja</label>
+          <label className="text-xs text-muted-foreground">Loja</label>
           <select
             value={lojaId}
             onChange={e => { setLojaId(e.target.value); setUsuarioId('') }}
-            className="h-8 text-xs w-40 border border-slate-200 rounded-md px-2 bg-white block"
+            className="h-8 text-xs w-40 border border-border rounded-md px-2 bg-card block"
           >
             <option value="">Selecione…</option>
             {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Tipo</label>
+          <label className="text-xs text-muted-foreground">Tipo</label>
           <select
             value={tipo}
             onChange={e => setTipo(e.target.value)}
-            className="h-8 text-xs w-44 border border-slate-200 rounded-md px-2 bg-white block"
+            className="h-8 text-xs w-44 border border-border rounded-md px-2 bg-card block"
           >
             {TIPOS_AJUSTE.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Funcionário (opcional)</label>
+          <label className="text-xs text-muted-foreground">Funcionário (opcional)</label>
           <select
             value={usuarioId}
             onChange={e => setUsuarioId(e.target.value)}
             disabled={!lojaId}
-            className="h-8 text-xs w-44 border border-slate-200 rounded-md px-2 bg-white block disabled:bg-slate-50"
+            className="h-8 text-xs w-44 border border-border rounded-md px-2 bg-card block disabled:bg-muted"
           >
             <option value="">Só a loja</option>
             {funcionariosDaLoja.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500">Valor (R$)</label>
+          <label className="text-xs text-muted-foreground">Valor (R$)</label>
           <Input value={valor} onChange={e => setValor(e.target.value)} className="h-8 text-xs w-32" placeholder="0,00" />
         </div>
         <div className="space-y-1 flex-1 min-w-48">
-          <label className="text-xs text-slate-500">Motivo</label>
+          <label className="text-xs text-muted-foreground">Motivo</label>
           <Input
             value={observacao}
             onChange={e => setObservacao(e.target.value)}

@@ -8,3 +8,10 @@ const PAPEIS_NF_SAIDA = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 export function podeOperarNfSaida(papel: string): boolean {
   return (PAPEIS_NF_SAIDA as readonly string[]).includes(papel)
 }
+
+/** Grava a configuração fiscal do grupo (Admin → Notas fiscais): só sócios. */
+const PAPEIS_CONFIG_FISCAL = ['admin_geral', 'admin_socio'] as const
+
+export function podeConfigurarFiscal(papel: string): boolean {
+  return (PAPEIS_CONFIG_FISCAL as readonly string[]).includes(papel)
+}

@@ -113,11 +113,11 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
   return (
     <div className="space-y-6">
       {/* Contagem atual */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-        <FileSpreadsheet size={20} className="text-slate-500" />
+      <div className="bg-muted border border-border rounded-xl p-4 flex items-center gap-3">
+        <FileSpreadsheet size={20} className="text-muted-foreground" />
         <div>
-          <p className="text-sm font-medium text-slate-700">Veículos no banco histórico</p>
-          <p className="text-2xl font-bold text-slate-800">{totalAtual.toLocaleString('pt-BR')}</p>
+          <p className="text-sm font-medium text-foreground">Veículos no banco histórico</p>
+          <p className="text-2xl font-bold text-foreground">{totalAtual.toLocaleString('pt-BR')}</p>
         </div>
       </div>
 
@@ -126,22 +126,22 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
         <div>
           <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} className="hidden" />
           <button onClick={() => inputRef.current?.click()} disabled={pending}
-            className="w-full border-2 border-dashed border-slate-300 rounded-xl p-10 flex flex-col items-center gap-3 hover:border-slate-400 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50">
+            className="w-full border-2 border-dashed border-input rounded-xl p-10 flex flex-col items-center gap-3 hover:border-ring hover:bg-muted transition-colors cursor-pointer disabled:opacity-50">
             {pending
-              ? <Loader2 size={32} className="text-slate-400 animate-spin" />
-              : <Upload size={32} className="text-slate-400" />}
+              ? <Loader2 size={32} className="text-muted-foreground animate-spin" />
+              : <Upload size={32} className="text-muted-foreground" />}
             <div className="text-center">
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 {pending ? 'Verificando chassis no sistema…' : 'Clique para selecionar o arquivo Excel'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">Aceita .xlsx, .xls — primeira planilha será usada</p>
+              <p className="text-xs text-muted-foreground mt-1">Aceita .xlsx, .xls — primeira planilha será usada</p>
             </div>
           </button>
         </div>
       )}
 
       {erro && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
           <AlertCircle size={16} />
           {erro}
           <button onClick={() => setErro(null)} className="ml-auto"><X size={14} /></button>
@@ -153,24 +153,24 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-800">{arquivo}</p>
-              <p className="text-xs text-slate-500 space-x-2">
+              <p className="text-sm font-semibold text-foreground">{arquivo}</p>
+              <p className="text-xs text-muted-foreground space-x-2">
                 <span>{preview.length} linhas lidas</span>
                 <span>·</span>
-                <span className="text-green-700">{validos} para importar</span>
-                {ignorados > 0 && <><span>·</span><span className="text-amber-600">{ignorados} já no sistema (ignorados)</span></>}
-                {comErro   > 0 && <><span>·</span><span className="text-red-600">{comErro} com erro</span></>}
+                <span className="text-success">{validos} para importar</span>
+                {ignorados > 0 && <><span>·</span><span className="text-warning">{ignorados} já no sistema (ignorados)</span></>}
+                {comErro   > 0 && <><span>·</span><span className="text-destructive">{comErro} com erro</span></>}
               </p>
             </div>
             <button onClick={() => { setPreview(null); setArquivo(''); if (inputRef.current) inputRef.current.value = '' }}
-              className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1">
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <X size={13} /> Cancelar
             </button>
           </div>
 
           {/* Banner de ignorados */}
           {ignorados > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+            <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning">
               <Ban size={14} className="shrink-0" />
               <span>
                 <strong>{ignorados} chassis</strong> já existem no cadastro de estoque do sistema e serão ignorados na importação.
@@ -179,47 +179,47 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
           )}
 
           {/* Tabela preview (primeiras 10) */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted">
                 <tr>
                   {['Linha','Chassi','Motor','Marca','Modelo','Cor','Ano','NF Entrada','Status'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left font-medium text-slate-500 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {preview.slice(0, 15).map(r => (
                   <tr key={r._linha} className={
-                    r._ignorado ? 'bg-amber-50 opacity-60' :
-                    r._erro     ? 'bg-red-50' :
-                    'hover:bg-slate-50'
+                    r._ignorado ? 'bg-warning/10 opacity-60' :
+                    r._erro     ? 'bg-destructive/10' :
+                    'hover:bg-muted'
                   }>
-                    <td className="px-3 py-1.5 text-slate-400">{r._linha}</td>
-                    <td className="px-3 py-1.5 font-mono font-medium">{r.chassi || <span className="text-red-400">—</span>}</td>
-                    <td className="px-3 py-1.5 font-mono text-slate-500">{r.numeroMotor || '—'}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{r._linha}</td>
+                    <td className="px-3 py-1.5 font-mono font-medium">{r.chassi || <span className="text-destructive">—</span>}</td>
+                    <td className="px-3 py-1.5 font-mono text-muted-foreground">{r.numeroMotor || '—'}</td>
                     <td className="px-3 py-1.5">{r.marca}</td>
                     <td className="px-3 py-1.5">{r.modelo}</td>
-                    <td className="px-3 py-1.5 text-slate-500">{r.cor || '—'}</td>
-                    <td className="px-3 py-1.5 text-slate-500">{r.ano || '—'}</td>
-                    <td className="px-3 py-1.5 font-mono text-slate-500 text-[11px]">{r.nfEntrada || '—'}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{r.cor || '—'}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{r.ano || '—'}</td>
+                    <td className="px-3 py-1.5 font-mono text-muted-foreground text-[11px]">{r.nfEntrada || '—'}</td>
                     <td className="px-3 py-1.5">
-                      {r._ignorado && <span className="text-amber-600 text-[10px] font-medium">Já no sistema</span>}
-                      {r._erro     && <span className="text-red-500 text-[10px]">{r._erro}</span>}
-                      {!r._ignorado && !r._erro && <span className="text-green-600 text-[10px]">OK</span>}
+                      {r._ignorado && <span className="text-warning text-[10px] font-medium">Já no sistema</span>}
+                      {r._erro     && <span className="text-destructive text-[10px]">{r._erro}</span>}
+                      {!r._ignorado && !r._erro && <span className="text-success text-[10px]">OK</span>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {preview.length > 15 && (
-              <p className="px-3 py-2 text-xs text-slate-400 border-t">
+              <p className="px-3 py-2 text-xs text-muted-foreground border-t">
                 … e mais {(preview.length - 15).toLocaleString('pt-BR')} linhas
               </p>
             )}
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+          <div className="bg-info/10 border border-info/30 rounded-lg p-3 text-xs text-info">
             Cabeçalhos recomendados: <strong>Chassi, Motor, Marca, Modelo, Cor, Ano, NF Entrada</strong>
           </div>
 
@@ -236,13 +236,13 @@ export function ImportarVeiculosClient({ totalAtual }: { totalAtual: number }) {
       {/* Resultado */}
       {resultado && (
         <div className="flex flex-col items-center gap-3 py-8">
-          <CheckCircle2 size={44} className="text-green-500" />
+          <CheckCircle2 size={44} className="text-success" />
           <div className="text-center space-y-1">
-            <p className="text-lg font-bold text-slate-800">
+            <p className="text-lg font-bold text-foreground">
               {resultado.importados.toLocaleString('pt-BR')} veículos importados!
             </p>
             {resultado.ignorados > 0 && (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-warning">
                 {resultado.ignorados.toLocaleString('pt-BR')} ignorados — já existiam no sistema
               </p>
             )}

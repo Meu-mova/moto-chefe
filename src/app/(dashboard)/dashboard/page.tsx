@@ -296,10 +296,10 @@ function KpiSkeleton() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-white border rounded-lg p-4 space-y-2">
-          <div className="h-3 w-24 bg-slate-100 rounded" />
-          <div className="h-7 w-20 bg-slate-200 rounded" />
-          <div className="h-3 w-16 bg-slate-100 rounded" />
+        <div key={i} className="bg-card border rounded-lg p-4 space-y-2">
+          <div className="h-3 w-24 bg-muted rounded" />
+          <div className="h-7 w-20 bg-muted rounded" />
+          <div className="h-3 w-16 bg-muted rounded" />
         </div>
       ))}
     </div>
@@ -310,7 +310,7 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
   return (
     <div className="animate-pulse space-y-4">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="bg-white border rounded-lg h-48" />
+        <div key={i} className="bg-card border rounded-lg h-48" />
       ))}
     </div>
   )
@@ -470,7 +470,7 @@ export default async function DashboardPage({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             {!isAdmin && usuario.lojaId
               ? `Resumo da loja`
               : 'Resumo da operação'}

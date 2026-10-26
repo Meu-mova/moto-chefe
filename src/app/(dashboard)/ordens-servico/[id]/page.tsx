@@ -7,7 +7,8 @@ import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { servicosCatalogo, pecasCatalogo, aprovacoesVenda } from '@/lib/db/schema'
+import { servicosCatalogo, aprovacoesVenda } from '@/lib/db/schema'
+import { listarPecasDaLoja } from '@/lib/pecas-da-conta'
 import { eq, asc, and } from 'drizzle-orm'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -30,12 +31,11 @@ const statusLabel: Record<string, string> = {
 
 export default async function OSDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [os, itens, usuario, servicos, pecas, aprovacaoPendente] = await Promise.all([
+  const [os, itens, usuario, servicos, aprovacaoPendente] = await Promise.all([
     buscarOS(id),
     listarItensOS(id),
     getUsuarioLogado(),
     db.select().from(servicosCatalogo).where(eq(servicosCatalogo.ativo, true)).orderBy(asc(servicosCatalogo.nome)),
-    db.select().from(pecasCatalogo).where(eq(pecasCatalogo.ativo, true)).orderBy(asc(pecasCatalogo.nome)),
     db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, id), eq(aprovacoesVenda.status, 'pendente'))).then(n => n > 0),
   ])
 
@@ -48,6 +48,8 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   if (isAdmin ? !(await podeAbrirRegistroDaLoja(usuario, os.lojaId)) : os.lojaId !== usuario.lojaId) notFound()
 
   const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papeis: ['mecanico'] })
+  // Catálogo da Conta da loja da OS, mesmo para o admin com outro grupo ativo (#195).
+  const pecas = await listarPecasDaLoja(db, os.lojaId)
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)

@@ -16,14 +16,14 @@ type Tom = 'ok' | 'neutro' | 'ruim'
 const tomDoTempo = (s: number | null): Tom => s == null ? 'neutro' : s < 300 ? 'ok' : s < 900 ? 'neutro' : 'ruim'
 
 const TOM_CAIXA: Record<Tom, string> = {
-  ok: 'bg-green-500/15 ring-green-500/40',
-  neutro: 'bg-white/5 ring-white/10',
-  ruim: 'bg-red-500/15 ring-red-500/50',
+  ok: 'bg-success/10 ring-success/30',
+  neutro: 'bg-muted ring-border',
+  ruim: 'bg-destructive/10 ring-destructive/30',
 }
 const TOM_TEXTO: Record<Tom, string> = {
-  ok: 'text-green-400',
-  neutro: 'text-slate-100',
-  ruim: 'text-red-400',
+  ok: 'text-success',
+  neutro: 'text-foreground',
+  ruim: 'text-destructive',
 }
 
 function Card({
@@ -38,12 +38,12 @@ function Card({
 }) {
   return (
     <div className={`rounded-lg p-4 ring-1 ${TOM_CAIXA[tom]}`}>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-300">{icone} {titulo}</div>
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">{icone} {titulo}</div>
       <div className={`text-3xl font-black mt-1 ${TOM_TEXTO[tom]}`}>{valor}</div>
-      <div className="text-[11px] text-slate-400 mt-0.5">{rodape}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5">{rodape}</div>
       {barra && (
-        <div className="mt-2 h-1.5 bg-white/10 rounded overflow-hidden">
-          <div className={barra.ok ? 'bg-green-400 h-full' : 'bg-red-400 h-full'} style={{ width: `${barra.pct}%` }} />
+        <div className="mt-2 h-1.5 bg-muted rounded overflow-hidden">
+          <div className={barra.ok ? 'bg-success h-full' : 'bg-destructive h-full'} style={{ width: `${barra.pct}%` }} />
         </div>
       )}
     </div>
@@ -58,12 +58,12 @@ export function PainelAtendimento({ cards: c, mes }: { cards: CardsAtendimento; 
   const faltam = Math.max(0, Math.ceil(c.volume * c.meta) - c.ganhos)
 
   return (
-    <div className="rounded-xl bg-slate-900 text-white p-5 shadow-lg">
+    <div className="rounded-xl border bg-card text-card-foreground p-5 shadow-lg">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h2 className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-          🎯 {doVendedor ? 'Seu placar de atendimento' : 'Atendimento do grupo'} · {mes}
+        <h2 className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
+          {doVendedor ? 'Seu placar de atendimento' : 'Atendimento do grupo'} · {mes}
         </h2>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-muted-foreground">
           {doVendedor ? c.nome : `${c.colaboradores} colaborador(es) no Kommo`}
         </span>
       </div>
@@ -152,14 +152,14 @@ export function PainelAtendimento({ cards: c, mes }: { cards: CardsAtendimento; 
         )}
       </div>
 
-      <div className={`mt-4 text-sm font-semibold ${semLeads ? 'text-slate-300' : bateMeta ? 'text-green-400' : 'text-red-300'}`}>
+      <div className={`mt-4 text-sm font-semibold ${semLeads ? 'text-muted-foreground' : bateMeta ? 'text-success' : 'text-destructive'}`}>
         {semLeads
           ? doVendedor
             ? 'Sem leads atribuídos a você no período ainda.'
             : 'Sem leads no período para as lojas selecionadas.'
           : bateMeta
-            ? `🔥 Meta batida! Conversão ${(c.conversao * 100).toFixed(1)}% acima dos ${Math.round(c.meta * 100)}%. Mantém o ritmo.`
-            : `⚠️ Abaixo da meta de ${Math.round(c.meta * 100)}%. Falta(m) ${faltam} venda(s) ganha(s) pra bater${c.tarefasAtrasadas > 0 ? ` — e ${c.tarefasAtrasadas} tarefa(s) já venceram.` : '.'}`}
+            ? `Meta batida! Conversão ${(c.conversao * 100).toFixed(1)}% acima dos ${Math.round(c.meta * 100)}%. Mantém o ritmo.`
+            : `Abaixo da meta de ${Math.round(c.meta * 100)}%. Falta(m) ${faltam} venda(s) ganha(s) pra bater${c.tarefasAtrasadas > 0 ? `, e ${c.tarefasAtrasadas} tarefa(s) já venceram.` : '.'}`}
       </div>
     </div>
   )

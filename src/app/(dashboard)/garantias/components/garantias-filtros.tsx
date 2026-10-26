@@ -50,7 +50,7 @@ export function GarantiasFiltros({ lojas, modelos, isAdmin, chassiInicial, nfIni
     <div className="flex flex-wrap gap-2 items-center">
       {/* Chassi */}
       <div className="relative">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-7 h-9 w-44 text-sm"
           placeholder="Chassi…"
@@ -61,7 +61,7 @@ export function GarantiasFiltros({ lojas, modelos, isAdmin, chassiInicial, nfIni
 
       {/* Nº Pedido Fábrica */}
       <div className="relative">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-7 h-9 w-52 text-sm"
           placeholder="Nº pedido fábrica…"

@@ -35,7 +35,7 @@ export default async function SimuladorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Simulador de Preços</h1>
-        <p className="text-slate-500 text-sm">Referência de valores e condições de pagamento</p>
+        <p className="text-muted-foreground text-sm">Referência de valores e condições de pagamento</p>
       </div>
       <SimuladorClient
         modelos={modelos.map(m => ({

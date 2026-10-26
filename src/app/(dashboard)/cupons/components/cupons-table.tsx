@@ -12,10 +12,10 @@ const STATUS_LABEL: Record<StatusCupom, string> = {
 }
 
 const STATUS_CLS: Record<StatusCupom, string> = {
-  ativo:     'border-green-300 text-green-700 bg-green-50',
-  usado:     'border-slate-300 text-slate-600 bg-slate-50',
-  cancelado: 'border-red-300 text-red-700 bg-red-50',
-  vencido:   'border-amber-300 text-amber-700 bg-amber-50',
+  ativo:     'border-success/50 text-success bg-success/10',
+  usado:     'border-input text-muted-foreground bg-muted',
+  cancelado: 'border-destructive/50 text-destructive bg-destructive/10',
+  vencido:   'border-warning/50 text-warning bg-warning/10',
 }
 
 function fmtData(d: string | null) {
@@ -52,7 +52,7 @@ export function CuponsTable({ cupons, hoje, podeCancelar }: {
   }
 
   return (
-    <div className="bg-white rounded-lg border">
+    <div className="bg-card rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -75,22 +75,22 @@ export function CuponsTable({ cupons, hoje, podeCancelar }: {
                 <TableCell>
                   <Badge variant="outline" className={STATUS_CLS[status]}>{STATUS_LABEL[status]}</Badge>
                   {status === 'cancelado' && c.motivoCancelamento && (
-                    <p className="text-xs text-slate-400 mt-0.5">{c.motivoCancelamento}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{c.motivoCancelamento}</p>
                   )}
                 </TableCell>
                 <TableCell>
                   <p>{c.clienteNome ?? '—'}</p>
-                  {c.chassi && <p className="text-xs font-mono text-slate-400">{c.chassi}</p>}
-                  {c.observacao && <p className="text-xs text-slate-400">{c.observacao}</p>}
+                  {c.chassi && <p className="text-xs font-mono text-muted-foreground">{c.chassi}</p>}
+                  {c.observacao && <p className="text-xs text-muted-foreground">{c.observacao}</p>}
                 </TableCell>
-                <TableCell className="text-slate-500">{c.lojaNome}</TableCell>
-                <TableCell className={status === 'vencido' ? 'text-amber-700' : ''}>{fmtData(c.validoAte)}</TableCell>
-                <TableCell className="text-sm text-slate-600">
+                <TableCell className="text-muted-foreground">{c.lojaNome}</TableCell>
+                <TableCell className={status === 'vencido' ? 'text-warning' : ''}>{fmtData(c.validoAte)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
                   {status === 'usado'
                     ? <>OS #{c.osNumero ?? '—'} · {fmtDataHora(c.usadoEm)}</>
-                    : <span className="text-slate-300">—</span>}
+                    : <span className="text-muted-foreground">—</span>}
                 </TableCell>
-                <TableCell className="text-xs text-slate-400">
+                <TableCell className="text-xs text-muted-foreground">
                   {fmtDataHora(c.emitidoEm)}
                   {c.emitidoPorNome ? ` · ${c.emitidoPorNome}` : ''}
                 </TableCell>
@@ -102,7 +102,7 @@ export function CuponsTable({ cupons, hoje, podeCancelar }: {
                       onClick={() => cancelar(c.id, c.codigo)}
                       disabled={pending}
                       title="Cancelar cupom"
-                      className="text-slate-400 hover:text-red-600 disabled:opacity-40"
+                      className="text-muted-foreground hover:text-destructive disabled:opacity-40"
                     >
                       <Ban size={15} />
                     </button>
@@ -113,7 +113,7 @@ export function CuponsTable({ cupons, hoje, podeCancelar }: {
           })}
           {cupons.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-slate-400 py-8">
+              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                 Nenhum cupom neste recorte.
               </TableCell>
             </TableRow>

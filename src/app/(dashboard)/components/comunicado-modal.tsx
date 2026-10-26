@@ -32,10 +32,10 @@ export function ComunicadoModal({ comunicados }: { comunicados: Comunicado[] }) 
         <DialogHeader>
           <DialogTitle className="text-lg">{atual.titulo}</DialogTitle>
           {comunicados.length > 1 && (
-            <p className="text-xs text-slate-400 mt-1">{indice + 1} de {comunicados.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">{indice + 1} de {comunicados.length}</p>
           )}
         </DialogHeader>
-        <div className="max-h-72 overflow-y-auto text-sm text-slate-700 whitespace-pre-wrap py-2 leading-relaxed">
+        <div className="max-h-72 overflow-y-auto text-sm text-foreground whitespace-pre-wrap py-2 leading-relaxed">
           {atual.conteudo}
         </div>
         <DialogFooter>

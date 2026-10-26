@@ -91,7 +91,7 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
         <div className="flex justify-between items-start">
           <div>
             <p className="font-medium text-sm">{t.modelo}</p>
-            <p className="text-xs font-mono text-slate-500">
+            <p className="text-xs font-mono text-muted-foreground">
               {t.chassi}{t.cor ? ` · ${t.cor}` : ''}
             </p>
             {t.status === 'pendente' && (
@@ -104,19 +104,19 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
             {statusLabel[t.status] ?? t.status}
           </Badge>
         </div>
-        <div className="text-xs text-slate-500 space-y-1">
+        <div className="text-xs text-muted-foreground space-y-1">
           <p>
-            De: <span className="text-slate-700">{t.lojaOrigemNome}</span>
+            De: <span className="text-foreground">{t.lojaOrigemNome}</span>
             {' → '}
-            Para: <span className="text-slate-700">{t.lojaDestinoNome}</span>
+            Para: <span className="text-foreground">{t.lojaDestinoNome}</span>
           </p>
           <p>
-            Solicitado por <span className="text-slate-700">{t.solicitadoPorNome}</span> em {dataFormatada}
+            Solicitado por <span className="text-foreground">{t.solicitadoPorNome}</span> em {dataFormatada}
           </p>
           {t.respondidoPorNome && t.dataResposta && (
             <p>
               {t.status === 'aceita' ? 'Aprovado' : 'Recusado'} por{' '}
-              <span className="text-slate-700">{t.respondidoPorNome}</span>{' '}
+              <span className="text-foreground">{t.respondidoPorNome}</span>{' '}
               em {format(new Date(t.dataResposta), 'dd/MM/yyyy', { locale: ptBR })}
             </p>
           )}

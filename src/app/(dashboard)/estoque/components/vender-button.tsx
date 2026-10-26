@@ -417,17 +417,20 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           })),
         }
         if (precisaAprovacaoSensivel) {
-          await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
+          const r = await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Venda com transferência bancária enviada para aprovação!')
         } else if (precisaAprovacao) {
-          await solicitarAprovacaoVendaAction(payload, motivo)
+          const r = await solicitarAprovacaoVendaAction(payload, motivo)
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Pedido de aprovação enviado!')
         } else {
-          const res = await registrarVendaCompletaAction(payload)
+          const r = await registrarVendaCompletaAction(payload)
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Venda registrada com sucesso!')
-          const k = res?.kommo?.resultado
+          const k = r.dados.kommo.resultado
           if (k === 'virado') {
-            toast.success('Kommo: lead marcado como Venda Ganha automaticamente ✓')
+            toast.success('Kommo: lead marcado como Venda Ganha automaticamente')
           } else if (k === 'ambiguo') {
             toast.warning('Kommo: há mais de um lead deste cliente em aberto — marque o certo como Venda Ganha manualmente.')
           } else if (k === 'nao_encontrado') {
@@ -435,7 +438,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           }
         }
       } else {
-        const resultado = await registrarReservaAction({
+        const r = await registrarReservaAction({
           motoId, ...clienteBase, valorReserva, valorTotalVenda,
           vendedorId: vendedorSelecionado,
           demandaVinculadaId,
@@ -448,8 +451,9 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           dataPrevistaFinalizacao: dataPrevista,
           dataReserva: dataVenda || undefined,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Reserva registrada com sucesso!')
-        setReservaCriadaId(resultado.id)
+        setReservaCriadaId(r.dados.id)
         return
       }
       setOpen(false)
@@ -469,8 +473,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           title={reservaAtiva ? 'Finalizar Venda (Reservada)' : 'Registrar Venda'}
           onClick={() => abrir('venda')}
           className={showLabel
-            ? 'h-8 gap-1.5 text-xs border-green-300 text-green-600 hover:bg-green-50'
-            : 'h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50'}
+            ? 'h-8 gap-1.5 text-xs border-success/50 text-success hover:bg-success/10'
+            : 'h-8 w-8 text-success hover:text-success hover:bg-success/10'}
         >
           <ShoppingCart size={showLabel ? 14 : 16} />
           {showLabel && (reservaAtiva ? 'Finalizar Venda' : 'Vender')}
@@ -483,8 +487,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           title="Registrar Reserva"
           onClick={() => abrir('reserva')}
           className={showLabel
-            ? 'h-8 gap-1.5 text-xs border-blue-300 text-blue-600 hover:bg-blue-50'
-            : 'h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50'}
+            ? 'h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10'
+            : 'h-8 w-8 text-info hover:text-info hover:bg-info/10'}
         >
           <CalendarClock size={showLabel ? 14 : 16} />
           {showLabel && 'Reservar'}
@@ -495,10 +499,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         <DialogContent className={reservaCriadaId ? 'sm:max-w-sm' : 'sm:max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0'}>
           {reservaCriadaId ? (
             <div className="flex flex-col items-center gap-4 py-6 px-2 text-center">
-              <CheckCircle2 size={40} className="text-green-600" />
+              <CheckCircle2 size={40} className="text-success" />
               <div>
-                <p className="font-semibold text-slate-800">Reserva registrada com sucesso!</p>
-                <p className="text-sm text-slate-500 mt-1">Entregue o comprovante ao cliente.</p>
+                <p className="font-semibold text-foreground">Reserva registrada com sucesso!</p>
+                <p className="text-sm text-muted-foreground mt-1">Entregue o comprovante ao cliente.</p>
               </div>
               <div className="flex gap-2 w-full">
                 <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
@@ -508,7 +512,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   href={`/reservas/${reservaCriadaId}/imprimir`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-slate-900 text-white text-sm font-medium h-9 px-4 hover:bg-slate-800"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium h-9 px-4 hover:bg-primary-hover"
                 >
                   Imprimir comprovante
                 </a>
@@ -523,15 +527,15 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 <DialogTitle className="text-base">
                   {reservaAtiva ? 'Finalizar Venda' : tipo === 'venda' ? 'Registrar Venda' : 'Registrar Reserva'}
                 </DialogTitle>
-                <p className="text-sm text-slate-500 truncate">{descricao}</p>
+                <p className="text-sm text-muted-foreground truncate">{descricao}</p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {precoMinimoPix && (
-                  <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-slate-600">
+                  <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-md bg-muted border border-border text-muted-foreground">
                     <span className="font-medium">Mín. PIX:</span>
-                    <span className="font-bold text-slate-800">{fmtBRL(precoMinimoPix)}</span>
+                    <span className="font-bold text-foreground">{fmtBRL(precoMinimoPix)}</span>
                     {tipo === 'reserva' && (
-                      <span className="text-slate-400">· Entrada: <strong className="text-slate-700">{fmtBRL(precoMinimoPix * 0.3)}</strong></span>
+                      <span className="text-muted-foreground">· Entrada: <strong className="text-foreground">{fmtBRL(precoMinimoPix * 0.3)}</strong></span>
                     )}
                   </div>
                 )}
@@ -553,7 +557,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           <div className="flex-1 overflow-hidden flex min-h-0">
             {/* Coluna esquerda — Vendedor + Cliente */}
             <div className="w-[52%] border-r overflow-y-auto px-6 py-5 space-y-4">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Dados do Cliente</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Dados do Cliente</p>
 
               {/* Origem — obrigatória para fechar venda; reserva não pergunta */}
               {tipo === 'venda' && (
@@ -568,12 +572,12 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
               {/* Vínculo com demanda existente (cliente que já deu sinal) */}
               {!reservaAtiva && demandasCompativeis && demandasCompativeis.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
-                  <Label className="text-amber-800">Vincular a uma demanda existente</Label>
+                <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 space-y-2">
+                  <Label className="text-warning">Vincular a uma demanda existente</Label>
                   <select
                     value={demandaVinculadaId ?? ''}
                     onChange={e => selecionarDemanda(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="">Não vincular</option>
                     {demandasCompativeis.map(d => (
@@ -586,7 +590,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     const d = demandasCompativeis.find(x => x.id === demandaVinculadaId)
                     if (!d) return null
                     return (
-                      <p className="text-xs text-amber-700">
+                      <p className="text-xs text-warning">
                         Sinal já recebido nesta demanda{d.valorSinal ? `: ${fmtBRL(parseFloat(d.valorSinal))}` : ''}{d.numero ? ` (recibo #${d.numero})` : ''}. Lance o valor manualmente no pagamento.
                       </p>
                     )
@@ -615,18 +619,18 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 </div>
               </div>
 
-              <div className="h-px bg-slate-100" />
+              <div className="h-px bg-muted" />
 
               {/* Status do cliente */}
               <div className="flex items-center gap-2 h-5">
-                {buscandoCliente && <Loader2 size={13} className="animate-spin text-slate-400" />}
+                {buscandoCliente && <Loader2 size={13} className="animate-spin text-muted-foreground" />}
                 {!buscandoCliente && clienteStatus === 'encontrado' && (
-                  <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                  <span className="flex items-center gap-1 text-xs text-success bg-success/10 border border-success/30 rounded px-1.5 py-0.5">
                     <UserCheck size={11} /> Dados carregados do cadastro
                   </span>
                 )}
                 {!buscandoCliente && clienteStatus === 'nao-encontrado' && (
-                  <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5">
                     <UserX size={11} /> Novo cliente — preencha os dados abaixo
                   </span>
                 )}
@@ -636,7 +640,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
               {/* Campos identificação */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>CPF/CNPJ <span className="text-red-500">*</span></Label>
+                  <Label>CPF/CNPJ <span className="text-destructive">*</span></Label>
                   <DocumentoClienteInput
                     value={clienteCpf}
                     onChange={handleDocumento}
@@ -645,15 +649,15 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Celular <span className="text-red-500">*</span></Label>
+                  <Label>Celular <span className="text-destructive">*</span></Label>
                   <Input value={clienteCelular} onChange={e => handleCelular(e.target.value)} placeholder="(00) 00000-0000" />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label>{tipoPessoa === 'juridica' ? 'Razão social' : 'Nome completo'} <span className="text-red-500">*</span></Label>
+                  <Label>{tipoPessoa === 'juridica' ? 'Razão social' : 'Nome completo'} <span className="text-destructive">*</span></Label>
                   <Input value={clienteNome} onChange={e => setClienteNome(e.target.value)} placeholder={tipoPessoa === 'juridica' ? 'Razão social da empresa' : 'Nome completo do cliente'} />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label>E-mail <span className="text-red-500">*</span></Label>
+                  <Label>E-mail <span className="text-destructive">*</span></Label>
                   <Input type="email" value={clienteEmail} onChange={e => setClienteEmail(e.target.value)} placeholder="email@exemplo.com" />
                 </div>
                 {tipo === 'venda' && tipoPessoa === 'juridica' && (
@@ -674,10 +678,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 )}
               </div>
 
-              <div className="h-px bg-slate-100" />
+              <div className="h-px bg-muted" />
 
               {/* Endereço */}
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Endereço</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Endereço</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>CEP</Label>
@@ -722,16 +726,16 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
             {/* Coluna direita — Pagamento */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 {tipo === 'venda' ? 'Pagamento' : 'Dados da Reserva'}
               </p>
 
               {reservaAtiva && (
-                <div className="text-sm px-3 py-3 rounded-lg border bg-blue-50 text-blue-700 border-blue-200 space-y-1">
+                <div className="text-sm px-3 py-3 rounded-lg border bg-info/10 text-info border-info/30 space-y-1">
                   <p className="font-semibold">Resumo da reserva</p>
                   <p>Total negociado: <span className="font-bold">{fmtBRL(parseFloat(valorVenda) || 0)}</span>
                     {valorVenda !== reservaAtiva.valorTotal && (
-                      <span className="ml-1 text-xs text-blue-400">(reservado: {fmtBRL(parseFloat(reservaAtiva.valorTotal))})</span>
+                      <span className="ml-1 text-xs text-info">(reservado: {fmtBRL(parseFloat(reservaAtiva.valorTotal))})</span>
                     )}
                   </p>
                   <p>Entrada recebida: <span className="font-bold">{fmtBRL(parseFloat(reservaAtiva.valorEntrada))}</span></p>
@@ -743,14 +747,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <Label>
-                      Valor da Venda (R$) <span className="text-red-500">*</span>
-                      {reservaAtiva && <span className="text-xs text-slate-400 ml-1">— restante atualiza automaticamente</span>}
+                      Valor da Venda (R$) <span className="text-destructive">*</span>
+                      {reservaAtiva && <span className="text-xs text-muted-foreground ml-1">— restante atualiza automaticamente</span>}
                     </Label>
                     <CurrencyInput value={valorVenda} onChange={setValorVenda} placeholder="0,00" />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Formas de Pagamento <span className="text-red-500">*</span></Label>
+                    <Label>Formas de Pagamento <span className="text-destructive">*</span></Label>
                     <PagamentosFields
                       pgtos={pgtos}
                       onAdd={pgtoVenda.add}
@@ -768,10 +772,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   {valorNum > 0 && (
                     <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
-                      somatorioOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                      somatorioOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
                     }`}>
                       {somatorioOk
-                        ? `✓ Somatório confere: R$ ${somatorio.toFixed(2).replace('.', ',')}`
+                        ? `Somatório confere: R$ ${somatorio.toFixed(2).replace('.', ',')}`
                         : `Somatório R$ ${somatorio.toFixed(2).replace('.', ',')} ≠ Valor R$ ${valorNum.toFixed(2).replace('.', ',')}`
                       }
                     </div>
@@ -779,7 +783,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   {precoMinimoPix && taxasVenda && somatorioOk && todosPgtosComParcelas && liquidoEstimado !== null && (
                     <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-md border ${
-                      liquidoOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                      liquidoOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
                     }`}>
                       {liquidoOk
                         ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
@@ -790,7 +794,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                         <p className="text-xs mt-0.5">
                           Líquido estimado: <strong>{fmtBRL(liquidoEstimado)}</strong>
                           {' '}/ Mínimo PIX: <strong>{fmtBRL(precoMinimoPix)}</strong>
-                          {!liquidoOk && <span className="text-red-600"> — faltam {fmtBRL(precoMinimoPix - liquidoEstimado)}</span>}
+                          {!liquidoOk && <span className="text-destructive"> — faltam {fmtBRL(precoMinimoPix - liquidoEstimado)}</span>}
                         </p>
                       </div>
                     </div>
@@ -798,7 +802,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   {temPagamentoSensivel && (
                     <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-md border ${
-                      podeAprovarPagamentoSensivel ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                      podeAprovarPagamentoSensivel ? 'bg-info/10 text-info border-info/30' : 'bg-warning/10 text-warning border-warning/30'
                     }`}>
                       <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                       <p className="text-xs">
@@ -811,7 +815,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   {precisaAprovacao && (
                     <div className="space-y-1">
-                      <Label>Motivo do pedido de aprovação <span className="text-red-500">*</span></Label>
+                      <Label>Motivo do pedido de aprovação <span className="text-destructive">*</span></Label>
                       <Textarea
                         value={motivo}
                         onChange={e => setMotivo(e.target.value)}
@@ -827,17 +831,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label>
-                        Valor da Entrada (R$) <span className="text-red-500">*</span>
-                        {precoMinimoPix && <span className="block text-xs text-slate-400">mín. {fmtBRL(precoMinimoPix * 0.3)}</span>}
+                        Valor da Entrada (R$) <span className="text-destructive">*</span>
+                        {precoMinimoPix && <span className="block text-xs text-muted-foreground">mín. {fmtBRL(precoMinimoPix * 0.3)}</span>}
                       </Label>
                       <CurrencyInput
                         value={valorReserva}
                         onChange={setValorReserva}
                         placeholder="0,00"
-                        className={valorReservaNum > 0 && reservaValidacao && !reservaValidacao.entradaOk ? 'border-red-400' : ''}
+                        className={valorReservaNum > 0 && reservaValidacao && !reservaValidacao.entradaOk ? 'border-destructive/50' : ''}
                       />
                       {valorReservaNum > 0 && reservaValidacao && !reservaValidacao.entradaOk && (
-                        <p className="text-xs text-red-500 flex items-center gap-1">
+                        <p className="text-xs text-destructive flex items-center gap-1">
                           <AlertTriangle size={11} />
                           Mínimo de {fmtBRL(reservaValidacao.minimoEntrada)} (30% PIX)
                         </p>
@@ -845,17 +849,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     </div>
                     <div className="space-y-1">
                       <Label>
-                        Valor Total da Venda (R$) <span className="text-red-500">*</span>
-                        {precoMinimoPix && <span className="block text-xs text-slate-400">PIX: {fmtBRL(precoMinimoPix)}</span>}
+                        Valor Total da Venda (R$) <span className="text-destructive">*</span>
+                        {precoMinimoPix && <span className="block text-xs text-muted-foreground">PIX: {fmtBRL(precoMinimoPix)}</span>}
                       </Label>
                       <CurrencyInput
                         value={valorTotalVenda}
                         onChange={setValorTotalVenda}
                         placeholder="0,00"
-                        className={valorTotalNum > 0 && reservaValidacao && !reservaValidacao.totalOk ? 'border-amber-400' : ''}
+                        className={valorTotalNum > 0 && reservaValidacao && !reservaValidacao.totalOk ? 'border-warning/50' : ''}
                       />
                       {valorTotalNum > 0 && reservaValidacao && !reservaValidacao.totalOk && (
-                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <p className="text-xs text-warning flex items-center gap-1">
                           <AlertTriangle size={11} />
                           Abaixo do mínimo PIX — confirme
                         </p>
@@ -864,7 +868,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Formas de Pagamento da Entrada <span className="text-red-500">*</span></Label>
+                    <Label>Formas de Pagamento da Entrada <span className="text-destructive">*</span></Label>
                     <PagamentosFields
                       pgtos={pgtosReserva}
                       onAdd={pgtoReserva.add}
@@ -876,17 +880,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
 
                   {valorReservaNum > 0 && (
                     <div className={`text-sm px-3 py-2 rounded-md border font-medium ${
-                      somaReservaOk ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                      somaReservaOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
                     }`}>
                       {somaReservaOk
-                        ? `✓ Somatório confere: R$ ${somaReserva.toFixed(2).replace('.', ',')}`
+                        ? `Somatório confere: R$ ${somaReserva.toFixed(2).replace('.', ',')}`
                         : `Somatório R$ ${somaReserva.toFixed(2).replace('.', ',')} ≠ Entrada R$ ${valorReservaNum.toFixed(2).replace('.', ',')}`
                       }
                     </div>
                   )}
 
                   <div className="space-y-1">
-                    <Label>Data Prevista de Finalização <span className="text-red-500">*</span></Label>
+                    <Label>Data Prevista de Finalização <span className="text-destructive">*</span></Label>
                     <Input type="date" value={dataPrevista} onChange={e => setDataPrevista(e.target.value)} />
                   </div>
                 </div>

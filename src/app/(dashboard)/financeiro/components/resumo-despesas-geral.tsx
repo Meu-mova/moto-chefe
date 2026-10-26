@@ -14,8 +14,8 @@ export function ResumoDespesasGeral({ porCategoriaGeral }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-slate-500">Geral (Empresa) por Categoria</CardTitle>
-        <p className="text-xs text-slate-400">
+        <CardTitle className="text-sm text-muted-foreground">Geral (Empresa) por Categoria</CardTitle>
+        <p className="text-xs text-muted-foreground">
           despesas sem loja atribuída no Importar do Banco
         </p>
       </CardHeader>
@@ -24,10 +24,10 @@ export function ResumoDespesasGeral({ porCategoriaGeral }: Props) {
           {porCategoriaGeral.map(c => (
             <div key={c.categoria} className="flex items-baseline justify-between gap-3 text-sm">
               <span>{c.categoria}</span>
-              <span className="font-mono text-red-600 whitespace-nowrap">
+              <span className="font-mono text-destructive whitespace-nowrap">
                 {fmt(c.total)}
                 {total > 0 && (
-                  <span className="ml-2 text-xs text-slate-400">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {((c.total / total) * 100).toFixed(0)}%
                   </span>
                 )}
@@ -35,7 +35,7 @@ export function ResumoDespesasGeral({ porCategoriaGeral }: Props) {
             </div>
           ))}
           {porCategoriaGeral.length === 0 && (
-            <p className="text-sm text-slate-400 py-4 text-center">
+            <p className="text-sm text-muted-foreground py-4 text-center">
               Nenhuma despesa sem loja atribuída no período.
             </p>
           )}
@@ -44,7 +44,7 @@ export function ResumoDespesasGeral({ porCategoriaGeral }: Props) {
         {porCategoriaGeral.length > 0 && (
           <div className="flex items-baseline justify-between gap-3 text-sm border-t mt-2 pt-2 font-semibold">
             <span>Total</span>
-            <span className="font-mono text-red-700">{fmt(total)}</span>
+            <span className="font-mono text-destructive">{fmt(total)}</span>
           </div>
         )}
       </CardContent>

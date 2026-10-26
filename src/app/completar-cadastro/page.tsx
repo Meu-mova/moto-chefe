@@ -25,12 +25,12 @@ export default async function CompletarCadastroPage() {
     : null
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg border p-6 shadow-sm">
+    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-card rounded-lg border p-6 shadow-sm">
         <h1 className="text-xl font-bold">
           {inicial ? 'Meus dados' : `Bem-vindo, ${usuario.nome.split(' ')[0]}`}
         </h1>
-        <p className="text-sm text-slate-500 mt-1 mb-5">
+        <p className="text-sm text-muted-foreground mt-1 mb-5">
           {inicial
             ? 'Atualize seus dados quando precisar.'
             : 'Antes de continuar, precisamos de três informações suas. Leva um minuto.'}
@@ -47,11 +47,11 @@ export default async function CompletarCadastroPage() {
         <form action={logoutAction} className="mt-5 pt-4 border-t">
           <button
             type="submit"
-            className="text-sm text-slate-500 hover:text-slate-900 underline underline-offset-2"
+            className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
             Sair desta conta
           </button>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Nada do que estiver preenchido acima é salvo ao sair.
           </p>
         </form>

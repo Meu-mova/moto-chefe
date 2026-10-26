@@ -103,7 +103,7 @@ export function motivoBloqueioPorVenda(
 export function motivoBloqueioPedidoAprovacao(
   moto: { status: string; disponibilidade: string | null },
 ): string | null {
-  if (moto.status === 'caixa') return 'Moto ainda não foi montada — não pode ser vendida'
+  if (moto.status === 'caixa') return 'Moto ainda não foi montada. Não pode ser vendida.'
   if (moto.status === 'vendida') return 'Moto já foi vendida'
   if (moto.disponibilidade === 'aguardando_aprovacao') return 'Esta moto já tem uma venda aguardando aprovação'
   return null
@@ -120,7 +120,7 @@ export function motivoBloqueioCancelarReserva(
   moto: { disponibilidade: string | null },
 ): string | null {
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    return 'Esta moto tem uma venda aguardando aprovação — a venda precisa ser aprovada ou recusada antes de cancelar a reserva'
+    return 'Esta moto tem uma venda aguardando aprovação. A venda precisa ser aprovada ou recusada antes de cancelar a reserva.'
   }
   return null
 }

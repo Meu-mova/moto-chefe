@@ -57,10 +57,10 @@ type Props = {
 }
 
 function SortIcon({ campo, ord, dir }: { campo: Campo; ord: string; dir: string }) {
-  if (ord !== campo) return <ArrowUpDown size={13} className="ml-1 text-slate-400 inline" />
+  if (ord !== campo) return <ArrowUpDown size={13} className="ml-1 text-muted-foreground inline" />
   return dir === 'asc'
-    ? <ArrowUp   size={13} className="ml-1 text-slate-600 inline" />
-    : <ArrowDown size={13} className="ml-1 text-slate-600 inline" />
+    ? <ArrowUp   size={13} className="ml-1 text-muted-foreground inline" />
+    : <ArrowDown size={13} className="ml-1 text-muted-foreground inline" />
 }
 
 function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): string {
@@ -78,7 +78,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
       <TableHead>
         <Link
           href={sortHref(campo, ord, dir, baseParams)}
-          className="inline-flex items-center hover:text-slate-900 whitespace-nowrap select-none"
+          className="inline-flex items-center hover:text-foreground whitespace-nowrap select-none"
         >
           {label}
           <SortIcon campo={campo} ord={ord} dir={dir} />
@@ -92,7 +92,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
       <TableHeader>
         <TableRow>
           {th('modelo',         'Modelo')}
-          <TableHead className="text-slate-500 font-mono text-xs">Chassi</TableHead>
+          <TableHead className="text-muted-foreground font-mono text-xs">Chassi</TableHead>
           {th('cor',            'Cor')}
           {th('loja',           'Loja')}
           {th('status',         'Status')}
@@ -104,7 +104,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
         {motos.map(moto => (
           <TableRow key={moto.id}>
             <TableCell className="font-medium">{moto.modelo}</TableCell>
-            <TableCell className="font-mono text-xs text-slate-500">{moto.chassi}</TableCell>
+            <TableCell className="font-mono text-xs text-muted-foreground">{moto.chassi}</TableCell>
             <TableCell>{moto.cor}</TableCell>
             <TableCell>{moto.lojaNome}</TableCell>
             <TableCell>
@@ -112,7 +112,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
             </TableCell>
             <TableCell>
               {moto.status === 'vendida' && moto.disponibilidade === null
-                ? <Badge variant="outline" className="border-teal-300 text-teal-700 bg-teal-50">Ag. NF Saída</Badge>
+                ? <Badge variant="outline" className="border-info/50 text-info bg-info/10">Ag. NF Saída</Badge>
                 : moto.disponibilidade
                   ? <Badge variant={dispBadge[moto.disponibilidade]?.variant ?? 'secondary'}>
                       {dispBadge[moto.disponibilidade]?.label ?? moto.disponibilidade}
@@ -135,11 +135,11 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             <>
                               <GarantiaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                               />
                               <NfSaidaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 blingNfeId={moto.blingNfeId}
                               />
                             </>
@@ -150,7 +150,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             {podeAlterar && podeGarantia.has(papel) && (
                               <GarantiaButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 disabled={moto.status === 'caixa'}
                               />
                             )}
@@ -162,7 +162,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -177,7 +177,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -212,7 +212,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title="Imprimir comprovante da reserva"
-                                    className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-slate-500 hover:text-slate-700'}
+                                    className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-muted-foreground hover:text-foreground'}
                                   >
                                     <Printer size={16} />
                                   </a>
@@ -220,7 +220,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 {moto.disponibilidade === 'reservada' && moto.reservaId && podeAlterar && podeCancelarReserva.has(papel) && (
                                   <CancelarReservaButton
                                     reservaId={moto.reservaId}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     clienteNome={moto.reservaClienteNome}
                                     valorEntrada={moto.reservaValorEntrada}
                                   />
@@ -230,7 +230,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                   <VenderButton
                                     key={`vender-acao-${moto.id}`}
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     vendedorId={vendedorId}
                                     vendedorNome={vendedorNome}
                                     papel={papel}
@@ -247,7 +247,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                             {podeAlterar && podeMontar.has(papel) && moto.status === 'caixa' && (
                               <MontarButton
                                 motoId={moto.id}
-                                descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 mecanicos={mecanicos}
                               />
                             )}
@@ -257,7 +257,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 ? (
                                   <span
                                     title={moto.transferenciaDestino ?? 'Transferência pendente'}
-                                    className="h-8 w-8 flex items-center justify-center text-purple-400 cursor-default"
+                                    className="h-8 w-8 flex items-center justify-center text-info cursor-default"
                                   >
                                     <ArrowLeftRight size={16} />
                                   </span>
@@ -265,7 +265,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 : (
                                   <LogisticaButton
                                     motoId={moto.id}
-                                    descricao={`${moto.modelo} — ${moto.cor} (${moto.lojaNome})`}
+                                    descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                     lojaAtualId={moto.lojaId}
                                     lojas={lojas}
                                   />
@@ -282,7 +282,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                   href={`/estoque/${moto.id}`}
                   prefetch={false}
                   title="Ver detalhes"
-                  className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-slate-500 hover:text-slate-700'}
+                  className={buttonVariants({ variant: 'ghost', size: 'icon' }) + ' h-8 w-8 text-muted-foreground hover:text-foreground'}
                 >
                   <Eye size={16} />
                 </Link>
@@ -292,7 +292,7 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
         ))}
         {motos.length === 0 && (
           <TableRow>
-            <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
               Nenhuma moto encontrada.
             </TableCell>
           </TableRow>

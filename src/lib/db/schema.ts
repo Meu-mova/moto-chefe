@@ -75,6 +75,8 @@ export const grupos = pgTable('grupos', {
   // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
   // no primeiro acesso de quem não é admin_geral: a implantação não conta.
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
+  // Destino do "Enviar ao contador" em Notas Emitidas (#402); cada CNPJ tem o seu.
+  emailContador:      text('email_contador'),
   contaId:            uuid('conta_id').notNull().references(() => contas.id),
 })
 
@@ -249,7 +251,10 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // recente que cria notas_fiscais_saida_uma_viva_idx).
 export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   id:           uuid('id').primaryKey().defaultRandom(),
-  vendaId:      uuid('venda_id').notNull(),
+  /** Nulo depois que a venda é cancelada: a NF fica como histórico (#347). */
+  vendaId:      uuid('venda_id'),
+  /** Número da venda, que continua identificando a NF depois do cancelamento. */
+  vendaNumero:  integer('venda_numero').notNull(),
   grupoId:      uuid('grupo_id').notNull(),
   idExterno:    text('id_externo').notNull().unique(),
   ambiente:     text('ambiente').notNull(),
@@ -700,6 +705,8 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Catálogo da Conta: as lojas dela compartilham, as outras Contas não veem (#195).
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
 })
 
 // ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────
