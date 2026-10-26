@@ -241,8 +241,9 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                               <Button
                                 variant="ghost" size="sm"
                                 onClick={() => handleExcluir(m)}
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive/70 hover:text-destructive"
                                 title={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
+                                aria-label={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
                               >
                                 <Trash2 size={14} />
                               </Button>
