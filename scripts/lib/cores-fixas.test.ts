@@ -69,3 +69,16 @@ test('linhasAdicionadas lê o diff unificado com número de linha', () => {
     { arquivo: 'src/b.tsx', linha: 1, texto: 'oi' },
   ])
 })
+
+test('em .css o hex conta sem aspas; em .tsx "#90" no texto não conta', () => {
+  assert.deepEqual(acharCoresFixas('  background: #fff;', 'src/app/x.css'), ['#fff'])
+  assert.deepEqual(acharCoresFixas('  border: 1px solid #e2e8f0;', 'src/app/x.css'), ['#e2e8f0'])
+  assert.deepEqual(acharCoresFixas('  color: var(--foreground);', 'src/app/x.css'), [])
+  assert.deepEqual(acharCoresFixas('#area-impressao { display: none }', 'src/app/x.css'), [])
+  assert.deepEqual(acharCoresFixas('<p>Ver a issue #90 e a #123</p>', 'src/app/x.tsx'), [])
+})
+
+test('em .css o seletor de id não conta, mesmo parecendo hex', () => {
+  assert.deepEqual(acharCoresFixas('#fade:hover { opacity: 1 }', 'src/app/x.css'), [])
+  assert.deepEqual(acharCoresFixas("color: '#fff'", 'src/app/x.css'), ['#fff'])
+})

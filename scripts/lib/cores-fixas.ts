@@ -14,14 +14,18 @@ const PADROES = [
   /\b(?:rgba?|hsla?|oklch)\([^)]*\)/g,
 ]
 
+// Em CSS o hex vem sem aspas; só conta no valor de uma declaração (depois de ":"), para não
+// pegar seletor de id como #fade.
+const HEX_CSS = /(?<=:[^;{}]*)(?<![\w-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/g
+
 // Linha de comentário não pinta nada; "cor-fixa-ok" marca cor que não é da interface (HTML de
 // terceiro lido por scraper, impresso que fica sempre claro), com o motivo ao lado.
 export const LIBERA = 'cor-fixa-ok'
 
-export function acharCoresFixas(linha: string): string[] {
+export function acharCoresFixas(linha: string, caminho = ''): string[] {
   if (/^\s*(\/\/|\/?\*|\{\/\*)/.test(linha) || new RegExp(`${LIBERA}: \\S`).test(linha)) return []
   const achados: { pos: number; texto: string }[] = []
-  for (const padrao of PADROES) {
+  for (const padrao of caminho.endsWith('.css') ? [...PADROES, HEX_CSS] : PADROES) {
     for (const m of linha.matchAll(padrao)) {
       // O valor arbitrário já foi contado inteiro; não repetir o hex/rgb de dentro.
       if (achados.some((a) => m.index >= a.pos && m.index < a.pos + a.texto.length)) continue

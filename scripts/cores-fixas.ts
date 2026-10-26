@@ -18,7 +18,7 @@ function listar(dir: string): string[] {
 if (process.argv.includes('--diff')) {
   const achados = linhasAdicionadas(readFileSync(0, 'utf8'))
     .filter((l) => verificaArquivo(l.arquivo))
-    .flatMap((l) => acharCoresFixas(l.texto).map((cor) => ({ ...l, cor })))
+    .flatMap((l) => acharCoresFixas(l.texto, l.arquivo).map((cor) => ({ ...l, cor })))
   for (const a of achados) console.log(`::error file=${a.arquivo},line=${a.linha}::cor fixa "${a.cor}": use a cor com nome do globals.css`)
   if (achados.length) {
     console.error(`${achados.length} cor(es) fixa(s) em linha nova. Ver CLAUDE.md "Cores".`)
@@ -28,7 +28,7 @@ if (process.argv.includes('--diff')) {
 } else {
   const porArquivo = listar('src')
     .filter(verificaArquivo)
-    .map((arquivo) => ({ arquivo, total: readFileSync(arquivo, 'utf8').split('\n').reduce((s, l) => s + acharCoresFixas(l).length, 0) }))
+    .map((arquivo) => ({ arquivo, total: readFileSync(arquivo, 'utf8').split('\n').reduce((s, l) => s + acharCoresFixas(l, arquivo).length, 0) }))
     .filter((a) => a.total > 0)
   const porArea = new Map<string, typeof porArquivo>()
   for (const a of porArquivo) porArea.set(area(a.arquivo), [...(porArea.get(area(a.arquivo)) ?? []), a])
