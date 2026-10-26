@@ -2,9 +2,9 @@ import type { StatusConc } from '@/lib/conciliacao-status'
 
 const BADGE: Record<StatusConc, { label: string; cls: string } | null> = {
   na:          null,
-  pendente:    { label: 'Pendente',   cls: 'bg-red-50 text-red-700 border-red-200' },
-  parcial:     { label: 'Parcial',    cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  conciliada:  { label: '✓ OK',       cls: 'bg-green-50 text-green-700 border-green-200' },
+  pendente:    { label: 'Pendente',   cls: 'bg-destructive/10 text-destructive border-destructive/30' },
+  parcial:     { label: 'Parcial',    cls: 'bg-warning/10 text-warning border-warning/30' },
+  conciliada:  { label: '✓ OK',       cls: 'bg-success/10 text-success border-success/30' },
 }
 
 export function ConcBadge({ status }: { status: StatusConc }) {

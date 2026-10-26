@@ -33,11 +33,11 @@ export function OrigemVendaSelect({
   return (
     <div className="space-y-2">
       <div className="space-y-1">
-        <Label>Por onde o cliente chegou <span className="text-red-500">*</span></Label>
+        <Label>Por onde o cliente chegou <span className="text-destructive">*</span></Label>
         <select
           value={origemId}
           onChange={e => onOrigemChange(e.target.value)}
-          className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="">Selecione…</option>
           {tipos.map(tipo => (
@@ -49,7 +49,7 @@ export function OrigemVendaSelect({
           ))}
         </select>
         {origens.length === 0 && (
-          <p className="text-xs text-amber-700">
+          <p className="text-xs text-warning">
             Nenhuma origem cadastrada para este grupo — cadastre em Admin → Origens da venda.
           </p>
         )}
@@ -57,7 +57,7 @@ export function OrigemVendaSelect({
 
       {escolhida?.pedeDetalhe && (
         <div className="space-y-1">
-          <Label>Detalhe <span className="text-red-500">*</span></Label>
+          <Label>Detalhe <span className="text-destructive">*</span></Label>
           <Input
             value={detalhe}
             onChange={e => onDetalheChange(e.target.value)}
