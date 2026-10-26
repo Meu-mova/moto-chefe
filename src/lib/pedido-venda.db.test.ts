@@ -131,7 +131,7 @@ describe('efetivarPedidoTx (#181)', () => {
         origem: { origemId: s.origemId, origemDetalhe: null },
       }
       await efetivarPedidoTx(tx, dados)
-      await assert.rejects(efetivarPedidoTx(tx, dados), /não está pendente/)
+      await assert.rejects(efetivarPedidoTx(tx, dados), /não está mais pendente/)
     })
   })
 })

@@ -66,7 +66,7 @@ export async function cancelarPedidoTx(
     .where(eq(pedidosVenda.id, d.pedidoId))
     .for('update')
   if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
-  if (pedido.status !== 'pendente') throw new RecusaUsuario(`Pedido não está pendente (status: ${pedido.status})`)
+  if (pedido.status !== 'pendente') throw new RecusaUsuario('Este pedido não está mais pendente. Recarregue a página.')
   if (!podeCancelarPedido(d.usuario, pedido)) throw new RecusaUsuario('Sem permissão para cancelar este pedido')
 
   // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.

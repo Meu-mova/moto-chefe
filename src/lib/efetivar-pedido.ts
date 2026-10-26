@@ -34,7 +34,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .for('update')
   if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
   if (pedido.status !== 'pendente') {
-    throw new RecusaUsuario(`Pedido não está pendente (status: ${pedido.status})`)
+    throw new RecusaUsuario('Este pedido não está mais pendente. Recarregue a página.')
   }
 
   const [moto] = await tx
