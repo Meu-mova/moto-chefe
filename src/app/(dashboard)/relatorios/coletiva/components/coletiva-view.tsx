@@ -1,9 +1,9 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Printer, Trophy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Printer, Smartphone, Target, Trophy, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { DadosColetiva } from '@/lib/queries/coletiva'
-import { maioresCrescimentos, estreantes, crescimento } from '@/lib/coletiva'
+import { maioresCrescimentos, estreantes, crescimento, type IconeOportunidade } from '@/lib/coletiva'
 import { nomeMes, mesAnterior, formatarMes, pctMeta, classeMeta } from '@/lib/fechamento'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -14,6 +14,8 @@ const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 
 // 1º dourado, 2º prata, 3º azul; do 4º em diante a barra fica neutra.
 const POSICAO_TEXTO = ['text-warning', 'text-muted-foreground', 'text-info']
 const POSICAO_BARRA = ['bg-warning/22', 'bg-muted-foreground/18', 'bg-info/22']
+
+const ICONE_OPORTUNIDADE: Record<IconeOportunidade, typeof Target> = { Smartphone, MessageCircle, Wrench, Target }
 
 function SecTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-2xl font-bold mb-1 print:text-xl">{children}</h2>
@@ -190,15 +192,18 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
         <SecTitle>Onde está a próxima virada</SecTitle>
         <p className="text-muted-foreground mb-6">Time bom comemora o resultado e já enxerga a próxima oportunidade.</p>
         <div className="space-y-3">
-          {dados.oportunidades.map((op, i) => (
-            <div key={i} className="flex gap-3 rounded-xl border border-border p-4">
-              <span className="text-2xl leading-none">{op.icone}</span>
-              <div>
-                <b className="block">{op.titulo}</b>
-                <span className="text-muted-foreground text-sm">{op.texto}</span>
+          {dados.oportunidades.map((op, i) => {
+            const Icone = ICONE_OPORTUNIDADE[op.icone]
+            return (
+              <div key={i} className="flex gap-3 rounded-xl border border-border p-4">
+                <Icone size={20} className="mt-0.5 shrink-0 text-primary-text" aria-hidden />
+                <div>
+                  <b className="block">{op.titulo}</b>
+                  <span className="text-muted-foreground text-sm">{op.texto}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 

@@ -70,6 +70,14 @@ test('gerarOportunidades: OS sem salto relevante não cita o mês anterior', () 
     semOrigemQtd: 0, totalVendas: 10, canalTopNome: null, canalTopQtd: 0,
     osQtd: 100, osQtdAnterior: 90, recordeMotos: 10, mesLabel: 'Maio',
   })
-  const osOp = ops.find(o => o.icone === '🛒')!
+  const osOp = ops.find(o => o.icone === 'Wrench')!
   assert.doesNotMatch(osOp.texto, /acima do mês anterior/)
+})
+
+test('gerarOportunidades: ícone é nome de ícone do lucide, nunca emoji', () => {
+  const ops = gerarOportunidades({
+    semOrigemQtd: 2, totalVendas: 10, canalTopNome: 'Instagram', canalTopQtd: 4,
+    osQtd: 5, osQtdAnterior: 1, recordeMotos: 10, mesLabel: 'Maio',
+  })
+  assert.deepEqual(ops.map(o => o.icone), ['Smartphone', 'MessageCircle', 'Wrench', 'Target'])
 })

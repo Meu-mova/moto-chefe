@@ -164,7 +164,7 @@ function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; me
       <Sec>Leitura da conversa</Sec>
       <div className="grid md:grid-cols-2 gap-4">
         <div className="rounded-lg border border-success/30 bg-success/10 p-4">
-          <h3 className="text-[11px] font-bold uppercase tracking-wide text-success mb-2">✓ Pontos fortes</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-wide text-success mb-2">Pontos fortes</h3>
           <ul className="list-disc pl-5 space-y-1.5">{fortes.map((t, i) => <li key={i} className="text-sm">{t}</li>)}</ul>
         </div>
         <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">

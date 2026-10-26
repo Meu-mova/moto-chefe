@@ -267,7 +267,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
                         <td className="px-3 py-2 text-right">{Math.round(l.conversao * 100)}%</td>
                         <td className="px-4 py-2 text-right whitespace-nowrap">
                           {fmtBRL(l.valor)}
-                          {l.ganhosSemValor > 0 && <span className="ml-1 text-warning" title={`${l.ganhosSemValor} ganho(s) sem valor`}>⚠</span>}
+                          {l.ganhosSemValor > 0 && <span className="ml-1 inline-flex align-[-2px] text-warning" title={`${l.ganhosSemValor} ganho(s) sem valor`}><TriangleAlert size={13} aria-label={`${l.ganhosSemValor} ganho(s) sem valor`} /></span>}
                         </td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{l.mensagens}</td>
                         <td className="px-3 py-2 text-right text-muted-foreground">{l.tarefas}</td>
