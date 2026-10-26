@@ -14,6 +14,7 @@ import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
 import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
+import { excluirVendaPecaTx } from '@/lib/excluir-venda-peca'
 import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
 
 
@@ -157,7 +158,7 @@ async function registrarVendaPeca(input: DadosVendaPeca) {
   if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(input.lojaId)) throw new RecusaUsuario('Loja fora do grupo ativo')
+  if (!lojaIdsGrupo.includes(input.lojaId)) throw new RecusaUsuario('Sem permissão para esta loja')
   // Como na tela: quem não é admin vende peça só pela própria loja.
   if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
 
@@ -452,61 +453,11 @@ export async function excluirVendaPecaAction(...a: Parameters<typeof excluirVend
 }
 async function excluirVendaPeca(vendaId: string) {
   const usuario = await verificarAcesso()
-
-  const [venda] = await db
-    .select({ id: vendasPecas.id, numero: vendasPecas.numero, lojaId: vendasPecas.lojaId })
-    .from(vendasPecas)
-    .where(eq(vendasPecas.id, vendaId))
-    .limit(1)
-  if (!venda) throw new RecusaUsuario('Venda não encontrada')
-
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(venda.lojaId)) throw new RecusaUsuario('Venda fora do grupo ativo')
-  if (!(await podeAgirNaLoja(usuario, venda.lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
-
-  await db.transaction(async tx => {
-    // Pedido de edição pendente desta venda perde o objeto: recusa junto, senão ficaria
-    // no painel de aprovações falhando com "venda não encontrada".
-    await tx.update(aprovacoesVenda)
-      .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
-      .where(and(
-        eq(aprovacoesVenda.origem, 'peca_edicao'),
-        eq(aprovacoesVenda.status, 'pendente'),
-        sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
-      ))
-
-    const itens = await tx
-      .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
-      .from(vendasPecasItens)
-      .where(eq(vendasPecasItens.vendaPecaId, vendaId))
-
-    // Devolve na mesma forma que a venda baixou (incremento relativo) — duas linhas da
-    // mesma peça no carrinho têm que somar as duas de volta.
-    for (const item of itens) {
-      await tx.update(pecasCatalogo)
-        .set({
-          quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} + ${Number(item.quantidade)}`,
-          atualizadoEm: new Date(),
-        })
-        .where(eq(pecasCatalogo.id, item.pecaId))
-    }
-
-    // Soltar antes do DELETE: as duas colunas são FK pra vendas_pecas e segurariam a
-    // exclusão. Volta ao estado de transação não conciliada, como desvincular na mão.
-    await tx.update(conciliacoesCartao)
-      .set({ pecaVendaId: null, conciliado: false, conciliadoEm: null })
-      .where(eq(conciliacoesCartao.pecaVendaId, vendaId))
-    await tx.update(pixRecebimentosMcp)
-      .set({ tipoCorrespondencia: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null })
-      .where(eq(pixRecebimentosMcp.pecaVendaId, vendaId))
-
-    await tx.delete(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, vendaId))
-    await tx.delete(vendasPecas).where(eq(vendasPecas.id, vendaId))
-  })
+  const { numero } = await db.transaction(tx => excluirVendaPecaTx(tx, usuario, vendaId))
 
   revalidatePath('/pecas')
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
   revalidatePath('/vendas')
-  return { numero: venda.numero }
+  return { numero }
 }
