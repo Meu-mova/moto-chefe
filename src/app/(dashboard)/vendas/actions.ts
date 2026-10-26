@@ -38,6 +38,7 @@ import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
 import { motoDoUsuario } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
+import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -1124,22 +1125,26 @@ type DadosReserva = {
   dataReserva?: string
 }
 
-export async function registrarReservaAction(data: DadosReserva) {
+export async function registrarReservaAction(...a: Parameters<typeof registrarReserva>) {
+  return acao(() => registrarReserva(...a))
+}
+
+async function registrarReserva(data: DadosReserva) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar reserva')
+    throw new RecusaUsuario('Sem permissão para registrar reserva')
   }
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
-    throw new Error('Moto já foi vendida')
+    throw new RecusaUsuario('Moto já foi vendida')
   }
   if (moto.disponibilidade === 'reservada') {
-    throw new Error('Moto já está reservada')
+    throw new RecusaUsuario('Moto já está reservada')
   }
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de reservar')
+    throw new RecusaUsuario('Moto tem uma venda aguardando aprovação. Aprove ou recuse antes de reservar.')
   }
 
   // A checagem acima olha a disponibilidade da MOTO, que é editável no "Editar
@@ -1151,22 +1156,22 @@ export async function registrarReservaAction(data: DadosReserva) {
     .where(and(eq(reservas.motoId, data.motoId), eq(reservas.status, 'ativa')))
     .limit(1)
   if (jaReservada) {
-    throw new Error(
-      `Moto já tem reserva ativa${jaReservada.cliente ? ` (${jaReservada.cliente})` : ''} — cancele antes de reservar de novo`,
+    throw new RecusaUsuario(
+      `Moto já tem reserva ativa${jaReservada.cliente ? ` (${jaReservada.cliente})` : ''}. Cancele antes de reservar de novo.`,
     )
   }
 
   const valorNum = parseFloat(data.valorReserva)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor de reserva inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor de reserva inválido')
 
   const { clienteCpf } = conferirComprador(data.clienteCpf)
 
   const pagamentos = data.pagamentos ?? []
   if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
-    throw new Error('Toda forma de pagamento precisa de tipo e valor')
+    throw new RecusaUsuario('Toda forma de pagamento precisa de tipo e valor')
   }
   if (!pagamentosFecham(pagamentos, valorNum)) {
-    throw new Error(
+    throw new RecusaUsuario(
       `A soma das formas de pagamento (${somaPagamentos(pagamentos).toFixed(2)}) não bate com a entrada (${valorNum.toFixed(2)})`,
     )
   }
@@ -1180,7 +1185,7 @@ export async function registrarReservaAction(data: DadosReserva) {
     const valorTotalNum = parseFloat(data.valorTotalVenda)
     const check = validarReserva(valorNum, isNaN(valorTotalNum) ? 0 : valorTotalNum, prec.valorMinimoPix)
     if (!check.entradaOk) {
-      throw new Error(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
+      throw new RecusaUsuario(`Entrada mínima de ${fmt(check.minimoEntrada)} (30% do preço PIX ${fmt(prec.valorMinimoPix)})`)
     }
     // Total negociado é livre — depende da forma de pagamento (PIX, cartão, etc.)
     // Apenas a entrada mínima de 30% é obrigatória para reservas
@@ -1188,6 +1193,9 @@ export async function registrarReservaAction(data: DadosReserva) {
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   let reservaId = ''
 
@@ -1265,37 +1273,30 @@ const PAPEIS_CANCELAR_RESERVA = ['admin_geral', 'admin_socio', 'aux_adm']
  * Com venda aguardando aprovação o cancelamento é recusado (ver
  * motivoBloqueioCancelarReserva): primeiro se aprova ou recusa a venda.
  */
-export async function cancelarReservaAction(reservaId: string, motivo: string) {
+export async function cancelarReservaAction(...a: Parameters<typeof cancelarReserva>) {
+  return acao(() => cancelarReserva(...a))
+}
+
+async function cancelarReserva(reservaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_CANCELAR_RESERVA.includes(usuario.papel)) {
-    throw new Error('Sem permissão para cancelar reserva')
+    throw new RecusaUsuario('Sem permissão para cancelar reserva')
   }
 
   const motivoLimpo = motivo.trim()
-  if (motivoLimpo.length < 3) throw new Error('Informe o motivo do cancelamento')
+  if (motivoLimpo.length < 3) throw new RecusaUsuario('Informe o motivo do cancelamento')
 
-  const [reserva] = await db
-    .select({
-      id: reservas.id,
-      motoId: reservas.motoId,
-      lojaId: reservas.lojaId,
-      status: reservas.status,
-      clienteNome: reservas.clienteNome,
-      valorReserva: reservas.valorReserva,
-    })
-    .from(reservas)
-    .where(eq(reservas.id, reservaId))
-    .limit(1)
-  if (!reserva) throw new Error('Reserva não encontrada')
-
-  if (reserva.status === 'cancelada') throw new Error('Reserva já está cancelada')
-  if (reserva.status === 'convertida') {
-    throw new Error('Reserva já virou venda — cancele a venda, não a reserva')
-  }
+  const reserva = await reservaDoUsuario(usuario, reservaId)
+  if (!reserva) throw new RecusaUsuario('Reserva não encontrada')
 
   // Quem tem loja fica nela; quem não tem (admin_geral, sócio sem loja) só no grupo que vê.
   if (usuario.lojaId ? reserva.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, reserva.lojaId))) {
-    throw new Error('Sem permissão para cancelar reserva de outra loja')
+    throw new RecusaUsuario('Sem permissão para cancelar reserva de outra loja')
+  }
+
+  if (reserva.status === 'cancelada') throw new RecusaUsuario('Reserva já está cancelada')
+  if (reserva.status === 'convertida') {
+    throw new RecusaUsuario('Reserva já virou venda. Cancele a venda, não a reserva.')
   }
 
   await db.transaction(async (tx) => {
@@ -1308,9 +1309,9 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       .where(eq(motos.id, reserva.motoId))
       .limit(1)
       .for('update')
-    if (!moto) throw new Error('Moto não encontrada')
+    if (!moto) throw new RecusaUsuario('Moto não encontrada')
     const bloqueio = motivoBloqueioCancelarReserva(moto)
-    if (bloqueio) throw new Error(bloqueio)
+    if (bloqueio) throw new RecusaUsuario(bloqueio)
 
     // O filtro por status no UPDATE evita corrida com quem estiver convertendo
     // a reserva em venda neste instante.
@@ -1323,7 +1324,7 @@ export async function cancelarReservaAction(reservaId: string, motivo: string) {
       })
       .where(and(eq(reservas.id, reservaId), eq(reservas.status, 'ativa')))
       .returning({ id: reservas.id })
-    if (cancelada.length === 0) throw new Error('A reserva mudou de estado — recarregue a página')
+    if (cancelada.length === 0) throw new RecusaUsuario('A reserva mudou de estado. Recarregue a página.')
 
     // Uma moto não deveria ter duas reservas ativas, mas tem na base (o buraco
     // que este botão fecha). Enquanto sobrar outra, a moto continua reservada.
