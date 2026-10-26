@@ -137,7 +137,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
         size="sm"
         variant="outline"
         onClick={abrir}
-        className="h-8 gap-1.5 text-xs border-teal-300 text-teal-700 hover:bg-teal-50"
+        className="h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10"
         title="Emitir NF de saída"
       >
         <FileCheck size={14} />
