@@ -705,6 +705,8 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Catálogo da Conta: as lojas dela compartilham, as outras Contas não veem (#195).
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
 })
 
 // ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────

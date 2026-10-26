@@ -8,7 +8,7 @@ import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
@@ -53,7 +53,7 @@ export async function criarPecaAction(...a: Parameters<typeof criarPeca>) {
   return acao(() => criarPeca(...a))
 }
 async function criarPeca(input: PecaInput) {
-  await verificarAcessoVenda()
+  const usuario = await verificarAcessoVenda()
   const nome = input.nome.trim()
   if (!nome) throw new RecusaUsuario('Nome é obrigatório')
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
@@ -63,6 +63,7 @@ async function criarPeca(input: PecaInput) {
     nome,
     valor: String(input.valor),
     quantidadeEstoque: input.quantidadeEstoque,
+    contaId: await contaDoGrupoAtivo(usuario),
   }).returning({
     id: pecasCatalogo.id,
     nome: pecasCatalogo.nome,

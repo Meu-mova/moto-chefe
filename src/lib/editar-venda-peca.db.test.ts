@@ -36,12 +36,12 @@ const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q
 
 // Venda #1 com 2 retrovisores (preço ajustado 40,00) e 1 pneu; estoque já baixado.
 async function semear(tx: Tx) {
-  const [grupo] = await linhas(tx, sql`with c as (insert into contas (nome) values ('Grupo Teste') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo Teste', '00000000000191', id from c returning id`)
+  const [grupo] = await linhas(tx, sql`with c as (insert into contas (nome) values ('Grupo Teste') returning id) insert into grupos (nome, cnpj, conta_id) select 'Grupo Teste', '00000000000191', id from c returning id, conta_id`)
   const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values ('Loja Teste', 'Cidade', 'Rua', ${grupo.id}) returning id`)
   const [vend] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend', 'vend@teste.invalid', 'vendedor', ${loja.id}) returning id`)
-  const [retro] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque) values ('Retrovisor', 50, 8) returning id`)
-  const [pneu] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque) values ('Pneu', 100, 4) returning id`)
-  const [capa] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque) values ('Capacete', 150, 3) returning id`)
+  const [retro] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque, conta_id) values ('Retrovisor', 50, 8, ${grupo.conta_id}) returning id`)
+  const [pneu] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque, conta_id) values ('Pneu', 100, 4, ${grupo.conta_id}) returning id`)
+  const [capa] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque, conta_id) values ('Capacete', 150, 3, ${grupo.conta_id}) returning id`)
   const [venda] = await linhas(tx, sql`insert into vendas_pecas (loja_id, vendedor_id, forma_pagamento, pagamentos, valor_total)
     values (${loja.id}, ${vend.id}, 'pix', ${JSON.stringify([{ tipo: 'pix', valor: 180 }])}::jsonb, 180) returning id, numero`)
   await linhas(tx, sql`insert into vendas_pecas_itens (venda_peca_id, peca_id, descricao, quantidade, valor_unitario) values
