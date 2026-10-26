@@ -2,9 +2,8 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { pecasCatalogo } from '@/lib/db/schema'
-import { asc } from 'drizzle-orm'
-import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarPecas } from '@/lib/pecas-da-conta'
+import { contaDoGrupoAtivo, getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
@@ -46,7 +45,7 @@ export default async function PecasPage({
   const ate = params.ate ?? hojeBrt()
 
   const [pecas, lojasOpts, lojaIdsGrupo, vendas] = await Promise.all([
-    db.select().from(pecasCatalogo).orderBy(asc(pecasCatalogo.nome)),
+    contaDoGrupoAtivo(usuario).then(contaId => listarPecas(db, { papel: usuario.papel, contaId })),
     listarLojasDoGrupoAtivo(usuario),
     listarLojaIdsDoGrupoAtivo(usuario),
     podeVender

@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
-import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
@@ -15,6 +15,7 @@ import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
 import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { excluirVendaPecaTx } from '@/lib/excluir-venda-peca'
+import { alterarPeca, inserirPeca, listarPecas, type QuemVePecas } from '@/lib/pecas-da-conta'
 import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
 
 
@@ -24,6 +25,10 @@ async function verificarAcesso() {
     throw new RecusaUsuario('Sem permissão')
   }
   return usuario
+}
+
+async function quemVePecas(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<QuemVePecas> {
+  return { papel: usuario.papel, contaId: await contaDoGrupoAtivo(usuario) }
 }
 
 async function verificarAcessoVenda() {
@@ -41,9 +46,8 @@ export type PecaInput = {
 }
 
 export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
-  await verificarAcessoVenda()
-  const todas = await db.select().from(pecasCatalogo).orderBy(asc(pecasCatalogo.nome))
-  return params?.apenasAtivos ? todas.filter(p => p.ativo) : todas
+  const usuario = await verificarAcessoVenda()
+  return listarPecas(db, await quemVePecas(usuario), { apenasAtivos: params?.apenasAtivos })
 }
 
 // Vendedor também cria: a peça nova aparece no balcão antes de alguém do escritório
@@ -59,17 +63,7 @@ async function criarPeca(input: PecaInput) {
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  const [nova] = await db.insert(pecasCatalogo).values({
-    nome,
-    valor: String(input.valor),
-    quantidadeEstoque: input.quantidadeEstoque,
-    contaId: await contaDoGrupoAtivo(usuario),
-  }).returning({
-    id: pecasCatalogo.id,
-    nome: pecasCatalogo.nome,
-    valor: pecasCatalogo.valor,
-    quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
-  })
+  const nova = await inserirPeca(db, await contaDoGrupoAtivo(usuario), { ...input, nome })
 
   revalidatePath('/pecas')
   return nova
@@ -79,18 +73,14 @@ export async function atualizarPecaAction(...a: Parameters<typeof atualizarPeca>
   return acao(() => atualizarPeca(...a))
 }
 async function atualizarPeca(id: string, input: PecaInput) {
-  await verificarAcesso()
+  const usuario = await verificarAcesso()
   const nome = input.nome.trim()
   if (!nome) throw new RecusaUsuario('Nome é obrigatório')
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  await db.update(pecasCatalogo).set({
-    nome,
-    valor: String(input.valor),
-    quantidadeEstoque: input.quantidadeEstoque,
-    atualizadoEm: new Date(),
-  }).where(eq(pecasCatalogo.id, id))
+  const campos = { nome, valor: String(input.valor), quantidadeEstoque: input.quantidadeEstoque }
+  if (!(await alterarPeca(db, await quemVePecas(usuario), id, campos))) throw new RecusaUsuario('Peça não encontrada')
 
   revalidatePath('/pecas')
 }
@@ -99,10 +89,8 @@ export async function inativarPecaAction(...a: Parameters<typeof inativarPeca>) 
   return acao(() => inativarPeca(...a))
 }
 async function inativarPeca(id: string) {
-  await verificarAcesso()
-  await db.update(pecasCatalogo)
-    .set({ ativo: false, atualizadoEm: new Date() })
-    .where(eq(pecasCatalogo.id, id))
+  const usuario = await verificarAcesso()
+  if (!(await alterarPeca(db, await quemVePecas(usuario), id, { ativo: false }))) throw new RecusaUsuario('Peça não encontrada')
   revalidatePath('/pecas')
 }
 
@@ -110,10 +98,8 @@ export async function reativarPecaAction(...a: Parameters<typeof reativarPeca>) 
   return acao(() => reativarPeca(...a))
 }
 async function reativarPeca(id: string) {
-  await verificarAcesso()
-  await db.update(pecasCatalogo)
-    .set({ ativo: true, atualizadoEm: new Date() })
-    .where(eq(pecasCatalogo.id, id))
+  const usuario = await verificarAcesso()
+  if (!(await alterarPeca(db, await quemVePecas(usuario), id, { ativo: true }))) throw new RecusaUsuario('Peça não encontrada')
   revalidatePath('/pecas')
 }
 

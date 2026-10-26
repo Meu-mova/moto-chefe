@@ -6,6 +6,7 @@ import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebim
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { pecaUsavelNaLoja } from '@/lib/pecas-da-conta'
 import { osDoUsuario } from '@/lib/os-do-usuario'
 import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
@@ -321,6 +322,10 @@ async function adicionarItemOS(osId: string, item: {
 }) {
   await verificarAcessoOS(osId, EDITORES)
   await garantirOSNaoConciliada(osId)
+  if (item.pecaId) {
+    const [os] = await db.select({ lojaId: ordensServico.lojaId }).from(ordensServico).where(eq(ordensServico.id, osId)).limit(1)
+    if (!os || !(await pecaUsavelNaLoja(db, os.lojaId, item.pecaId))) throw new RecusaUsuario('Peça não encontrada')
+  }
   await db.insert(osItens).values({
     osId,
     tipo:          item.tipo,
