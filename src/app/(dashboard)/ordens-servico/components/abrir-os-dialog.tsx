@@ -62,7 +62,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
 
     start(async () => {
       try {
-        await abrirOSAction({
+        const r = await abrirOSAction({
           lojaId:             form.lojaId,
           chassiOs:           veiculo.chassi,
           motoId:             veiculo?.motoId || null,
@@ -78,6 +78,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           clienteTipoPessoaExterno: !cliente ? form.clienteTipoPessoaExterno : null,
           clienteDocumentoExterno:  !cliente ? (digitosDoc || null) : null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS aberta com sucesso')
         setOpen(false)
         resetar()

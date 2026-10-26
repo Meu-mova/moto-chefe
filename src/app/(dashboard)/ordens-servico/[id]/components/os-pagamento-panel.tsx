@@ -128,7 +128,8 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
             ...(FORMAS_CARTAO.has(l.tipo) && l.autorizacao?.trim() ? { autorizacao: l.autorizacao.trim().toUpperCase() } : {}),
           })),
         })
-        toast.success(resultado.aguardandoAprovacao
+        if (!resultado.ok) { toast.error(resultado.erro); return }
+        toast.success(resultado.dados.aguardandoAprovacao
           ? 'Pagamento por transferência enviado para aprovação'
           : 'Pagamento registrado')
       } catch (e: any) { toast.error(e.message) }
@@ -138,7 +139,8 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
   function concluirGratuita() {
     start(async () => {
       try {
-        await registrarPagamentoOSAction(osId, { valorTotal: 0, pagamentos: [] })
+        const r = await registrarPagamentoOSAction(osId, { valorTotal: 0, pagamentos: [] })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS concluída como gratuita')
       } catch (e: any) { toast.error(e.message) }
     })

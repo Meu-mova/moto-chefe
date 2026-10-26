@@ -54,7 +54,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
     if (!qty || !val) { toast.error('Quantidade e valor devem ser maiores que zero'); return }
     start(async () => {
       try {
-        await adicionarItemOSAction(osId, {
+        const r = await adicionarItemOSAction(osId, {
           tipo,
           descricao: form.descricao,
           quantidade: qty,
@@ -62,6 +62,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
           servicoId: tipo === 'servico' ? (catalogoId || null) : null,
           pecaId:    tipo === 'peca'    ? (catalogoId || null) : null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         setForm({ descricao: '', quantidade: '1', valorUnitario: '' })
         setCatalogoId('')
       } catch (e: any) { toast.error(e.message) }
@@ -70,7 +71,10 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
 
   function remover(id: string) {
     start(async () => {
-      try { await removerItemOSAction(id, osId) }
+      try {
+        const r = await removerItemOSAction(id, osId)
+        if (!r.ok) toast.error(r.erro)
+      }
       catch (e: any) { toast.error(e.message) }
     })
   }

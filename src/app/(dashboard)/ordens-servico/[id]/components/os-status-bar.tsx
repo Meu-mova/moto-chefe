@@ -36,7 +36,8 @@ export function OSStatusBar({ osId, status, podeEditar, papel }: Props) {
     if (!next) return
     start(async () => {
       try {
-        await atualizarStatusOSAction(osId, next.key)
+        const r = await atualizarStatusOSAction(osId, next.key)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(`Status atualizado: ${next.label}`)
       } catch (e: any) {
         toast.error(e.message)

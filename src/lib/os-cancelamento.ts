@@ -29,7 +29,7 @@ export type SituacaoOS = {
 export function motivoBloqueioCancelamento(s: SituacaoOS): string | null {
   if (s.jaCancelada)          return 'Esta OS já está cancelada'
   if (s.temConciliacao)       return 'OS já conciliada não pode ser cancelada'
-  if (s.temPagamento)         return 'OS com pagamento lançado não pode ser cancelada — não há estorno de caixa'
-  if (s.temAprovacaoPendente) return 'Existe uma aprovação de pagamento pendente para esta OS — resolva antes de cancelar'
+  if (s.temPagamento)         return 'OS com pagamento lançado não pode ser cancelada: não há estorno de caixa'
+  if (s.temAprovacaoPendente) return 'Existe uma aprovação de pagamento pendente para esta OS. Resolva antes de cancelar'
   return null
 }

@@ -15,7 +15,8 @@ export function ExcluirOSButton({ osId, numero }: Props) {
     if (!confirm(`Excluir OS #${numero ?? ''}? Esta ação não pode ser desfeita.`)) return
     start(async () => {
       try {
-        await excluirOSAction(osId)
+        const r = await excluirOSAction(osId)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS excluída')
         router.push('/ordens-servico')
       } catch (e: any) {

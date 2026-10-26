@@ -5,6 +5,8 @@ import { db } from '@/lib/db'
 import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, cuponsRevisao } from '@/lib/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { osDoUsuario } from '@/lib/os-do-usuario'
 import { podeAprovarPagamentoSensivelNaLoja, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancelamento'
@@ -22,21 +24,15 @@ const EDITORES  = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'] as const
 
 async function verificarAcessoOS(osId: string, papeis: readonly string[]) {
   const usuario = await getUsuarioLogado()
-  if (!papeis.includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!papeis.includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
 
-  const [os] = await db
-    .select({ lojaId: ordensServico.lojaId, status: ordensServico.status })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-
-  if (!os) throw new Error('OS não encontrada')
+  const os = await osDoUsuario(usuario, osId)
+  if (!os) throw new RecusaUsuario('OS não encontrada')
 
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
-  if (!(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('Sem permissão')
 
   // OS cancelada é registro morto — nada nela pode mudar depois disso.
-  if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
+  if (os.status === 'cancelada') throw new RecusaUsuario('OS cancelada não pode ser alterada')
 
   return { usuario, isAdmin, os }
 }
@@ -54,7 +50,7 @@ async function situacaoFinanceiraOS(osId: string) {
     .from(ordensServico)
     .where(eq(ordensServico.id, osId))
     .limit(1)
-  if (!os) throw new Error('OS não encontrada')
+  if (!os) throw new RecusaUsuario('OS não encontrada')
 
   const [cartoes, pix, aprovacoes] = await Promise.all([
     db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.osId, osId), eq(conciliacoesCartao.conciliado, true))),
@@ -88,17 +84,20 @@ type AbrirOSInput = {
   clienteDocumentoExterno?: string | null
 }
 
-export async function abrirOSAction(input: AbrirOSInput) {
+export async function abrirOSAction(...a: Parameters<typeof abrirOS>) {
+  return acao(() => abrirOS(...a))
+}
+async function abrirOS(input: AbrirOSInput) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão para abrir OS')
+    throw new RecusaUsuario('Sem permissão para abrir OS')
   }
 
   // Admins podem escolher qualquer loja; demais usuários ficam restritos à própria loja
   const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
   const lojaId  = isAdmin ? (input.lojaId || usuario.lojaId) : usuario.lojaId
-  if (!lojaId) throw new Error('Loja não identificada')
-  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new Error('Sem permissão para esta loja')
+  if (!lojaId) throw new RecusaUsuario('Loja não identificada')
+  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
 
   // OS para empresa: sem CNPJ e razão social a impressão não identifica o tomador,
   // e é ela que a empresa leva pra lançar o serviço. Só vale para cliente fora do
@@ -107,9 +106,9 @@ export async function abrirOSAction(input: AbrirOSInput) {
     ? input.clienteTipoPessoaExterno
     : 'fisica'
   const doc = validarDocumento(tipoPessoa, input.clienteDocumentoExterno)
-  if (!doc.ok) throw new Error(doc.erro)
+  if (!doc.ok) throw new RecusaUsuario(doc.erro)
   if (!input.clienteId && tipoPessoa === 'juridica' && !input.clienteNomeExterno?.trim()) {
-    throw new Error('Informe a razão social da empresa')
+    throw new RecusaUsuario('Informe a razão social da empresa')
   }
   await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, mecanicoId: input.mecanicoId })
 
@@ -143,28 +142,24 @@ const COLUNA_TIMESTAMP_TRANSICAO: Record<string, 'oficinaEm' | 'emAndamentoEm' |
   pendente_pagamento: 'pendentePagamentoEm',
 }
 
-export async function atualizarStatusOSAction(osId: string, novoStatus: string) {
+export async function atualizarStatusOSAction(...a: Parameters<typeof atualizarStatusOS>) {
+  return acao(() => atualizarStatusOS(...a))
+}
+async function atualizarStatusOS(osId: string, novoStatus: string) {
   const usuario = await getUsuarioLogado()
 
-  const [os] = await db
-    .select({ status: ordensServico.status, lojaId: ordensServico.lojaId })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-  if (!os) throw new Error('OS não encontrada')
+  const os = await osDoUsuario(usuario, osId)
+  if (!os) throw new RecusaUsuario('OS não encontrada')
 
-  const isAdmin = (ADMINS as readonly string[]).includes(usuario.papel)
-  if (!(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('Sem permissão')
-
-  if (os.status === 'cancelada') throw new Error('OS cancelada não pode ser alterada')
+  if (os.status === 'cancelada') throw new RecusaUsuario('OS cancelada não pode ser alterada')
 
   const idxAtual = SEQUENCIA_STATUS.indexOf(os.status as typeof SEQUENCIA_STATUS[number])
   const proximoEsperado = SEQUENCIA_STATUS[idxAtual + 1]
   if (novoStatus !== proximoEsperado) {
-    throw new Error('Transição de status inválida')
+    throw new RecusaUsuario('Transição de status inválida')
   }
 
-  if (!podeAvancarOS(novoStatus, usuario.papel)) throw new Error('Sem permissão')
+  if (!podeAvancarOS(novoStatus, usuario.papel)) throw new RecusaUsuario('Sem permissão')
 
   const colunaTempo = COLUNA_TIMESTAMP_TRANSICAO[novoStatus]
 
@@ -178,7 +173,10 @@ export async function atualizarStatusOSAction(osId: string, novoStatus: string) 
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-export async function atualizarOSAction(osId: string, dados: {
+export async function atualizarOSAction(...a: Parameters<typeof atualizarOS>) {
+  return acao(() => atualizarOS(...a))
+}
+async function atualizarOS(osId: string, dados: {
   mecanicoId?: string | null
   descricao?: string
   diagnostico?: string
@@ -208,17 +206,20 @@ export async function atualizarOSAction(osId: string, dados: {
 // podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
 const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
 
-export async function registrarPagamentoOSAction(osId: string, dados: DadosPagamentoOS) {
+export async function registrarPagamentoOSAction(...a: Parameters<typeof registrarPagamentoOS>) {
+  return acao(() => registrarPagamentoOS(...a))
+}
+async function registrarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
 
   await validarCupomDoPagamento(usuario, osId, dados.pagamentos)
 
   const somatorio = dados.pagamentos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
   if (dados.valorTotal >= 0.01 && Math.abs(somatorio - dados.valorTotal) > 0.01) {
-    throw new Error('A soma dos pagamentos precisa bater com o valor total da OS')
+    throw new RecusaUsuario('A soma dos pagamentos precisa bater com o valor total da OS')
   }
   if (dados.valorTotal < 0.01 && dados.pagamentos.length > 0) {
-    throw new Error('OS gratuita não deve ter formas de pagamento lançadas')
+    throw new RecusaUsuario('OS gratuita não deve ter formas de pagamento lançadas')
   }
 
   if (dados.pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_OS.has(p.tipo))) {
@@ -228,7 +229,7 @@ export async function registrarPagamentoOSAction(osId: string, dados: DadosPagam
       .from(ordensServico)
       .where(eq(ordensServico.id, osId))
       .limit(1)
-    if (!os) throw new Error('OS não encontrada')
+    if (!os) throw new RecusaUsuario('OS não encontrada')
 
     if (!(await podeAprovarPagamentoSensivelNaLoja(usuario, os.lojaId))) {
       await db.insert(aprovacoesVenda).values({
@@ -267,17 +268,17 @@ async function validarCupomDoPagamento(
 ) {
   const linhas = pagamentos.filter(p => p.tipo === TIPO_PAGAMENTO_CUPOM)
   if (linhas.length === 0) return
-  if (linhas.length > 1) throw new Error('Só um cupom de revisão por OS')
+  if (linhas.length > 1) throw new RecusaUsuario('Só um cupom de revisão por OS')
 
   const codigo = normalizarCodigoCupom(linhas[0].cupom)
-  if (!codigo) throw new Error('Informe o código do cupom de revisão')
+  if (!codigo) throw new RecusaUsuario('Informe o código do cupom de revisão')
 
   const [os] = await db
     .select({ valorServicos: ordensServico.valorServicos })
     .from(ordensServico)
     .where(eq(ordensServico.id, osId))
     .limit(1)
-  if (!os) throw new Error('OS não encontrada')
+  if (!os) throw new RecusaUsuario('OS não encontrada')
   const valorServicos = parseFloat(os.valorServicos ?? '0')
 
   // Escopo de grupo: cupom emitido em Pouso Alegre vale na revisão feita em Varginha.
@@ -289,10 +290,10 @@ async function validarCupomDoPagamento(
     .limit(1)
 
   const motivo = motivoCupomInvalido(cupom ?? null, { hoje: hojeBrt(), osId, valorServicos })
-  if (motivo) throw new Error(motivo)
+  if (motivo) throw new RecusaUsuario(motivo)
 
   if (Math.abs(Number(linhas[0].valor) - valorServicos) > 0.01) {
-    throw new Error(
+    throw new RecusaUsuario(
       `O cupom cobre exatamente a mão de obra da OS (${valorServicos.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`,
     )
   }
@@ -303,11 +304,14 @@ async function validarCupomDoPagamento(
 async function garantirOSNaoConciliada(osId: string) {
   const { temConciliacao } = await situacaoFinanceiraOS(osId)
   if (temConciliacao) {
-    throw new Error('OS já conciliada — não é possível alterar os itens')
+    throw new RecusaUsuario('OS já conciliada. Não é possível alterar os itens')
   }
 }
 
-export async function adicionarItemOSAction(osId: string, item: {
+export async function adicionarItemOSAction(...a: Parameters<typeof adicionarItemOS>) {
+  return acao(() => adicionarItemOS(...a))
+}
+async function adicionarItemOS(osId: string, item: {
   tipo: 'servico' | 'peca'
   descricao: string
   quantidade: number
@@ -330,7 +334,10 @@ export async function adicionarItemOSAction(osId: string, item: {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-export async function removerItemOSAction(itemId: string, osId: string) {
+export async function removerItemOSAction(...a: Parameters<typeof removerItemOS>) {
+  return acao(() => removerItemOS(...a))
+}
+async function removerItemOS(itemId: string, osId: string) {
   await verificarAcessoOS(osId, EDITORES)
   await garantirOSNaoConciliada(osId)
 
@@ -340,24 +347,27 @@ export async function removerItemOSAction(itemId: string, osId: string) {
     .from(osItens)
     .where(eq(osItens.id, itemId))
     .limit(1)
-  if (!item || item.osId !== osId) throw new Error('Item não encontrado')
+  if (!item || item.osId !== osId) throw new RecusaUsuario('Item não encontrado')
 
   await db.delete(osItens).where(eq(osItens.id, itemId))
   await recalcularTotal(osId)
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-export async function cancelarOSAction(osId: string, motivo: string) {
+export async function cancelarOSAction(...a: Parameters<typeof cancelarOS>) {
+  return acao(() => cancelarOS(...a))
+}
+async function cancelarOS(osId: string, motivo: string) {
   // PAPEIS_CANCELAM_OS inclui aux_adm; verificarAcessoOS já prende quem não é
   // admin à própria loja, então o aux_adm só cancela OS da loja dele.
   const { usuario } = await verificarAcessoOS(osId, PAPEIS_CANCELAM_OS)
 
   const motivoLimpo = motivo.trim()
-  if (motivoLimpo.length < 5) throw new Error('Informe o motivo do cancelamento')
+  if (motivoLimpo.length < 5) throw new RecusaUsuario('Informe o motivo do cancelamento')
 
   const situacao = await situacaoFinanceiraOS(osId)
   const bloqueio = motivoBloqueioCancelamento({ ...situacao, jaCancelada: false })
-  if (bloqueio) throw new Error(bloqueio)
+  if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   await db.update(ordensServico).set({
     status:             'cancelada',
@@ -370,24 +380,22 @@ export async function cancelarOSAction(osId: string, motivo: string) {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-export async function excluirOSAction(osId: string) {
+export async function excluirOSAction(...a: Parameters<typeof excluirOS>) {
+  return acao(() => excluirOS(...a))
+}
+async function excluirOS(osId: string) {
   const usuario = await getUsuarioLogado()
   if (!(ADMINS as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
 
-  const [os] = await db
-    .select({ id: ordensServico.id, lojaId: ordensServico.lojaId })
-    .from(ordensServico)
-    .where(eq(ordensServico.id, osId))
-    .limit(1)
-  if (!os || !(await podeAgirNaLoja(usuario, os.lojaId))) throw new Error('OS não encontrada')
+  if (!(await osDoUsuario(usuario, osId))) throw new RecusaUsuario('OS não encontrada')
 
   try {
     await db.delete(ordensServico).where(eq(ordensServico.id, osId))
   } catch (e: any) {
     const isFk = e.code === '23503' || e.cause?.code === '23503'
-    if (isFk) throw new Error('Não é possível excluir — existe uma garantia ou agendamento vinculado a esta OS')
+    if (isFk) throw new RecusaUsuario('Não é possível excluir: existe uma garantia ou agendamento vinculado a esta OS')
     throw e
   }
 
