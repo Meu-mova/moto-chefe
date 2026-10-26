@@ -41,6 +41,8 @@ const tela = { largura, altura: ALTURA_POR_LARGURA[largura] }
 const hamburguer = menuNoHamburguer(largura)
 // Carregamento que passa disso é falha por si: a tela travou no esqueleto.
 const LIMITE_CARREGAR = 30_000
+// Até a fase 5 da #90 o escuro ainda tem telas não migradas: com 0, ele só reporta.
+const escuroFalha = process.env.NAVEGACAO_ESCURO_FALHA !== '0'
 
 /** Classe "dark" no <html> também nas recargas completas (o next-themes reaplicaria o claro). */
 async function aplicarTema(contexto: BrowserContext, pagina: Page, tema: Tema) {
@@ -117,10 +119,9 @@ async function percorrer(contexto: BrowserContext, pagina: Page, tema: Tema): Pr
   await aplicarTema(contexto, pagina, tema)
   const nav = await abrirMenu(pagina)
   const todos = [...new Set(await nav.locator('a[href^="/"]').evaluateAll(as => as.map(a => a.getAttribute('href')!)))]
-  // A tela atual vai para o fim: clicar no link dela não navega.
+  // A tela atual vai para o fim: clicar no link dela agora não navega; no fim, já saímos dela.
   const atual = new URL(pagina.url()).pathname
   const hrefs = [...todos.filter(h => h !== atual), ...todos.filter(h => h === atual)]
-  if (hrefs.at(-1) === atual) hrefs.pop()
   await fecharMenu(pagina)
   console.log(`\n${tema} ${largura}px: ${hrefs.length} itens no menu`)
 
@@ -187,7 +188,12 @@ async function main() {
       if (visita && r.status() >= 500 && u.origin === origem) visita.respostas5xx.push(`${r.request().method()} ${u.pathname} ${r.status()}`)
     })
     await entrar(pagina)
-    for (const tema of TEMAS) falhas += await percorrer(contexto, pagina, tema)
+    for (const tema of TEMAS) {
+      const doTema = await percorrer(contexto, pagina, tema)
+      if (tema === 'escuro' && !escuroFalha) {
+        if (doTema > 0) console.log(`\nEscuro: ${doTema} tela(s) com problema, só reportadas (NAVEGACAO_ESCURO_FALHA=0).`)
+      } else falhas += doTema
+    }
   } finally {
     await navegador.close()
   }

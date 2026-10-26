@@ -56,22 +56,21 @@ jobs:
           fi
 
   navegacao:
-    name: navegação ${{ matrix.largura }}px
+    name: navegação ${{ matrix.larguras }}px
     needs: filtro
     if: needs.filtro.outputs.rodar == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
+    # Dois jobs, cada um numa vaga da fila própria: no máximo 2 sessões nossas no staging (com o
+    # smoke, 3). Uma vaga por job: o GitHub guarda só 1 pendente por grupo, e dois jobs do mesmo
+    # run na mesma vaga podiam cancelar um ao outro. Por isso 390 e 1280 vão em sequência num job.
+    # Não é a fila do smoke pelo mesmo motivo: um run cancelaria o pendente do outro.
     strategy:
       fail-fast: false
-      # No máximo 2 sessões nossas no staging; com o smoke (1 por vez), 3 no pior caso.
-      max-parallel: 2
       matrix:
         include:
-          - { largura: 390, vaga: a }
-          - { largura: 768, vaga: b }
-          - { largura: 1280, vaga: a }
-    # Fila própria (não a do smoke: o GitHub guarda só o pendente mais novo de cada grupo, e um
-    # run cancelaria o outro). Duas vagas: runs diferentes nunca passam de 2 jobs juntos.
+          - { larguras: '390 1280', vaga: a }
+          - { larguras: '768', vaga: b }
     concurrency:
       group: navegacao-staging-${{ matrix.vaga }}
       cancel-in-progress: false
@@ -105,14 +104,21 @@ jobs:
           NAVEGACAO_URL: ${{ needs.filtro.outputs.url }}
           SMOKE_SENHA: ${{ secrets.SMOKE_SENHA }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          LARGURAS: ${{ matrix.larguras }}
+          # Até a fase 5 da #90 o escuro só reporta; ligar NAVEGACAO_ESCURO_FALHA na fase 5 da #90.
+          NAVEGACAO_ESCURO_FALHA: '0'
         run: |
           echo "Alvo: $NAVEGACAO_URL"
-          node --import tsx scripts/navegacao-ci.ts --largura ${{ matrix.largura }} --prints prints
+          falhou=0
+          for l in $LARGURAS; do
+            node --import tsx scripts/navegacao-ci.ts --largura "$l" --prints prints || falhou=1
+          done
+          exit $falhou
 
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: navegacao-${{ matrix.largura }}
+          name: navegacao-${{ matrix.vaga }}
           path: prints/
           retention-days: 7
           if-no-files-found: ignore
