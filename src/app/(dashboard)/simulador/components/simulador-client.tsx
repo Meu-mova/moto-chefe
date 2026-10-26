@@ -556,7 +556,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('cartao')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <CreditCard size={15} className="text-info" />
@@ -587,7 +587,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                   <div className="rounded-xl border overflow-hidden">
                     <button
                       onClick={() => toggle('debito')}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Wallet size={15} className="text-info" />
@@ -618,7 +618,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('link')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/10 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <Link2 size={15} className="text-info" />
@@ -649,7 +649,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('financiamento')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-warning/10 hover:bg-warning/10 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-warning/10 hover:bg-warning/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <Building2 size={15} className="text-warning" />
