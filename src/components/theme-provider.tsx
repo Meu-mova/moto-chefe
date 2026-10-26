@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { Moon, Sun } from 'lucide-react'
 import { ThemeProvider as NextThemesProvider, useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 
@@ -14,29 +15,44 @@ export function configTema(vercelEnv: string | undefined, nodeEnv: string | unde
 
 const CONFIG = configTema(process.env.NEXT_PUBLIC_VERCEL_ENV, process.env.NODE_ENV)
 
-function BotaoTema() {
+const BotaoTemaLigado = createContext(false)
+
+// A barra do grupo ativo põe o botão dentro dela; fora dela (páginas públicas, quem não troca de
+// grupo) ele fica preso no canto. O :has esconde o do canto sem esperar hidratação.
+export function useBotaoTemaLigado() {
+  return useContext(BotaoTemaLigado)
+}
+
+export function BotaoTema({ local }: { local: 'barra' | 'canto' }) {
   const { resolvedTheme, setTheme } = useTheme()
   const [montado, setMontado] = useState(false)
   useEffect(() => setMontado(true), [])
   return (
     <div
-      data-botao-tema
-      className="fixed bottom-3 right-3 z-50 flex rounded-full border border-border bg-card p-0.5 text-xs shadow-sm opacity-70 hover:opacity-100"
+      data-botao-tema={local}
+      className={cn(
+        'flex shrink-0 rounded-full border border-border bg-card p-0.5 text-xs shadow-sm',
+        local === 'canto' && 'fixed top-3 right-3 z-50 [:root:has([data-botao-tema=barra])_&]:hidden',
+      )}
     >
       {(['light', 'dark'] as const).map((tema) => {
         const ativo = montado && resolvedTheme === tema
+        const rotulo = tema === 'light' ? 'Claro' : 'Escuro'
+        const Icone = tema === 'light' ? Sun : Moon
         return (
           <button
             key={tema}
             type="button"
             aria-pressed={ativo}
+            aria-label={rotulo}
             onClick={() => setTheme(tema)}
             className={cn(
-              'rounded-full px-2.5 py-1',
+              'inline-flex items-center gap-1 rounded-full p-1.5 sm:px-2.5 sm:py-1',
               ativo ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {tema === 'light' ? 'Claro' : 'Escuro'}
+            <Icone className="size-3.5 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">{rotulo}</span>
           </button>
         )
       })}
@@ -47,8 +63,10 @@ function BotaoTema() {
 export function ThemeProvider({ children, config = CONFIG }: { children: React.ReactNode; config?: ReturnType<typeof configTema> }) {
   return (
     <NextThemesProvider attribute="class" defaultTheme="light" enableSystem forcedTheme={config.forcedTheme} disableTransitionOnChange>
-      {children}
-      {config.botao && <BotaoTema />}
+      <BotaoTemaLigado value={config.botao}>
+        {children}
+        {config.botao && <BotaoTema local="canto" />}
+      </BotaoTemaLigado>
     </NextThemesProvider>
   )
 }
