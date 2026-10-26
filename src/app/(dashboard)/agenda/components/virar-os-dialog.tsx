@@ -69,7 +69,7 @@ export function VirarOSDialog({
 
     start(async () => {
       try {
-        const os = await agendamentoVirarOSAction(agendamentoId, {
+        const r = await agendamentoVirarOSAction(agendamentoId, {
           chassiOs:      veiculo.chassi,
           motoId:        veiculo.motoId || null,
           clienteId:     cliente?.id || null,
@@ -84,7 +84,8 @@ export function VirarOSDialog({
           clienteTipoPessoaExterno: !cliente ? form.clienteTipoPessoaExterno : null,
           clienteDocumentoExterno:  !cliente ? (digitosDoc || null) : null,
         })
-        toast.success(`OS #${os.numero} criada`)
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(`OS #${r.dados.numero} criada`)
         setOpen(false)
         resetar()
       } catch (e: any) { toast.error(e.message ?? 'Erro ao virar OS') }

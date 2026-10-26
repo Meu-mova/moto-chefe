@@ -53,7 +53,7 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
 
     start(async () => {
       try {
-        await criarAgendamentoAction({
+        const r = await criarAgendamentoAction({
           lojaId:           form.lojaId,
           mecanicoId:       form.mecanicoId || null,
           clienteNome:      form.clienteNome,
@@ -63,6 +63,7 @@ export function NovoAgendamentoDialog({ lojas, mecanicos, papel, lojaIdUsuario, 
           dataHoraInicio:   form.dataHoraInicio,
           duracaoMinutos:   parseInt(form.duracaoMinutos),
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Agendamento criado')
         setOpen(false)
         setForm(f => ({ ...f, clienteNome: '', clienteFone: '', tipoServico: '', descricaoCliente: '', mecanicoId: '' }))

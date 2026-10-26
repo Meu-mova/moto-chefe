@@ -46,10 +46,12 @@ export function AgendarForm({ lojaId }: Props) {
     horario:          '',
   })
   const [erros, setErros] = useState<Partial<typeof form>>({})
+  const [erroEnvio, setErroEnvio] = useState('')
 
   function set(k: keyof typeof form, v: string) {
     setForm(f => ({ ...f, [k]: v }))
     setErros(e => ({ ...e, [k]: '' }))
+    setErroEnvio('')
   }
 
   function validar() {
@@ -69,7 +71,7 @@ export function AgendarForm({ lojaId }: Props) {
     const dataHora   = setMinutes(setHours(new Date(form.dia), h), m)
     start(async () => {
       try {
-        await agendarPublicoAction({
+        const r = await agendarPublicoAction({
           lojaId,
           clienteNome:      form.nome,
           clienteFone:      form.fone,
@@ -77,9 +79,10 @@ export function AgendarForm({ lojaId }: Props) {
           descricaoCliente: form.descricao || undefined,
           dataHoraInicio:   dataHora.toISOString(),
         })
+        if (!r.ok) { setErroEnvio(r.erro); return }
         setSucesso(true)
-      } catch (e: any) {
-        setErros({ nome: e.message ?? 'Erro ao enviar. Tente novamente.' })
+      } catch {
+        setErroEnvio('Erro ao enviar. Tente novamente.')
       }
     })
   }
@@ -170,6 +173,8 @@ export function AgendarForm({ lojaId }: Props) {
       <p className="text-xs text-muted-foreground bg-muted rounded-lg p-3">
         Ao enviar, você receberá uma confirmação por telefone. O agendamento fica pendente até nossa equipe confirmar a disponibilidade.
       </p>
+
+      {erroEnvio && <p role="alert" className="text-destructive text-sm">{erroEnvio}</p>}
 
       <button onClick={enviar} disabled={pending}
         className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
