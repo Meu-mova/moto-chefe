@@ -129,7 +129,7 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
               onClick={abrir}
               disabled={abrindo}
               title={holerite.arquivoNome}
-              className="inline-flex items-center gap-1 text-xs font-medium text-info hover:text-info max-w-[180px]"
+              className="inline-flex items-center gap-1 text-xs font-medium text-info hover:opacity-80 max-w-[180px]"
             >
               <FileText size={13} className="shrink-0" />
               <span className="truncate">{holerite.arquivoNome}</span>
