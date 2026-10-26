@@ -6,6 +6,7 @@ import { Building2, ChevronsUpDown, Check, ArrowRightLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { corDoGrupo } from '@/lib/grupo-cores'
+import { BotaoTema, useBotaoTemaLigado } from '@/components/theme-provider'
 import { trocarGrupoAtivoAction } from './group-selector-actions'
 
 type Grupo = { id: string; nome: string; cor: string | null }
@@ -15,6 +16,7 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
   const [open, setOpen] = useState(false)
   const [selecionado, setSelecionado] = useState<string>(ativoId)
   const [pending, start] = useTransition()
+  const botaoTema = useBotaoTemaLigado()
 
   const ativo = grupos.find(g => g.id === ativoId) ?? grupos[0]
   const corAtivo = corDoGrupo(ativo)
@@ -45,16 +47,19 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
           <Building2 size={20} className="shrink-0 opacity-90" />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider leading-none">Empresa / grupo ativo</p>
-            <p className="text-lg font-bold leading-tight truncate">{ativo.nome}</p>
+            <p className="text-lg font-bold leading-tight truncate" title={ativo.nome}>{ativo.nome}</p>
           </div>
         </div>
-        <button
-          onClick={abrir}
-          className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-grupo-realce hover:bg-grupo-realce-hover px-3 py-1.5 text-sm font-medium transition-colors`}
-        >
-          <ArrowRightLeft size={14} /> Trocar
-          <ChevronsUpDown size={14} className="opacity-70" />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {botaoTema && <BotaoTema local="barra" />}
+          <button
+            onClick={abrir}
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-grupo-realce hover:bg-grupo-realce-hover px-3 py-1.5 text-sm font-medium transition-colors`}
+          >
+            <ArrowRightLeft size={14} /> Trocar
+            <ChevronsUpDown size={14} className="opacity-70" />
+          </button>
+        </div>
       </div>
 
       {/* Diálogo de troca — dois passos deliberados: selecionar + confirmar */}
