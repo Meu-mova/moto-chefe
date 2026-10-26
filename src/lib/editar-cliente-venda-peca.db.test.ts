@@ -46,7 +46,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values (gen_random_uuid(), 'Aux', ${'aux-cl397' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
   const [socio] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
     values (gen_random_uuid(), 'Socio', ${'socio-cl397' + nome + '@teste.invalid'}, 'admin_socio', null) returning id`)
-  const [peca] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque) values ('Retrovisor', 50, 8) returning id`)
+  const [peca] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque, conta_id) values ('Retrovisor', 50, 8, ${conta.id}) returning id`)
   return {
     grupoId: grupo.id as string, lojaId: loja.id as string, pecaId: peca.id as string,
     aux: { id: aux.id as string, papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
