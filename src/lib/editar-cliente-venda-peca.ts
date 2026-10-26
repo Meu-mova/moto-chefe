@@ -5,15 +5,15 @@
  */
 import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { lojas, vendasPecas, vendasPecasEdicoes } from '@/lib/db/schema'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { vendasPecas, vendasPecasEdicoes } from '@/lib/db/schema'
+import { vendaPecaEditavel, type UsuarioDaVenda } from '@/lib/venda-peca-editavel'
 import { formatarCpfCnpj, isTipoPessoa, validarDocumento, type TipoPessoa } from '@/lib/documento'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export type ClienteVendaPeca = { clienteNome: string | null; clienteDocumento: string | null; clienteTipoPessoa: TipoPessoa }
 
-type UsuarioEditor = { id: string; papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null }
+type UsuarioEditor = UsuarioDaVenda & { id: string }
 
 /** Linha do histórico: só o que mudou, nome e/ou documento. */
 export function resumoDaTrocaDeCliente(antes: ClienteVendaPeca, depois: ClienteVendaPeca): string {
@@ -39,21 +39,8 @@ export async function editarClienteVendaPecaTx(
   const clienteNome = input.clienteNome?.trim() || null
   if (tipoPessoa === 'juridica' && !clienteNome) throw new Error('Informe a razão social da empresa')
 
-  const [atual] = await tx.select({
-    numero: vendasPecas.numero,
-    lojaId: vendasPecas.lojaId,
-    grupoId: lojas.grupoId,
-    clienteNome: vendasPecas.clienteNome,
-    clienteDocumento: vendasPecas.clienteDocumento,
-    clienteTipoPessoa: vendasPecas.clienteTipoPessoa,
-  }).from(vendasPecas)
-    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
-    .where(eq(vendasPecas.id, vendaId))
-    .for('update', { of: vendasPecas })
-  // Venda de outra Conta responde como inexistente.
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const pode = atual && (isAdmin ? await podeAbrirRegistroDaLoja(usuario, atual.lojaId, tx) : usuario.lojaId === atual.lojaId)
-  if (!atual || !pode) throw new Error('Venda não encontrada')
+  const atual = await vendaPecaEditavel(tx, usuario, vendaId, true)
+  if (!atual) throw new Error('Venda não encontrada')
 
   const antes: ClienteVendaPeca = {
     clienteNome: atual.clienteNome,

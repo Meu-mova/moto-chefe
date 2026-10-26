@@ -16,11 +16,13 @@ type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let editarClienteVendaPecaTx: typeof import('@/lib/editar-cliente-venda-peca')['editarClienteVendaPecaTx']
 let aplicarEdicaoAprovadaTx: typeof import('@/lib/editar-venda-peca')['aplicarEdicaoAprovadaTx']
+let vendaPecaEditavel: typeof import('@/lib/venda-peca-editavel')['vendaPecaEditavel']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ editarClienteVendaPecaTx } = await import('@/lib/editar-cliente-venda-peca'))
   ;({ aplicarEdicaoAprovadaTx } = await import('@/lib/editar-venda-peca'))
+  ;({ vendaPecaEditavel } = await import('@/lib/venda-peca-editavel'))
 })
 
 after(async () => {
@@ -152,5 +154,33 @@ test('edição pendente (peca_edicao) aprovada depois da troca não desfaz o cli
     assert.equal(v.cliente_nome, 'Ciclano')
     assert.equal(v.cliente_documento?.replace(/\D/g, ''), '11144477735')
     assert.equal(v.forma_pagamento, 'financiamento')
+  })
+})
+
+// vendaEditavel (Editar e carregar a edição, em pecas/actions.ts) usa a mesma consulta:
+// venda de outra Conta volta vazia e a action responde "Venda não encontrada", como inexistente.
+test('Editar: a Conta B não acha a venda da Conta A; a própria Conta acha', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000039709')
+    const b = await semearConta(tx, 'B', '00000000039710')
+    const venda = await semearVenda(tx, a)
+    assert.equal(await vendaPecaEditavel(tx, b.aux, venda.id), null)
+    assert.equal(await vendaPecaEditavel(tx, b.socio, venda.id), null)
+    // Sócio da Conta B com o grupo da Conta A em grupos_acesso: a Conta continua barrando.
+    assert.equal(await vendaPecaEditavel(tx, { ...b.socio, gruposAcesso: [a.grupoId] }, venda.id), null)
+    assert.equal((await vendaPecaEditavel(tx, a.aux, venda.id))?.id, venda.id)
+    assert.equal((await vendaPecaEditavel(tx, a.socio, venda.id))?.grupoId, a.grupoId)
+    assert.equal((await vendaPecaEditavel(tx, { ...a.socio, papel: 'admin_geral', contaId: null }, venda.id))?.id, venda.id)
+  })
+})
+
+test('Editar: vendedor de outra loja da mesma Conta e sócio com grupo inativo não acham a venda', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000039711')
+    const venda = await semearVenda(tx, a)
+    const [outra] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values ('Outra CL397', 'C', 'R', ${a.grupoId}) returning id`)
+    assert.equal(await vendaPecaEditavel(tx, { ...a.aux, lojaId: outra.id }, venda.id), null)
+    await linhas(tx, sql`update grupos set ativo = false where id = ${a.grupoId} returning id`)
+    assert.equal(await vendaPecaEditavel(tx, a.socio, venda.id), null)
   })
 })

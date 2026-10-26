@@ -7,9 +7,10 @@ import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
 import { podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
+import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
 import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
@@ -193,16 +194,9 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
 async function vendaEditavel(vendaId: string) {
   const usuario = await verificarAcessoVenda()
-  const [venda] = await db
-    .select({ id: vendasPecas.id, lojaId: vendasPecas.lojaId, dataVenda: vendasPecas.dataVenda, grupoId: lojas.grupoId })
-    .from(vendasPecas)
-    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
-    .where(eq(vendasPecas.id, vendaId))
-    .limit(1)
+  // Venda de outra Conta responde como inexistente (regra de isolamento).
+  const venda = await vendaPecaEditavel(db, usuario, vendaId)
   if (!venda) throw new Error('Venda não encontrada')
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const pode = isAdmin ? await podeUsuarioVerGrupo(usuario, venda.grupoId) : usuario.lojaId === venda.lojaId
-  if (!pode) throw new Error('Sem permissão para editar esta venda')
   return { usuario, venda }
 }
 
