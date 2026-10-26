@@ -39,6 +39,7 @@ import { motoDoUsuario } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
+import { vendaDoUsuario } from '@/lib/venda-do-usuario'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -529,25 +530,23 @@ async function avisarVendaNoWhatsapp(params: {
 
 // ─── Confirmar NF de Saída ───────────────────────────────────────────────────
 
-export async function confirmarNFSaidaAction(motoId: string, notaFiscal: string): Promise<{ vendaId: string }> {
+export async function confirmarNFSaidaAction(...a: Parameters<typeof confirmarNFSaida>) {
+  return acao(() => confirmarNFSaida(...a))
+}
+
+async function confirmarNFSaida(motoId: string, notaFiscal: string): Promise<{ vendaId: string }> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para confirmar NF de saída')
+    throw new RecusaUsuario('Sem permissão para confirmar NF de saída')
   }
 
-  const [venda] = await db
-    .select({ id: vendas.id, lojaId: vendas.lojaId })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-
-  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada para esta moto')
+  const venda = await vendaDoUsuario(usuario, and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida))!)
+  if (!venda) throw new RecusaUsuario('Nenhuma venda pendente de NF encontrada para esta moto')
 
   // Trava: sem contrato assinado não registra NF — nem pelo caminho "nota já
   // emitida", senão bastaria emitir direto no Bling e voltar aqui.
   const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(venda.id))
-  if (bloqueio) throw new Error(bloqueio)
+  if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   await db.transaction(async (tx) => {
     await tx.update(vendas)
@@ -810,38 +809,18 @@ export async function atualizarRascunhoBlingAction(motoId: string): Promise<{ ok
 
 // ─── Emitir NF-e no Bling ───────────────────────────────────────────────────
 
-export async function emitirNFBlingAction(motoId: string): Promise<void> {
+export async function emitirNFBlingAction(...a: Parameters<typeof emitirNFBling>) {
+  return acao(() => emitirNFBling(...a))
+}
+
+async function emitirNFBling(motoId: string): Promise<void> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para emitir NF')
+    throw new RecusaUsuario('Sem permissão para emitir NF')
   }
 
-  const [venda] = await db
-    .select({
-      id: vendas.id,
-      lojaId: vendas.lojaId,
-      valor: vendas.valor,
-      formaPagamento: vendas.formaPagamento,
-      pagamentos: vendas.pagamentos,
-      vendedorId: vendas.vendedorId,
-      clienteNome: vendas.clienteNome,
-      clienteCpf: vendas.clienteCpf,
-      clienteCelular: vendas.clienteCelular,
-      clienteEmail: vendas.clienteEmail,
-      clienteCep: vendas.clienteCep,
-      clienteLogradouro: vendas.clienteLogradouro,
-      clienteNumero: vendas.clienteNumero,
-      clienteComplemento: vendas.clienteComplemento,
-      clienteBairro: vendas.clienteBairro,
-      clienteCidade: vendas.clienteCidade,
-      clienteEstado: vendas.clienteEstado,
-    })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-
-  if (!venda || !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Nenhuma venda pendente de NF encontrada')
+  const venda = await vendaDoUsuario(usuario, and(eq(vendas.motoId, motoId), isNull(vendas.notaFiscalSaida))!)
+  if (!venda) throw new RecusaUsuario('Nenhuma venda pendente de NF encontrada')
 
   const [motoRow] = await db
     .select({ chassi: motos.chassi, modeloId: motos.modeloId, cor: motos.cor, motor: motos.motor })
@@ -849,7 +828,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .where(eq(motos.id, motoId))
     .limit(1)
 
-  if (!motoRow) throw new Error('Moto não encontrada')
+  if (!motoRow) throw new RecusaUsuario('Moto não encontrada')
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
 
@@ -865,7 +844,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .where(eq(modelos.id, motoRow.modeloId))
     .limit(1)
 
-  if (!modelo) throw new Error('Modelo não encontrado')
+  if (!modelo) throw new RecusaUsuario('Modelo não encontrado')
 
   const [codigoRow] = await db
     .select({ codigo: modeloBlingCodigos.codigo })
@@ -874,7 +853,7 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
     .limit(1)
 
   if (!codigoRow?.codigo) {
-    throw new Error(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.`)
+    throw new RecusaUsuario(`Código Bling não configurado para "${modelo.marca} ${modelo.modelo}" neste grupo. Configure em Admin → Modelos.`)
   }
 
   const [vendedorRow] = await db
@@ -935,28 +914,19 @@ export async function emitirNFBlingAction(motoId: string): Promise<void> {
 export async function cancelarVendaCompletaAction(vendaId: string, motivo: string) {
   const usuario = await getUsuarioLogado()
   if (!PAPEIS_QUE_CANCELAM_VENDA.has(usuario.papel)) {
-    throw new Error('Apenas administradores, sócios e auxiliares administrativos podem cancelar vendas')
+    return { ok: false as const, error: 'Apenas administradores, sócios e auxiliares administrativos podem cancelar vendas' }
   }
 
   if (!motivo.trim()) {
-    throw new Error('Informe o motivo do cancelamento')
+    return { ok: false as const, error: 'Informe o motivo do cancelamento' }
   }
 
-  const [vendaRecord] = await db
-    .select({
-      id: vendas.id,
-      numero: vendas.numero,
-      motoId: vendas.motoId,
-      lojaId: vendas.lojaId,
-      pedidoVendaId: vendas.pedidoVendaId,
-      clienteNome: vendas.clienteNome,
-      valor: vendas.valor,
-    })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-
-  if (!vendaRecord) throw new Error('Venda não encontrada')
+  const vendaRecord = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
+  if (!vendaRecord) return { ok: false as const, error: 'Venda não encontrada' }
+  // O aux_adm cancela só venda da própria loja; sócio e admin, no grupo que veem (decisão do Luis, #404).
+  if (usuario.papel === 'aux_adm' && vendaRecord.lojaId !== usuario.lojaId) {
+    return { ok: false as const, error: 'Sem permissão para cancelar venda de outra loja' }
+  }
 
   // ADR-0014. A recusa volta como valor porque, em produção, o Next não leva ao
   // cliente a mensagem de um erro lançado na action.
@@ -1367,7 +1337,11 @@ export type PagamentoEditar = {
   autorizacao?: string
 }
 
-export async function editarVendaAction(vendaId: string, dados: {
+export async function editarVendaAction(...a: Parameters<typeof editarVenda>) {
+  return acao(() => editarVenda(...a))
+}
+
+async function editarVenda(vendaId: string, dados: {
   valor:              string
   dataVenda:          string
   notaFiscalSaida?:   string | null
@@ -1396,19 +1370,15 @@ export async function editarVendaAction(vendaId: string, dados: {
   const usuario = await getUsuarioLogado()
 
   const ADMINS_EDIT = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS_EDIT.includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!ADMINS_EDIT.includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
 
   // Busca venda atual para validações de acesso e sincronização
-  const [vendaAtual] = await db
-    .select({ lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, pedidoVendaId: vendas.pedidoVendaId, valor: vendas.valor })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-  if (!vendaAtual) throw new Error('Venda não encontrada')
+  const vendaAtual = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
+  if (!vendaAtual) throw new RecusaUsuario('Venda não encontrada')
 
   // Quem tem loja só edita venda dela; quem não tem, só no grupo que vê.
   if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
-    throw new Error('Sem permissão para editar vendas de outra loja')
+    throw new RecusaUsuario('Sem permissão para editar vendas de outra loja')
   }
 
   // Origem é corrigível: campo obrigatório que só pudesse ser preenchido uma vez
@@ -1418,21 +1388,25 @@ export async function editarVendaAction(vendaId: string, dados: {
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
 
+  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
+
   const comprador = conferirCompradorDaVenda(dados, vendaAtual.clienteCpf)
 
   // ── Validação financeira ─────────────────────────────────────────────────────
   const valorNum = parseFloat(dados.valor.replace(',', '.'))
-  if (!valorNum || valorNum <= 0) throw new Error('Valor da venda inválido')
+  if (!valorNum || valorNum <= 0) throw new RecusaUsuario('Valor da venda inválido')
   const travaValor = travaDoValorVenda(usuario.papel, Number(vendaAtual.valor), valorNum)
-  if (travaValor) throw new Error(travaValor)
+  if (travaValor) throw new RecusaUsuario(travaValor)
 
   for (const p of dados.pagamentos) {
-    if (!p.valor || p.valor <= 0) throw new Error('Valor de pagamento inválido')
+    if (!p.valor || p.valor <= 0) throw new RecusaUsuario('Valor de pagamento inválido')
   }
 
   const somaPayments = dados.pagamentos.reduce((s, p) => s + Number(p.valor), 0)
   if (Math.abs(somaPayments - valorNum) > 0.01) {
-    throw new Error('Soma dos pagamentos não confere com o valor total')
+    throw new RecusaUsuario('Soma dos pagamentos não confere com o valor total')
   }
 
   // ── NF de saída: só permite corrigir uma NF já existente ────────────────────
@@ -1564,19 +1538,25 @@ export async function buscarClientePorCpfAction(cpf: string) {
   return null
 }
 
-export async function buscarHistoricoMotoAction(motoId: string) {
+export async function buscarHistoricoMotoAction(...a: Parameters<typeof buscarHistoricoMoto>) {
+  return acao(() => buscarHistoricoMoto(...a))
+}
+
+async function buscarHistoricoMoto(motoId: string) {
   const usuario = await getUsuarioLogado()
 
+  // Moto de outra Conta responde como inexistente: lista vazia (#404).
+  if (usuario.papel !== 'admin_geral' && !usuario.contaId) return []
   const [moto] = await db
     .select({ lojaId: motos.lojaId })
     .from(motos)
-    .where(eq(motos.id, motoId))
+    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDaConta(usuario.contaId!))))
     .limit(1)
   if (!moto) return []
 
   const ADMINS = ['admin_geral', 'admin_socio', 'aux_adm']
   if (ADMINS.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId)) : moto.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
 
   return db
@@ -1597,16 +1577,14 @@ export async function buscarHistoricoMotoAction(motoId: string) {
 
 // ─── Baixar DANFE da NF-e autorizada ─────────────────────────────────────────
 
-export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
+export async function buscarDanfeAction(...a: Parameters<typeof buscarDanfe>) {
+  return acao(() => buscarDanfe(...a))
+}
+
+async function buscarDanfe(motoId: string): Promise<{ linkDanfe: string | null; linkPDF: string | null }> {
   const usuario = await getUsuarioLogado()
 
-  const [venda] = await db
-    .select({ id: vendas.id, blingNfeId: vendas.blingNfeId, lojaId: vendas.lojaId, notaFiscalSaida: vendas.notaFiscalSaida, clienteCpf: vendas.clienteCpf, dataVenda: vendas.dataVenda })
-    .from(vendas)
-    .where(and(eq(vendas.motoId, motoId)))
-    .orderBy(desc(vendas.dataVenda))
-    .limit(1)
-  if (venda && !(await podeAbrirRegistroDaLoja(usuario, venda.lojaId))) throw new Error('Esta moto não tem venda registrada.')
+  const venda = await vendaDoUsuario(usuario, eq(vendas.motoId, motoId))
 
   // NF emitida pelo próprio MOVA (Nota Gateway) vem antes do Bling: a nota viva
   // mais recente que tem DANFE, inclusive a com cancelamento negado.
@@ -1625,7 +1603,7 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     if (propria?.linkDanfe) return { linkDanfe: propria.linkDanfe, linkPDF: propria.linkDanfe }
   }
 
-  if (!venda) throw new Error('Esta moto não tem venda registrada.')
+  if (!venda) throw new RecusaUsuario('Esta moto não tem venda registrada.')
 
   // Nota do Bling: abre a cópia arquivada no Storage, que continua valendo
   // depois que a conta do Bling for encerrada.
@@ -1668,12 +1646,12 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
     if (data?.signedUrl) return { linkDanfe: data.signedUrl, linkPDF: data.signedUrl }
   }
 
-  if (!venda.blingNfeId) throw new Error('Esta NF foi registrada à mão, fora do MOVA — o DANFE não está disponível aqui.')
+  if (!venda.blingNfeId) throw new RecusaUsuario('Esta NF foi registrada à mão, fora do MOVA. O DANFE não está disponível aqui.')
 
   const { buscarLinksDanfe } = await import('@/lib/bling')
   const links = await buscarLinksDanfe(grupoId, venda.blingNfeId)
 
-  if (!links.linkDanfe && !links.linkPDF) throw new Error('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
+  if (!links.linkDanfe && !links.linkPDF) throw new RecusaUsuario('DANFE não disponível. A NF-e ainda não foi autorizada no Bling.')
 
   return links
 }
