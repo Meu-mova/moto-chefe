@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { apagarZipsVencidos, type ArmazemZips } from './notas-contador-limpeza'
+import { apagarZipsVencidos, bucketInexistente, type ArmazemZips } from './notas-contador-limpeza'
 
 const AGORA = Date.parse('2026-10-26T12:00:00Z')
 const dias = (n: number) => new Date(AGORA - n * 24 * 60 * 60 * 1000).toISOString()
@@ -47,4 +47,11 @@ test('raiz que falha ao listar: nada apagado, uma falha', async () => {
 test('arquivo sem data fica', async () => {
   const a = armazem({ 'g1/sem-data.zip': null })
   assert.deepEqual(await apagarZipsVencidos(a, AGORA), { apagados: 0, falhas: 0 })
+})
+
+test('bucketInexistente: só o 404 do Storage conta como bucket que não existe', () => {
+  assert.equal(bucketInexistente({ statusCode: '404', message: 'Bucket not found' }), true)
+  assert.equal(bucketInexistente({ statusCode: 404, message: 'qualquer' }), true)
+  assert.equal(bucketInexistente({ message: 'fetch failed' }), false)
+  assert.equal(bucketInexistente({ statusCode: '500', message: 'Internal Server Error' }), false)
 })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { BUCKET_CONTADOR, apagarZipsVencidos, type ArmazemZips } from '@/lib/notas-contador-limpeza'
+import { BUCKET_CONTADOR, apagarZipsVencidos, bucketInexistente, type ArmazemZips } from '@/lib/notas-contador-limpeza'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +17,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage
-  // O bucket só nasce no primeiro envio por link: até lá não há o que limpar.
-  if (!(await storage.getBucket(BUCKET_CONTADOR)).data) return NextResponse.json({ ok: true, apagados: 0 })
+  const { error: erroBucket } = await storage.getBucket(BUCKET_CONTADOR)
+  if (erroBucket) {
+    // O bucket só nasce no primeiro envio por link: até lá não há o que limpar. Outro erro não pode passar por sucesso.
+    if (bucketInexistente(erroBucket)) return NextResponse.json({ ok: true, apagados: 0 })
+    console.error('[cron notas-contador] falha ao consultar o bucket:', erroBucket.message)
+    return NextResponse.json({ ok: false, apagados: 0, falhas: 1 }, { status: 500 })
+  }
   const bucket = storage.from(BUCKET_CONTADOR)
   const armazem: ArmazemZips = {
     async listar(pasta, offset, limit) {

@@ -3,6 +3,11 @@ import { VALIDADE_LINK_DIAS } from '@/lib/notas-contador'
 // Zips do "Enviar ao contador" que foram por link (#402): uma pasta por grupo.
 export const BUCKET_CONTADOR = 'notas-contador'
 
+/** Forma conferida no staging (26/10): StorageApiError, statusCode 404, "Bucket not found". O resto (rede, 5xx) é falha. */
+export function bucketInexistente(erro: { statusCode?: unknown; message?: string }): boolean {
+  return String(erro.statusCode) === '404' || /bucket not found/i.test(erro.message ?? '')
+}
+
 type Objeto = { name: string; id: string | null; created_at: string | null }
 
 /** O bucket entra por parâmetro: o Storage não existe no Postgres do CI. `listar` lança erro se a listagem falhar. */
