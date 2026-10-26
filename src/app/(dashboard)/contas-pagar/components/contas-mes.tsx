@@ -74,7 +74,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
           o.pago
             ? 'border-primary bg-primary text-primary-foreground'
             : situacao === 'vencida'
-              ? 'border-destructive/50 hover:border-destructive/50'
+              ? 'border-destructive/50 hover:border-destructive'
               : 'border-input hover:border-ring'
         } disabled:opacity-40`}
       >
@@ -107,7 +107,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
           edição seria desfeita sem aviso. A action recusa também. */}
       {o.tipo !== 'automatica' && !o.pago && (
         <button onClick={editarValor} disabled={pending} title="Ajustar o valor deste mês"
-          className="shrink-0 text-muted-foreground hover:text-muted-foreground">
+          className="shrink-0 text-muted-foreground hover:text-foreground">
           <Pencil size={13} />
         </button>
       )}

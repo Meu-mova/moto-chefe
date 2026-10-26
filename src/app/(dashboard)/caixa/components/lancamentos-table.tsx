@@ -284,7 +284,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                 {l.comprovanteUrl ? (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 text-info hover:text-info disabled:opacity-40"
+                    className="inline-flex items-center gap-1 text-info hover:opacity-80 disabled:opacity-40"
                     disabled={abrindo === l.comprovanteUrl}
                     onClick={() => handleVerComprovante(l)}
                   >
@@ -343,7 +343,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
                   href={preview.signedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-info hover:text-info"
+                  className="inline-flex items-center gap-1.5 text-xs text-info hover:opacity-80"
                 >
                   <ExternalLink size={13} />
                   Abrir em nova aba
@@ -444,7 +444,7 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
         <>
           <button
             type="button"
-            className="text-xs text-success hover:text-success underline disabled:opacity-40"
+            className="text-xs text-success hover:opacity-80 underline disabled:opacity-40"
             disabled={busy}
             onClick={() => onAprovar(lancamento.id)}
           >
@@ -453,7 +453,7 @@ function AprovacaoCell({ lancamento, podeAprovar, agindo, onAprovar, onReprovar 
           <span className="text-muted-foreground">·</span>
           <button
             type="button"
-            className="text-xs text-destructive hover:text-destructive underline disabled:opacity-40"
+            className="text-xs text-destructive hover:opacity-80 underline disabled:opacity-40"
             disabled={busy}
             onClick={() => onReprovar(lancamento.id)}
           >
@@ -485,7 +485,7 @@ function StatusBar({ status, aprovadoPorNome, aprovadoEm, podeAprovar, agindo, o
         {podeAprovar && (
           <button
             type="button"
-            className="ml-auto text-xs text-destructive hover:text-destructive underline disabled:opacity-40"
+            className="ml-auto text-xs text-destructive hover:opacity-80 underline disabled:opacity-40"
             disabled={agindo}
             onClick={onReprovar}
           >

@@ -51,7 +51,7 @@ export function ResumoDespesasLojaCategoria({ lojas }: { lojas: LojaComCategoria
                     className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                       l.lojaId === loja.lojaId
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted'
+                        : 'bg-muted text-muted-foreground hover:bg-border'
                     }`}
                   >
                     {l.nome}

@@ -187,7 +187,7 @@ export function NovoLancamentoForm({
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
             onChange={handleFileChange}
-            className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted cursor-pointer"
+            className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-border cursor-pointer"
           />
         )}
       </div>
