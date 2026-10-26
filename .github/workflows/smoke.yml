@@ -20,9 +20,11 @@ jobs:
     timeout-minutes: 15
     # O código vem do commit do deployment, e os secrets chegam ao script dele: quem tem
     # push no repo consegue lê-los (como no migracoes.yml). Ver docs/infra/segredos.md.
+    # Um smoke por vez: todos batem no mesmo staging, e ~15 rodando juntos esgotaram o banco e
+    # deram 500 em telas que não tinham mudado (26/10). Na fila o GitHub guarda só o mais novo.
     concurrency:
-      group: smoke-${{ github.event.deployment.sha }}
-      cancel-in-progress: true
+      group: smoke-staging
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
         with:
