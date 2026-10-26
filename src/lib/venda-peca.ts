@@ -1,7 +1,8 @@
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { daContaDaLoja } from '@/lib/pecas-da-conta'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -34,7 +35,8 @@ export async function aplicarVendaPeca(
   const pecas = await tx
     .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque })
     .from(pecasCatalogo)
-    .where(inArray(pecasCatalogo.id, pecaIds))
+    // Peça de outra Conta fica de fora e cai no "Peça não encontrada" abaixo (#195).
+    .where(and(inArray(pecasCatalogo.id, pecaIds), daContaDaLoja(input.lojaId)))
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
 

@@ -3,11 +3,12 @@
  * itens e pagamentos no lugar (mesmo número), acerta o estoque pela diferença
  * e grava o histórico. Permissão e saneamento ficam na action, como na criação.
  */
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { daContaDaLoja } from '@/lib/pecas-da-conta'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -30,7 +31,11 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   const pecas = await tx
     .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor })
     .from(pecasCatalogo)
-    .where(inArray(pecasCatalogo.id, [...new Set([...e.itens.map(i => i.pecaId), ...antigos.map(i => i.pecaId)])]))
+    // Só da Conta da loja da venda: peça de outra Conta cai no "Peça não encontrada" (#195).
+    .where(and(
+      inArray(pecasCatalogo.id, [...new Set([...e.itens.map(i => i.pecaId), ...antigos.map(i => i.pecaId)])]),
+      daContaDaLoja(venda.lojaId),
+    ))
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
   for (const item of e.itens) {
