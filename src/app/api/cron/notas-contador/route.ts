@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
   const armazem: ArmazemZips = {
     async listar(pasta, offset, limit) {
       const { data, error } = await bucket.list(pasta, { offset, limit })
+      // Bucket ainda não criado também cai aqui; o log evita limpeza parcial calada.
+      if (error) console.error(`[cron notas-contador] falha ao listar "${pasta}":`, error.message)
       return error ? null : data
     },
     async remover(caminhos) {
