@@ -47,7 +47,7 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
           <Building2 size={20} className="shrink-0 opacity-90" />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider leading-none">Empresa / grupo ativo</p>
-            <p className="text-lg font-bold leading-tight truncate">{ativo.nome}</p>
+            <p className="text-lg font-bold leading-tight truncate" title={ativo.nome}>{ativo.nome}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

@@ -26,5 +26,6 @@ test('em produção o botão não entra no HTML', () => {
 
 test('fora da produção o botão fica preso no canto superior', () => {
   const preview = renderToStaticMarkup(createElement(ThemeProvider, { config: configTema('preview', 'production'), children: 'conteúdo' }))
-  assert.match(preview, /data-botao-tema="canto"[^>]*class="[^"]*fixed top-3 right-3/)
+  const tag = preview.match(/<div[^>]*data-botao-tema="canto"[^>]*>/)?.[0] ?? ''
+  assert.match(tag, /class="[^"]*\bfixed top-3 right-3\b/)
 })

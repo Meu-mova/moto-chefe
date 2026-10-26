@@ -47,7 +47,7 @@ export function BotaoTema({ local }: { local: 'barra' | 'canto' }) {
             aria-label={rotulo}
             onClick={() => setTheme(tema)}
             className={cn(
-              'inline-flex items-center gap-1 rounded-full p-1.5 sm:px-2.5 sm:py-1',
+              'inline-flex items-center gap-1 rounded-full p-2 sm:px-2.5 sm:py-1',
               ativo ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
           >
