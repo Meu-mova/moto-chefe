@@ -9,13 +9,13 @@ export function ProximosEventosCard({ eventos }: { eventos: OcorrenciaCalendario
   if (eventos.length === 0) return null
 
   return (
-    <div className="bg-white border rounded-lg">
+    <div className="bg-card border rounded-lg">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="font-semibold text-sm text-slate-700 flex items-center gap-1.5">
-          <CalendarRange size={15} className="text-slate-500" />
+        <h2 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+          <CalendarRange size={15} className="text-muted-foreground" />
           Próximos eventos
         </h2>
-        <Link href="/calendario" className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+        <Link href="/calendario" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
           Ver calendário <ArrowRight size={12} />
         </Link>
       </div>
@@ -27,13 +27,13 @@ export function ProximosEventosCard({ eventos }: { eventos: OcorrenciaCalendario
           return (
             <li key={`${e.id}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
               <div className="flex flex-col items-center justify-center w-11 shrink-0">
-                <span className="text-[10px] uppercase text-slate-400 leading-none">{format(d, 'MMM', { locale: ptBR })}</span>
-                <span className="text-lg font-bold text-slate-700 leading-tight">{format(d, 'dd')}</span>
+                <span className="text-[10px] uppercase text-muted-foreground leading-none">{format(d, 'MMM', { locale: ptBR })}</span>
+                <span className="text-lg font-bold text-foreground leading-tight">{format(d, 'dd')}</span>
               </div>
               <span className={`h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800 truncate">{e.titulo}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm font-medium text-foreground truncate">{e.titulo}</p>
+                <p className="text-xs text-muted-foreground">
                   {e.categoriaNome}{e.hora ? ` · ${e.hora}` : ''}
                   {multi
                     ? `, até ${format(new Date(`${e.fim}T12:00:00Z`), 'dd/MM', { locale: ptBR })}`

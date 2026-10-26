@@ -9,13 +9,13 @@ export default function DashboardError({
 }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-      <h2 className="text-xl font-semibold text-slate-700">Erro ao carregar o dashboard</h2>
-      <p className="text-slate-500 text-sm max-w-md">
+      <h2 className="text-xl font-semibold text-foreground">Erro ao carregar o dashboard</h2>
+      <p className="text-muted-foreground text-sm max-w-md">
         Não foi possível carregar os dados. Isso pode acontecer quando muitos usuários acessam ao mesmo tempo.
       </p>
       <button
         onClick={reset}
-        className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm hover:bg-slate-700"
+        className="px-4 py-2 bg-foreground text-background rounded-md text-sm hover:bg-foreground/80"
       >
         Tentar novamente
       </button>

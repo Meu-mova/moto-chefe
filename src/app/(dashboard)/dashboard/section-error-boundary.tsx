@@ -12,7 +12,7 @@ export class SectionErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div className="bg-white border border-red-100 rounded-lg p-4 text-center text-slate-400 text-sm">
+        <div className="bg-card border border-destructive/30 rounded-lg p-4 text-center text-muted-foreground text-sm">
           Não foi possível carregar{this.props.label ? ` ${this.props.label}` : ' esta seção'}. Recarregue a página.
         </div>
       )
