@@ -36,9 +36,10 @@ correção de cadastro e uma nova tentativa de NF. Barrar no momento da digitaç
 
 ## Adendo de 2026-10-26: venda de peças e OS (#399)
 
-Decisão do Luis em 26/10/2026: CPF/CNPJ com dígito verificador errado também bloqueia, na tela e
-no servidor, a venda de peças (criação e troca de cliente) e a OS (abertura e agendamento que vira
-OS). Vale para o documento digitado no balcão; a regra fica em `validarDocumento`
+Decisão do Luis em 26/10/2026: CPF/CNPJ com dígito verificador errado também bloqueia, no
+servidor, a venda de peças (criação e troca de cliente) e a OS (abertura e agendamento que vira
+OS). Na tela, os diálogos só conferem o CNPJ; o CPF com dígito errado volta como erro do servidor.
+Vale para o documento digitado no balcão; a regra fica em `validarDocumento`
 (`src/lib/documento.ts`), que reaproveita o mesmo cálculo da venda de moto.
 
 - Mesma exceção de registro antigo: na troca de cliente da venda de peças, o documento que não
