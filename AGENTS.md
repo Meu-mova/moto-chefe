@@ -135,6 +135,12 @@ leitura e gravação:
   `lojasDaConta()`) **dentro da consulta**, não depois no JS.
 - Busca por chave única global (chassi, CPF, código) procura só na Conta. "Não encontrado"
   não pode revelar que o registro existe em outra.
+- Ação sobre um registro pelo id (editar, excluir, mudar status): busque com a Conta no `where`
+  e devolva `null` se não for dele, como `osDoUsuario` e `agendamentoDoUsuario`. Registro de
+  outra Conta e id inexistente recebem a mesma frase ("OS não encontrada"); "Sem permissão"
+  para um e "não encontrada" para o outro revela que o registro existe.
+- Mensagem de erro que passa a aparecer na tela (antes genérica ou escondida, como na #404) é
+  mudança de isolamento: confira se ela diferencia "não existe" de "é de outra Conta".
 - `upsert`/`onConflictDoUpdate` em tabela com Conta leva `setWhere` com a mesma Conta, e a
   tela conta só as linhas que de fato entraram.
 - Gravação que referencia outro registro (moto, cliente, loja) confere no servidor que ele é
