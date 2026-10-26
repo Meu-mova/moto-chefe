@@ -1,4 +1,5 @@
 'use client'
+import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -45,7 +46,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
   }
 
   const ehEmpresa = !cliente && form.clienteTipoPessoaExterno === 'juridica'
-  const digitosDoc = form.clienteDocumentoExterno.replace(/D/g, '')
+  const digitosDoc = soDigitosDoc(form.clienteDocumentoExterno)
 
   function salvar() {
     if (!veiculo?.chassi.trim()) {
@@ -55,8 +56,8 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
       toast.error('Informe a descrição / reclamação'); return
     }
     // Espelha a trava do servidor pra dar o erro antes de fechar a OS torta.
-    if (ehEmpresa && (digitosDoc.length !== 14 || !form.clienteNomeExterno.trim())) {
-      toast.error('OS para empresa exige razão social e CNPJ com 14 dígitos'); return
+    if (ehEmpresa && (!cnpjValido(digitosDoc) || !form.clienteNomeExterno.trim())) {
+      toast.error('OS para empresa exige razão social e CNPJ válido'); return
     }
 
     start(async () => {
