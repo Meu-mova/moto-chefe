@@ -37,6 +37,7 @@ import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
 import { motoDoUsuario } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
+import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -483,6 +484,9 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
@@ -1736,6 +1740,9 @@ async function solicitarAprovacaoVenda(
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+    throw new RecusaUsuario('Vendedor não encontrado')
+  }
 
   await db.transaction(async (tx) => {
     await tx.insert(aprovacoesVenda).values({
