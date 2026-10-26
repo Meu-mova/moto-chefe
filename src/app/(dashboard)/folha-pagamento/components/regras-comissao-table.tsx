@@ -118,7 +118,7 @@ export function RegrasComissaoTable({ regras, funcionarios, mes }: {
                       variant="outline"
                       className={r.tipo === 'premiacao'
                         ? 'border-info/50 text-info bg-info/10'
-                        : 'border-info/50 text-info bg-info/10'}
+                        : 'border-success/50 text-success bg-success/10'}
                     >
                       {r.tipo === 'premiacao' ? 'Premiação' : 'Comissão'}
                     </Badge>

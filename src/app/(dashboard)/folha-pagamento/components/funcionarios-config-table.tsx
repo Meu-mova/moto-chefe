@@ -97,7 +97,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
           <div className="space-y-0.5">
             {f.regras.map((r, i) => (
               <p key={i} className="text-xs whitespace-nowrap">
-                <span className={r.tipo === 'premiacao' ? 'text-info' : 'text-info'}>
+                <span className={r.tipo === 'premiacao' ? 'text-info' : 'text-success'}>
                   {fmtPercent(r.percentual)}%
                 </span>
                 {' '}{labelDaBase(r.base).toLowerCase()}
