@@ -10,8 +10,8 @@ export function PecaAtivoToggle({ id, ativo }: { id: string; ativo: boolean }) {
   function toggle() {
     start(async () => {
       try {
-        if (ativo) await inativarPecaAction(id)
-        else await reativarPecaAction(id)
+        const r = ativo ? await inativarPecaAction(id) : await reativarPecaAction(id)
+        if (!r.ok) toast.error(r.erro)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao atualizar status')
       }

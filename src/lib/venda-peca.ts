@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
 import { eq, inArray, sql } from 'drizzle-orm'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -44,8 +45,8 @@ export async function aplicarVendaPeca(
   // A tela já mostra o saldo em vermelho quando está zerado ou negativo.
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)
-    if (!peca) throw new Error('Peça não encontrada')
-    if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
+    if (!peca) throw new RecusaUsuario('Peça não encontrada')
+    if (item.quantidade <= 0) throw new RecusaUsuario(`Quantidade inválida para ${peca.nome}`)
   }
 
   const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
