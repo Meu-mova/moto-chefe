@@ -70,7 +70,7 @@ export function IndividualView({ dados, grupo, mes }: { dados: DadosIndividual; 
 }
 
 function Sec({ children }: { children: React.ReactNode }) {
-  return <h2 className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground mt-7 mb-4 first:mt-0">{children}<span className="flex-1 h-px bg-muted" /></h2>
+  return <h2 className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground mt-7 mb-4 first:mt-0">{children}<span className="flex-1 h-px bg-border" /></h2>
 }
 
 function CanalBars({ items }: { items: { nome: string; qtd: number }[] }) {
@@ -107,7 +107,7 @@ function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; me
       </div>
 
       <Sec>Vendas no mês</Sec>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-muted border border-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-border border border-border rounded-lg overflow-hidden">
         {[
           ['Motos', String(v.motos)], ['Faturamento', brlk(v.faturamento)], ['Ticket médio', brl(v.ticket)], ['Clientes', String(v.clientes)],
         ].map(([l, val]) => (
