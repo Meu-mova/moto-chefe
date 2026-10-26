@@ -23,6 +23,7 @@ export async function enviarEmail(params: {
   assunto: string
   texto: string
   html?: string
+  anexos?: { nome: string; conteudo: Uint8Array }[]
 }): Promise<EnvioEmail> {
   const para = params.para?.trim()
   if (!emailValido(para)) return { status: 'sem_email', id: null }
@@ -42,6 +43,7 @@ export async function enviarEmail(params: {
       subject: params.assunto,
       text: params.texto,
       ...(params.html ? { html: params.html } : {}),
+      ...(params.anexos?.length ? { attachments: params.anexos.map(a => ({ filename: a.nome, content: Buffer.from(a.conteudo) })) } : {}),
     })
     if (error) {
       console.error('envio de e-mail (resend) falhou:', error.message ?? String(error))

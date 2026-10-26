@@ -13,6 +13,10 @@
     {
       "path": "/api/cron/log-acoes",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/notas-contador",
+      "schedule": "0 8 * * *"
     }
   ]
 }
