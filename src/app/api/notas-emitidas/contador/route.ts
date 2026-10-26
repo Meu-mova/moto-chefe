@@ -9,6 +9,7 @@ import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { periodoEmissao } from '@/lib/notas-emitidas'
 import { VALIDADE_LINK_DIAS, enviarAoContador } from '@/lib/notas-contador'
 import { notasParaContador, salvarEmailDoContador } from '@/lib/queries/notas-contador'
+import { BUCKET_CONTADOR as BUCKET } from '@/lib/notas-contador-limpeza'
 
 // Route Handler e não Server Action: o zip de um mês leva minutos e Server Action trava as outras (hotfix v1.2.2).
 export const maxDuration = 300
@@ -16,21 +17,9 @@ export const maxDuration = 300
 const PRAZO_DOWNLOADS_MS = 220_000
 export const dynamic = 'force-dynamic'
 
-const BUCKET = 'notas-contador'
-
 async function baixar(url: string) {
   const r = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   return r.ok ? new Uint8Array(await r.arrayBuffer()) : null
-}
-
-type Storage = ReturnType<typeof createSupabaseAdmin>['storage']
-
-// O link vence em 7 dias, mas o zip (XML com CPF de cliente) ficaria no bucket para sempre: cada envio apaga os vencidos do grupo.
-async function apagarVencidos(storage: Storage, grupoId: string) {
-  const { data } = await storage.from(BUCKET).list(grupoId, { limit: 1000 })
-  const limite = Date.now() - VALIDADE_LINK_DIAS * 24 * 60 * 60 * 1000
-  const vencidos = (data ?? []).filter(o => o.created_at && Date.parse(o.created_at) < limite).map(o => `${grupoId}/${o.name}`)
-  if (vencidos.length > 0) await storage.from(BUCKET).remove(vencidos)
 }
 
 async function publicar(grupoId: string, zip: Uint8Array): Promise<string | null> {
@@ -47,7 +36,6 @@ async function publicar(grupoId: string, zip: Uint8Array): Promise<string | null
     console.error('[notas-contador] falha ao subir o zip:', error.message)
     return null
   }
-  await apagarVencidos(storage, grupoId)
   const { data, error: erroLink } = await storage.from(BUCKET).createSignedUrl(caminho, VALIDADE_LINK_DIAS * 24 * 60 * 60)
   if (erroLink || !data) return null
   return data.signedUrl
