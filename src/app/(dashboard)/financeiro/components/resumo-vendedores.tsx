@@ -44,10 +44,10 @@ export function ResumoVendedores({ resumo }: { resumo: ResumoVendedor[] }) {
                   <TableCell className="text-right">{r.qtdVendas}</TableCell>
                   <TableCell className="text-right font-mono">{fmt(bruto)}</TableCell>
                   <TableCell className="text-right font-mono">{fmt(liquido)}</TableCell>
-                  <TableCell className="text-right font-mono text-red-600">
+                  <TableCell className="text-right font-mono text-destructive">
                     {taxas > 0 ? `-${fmt(taxas)}` : '—'}
                   </TableCell>
-                  <TableCell className="text-right text-slate-500 text-sm">
+                  <TableCell className="text-right text-muted-foreground text-sm">
                     {pct > 0 ? `${pct.toFixed(1)}%` : '—'}
                   </TableCell>
                 </TableRow>
@@ -61,8 +61,8 @@ export function ResumoVendedores({ resumo }: { resumo: ResumoVendedor[] }) {
                 <TableCell className="text-right">{resumo.reduce((s, r) => s + r.qtdVendas, 0)}</TableCell>
                 <TableCell className="text-right font-mono">{fmt(totalBruto)}</TableCell>
                 <TableCell className="text-right font-mono">{fmt(totalLiquido)}</TableCell>
-                <TableCell className="text-right font-mono text-red-600">-{fmt(totalBruto - totalLiquido)}</TableCell>
-                <TableCell className="text-right text-slate-500 text-sm">
+                <TableCell className="text-right font-mono text-destructive">-{fmt(totalBruto - totalLiquido)}</TableCell>
+                <TableCell className="text-right text-muted-foreground text-sm">
                   {totalBruto > 0 ? `${(((totalBruto - totalLiquido) / totalBruto) * 100).toFixed(1)}%` : '—'}
                 </TableCell>
               </TableRow>

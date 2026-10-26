@@ -59,12 +59,21 @@ export function podeDescartarCarta(carta: { situacao: SituacaoCarta; criadoEm: s
   return carta.situacao === 'pendente' && agora.getTime() - Date.parse(carta.criadoEm) >= MINUTOS_PARA_DESCARTAR * 60_000
 }
 
+/** A Nota Gateway devolveu carta "Negada" sem motivo na homologação (24/10/2026). */
+export const MOTIVO_CARTA_SEM_INFORMACAO = 'A SEFAZ recusou a carta sem informar o motivo. Fale com o suporte.'
+
+export function motivoDaCartaRecusada(motivo: string | null): string {
+  return motivo?.trim() || MOTIVO_CARTA_SEM_INFORMACAO
+}
+
 /**
- * No descarte, a carta existe na Nota Gateway: status diferente de
- * Autorizada/Processando, com motivo, conta como recusa (na prática, "Negada").
- * Devolve o motivo, ou null se não for o caso.
+ * No descarte, a carta existe na Nota Gateway: "Negada" é recusa, com ou sem
+ * motivo; outro status diferente de Autorizada/Processando só com motivo (um
+ * intermediário, como AutorizacaoSolicitada, vem sem). Devolve o motivo, ou
+ * null se não for o caso.
  */
 export function recusaNaGateway(c: { status: string; motivoStatus: string | null }): string | null {
   if (c.status === 'Autorizada' || c.status === 'Processando') return null
+  if (situacaoCarta(c.status) === 'recusada') return motivoDaCartaRecusada(c.motivoStatus)
   return c.motivoStatus?.trim() || null
 }

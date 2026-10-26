@@ -99,7 +99,7 @@ export function pendenciasDaVenda(v: ConferenciaVenda): string[] {
 
 /**
  * Id que a API ecoa e usa como chave de idempotência. Uma tentativa por id:
- * nota negada ganha um sufixo novo para poder tentar de novo, e reenviar o
+ * nota denegada ganha um sufixo novo (a recusa comum reenvia o mesmo, #347), e reenviar o
  * MESMO id depois de um timeout consulta a nota em vez de duplicar.
  *
  * Curto de propósito: com o uuid da venda (51 caracteres) a API devolve 500

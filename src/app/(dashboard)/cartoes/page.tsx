@@ -35,21 +35,21 @@ function rotuloFatura(f: Fatura) {
 function ResumoCartao({ c, ativo }: { c: CartaoDoGrupo; ativo: boolean }) {
   const pct = c.limite && c.usado != null ? Math.min(100, (c.usado / c.limite) * 100) : null
   return (
-    <Card className={ativo ? 'border-slate-400' : undefined}>
+    <Card className={ativo ? 'border-ring' : undefined}>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{c.banco}</CardTitle>
-        <p className="text-xs text-slate-400">{c.nome} · final {c.final}</p>
+        <p className="text-xs text-muted-foreground">{c.nome} · final {c.final}</p>
       </CardHeader>
       <CardContent className="space-y-1">
         <p className="text-xl font-bold">{c.usado != null ? fmt(c.usado) : '—'}</p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           usado de {c.limite != null ? fmt(c.limite) : '—'}
           {c.limite != null && c.usado != null && ` · sobram ${fmt(c.limite - c.usado)}`}
         </p>
         {pct != null && (
-          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+              className={`h-full ${pct > 90 ? 'bg-destructive' : pct > 70 ? 'bg-warning' : 'bg-success'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -63,13 +63,13 @@ function TabelaLancamentos({ fatura }: { fatura: Fatura }) {
   return (
     <div className="space-y-4">
       {fatura.cartoes.map(bloco => (
-        <div key={bloco.cartao ?? 'sem-cartao'} className="bg-white border rounded-lg overflow-hidden">
-          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b">
+        <div key={bloco.cartao ?? 'sem-cartao'} className="bg-card border rounded-lg overflow-hidden">
+          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5 bg-muted border-b">
             <div>
               <p className="font-semibold text-sm">
                 {bloco.cartao ? `Cartão final ${bloco.cartao}` : 'Sem cartão identificado'}
               </p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 {bloco.lancamentos.length} lançamento{bloco.lancamentos.length === 1 ? '' : 's'}
                 {bloco.totalCredito > 0 && ` · ${fmt(bloco.totalCredito)} em pagamentos e estornos`}
               </p>
@@ -80,16 +80,16 @@ function TabelaLancamentos({ fatura }: { fatura: Fatura }) {
             <table className="w-full text-sm">
               <tbody className="divide-y">
                 {bloco.lancamentos.map(l => (
-                  <tr key={l.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-1.5 text-xs text-slate-400 whitespace-nowrap w-20">{fmtData(l.data)}</td>
+                  <tr key={l.id} className="hover:bg-muted">
+                    <td className="px-4 py-1.5 text-xs text-muted-foreground whitespace-nowrap w-20">{fmtData(l.data)}</td>
                     <td className="px-2 py-1.5">
                       {l.descricao}
                       {l.pendente && (
-                        <span className="ml-1.5 text-[10px] uppercase tracking-wide text-amber-600">pendente</span>
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wide text-warning">pendente</span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-xs text-slate-400 whitespace-nowrap">{l.categoria ?? ''}</td>
-                    <td className={`px-4 py-1.5 text-right whitespace-nowrap ${l.valor < 0 ? 'text-emerald-700' : ''}`}>
+                    <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">{l.categoria ?? ''}</td>
+                    <td className={`px-4 py-1.5 text-right whitespace-nowrap ${l.valor < 0 ? 'text-success' : ''}`}>
                       {fmt(l.valor)}
                     </td>
                   </tr>
@@ -111,11 +111,11 @@ async function CartoesConteudo({ grupo, contaParam, faturaParam }: {
   const resultado = await buscarFaturasCartao(grupo.cnpj)
 
   if (!resultado.ok) {
-    return <p className="text-sm text-red-600">Não foi possível buscar as faturas: {resultado.erro}</p>
+    return <p className="text-sm text-destructive">Não foi possível buscar as faturas: {resultado.erro}</p>
   }
   if (resultado.cartoes.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-muted-foreground">
         Nenhum cartão de crédito do {grupo.nome} conectado ao Open Finance.
       </p>
     )
@@ -146,7 +146,7 @@ async function CartoesConteudo({ grupo, contaParam, faturaParam }: {
       />
 
       {!fatura ? (
-        <p className="text-sm text-slate-400">Este cartão não tem lançamento nenhum no período que o banco devolve.</p>
+        <p className="text-sm text-muted-foreground">Este cartão não tem lançamento nenhum no período que o banco devolve.</p>
       ) : (
         <>
           {/* Dois números, sempre lado a lado e nomeados: o do banco é o
@@ -155,29 +155,29 @@ async function CartoesConteudo({ grupo, contaParam, faturaParam }: {
               ("billid_sum_diverges_from_total") e que o totalAmount do banco é
               que vale — então a tela mostra os dois e diz qual é qual, em vez de
               escolher um e parecer errada. */}
-          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-l-2 border-slate-200 pl-3">
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-l-2 border-border pl-3">
             {fatura.totalBanco != null && (
               <p className="text-sm">
-                <span className="text-slate-500">Total da fatura (banco): </span>
+                <span className="text-muted-foreground">Total da fatura (banco): </span>
                 <b>{fmt(fatura.totalBanco)}</b>
               </p>
             )}
             <p className="text-sm">
-              <span className="text-slate-500">Soma dos lançamentos: </span>
+              <span className="text-muted-foreground">Soma dos lançamentos: </span>
               <b>{fmt(fatura.totalGasto)}</b>
             </p>
             {fatura.fechamento && (
-              <p className="text-xs text-slate-400">fechou em {fmtData(fatura.fechamento)}</p>
+              <p className="text-xs text-muted-foreground">fechou em {fmtData(fatura.fechamento)}</p>
             )}
           </div>
 
           {fatura.totalBanco == null ? (
-            <p className="text-xs text-slate-500 bg-slate-50 border rounded-md px-3 py-2">
+            <p className="text-xs text-muted-foreground bg-muted border rounded-md px-3 py-2">
               Fatura ainda aberta: o banco só publica o total quando ela fecha, então o valor acima é
               <b> parcial</b> — é a soma das compras já lançadas neste ciclo.
             </p>
           ) : divergencia > 0.01 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            <p className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
               A soma dos lançamentos fica {fmt(divergencia)} abaixo do total da fatura. Vale o número do banco:
               parcelas de compras de meses anteriores e encargos entram na fatura sem virar lançamento novo,
               então a lista abaixo mostra o que foi comprado no ciclo, não a composição inteira da fatura.
@@ -208,7 +208,7 @@ export default async function CartoesPage({ searchParams }: {
         <h1 className="text-2xl font-bold">Cartões de Crédito</h1>
         {/* O grupo no subtítulo pelo mesmo motivo de /admin/bancos: o mcp.ai
             devolve os cartões de todos os CNPJs conectados de uma vez. */}
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Faturas dos cartões do <b>{grupo.nome}</b>, lançamento a lançamento, via Open Finance
         </p>
       </div>
@@ -217,7 +217,7 @@ export default async function CartoesPage({ searchParams }: {
           título aparece na hora, em vez de a página inteira ficar em branco. */}
       <Suspense
         key={`${contaParam}|${faturaParam}`}
-        fallback={<p className="text-sm text-slate-400">Buscando as faturas no banco…</p>}
+        fallback={<p className="text-sm text-muted-foreground">Buscando as faturas no banco…</p>}
       >
         <CartoesConteudo grupo={grupo} contaParam={contaParam} faturaParam={faturaParam} />
       </Suspense>

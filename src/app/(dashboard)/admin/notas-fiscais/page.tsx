@@ -105,7 +105,7 @@ export default async function NotasFiscaisPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Notas Fiscais</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Credencial, certificado e regra de tributação de saída — um conjunto por grupo, porque
             cada grupo é um CNPJ com contabilidade própria.
           </p>

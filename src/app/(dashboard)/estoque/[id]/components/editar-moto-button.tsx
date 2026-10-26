@@ -115,11 +115,11 @@ export function EditarMotoButton({ moto, lojas, modelos }: Props) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Chassi <span className="text-red-500">*</span></Label>
+                <Label>Chassi <span className="text-destructive">*</span></Label>
                 <Input value={chassi} onChange={e => setChassi(e.target.value)} className="font-mono text-xs" />
               </div>
               <div className="space-y-2">
-                <Label>Cor <span className="text-red-500">*</span></Label>
+                <Label>Cor <span className="text-destructive">*</span></Label>
                 {/* Lista fechada: cor digitada à mão é o que cria "PRETA" ao
                     lado de "PRETO" e quebra a contagem por cor do /compras.
                     <select> nativo porque value e rótulo são o mesmo texto. */}
@@ -171,7 +171,7 @@ export function EditarMotoButton({ moto, lojas, modelos }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label>NF Entrada <span className="text-red-500">*</span></Label>
+              <Label>NF Entrada <span className="text-destructive">*</span></Label>
               <Input value={nfEntrada} onChange={e => setNfEntrada(e.target.value)} />
             </div>
 

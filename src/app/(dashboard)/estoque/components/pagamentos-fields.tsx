@@ -79,8 +79,8 @@ export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda,
         const precisaParcelas = TIPOS_COM_PARCELAS.has(p.tipo) && opcParcelas.length > 0
         const titulo = rotulo?.(idx)
         return (
-          <div key={p.id} className="space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-            {titulo && <p className="text-xs text-slate-500 font-semibold mb-2">{titulo}</p>}
+          <div key={p.id} className="space-y-1.5 rounded-lg border border-border bg-muted/50 p-3">
+            {titulo && <p className="text-xs text-muted-foreground font-semibold mb-2">{titulo}</p>}
             <div className="flex gap-2 items-center">
               <Select value={p.tipo} onValueChange={v => onUpdate(p.id, 'tipo', v ?? '')}>
                 <SelectTrigger className="flex-1">

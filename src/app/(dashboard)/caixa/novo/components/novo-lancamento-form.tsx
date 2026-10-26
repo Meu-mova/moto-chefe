@@ -97,7 +97,7 @@ export function NovoLancamentoForm({
   }
 
   return (
-    <div className="bg-white rounded-lg border p-6 space-y-5">
+    <div className="bg-card rounded-lg border p-6 space-y-5">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Tipo *</Label>
@@ -166,18 +166,18 @@ export function NovoLancamentoForm({
 
       <div className="space-y-2">
         <Label>
-          Comprovante {isSaida && <span className="text-red-500">*</span>}
-          {!isSaida && <span className="text-slate-400 text-xs ml-1">(opcional)</span>}
+          Comprovante {isSaida && <span className="text-destructive">*</span>}
+          {!isSaida && <span className="text-muted-foreground text-xs ml-1">(opcional)</span>}
         </Label>
         {arquivo ? (
-          <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-green-50 border-green-200">
-            <FileCheck size={16} className="text-green-600 shrink-0" />
-            <span className="text-sm text-green-700 truncate flex-1">{arquivo.name}</span>
-            <span className="text-xs text-green-500">{(arquivo.size / 1024).toFixed(0)} KB</span>
+          <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-success/10 border-success/30">
+            <FileCheck size={16} className="text-success shrink-0" />
+            <span className="text-sm text-success truncate flex-1">{arquivo.name}</span>
+            <span className="text-xs text-success">{(arquivo.size / 1024).toFixed(0)} KB</span>
             <button
               type="button"
               onClick={() => setArquivo(null)}
-              className="text-green-400 hover:text-red-500 p-0.5"
+              className="text-success hover:text-destructive p-0.5"
             >
               <X size={14} />
             </button>
@@ -187,7 +187,7 @@ export function NovoLancamentoForm({
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+            className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-border cursor-pointer"
           />
         )}
       </div>

@@ -42,12 +42,12 @@ export default async function LojasPage() {
           <div>
             <h1 className="text-2xl font-bold">Lojas</h1>
             {!isSuperAdmin && (
-              <p className="text-sm text-slate-400 mt-1">Visualização — alterações restritas ao Admin Geral</p>
+              <p className="text-sm text-muted-foreground mt-1">Visualização — alterações restritas ao Admin Geral</p>
             )}
           </div>
           {isSuperAdmin && <NovaLojaDialog grupos={gruposOpts} grupoIdDefault={grupoAtivo.id} />}
         </div>
-        <div className="bg-white rounded-lg border">
+        <div className="bg-card rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>

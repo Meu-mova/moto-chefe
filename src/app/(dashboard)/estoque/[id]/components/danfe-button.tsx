@@ -22,7 +22,7 @@ export function DanfeButton({ motoId }: { motoId: string }) {
     <button
       onClick={baixar}
       disabled={pending}
-      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:opacity-50"
+      className="inline-flex items-center gap-1 text-xs text-info hover:underline disabled:opacity-50"
       title="Baixar DANFE"
     >
       <FileDown size={13} />

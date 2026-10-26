@@ -56,7 +56,7 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
     .limit(1)
 
   if (!venda && !pedido) {
-    return <p className="text-sm text-slate-400">Nenhum pedido ou venda registrado.</p>
+    return <p className="text-sm text-muted-foreground">Nenhum pedido ou venda registrado.</p>
   }
 
   const pagamentos = (venda?.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number }[]) ?? []
@@ -65,25 +65,25 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
     <div className="space-y-5 text-sm">
       {pedido && (
         <div className="space-y-1">
-          <p className="font-semibold text-slate-700">Pedido de Venda</p>
-          <div className="grid grid-cols-2 gap-1 text-slate-600">
-            <p>Status: <span className="font-medium text-slate-900">{pedido.status}</span></p>
-            <p>Data: <span className="text-slate-900">{pedido.dataPedido ? format(new Date(pedido.dataPedido), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '—'}</span></p>
+          <p className="font-semibold text-foreground">Pedido de Venda</p>
+          <div className="grid grid-cols-2 gap-1 text-muted-foreground">
+            <p>Status: <span className="font-medium text-foreground">{pedido.status}</span></p>
+            <p>Data: <span className="text-foreground">{pedido.dataPedido ? format(new Date(pedido.dataPedido), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '—'}</span></p>
           </div>
         </div>
       )}
 
       {venda && (
         <>
-          <div className="h-px bg-slate-100" />
+          <div className="h-px bg-muted" />
 
           <div className="space-y-1.5">
-            <p className="font-semibold text-slate-700">Venda</p>
-            <div className="grid grid-cols-2 gap-1.5 text-slate-600">
-              <p>Data: <span className="text-slate-900">{format(new Date(venda.dataVenda), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></p>
-              <p>Vendedor: <span className="text-slate-900">{venda.vendedorNome}</span></p>
+            <p className="font-semibold text-foreground">Venda</p>
+            <div className="grid grid-cols-2 gap-1.5 text-muted-foreground">
+              <p>Data: <span className="text-foreground">{format(new Date(venda.dataVenda), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></p>
+              <p>Vendedor: <span className="text-foreground">{venda.vendedorNome}</span></p>
               <p className="flex items-center gap-2 flex-wrap">
-                NF Saída: <span className="text-slate-900">{venda.notaFiscalSaida ?? '—'}</span>
+                NF Saída: <span className="text-foreground">{venda.notaFiscalSaida ?? '—'}</span>
                 {venda.notaFiscalSaida && (
                   <DanfeButton motoId={motoId} />
                 )}
@@ -93,7 +93,7 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
                       href={`/vendas/${venda.id}/checklist-entrega`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-xs text-info hover:underline"
                     >
                       Checklist de Entrega
                     </a>
@@ -101,26 +101,26 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
                       href={`/vendas/${venda.id}/certificado-bateria`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-xs text-info hover:underline"
                     >
                       Certificado Bateria
                     </a>
                   </>
                 )}
               </p>
-              <p>Valor: <span className="text-green-700 font-bold">{formatCurrency(venda.valor)}</span></p>
+              <p>Valor: <span className="text-success font-bold">{formatCurrency(venda.valor)}</span></p>
             </div>
           </div>
 
-          <div className="h-px bg-slate-100" />
+          <div className="h-px bg-muted" />
 
           <div className="space-y-1.5">
-            <p className="font-semibold text-slate-700">Pagamento</p>
+            <p className="font-semibold text-foreground">Pagamento</p>
             {pagamentos.length > 0 ? (
               <div className="space-y-1">
                 {pagamentos.map((p, i) => (
-                  <div key={i} className="flex justify-between items-center bg-slate-50 rounded px-3 py-1.5">
-                    <span className="text-slate-600">
+                  <div key={i} className="flex justify-between items-center bg-muted rounded px-3 py-1.5">
+                    <span className="text-muted-foreground">
                       {tipoLabel[p.tipo] ?? p.tipo}
                       {p.operadora ? ` (${p.operadora})` : ''}
                       {p.parcelas ? ` ${p.parcelas}x` : ''}
@@ -130,22 +130,22 @@ export async function VendaTab({ motoId, papel }: { motoId: string; papel: strin
                 ))}
               </div>
             ) : (
-              <p className="text-slate-600">{tipoLabel[venda.formaPagamento] ?? venda.formaPagamento} — {formatCurrency(venda.valor)}</p>
+              <p className="text-muted-foreground">{tipoLabel[venda.formaPagamento] ?? venda.formaPagamento} — {formatCurrency(venda.valor)}</p>
             )}
           </div>
 
-          <div className="h-px bg-slate-100" />
+          <div className="h-px bg-muted" />
 
           <div className="space-y-1.5">
-            <p className="font-semibold text-slate-700">Cliente</p>
-            <div className="grid grid-cols-2 gap-1.5 text-slate-600">
-              <p className="col-span-2">Nome: <span className="text-slate-900 font-medium">{venda.clienteNome}</span></p>
-              <p>{rotuloDocumento(venda.clienteCpf)}: <span className="text-slate-900 font-mono">{venda.clienteCpf}</span></p>
-              <p>Celular: <span className="text-slate-900">{venda.clienteCelular ?? '—'}</span></p>
-              <p className="col-span-2">E-mail: <span className="text-slate-900">{venda.clienteEmail ?? '—'}</span></p>
+            <p className="font-semibold text-foreground">Cliente</p>
+            <div className="grid grid-cols-2 gap-1.5 text-muted-foreground">
+              <p className="col-span-2">Nome: <span className="text-foreground font-medium">{venda.clienteNome}</span></p>
+              <p>{rotuloDocumento(venda.clienteCpf)}: <span className="text-foreground font-mono">{venda.clienteCpf}</span></p>
+              <p>Celular: <span className="text-foreground">{venda.clienteCelular ?? '—'}</span></p>
+              <p className="col-span-2">E-mail: <span className="text-foreground">{venda.clienteEmail ?? '—'}</span></p>
               {(venda.clienteLogradouro || venda.clienteCidade) && (
                 <p className="col-span-2">
-                  Endereço: <span className="text-slate-900">
+                  Endereço: <span className="text-foreground">
                     {[venda.clienteLogradouro, venda.clienteNumero, venda.clienteComplemento, venda.clienteBairro].filter(Boolean).join(', ')}
                     {venda.clienteCidade ? ` — ${venda.clienteCidade}/${venda.clienteEstado}` : ''}
                     {venda.clienteCep ? ` (${venda.clienteCep})` : ''}

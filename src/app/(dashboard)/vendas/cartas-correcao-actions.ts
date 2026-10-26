@@ -178,7 +178,8 @@ export async function descartarCartaAction(notaId: string, cartaId: string): Pro
     }
     await db.update(notasFiscaisSaidaCartas).set({
       situacao: 'recusada', status: naGateway ? naGateway.status : 'Descartada',
-      motivoStatus: recusa || 'Descartada: o envio não chegou à Nota Gateway',
+      // Recusa sem motivo grava null: o aviso de falar com o suporte é texto do MOVA, a tela é que mostra.
+      motivoStatus: naGateway ? naGateway.motivoStatus?.trim() || null : 'Descartada: o envio não chegou à Nota Gateway',
       atualizadoEm: sql`now()` as unknown as Date,
     }).where(aindaPendente(cartaId))
     return { ok: true, cartas: await cartasDaNota(notaId) }

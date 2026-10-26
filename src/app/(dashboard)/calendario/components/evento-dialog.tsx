@@ -26,7 +26,7 @@ type Props = {
   lojaIdUsuario: string | null
 }
 
-const selectCls = 'w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white'
+const selectCls = 'w-full border border-border rounded-md px-3 py-2 text-sm bg-card'
 
 export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, categorias, lojas, usuariosGrupo, lojaIdUsuario }: Props) {
   const router = useRouter()
@@ -96,14 +96,14 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, ca
 
         <div className="space-y-4 py-1 max-h-[70vh] overflow-y-auto">
           <div className="space-y-1.5">
-            <Label>Título <span className="text-red-500">*</span></Label>
+            <Label>Título <span className="text-destructive">*</span></Label>
             <Input value={form.titulo} onChange={e => set('titulo', e.target.value)} placeholder="Ex.: Vencimento aluguel, Aniversário do João" />
           </div>
 
           <div className="space-y-1.5">
             <Label>Categoria</Label>
             {categorias.length === 0 ? (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-warning">
                 Nenhuma categoria cadastrada. <Link href="/admin/calendario-categorias" className="underline">Cadastrar categorias</Link>.
               </p>
             ) : (
@@ -115,18 +115,18 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, ca
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Início <span className="text-red-500">*</span></Label>
+              <Label>Início <span className="text-destructive">*</span></Label>
               <Input type="date" value={form.dataInicio} onChange={e => set('dataInicio', e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Fim <span className="text-slate-400 text-xs">(opcional)</span></Label>
+              <Label>Fim <span className="text-muted-foreground text-xs">(opcional)</span></Label>
               <Input type="date" value={form.dataFim} min={form.dataInicio || undefined} onChange={e => set('dataFim', e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Horário <span className="text-slate-400 text-xs">(opcional)</span></Label>
+              <Label>Horário <span className="text-muted-foreground text-xs">(opcional)</span></Label>
               <Input type="time" value={form.hora} onChange={e => set('hora', e.target.value)} />
             </div>
             <div className="space-y-1.5">
@@ -142,7 +142,7 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, ca
             <select value={form.visibilidade} onChange={e => set('visibilidade', e.target.value)} className={selectCls}>
               {VISIBILIDADES.map(v => <option key={v} value={v}>{VISIBILIDADE_META[v].label}</option>)}
             </select>
-            <p className="text-xs text-slate-400">{VISIBILIDADE_META[form.visibilidade as keyof typeof VISIBILIDADE_META].descricao}</p>
+            <p className="text-xs text-muted-foreground">{VISIBILIDADE_META[form.visibilidade as keyof typeof VISIBILIDADE_META].descricao}</p>
           </div>
 
           {form.visibilidade === 'loja' && (
@@ -158,10 +158,10 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, ca
           {form.visibilidade === 'usuarios' && (
             <div className="space-y-1.5">
               <Label>Usuários que veem</Label>
-              <div className="border border-slate-200 rounded-md max-h-44 overflow-y-auto divide-y">
-                {usuariosGrupo.length === 0 && <p className="text-xs text-slate-400 px-3 py-2">Nenhum usuário no grupo.</p>}
+              <div className="border border-border rounded-md max-h-44 overflow-y-auto divide-y">
+                {usuariosGrupo.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">Nenhum usuário no grupo.</p>}
                 {usuariosGrupo.map(us => (
-                  <label key={us.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                  <label key={us.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted cursor-pointer">
                     <input type="checkbox" checked={usuarioIds.has(us.id)} onChange={() => toggleUsuario(us.id)} />
                     {us.nome}
                   </label>
@@ -171,7 +171,7 @@ export function EventoDialog({ open, onOpenChange, modo, evento, dataInicial, ca
           )}
 
           <div className="space-y-1.5">
-            <Label>Descrição <span className="text-slate-400 text-xs">(opcional)</span></Label>
+            <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)} rows={2} placeholder="Detalhes do evento..." />
           </div>
         </div>

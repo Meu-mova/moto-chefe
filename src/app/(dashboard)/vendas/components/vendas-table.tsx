@@ -99,14 +99,14 @@ function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }:
         {podeGarantia.has(papel) && (
           <GarantiaButton
             motoId={v.motoId}
-            descricao={`${v.modelo} — ${v.cor} (${v.lojaNome})`}
+            descricao={`${v.modelo} · ${v.cor} (${v.lojaNome})`}
             gatilho={abrir => <button type="button" onClick={abrir} className={botaoGrade}><ShieldAlert className="size-4 text-muted-foreground" /> Garantia</button>}
           />
         )}
         {PAPEIS_QUE_CANCELAM_VENDA.has(papel) && (
           <CancelarVendaButton
             vendaId={v.id}
-            descricao={`${descricaoMoto(v)} — ${v.clienteNome}`}
+            descricao={`${descricaoMoto(v)} · ${v.clienteNome}`}
             valorRecebido={(Number(v.conciliadoValor) || 0) + (Number(v.pixConciliadoValor) || 0)}
             notaFiscalSaida={v.notaFiscalSaida}
             gatilho={abrir => (

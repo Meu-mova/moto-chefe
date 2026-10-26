@@ -15,7 +15,9 @@ export type PodioVendedor = {
 export type ItemColetiva = { nome: string; qtd: number; total: number }
 /** faturamento = líquido (exibido); faturamentoBruto = base da meta (igual /admin/metas). */
 export type LojaMeta = { loja: string; faturamento: number; faturamentoBruto: number; meta: number }
-export type Oportunidade = { icone: string; titulo: string; texto: string }
+// Nome do ícone do lucide-react, ou 'Canal' (logo da marca do canal, em `canal`); a tela é que desenha.
+export type IconeOportunidade = 'Smartphone' | 'Canal' | 'Wrench' | 'Target'
+export type Oportunidade = { icone: IconeOportunidade; canal?: string; titulo: string; texto: string }
 
 /** Crescimento de faturamento sobre o mês anterior; null sem base (mês anterior zero). */
 export function crescimento(atual: number, anterior: number): number | null {
@@ -64,7 +66,7 @@ export function gerarOportunidades(i: OportunidadeInput): Oportunidade[] {
   if (i.semOrigemQtd > 0 && i.totalVendas > 0) {
     const p = Math.round((i.semOrigemQtd / i.totalVendas) * 100)
     ops.push({
-      icone: '📲',
+      icone: 'Smartphone',
       titulo: 'Registrar a origem de toda venda.',
       texto: `${p}% das vendas (${i.semOrigemQtd}) ficaram sem origem. Sem isso a gente não sabe onde investir pra trazer mais cliente. É 1 clique por venda.`,
     })
@@ -72,7 +74,8 @@ export function gerarOportunidades(i: OportunidadeInput): Oportunidade[] {
 
   if (i.canalTopNome && i.canalTopQtd > 0) {
     ops.push({
-      icone: '💬',
+      icone: 'Canal',
+      canal: i.canalTopNome,
       titulo: `${i.canalTopNome} é o maior canal (${i.canalTopQtd} vendas).`,
       texto: 'Quem responde rápido, vende mais. Atendimento ágil é a diferença entre o cliente comprar com a gente ou com o concorrente.',
     })
@@ -83,16 +86,16 @@ export function gerarOportunidades(i: OportunidadeInput): Oportunidade[] {
       ? ` (bem acima do mês anterior, ${i.osQtdAnterior})`
       : ''
     ops.push({
-      icone: '🛒',
+      icone: 'Wrench',
       titulo: 'Oficina e pós-venda puxando junto.',
-      texto: `${i.osQtd} ordens de serviço no mês${salto}. Cada revisão é um cliente que volta — e volta pra comprar de novo.`,
+      texto: `${i.osQtd} ordens de serviço no mês${salto}. Cada revisão é um cliente que volta, e volta pra comprar de novo.`,
     })
   }
 
   ops.push({
-    icone: '🎯',
+    icone: 'Target',
     titulo: `Próxima meta: superar ${i.mesLabel}.`,
-    texto: `${i.recordeMotos} motos foi o número deste mês. O próximo é a chance de bater de novo — juntos.`,
+    texto: `${i.recordeMotos} motos foi o número deste mês. O próximo é a chance de bater de novo, juntos.`,
   })
 
   return ops

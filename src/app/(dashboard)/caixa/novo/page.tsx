@@ -25,7 +25,7 @@ export default async function NovoLancamentoPage() {
     <div className="space-y-6 max-w-lg">
       <div>
         <h1 className="text-2xl font-bold">Novo Lançamento</h1>
-        <p className="text-slate-500 text-sm">Registrar entrada ou saída no caixa</p>
+        <p className="text-muted-foreground text-sm">Registrar entrada ou saída no caixa</p>
       </div>
       <NovoLancamentoForm
         lojas={lojasOpts}

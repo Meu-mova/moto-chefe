@@ -57,7 +57,7 @@ export function StatusActions({
   )
 
   const semAcoes = statusPermitidos.length === 0 && dispPermitidas.length === 0
-  if (semAcoes) return <p className="text-sm text-slate-400">Sem ações disponíveis.</p>
+  if (semAcoes) return <p className="text-sm text-muted-foreground">Sem ações disponíveis.</p>
 
   function abrirDialog(tipo: 'status' | 'disponibilidade', valor: string) {
     setAlvo({ tipo, valor })
@@ -113,7 +113,7 @@ export function StatusActions({
       <div className="space-y-3">
         {statusPermitidos.length > 0 && (
           <div>
-            <p className="text-xs text-slate-400 mb-1">Status</p>
+            <p className="text-xs text-muted-foreground mb-1">Status</p>
             <div className="flex gap-2 flex-wrap">
               {statusPermitidos.map(s => (
                 <Button key={s} variant="outline" size="sm" onClick={() => abrirDialog('status', s)}>
@@ -125,7 +125,7 @@ export function StatusActions({
         )}
         {dispPermitidas.length > 0 && (
           <div>
-            <p className="text-xs text-slate-400 mb-1">Disponibilidade</p>
+            <p className="text-xs text-muted-foreground mb-1">Disponibilidade</p>
             <div className="flex gap-2 flex-wrap">
               {dispPermitidas.map(d => (
                 <Button key={d} variant="outline" size="sm" onClick={() => abrirDialog('disponibilidade', d)}>
@@ -143,7 +143,7 @@ export function StatusActions({
             <DialogTitle>Confirmar alteração</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Alterar {alvo?.tipo === 'status' ? 'status' : 'disponibilidade'} para{' '}
               <strong>{alvoLabel}</strong>?
             </p>
@@ -151,7 +151,7 @@ export function StatusActions({
             {exigeGarantia && (
               <>
                 <div className="space-y-2">
-                  <Label>Descrição do Problema <span className="text-red-500">*</span></Label>
+                  <Label>Descrição do Problema <span className="text-destructive">*</span></Label>
                   <Textarea
                     value={garantiaDescricao}
                     onChange={e => setGarantiaDescricao(e.target.value)}
@@ -160,9 +160,9 @@ export function StatusActions({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Data do Pedido <span className="text-red-500">*</span></Label>
+                  <Label>Data do Pedido <span className="text-destructive">*</span></Label>
                   <Input type="date" value={garantiaDataPedido} onChange={e => setGarantiaDataPedido(e.target.value)} />
-                  <p className="text-xs text-slate-400">O prazo de resolução é de 30 dias a partir desta data.</p>
+                  <p className="text-xs text-muted-foreground">O prazo de resolução é de 30 dias a partir desta data.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Número do Pedido na Fábrica (opcional)</Label>
@@ -179,7 +179,7 @@ export function StatusActions({
               <>
                 <div className="space-y-2">
                   <Label>
-                    Mecânico responsável <span className="text-red-500">*</span>
+                    Mecânico responsável <span className="text-destructive">*</span>
                   </Label>
                   <Select value={mecanicoId} onValueChange={v => setMecanicoId(v ?? '')}>
                     <SelectTrigger>
@@ -196,12 +196,12 @@ export function StatusActions({
                     </SelectContent>
                   </Select>
                   {mecanicos.length === 0 && (
-                    <p className="text-xs text-red-500">Nenhum mecânico cadastrado.</p>
+                    <p className="text-xs text-destructive">Nenhum mecânico cadastrado.</p>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label>
-                    Data da montagem <span className="text-red-500">*</span>
+                    Data da montagem <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="date"

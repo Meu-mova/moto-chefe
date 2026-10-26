@@ -113,25 +113,25 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             )}
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">Chassi</span><span className="font-mono text-xs">{moto.chassi}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Status</span><Badge>{statusLabel[moto.status as Status] ?? moto.status}</Badge></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Chassi</span><span className="font-mono text-xs">{moto.chassi}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge>{statusLabel[moto.status as Status] ?? moto.status}</Badge></div>
             {moto.disponibilidade && (
-              <div className="flex justify-between"><span className="text-slate-500">Disponibilidade</span><Badge variant="outline">{disponibilidadeLabel[moto.disponibilidade as Disponibilidade] ?? moto.disponibilidade}</Badge></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Disponibilidade</span><Badge variant="outline">{disponibilidadeLabel[moto.disponibilidade as Disponibilidade] ?? moto.disponibilidade}</Badge></div>
             )}
-            <div className="flex justify-between"><span className="text-slate-500">Loja</span><span>{moto.lojaNome}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Cor</span><span>{moto.cor}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Categoria</span><span>{moto.categoria}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Potência</span><span>{moto.potenciaW}W</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Motor</span><span>{moto.motor}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Loja</span><span>{moto.lojaNome}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cor</span><span>{moto.cor}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Categoria</span><span>{moto.categoria}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{moto.potenciaW}W</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Motor</span><span>{moto.motor}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
             {moto.precoCompra && ['admin_geral', 'admin_socio'].includes(usuario.papel) && (
-              <div className="flex justify-between"><span className="text-slate-500">Preço de Compra</span><span className="font-medium text-green-700">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Preço de Compra</span><span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
             )}
             {moto.dataMontagem && (
-              <div className="flex justify-between"><span className="text-slate-500">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
             )}
             {moto.mecanicoNome && (
-              <div className="flex justify-between"><span className="text-slate-500">Mecânico</span><span>{moto.mecanicoNome}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Mecânico</span><span>{moto.mecanicoNome}</span></div>
             )}
           </CardContent>
         </Card>
@@ -175,28 +175,28 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         </TabsList>
         <TabsContent value="historico">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <HistoricoTab motoId={moto.id} notaFiscalEntrada={moto.notaFiscalEntrada} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="os">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <OSTab motoId={moto.id} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="garantias">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <GarantiasTab motoId={moto.id} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="venda">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <VendaTab motoId={moto.id} papel={usuario.papel} />
             </Suspense>
           </CardContent></Card>

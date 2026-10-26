@@ -28,8 +28,8 @@ export function ResumoDespesasPorLoja({ porLoja, lojas }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-slate-500">Despesas por Loja</CardTitle>
-        <p className="text-xs text-slate-400">
+        <CardTitle className="text-sm text-muted-foreground">Despesas por Loja</CardTitle>
+        <p className="text-xs text-muted-foreground">
           valor como foi registrado, sem rateio da despesa geral
         </p>
       </CardHeader>
@@ -37,11 +37,11 @@ export function ResumoDespesasPorLoja({ porLoja, lojas }: Props) {
         <div className="space-y-1.5">
           {linhas.map(l => (
             <div key={l.chave} className="flex items-baseline justify-between gap-3 text-sm">
-              <span className={l.semLoja ? 'text-slate-400 italic' : ''}>{l.nome}</span>
-              <span className="font-mono text-red-600 whitespace-nowrap">
+              <span className={l.semLoja ? 'text-muted-foreground italic' : ''}>{l.nome}</span>
+              <span className="font-mono text-destructive whitespace-nowrap">
                 {fmt(l.total)}
                 {total > 0 && (
-                  <span className="ml-2 text-xs text-slate-400">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {((l.total / total) * 100).toFixed(0)}%
                   </span>
                 )}
@@ -49,14 +49,14 @@ export function ResumoDespesasPorLoja({ porLoja, lojas }: Props) {
             </div>
           ))}
           {linhas.length === 0 && (
-            <p className="text-sm text-slate-400 py-4 text-center">Nenhuma despesa no período.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma despesa no período.</p>
           )}
         </div>
 
         {linhas.length > 0 && (
           <div className="flex items-baseline justify-between gap-3 text-sm border-t mt-2 pt-2 font-semibold">
             <span>Total</span>
-            <span className="font-mono text-red-700">{fmt(total)}</span>
+            <span className="font-mono text-destructive">{fmt(total)}</span>
           </div>
         )}
       </CardContent>

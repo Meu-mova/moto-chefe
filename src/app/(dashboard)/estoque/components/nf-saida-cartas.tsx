@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { diaEHoraBrt } from '@/lib/data-venda'
-import { MAX_CARTAS, TEXTO_MAX, TEXTO_MIN, podeDescartarCarta, proximoNumeroCarta, recusadaPor573, validarTextoCarta } from '@/lib/notagateway/carta-correcao'
+import { MAX_CARTAS, TEXTO_MAX, TEXTO_MIN, motivoDaCartaRecusada, podeDescartarCarta, proximoNumeroCarta, recusadaPor573, validarTextoCarta } from '@/lib/notagateway/carta-correcao'
 import {
   cartasDaNotaAction, descartarCartaAction, emitirCartaCorrecaoAction, reconsultarCartasAction,
   type CartaResumo, type ResultadoCartas,
@@ -172,10 +172,10 @@ export function NfSaidaCartas({ nota, formAberto, onFecharForm }: Props) {
                     </a>
                   </div>
                 )}
-                {c.situacao === 'recusada' && c.motivoStatus && (
+                {c.situacao === 'recusada' && (
                   // O motivo vem como "Código: 215\r\nDescrição: ...": a quebra de linha separa os dois.
                   <div className="text-destructive">
-                    <p className="whitespace-pre-line">{c.motivoStatus.trim()}</p>
+                    <p className="whitespace-pre-line">{motivoDaCartaRecusada(c.motivoStatus)}</p>
                     {recusadaPor573(c.motivoStatus) ? (
                       <p>A SEFAZ já tem este número: a próxima carta usa o seguinte.</p>
                     ) : (

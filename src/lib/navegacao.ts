@@ -79,6 +79,7 @@ export const ITENS: ItemNav[] = [
 
   // ── Comercial
   { id: 'vendas',         href: '/vendas',         label: 'Vendas',            icon: ShoppingCart,  categoria: 'comercial',    papeis: COMERCIAL, destaque: true },
+  { id: 'notas-emitidas', href: '/notas-emitidas', label: 'Notas Emitidas',    icon: FileText,      categoria: 'comercial',    papeis: GESTORES, soPeloPapel: true },
   { id: 'demandas',       href: '/demandas',       label: 'Demandas',          icon: ClipboardList, categoria: 'comercial',    papeis: COMERCIAL },
   { id: 'clientes',       href: '/clientes',       label: 'Clientes',          icon: Users,         categoria: 'comercial',    papeis: COMERCIAL },
   { id: 'atendimento',    href: '/atendimento',    label: 'Atendimento',       icon: Headset,       categoria: 'comercial',    papeis: GESTORES, oculto: true },

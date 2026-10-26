@@ -1,7 +1,10 @@
 /**
  * Classificação dos status da NF de saída: os da Nota Gateway e os nossos
  * (Enviando, Processando, Descartada). Trava, consulta e tela decidem pela mesma lista.
- * Status oficiais: https://docs.notagateway.com.br/docs/status-da-nota-fiscal-no-gateway
+ * Status oficiais: https://docs.notagateway.com.br/v2/docs/status-da-nota-fiscal
+ *
+ * A nota denegada também volta "Negada" da API; o que a distingue é o código no
+ * motivo (ehDenegada). 'Denegada' fica na lista só por garantia (#347).
  */
 
 /**
@@ -33,6 +36,48 @@ export function podeDescartarTentativa(nota: { status: string; criadoEm: string 
 /** A SEFAZ não autorizou a nota. */
 export function ehRecusada(status: string): boolean {
   return status === 'Negada' || status === 'Denegada'
+}
+
+/** Código da SEFAZ no início do motivo ("301 - Uso Denegado", "539: ..."); o separador varia. */
+export function codigoRecusa(motivo: string | null): number | null {
+  const m = motivo?.trim().match(/^(\d{3})(?!\d)/)
+  return m ? Number(m[1]) : null
+}
+
+type NotaComMotivo = { status: string; motivoStatus: string | null }
+
+/**
+ * Denegada (301 emitente, 302/303 destinatário irregular): o número fica
+ * registrado na SEFAZ e não volta a ser usado.
+ */
+export function ehDenegada(n: NotaComMotivo): boolean {
+  if (n.status === 'Denegada') return true
+  if (!ehRecusada(n.status)) return false
+  const codigo = codigoRecusa(n.motivoStatus)
+  return codigo === 301 || codigo === 302 || codigo === 303
+}
+
+/** 539: o número já foi usado em outra nota na SEFAZ. */
+export function ehDuplicidade(n: NotaComMotivo): boolean {
+  return ehRecusada(n.status) && codigoRecusa(n.motivoStatus) === 539
+}
+
+/**
+ * Recusa que se reenvia com o mesmo id (e o mesmo número): na rejeição a Nota
+ * Gateway manda os dados novos com o número da tentativa; no erro 4xx dela a
+ * nota nem foi registrada. Só a denegada pede id novo (#347).
+ */
+export function reenviaMesmoNumero(n: NotaComMotivo): boolean {
+  return ehRecusada(n.status) && !ehDenegada(n)
+}
+
+/**
+ * Ao abrir o painel, a última tentativa do ambiente, se recusada: a tela da
+ * recusa aparece sem enviar nem consultar de novo (#347). Lista do mais recente.
+ */
+export function recusaParaAbrir<N extends NotaComMotivo & { ambiente: string }>(notas: N[], ambiente: string): N | null {
+  const ultima = notas.find(n => n.ambiente === ambiente)
+  return ultima && ehRecusada(ultima.status) ? ultima : null
 }
 
 /**
