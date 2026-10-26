@@ -67,12 +67,12 @@ const PAPEIS: { value: string; label: string }[] = [
 type Limites = LimitesDaTela
 
 const PAPEL_CORES: Record<string, string> = {
-  admin_geral: 'bg-purple-100 text-purple-800 border-purple-200',
-  admin_socio: 'bg-blue-100 text-blue-800 border-blue-200',
-  aux_adm:     'bg-amber-100 text-amber-800 border-amber-200',
-  vendedor:    'bg-green-100 text-green-800 border-green-200',
-  mecanico:    'bg-slate-100 text-slate-700 border-slate-200',
-  motorista:   'bg-teal-100 text-teal-800 border-teal-200',
+  admin_geral: 'bg-info/15 text-info border-info/30',
+  admin_socio: 'bg-info/15 text-info border-info/30',
+  aux_adm:     'bg-warning/15 text-warning border-warning/30',
+  vendedor:    'bg-success/15 text-success border-success/30',
+  mecanico:    'bg-muted text-foreground border-border',
+  motorista:   'bg-info/15 text-info border-info/30',
 }
 
 function SenhaInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -89,7 +89,7 @@ function SenhaInput({ value, onChange, placeholder }: { value: string; onChange:
       <button
         type="button"
         onClick={() => setMostrar(v => !v)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
       >
         {mostrar ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -412,13 +412,13 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-500">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm text-muted-foreground">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
         <Button onClick={() => setCriando(true)} className="gap-2">
           <UserPlus size={16} /> Novo usuário
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -436,53 +436,53 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
               <TableRow key={u.id} className={u.ativo ? '' : 'opacity-55'}>
                 <TableCell className="font-medium">
                   {u.nome}
-                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-medium align-middle">Inativo</span>}
+                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium align-middle">Inativo</span>}
                 </TableCell>
-                <TableCell className="text-slate-500 text-sm">{u.email}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-muted text-foreground'}`}>
                     {PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel}
                   </span>
                 </TableCell>
-                <TableCell className="text-slate-500">{u.lojaNome ?? <span className="text-slate-300">—</span>}</TableCell>
+                <TableCell className="text-muted-foreground">{u.lojaNome ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell>
                   {PAPEIS_APROVADORES.includes(u.papel) && (u.gruposAprovacao.length > 0 || u.aprovaPagamentoSensivel) ? (
                     <div className="flex flex-wrap gap-1">
                       {u.gruposAprovacao.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[11px]">
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">
                           + {nomeGrupo(gid)}
                         </span>
                       ))}
                       {u.aprovaPagamentoSensivel && (
-                        <span className="inline-flex px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px]">
+                        <span className="inline-flex px-1.5 py-0.5 rounded border border-success/30 bg-success/10 text-success text-[11px]">
                           transferência
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
                 <TableCell>
                   {u.papel === 'admin_geral' ? (
-                    <span className="inline-flex px-1.5 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-700 text-[11px]">todas</span>
+                    <span className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">todas</span>
                   ) : u.gruposAcesso.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {u.gruposAcesso.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-slate-200 bg-slate-100 text-slate-600 text-[11px]">
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground text-[11px]">
                           {nomeGrupo(gid)}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
                     {!(u.id === limites.meuId && limites.travaASiMesmo) && <Button
                       variant="ghost" size="icon"
-                      className={`h-8 w-8 ${u.ativo ? 'text-slate-400 hover:text-slate-700' : 'text-emerald-600 hover:text-emerald-800'} hover:bg-slate-100`}
+                      className={`h-8 w-8 ${u.ativo ? 'text-muted-foreground hover:text-foreground' : 'text-success hover:text-success'} hover:bg-muted`}
                       onClick={() => handleToggleAtivo(u)}
                       title={u.ativo ? 'Desativar (sai dos relatórios)' : 'Reativar'}
                       disabled={pending}
@@ -491,7 +491,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
                     </Button>}
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                      className="h-8 w-8 text-warning hover:text-warning hover:bg-warning/10"
                       onClick={() => setEditando(u)}
                     >
                       <Pencil size={15} />
@@ -511,7 +511,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
             ))}
             {usuarios.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Nenhum usuário cadastrado.
                 </TableCell>
               </TableRow>
@@ -564,7 +564,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
           <DialogHeader>
             <DialogTitle>Excluir usuário</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Tem certeza que deseja excluir <strong>{excluindo?.nome}</strong>?
             Esta ação é irreversível e removerá o acesso ao sistema.
           </p>

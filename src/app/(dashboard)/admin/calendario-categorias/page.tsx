@@ -21,7 +21,7 @@ export default async function CalendarioCategoriasPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Categorias do calendário</h1>
-          <p className="text-slate-500 text-sm">Categorias e cores usadas nos eventos do calendário · {grupo.nome}</p>
+          <p className="text-muted-foreground text-sm">Categorias e cores usadas nos eventos do calendário · {grupo.nome}</p>
         </div>
         <CategoriasCalendarioTable categorias={categorias} />
       </div>

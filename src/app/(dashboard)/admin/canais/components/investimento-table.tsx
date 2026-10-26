@@ -79,7 +79,7 @@ function InvestimentoDialog({ inicial, funis, onClose }: {
           </div>
           <div className="space-y-1.5">
             <Label>Plataforma</Label>
-            <select className="h-9 w-full rounded-md border px-2 text-sm bg-white"
+            <select className="h-9 w-full rounded-md border px-2 text-sm bg-card"
                     value={PLATAFORMAS.includes(plataforma) ? plataforma : 'Outro'}
                     onChange={e => setPlataforma(e.target.value === 'Outro' ? '' : e.target.value)}>
               {PLATAFORMAS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -90,12 +90,12 @@ function InvestimentoDialog({ inicial, funis, onClose }: {
           </div>
           <div className="space-y-1.5">
             <Label>Loja / funil</Label>
-            <select className="h-9 w-full rounded-md border px-2 text-sm bg-white"
+            <select className="h-9 w-full rounded-md border px-2 text-sm bg-card"
                     value={pipelineId} onChange={e => setPipelineId(e.target.value)}>
               <option value="">Grupo inteiro (sem loja definida)</option>
               {funis.map(f => <option key={f.pipelineId} value={f.pipelineId}>{f.funil}</option>)}
             </select>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Verba lançada na loja permite calcular CPL e ROAS daquela loja. Sem loja, entra só no total do grupo.
             </p>
           </div>
@@ -138,13 +138,13 @@ export function InvestimentoTable({ investimentos, funis, grupoNome }: {
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500 max-w-2xl">
+        <p className="text-sm text-muted-foreground max-w-2xl">
           Verba de mídia do grupo <strong>{grupoNome}</strong>, por mês. É o que permite calcular custo por lead,
           custo por venda e retorno. Mês parcial no filtro do relatório é rateado por dia.
         </p>
         <Button size="sm" onClick={() => setCriando(true)}><Plus size={16} className="mr-1.5" /> Lançar</Button>
       </div>
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -161,15 +161,15 @@ export function InvestimentoTable({ investimentos, funis, grupoNome }: {
               <TableRow key={i.id}>
                 <TableCell className="font-medium whitespace-nowrap">{rotuloMes(i.mes)}</TableCell>
                 <TableCell>{i.plataforma}</TableCell>
-                <TableCell className="text-slate-600">
-                  {i.pipelineId ? (nomeFunil.get(i.pipelineId) ?? i.pipelineId) : <span className="text-slate-400">grupo inteiro</span>}
+                <TableCell className="text-muted-foreground">
+                  {i.pipelineId ? (nomeFunil.get(i.pipelineId) ?? i.pipelineId) : <span className="text-muted-foreground">grupo inteiro</span>}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{fmtBRL(i.valor)}</TableCell>
-                <TableCell className="text-slate-500 text-xs">{i.observacao ?? ''}</TableCell>
+                <TableCell className="text-muted-foreground text-xs">{i.observacao ?? ''}</TableCell>
                 <TableCell>
                   <div className="flex gap-1 justify-end">
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditando(i)}><Pencil size={14} /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setExcluindo(i)}><Trash2 size={14} /></Button>
                   </div>
                 </TableCell>
@@ -177,7 +177,7 @@ export function InvestimentoTable({ investimentos, funis, grupoNome }: {
             ))}
             {investimentos.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   Nada lançado ainda — sem verba, o relatório mostra volume mas não mostra custo.
                 </TableCell>
               </TableRow>
@@ -191,7 +191,7 @@ export function InvestimentoTable({ investimentos, funis, grupoNome }: {
       <Dialog open={!!excluindo} onOpenChange={(v: boolean) => { if (!v) setExcluindo(null) }}>
         <DialogContent className="sm:max-w-sm" showCloseButton={false}>
           <DialogHeader><DialogTitle>Excluir lançamento?</DialogTitle></DialogHeader>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             {excluindo && <>O lançamento de <strong>{fmtBRL(excluindo.valor)}</strong> em {excluindo.plataforma} ({rotuloMes(excluindo.mes)}) será removido.</>}
           </p>
           <DialogFooter>

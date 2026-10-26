@@ -86,9 +86,9 @@ export function ComunicadoForm() {
         />
       </div>
 
-      <div className="space-y-2 border rounded-lg p-3 bg-slate-50">
-        <p className="text-sm font-medium text-slate-700">Destinatários</p>
-        <p className="text-xs text-slate-500">
+      <div className="space-y-2 border rounded-lg p-3 bg-muted">
+        <p className="text-sm font-medium text-foreground">Destinatários</p>
+        <p className="text-xs text-muted-foreground">
           {papeisSelecionados.length === 0
             ? 'Nenhuma função selecionada — enviará para todos os usuários'
             : `Apenas: ${papeisSelecionados.map(p => PAPEIS.find(r => r.value === p)?.label ?? p).join(', ')}`}
@@ -103,8 +103,8 @@ export function ComunicadoForm() {
                 onClick={() => togglePapel(p.value)}
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                   selecionado
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card text-muted-foreground border-input hover:border-info/50'
                 }`}
               >
                 {p.label}
@@ -114,8 +114,8 @@ export function ComunicadoForm() {
         </div>
       </div>
 
-      <div className="space-y-3 border rounded-lg p-3 bg-slate-50">
-        <p className="text-sm font-medium text-slate-700">Postagem</p>
+      <div className="space-y-3 border rounded-lg p-3 bg-muted">
+        <p className="text-sm font-medium text-foreground">Postagem</p>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -152,13 +152,13 @@ export function ComunicadoForm() {
           id="ativo"
           checked={ativo}
           onChange={e => setAtivo(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300"
+          className="h-4 w-4 rounded border-input"
         />
         <Label htmlFor="ativo" className="cursor-pointer">Publicar (ativo)</Label>
       </div>
 
-      {erro && <p className="text-sm text-red-500">{erro}</p>}
-      {sucesso && <p className="text-sm text-green-600">Comunicado criado com sucesso!</p>}
+      {erro && <p className="text-sm text-destructive">{erro}</p>}
+      {sucesso && <p className="text-sm text-success">Comunicado criado com sucesso!</p>}
       <Button type="submit" disabled={loading}>
         {loading ? 'Salvando...' : 'Criar Comunicado'}
       </Button>
