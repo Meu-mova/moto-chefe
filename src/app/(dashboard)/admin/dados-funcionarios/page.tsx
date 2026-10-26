@@ -50,7 +50,7 @@ export default async function DadosFuncionariosPage() {
               <TableRow key={l.id}>
                 <TableCell className="font-medium">{l.nome}</TableCell>
                 <TableCell>
-                  {l.cpf ? formatCpf(l.cpf) : <span className="text-slate-400">não preencheu</span>}
+                  {l.cpf ? formatCpf(l.cpf) : <span className="text-muted-foreground">não preencheu</span>}
                 </TableCell>
                 <TableCell>{rotulo(l.pixTipo)}</TableCell>
                 <TableCell>{l.pixChave ?? '—'}</TableCell>

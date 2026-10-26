@@ -11,7 +11,7 @@ export function MesSelectorContas({ mesAtual }: { mesAtual: string }) {
       type="month"
       value={mesAtual}
       onChange={e => router.push(`/contas-pagar?mes=${e.target.value}`)}
-      className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm"
+      className="rounded-md border border-border bg-card px-3 py-1.5 text-sm"
     />
   )
 }

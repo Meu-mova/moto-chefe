@@ -29,7 +29,7 @@ export default async function UsuariosPage() {
       <div className="space-y-2">
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-slate-500 text-sm">Gerencie os acessos ao sistema</p>
+          <p className="text-muted-foreground text-sm">Gerencie os acessos ao sistema</p>
         </div>
         <UsuariosTable
           usuarios={todos}

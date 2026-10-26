@@ -12,12 +12,12 @@ async function BancosConteudo({ grupo }: { grupo: { nome: string; cnpj: string }
   const resultado = await buscarSaldosBancarios(grupo.cnpj)
 
   if (!resultado.ok) {
-    return <p className="text-sm text-red-600">Não foi possível buscar os saldos: {resultado.erro}</p>
+    return <p className="text-sm text-destructive">Não foi possível buscar os saldos: {resultado.erro}</p>
   }
 
   if (resultado.contas.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-muted-foreground">
         Nenhuma conta do {grupo.nome} conectada ao Open Finance.
       </p>
     )
@@ -30,11 +30,11 @@ async function BancosConteudo({ grupo }: { grupo: { nome: string; cnpj: string }
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Saldo Total</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Saldo Total</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-green-600">{fmt(String(total))}</p>
+          <p className="text-2xl font-bold text-success">{fmt(String(total))}</p>
           {algumIndisponivel && (
-            <p className="text-xs text-amber-600 mt-1">
+            <p className="text-xs text-warning mt-1">
               Total parcial — uma ou mais contas estão com saldo indisponível no momento.
             </p>
           )}
@@ -45,13 +45,13 @@ async function BancosConteudo({ grupo }: { grupo: { nome: string; cnpj: string }
           <Card key={c.id}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{c.banco}</CardTitle>
-              <p className="text-xs text-slate-400">Conta Corrente — {c.numero}</p>
+              <p className="text-xs text-muted-foreground">Conta Corrente — {c.numero}</p>
             </CardHeader>
             <CardContent>
               {c.saldo != null ? (
                 <p className="text-xl font-bold">{fmt(c.saldo)}</p>
               ) : (
-                <p className="text-sm text-amber-600">Saldo indisponível no momento — tente recarregar.</p>
+                <p className="text-sm text-warning">Saldo indisponível no momento — tente recarregar.</p>
               )}
             </CardContent>
           </Card>
@@ -74,7 +74,7 @@ export default async function BancosPage() {
               todos os CNPJs conectados de uma vez, e uma conta de outra bandeira
               somando no total passou despercebida justamente por não ter de quem
               a tela era. */}
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Saldo das contas do <b>{grupo.nome}</b> conectadas via Open Finance
           </p>
         </div>
