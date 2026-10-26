@@ -44,6 +44,8 @@ test('resumo de cada ação sensível', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'troca_grupo', detalhe: { de: 'g1' } })), 'Entrou em Sul')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['lojaId'] } })), 'Bruno · alterado: lojaId', 'sem mudança de papel, sem (→)')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { numeroVenda: 30041, origem: 'mova' } })), 'NF da venda #30041')
+  assert.equal(resumoDoEvento(ev({ tipo: 'notas_enviadas_contador', detalhe: { para: 'contador@x.com', de: '2026-10-01', ate: '2026-10-31', notas: 12, modo: 'link' } })),
+    'contador@x.com · 01/10/2026 a 31/10/2026 · 12 notas · por link')
   assert.equal(resumoDoEvento(ev({ tipo: 'venda_cancelada', detalhe: {} })), 'Venda #? · ? · ? · “?”', 'linha sem os campos não mostra undefined')
 })
 
