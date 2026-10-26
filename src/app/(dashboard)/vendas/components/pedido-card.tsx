@@ -44,7 +44,8 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
   async function handleCancelar() {
     setLoading(true)
     try {
-      await cancelarPedidoAction(p.id, observacao)
+      const r = await cancelarPedidoAction(p.id, observacao)
+      if (!r.ok) { toast.error(r.erro); return }
       setCancelarOpen(false)
     } catch (e: any) {
       toast.error(e.message)
