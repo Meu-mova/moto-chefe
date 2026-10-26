@@ -133,7 +133,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
                 somaOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
               }`}>
                 {somaOk
-                  ? `✓ Somatório confere: R$ ${soma.toFixed(2).replace('.', ',')}`
+                  ? `Somatório confere: R$ ${soma.toFixed(2).replace('.', ',')}`
                   : `Somatório R$ ${soma.toFixed(2).replace('.', ',')} ≠ Sinal R$ ${valorNum.toFixed(2).replace('.', ',')}`
                 }
               </div>

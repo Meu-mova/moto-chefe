@@ -10,6 +10,7 @@ import {
   agruparPorPessoa, contaDoFiltro, dispositivoLegivel, eventoDeFora, resumoDoEvento,
   ehSensivel, ROTULO_TIPO, TIPOS_DESTRUTIVOS, type EventoLog,
 } from '@/lib/log-acoes-tela'
+import { TriangleAlert } from 'lucide-react'
 
 type Params = { conta?: string; pessoa?: string; tipo?: string; de?: string; ate?: string }
 
@@ -115,7 +116,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Params> }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Último registro {quando(p.ultimo)} · {p.dias} dia(s) com registro · {p.dispositivos} dispositivo(s)
-                  {p.dispositivos > 1 && <span className="font-semibold text-warning"> ⚠</span>}
+                  {p.dispositivos > 1 && <TriangleAlert size={12} className="ml-1 inline -mt-0.5 text-warning" aria-label="mais de um dispositivo" />}
                 </p>
               </div>
               <div className="shrink-0 text-right">

@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Printer } from 'lucide-react'
+import { Printer, TriangleAlert } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -146,7 +146,7 @@ export function GarantiaCard({ garantia: g, papel, lojaIdUsuario }: Props) {
             </a>
             {g.statusFabrica && (
               <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${STATUS_FABRICA_CLS[g.statusFabrica] ?? 'bg-muted text-muted-foreground border-border'} ${STATUS_FABRICA_CRITICOS.has(g.statusFabrica) ? 'ring-1 ring-destructive/50' : ''}`}>
-                {STATUS_FABRICA_CRITICOS.has(g.statusFabrica) && '⚠ '}
+                {STATUS_FABRICA_CRITICOS.has(g.statusFabrica) && <TriangleAlert size={12} className="mr-1" aria-hidden />}
                 {g.statusFabrica}
               </span>
             )}

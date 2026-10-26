@@ -24,6 +24,7 @@ import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
 import { somaCustoMotoExpr, qtdSemCustoExpr } from '@/lib/queries/custo-moto'
+import { TriangleAlert } from 'lucide-react'
 
 /** Valor do filtro de loja que significa "só o balde da empresa". */
 const ESCOPO_GERAL = 'geral'
@@ -567,7 +568,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       {qtdSemCusto > 0 && (
         <p className="text-xs text-warning">
-          ⚠ {qtdSemCusto} venda{qtdSemCusto > 1 ? 's' : ''} sem custo de moto registrado (conta{qtdSemCusto > 1 ? 'm' : ''} como R$ 0,00 no cálculo).
+          <TriangleAlert size={12} className="inline -mt-0.5 mr-1" aria-hidden />{qtdSemCusto} venda{qtdSemCusto > 1 ? 's' : ''} sem custo de moto registrado (conta{qtdSemCusto > 1 ? 'm' : ''} como R$ 0,00 no cálculo).
         </p>
       )}
 

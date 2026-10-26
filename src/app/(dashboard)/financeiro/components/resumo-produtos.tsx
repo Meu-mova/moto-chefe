@@ -161,8 +161,8 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
 
             {semCustoTotal > 0 && (
               <p className="mt-3 text-xs text-warning">
-                ⚠ {semCustoTotal} moto{semCustoTotal > 1 ? 's' : ''} sem preço de compra registrado
-                cont{semCustoTotal > 1 ? 'am' : 'a'} como custo R$ 0,00 — o lucro desses modelos está inflado.
+                <AlertTriangle size={12} className="inline -mt-0.5 mr-1" aria-hidden />{semCustoTotal} moto{semCustoTotal > 1 ? 's' : ''} sem preço de compra registrado
+                cont{semCustoTotal > 1 ? 'am' : 'a'} como custo R$ 0,00: o lucro desses modelos está inflado.
               </p>
             )}
           </>

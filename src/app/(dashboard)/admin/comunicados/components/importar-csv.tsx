@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Upload, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Upload, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react'
 import { importarComunicadosAction } from '../actions'
 
 type Linha = { titulo: string; conteudo: string; ativo: boolean; dataPostagem: string | null }
@@ -112,8 +112,8 @@ export function ImportarCsv() {
                 <div className="font-medium">{l.titulo}</div>
                 <div className="text-muted-foreground line-clamp-1">{l.conteudo}</div>
                 <div className="flex gap-3 text-muted-foreground">
-                  {l.dataPostagem && <span>📅 {new Date(l.dataPostagem).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
-                  <span>{l.ativo ? '✓ ativo' : '✗ inativo'}</span>
+                  {l.dataPostagem && <span><CalendarDays size={12} className="inline -mt-0.5 mr-1" aria-hidden />{new Date(l.dataPostagem).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                  <span>{l.ativo ? 'ativo' : 'inativo'}</span>
                 </div>
               </div>
             ))}
