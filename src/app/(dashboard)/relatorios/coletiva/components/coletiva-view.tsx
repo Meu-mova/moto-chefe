@@ -13,7 +13,7 @@ const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 
 
 // 1º dourado, 2º prata, 3º azul; do 4º em diante a barra fica neutra.
 const POSICAO_TEXTO = ['text-warning', 'text-muted-foreground', 'text-info']
-const POSICAO_BARRA = ['bg-warning/22', 'bg-muted-foreground/18', 'bg-info/22']
+const POSICAO_BARRA = ['bg-warning/15', 'bg-muted-foreground/18', 'bg-info/15']
 
 const ICONE_OPORTUNIDADE: Record<IconeOportunidade, typeof Target> = { Smartphone, MessageCircle, Wrench, Target }
 
