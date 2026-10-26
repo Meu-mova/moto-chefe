@@ -73,3 +73,38 @@ export function linhasAdicionadas(diffUnificado: string): LinhaAdicionada[] {
   }
   return saida
 }
+
+// Hover que repete a cor de base não dá retorno nenhum ao passar o mouse (a migração da #90 juntou
+// tons como blue-600/blue-700 no mesmo token). Button, Badge e TableRow são exceção: neles o par
+// anula o hover padrão do componente (o ghost ainda escurece o fundo). Outro caso de propósito:
+// "hover-igual-ok: <motivo>" na linha ou na de cima.
+const COMPONENTES_QUE_ANULAM = new Set(['Button', 'Badge', 'TableRow'])
+export const LIBERA_HOVER = 'hover-igual-ok'
+
+// Tag dona da classe: a última aberta antes dela na linha, ou nas linhas de cima.
+function tagAberta(linhas: string[], indice: number, coluna: number): string | undefined {
+  for (let i = indice; i >= Math.max(0, indice - 10); i--) {
+    const tags = [...(i === indice ? linhas[i].slice(0, coluna) : linhas[i]).matchAll(/<([A-Za-z][\w.]*)/g)]
+    if (tags.length) return tags[tags.length - 1][1]
+  }
+}
+
+export function acharHoverRepetido(linhas: string[], indice = 0): string[] {
+  const linha = linhas[indice]
+  const libera = new RegExp(`${LIBERA_HOVER}: \\S`)
+  if (libera.test(linha) || (indice > 0 && libera.test(linhas[indice - 1]))) return []
+  const achados: string[] = []
+  for (const m of linha.matchAll(/(['"`])((?:(?!\1).)*)\1/g)) {
+    const tag = tagAberta(linhas, indice, m.index)
+    if (tag && COMPONENTES_QUE_ANULAM.has(tag)) continue
+    const classes = m[2]
+    const tokens = classes.split(/\s+/)
+    for (const t of tokens) {
+      const partes = t.split(':')
+      if (!partes.slice(0, -1).some((p) => p === 'hover' || p === 'group-hover')) continue
+      const base = partes.filter((p) => p !== 'hover' && p !== 'group-hover').join(':')
+      if (/^(?:[\w-]+:)*(?:text|bg|border)-/.test(base) && tokens.includes(base)) achados.push(t)
+    }
+  }
+  return achados
+}

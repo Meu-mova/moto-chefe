@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { acharCoresFixas, area, linhasAdicionadas, verificaArquivo } from './cores-fixas'
+import { acharCoresFixas, acharHoverRepetido, area, linhasAdicionadas, verificaArquivo } from './cores-fixas'
 
 test('paleta do Tailwind, branco e preto contam como cor fixa', () => {
   assert.deepEqual(acharCoresFixas('className="bg-slate-900 text-emerald-500 hover:bg-white"'), ['bg-slate-900', 'text-emerald-500', 'bg-white'])
@@ -82,4 +82,28 @@ test('em .css o seletor de id não conta, mesmo parecendo hex', () => {
   assert.deepEqual(acharCoresFixas('#fade:hover { opacity: 1 }', 'src/app/x.css'), [])
   assert.deepEqual(acharCoresFixas('.a:hover #abc {', 'src/app/x.css'), [])
   assert.deepEqual(acharCoresFixas("color: '#fff'", 'src/app/x.css'), ['#fff'])
+})
+
+test('hover igual à cor de base acusa; hover que muda de tom não', () => {
+  assert.deepEqual(acharHoverRepetido(['<a className="text-info hover:text-info">']), ['hover:text-info'])
+  assert.deepEqual(acharHoverRepetido(['<Pencil className="text-muted-foreground group-hover:text-muted-foreground" />']), ['group-hover:text-muted-foreground'])
+  assert.deepEqual(acharHoverRepetido(["  : 'bg-muted text-muted-foreground hover:bg-muted'"]), ['hover:bg-muted'])
+  assert.deepEqual(acharHoverRepetido(['<a className="text-info hover:opacity-80 bg-info/10 hover:bg-info/20">']), [])
+  // disabled:hover:bg-X anula o hover do botão desabilitado; a base dele é disabled:bg-X
+  assert.deepEqual(acharHoverRepetido(['<button className="bg-primary hover:bg-primary-hover disabled:hover:bg-primary">']), [])
+})
+
+test('Button, Badge e TableRow anulam o hover padrão do componente e não acusam', () => {
+  assert.deepEqual(acharHoverRepetido(['<Badge className="bg-warning/15 text-warning hover:bg-warning/15">']), [])
+  assert.deepEqual(acharHoverRepetido(['<TableRow className="bg-muted hover:bg-muted">']), [])
+  const botao = ['<Button', '  variant="ghost" size="icon"', '  className="text-destructive hover:text-destructive"', '>']
+  assert.deepEqual(acharHoverRepetido(botao, 2), [])
+  assert.deepEqual(acharHoverRepetido(['<Button variant="ghost" className="text-destructive hover:text-destructive"><Trash2 size={14} /></Button>']), [])
+  assert.deepEqual(acharHoverRepetido(['<Button variant="ghost"><a className="text-info hover:text-info">x</a></Button>']), ['hover:text-info'])
+})
+
+test('marcador hover-igual-ok com motivo libera a linha ou a de baixo', () => {
+  assert.deepEqual(acharHoverRepetido(['<a className="text-info hover:text-info"> {/* hover-igual-ok: link desativado */}']), [])
+  assert.deepEqual(acharHoverRepetido(['{/* hover-igual-ok: link desativado */}', '<a className="text-info hover:text-info">'], 1), [])
+  assert.deepEqual(acharHoverRepetido(['<a className="text-info hover:text-info"> {/* hover-igual-ok */}']), ['hover:text-info'])
 })
