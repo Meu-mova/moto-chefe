@@ -1,5 +1,6 @@
 'use client'
 
+import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -141,8 +142,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
   // Espelha validarDocumento do servidor só pra desabilitar o botão — a trava de
   // verdade está em registrarVendaPecaAction.
-  const digitosDoc = documento.replace(/D/g, '')
-  const clientePJOk = tipoPessoa !== 'juridica' || (digitosDoc.length === 14 && clienteNome.trim().length > 0)
+  const digitosDoc = soDigitosDoc(documento)
+  const clientePJOk = tipoPessoa !== 'juridica' || (cnpjValido(digitosDoc) && clienteNome.trim().length > 0)
   const podeSalvar = edicao
     ? !carregando && itensValidos.length > 0 && pgtosValidos.length > 0
     : !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
@@ -302,7 +303,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   className="font-mono"
                 />
                 {tipoPessoa === 'juridica' && !clientePJOk && (
-                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ válido.</p>
                 )}
               </div>
             </div>

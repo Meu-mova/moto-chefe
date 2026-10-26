@@ -184,3 +184,33 @@ test('Editar: vendedor de outra loja da mesma Conta e sócio com grupo inativo n
     assert.equal(await vendaPecaEditavel(tx, a.socio, venda.id), null)
   })
 })
+
+test('CPF com dígito verificador errado barra a troca e nada é gravado (#399, ADR-0015)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000039712')
+    const venda = await semearVenda(tx, a)
+    await assert.rejects(
+      editarClienteVendaPecaTx(tx, a.aux, venda.id, { clienteNome: 'X', clienteTipoPessoa: 'fisica', clienteDocumento: '529.982.247-24' }),
+      /CPF inválido/,
+    )
+    assert.equal((await vendaDb(tx, venda.id)).cliente_nome, 'Fulano')
+    assert.equal((await historico(tx, venda.id)).length, 0)
+  })
+})
+
+test('venda antiga com CPF errado: corrigir só o nome não reconfere o documento (#399, ADR-0015)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000039713')
+    const venda = await semearVenda(tx, a)
+    await linhas(tx, sql`update vendas_pecas set cliente_documento = '52998224724' where id = ${venda.id} returning id`)
+    await editarClienteVendaPecaTx(tx, a.aux, venda.id, { clienteNome: 'Ciclano', clienteTipoPessoa: 'fisica', clienteDocumento: '529.982.247-24' })
+    const v = await vendaDb(tx, venda.id)
+    assert.equal(v.cliente_nome, 'Ciclano')
+    assert.equal(v.cliente_documento, '52998224724')
+    // Trocar para outro documento errado continua barrado.
+    await assert.rejects(
+      editarClienteVendaPecaTx(tx, a.aux, venda.id, { clienteNome: 'Ciclano', clienteTipoPessoa: 'fisica', clienteDocumento: '111.444.777-36' }),
+      /CPF inválido/,
+    )
+  })
+})

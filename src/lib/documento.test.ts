@@ -20,16 +20,20 @@ test('soDigitosDoc tira pontuação', () => {
   assert.equal(soDigitosDoc('12.345.678/0001-99'), '12345678000199')
 })
 
-test('venda para CNPJ exige 14 dígitos', () => {
-  assert.deepEqual(validarDocumento('juridica', '12.345.678/0001-99'), { ok: true, documento: '12345678000199' })
+test('venda para CNPJ exige CNPJ válido (#399, ADR-0015)', () => {
+  assert.deepEqual(validarDocumento('juridica', '11.222.333/0001-81'), { ok: true, documento: '11222333000181' })
   assert.equal(validarDocumento('juridica', '').ok, false)
-  assert.equal(validarDocumento('juridica', '12345678901').ok, false)
+  assert.equal(validarDocumento('juridica', '52998224725').ok, false)
+  assert.deepEqual(validarDocumento('juridica', '11.222.333/0001-82'), { ok: false, erro: 'CNPJ inválido — confira os números' })
+  assert.equal(validarDocumento('juridica', '00.000.000/0000-00').ok, false)
 })
 
-test('pessoa física pode vender sem CPF, mas não com CPF pela metade', () => {
+test('pessoa física pode vender sem CPF, mas não com CPF pela metade ou com dígito errado (#399)', () => {
   assert.deepEqual(validarDocumento('fisica', ''), { ok: true, documento: null })
-  assert.deepEqual(validarDocumento('fisica', '123.456.789-01'), { ok: true, documento: '12345678901' })
+  assert.deepEqual(validarDocumento('fisica', '529.982.247-25'), { ok: true, documento: '52998224725' })
   assert.equal(validarDocumento('fisica', '1234').ok, false)
+  assert.deepEqual(validarDocumento('fisica', '529.982.247-24'), { ok: false, erro: 'CPF inválido — confira os números' })
+  assert.equal(validarDocumento('fisica', '111.111.111-11').ok, false)
 })
 
 // ─── Documento do cliente na venda, reserva e demanda (#65) ─────────────────
