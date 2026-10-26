@@ -69,7 +69,7 @@ export function AgendarForm({ lojaId }: Props) {
     const dataHora   = setMinutes(setHours(new Date(form.dia), h), m)
     start(async () => {
       try {
-        await agendarPublicoAction({
+        const r = await agendarPublicoAction({
           lojaId,
           clienteNome:      form.nome,
           clienteFone:      form.fone,
@@ -77,6 +77,7 @@ export function AgendarForm({ lojaId }: Props) {
           descricaoCliente: form.descricao || undefined,
           dataHoraInicio:   dataHora.toISOString(),
         })
+        if (!r.ok) { setErros({ nome: r.erro }); return }
         setSucesso(true)
       } catch (e: any) {
         setErros({ nome: e.message ?? 'Erro ao enviar. Tente novamente.' })

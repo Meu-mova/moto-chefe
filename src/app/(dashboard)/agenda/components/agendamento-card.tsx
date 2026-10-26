@@ -38,7 +38,11 @@ export function AgendamentoCard({ ag, podeGerenciar, mecanicos }: Props) {
 
   function confirmar() {
     start(async () => {
-      try { await confirmarAgendamentoAction(ag.id); toast.success('Confirmado') }
+      try {
+        const r = await confirmarAgendamentoAction(ag.id)
+        if (r.ok) toast.success('Confirmado')
+        else toast.error(r.erro)
+      }
       catch (e: any) { toast.error(e.message) }
     })
   }
@@ -46,7 +50,11 @@ export function AgendamentoCard({ ag, podeGerenciar, mecanicos }: Props) {
   function cancelar() {
     if (!confirm('Cancelar este agendamento?')) return
     start(async () => {
-      try { await cancelarAgendamentoAction(ag.id); toast.success('Cancelado') }
+      try {
+        const r = await cancelarAgendamentoAction(ag.id)
+        if (r.ok) toast.success('Cancelado')
+        else toast.error(r.erro)
+      }
       catch (e: any) { toast.error(e.message) }
     })
   }
