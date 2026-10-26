@@ -24,7 +24,7 @@ export type MotoParaPedido = { status: string; disponibilidade: string | null }
 
 /** Motivo para não criar pedido com esta moto, ou null quando pode. */
 export function motivoBloqueioCriarPedido(moto: MotoParaPedido, temTransferenciaPendente: boolean): string | null {
-  if (moto.status === 'caixa') return 'Moto ainda não foi montada — não pode ser vendida'
+  if (moto.status === 'caixa') return 'Moto ainda não foi montada. Não pode ser vendida.'
   if (moto.status === 'vendida') return 'Moto já foi vendida'
   if (moto.disponibilidade !== 'disponivel') {
     return `Moto não está disponível (${moto.disponibilidade ?? 'sem disponibilidade'})`

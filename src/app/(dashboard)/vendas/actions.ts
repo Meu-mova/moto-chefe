@@ -33,6 +33,9 @@ import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
 import { travaDoValorVenda } from '@/lib/valor-venda'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
+import { motoDoUsuario } from '@/lib/moto-do-usuario'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -61,7 +64,7 @@ async function garantirOrigemValida(
     buscarOrigemParaValidar(origemId),
   ])
   const resultado = validarOrigemVenda(origem, origemDetalhe, grupoId)
-  if (!resultado.ok) throw new Error(resultado.erro)
+  if (!resultado.ok) throw new RecusaUsuario(resultado.erro)
   return {
     origemId: origem!.id,
     origemDetalhe: normalizarDetalhe(origemDetalhe, origem!.pedeDetalhe),
@@ -125,17 +128,17 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
   }
 }
 
-export async function criarPedidoVendaAction(motoId: string, observacao?: string) {
+export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedidoVenda>) {
+  return acao(() => criarPedidoVenda(...a))
+}
+
+async function criarPedidoVenda(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
   if (!podeCriarPedido(usuario.papel)) {
-    throw new Error('Sem permissão para criar pedido de venda')
+    throw new RecusaUsuario('Sem permissão para criar pedido de venda')
   }
 
-  const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
-  if (!(await podeVenderMotoDaLoja(usuario, moto.lojaId))) {
-    throw new Error('Sem permissão para criar pedido desta loja')
-  }
+  if (!(await motoDoUsuario(usuario, motoId))) throw new RecusaUsuario('Moto não encontrada')
 
   await db.transaction(tx => criarPedidoTx(tx, {
     motoId,
@@ -147,14 +150,14 @@ export async function criarPedidoVendaAction(motoId: string, observacao?: string
   revalidatePath('/estoque')
 }
 
-export async function cancelarPedidoAction(pedidoId: string, observacao?: string) {
+export async function cancelarPedidoAction(...a: Parameters<typeof cancelarPedido>) {
+  return acao(() => cancelarPedido(...a))
+}
+
+async function cancelarPedido(pedidoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
 
-  const [pedido] = await db.select({ lojaId: pedidosVenda.lojaId }).from(pedidosVenda).where(eq(pedidosVenda.id, pedidoId)).limit(1)
-  if (!pedido) throw new Error('Pedido não encontrado')
-  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
-    throw new Error('Sem permissão para cancelar pedido deste grupo')
-  }
+  if (!(await pedidoDoUsuario(usuario, pedidoId))) throw new RecusaUsuario('Pedido não encontrado')
 
   await db.transaction(tx => cancelarPedidoTx(tx, {
     pedidoId,
@@ -165,7 +168,11 @@ export async function cancelarPedidoAction(pedidoId: string, observacao?: string
   revalidatePath('/estoque')
 }
 
-export async function efetivarVendaAction(
+export async function efetivarVendaAction(...a: Parameters<typeof efetivarVenda>) {
+  return acao(() => efetivarVenda(...a))
+}
+
+async function efetivarVenda(
   pedidoId: string,
   clienteNome: string,
   clienteCpf: string,
@@ -177,26 +184,19 @@ export async function efetivarVendaAction(
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para efetivar venda')
+    throw new RecusaUsuario('Sem permissão para efetivar venda')
   }
 
   // A loja sai do pedido, não do usuário: é a loja da moto que define de qual
   // grupo a origem tem de ser — e em qual grupo a aprovação é avaliada.
-  const [pedido] = await db
-    .select({ lojaId: pedidosVenda.lojaId })
-    .from(pedidosVenda)
-    .where(eq(pedidosVenda.id, pedidoId))
-    .limit(1)
-  if (!pedido) throw new Error('Pedido não encontrado')
-  if (!(await podeUsuarioVerGrupo(usuario, await getGrupoIdDaLoja(pedido.lojaId)))) {
-    throw new Error('Sem permissão para efetivar venda deste grupo')
-  }
+  const pedido = await pedidoDoUsuario(usuario, pedidoId)
+  if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
 
   const valorNum = parseFloat(valor)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
-    throw new Error('Venda com financiamento ou transferência bancária precisa de aprovação — use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
+    throw new RecusaUsuario('Venda com financiamento ou transferência bancária precisa de aprovação. Use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
   }
 
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)

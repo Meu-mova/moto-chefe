@@ -3,6 +3,7 @@ import type { db } from '@/lib/db'
 import { clientes, vendas } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 // Comprador da venda: a edição da venda e a correção da NF recusada (#347)
 // gravam pelo mesmo caminho, para a nota ser remontada do cadastro.
@@ -31,7 +32,7 @@ export function conferirComprador(
     documento = clienteCpf
   } else {
     const doc = lerDocumentoCliente(clienteCpf)
-    if (!doc.ok) throw new Error(doc.erro)
+    if (!doc.ok) throw new RecusaUsuario(doc.erro)
     tipoPessoa = doc.tipoPessoa
     documento = formatarCpfCnpj(doc.documento)
   }

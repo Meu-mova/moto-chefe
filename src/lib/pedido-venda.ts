@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { historicoEstoque, motos, pedidosVenda, reservas, transferencias } from '@/lib/db/schema'
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -19,7 +20,7 @@ export async function criarPedidoTx(
     .from(motos)
     .where(eq(motos.id, d.motoId))
     .for('update')
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
 
   const [transferencia] = await tx
     .select({ id: transferencias.id })
@@ -27,7 +28,7 @@ export async function criarPedidoTx(
     .where(and(eq(transferencias.motoId, d.motoId), eq(transferencias.status, 'pendente')))
     .limit(1)
   const motivo = motivoBloqueioCriarPedido(moto, !!transferencia)
-  if (motivo) throw new Error(motivo)
+  if (motivo) throw new RecusaUsuario(motivo)
 
   await tx.update(motos).set({ disponibilidade: 'reservada' }).where(eq(motos.id, d.motoId))
 
@@ -64,9 +65,9 @@ export async function cancelarPedidoTx(
     .from(pedidosVenda)
     .where(eq(pedidosVenda.id, d.pedidoId))
     .for('update')
-  if (!pedido) throw new Error('Pedido não encontrado')
-  if (pedido.status !== 'pendente') throw new Error(`Pedido não está pendente (status: ${pedido.status})`)
-  if (!podeCancelarPedido(d.usuario, pedido)) throw new Error('Sem permissão para cancelar este pedido')
+  if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
+  if (pedido.status !== 'pendente') throw new RecusaUsuario(`Pedido não está pendente (status: ${pedido.status})`)
+  if (!podeCancelarPedido(d.usuario, pedido)) throw new RecusaUsuario('Sem permissão para cancelar este pedido')
 
   // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.
   await tx.update(pedidosVenda)
