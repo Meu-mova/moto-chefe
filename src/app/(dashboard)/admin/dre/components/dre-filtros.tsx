@@ -20,7 +20,7 @@ export function DreFiltros({ mes, aba }: { mes: string; aba: 'lojas' | 'evolucao
 
   const abaCls = (v: string) =>
     `rounded-full px-3 py-1 text-sm transition-colors ${
-      aba === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted'
+      aba === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-border'
     }`
 
   return (

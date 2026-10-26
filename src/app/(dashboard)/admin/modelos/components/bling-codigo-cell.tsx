@@ -27,7 +27,7 @@ export function BlingCodigoCell({ modeloId, valor }: { modeloId: string; valor: 
           placeholder="cód. produto"
           disabled={pending}
         />
-        <button onClick={salvar} disabled={pending} className="text-success hover:text-success">
+        <button onClick={salvar} disabled={pending} className="text-success hover:opacity-80">
           <Check size={14} />
         </button>
       </div>

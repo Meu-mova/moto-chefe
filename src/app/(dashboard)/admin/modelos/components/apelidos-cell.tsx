@@ -43,7 +43,7 @@ export function ApelidosCell({ modeloId, valores }: { modeloId: string; valores:
           placeholder="DRIFT, G5"
           disabled={pending}
         />
-        <button onClick={salvar} disabled={pending} className="text-success hover:text-success">
+        <button onClick={salvar} disabled={pending} className="text-success hover:opacity-80">
           <Check size={14} />
         </button>
       </div>
