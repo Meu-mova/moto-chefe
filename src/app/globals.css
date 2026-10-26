@@ -90,6 +90,10 @@
   --color-grupo-slate-ponto: var(--grupo-slate-ponto);
   --color-grupo-realce: var(--grupo-realce);
   --color-grupo-realce-hover: var(--grupo-realce-hover);
+  --color-brand-instagram: var(--brand-instagram);
+  --color-brand-whatsapp: var(--brand-whatsapp);
+  --color-brand-facebook: var(--brand-facebook);
+  --color-brand-telegram: var(--brand-telegram);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -190,6 +194,11 @@
   /* Botão sobre a barra do grupo: escurecer, e não clarear, não reduz o contraste do texto. */
   --grupo-realce: rgb(0 0 0 / 0.15);
   --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #047a4f;
@@ -276,6 +285,11 @@
   --grupo-slate-ponto: #94a3b8;
   --grupo-realce: rgb(0 0 0 / 0.15);
   --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #0e1526;
   --sidebar-foreground: #e8edf5;
   --sidebar-primary: #2ee09a;
