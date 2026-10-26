@@ -16,19 +16,26 @@ export async function GET(req: NextRequest) {
   if (!autorizado(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const bucket = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage.from(BUCKET_CONTADOR)
+  const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage
+  // O bucket só nasce no primeiro envio por link: até lá não há o que limpar.
+  if (!(await storage.getBucket(BUCKET_CONTADOR)).data) return NextResponse.json({ ok: true, apagados: 0 })
+  const bucket = storage.from(BUCKET_CONTADOR)
   const armazem: ArmazemZips = {
     async listar(pasta, offset, limit) {
       const { data, error } = await bucket.list(pasta, { offset, limit })
-      // Bucket ainda não criado também cai aqui; o log evita limpeza parcial calada.
-      if (error) console.error(`[cron notas-contador] falha ao listar "${pasta}":`, error.message)
-      return error ? null : data
+      if (error) {
+        console.error(`[cron notas-contador] falha ao listar "${pasta}":`, error.message)
+        throw error
+      }
+      return data
     },
     async remover(caminhos) {
       const { error } = await bucket.remove(caminhos)
       if (error) throw new Error(`falha ao apagar zips vencidos: ${error.message}`)
     },
   }
-  const apagados = await apagarZipsVencidos(armazem)
+  const { apagados, falhas } = await apagarZipsVencidos(armazem)
+  // 500 com falha: limpeza parcial não pode passar por sucesso no painel de crons.
+  if (falhas > 0) return NextResponse.json({ ok: false, apagados, falhas }, { status: 500 })
   return NextResponse.json({ ok: true, apagados })
 }
