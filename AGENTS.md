@@ -194,6 +194,13 @@ leitura e gravação:
 - Origem na saída: entrada 1 sai 2; 0, 2 e 4 saem iguais (regra do contador).
 - Segredo de integração guardado no banco é cifrado com `src/lib/cripto.ts`
   (AES-256-GCM). Credencial nova: cifre igual.
+- **Token e `empresaId` da Nota Gateway nunca aparecem em log, saída de terminal,
+  issue, PR ou chat**, nem em pedaços. Script que chama a NG passa todo log e
+  toda saída pelo mascarador de `scripts/lib/postman-ng.ts`, que esconde qualquer
+  trecho de 8+ caracteres de um segredo, e termina com a varredura do log, que
+  reescreve mascarado e sai com erro se achar trecho. Não escreva máscara própria
+  por formato de linha: o Postman quebra a URL e o corpo onde quer, e cada
+  formato novo vazou antes de ser coberto (#362, três rodadas).
 - O Bling ainda convive durante a transição e vai ser desligado.
 
 ## Teste de banco
