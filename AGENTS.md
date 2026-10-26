@@ -178,6 +178,10 @@ leitura e gravação:
   a cancelar a NF antes (ADR-0014). Para o `aux_adm`, também recusa venda com
   número de NF preenchido (Bling ou "Confirmar NF"; adendo ao ADR-0014, #191). E
   CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
+  Também bloqueiam CPF/CNPJ com dígito errado digitado no balcão a venda de peças e
+  a OS (inclusive agendamento → OS); documento que não mudou em registro antigo não
+  é reconferido, e OS com cliente do cadastro não passa por essa regra (adendo ao
+  ADR-0015, #399).
 
 ## Fiscal — cuidado redobrado
 

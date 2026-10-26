@@ -41,12 +41,13 @@ export function rotuloDocumento(documento: string | null | undefined): 'CPF' | '
 }
 
 /**
- * Valida o documento do tomador da venda pelo tipo de pessoa.
+ * Valida o documento do tomador da venda de peças e da OS pelo tipo de pessoa.
  *
- * Só confere o comprimento, de propósito: o cadastro de clientes não confere o
- * dígito verificador, e barrar aqui um CNPJ que ele aceita travaria a venda de
- * peça ou a OS no balcão. A venda de moto confere (`lerDocumentoCliente`).
- * Devolve o documento limpo (só dígitos) ou uma mensagem de erro.
+ * Confere o dígito verificador, como a venda de moto (ADR-0015, #399). Vale para o
+ * documento digitado no balcão; o cadastro de clientes ainda não confere, e a OS com
+ * cliente do cadastro não passa por aqui.
+ * Pessoa física pode ficar sem documento. Devolve o documento limpo (só dígitos) ou
+ * uma mensagem de erro.
  */
 export function validarDocumento(
   tipoPessoa: string,
@@ -56,12 +57,14 @@ export function validarDocumento(
 
   if (tipoPessoa === 'juridica') {
     if (d.length !== 14) return { ok: false, erro: 'CNPJ deve ter 14 dígitos' }
+    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido — confira os números' }
     return { ok: true, documento: d }
   }
 
   // Pessoa física: documento é opcional — o balcão vende sem pedir CPF.
   if (!d) return { ok: true, documento: null }
   if (d.length !== 11) return { ok: false, erro: 'CPF deve ter 11 dígitos' }
+  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido — confira os números' }
   return { ok: true, documento: d }
 }
 
