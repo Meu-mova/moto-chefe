@@ -1,5 +1,5 @@
 // Regras da tela do log (#198): pura, sem banco, para testar sem Postgres.
-import { periodoBr } from '@/lib/notas-contador'
+import { periodoBr } from '@/lib/notas-emitidas'
 
 export const ROTULO_TIPO: Record<string, string> = {
   login: 'Entrou', troca_grupo: 'Trocou de grupo', acesso_dia: '1º acesso do dia',

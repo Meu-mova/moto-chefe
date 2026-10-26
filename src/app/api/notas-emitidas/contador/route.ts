@@ -23,6 +23,16 @@ async function baixar(url: string) {
   return r.ok ? new Uint8Array(await r.arrayBuffer()) : null
 }
 
+type Storage = ReturnType<typeof createSupabaseAdmin>['storage']
+
+// O link vence em 7 dias, mas o zip (XML com CPF de cliente) ficaria no bucket para sempre: cada envio apaga os vencidos do grupo.
+async function apagarVencidos(storage: Storage, grupoId: string) {
+  const { data } = await storage.from(BUCKET).list(grupoId, { limit: 1000 })
+  const limite = Date.now() - VALIDADE_LINK_DIAS * 24 * 60 * 60 * 1000
+  const vencidos = (data ?? []).filter(o => o.created_at && Date.parse(o.created_at) < limite).map(o => `${grupoId}/${o.name}`)
+  if (vencidos.length > 0) await storage.from(BUCKET).remove(vencidos)
+}
+
 async function publicar(grupoId: string, zip: Uint8Array): Promise<string | null> {
   const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage
   const caminho = `${grupoId}/${randomUUID()}.zip`
@@ -37,6 +47,7 @@ async function publicar(grupoId: string, zip: Uint8Array): Promise<string | null
     console.error('[notas-contador] falha ao subir o zip:', error.message)
     return null
   }
+  await apagarVencidos(storage, grupoId)
   const { data, error: erroLink } = await storage.from(BUCKET).createSignedUrl(caminho, VALIDADE_LINK_DIAS * 24 * 60 * 60)
   if (erroLink || !data) return null
   return data.signedUrl

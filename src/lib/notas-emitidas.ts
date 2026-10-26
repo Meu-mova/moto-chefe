@@ -73,3 +73,9 @@ export function selecaoDaPagina(pagina: string[], marcadas: Set<string>, todasDo
   if (naPagina === 0) return 'nenhuma'
   return naPagina === pagina.length ? 'pagina' : 'parte'
 }
+
+const dataBr = (iso: string) => iso.split('-').reverse().join('/')
+
+export function periodoBr(de: string, ate: string): string {
+  return de === ate ? dataBr(de) : `${dataBr(de)} a ${dataBr(ate)}`
+}
