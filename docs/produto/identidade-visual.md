@@ -129,8 +129,17 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
+| `brand-instagram` / `card` | 3.85 | 4.52 | — (logo) |
+| `brand-whatsapp` / `card` | 1.98 | 8.76 | — (logo) |
+| `brand-facebook` / `card` | 4.82 | 3.60 | — (logo) |
+| `brand-telegram` / `card` | 2.77 | 6.28 | — (logo) |
 
 Cor nova só entra nesta tabela com o par medido.
+
+`brand-*` é a cor oficial de cada marca (Simple Icons), igual nos dois temas, só para o logo do canal
+(`src/components/marca-canal.tsx`). O logo sai sempre ao lado do nome do canal escrito, então não
+carrega informação sozinho e fica fora do 3:1 do 1.4.11; WhatsApp e Telegram no claro ficam abaixo
+disso. Logo de marca nunca vira texto nem controle sem o nome ao lado.
 
 ### Cor do grupo (barra do grupo ativo e selo)
 

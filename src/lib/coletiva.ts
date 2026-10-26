@@ -15,9 +15,9 @@ export type PodioVendedor = {
 export type ItemColetiva = { nome: string; qtd: number; total: number }
 /** faturamento = líquido (exibido); faturamentoBruto = base da meta (igual /admin/metas). */
 export type LojaMeta = { loja: string; faturamento: number; faturamentoBruto: number; meta: number }
-// Nome do ícone do lucide-react; a tela é que desenha.
-export type IconeOportunidade = 'Smartphone' | 'MessageCircle' | 'Wrench' | 'Target'
-export type Oportunidade = { icone: IconeOportunidade; titulo: string; texto: string }
+// Nome do ícone do lucide-react, ou 'Canal' (logo da marca do canal, em `canal`); a tela é que desenha.
+export type IconeOportunidade = 'Smartphone' | 'Canal' | 'Wrench' | 'Target'
+export type Oportunidade = { icone: IconeOportunidade; canal?: string; titulo: string; texto: string }
 
 /** Crescimento de faturamento sobre o mês anterior; null sem base (mês anterior zero). */
 export function crescimento(atual: number, anterior: number): number | null {
@@ -74,7 +74,8 @@ export function gerarOportunidades(i: OportunidadeInput): Oportunidade[] {
 
   if (i.canalTopNome && i.canalTopQtd > 0) {
     ops.push({
-      icone: 'MessageCircle',
+      icone: 'Canal',
+      canal: i.canalTopNome,
       titulo: `${i.canalTopNome} é o maior canal (${i.canalTopQtd} vendas).`,
       texto: 'Quem responde rápido, vende mais. Atendimento ágil é a diferença entre o cliente comprar com a gente ou com o concorrente.',
     })

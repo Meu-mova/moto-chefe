@@ -79,5 +79,7 @@ test('gerarOportunidades: ícone é nome de ícone do lucide, nunca emoji', () =
     semOrigemQtd: 2, totalVendas: 10, canalTopNome: 'Instagram', canalTopQtd: 4,
     osQtd: 5, osQtdAnterior: 1, recordeMotos: 10, mesLabel: 'Maio',
   })
-  assert.deepEqual(ops.map(o => o.icone), ['Smartphone', 'MessageCircle', 'Wrench', 'Target'])
+  assert.deepEqual(ops.map(o => o.icone), ['Smartphone', 'Canal', 'Wrench', 'Target'])
+  // O canal campeão leva o nome, para a tela desenhar o logo da marca.
+  assert.equal(ops[1].canal, 'Instagram')
 })

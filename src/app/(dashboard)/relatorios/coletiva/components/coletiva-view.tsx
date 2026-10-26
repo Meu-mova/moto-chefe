@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, MessageCircle, Printer, Smartphone, Target, Trophy, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Printer, Smartphone, Target, Trophy, Wrench } from 'lucide-react'
+import { MarcaCanal } from '@/components/marca-canal'
 import { Button } from '@/components/ui/button'
 import type { DadosColetiva } from '@/lib/queries/coletiva'
 import { maioresCrescimentos, estreantes, crescimento, type IconeOportunidade } from '@/lib/coletiva'
@@ -15,7 +16,7 @@ const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 
 const POSICAO_TEXTO = ['text-warning', 'text-muted-foreground', 'text-info']
 const POSICAO_BARRA = ['bg-warning/15', 'bg-muted-foreground/18', 'bg-info/15']
 
-const ICONE_OPORTUNIDADE: Record<IconeOportunidade, typeof Target> = { Smartphone, MessageCircle, Wrench, Target }
+const ICONE_OPORTUNIDADE: Record<Exclude<IconeOportunidade, 'Canal'>, typeof Target> = { Smartphone, Wrench, Target }
 
 function SecTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-2xl font-bold mb-1 print:text-xl">{children}</h2>
@@ -89,8 +90,10 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
             <div className="text-xs text-muted-foreground mt-1">faturamento {vsFat != null && <span className="font-bold text-primary-text">{sPct(vsFat)}</span>}</div>
           </div>
           <div className="bg-card p-4">
-            <div className="text-3xl font-extrabold tabular-nums">{metaP == null ? '—' : pct(metaP)}</div>
-            <div className="text-xs text-muted-foreground mt-1">da meta{dados.metaTotal ? '' : ' (sem meta)'}</div>
+            {metaP == null
+              ? <div className="text-lg font-semibold text-muted-foreground leading-9">Sem meta definida</div>
+              : <div className="text-3xl font-extrabold tabular-nums">{pct(metaP)}</div>}
+            <div className="text-xs text-muted-foreground mt-1">{metaP == null ? 'meta do mês' : 'da meta'}</div>
           </div>
         </div>
       </section>
@@ -193,10 +196,12 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
         <p className="text-muted-foreground mb-6">Time bom comemora o resultado e já enxerga a próxima oportunidade.</p>
         <div className="space-y-3">
           {dados.oportunidades.map((op, i) => {
-            const Icone = ICONE_OPORTUNIDADE[op.icone]
+            const Icone = op.icone === 'Canal' ? null : ICONE_OPORTUNIDADE[op.icone]
             return (
               <div key={i} className="flex gap-3 rounded-xl border border-border p-4">
-                <Icone size={20} className="mt-0.5 shrink-0 text-primary-text" aria-hidden />
+                {Icone
+                  ? <Icone size={20} className="mt-0.5 shrink-0 text-primary-text" aria-hidden />
+                  : <MarcaCanal canal={op.canal ?? ''} className="mt-0.5 shrink-0" />}
                 <div>
                   <b className="block">{op.titulo}</b>
                   <span className="text-muted-foreground text-sm">{op.texto}</span>
