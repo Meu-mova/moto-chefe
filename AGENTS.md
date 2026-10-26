@@ -135,10 +135,20 @@ leitura e gravação:
   `lojasDaConta()`) **dentro da consulta**, não depois no JS.
 - Busca por chave única global (chassi, CPF, código) procura só na Conta. "Não encontrado"
   não pode revelar que o registro existe em outra.
+- Ação sobre um registro pelo id (editar, excluir, mudar status): busque com a Conta no `where`
+  e devolva `null` se não for dele, como `osDoUsuario` e `agendamentoDoUsuario`. Registro de
+  outra Conta e id inexistente recebem a mesma frase ("OS não encontrada"); "Sem permissão"
+  para um e "não encontrada" para o outro revela que o registro existe.
+- Mensagem de erro que passa a aparecer na tela (antes genérica ou escondida, como na #404) é
+  mudança de isolamento: confira se ela diferencia "não existe" de "é de outra Conta".
 - `upsert`/`onConflictDoUpdate` em tabela com Conta leva `setWhere` com a mesma Conta, e a
   tela conta só as linhas que de fato entraram.
 - Gravação que referencia outro registro (moto, cliente, loja) confere no servidor que ele é
   da Conta.
+- Arquivo com dado pessoal ou fiscal no Storage: bucket privado, caminho montado a partir do
+  `grupoId` (nunca de entrada do usuário), acesso por link assinado com validade, e já nasce
+  com expiração e uma rotina que limpa os vencidos de todos os grupos (cron). Limpeza que só
+  roda na próxima ação do próprio grupo deixa arquivo para sempre no grupo que não volta (#402).
 - Todo fluxo novo ou alterado tem teste de banco provando que a Conta B não lê nem sobrescreve
   dado da Conta A. Isso custou os hotfixes v1.8.1 e v1.8.2 (#320, #325).
 
