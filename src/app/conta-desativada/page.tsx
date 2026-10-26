@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button'
 
 export default function ContaDesativadaPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg border p-6 shadow-sm text-center space-y-4">
+    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-card rounded-lg border p-6 shadow-sm text-center space-y-4">
         <h1 className="text-xl font-bold">Conta desativada</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Esta conta foi desativada e não tem mais acesso ao sistema. Se isso for um engano,
           fale com o administrador.
         </p>

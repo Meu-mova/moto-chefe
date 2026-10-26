@@ -107,9 +107,9 @@ export function AssinarClient(props: Props) {
 function Aviso({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="mx-auto max-w-md px-4 py-16 text-center">
-      <X size={38} className="mx-auto text-slate-400 mb-3" />
-      <h1 className="text-lg font-semibold text-slate-800">{titulo}</h1>
-      <p className="text-sm text-slate-500 mt-1">{texto}</p>
+      <X size={38} className="mx-auto text-muted-foreground mb-3" />
+      <h1 className="text-lg font-semibold text-foreground">{titulo}</h1>
+      <p className="text-sm text-muted-foreground mt-1">{texto}</p>
     </div>
   )
 }
@@ -127,7 +127,7 @@ function Etapas({ passo }: { passo: Passo }) {
       {lista.map((l, i) => (
         <li
           key={l.id}
-          className={`flex-1 rounded-full h-1.5 ${i <= atual ? 'bg-slate-800' : 'bg-slate-300'}`}
+          className={`flex-1 rounded-full h-1.5 ${i <= atual ? 'bg-primary' : 'bg-muted-foreground'}`}
           title={l.label}
         />
       ))}
@@ -155,22 +155,22 @@ function Leitura({ html, onOk }: { html: string; onOk: () => void }) {
 
   return (
     <>
-      <div className="rounded-lg border bg-white px-4 py-3 mb-3 flex items-center gap-2">
-        <FileText size={17} className="text-slate-500" />
-        <p className="text-sm text-slate-700">Leia o documento até o fim para liberar a assinatura.</p>
+      <div className="rounded-lg border bg-card px-4 py-3 mb-3 flex items-center gap-2">
+        <FileText size={17} className="text-muted-foreground" />
+        <p className="text-sm text-foreground">Leia o documento até o fim para liberar a assinatura.</p>
       </div>
       {/* HTML gerado pelo servidor, com escape em todo campo do banco — ver via-assinada.tsx */}
       <div
         ref={ref}
         onScroll={aoRolar}
-        className="bg-white rounded-lg border p-4 mb-3 overflow-y-auto"
+        className="bg-card rounded-lg border p-4 mb-3 overflow-y-auto"
         style={{ maxHeight: '65vh' }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
       <button
         onClick={onOk}
         disabled={!leuTudo}
-        className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+        className="w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground disabled:bg-muted-foreground"
       >
         {leuTudo ? 'Li e concordo — assinar' : 'Role até o fim do documento'}
       </button>
@@ -197,39 +197,39 @@ function PreencherChecklist({
 
   return (
     <>
-      <div className="rounded-lg border bg-white px-4 py-3 mb-3">
-        <p className="text-sm font-medium text-slate-800">Confira o veículo item a item</p>
-        <p className="text-xs text-slate-500 mt-0.5">
+      <div className="rounded-lg border bg-card px-4 py-3 mb-3">
+        <p className="text-sm font-medium text-foreground">Confira o veículo item a item</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Marque <b>OK</b> se está certo, <b>NÃO</b> se tem problema, ou <b>NA</b> se não se
           aplica a este veículo.
         </p>
       </div>
 
       {/* Cabeçalho do documento (dados da venda), sem a tabela em branco */}
-      <details className="rounded-lg border bg-white mb-3">
-        <summary className="cursor-pointer px-4 py-2.5 text-sm text-slate-600">
+      <details className="rounded-lg border bg-card mb-3">
+        <summary className="cursor-pointer px-4 py-2.5 text-sm text-muted-foreground">
           Ver dados do documento
         </summary>
         <div className="border-t p-4 text-xs" dangerouslySetInnerHTML={{ __html: html }} />
       </details>
 
-      <div className="rounded-lg border bg-white divide-y">
+      <div className="rounded-lg border bg-card divide-y">
         {ITENS_CHECKLIST.map(item => (
           <div key={item} className="px-3 py-2.5">
-            <p className="text-sm text-slate-700 mb-1.5">{item}</p>
+            <p className="text-sm text-foreground mb-1.5">{item}</p>
             <div className="flex gap-1.5">
               {(['ok', 'nao', 'na'] as RespostaItem[]).map(v => {
                 const ativo = respostas.itens[item] === v
                 const cor = v === 'ok'
-                  ? 'bg-emerald-600 border-emerald-600'
-                  : v === 'nao' ? 'bg-red-600 border-red-600' : 'bg-slate-500 border-slate-500'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : v === 'nao' ? 'bg-destructive/10 text-destructive border-destructive' : 'bg-muted text-foreground border-ring'
                 return (
                   <button
                     key={v}
                     type="button"
                     onClick={() => marcar(item, v)}
                     className={`flex-1 rounded-md border py-2 text-xs font-medium ${
-                      ativo ? `${cor} text-white` : 'border-slate-200 text-slate-500'
+                      ativo ? cor : 'border-border text-muted-foreground'
                     }`}
                   >
                     {LABEL_RESPOSTA[v]}
@@ -241,8 +241,8 @@ function PreencherChecklist({
         ))}
       </div>
 
-      <div className="rounded-lg border bg-white p-3 mt-3">
-        <label htmlFor="obs" className="text-sm text-slate-700">Observações</label>
+      <div className="rounded-lg border bg-card p-3 mt-3">
+        <label htmlFor="obs" className="text-sm text-foreground">Observações</label>
         <textarea
           id="obs"
           rows={4}
@@ -256,7 +256,7 @@ function PreencherChecklist({
       <button
         onClick={onOk}
         disabled={!completo}
-        className="mt-3 w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+        className="mt-3 w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground disabled:bg-muted-foreground"
       >
         {completo ? 'Continuar para a assinatura' : `Faltam ${faltam} ${faltam === 1 ? 'item' : 'itens'}`}
       </button>
@@ -324,10 +324,10 @@ function Codigo({ acoes, token, esgotados, onOk }: { acoes: AcoesAssinatura; tok
   }
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      <ShieldCheck size={22} className="text-slate-500 mb-2" />
-      <h1 className="text-base font-semibold text-slate-800">Confirme que é você</h1>
-      <p className="text-sm text-slate-500 mt-1 mb-4">
+    <div className="rounded-lg border bg-card p-5">
+      <ShieldCheck size={22} className="text-muted-foreground mb-2" />
+      <h1 className="text-base font-semibold text-foreground">Confirme que é você</h1>
+      <p className="text-sm text-muted-foreground mt-1 mb-4">
         {enviado
           ? 'Enviamos um código de 6 dígitos no seu e-mail. Digite abaixo.'
           : 'Enviando o código para o seu e-mail…'}
@@ -343,31 +343,31 @@ function Codigo({ acoes, token, esgotados, onOk }: { acoes: AcoesAssinatura; tok
         className="w-full rounded-lg border px-4 py-3 text-center text-2xl tracking-[0.4em] font-mono"
       />
 
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-muted-foreground">
         Pode abrir o seu e-mail e voltar — você volta direto para esta etapa, e o código
         continua valendo.
       </p>
 
-      {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
+      {erro && <p className="text-sm text-destructive mt-2">{erro}</p>}
 
       <button
         onClick={confirmar}
         disabled={pending || codigo.length !== 6}
-        className="mt-4 w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white disabled:bg-slate-300"
+        className="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground disabled:bg-muted-foreground"
       >
         {pending ? 'Verificando…' : 'Confirmar'}
       </button>
       {restantes === 0 ? (
         // Sem reenvio sobrando. A saída é por quem emitiu: reenviar o documento
         // cancela este e cria outro, com link e cota novos.
-        <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+        <p className="mt-3 rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-xs text-warning">
           {esgotados}
         </p>
       ) : (
         <button
           onClick={reenviar}
           disabled={pending || espera > 0}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-sm text-slate-500 disabled:opacity-50"
+          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-sm text-muted-foreground disabled:opacity-50"
         >
           <RefreshCw size={14} />
           {espera > 0 ? `Reenviar em ${espera}s` : 'Reenviar código'}
@@ -414,13 +414,13 @@ function Selfie({ alternativa, onOk, onFoto }: { alternativa: string; onOk: () =
   }
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      <Camera size={22} className="text-slate-500 mb-2" />
-      <h1 className="text-base font-semibold text-slate-800">Foto do signatário</h1>
+    <div className="rounded-lg border bg-card p-5">
+      <Camera size={22} className="text-muted-foreground mb-2" />
+      <h1 className="text-base font-semibold text-foreground">Foto do signatário</h1>
       <p className="text-xs text-muted-foreground mt-2 mb-4 leading-relaxed">{AVISO_LGPD} {alternativa}</p>
 
       {!stream && (
-        <button onClick={abrirCamera} className="w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white">
+        <button onClick={abrirCamera} className="w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground">
           Permitir câmera
         </button>
       )}
@@ -430,16 +430,16 @@ function Selfie({ alternativa, onOk, onFoto }: { alternativa: string; onOk: () =
         ref={videoRef}
         playsInline
         muted
-        className={`w-full rounded-lg bg-black ${stream ? 'block' : 'hidden'}`}
+        className={`w-full rounded-lg bg-camera-fundo ${stream ? 'block' : 'hidden'}`}
       />
 
       {stream && (
-        <button onClick={capturar} className="mt-3 w-full rounded-lg bg-slate-900 py-3 text-sm font-medium text-white">
+        <button onClick={capturar} className="mt-3 w-full rounded-lg bg-primary py-3 text-sm font-medium text-primary-foreground">
           Tirar foto
         </button>
       )}
 
-      {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
+      {erro && <p className="text-sm text-destructive mt-2">{erro}</p>}
     </div>
   )
 }
@@ -475,7 +475,8 @@ function Traco({
     ctx.moveTo(p.x, p.y)
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
-    ctx.strokeStyle = '#0f172a'
+    // O traço vira PNG que vai para o contrato impresso: tinta escura nos dois temas (--assinatura-tinta).
+    ctx.strokeStyle = getComputedStyle(e.currentTarget).getPropertyValue('--assinatura-tinta').trim()
   }
 
   function mover(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -527,9 +528,9 @@ function Traco({
   }
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      <h1 className="text-base font-semibold text-slate-800">Assine com o dedo</h1>
-      <p className="text-sm text-slate-500 mt-1 mb-3">Desenhe sua assinatura no quadro abaixo.</p>
+    <div className="rounded-lg border bg-card p-5">
+      <h1 className="text-base font-semibold text-foreground">Assine com o dedo</h1>
+      <p className="text-sm text-muted-foreground mt-1 mb-3">Desenhe sua assinatura no quadro abaixo.</p>
 
       {/* touchAction none: sem isso o dedo rola a página em vez de desenhar */}
       <canvas
@@ -540,24 +541,24 @@ function Traco({
         onPointerMove={mover}
         onPointerUp={fim}
         onPointerLeave={fim}
-        className="w-full rounded-lg border-2 border-dashed border-slate-300 bg-slate-50"
+        className="w-full rounded-lg border-2 border-dashed border-input bg-assinatura-quadro"
         style={{ touchAction: 'none' }}
       />
 
       <div className="flex gap-2 mt-3">
-        <button onClick={limpar} disabled={pending} className="flex-1 rounded-lg border py-2.5 text-sm text-slate-600">
+        <button onClick={limpar} disabled={pending} className="flex-1 rounded-lg border py-2.5 text-sm text-muted-foreground">
           Limpar
         </button>
         <button
           onClick={assinar}
           disabled={pending || !temTraco}
-          className="flex-[2] flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white disabled:bg-slate-300"
+          className="flex-[2] flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:bg-muted-foreground"
         >
           <Check size={16} /> {pending ? 'Assinando…' : 'Assinar documento'}
         </button>
       </div>
 
-      {erro && <p className="text-sm text-red-600 mt-2">{erro}</p>}
+      {erro && <p className="text-sm text-destructive mt-2">{erro}</p>}
     </div>
   )
 }

@@ -40,6 +40,8 @@
   --color-warning: var(--warning);
   --color-success: var(--success);
   --color-info: var(--info);
+  --color-assinatura-quadro: var(--assinatura-quadro);
+  --color-camera-fundo: var(--camera-fundo);
   --color-primary-hover: var(--primary-hover);
   --color-primary-press: var(--primary-press);
   --color-popover-foreground: var(--popover-foreground);
@@ -131,6 +133,10 @@
   /* Mesmo verde do primary-text: sucesso não ganha um segundo verde. */
   --success: #036443;
   --info: #1d4ed8;
+  /* Iguais nos dois temas: a assinatura vira PNG com tinta escura para o contrato impresso. */
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #dde3ea;
   /* Borda de campo e controle: 3:1 (WCAG 1.4.11). A border decorativa não chega lá. */
   --input: #7c8aa0;
@@ -233,6 +239,9 @@
   --warning: #ffc861;
   --success: #4ee8a8;
   --info: #8ab4ff;
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #26324a;
   --input: #64748f;
   --ring: #2ee09a;
