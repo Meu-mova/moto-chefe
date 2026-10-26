@@ -39,7 +39,8 @@ jobs:
         run: |
           if [ "$EVENTO" != "deployment_status" ]; then
             echo "url=https://dev.meumova.com" >> "$GITHUB_OUTPUT"
-            echo "ref=dev" >> "$GITHUB_OUTPUT"
+            # Noturno testa a dev; disparo manual, o código da ref escolhida.
+            if [ "$EVENTO" = "schedule" ]; then echo "ref=dev" >> "$GITHUB_OUTPUT"; else echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"; fi
             echo "rodar=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -47,8 +48,8 @@ jobs:
           echo "ref=$SHA" >> "$GITHUB_OUTPUT"
           arquivos=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[].number' |
             while read -r pr; do gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$pr/files" --jq '.[].filename'; done)
-          # Mesma regra do tocaTelas (scripts/lib/navegacao-ci.ts).
-          if printf '%s\n' "$arquivos" | grep -qE '^src/(app|components)/'; then
+          # Mesma regra do tocaTelas (scripts/lib/navegacao-ci.ts), mais o próprio teste.
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|\.github/workflows/navegacao\.yml)'; then
             echo "rodar=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhum PR deste commit mexe em src/app ou src/components; pulando."

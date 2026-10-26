@@ -6,11 +6,13 @@ const TELA = { largura: 390, altura: 844 }
 const caixa = (cor: [number, number, number, number], largura: number, altura: number): CaixaComFundo =>
   ({ html: '<div>', r: cor[0], g: cor[1], b: cor[2], a: cor[3], largura, altura })
 
-test('tocaTelas: só PR com arquivo em src/app ou src/components', () => {
+test('tocaTelas: só PR com arquivo em src/app, src/components ou do próprio teste', () => {
   assert.equal(tocaTelas(['src/app/(dashboard)/loading.tsx']), true)
   assert.equal(tocaTelas(['README.md', 'src/components/ui/button.tsx']), true)
   assert.equal(tocaTelas(['src/lib/navegacao.ts', 'scripts/smoke.ts']), false)
   assert.equal(tocaTelas([]), false)
+  assert.equal(tocaTelas(['.github/workflows/navegacao.yml']), true)
+  assert.equal(tocaTelas(['.github/workflows/smoke.yml']), false)
 })
 
 test('menu no hambúrguer em 390 e 768, barra lateral em 1280', () => {

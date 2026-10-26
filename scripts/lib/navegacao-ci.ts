@@ -13,9 +13,11 @@ export const ALTURA_POR_LARGURA: Record<Largura, number> = { 390: 844, 768: 1024
 // Abaixo do lg (1024 px) a barra lateral some e o menu abre pelo hambúrguer (sidebar.tsx).
 export const menuNoHamburguer = (largura: number) => largura < 1024
 
-/** O teste só roda em PR que mexe em tela. */
+const ARQUIVOS_DO_TESTE = ['scripts/navegacao-ci.ts', 'scripts/lib/navegacao-ci.ts', '.github/workflows/navegacao.yml']
+
+/** O teste só roda em PR que mexe em tela ou no próprio teste. */
 export const tocaTelas = (arquivos: readonly string[]) =>
-  arquivos.some(a => a.startsWith('src/app/') || a.startsWith('src/components/'))
+  arquivos.some(a => a.startsWith('src/app/') || a.startsWith('src/components/') || ARQUIVOS_DO_TESTE.includes(a))
 
 export type CaixaComFundo = {
   html: string
