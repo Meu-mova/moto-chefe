@@ -27,7 +27,8 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
   async function aprovar() {
     setLoading(true)
     try {
-      await aprovarVendaAction(aprovacaoId)
+      const r = await aprovarVendaAction(aprovacaoId)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda aprovada!')
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao aprovar')
@@ -39,7 +40,8 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
   async function recusar() {
     setLoading(true)
     try {
-      await recusarVendaAction(aprovacaoId, observacao || undefined)
+      const r = await recusarVendaAction(aprovacaoId, observacao || undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda recusada')
       setRecusarOpen(false)
     } catch (e: unknown) {

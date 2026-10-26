@@ -36,6 +36,7 @@ import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
 import { motoDoUsuario } from '@/lib/moto-do-usuario'
+import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -429,37 +430,41 @@ async function criarVendaTx(
   return { vendaId: venda.id }
 }
 
-export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
+export async function registrarVendaCompletaAction(...a: Parameters<typeof registrarVendaCompleta>) {
+  return acao(() => registrarVendaCompleta(...a))
+}
+
+async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar venda')
+    throw new RecusaUsuario('Sem permissão para registrar venda')
   }
   data = comCompradorConferido(data)
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   if (moto.status === 'caixa') {
-    throw new Error('Moto ainda não foi montada — não pode ser vendida')
+    throw new RecusaUsuario('Moto ainda não foi montada. Não pode ser vendida.')
   }
   if (moto.status === 'vendida') {
-    throw new Error('Moto já foi vendida')
+    throw new RecusaUsuario('Moto já foi vendida')
   }
   if (moto.disponibilidade === 'aguardando_aprovacao') {
-    throw new Error('Moto tem uma venda aguardando aprovação — aprove ou recuse antes de vender')
+    throw new RecusaUsuario('Moto tem uma venda aguardando aprovação. Aprove ou recuse antes de vender.')
   }
 
   const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
-    throw new Error('Somatório das formas de pagamento difere do valor da venda')
+    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
   }
 
   // Transferência bancária sempre precisa da aprovação do responsável,
   // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
   if (temPagamentoSensivel(data.pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId))) {
-    throw new Error('Venda com transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
+    throw new RecusaUsuario('Venda com transferência bancária precisa de aprovação. Peça aprovação em vez de salvar direto.')
   }
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
@@ -470,8 +475,8 @@ export async function registrarVendaCompletaAction(data: DadosVendaCompleta) {
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido < prec.valorMinimoPix - 0.01) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-      throw new Error(
-        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)} — mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
+      throw new RecusaUsuario(
+        `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)}, mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
       )
     }
   }
@@ -1670,29 +1675,33 @@ export async function buscarDanfeAction(motoId: string): Promise<{ linkDanfe: st
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
 
-export async function solicitarAprovacaoVendaAction(
+export async function solicitarAprovacaoVendaAction(...a: Parameters<typeof solicitarAprovacaoVenda>) {
+  return acao(() => solicitarAprovacaoVenda(...a))
+}
+
+async function solicitarAprovacaoVenda(
   data: DadosVendaCompleta,
   motivo: string,
   tipoAprovacao: 'valor_minimo' | 'pagamento_sensivel' = 'valor_minimo',
 ) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para registrar venda')
+    throw new RecusaUsuario('Sem permissão para registrar venda')
   }
   // Confere já no pedido: documento inválido só quebraria na hora de aprovar.
   data = comCompradorConferido(data)
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, data.motoId)).limit(1)
-  if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, data.motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
-  if (bloqueio) throw new Error(bloqueio)
+  if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new Error('Valor inválido')
+  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
   const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
   if (Math.abs(soma - valorNum) > 0.01) {
-    throw new Error('Somatório das formas de pagamento difere do valor da venda')
+    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
   }
 
   // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
@@ -1705,19 +1714,19 @@ export async function solicitarAprovacaoVendaAction(
   let snapshot: { valorMinimo: string; liquido: string } | null = null
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
-      throw new Error('Nenhum pagamento por transferência bancária nesta venda')
+      throw new RecusaUsuario('Nenhum pagamento por transferência bancária nesta venda')
     }
     const tiposUsados = data.pagamentos
       .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
       .map(() => 'Transferência Bancária')
     motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
   } else {
-    if (!motivo.trim()) throw new Error('Informe o motivo do pedido de aprovação')
+    if (!motivo.trim()) throw new RecusaUsuario('Informe o motivo do pedido de aprovação')
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-    if (!prec) throw new Error('Sem preço mínimo configurado para este modelo — use o fluxo normal de venda')
+    if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
     if (liquido >= prec.valorMinimoPix - 0.01) {
-      throw new Error('Valor está dentro do mínimo — use o fluxo normal de venda')
+      throw new RecusaUsuario('Valor está dentro do mínimo. Use o fluxo normal de venda')
     }
     // Congela os dois lados da conta que acabou de reprovar a venda. Recalcular
     // isso depois usaria a precificação de então, que muda — ver a migração 0065.
@@ -1762,19 +1771,23 @@ export async function solicitarAprovacaoVendaAction(
   revalidatePath(`/estoque/${data.motoId}`)
 }
 
-export async function aprovarVendaAction(aprovacaoId: string) {
+export async function aprovarVendaAction(...a: Parameters<typeof aprovarVenda>) {
+  return acao(() => aprovarVenda(...a))
+}
+
+async function aprovarVenda(aprovacaoId: string) {
   const usuario = await getUsuarioLogado()
 
-  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
-  if (!aprovacao) throw new Error('Solicitação não encontrada')
-  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+  const aprovacao = await aprovacaoDoUsuario(usuario, aprovacaoId)
+  if (!aprovacao) throw new RecusaUsuario('Solicitação não encontrada')
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
     ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
-    throw new Error('Sem permissão para aprovar esta venda')
+    throw new RecusaUsuario('Sem permissão para aprovar esta venda')
   }
+  if (aprovacao.status !== 'pendente') throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
   // OS: a linha já existe (aberta antes do pagamento) — só aplica o pagamento retido.
   if (aprovacao.origem === 'os') {
@@ -1784,7 +1797,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
     })
     await aplicarPagamentoOS(aprovacao.osId, aprovacao.dadosVenda as unknown as DadosPagamentoOS)
     revalidatePath('/vendas')
@@ -1800,7 +1813,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
       await aplicarEdicaoAprovadaTx(tx, aprovacao.dadosVenda as unknown as EdicaoPendente, aprovacao.vendedorId)
     })
@@ -1816,7 +1829,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
         .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
         .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
         .returning({ id: aprovacoesVenda.id })
-      if (!claimed) throw new Error('Solicitação não está mais pendente')
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
       await aplicarVendaPeca(tx, aprovacao.vendedorId, aprovacao.dadosVenda as unknown as DadosVendaPeca)
     })
@@ -1828,7 +1841,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   // Moto (fluxo original): a venda também não existe ainda.
   if (!aprovacao.motoId) throw new Error('Aprovação de moto sem moto_id')
   const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
 
   const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
@@ -1845,7 +1858,7 @@ export async function aprovarVendaAction(aprovacaoId: string) {
       .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
   })
@@ -1865,19 +1878,23 @@ export async function aprovarVendaAction(aprovacaoId: string) {
   })
 }
 
-export async function recusarVendaAction(aprovacaoId: string, observacao?: string) {
+export async function recusarVendaAction(...a: Parameters<typeof recusarVenda>) {
+  return acao(() => recusarVenda(...a))
+}
+
+async function recusarVenda(aprovacaoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
 
-  const [aprovacao] = await db.select().from(aprovacoesVenda).where(eq(aprovacoesVenda.id, aprovacaoId)).limit(1)
-  if (!aprovacao) throw new Error('Solicitação não encontrada')
-  if (aprovacao.status !== 'pendente') throw new Error(`Solicitação não está pendente (status: ${aprovacao.status})`)
+  const aprovacao = await aprovacaoDoUsuario(usuario, aprovacaoId)
+  if (!aprovacao) throw new RecusaUsuario('Solicitação não encontrada')
 
   const podeResponder = aprovacao.tipo === 'pagamento_sensivel'
     ? await podeAprovarPagamentoSensivelNaLoja(usuario, aprovacao.lojaId)
     : await podeAprovarVendaBaixoValor(usuario, aprovacao.lojaId)
   if (!podeResponder) {
-    throw new Error('Sem permissão para recusar esta venda')
+    throw new RecusaUsuario('Sem permissão para recusar esta venda')
   }
+  if (aprovacao.status !== 'pendente') throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
   // OS/Peça: nada foi criado/reservado ainda (a OS continua como estava, sem pagamento
   // aplicado; a venda de peça nunca chegou a existir) — só marca a solicitação como recusada.
@@ -1886,7 +1903,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
       .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     revalidatePath('/vendas')
     if (aprovacao.origem === 'os')   revalidatePath(`/ordens-servico/${aprovacao.osId}`)
@@ -1901,7 +1918,7 @@ export async function recusarVendaAction(aprovacaoId: string, observacao?: strin
       .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
       .returning({ id: aprovacoesVenda.id })
-    if (!claimed) throw new Error('Solicitação não está mais pendente')
+    if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
     await tx.update(motos)
       .set({ disponibilidade: aprovacao.disponibilidadeAnterior })

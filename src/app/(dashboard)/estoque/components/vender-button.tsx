@@ -417,15 +417,18 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           })),
         }
         if (precisaAprovacaoSensivel) {
-          await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
+          const r = await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Venda com transferência bancária enviada para aprovação!')
         } else if (precisaAprovacao) {
-          await solicitarAprovacaoVendaAction(payload, motivo)
+          const r = await solicitarAprovacaoVendaAction(payload, motivo)
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Pedido de aprovação enviado!')
         } else {
-          const res = await registrarVendaCompletaAction(payload)
+          const r = await registrarVendaCompletaAction(payload)
+          if (!r.ok) { toast.error(r.erro); return }
           toast.success('Venda registrada com sucesso!')
-          const k = res?.kommo?.resultado
+          const k = r.dados.kommo.resultado
           if (k === 'virado') {
             toast.success('Kommo: lead marcado como Venda Ganha automaticamente')
           } else if (k === 'ambiguo') {
