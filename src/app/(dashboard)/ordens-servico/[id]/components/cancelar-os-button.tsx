@@ -28,7 +28,8 @@ export function CancelarOSButton({ osId, numero, bloqueio }: Props) {
     }
     start(async () => {
       try {
-        await cancelarOSAction(osId, motivo)
+        const r = await cancelarOSAction(osId, motivo)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(`OS #${numero ?? ''} cancelada`)
         setOpen(false)
         setMotivo('')

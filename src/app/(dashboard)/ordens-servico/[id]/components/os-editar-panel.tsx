@@ -44,7 +44,7 @@ export function OSEditarPanel(props: Props) {
   function salvar() {
     start(async () => {
       try {
-        await atualizarOSAction(props.osId, {
+        const r = await atualizarOSAction(props.osId, {
           mecanicoId:         form.mecanicoId || null,
           descricao:          form.descricao,
           diagnostico:        form.diagnostico,
@@ -54,6 +54,7 @@ export function OSEditarPanel(props: Props) {
           clienteNomeExterno: form.clienteNomeExterno || null,
           clienteFoneExterno: form.clienteFoneExterno || null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS atualizada')
         setEditing(false)
       } catch (e: any) { toast.error(e.message) }

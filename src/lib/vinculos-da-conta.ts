@@ -2,6 +2,7 @@ import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { clientes, lojas, motos, ordensServico, usuarios } from '@/lib/db/schema'
 import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -17,25 +18,25 @@ export async function conferirVinculosDaConta(
   if (vinculos.novaLojaId) {
     const [loja] = await exec.select({ id: lojas.id }).from(lojas)
       .where(and(eq(lojas.id, vinculos.novaLojaId), inArray(lojas.id, lojasDaConta(contaId)))).limit(1)
-    if (!loja) throw new Error('Loja não encontrada')
+    if (!loja) throw new RecusaUsuario('Loja não encontrada')
   }
 
   if (vinculos.motoId) {
     const [moto] = await exec.select({ id: motos.id }).from(motos)
       .where(and(eq(motos.id, vinculos.motoId), inArray(motos.lojaId, lojasDaConta(contaId)))).limit(1)
-    if (!moto) throw new Error('Moto não encontrada')
+    if (!moto) throw new RecusaUsuario('Moto não encontrada')
   }
 
   if (vinculos.clienteId) {
     const [cliente] = await exec.select({ id: clientes.id }).from(clientes)
       .where(and(eq(clientes.id, vinculos.clienteId), eq(clientes.contaId, contaId))).limit(1)
-    if (!cliente) throw new Error('Cliente não encontrado')
+    if (!cliente) throw new RecusaUsuario('Cliente não encontrado')
   }
 
   if (vinculos.osId) {
     const [os] = await exec.select({ id: ordensServico.id }).from(ordensServico)
       .where(and(eq(ordensServico.id, vinculos.osId), inArray(ordensServico.lojaId, lojasDaConta(contaId)))).limit(1)
-    if (!os) throw new Error('OS não encontrada')
+    if (!os) throw new RecusaUsuario('OS não encontrada')
   }
 
   if (vinculos.mecanicoId) {
@@ -45,6 +46,6 @@ export async function conferirVinculosDaConta(
         eq(usuarios.id, vinculos.mecanicoId),
         or(eq(usuarios.contaId, contaId), inArray(usuarios.lojaId, lojasDaConta(contaId))),
       )).limit(1)
-    if (!mecanico) throw new Error('Mecânico não encontrado')
+    if (!mecanico) throw new RecusaUsuario('Mecânico não encontrado')
   }
 }
