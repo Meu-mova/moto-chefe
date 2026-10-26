@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Printer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Printer, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { DadosColetiva } from '@/lib/queries/coletiva'
 import { maioresCrescimentos, estreantes, crescimento } from '@/lib/coletiva'
@@ -11,8 +11,9 @@ const brlk = (n: number) => 'R$ ' + (n / 1000).toLocaleString('pt-BR', { maximum
 const sPct = (n: number | null) => (n == null ? '—' : (n >= 0 ? '+' : '') + n.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + '%')
 const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + '%'
 
-const MEDALHA = ['🥇', '🥈', '🥉']
-const podCor = ['bg-warning/10 border-warning/30', 'bg-muted border-border', 'bg-warning/10 border-warning/30']
+// 1º dourado, 2º prata, 3º azul; do 4º em diante a barra fica neutra.
+const POSICAO_TEXTO = ['text-warning', 'text-muted-foreground', 'text-info']
+const POSICAO_BARRA = ['bg-warning/22', 'bg-muted-foreground/18', 'bg-info/22']
 
 function SecTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-2xl font-bold mb-1 print:text-xl">{children}</h2>
@@ -32,9 +33,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
   const cresceu = c.qtd > dados.anterior.qtd
   const recorde = cresceu && dados.anterior.qtd > 0
 
-  const podio = dados.vendedores.slice(0, 3)
-  const ordemVisual = [podio[1], podio[0], podio[2]].filter(Boolean) // 2º–1º–3º
-  const restantes = dados.vendedores.slice(3)
+  const maxQtd = Math.max(...dados.vendedores.map(v => v.qtd), 1)
   const cresc = maioresCrescimentos(dados.vendedores)
   const estreias = estreantes(dados.vendedores)
   const lojasComMeta = dados.lojas.filter(l => l.meta > 0)
@@ -71,12 +70,12 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
           Reunião de vendas · {nomeMes(dados.ano, dados.mes)} · {grupo}
         </p>
         <h1 className="mt-3 text-4xl md:text-5xl font-extrabold leading-tight tracking-tight">
-          {recorde ? `${nomeMes(dados.ano, dados.mes).split(' ')[0]} foi de crescimento. 🚀`
-            : cresceu ? 'Mais um mês no ritmo. 💪'
-            : `Bora virar o jogo em ${nomeMes(seg.ano, seg.mes).split(' ')[0]}. 🎯`}
+          {recorde ? `${nomeMes(dados.ano, dados.mes).split(' ')[0]} foi de crescimento.`
+            : cresceu ? 'Mais um mês no ritmo.'
+            : `Bora virar o jogo em ${nomeMes(seg.ano, seg.mes).split(' ')[0]}.`}
         </h1>
         <p className="mt-3 text-muted-foreground max-w-2xl">
-          Resultado do time inteiro — obrigado a cada um de vocês por cada atendimento e cada venda.
+          Resultado do time inteiro. Obrigado a cada um de vocês por cada atendimento e cada venda.
         </p>
         <div className="mt-7 grid grid-cols-3 gap-px rounded-xl overflow-hidden bg-border">
           <div className="bg-card p-4">
@@ -94,43 +93,37 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
         </div>
       </section>
 
-      {/* Pódio */}
+      {/* Ranking */}
       <section className="rounded-2xl border border-border bg-card p-7 print:p-5">
-        <SecTitle>🏆 Pódio do mês</SecTitle>
-        <p className="text-muted-foreground mb-6">Os que mais venderam — por número de motos. Que time!</p>
-        <div className="grid grid-cols-3 gap-3 items-end mb-4">
-          {ordemVisual.map(v => {
-            const rank = dados.vendedores.indexOf(v)
-            const alto = rank === 0
-            return (
-              <div key={v.usuarioId} className={`rounded-xl border p-4 text-center ${podCor[rank]} ${alto ? 'pb-6' : ''}`}>
-                <div className="text-3xl">{MEDALHA[rank]}</div>
-                <div className="font-bold text-lg mt-1">{v.nome}</div>
-                <div className="text-xs text-muted-foreground">{v.loja}</div>
-                <div className="text-3xl font-extrabold tabular-nums mt-2">{v.qtd}</div>
-                <div className="text-sm text-muted-foreground font-medium">{brlk(v.total)}</div>
+        <SecTitle>Ranking do mês</SecTitle>
+        <p className="text-muted-foreground mb-6">Os que mais venderam, por número de motos.</p>
+        <ol className="space-y-1.5">
+          {dados.vendedores.map((v, i) => (
+            <li key={v.usuarioId} className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3">
+              <span className={`text-right font-bold tabular-nums ${POSICAO_TEXTO[i] ?? 'text-muted-foreground'}`}>{i + 1}º</span>
+              <div className="relative h-9 rounded-md overflow-hidden">
+                {/* A tela é projetada e impressa: sem print-color-adjust o navegador some com a barra no papel. */}
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-md ${POSICAO_BARRA[i] ?? 'bg-primary/14'}`}
+                  style={{ width: `${(v.qtd / maxQtd) * 100}%`, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+                />
+                <div className="relative flex h-full items-center gap-2 px-3 whitespace-nowrap">
+                  {i === 0 && <Trophy size={15} className="shrink-0 text-warning" aria-hidden />}
+                  <span className={i < 3 ? 'font-bold' : 'font-medium'}>{v.nome}</span>
+                  <span className="text-sm text-muted-foreground truncate">{v.loja}</span>
+                </div>
               </div>
-            )
-          })}
-        </div>
-        {restantes.length > 0 && (
-          <div className="space-y-2">
-            {restantes.map((v, i) => (
-              <div key={v.usuarioId} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-3 py-2 rounded-lg border border-border">
-                <span className="text-center font-bold text-muted-foreground">{i + 4}º</span>
-                <span><b className="font-semibold">{v.nome}</b> <span className="text-muted-foreground text-sm ml-1">{v.loja}</span></span>
-                <span className="tabular-nums text-muted-foreground"><b>{v.qtd}</b> <span className="text-muted-foreground text-sm">· {brlk(v.total)}</span></span>
-              </div>
-            ))}
-          </div>
-        )}
+              <span className="tabular-nums text-right"><b>{v.qtd}</b> <span className="text-sm text-muted-foreground">{v.qtd === 1 ? 'moto' : 'motos'}</span></span>
+            </li>
+          ))}
+        </ol>
       </section>
 
       {/* Quem mais cresceu */}
       {(cresc.length > 0 || estreias.length > 0) && (
         <section className="rounded-2xl border border-border bg-card p-7 print:p-5">
-          <SecTitle>🚀 Quem mais cresceu</SecTitle>
-          <p className="text-muted-foreground mb-6">Não é só quem vende mais — é quem deu o maior salto sobre {nomeMes(ant.ano, ant.mes).split(' ')[0]}.</p>
+          <SecTitle>Quem mais cresceu</SecTitle>
+          <p className="text-muted-foreground mb-6">Não é só quem vende mais: é quem deu o maior salto sobre {nomeMes(ant.ano, ant.mes).split(' ')[0]}.</p>
           {cresc.length > 0 && (
             <div className="space-y-2.5">
               {(() => { const mx = Math.max(...cresc.map(v => v.pct), 1); return cresc.map(v => (
@@ -146,7 +139,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
             <div className="mt-5 rounded-xl bg-success/10 p-4 text-sm">
               <b className="text-success">Estreias que já brilharam: </b>
               <span className="text-success">
-                {estreias.map(e => `${e.nome} (${e.loja}) com ${e.qtd} moto${e.qtd > 1 ? 's' : ''}`).join(', ')}. Bem-vindos! 👏
+                {estreias.map(e => `${e.nome} (${e.loja}) com ${e.qtd} moto${e.qtd > 1 ? 's' : ''}`).join(', ')}. Bem-vindos!
               </span>
             </div>
           )}
@@ -156,10 +149,10 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
       {/* Metas por loja */}
       {lojasComMeta.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-7 print:p-5">
-          <SecTitle>🎯 As lojas e as metas</SecTitle>
+          <SecTitle>As lojas e as metas</SecTitle>
           <p className="text-muted-foreground mb-6">
             {bateram.length > 0 ? `${bateram.length} loja${bateram.length > 1 ? 's' : ''} bateu a meta. ` : ''}
-            {foco.length > 0 ? 'As outras chegaram perto — dá pra virar.' : 'Mandaram bem demais! 🎉'}
+            {foco.length > 0 ? 'As outras chegaram perto: dá pra virar.' : 'Mandaram bem demais!'}
           </p>
           <div className="grid md:grid-cols-2 gap-x-10 gap-y-2">
             {[...bateram, ...foco].map(l => {
@@ -179,7 +172,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
 
       {/* Modelos campeões */}
       <section className="rounded-2xl border border-border bg-card p-7 print:p-5">
-        <SecTitle>🏍️ Modelos campeões</SecTitle>
+        <SecTitle>Modelos campeões</SecTitle>
         <p className="text-muted-foreground mb-6">O que o cliente mais levou no mês.</p>
         <div className="space-y-2.5">
           {dados.modelos.slice(0, 8).map((m, i) => (
@@ -194,7 +187,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
 
       {/* Oportunidades */}
       <section className="rounded-2xl border border-border bg-card p-7 print:p-5">
-        <SecTitle>💡 Onde está a próxima virada</SecTitle>
+        <SecTitle>Onde está a próxima virada</SecTitle>
         <p className="text-muted-foreground mb-6">Time bom comemora o resultado e já enxerga a próxima oportunidade.</p>
         <div className="space-y-3">
           {dados.oportunidades.map((op, i) => (
@@ -211,7 +204,7 @@ export function ColetivaView({ dados, grupo, mes }: { dados: DadosColetiva; grup
 
       {/* Fechamento */}
       <section className="rounded-2xl border border-border bg-primary-soft text-foreground p-8 text-center print:p-6">
-        <h2 className="text-2xl font-bold">Obrigado, time. 🙌</h2>
+        <h2 className="text-2xl font-bold">Obrigado, time.</h2>
         <p className="mt-2 text-muted-foreground max-w-xl mx-auto">
           O mês foi de vocês. Agora é manter o ritmo, cuidar de cada atendimento e ir pra cima do próximo recorde.
         </p>

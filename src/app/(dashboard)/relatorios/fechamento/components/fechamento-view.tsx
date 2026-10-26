@@ -59,7 +59,7 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: React.
 function SecTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="flex items-center gap-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-      {children}<span className="flex-1 h-px bg-muted" />
+      {children}<span className="flex-1 h-px bg-border" />
     </h2>
   )
 }
@@ -111,7 +111,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
       ) : (
       <>
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-muted border border-border rounded-xl overflow-hidden">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
         <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos (líquido), serviços e peças" />
         <Kpi label="Motos vendidas" value={String(c.qtd)} sub={<span className={vsAnterior != null && vsAnterior >= 0 ? 'text-success font-semibold' : 'text-destructive font-semibold'}>{sPct(vsAnterior)} vs mês anterior</span>} />
         <Kpi label="Ticket médio" value={brl(c.ticket)} sub="por moto" />
@@ -300,7 +300,7 @@ function LojaDetalhe({ loja, corFillCartao, corFillOrigem }: {
         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${corMeta[cls]}`}>{p == null ? 'sem meta' : `${pct(p)} da meta`}</span>
         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${v != null && v >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>{sPct(v)} vs mês ant.</span>
       </div>
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-muted border border-border rounded-lg overflow-hidden mb-6">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border border border-border rounded-lg overflow-hidden mb-6">
         <MiniKpi l="Motos" v={String(loja.qtd)} />
         <MiniKpi l="Faturamento" v={brlk(loja.faturamento)} />
         <MiniKpi l="Ticket" v={brl(loja.ticket)} />

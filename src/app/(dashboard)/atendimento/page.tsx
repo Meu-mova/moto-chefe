@@ -298,7 +298,7 @@ export default async function AtendimentoPage({ searchParams }: { searchParams: 
               <CardContent className="space-y-2">
                 {[
                   { label: '≤ 5 min', v: sla.sla5, cor: 'bg-success' },
-                  { label: '5–15 min', v: sla.sla15, cor: 'bg-success' },
+                  { label: '5–15 min', v: sla.sla15, cor: 'bg-success/60' },
                   { label: '15–60 min', v: sla.sla60, cor: 'bg-warning' },
                   { label: '> 60 min', v: sla.slaMais, cor: 'bg-destructive' },
                 ].map(b => (
