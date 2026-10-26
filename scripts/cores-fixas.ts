@@ -3,10 +3,11 @@
  *   node --import tsx scripts/cores-fixas.ts               inventário por área e arquivo
  *   git diff -U0 <base>...<head> | node --import tsx scripts/cores-fixas.ts --diff
  *                                                         falha se linha adicionada tiver cor fixa
+ *                                                         ou hover igual à cor de base
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { acharCoresFixas, area, linhasAdicionadas, verificaArquivo } from './lib/cores-fixas'
+import { acharCoresFixas, acharHoverRepetido, area, LIBERA_HOVER, linhasAdicionadas, verificaArquivo } from './lib/cores-fixas'
 
 function listar(dir: string): string[] {
   return readdirSync(dir).flatMap((nome) => {
@@ -16,15 +17,27 @@ function listar(dir: string): string[] {
 }
 
 if (process.argv.includes('--diff')) {
-  const achados = linhasAdicionadas(readFileSync(0, 'utf8'))
-    .filter((l) => verificaArquivo(l.arquivo))
-    .flatMap((l) => acharCoresFixas(l.texto, l.arquivo).map((cor) => ({ ...l, cor })))
+  const adicionadas = linhasAdicionadas(readFileSync(0, 'utf8')).filter((l) => verificaArquivo(l.arquivo))
+  const achados = adicionadas.flatMap((l) => acharCoresFixas(l.texto, l.arquivo).map((cor) => ({ ...l, cor })))
   for (const a of achados) console.log(`::error file=${a.arquivo},line=${a.linha}::cor fixa "${a.cor}": use a cor com nome do globals.css`)
-  if (achados.length) {
-    console.error(`${achados.length} cor(es) fixa(s) em linha nova. Ver CLAUDE.md "Cores".`)
+  // O arquivo inteiro (do checkout) mostra em que tag a linha está: o className costuma vir abaixo do <Button.
+  const arquivos = new Map<string, string[]>()
+  const linhasDe = (arquivo: string) => {
+    if (!arquivos.has(arquivo)) arquivos.set(arquivo, existsSync(arquivo) ? readFileSync(arquivo, 'utf8').split('\n') : [])
+    return arquivos.get(arquivo)!
+  }
+  const hovers = adicionadas.filter((l) => l.arquivo.endsWith('.tsx')).flatMap((l) => {
+    const linhas = linhasDe(l.arquivo)
+    const noArquivo = linhas[l.linha - 1] === l.texto
+    return acharHoverRepetido(noArquivo ? linhas : [l.texto], noArquivo ? l.linha - 1 : 0).map((hover) => ({ ...l, hover }))
+  })
+  for (const h of hovers) console.log(`::error file=${h.arquivo},line=${h.linha}::"${h.hover}" repete a cor de base: o hover não muda nada. Use outro tom (ex.: hover:opacity-80, hover:bg-border) ou "${LIBERA_HOVER}: <motivo>"`)
+  if (achados.length || hovers.length) {
+    if (achados.length) console.error(`${achados.length} cor(es) fixa(s) em linha nova. Ver CLAUDE.md "Cores".`)
+    if (hovers.length) console.error(`${hovers.length} hover(s) igual(is) à cor de base em linha nova.`)
     process.exit(1)
   }
-  console.log('Nenhuma cor fixa nas linhas adicionadas.')
+  console.log('Nenhuma cor fixa nem hover repetido nas linhas adicionadas.')
 } else {
   const porArquivo = listar('src')
     .filter(verificaArquivo)
