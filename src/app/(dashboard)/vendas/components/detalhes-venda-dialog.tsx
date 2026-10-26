@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -51,7 +52,7 @@ const historicoTipoLabel: Record<string, string> = {
   mudanca_status: 'Mudança de status',
 }
 
-type Hist        = Awaited<ReturnType<typeof buscarHistoricoMotoAction>>[number]
+type Hist        = Extract<Awaited<ReturnType<typeof buscarHistoricoMotoAction>>, { ok: true }>['dados'][number]
 type Pgto        = PgtoOS
 
 type Tab = 'resumo' | 'pagamento' | 'assinatura' | 'historico'
@@ -109,7 +110,9 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
     if (t !== 'historico' || hist !== null) return
     setHistLoading(true)
     try {
-      setHist(await buscarHistoricoMotoAction(v.motoId))
+      const r = await buscarHistoricoMotoAction(v.motoId)
+      if (!r.ok) { toast.error(r.erro); return }
+      setHist(r.dados)
     } finally {
       setHistLoading(false)
     }

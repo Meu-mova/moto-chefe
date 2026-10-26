@@ -74,7 +74,9 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
     try {
       const r = await cancelarVendaCompletaAction(vendaId, motivoFinal)
       if (!r.ok) {
-        setConferencia(r.travada ? { estado: 'travada', trava: r.error } : { estado: 'falhou', erro: r.error })
+        // Só a trava da NF troca o conteúdo do diálogo; as outras recusas aparecem como estão.
+        if (r.travada) setConferencia({ estado: 'travada', trava: r.error })
+        else toast.error(r.error)
         return
       }
       const desvinculados = r.cartao + r.pix

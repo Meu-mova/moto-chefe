@@ -154,7 +154,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
     }
     startTransition(async () => {
       try {
-        await editarVendaAction(v.id, {
+        const r = await editarVendaAction(v.id, {
           valor:              lerValor(valor).toFixed(2),
           dataVenda,
           notaFiscalSaida:    nf.trim() || null,
@@ -184,6 +184,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
           } : {}),
           ...(origemId ? { origemId, origemDetalhe: origemDetalhe.trim() || null } : {}),
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Venda atualizada')
         setOpen(false)
       } catch (e: unknown) {
