@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { ResumoResultado } from '@/lib/resultado-por-loja'
+import { TriangleAlert } from 'lucide-react'
 
 /** Sem "R$" na célula: o símbolo repetido 8 vezes por linha só rouba largura. */
 function num(v: number) {
@@ -65,7 +66,7 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
                         className="ml-1.5 text-warning text-xs"
                         title={`${l.qtdSemCusto} moto(s) sem preço de compra cadastrado — o custo delas conta como zero`}
                       >
-                        ⚠
+                        <TriangleAlert size={13} aria-label={`${l.qtdSemCusto} moto(s) sem preço de compra cadastrado`} />
                       </span>
                     )}
                   </TableCell>
@@ -143,7 +144,7 @@ export function ResumoLojas({ resultado }: { resultado: ResumoResultado }) {
           )}
           {semCusto > 0 && (
             <p className="text-xs text-warning">
-              ⚠ {semCusto} moto(s) vendida(s) sem preço de compra cadastrado — o custo delas
+              <TriangleAlert size={12} className="inline -mt-0.5 mr-1" aria-hidden />{semCusto} moto(s) vendida(s) sem preço de compra cadastrado: o custo delas
               entra como zero, então o lucro dessas lojas está superestimado.
             </p>
           )}

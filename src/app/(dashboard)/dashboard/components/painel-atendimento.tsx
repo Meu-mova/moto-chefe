@@ -61,7 +61,7 @@ export function PainelAtendimento({ cards: c, mes }: { cards: CardsAtendimento; 
     <div className="rounded-xl border bg-card text-card-foreground p-5 shadow-lg">
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <h2 className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
-          🎯 {doVendedor ? 'Seu placar de atendimento' : 'Atendimento do grupo'} · {mes}
+          {doVendedor ? 'Seu placar de atendimento' : 'Atendimento do grupo'} · {mes}
         </h2>
         <span className="text-xs text-muted-foreground">
           {doVendedor ? c.nome : `${c.colaboradores} colaborador(es) no Kommo`}
@@ -158,8 +158,8 @@ export function PainelAtendimento({ cards: c, mes }: { cards: CardsAtendimento; 
             ? 'Sem leads atribuídos a você no período ainda.'
             : 'Sem leads no período para as lojas selecionadas.'
           : bateMeta
-            ? `🔥 Meta batida! Conversão ${(c.conversao * 100).toFixed(1)}% acima dos ${Math.round(c.meta * 100)}%. Mantém o ritmo.`
-            : `⚠️ Abaixo da meta de ${Math.round(c.meta * 100)}%. Falta(m) ${faltam} venda(s) ganha(s) pra bater${c.tarefasAtrasadas > 0 ? ` — e ${c.tarefasAtrasadas} tarefa(s) já venceram.` : '.'}`}
+            ? `Meta batida! Conversão ${(c.conversao * 100).toFixed(1)}% acima dos ${Math.round(c.meta * 100)}%. Mantém o ritmo.`
+            : `Abaixo da meta de ${Math.round(c.meta * 100)}%. Falta(m) ${faltam} venda(s) ganha(s) pra bater${c.tarefasAtrasadas > 0 ? `, e ${c.tarefasAtrasadas} tarefa(s) já venceram.` : '.'}`}
       </div>
     </div>
   )

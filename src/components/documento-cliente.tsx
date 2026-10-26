@@ -2,6 +2,7 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cpfValido, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { Check, TriangleAlert } from 'lucide-react'
 
 /**
  * Campo CPF/CNPJ do comprador: máscara enquanto digita e o resultado da
@@ -12,7 +13,7 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
   value: string
   onChange: (mascarado: string) => void
   autoFocus?: boolean
-  /** Esconde o "✓ válido" (ex.: enquanto a busca do cadastro roda). */
+  /** Esconde o "válido" (ex.: enquanto a busca do cadastro roda). */
   ocultarValido?: boolean
 }) {
   const completo = tipoPessoaSeCompleto(value) !== null
@@ -28,7 +29,7 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
       />
       {completo && !doc.ok && <p className="text-xs text-destructive">{doc.erro}</p>}
       {doc.ok && !ocultarValido && (
-        <p className="text-xs text-success">✓ {rotuloDocumento(doc.documento)} válido</p>
+        <p className="text-xs text-success"><Check size={12} className="inline -mt-0.5 mr-1" aria-hidden />{rotuloDocumento(doc.documento)} válido</p>
       )}
     </>
   )
@@ -73,9 +74,9 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
           className={digitos && !valido ? 'border-warning focus-visible:ring-warning/50' : ''}
         />
         {digitos && !valido && (
-          <p className="text-xs text-warning">⚠ CPF parece inválido. Confira. Dá para salvar assim.</p>
+          <p className="text-xs text-warning"><TriangleAlert size={12} className="inline -mt-0.5 mr-1" aria-hidden />CPF parece inválido. Confira. Dá para salvar assim.</p>
         )}
-        {valido && <p className="text-xs text-success">✓ CPF válido</p>}
+        {valido && <p className="text-xs text-success"><Check size={12} className="inline -mt-0.5 mr-1" aria-hidden />CPF válido</p>}
       </div>
     </div>
   )

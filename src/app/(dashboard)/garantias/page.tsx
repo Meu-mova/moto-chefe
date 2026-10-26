@@ -15,6 +15,7 @@ import { GarantiasFiltros } from './components/garantias-filtros'
 import { SincronizarFabricaButton } from './components/sincronizar-button'
 import { ImportarFabricaButton } from './components/importar-fabrica-button'
 import { RelatorioGarantiasButton } from './components/relatorio-garantias-button'
+import { OctagonAlert, TriangleAlert } from 'lucide-react'
 
 // A primeira importação de uma loja varre o histórico inteiro do portal, com uma
 // requisição por pedido. Estourar no meio deixa um buraco que o botão não alcança
@@ -122,7 +123,7 @@ export default async function GarantiasPage({
       {!statusFiltro && criticas.length > 0 && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm space-y-1">
           <p className="font-semibold text-destructive">
-            🚨 {criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
+            <OctagonAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
           </p>
           {criticas.map(g => (
             <p key={g.id} className="text-destructive text-xs">
@@ -147,12 +148,12 @@ export default async function GarantiasPage({
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm space-y-1">
           {urgentes.length > 0 && (
             <p className="font-medium text-destructive">
-              ⚠ {urgentes.length} {urgentes.length === 1 ? 'garantia urgente (≥ 20 dias)' : 'garantias urgentes (≥ 20 dias)'}
+              <TriangleAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{urgentes.length} {urgentes.length === 1 ? 'garantia urgente (≥ 20 dias)' : 'garantias urgentes (≥ 20 dias)'}
             </p>
           )}
           {atencao.length > 0 && (
             <p className="text-warning">
-              ⚠ {atencao.length} {atencao.length === 1 ? 'garantia requer atenção (10–19 dias)' : 'garantias requerem atenção (10–19 dias)'}
+              <TriangleAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{atencao.length} {atencao.length === 1 ? 'garantia requer atenção (10–19 dias)' : 'garantias requerem atenção (10–19 dias)'}
             </p>
           )}
         </div>

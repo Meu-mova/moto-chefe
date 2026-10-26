@@ -427,7 +427,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           toast.success('Venda registrada com sucesso!')
           const k = res?.kommo?.resultado
           if (k === 'virado') {
-            toast.success('Kommo: lead marcado como Venda Ganha automaticamente ✓')
+            toast.success('Kommo: lead marcado como Venda Ganha automaticamente')
           } else if (k === 'ambiguo') {
             toast.warning('Kommo: há mais de um lead deste cliente em aberto — marque o certo como Venda Ganha manualmente.')
           } else if (k === 'nao_encontrado') {
@@ -771,7 +771,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                       somatorioOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
                     }`}>
                       {somatorioOk
-                        ? `✓ Somatório confere: R$ ${somatorio.toFixed(2).replace('.', ',')}`
+                        ? `Somatório confere: R$ ${somatorio.toFixed(2).replace('.', ',')}`
                         : `Somatório R$ ${somatorio.toFixed(2).replace('.', ',')} ≠ Valor R$ ${valorNum.toFixed(2).replace('.', ',')}`
                       }
                     </div>
@@ -879,7 +879,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                       somaReservaOk ? 'bg-success/10 text-success border-success/30' : 'bg-destructive/10 text-destructive border-destructive/30'
                     }`}>
                       {somaReservaOk
-                        ? `✓ Somatório confere: R$ ${somaReserva.toFixed(2).replace('.', ',')}`
+                        ? `Somatório confere: R$ ${somaReserva.toFixed(2).replace('.', ',')}`
                         : `Somatório R$ ${somaReserva.toFixed(2).replace('.', ',')} ≠ Entrada R$ ${valorReservaNum.toFixed(2).replace('.', ',')}`
                       }
                     </div>
