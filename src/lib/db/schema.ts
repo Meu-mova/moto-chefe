@@ -75,6 +75,8 @@ export const grupos = pgTable('grupos', {
   // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
   // no primeiro acesso de quem não é admin_geral: a implantação não conta.
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
+  // Destino do "Enviar ao contador" em Notas Emitidas (#402); cada CNPJ tem o seu.
+  emailContador:      text('email_contador'),
   contaId:            uuid('conta_id').notNull().references(() => contas.id),
 })
 
