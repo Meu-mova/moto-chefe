@@ -27,7 +27,8 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
   async function aprovar() {
     setLoading(true)
     try {
-      await aprovarVendaAction(aprovacao.id)
+      const r = await aprovarVendaAction(aprovacao.id)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda aprovada!')
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao aprovar')
@@ -39,7 +40,8 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
   async function recusar() {
     setLoading(true)
     try {
-      await recusarVendaAction(aprovacao.id, observacao || undefined)
+      const r = await recusarVendaAction(aprovacao.id, observacao || undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda recusada')
       setRecusarOpen(false)
     } catch (e: unknown) {
