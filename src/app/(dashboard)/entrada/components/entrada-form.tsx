@@ -390,7 +390,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="button"
                 onClick={() => xmlRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-success/50 bg-success/10 rounded-md px-3 py-2.5 text-sm text-success hover:border-success/50 hover:bg-success/15"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-success/50 bg-success/10 rounded-md px-3 py-2.5 text-sm text-success hover:border-success hover:bg-success/15"
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0
@@ -429,7 +429,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 <button
                   type="button"
                   onClick={() => setLinhasPlanilha([])}
-                  className="text-sm text-destructive hover:text-destructive"
+                  className="text-sm text-destructive hover:opacity-80"
                 >
                   Limpar
                 </button>
@@ -667,7 +667,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                         <button
                           type="button"
                           onClick={() => removeLinha(i)}
-                          className="text-destructive hover:text-destructive p-1"
+                          className="text-destructive hover:opacity-80 p-1"
                         >
                           <Trash2 size={14} />
                         </button>

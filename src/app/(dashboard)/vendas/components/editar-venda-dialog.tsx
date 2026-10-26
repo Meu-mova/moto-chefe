@@ -295,7 +295,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} className="text-destructive hover:text-destructive">
+                      <button onClick={() => removePgto(p.id)} className="text-destructive hover:opacity-80">
                         <Trash2 size={13} />
                       </button>
                     )}

@@ -261,7 +261,7 @@ function VeiculoCard({ veiculo, onLimpar }: { veiculo: VeiculoGarantia; onLimpar
           {statusLabel_legado[veiculo.status] ?? veiculo.status}
         </p>
       </div>
-      <button type="button" onClick={onLimpar} className="text-muted-foreground hover:text-muted-foreground">
+      <button type="button" onClick={onLimpar} className="text-muted-foreground hover:text-foreground">
         <X size={14} />
       </button>
     </div>
