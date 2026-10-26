@@ -15,8 +15,8 @@ const PADROES = [
 ]
 
 // Em CSS o hex vem sem aspas; só conta no valor de uma declaração (depois de ":"), para não
-// pegar seletor de id como #fade.
-const HEX_CSS = /(?<=:[^;{}]*)(?<![\w-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/g
+// pegar seletor de id como #fade (nem depois de pseudo-classe, como .a:hover #abc {).
+const HEX_CSS = /(?<=:[^;{}]*)(?<![\w-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])(?![^{]*\{)/g
 
 // Linha de comentário não pinta nada; "cor-fixa-ok" marca cor que não é da interface (HTML de
 // terceiro lido por scraper, impresso que fica sempre claro), com o motivo ao lado.

@@ -80,5 +80,6 @@ test('em .css o hex conta sem aspas; em .tsx "#90" no texto não conta', () => {
 
 test('em .css o seletor de id não conta, mesmo parecendo hex', () => {
   assert.deepEqual(acharCoresFixas('#fade:hover { opacity: 1 }', 'src/app/x.css'), [])
+  assert.deepEqual(acharCoresFixas('.a:hover #abc {', 'src/app/x.css'), [])
   assert.deepEqual(acharCoresFixas("color: '#fff'", 'src/app/x.css'), ['#fff'])
 })
