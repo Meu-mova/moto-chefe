@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classificarNota, linkDaVenda, nomeDoArquivo, notasDoLote, periodoEmissao, selecaoDaPagina } from './notas-emitidas'
+import { classificarNota, linkDaVenda, nomeDoArquivo, notasDoLote, periodoEmissao, marcarNota, selecaoDaPagina } from './notas-emitidas'
 
 test('classificarNota agrupa os status da Nota Gateway nos filtros da tela', () => {
   assert.equal(classificarNota('Autorizada'), 'autorizada')
@@ -60,4 +60,11 @@ test('selecaoDaPagina diz o estado da caixa do cabeçalho e da faixa de seleçã
   assert.equal(selecaoDaPagina(pagina, new Set(['1', '2', '3']), false), 'pagina')
   assert.equal(selecaoDaPagina(pagina, new Set(), true), 'filtro')
   assert.equal(selecaoDaPagina([], new Set(), false), 'nenhuma', 'página sem nota com documento')
+})
+
+test('marcarNota: marca e desmarca; com todas do filtro ativo, a caixa da linha não muda a seleção', () => {
+  assert.deepEqual([...marcarNota(new Set(['1']), false, '2', true)].sort(), ['1', '2'])
+  assert.deepEqual([...marcarNota(new Set(['1', '2']), false, '1', false)], ['2'])
+  const daPagina1 = new Set(['1', '2'])
+  assert.equal(marcarNota(daPagina1, true, '77', false), daPagina1, 'desmarcar nota de outra página não reduz a seleção à página 1')
 })
