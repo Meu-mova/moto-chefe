@@ -143,7 +143,7 @@ function sanearPagamentos(entrada: PagamentoVendaPecaInput[]) {
   const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
   if (valorTotal < 0) throw new RecusaUsuario('Valor total inválido')
   if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
-    throw new RecusaUsuario('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
+    throw new RecusaUsuario('Valor total inválido. Para entregar sem cobrar, lance o pagamento como Bonificação')
   }
   return { pagamentos, valorTotal }
 }
@@ -288,7 +288,7 @@ async function editarVendaPeca(
       eq(aprovacoesVenda.status, 'pendente'),
       sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
     )).limit(1)
-    if (pendente) throw new RecusaUsuario('Esta venda já tem uma edição aguardando aprovação — aprove ou recuse o pedido em Vendas antes de editar de novo')
+    if (pendente) throw new RecusaUsuario('Esta venda já tem uma edição aguardando aprovação. Aprove ou recuse o pedido em Vendas antes de editar de novo')
 
     // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
     // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').

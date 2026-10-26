@@ -57,14 +57,14 @@ export function validarDocumento(
 
   if (tipoPessoa === 'juridica') {
     if (d.length !== 14) return { ok: false, erro: 'CNPJ deve ter 14 dígitos' }
-    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido — confira os números' }
+    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido. Confira os números.' }
     return { ok: true, documento: d }
   }
 
   // Pessoa física: documento é opcional — o balcão vende sem pedir CPF.
   if (!d) return { ok: true, documento: null }
   if (d.length !== 11) return { ok: false, erro: 'CPF deve ter 11 dígitos' }
-  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido — confira os números' }
+  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido. Confira os números.' }
   return { ok: true, documento: d }
 }
 
@@ -108,11 +108,11 @@ export function lerDocumentoCliente(
 ): { ok: true; tipoPessoa: TipoPessoa; documento: string } | { ok: false; erro: string } {
   const d = soDigitosDoc(texto)
   if (d.length === 14) {
-    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido — confira os números' }
+    if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido. Confira os números.' }
     return { ok: true, tipoPessoa: 'juridica', documento: d }
   }
   if (d.length !== 11) return { ok: false, erro: 'Informe o CPF (11 dígitos) ou o CNPJ (14 dígitos)' }
-  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido — confira os números' }
+  if (!cpfValido(d)) return { ok: false, erro: 'CPF inválido. Confira os números.' }
   return { ok: true, tipoPessoa: 'fisica', documento: d }
 }
 

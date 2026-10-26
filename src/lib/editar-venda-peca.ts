@@ -109,7 +109,7 @@ export async function aplicarEdicaoAprovadaTx(tx: Tx, e: EdicaoPendente, solicit
     .from(vendasPecas)
     .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
     .where(eq(vendasPecas.id, e.vendaId))
-  if (!venda) throw new RecusaUsuario(`Venda não encontrada — a venda de peças #${e.numero} pode ter sido excluída`)
+  if (!venda) throw new RecusaUsuario(`Venda não encontrada: a venda de peças #${e.numero} pode ter sido excluída`)
   return editarVendaPecaTx(tx, {
     vendaId: e.vendaId, grupoId: venda.grupoId, usuarioId: solicitanteId, itens: e.itens, pagamentos: e.pagamentos,
   })
