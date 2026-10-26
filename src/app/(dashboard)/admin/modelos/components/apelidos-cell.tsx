@@ -59,7 +59,7 @@ export function ApelidosCell({ modeloId, valores }: { modeloId: string; valores:
       <span className={valores.length ? 'font-mono text-foreground' : 'text-muted-foreground italic'}>
         {valores.length ? valores.join(', ') : 'nenhum'}
       </span>
-      <Pencil size={11} className="text-muted-foreground group-hover:text-muted-foreground" />
+      <Pencil size={11} className="text-muted-foreground group-hover:text-foreground" />
     </button>
   )
 }

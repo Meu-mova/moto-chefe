@@ -43,7 +43,7 @@ export function BlingCodigoCell({ modeloId, valor }: { modeloId: string; valor: 
       <span className={texto ? 'font-mono text-foreground' : 'text-muted-foreground italic'}>
         {texto || 'não configurado'}
       </span>
-      <Pencil size={11} className="text-muted-foreground group-hover:text-muted-foreground" />
+      <Pencil size={11} className="text-muted-foreground group-hover:text-foreground" />
     </button>
   )
 }
