@@ -129,7 +129,7 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
               onClick={abrir}
               disabled={abrindo}
               title={holerite.arquivoNome}
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900 max-w-[180px]"
+              className="inline-flex items-center gap-1 text-xs font-medium text-info hover:opacity-80 max-w-[180px]"
             >
               <FileText size={13} className="shrink-0" />
               <span className="truncate">{holerite.arquivoNome}</span>
@@ -139,12 +139,12 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
               onClick={remover}
               disabled={pending}
               title="Remover"
-              className="text-slate-300 hover:text-red-500 shrink-0"
+              className="text-muted-foreground hover:text-destructive shrink-0"
             >
               <Trash2 size={13} />
             </button>
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             {fmtData(holerite.enviadoEm)}
             {holerite.enviadoPorNome ? ` · ${holerite.enviadoPorNome}` : ''}
             {holerite.tamanho ? ` · ${fmtTamanho(holerite.tamanho)}` : ''}
@@ -152,7 +152,7 @@ function Slot({ funcionarioId, mes, tipo, holerite }: {
           <button
             onClick={() => inputRef.current?.click()}
             disabled={pending}
-            className="text-[11px] text-slate-500 hover:text-slate-800 underline underline-offset-2"
+            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
             {pending ? 'Enviando…' : 'Substituir'}
           </button>
@@ -184,28 +184,28 @@ export function HoleritesTable({ funcionarios, holerites, mes }: {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         PDFs que a contabilidade manda todo mês. Ficam em bucket privado — o link de abertura vale 10 minutos e é
         gerado na hora. Reenviar substitui o arquivo daquele mês, sem acumular duas versões.
-        {' '}<span className="text-slate-400">{enviados} de {esperados} enviados neste mês.</span>
+        {' '}<span className="text-muted-foreground">{enviados} de {esperados} enviados neste mês.</span>
       </p>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="bg-card border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-slate-600">Funcionário</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
               {TIPOS.map(t => (
-                <th key={t.valor} className="text-left px-4 py-2 text-xs font-medium text-slate-600">{t.label}</th>
+                <th key={t.valor} className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">{t.label}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y">
             {funcionarios.map(f => (
-              <tr key={f.id} className="hover:bg-slate-50 align-top">
+              <tr key={f.id} className="hover:bg-muted align-top">
                 <td className="px-4 py-3">
                   <p className="font-medium">{f.nome}</p>
-                  <p className="text-xs text-slate-400">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+                  <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
                 </td>
                 {TIPOS.map(t => (
                   <td key={t.valor} className="px-4 py-3">
@@ -220,7 +220,7 @@ export function HoleritesTable({ funcionarios, holerites, mes }: {
               </tr>
             ))}
             {funcionarios.length === 0 && (
-              <tr><td colSpan={3} className="text-center text-slate-400 py-6">Nenhum funcionário ativo neste recorte.</td></tr>
+              <tr><td colSpan={3} className="text-center text-muted-foreground py-6">Nenhum funcionário ativo neste recorte.</td></tr>
             )}
           </tbody>
         </table>
