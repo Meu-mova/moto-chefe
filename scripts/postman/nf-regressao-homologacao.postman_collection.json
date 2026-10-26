@@ -1,0 +1,451 @@
+{
+  "info": {
+    "name": "MOVA - NG regressão fiscal (homologação, #347)",
+    "description": "Regressão na Nota Gateway em HOMOLOGAÇÃO após a #347: emitir, consultar (Autorizada), carta de correção, consultar a carta (Autorizada), cancelar dentro das 24 h, consultar (Cancelada). Rode por scripts/ng-regressao-homologacao.ts: ele monta o payload com o código do MOVA e passa token e empresaId num environment temporário. A trava da coleção recusa POST sem ambienteEmissao Homologacao.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Trava: nada sai se não for homologação na NG, com as variáveis preenchidas.",
+          "const corpo = pm.request.body && pm.request.body.raw ? pm.variables.replaceIn(pm.request.body.raw) : '';",
+          "const okAmbiente = pm.request.method !== 'POST' || (/\"ambienteEmissao\"\\s*:\\s*\"Homologacao\"/.test(corpo) && !/Producao/.test(corpo));",
+          "const okBase = String(pm.variables.get('baseUrl') || '').startsWith('https://api.notagateway.com.br/');",
+          "const okVars = ['token', 'empresaId', 'idTeste', 'payloadNota', 'textoCarta'].every(v => !!pm.variables.get(v));",
+          "if (!okAmbiente || !okBase || !okVars) {",
+          "  pm.test('trava: ambienteEmissao Homologacao, baseUrl da NG e variáveis presentes', () => pm.expect.fail('recusado: ' + JSON.stringify({ okAmbiente, okBase, okVars })));",
+          "  pm.execution.skipRequest();",
+          "}",
+          "const id = pm.variables.get('idTeste');",
+          "pm.variables.set('idNota', id + '-n');",
+          "pm.variables.set('idCarta', id + '-cc');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Corpo de ida e volta para o log do script; headers ficam de fora (Authorization leva o token).",
+          "const corpoReq = pm.request.body && pm.request.body.raw ? pm.variables.replaceIn(pm.request.body.raw) : '';",
+          "console.log('REQ ' + pm.info.requestName + ': ' + pm.request.method + ' ' + pm.request.url.getPathWithQuery().split(pm.variables.get('empresaId')).join('****') + (corpoReq ? '\\n' + corpoReq : ''));",
+          "console.log('RES ' + pm.info.requestName + ': HTTP ' + pm.response.code + '\\n' + pm.response.text());"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. POST emitir",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG aceitou a emissão (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (pm.response.code < 200 || pm.response.code > 299) pm.execution.setNextRequest(null);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{payloadNota}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "2. GET nota até Autorizada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
+              "pm.test('veio chave de acesso com 44 dígitos', () => pm.expect(String(j && j.chaveAcesso)).to.match(/^\\d{44}$/));",
+              "pm.collectionVariables.set('chave', String(j && j.chaveAcesso));",
+              "pm.collectionVariables.set('numeroNota', String(j && j.numero));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (status !== 'Autorizada') pm.execution.setNextRequest(null);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idNota}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idNota}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. POST carta de correção",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Carta enviada 2 s depois da autorização voltou Negada sem motivo (24/10/2026); a que passou mais rápido saiu 67 s depois.",
+              "const fim = Date.now() + Number(pm.collectionVariables.get('esperaCartaMs') || 90000);",
+              "while (Date.now() < fim) {}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('NG aceitou a carta (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/cartaCorrecao",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "cartaCorrecao"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"id\":\"{{idCarta}}\",\"ambienteEmissao\":\"Homologacao\",\"numero\":1,\"correcao\":\"{{textoCarta}}\",\"nfe\":{\"chaveAcesso\":\"{{chave}}\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "4. GET carta até Autorizada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' protocolo=' + (j && j.protocoloAutorizacao) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Autorizada', () => pm.expect(status).to.eql('Autorizada'));",
+              "// Passo falhou: os seguintes dependem dele (chave, carta, cancelamento); encerra a coleção.",
+              "if (status !== 'Autorizada') pm.execution.setNextRequest(null);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/cartaCorrecao/{{idCarta}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "cartaCorrecao",
+            "{{idCarta}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. DELETE nota (cancelar < 24 h)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(pm.info.requestName + ': HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 400));",
+              "pm.test('pedido de cancelamento aceito (2xx)', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idNota}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idNota}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. GET nota até Cancelada",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Espera entre consultas (a SEFAZ responde em segundos); a primeira sai direto.",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0);",
+              "if (n > 0) { const fim = Date.now() + Number(pm.collectionVariables.get('esperaMs') || 4000); while (Date.now() < fim) {} }"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const FINAIS = ['Autorizada', 'Negada', 'Denegada', 'Cancelada', 'CancelamentoNegado'];",
+              "const k = 'tentativas:' + pm.info.requestName;",
+              "const n = Number(pm.collectionVariables.get(k) || 0) + 1;",
+              "const limite = Number(pm.collectionVariables.get('maxTentativas') || 20);",
+              "let j = null; try { j = pm.response.json(); } catch (e) {}",
+              "const status = j && !Array.isArray(j) ? String(j.status || '') : '';",
+              "console.log(pm.info.requestName + ' #' + n + ': HTTP ' + pm.response.code + ' status=' + (status || JSON.stringify(j)) + ' numero=' + (j && j.numero) + (j && j.motivoStatus ? ' motivo=' + j.motivoStatus : ''));",
+              "if (!FINAIS.includes(status) && n < limite) {",
+              "  pm.collectionVariables.set(k, n);",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  return;",
+              "}",
+              "pm.collectionVariables.unset(k);",
+              "pm.test('chegou a status final em até ' + limite + ' consultas', () => pm.expect(FINAIS).to.include(status));",
+              "pm.test('status = Cancelada', () => pm.expect(status).to.eql('Cancelada'));",
+              "pm.test('número da nota é o mesmo da emissão', () => pm.expect(String(j && j.numero)).to.eql(pm.collectionVariables.get('numeroNota')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/empresas/{{empresaId}}/nf-e/{{idNota}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "empresas",
+            "{{empresaId}}",
+            "nf-e",
+            "{{idNota}}"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.notagateway.com.br/v2"
+    },
+    {
+      "key": "empresaId",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "idTeste",
+      "value": ""
+    },
+    {
+      "key": "esperaMs",
+      "value": "4000"
+    },
+    {
+      "key": "maxTentativas",
+      "value": "20"
+    },
+    {
+      "key": "esperaCartaMs",
+      "value": "90000"
+    }
+  ]
+}

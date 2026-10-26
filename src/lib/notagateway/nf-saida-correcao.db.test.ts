@@ -176,3 +176,53 @@ test('denegada 302 não aceita outros campos; 301 não aceita nenhum (#347)', as
     await assert.rejects(gravarCorrecaoDaNf(tx, a.usuario, d301.motoId, 'Producao', { ieComprador: { clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null } }), /não há o que corrigir/)
   })
 })
+
+test('edição que troca CNPJ por CPF apaga representante e IE da venda e não mexe na IE dos clientes com o CNPJ antigo (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000234710')
+    const b = await semearConta(tx, 'B', '00000000234711')
+    const venda = await semearVenda(tx, a, 'CO347PF', null, undefined, '11.222.333/0001-81')
+    await tx.execute(sql`update vendas set representante_nome = 'Rep', representante_cpf = '111.444.777-35',
+      cliente_indicador_ie = 'contribuinte', cliente_inscricao_estadual = '999' where id = ${venda.id}`)
+    const dados = {
+      clienteNome: 'Pessoa', clienteCpf: '111.444.777-35', clienteCelular: null, clienteEmail: null, clienteCep: null,
+      clienteLogradouro: null, clienteNumero: null, clienteComplemento: null, clienteBairro: null, clienteCidade: null, clienteEstado: null,
+    }
+    await vc.gravarCompradorDaVenda(tx, { id: venda.id, lojaId: a.lojaId }, vc.conferirCompradorDaVenda(dados, '11.222.333/0001-81'))
+
+    const v = await vendaDb(tx, venda.id)
+    assert.equal(v.cliente_cpf, '111.444.777-35')
+    assert.equal(v.representante_nome, null)
+    assert.equal(v.representante_cpf, null)
+    assert.equal(v.cliente_inscricao_estadual, null)
+    const ies = await linhas(tx, sql`select conta_id, inscricao_estadual from clientes where cpf_cnpj = ${CNPJ} and conta_id in (${a.contaId}, ${b.contaId})`)
+    assert.equal(ies.find(r => r.conta_id === a.contaId)?.inscricao_estadual, '111')
+    assert.equal(ies.find(r => r.conta_id === b.contaId)?.inscricao_estadual, '111')
+  })
+})
+
+test('edição na Conta B grava a IE só no cliente da B; o da Conta A, com o mesmo CNPJ, fica (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000234712')
+    const b = await semearConta(tx, 'B', '00000000234713')
+    const vendaB = await semearVenda(tx, b, 'CO347EB', null, undefined, '11.222.333/0001-81')
+    const dados = { clienteNome: 'Empresa', clienteCpf: CNPJ, clienteIndicadorIe: 'contribuinte', clienteInscricaoEstadual: '0054321' }
+    await vc.gravarCompradorDaVenda(tx, { id: vendaB.id, lojaId: b.lojaId }, vc.conferirCompradorDaVenda(dados, '11.222.333/0001-81'))
+
+    const ies = await linhas(tx, sql`select conta_id, inscricao_estadual from clientes where cpf_cnpj = ${CNPJ} and conta_id in (${a.contaId}, ${b.contaId})`)
+    assert.equal(ies.find(r => r.conta_id === b.contaId)?.inscricao_estadual, '0054321')
+    assert.equal(ies.find(r => r.conta_id === a.contaId)?.inscricao_estadual, '111', 'o cliente da Conta A não é tocado')
+  })
+})
+
+test('edição de venda antiga com documento que não passa na conferência de hoje grava, se o documento não mudou (regressão #347)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000234714')
+    const venda = await semearVenda(tx, a, 'CO347LG', null, undefined, '111.111.111-11')
+    const dados = { clienteNome: 'Nome Corrigido', clienteCpf: '111.111.111-11' }
+    await vc.gravarCompradorDaVenda(tx, { id: venda.id, lojaId: a.lojaId }, vc.conferirCompradorDaVenda(dados, '111.111.111-11'))
+    const v = await vendaDb(tx, venda.id)
+    assert.equal(v.cliente_nome, 'Nome Corrigido')
+    assert.equal(v.cliente_cpf, '111.111.111-11')
+  })
+})
