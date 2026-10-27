@@ -152,7 +152,7 @@ export function Sidebar({ itensIds, conecta, usuario, recolhidaInicial }: Props)
             ))}
           </nav>
           <div className="flex justify-center border-t border-sidebar-border p-2">
-            <MenuUsuario usuario={usuario} compacto />
+            <MenuUsuario usuario={usuario} compacto comTema />
           </div>
         </>
       ) : (
@@ -163,7 +163,7 @@ export function Sidebar({ itensIds, conecta, usuario, recolhidaInicial }: Props)
             <ListaNav itens={itens} conecta={conectaSeguro} />
           </div>
           <div className="border-t border-sidebar-border p-2">
-            <MenuUsuario usuario={usuario} />
+            <MenuUsuario usuario={usuario} comTema />
           </div>
         </>
       )}

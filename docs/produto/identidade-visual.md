@@ -162,8 +162,31 @@ na cor (decisão do Luis no protótipo de 2026-10-24, #90). Texto da barra e do 
 
 ⚠ Verde e âmbar no claro ficam abaixo de 4.5, como já estavam: o claro não mudou nesta decisão.
 
+### Cor da categoria da agenda
+
+Cada categoria da agenda escolhe uma cor (`src/lib/calendario.ts`); os valores ficam em `--agenda-*`
+no `globals.css`. No claro, os tons do Tailwind de antes (selo 50, texto 700, borda 200, ponto 500);
+no escuro, selo 950, texto 300, borda 800, ponto 400. Texto do selo, mínimo 4.5; o ponto fica ao
+lado do nome da categoria e não carrega informação sozinho:
+
+| Cor | selo (claro) | selo (escuro) | ponto / `card` (claro) | ponto / `card` (escuro) |
+|---|---|---|---|---|
+| `rose` | 5.51 | 8.15 | 3.76 | 6.08 |
+| `pink` | 5.39 | 8.28 | 3.58 | 6.30 |
+| `orange` | 4.93 | 9.20 | 2.89 | 7.31 |
+| `amber` | 4.87 | 10.37 | 2.15 | 10.12 |
+| `emerald` | 5.09 | 9.98 | 2.46 | 8.99 |
+| `teal` | 5.17 | 9.84 | 2.42 | 9.32 |
+| `cyan` | 5.07 | 9.27 | 2.36 | 9.60 |
+| `blue` | 6.26 | 8.13 | 3.76 | 6.59 |
+| `violet` | 6.64 | 8.21 | 4.40 | 6.10 |
+| `fuchsia` | 5.84 | 8.38 | 3.53 | 6.73 |
+| `slate` | 7.23 | 13.59 | 2.63 | 6.61 |
+
 ## Tema
 
-- Padrão: **segue o sistema** (claro ou escuro, conforme o celular ou o computador).
-- Troca manual no menu do usuário: Claro / Escuro / Sistema. A escolha fica salva no navegador.
-- Impressos ficam sempre claros.
+- Padrão: **claro**, sem seguir o tema do sistema do aparelho (decisão do Luis, #90).
+- Troca manual: Claro / Escuro. No computador, no menu que abre no card do usuário; no celular, na
+  barra do grupo ativo (ou no canto da tela, para quem não troca de grupo). Páginas públicas, como o
+  login, não têm a troca. A escolha fica salva no navegador, por aparelho.
+- Impressos ficam sempre claros (`.tema-claro`, `src/app/(print)/layout.tsx`).

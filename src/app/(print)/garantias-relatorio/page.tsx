@@ -87,7 +87,7 @@ export default async function GarantiasRelatorioPage({
     <>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Geist', -apple-system, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+        .tema-claro { font-family: 'Geist', -apple-system, Arial, sans-serif; background: var(--muted); color: var(--foreground); }
 
         .page-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
 
@@ -98,37 +98,37 @@ export default async function GarantiasRelatorioPage({
         .btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: 500;
-          cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff;
-          color: #334155; text-decoration: none; transition: background 0.15s;
+          cursor: pointer; border: 1.5px solid var(--border); background: var(--card);
+          color: var(--foreground); text-decoration: none; transition: background 0.15s;
         }
-        .btn:hover { background: #f1f5f9; }
-        .btn-primary { background: #1e293b; color: #fff; border-color: #1e293b; }
-        .btn-primary:hover { background: #334155; }
+        .btn:hover { background: var(--muted); }
+        .btn-primary { background: var(--foreground); color: var(--card); border-color: var(--foreground); }
+        .btn-primary:hover { background: var(--foreground); }
 
         /* Cabeçalho do relatório */
         .report-header {
           display: flex; justify-content: space-between; align-items: flex-start;
-          padding-bottom: 20px; border-bottom: 3px solid #1e293b; margin-bottom: 24px;
+          padding-bottom: 20px; border-bottom: 3px solid var(--foreground); margin-bottom: 24px;
         }
         .brand { display: flex; align-items: center; gap: 14px; }
         .brand-icon {
           height: 48px; width: auto; object-fit: contain;
         }
-        .brand-name { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-        .brand-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .brand-name { font-size: 20px; font-weight: 700; color: var(--foreground); line-height: 1.2; }
+        .brand-sub { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
         .report-meta { text-align: right; }
-        .report-title { font-size: 18px; font-weight: 700; color: #0f172a; }
-        .report-date { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .report-title { font-size: 18px; font-weight: 700; color: var(--foreground); }
+        .report-date { font-size: 12px; color: var(--muted-foreground); margin-top: 4px; }
 
         /* Filtros */
         .filters-row {
-          background: #f1f5f9; border-radius: 8px; padding: 10px 16px;
-          font-size: 12px; color: #475569; margin-bottom: 24px;
+          background: var(--muted); border-radius: 8px; padding: 10px 16px;
+          font-size: 12px; color: var(--muted-foreground); margin-bottom: 24px;
           display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
-        .filters-label { font-weight: 600; color: #334155; }
+        .filters-label { font-weight: 600; color: var(--foreground); }
         .filter-tag {
-          background: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 11px;
+          background: var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px;
         }
 
         /* Cards de resumo */
@@ -137,72 +137,72 @@ export default async function GarantiasRelatorioPage({
           margin-bottom: 28px;
         }
         .summary-card {
-          background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px;
+          background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
           padding: 14px 16px;
         }
-        .summary-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; }
-        .summary-card-value { font-size: 28px; font-weight: 700; color: #0f172a; margin-top: 4px; line-height: 1; }
-        .summary-card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-        .summary-card.ativas .summary-card-value { color: #16a34a; }
-        .summary-card.encerradas .summary-card-value { color: #64748b; }
-        .summary-card.pedidos .summary-card-value { color: #2563eb; }
+        .summary-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); font-weight: 600; }
+        .summary-card-value { font-size: 28px; font-weight: 700; color: var(--foreground); margin-top: 4px; line-height: 1; }
+        .summary-card-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 4px; }
+        .summary-card.ativas .summary-card-value { color: var(--success); }
+        .summary-card.encerradas .summary-card-value { color: var(--muted-foreground); }
+        .summary-card.pedidos .summary-card-value { color: var(--info); }
 
         /* Tabela */
-        .table-section { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-        .table-title { font-size: 13px; font-weight: 600; color: #334155; padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .table-section { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .table-title { font-size: 13px; font-weight: 600; color: var(--foreground); padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--muted); }
         table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         thead th {
-          background: #1e293b; color: #e2e8f0; text-align: left;
+          background: var(--primary); color: var(--primary-foreground); text-align: left;
           padding: 10px 12px; font-size: 11px; font-weight: 600;
           text-transform: uppercase; letter-spacing: 0.05em;
           white-space: nowrap;
         }
-        tbody tr { border-bottom: 1px solid #f1f5f9; }
+        tbody tr { border-bottom: 1px solid var(--muted); }
         tbody tr:last-child { border-bottom: none; }
-        tbody tr:nth-child(even) { background: #f8fafc; }
-        tbody tr:hover { background: #f1f5f9; }
-        td { padding: 9px 12px; vertical-align: top; color: #334155; }
+        tbody tr:nth-child(even) { background: var(--muted); }
+        tbody tr:hover { background: var(--muted); }
+        td { padding: 9px 12px; vertical-align: top; color: var(--foreground); }
         td.mono { font-family: 'Geist Mono', 'Courier New', monospace; font-size: 11.5px; }
         td.center { text-align: center; }
-        td.muted { color: #94a3b8; }
+        td.muted { color: var(--muted-foreground); }
 
         /* Badges inline */
         .badge {
           display: inline-block; padding: 2px 8px; border-radius: 99px;
           font-size: 10.5px; font-weight: 600; white-space: nowrap;
         }
-        .badge-ativa     { background: #dcfce7; color: #166534; }
-        .badge-encerrada { background: #f1f5f9; color: #475569; }
-        .badge-urgente   { background: #fee2e2; color: #991b1b; }
-        .badge-atencao   { background: #fef3c7; color: #92400e; }
+        .badge-ativa     { background: color-mix(in srgb, var(--success) 15%, var(--card)); color: var(--success); }
+        .badge-encerrada { background: var(--muted); color: var(--muted-foreground); }
+        .badge-urgente   { background: color-mix(in srgb, var(--destructive) 10%, var(--card)); color: var(--destructive); }
+        .badge-atencao   { background: color-mix(in srgb, var(--warning) 12%, var(--card)); color: var(--warning); }
 
-        .pedido-link { color: #2563eb; text-decoration: none; font-size: 11.5px; }
+        .pedido-link { color: var(--info); text-decoration: none; font-size: 11.5px; }
         .pedido-link:hover { text-decoration: underline; }
         .status-fab {
           display: inline-block; font-size: 10.5px; padding: 2px 7px;
-          border-radius: 4px; background: #f1f5f9; color: #475569;
-          border: 1px solid #e2e8f0; white-space: nowrap; margin-top: 3px;
+          border-radius: 4px; background: var(--muted); color: var(--muted-foreground);
+          border: 1px solid var(--border); white-space: nowrap; margin-top: 3px;
         }
-        .status-fab.critico { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .status-fab.critico { background: color-mix(in srgb, var(--destructive) 10%, var(--card)); color: var(--destructive); border-color: color-mix(in srgb, var(--destructive) 40%, var(--card)); }
 
         /* Empty state */
-        .empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 14px; }
+        .empty { text-align: center; padding: 60px 20px; color: var(--muted-foreground); font-size: 14px; }
 
         /* Rodapé */
         .report-footer {
-          margin-top: 28px; padding-top: 14px; border-top: 1px solid #e2e8f0;
-          font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between;
+          margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border);
+          font-size: 11px; color: var(--muted-foreground); display: flex; justify-content: space-between;
         }
 
         /* Print overrides */
         @media print {
-          body { background: #fff !important; }
+          .tema-claro { background: var(--card) !important; }
           .actions-bar { display: none !important; }
           .page-wrap { padding: 0; max-width: 100%; }
-          .table-section { border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
-          thead th { background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          tbody tr:nth-child(even) { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .summary-card { border: 1px solid #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .table-section { border: 1px solid var(--border) !important; border-radius: 0 !important; }
+          thead th { background: var(--primary) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          tbody tr:nth-child(even) { background: var(--muted) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .summary-card { border: 1px solid var(--border) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           @page { margin: 15mm 12mm; size: A4 landscape; }
           table { font-size: 10.5px; }
           td { padding: 6px 10px; }
@@ -300,7 +300,7 @@ export default async function GarantiasRelatorioPage({
                       <td style={{ whiteSpace: 'nowrap' }}>{g.lojaNome}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <strong>{g.marca}</strong><br />
-                        <span style={{ color: '#64748b', fontSize: 11 }}>{g.modelo}</span>
+                        <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>{g.modelo}</span>
                       </td>
                       <td className="mono">{g.chassi}</td>
                       <td style={{ maxWidth: 220 }}>{g.descricao}</td>

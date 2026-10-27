@@ -55,3 +55,7 @@ test('admin da Conta só vê a própria; admin_geral escolhe (ou vê todas)', ()
   assert.deepEqual(contaDoFiltro({ papel: 'admin_geral', contaId: null }, 'c2'), { contaId: 'c2' })
   assert.deepEqual(contaDoFiltro({ papel: 'admin_geral', contaId: null }, ''), { contaId: 'todas' })
 })
+
+test('envio da logo do DANFE mostra o grupo e o tamanho', () => {
+  assert.equal(resumoDoEvento(ev({ tipo: 'logo_danfe_enviada', grupoNome: 'Cuiabá', detalhe: { kb: 9 } })), 'Cuiabá · 9 KB')
+})

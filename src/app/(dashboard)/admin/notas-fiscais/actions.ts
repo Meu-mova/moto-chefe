@@ -7,6 +7,10 @@ import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { cifrar } from '@/lib/cripto'
 import { revalidatePath } from 'next/cache'
 import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type ResultadoLogo } from '@/lib/logo-danfe'
+import { configNotaGateway } from '@/lib/notagateway/client'
+import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
 
 /**
  * Configuração fiscal por grupo. Cada grupo é um CNPJ com contabilidade
@@ -156,4 +160,41 @@ export async function salvarRegraAction(data: RegraPayload) {
     .onConflictDoUpdate({ target: regrasFiscaisSaida.grupoId, set: valores })
 
   revalidatePath('/admin/notas-fiscais')
+}
+
+// ─── Logo do DANFE (#428) ────────────────────────────────────────────────
+// Permissão e Conta ficam em src/lib/logo-danfe.ts (teste de banco); aqui só a ligação
+// com a sessão, a NG e o Storage.
+
+async function arquivoDoForm(form: FormData): Promise<{ grupoId: string; arquivo: Buffer } | null> {
+  const grupoId = form.get('grupoId')
+  const arquivo = form.get('arquivo')
+  if (typeof grupoId !== 'string' || !(arquivo instanceof File)) return null
+  return { grupoId, arquivo: Buffer.from(await arquivo.arrayBuffer()) }
+}
+
+export async function previaLogoDanfeAction(form: FormData): Promise<{ ok: true; dataUrl: string; kb: number } | { ok: false; erro: string }> {
+  const u = await getUsuarioLogado()
+  const dados = await arquivoDoForm(form)
+  if (!dados) return { ok: false, erro: 'Escolha um arquivo de imagem.' }
+  const r = await previaLogoDanfe(u, dados.grupoId, dados.arquivo)
+  if (!r.ok) return r
+  return { ok: true, dataUrl: `data:image/png;base64,${r.png.toString('base64')}`, kb: r.kb }
+}
+
+export async function enviarLogoDanfeAction(form: FormData): Promise<ResultadoLogo> {
+  const u = await getUsuarioLogado()
+  const dados = await arquivoDoForm(form)
+  if (!dados) return { ok: false, erro: 'Escolha um arquivo de imagem.' }
+  const r = await enviarLogoDanfe(u, dados.grupoId, dados.arquivo, {
+    configNg: configNotaGateway,
+    vincularNaNg: vincularLogoNaNg,
+    salvarCopia: async (grupoId, png) => {
+      const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      const { error } = await admin.storage.from('logos-danfe').upload(caminhoLogoDanfe(grupoId), png, { contentType: 'image/png', upsert: true })
+      if (error) throw new Error(error.message)
+    },
+  })
+  revalidatePath('/admin/notas-fiscais')
+  return r
 }

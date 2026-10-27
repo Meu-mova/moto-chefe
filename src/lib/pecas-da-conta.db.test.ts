@@ -15,12 +15,14 @@ type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let mod: typeof import('@/lib/pecas-da-conta')
+let saldos: typeof import('@/lib/estoque-pecas-loja')
 let aplicarVendaPeca: typeof import('@/lib/venda-peca')['aplicarVendaPeca']
 let editarVendaPecaTx: typeof import('@/lib/editar-venda-peca')['editarVendaPecaTx']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   mod = await import('@/lib/pecas-da-conta')
+  saldos = await import('@/lib/estoque-pecas-loja')
   ;({ aplicarVendaPeca } = await import('@/lib/venda-peca'))
   ;({ editarVendaPecaTx } = await import('@/lib/editar-venda-peca'))
 })
@@ -45,12 +47,12 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [vend] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
     values (gen_random_uuid(), 'Vend', ${'vend-pc195' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
   const contaId = conta.id as string
-  const peca = await mod.inserirPeca(tx, contaId, { nome: 'Retrovisor ' + nome, valor: 50, quantidadeEstoque: 8 })
+  const peca = await mod.inserirPeca(tx, contaId, { nome: 'Retrovisor ' + nome, valor: 50 })
+  assert.equal(await saldos.definirSaldo(tx, peca.id, loja.id, 8), true)
   return { contaId, lojaId: loja.id as string, vendId: vend.id as string, pecaId: peca.id }
 }
 
-const estoque = async (tx: Tx, pecaId: string) =>
-  Number((await linhas(tx, sql`select quantidade_estoque q from pecas_catalogo where id = ${pecaId}`))[0].q)
+const estoque = (tx: Tx, c: { pecaId: string; lojaId: string }) => saldos.saldoNaLoja(tx, c.pecaId, c.lojaId)
 
 const venda = (lojaId: string, pecaId: string) => ({
   lojaId, itens: [{ pecaId, quantidade: 1 }], pagamentos: [{ tipo: 'pix', valor: 50 }],
@@ -78,12 +80,18 @@ test('Conta B não altera peça da Conta A: mesma resposta de peça inexistente 
     const b = await semearConta(tx, 'B', '22222222000191')
     const quemB = { papel: 'aux_adm', contaId: b.contaId }
 
-    assert.equal(await mod.alterarPeca(tx, quemB, a.pecaId, { quantidadeEstoque: 0, ativo: false }), false)
+    assert.equal(await mod.alterarPeca(tx, quemB, a.pecaId, { nome: 'Trocado', ativo: false }), false)
     assert.equal(await mod.alterarPeca(tx, quemB, '00000000-0000-0000-0000-000000000000', { ativo: false }), false)
-    assert.equal(await estoque(tx, a.pecaId), 8)
+    const [pecaA] = await linhas(tx, sql`select nome, ativo from pecas_catalogo where id = ${a.pecaId}`)
+    assert.deepEqual(pecaA, { nome: 'Retrovisor A', ativo: true })
 
-    assert.equal(await mod.alterarPeca(tx, quemB, b.pecaId, { quantidadeEstoque: 3 }), true)
-    assert.equal(await estoque(tx, b.pecaId), 3)
+    // Saldo da peça da A na loja da B: não grava, como peça inexistente.
+    assert.equal(await saldos.definirSaldo(tx, a.pecaId, b.lojaId, 0), false)
+    assert.equal(await saldos.definirSaldo(tx, '00000000-0000-0000-0000-000000000000', b.lojaId, 0), false)
+    assert.equal(await estoque(tx, a), 8)
+
+    assert.equal(await saldos.definirSaldo(tx, b.pecaId, b.lojaId, 3), true)
+    assert.equal(await estoque(tx, b), 3)
   })
 })
 
@@ -93,10 +101,10 @@ test('venda numa loja da Conta B recusa peça da Conta A e não mexe no estoque 
     const b = await semearConta(tx, 'B', '22222222000191')
 
     await assert.rejects(aplicarVendaPeca(tx, b.vendId, venda(b.lojaId, a.pecaId)), /Peça não encontrada/)
-    assert.equal(await estoque(tx, a.pecaId), 8)
+    assert.equal(await estoque(tx, a), 8)
 
     await aplicarVendaPeca(tx, b.vendId, venda(b.lojaId, b.pecaId))
-    assert.equal(await estoque(tx, b.pecaId), 7)
+    assert.equal(await estoque(tx, b), 7)
   })
 })
 
@@ -110,7 +118,7 @@ test('edição de venda da Conta B recusa trocar o item por peça da Conta A (#1
       vendaId, grupoId: '', usuarioId: b.vendId,
       itens: [{ pecaId: a.pecaId, quantidade: 1 }], pagamentos: [{ tipo: 'pix', valor: 50 }],
     }), /Peça não encontrada/)
-    assert.equal(await estoque(tx, a.pecaId), 8)
+    assert.equal(await estoque(tx, a), 8)
   })
 })
 
