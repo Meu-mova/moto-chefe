@@ -105,10 +105,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* .tema-claro: trecho que fica claro mesmo no escuro (impressos, src/app/(print)/layout.tsx). O :has
-   leva o claro à página inteira: a margem do @page usa o fundo do html e sairia escura no papel. */
+/* .tema-claro: trecho que fica claro mesmo no escuro (impressos, src/app/(print)/layout.tsx). */
 :root,
-:root:has(.tema-claro),
 .tema-claro {
   /* Paleta 1 do MOVA (ADR-0016). Contraste de cada par medido em docs/produto/identidade-visual.md. */
   --background: #f4f6f9;
@@ -327,8 +325,7 @@
   .dark {
     color-scheme: dark;
   }
-  .tema-claro,
-  :root:has(.tema-claro) {
+  .tema-claro {
     color-scheme: light;
   }
   html {
@@ -398,3 +395,15 @@
 /* Login: sem o "elástico" do iOS ao arrastar além do fim da página; e o que o navegador mostrar
    além da página (teclado, barra recolhendo) sai no verde da base das ondas, não no fundo claro. */
 html:has(.mova-auth) { overscroll-behavior: none; background: var(--brand-1) }
+
+/* Impresso: a margem do @page pinta o fundo do html, que no escuro sairia escuro no papel com
+   "gráficos de fundo" ligado. Sem fundo no html e no body e com esquema claro (o next-themes põe
+   color-scheme inline no html), a margem sai branca. Seletor próprio: não juntar com o :root da
+   paleta, o Tailwind vira :is() e a especificidade maior venceria o .dark em todas as telas. */
+:root:has([data-impresso]) {
+  color-scheme: light !important;
+  background: transparent;
+}
+:root:has([data-impresso]) body {
+  background: transparent;
+}
