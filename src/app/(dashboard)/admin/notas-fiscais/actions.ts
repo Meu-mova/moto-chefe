@@ -4,12 +4,12 @@ import { notagatewayConfig, regrasFiscaisSaida, grupos } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
-import { cifrar } from '@/lib/cripto'
+import { salvarCredencial, type CredencialPayload } from '@/lib/notagateway/credencial'
 import { revalidatePath } from 'next/cache'
 import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type ResultadoLogo } from '@/lib/logo-danfe'
-import { configNotaGateway } from '@/lib/notagateway/client'
+import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type DependenciasLogo, type ResultadoLogo } from '@/lib/logo-danfe'
+import { cnpjDaEmpresaNaNg, configNotaGateway, dadosDaEmpresaNaNg } from '@/lib/notagateway/client'
 import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
 
 /**
@@ -32,60 +32,13 @@ async function assertGrupo(usuario: Awaited<ReturnType<typeof assertAdmin>>, gru
   return g
 }
 
-export type CredencialPayload = {
-  grupoId: string
-  /** Vazio = não mexer no token já gravado (a tela nunca mostra o valor atual). */
-  token: string
-  ambiente: 'Homologacao' | 'Producao'
-  serieNfe: string
-  proximoNumero: number
-}
+export type { CredencialPayload }
 
-/**
- * Grava a credencial da Nota Gateway do grupo.
- *
- * O token é cifrado como o certificado A1 (`src/lib/cripto.ts`) e nunca volta
- * para a tela — quem quiser trocar digita o novo; campo vazio preserva o atual.
- * O `empresaId` não entra aqui: ele vem da API no cadastro da empresa.
- */
-export async function salvarCredencialAction(data: CredencialPayload) {
-  const usuario = await assertAdmin()
-  await assertGrupo(usuario, data.grupoId)
-
-  const serie = data.serieNfe.trim() || '1'
-  const numero = Number.isFinite(data.proximoNumero) && data.proximoNumero > 0 ? Math.trunc(data.proximoNumero) : 1
-
-  const jaTem = await db
-    .select({ grupoId: notagatewayConfig.grupoId })
-    .from(notagatewayConfig)
-    .where(eq(notagatewayConfig.grupoId, data.grupoId))
-    .limit(1)
-
-  if (!jaTem.length && !data.token.trim()) {
-    throw new Error('Informe o token da Nota Gateway para configurar este grupo')
-  }
-
-  const comum = {
-    ambiente: data.ambiente,
-    serieNfe: serie,
-    proximoNumero: numero,
-    atualizadoEm: sql`NOW()` as unknown as Date,
-  }
-
-  if (jaTem.length) {
-    await db
-      .update(notagatewayConfig)
-      .set(data.token.trim() ? { ...comum, token: cifrar(data.token.trim()) } : comum)
-      .where(eq(notagatewayConfig.grupoId, data.grupoId))
-  } else {
-    await db.insert(notagatewayConfig).values({
-      grupoId: data.grupoId,
-      token: cifrar(data.token.trim()),
-      ...comum,
-    })
-  }
-
-  revalidatePath('/admin/notas-fiscais')
+/** Grava a credencial da Nota Gateway do grupo: só o admin_geral (#446). */
+export async function salvarCredencialAction(data: CredencialPayload): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const r = await salvarCredencial(await getUsuarioLogado(), data, { cnpjDaEmpresaNaNg })
+  if (r.ok) revalidatePath('/admin/notas-fiscais')
+  return r
 }
 
 export type RegraPayload = {
@@ -166,18 +119,30 @@ export async function salvarRegraAction(data: RegraPayload) {
 // Permissão e Conta ficam em src/lib/logo-danfe.ts (teste de banco); aqui só a ligação
 // com a sessão, a NG e o Storage.
 
-async function arquivoDoForm(form: FormData): Promise<{ grupoId: string; arquivo: Buffer } | null> {
+async function arquivoDoForm(form: FormData): Promise<{ grupoId: string; arquivo: Buffer; site: string } | null> {
   const grupoId = form.get('grupoId')
   const arquivo = form.get('arquivo')
+  const site = form.get('site')
   if (typeof grupoId !== 'string' || !(arquivo instanceof File)) return null
-  return { grupoId, arquivo: Buffer.from(await arquivo.arrayBuffer()) }
+  return { grupoId, arquivo: Buffer.from(await arquivo.arrayBuffer()), site: typeof site === 'string' ? site.slice(0, 120) : '' }
+}
+
+const depsLogo: DependenciasLogo = {
+  configNg: configNotaGateway,
+  dadosDaEmpresaNaNg,
+  vincularNaNg: vincularLogoNaNg,
+  salvarCopia: async (grupoId, png) => {
+    const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { error } = await admin.storage.from('logos-danfe').upload(caminhoLogoDanfe(grupoId), png, { contentType: 'image/png', upsert: true })
+    if (error) throw new Error(error.message)
+  },
 }
 
 export async function previaLogoDanfeAction(form: FormData): Promise<{ ok: true; dataUrl: string; kb: number } | { ok: false; erro: string }> {
   const u = await getUsuarioLogado()
   const dados = await arquivoDoForm(form)
   if (!dados) return { ok: false, erro: 'Escolha um arquivo de imagem.' }
-  const r = await previaLogoDanfe(u, dados.grupoId, dados.arquivo)
+  const r = await previaLogoDanfe(u, dados.grupoId, dados.arquivo, dados.site, depsLogo)
   if (!r.ok) return r
   return { ok: true, dataUrl: `data:image/png;base64,${r.png.toString('base64')}`, kb: r.kb }
 }
@@ -186,15 +151,7 @@ export async function enviarLogoDanfeAction(form: FormData): Promise<ResultadoLo
   const u = await getUsuarioLogado()
   const dados = await arquivoDoForm(form)
   if (!dados) return { ok: false, erro: 'Escolha um arquivo de imagem.' }
-  const r = await enviarLogoDanfe(u, dados.grupoId, dados.arquivo, {
-    configNg: configNotaGateway,
-    vincularNaNg: vincularLogoNaNg,
-    salvarCopia: async (grupoId, png) => {
-      const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      const { error } = await admin.storage.from('logos-danfe').upload(caminhoLogoDanfe(grupoId), png, { contentType: 'image/png', upsert: true })
-      if (error) throw new Error(error.message)
-    },
-  })
+  const r = await enviarLogoDanfe(u, dados.grupoId, dados.arquivo, dados.site, depsLogo)
   revalidatePath('/admin/notas-fiscais')
   return r
 }

@@ -3,6 +3,7 @@ import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
 import { ambienteLiberado } from './ambiente'
+import type { EmitenteDanfe } from './emitente-danfe'
 
 /**
  * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
@@ -140,6 +141,35 @@ export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
   const uf = (r.json as any)?.endereco?.uf
   if (!uf) throw new Error('A empresa na Nota Gateway está sem UF no endereço')
   return String(uf)
+}
+
+/** CNPJ da empresa como a NG tem cadastrado (#446). Erro só com o status: a resposta pode trazer o empresaId. */
+export async function cnpjDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<string> {
+  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
+  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
+  const cnpj = (r.json as { cnpj?: unknown } | null)?.cnpj
+  if (typeof cnpj !== 'string' || !cnpj) throw new Error('Consultar Empresa sem CNPJ na resposta')
+  return cnpj
+}
+
+/**
+ * Cadastro do emitente na NG (Consultar Empresa, #428): vai desenhado na imagem da logo.
+ * Erro só com o status: a resposta traz o empresaId.
+ * https://docs.notagateway.com.br/v2/reference/consultar-empresa
+ */
+export async function dadosDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<Omit<EmitenteDanfe, 'site'>> {
+  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
+  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
+  const j = (r.json ?? {}) as Record<string, any>
+  const e = (j.endereco ?? {}) as Record<string, any>
+  const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  if (!texto(j.cnpj) || !texto(j.razaoSocial)) throw new Error('Consultar Empresa sem CNPJ ou razão social')
+  return {
+    razaoSocial: texto(j.razaoSocial)!, cnpj: texto(j.cnpj)!,
+    logradouro: texto(e.logradouro), numero: texto(e.numero), complemento: texto(e.complemento),
+    bairro: texto(e.bairro), cep: texto(e.cep), cidade: texto(e.cidade), uf: texto(e.uf),
+    telefone: texto(j.telefoneComercial), email: texto(j.email),
+  }
 }
 
 /** 4xx no envio da carta de correção: a API não aceitou e a carta não existe lá. */

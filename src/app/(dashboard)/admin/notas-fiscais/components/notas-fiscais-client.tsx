@@ -6,16 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { salvarCredencialAction, salvarRegraAction } from '../actions'
+import type { CredencialTela } from '@/lib/notagateway/credencial-tela'
 import { ShieldCheck, ShieldAlert, FileCheck2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
-type Credencial = {
-  temToken: boolean
-  empresaId: string | null
-  ambiente: 'Homologacao' | 'Producao'
-  serieNfe: string
-  proximoNumero: number
-  certificadoEnviadoEm: string | null
-}
+type Credencial = CredencialTela
 type Regra = {
   naturezaOperacao: string; cfopInterno: string; cstIcmsInterno: string
   cfopInterestadual: string; cstIcmsInterestadual: string; aliquotaIcmsInterestadual: string
@@ -54,7 +48,7 @@ function Campo({ label, valor, onChange, placeholder, dica, largura = '' }: {
   )
 }
 
-export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
+export function NotasFiscaisClient({ grupos, podeEditarCredencial }: { grupos: LinhaGrupo[]; podeEditarCredencial: boolean }) {
   const [aberto, setAberto] = useState<string | null>(grupos[0]?.grupoId ?? null)
 
   return (
@@ -63,6 +57,7 @@ export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
         <CartaoGrupo
           key={g.grupoId}
           linha={g}
+          podeEditarCredencial={podeEditarCredencial}
           aberto={aberto === g.grupoId}
           onToggle={() => setAberto(aberto === g.grupoId ? null : g.grupoId)}
         />
@@ -71,11 +66,11 @@ export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
   )
 }
 
-function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: boolean; onToggle: () => void }) {
+function CartaoGrupo({ linha, podeEditarCredencial, aberto, onToggle }: { linha: LinhaGrupo; podeEditarCredencial: boolean; aberto: boolean; onToggle: () => void }) {
   const [token, setToken] = useState('')
   const [ambiente, setAmbiente] = useState<'Homologacao' | 'Producao'>(linha.credencial?.ambiente ?? 'Homologacao')
-  const [serie, setSerie] = useState(linha.credencial?.serieNfe ?? '1')
-  const [numero, setNumero] = useState(String(linha.credencial?.proximoNumero ?? 1))
+  const [empresaId, setEmpresaId] = useState('')
+  const [trocandoEmpresa, setTrocandoEmpresa] = useState(false)
   const [regra, setRegra] = useState<Regra>(linha.regra ?? REGRA_VAZIA)
   const [pendCred, startCred] = useTransition()
   const [pendRegra, startRegra] = useTransition()
@@ -89,11 +84,13 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
   function salvarCredencial() {
     startCred(async () => {
       try {
-        await salvarCredencialAction({
-          grupoId: linha.grupoId, token, ambiente,
-          serieNfe: serie, proximoNumero: Number(numero) || 1,
+        const r = await salvarCredencialAction({
+          grupoId: linha.grupoId, token, empresaId, ambiente,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         setToken('')
+        setEmpresaId('')
+        setTrocandoEmpresa(false)
         toast.success('Credencial salva')
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -145,25 +142,33 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
               titulo="Certificado A1"
               detalhe={linha.certificado
                 ? (certVencido ? `venceu em ${fmtData(linha.certificado.validoAte)}` : `válido até ${fmtData(linha.certificado.validoAte)}`)
-                : 'não cadastrado — envie em Radar Fiscal'}
+                : 'não cadastrado. Envie em Radar Fiscal.'}
             />
             <Situacao
-              ok={!!linha.credencial?.empresaId}
+              ok={!!linha.credencial?.temEmpresa}
               titulo="Empresa na Nota Gateway"
-              detalhe={linha.credencial?.empresaId ? `id ${linha.credencial.empresaId}` : 'ainda não cadastrada'}
+              detalhe={linha.credencial?.temEmpresa ? 'cadastrada' : 'ainda não cadastrada'}
             />
             <Situacao
               ok={semFicha === 0}
               titulo="Fichas fiscais do estoque"
               detalhe={`${linha.estoque.comFicha} de ${linha.estoque.total} motos`}
-              aviso={semFicha > 0 ? `${semFicha} sem ficha — conferir na emissão` : undefined}
+              aviso={semFicha > 0 ? `${semFicha} sem ficha. Confira na emissão.` : undefined}
             />
           </div>
 
           {/* Credencial */}
           <div className="px-6 py-5 space-y-3">
             <h3 className="font-medium text-foreground text-sm">Credencial da Nota Gateway</h3>
-            <div className="grid gap-3 sm:grid-cols-4">
+            {!podeEditarCredencial ? (
+              // Só o admin_geral grava a credencial (#446); o sócio vê se está cadastrada.
+              <div className="text-sm space-y-1">
+                <p>Token: {linha.credencial?.temToken ? 'cadastrado' : 'ainda não cadastrado'}</p>
+                <p>Ambiente: {linha.credencial ? (linha.credencial.ambiente === 'Producao' ? 'Produção (nota valendo)' : 'Homologação (teste)') : '-'}</p>
+                <p className="text-[11px] text-muted-foreground">Só o Admin Geral altera a credencial da Nota Gateway.</p>
+              </div>
+            ) : (<>
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">Token Basic</Label>
                 <Input
@@ -185,14 +190,35 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
                 </select>
                 <p className="text-[11px] text-muted-foreground">Vai no payload de cada nota.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Campo label="Série" valor={serie} onChange={setSerie} placeholder="1" />
-                <Campo label="Próx. nº" valor={numero} onChange={setNumero} placeholder="1" />
-              </div>
             </div>
+            {/* Só de escrita (#446): o id nunca volta para a tela, só se está cadastrado. */}
+            <div className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium">Empresa na Nota Gateway</span>
+                {linha.credencial?.temEmpresa
+                  ? <Badge variant="secondary">cadastrada</Badge>
+                  : <Badge variant="outline" className="text-warning border-warning/50">ainda não cadastrada</Badge>}
+              </div>
+              {!trocandoEmpresa && (
+                <Button variant="secondary" size="sm" onClick={() => setTrocandoEmpresa(true)}>
+                  {linha.credencial?.temEmpresa ? 'Trocar' : 'Cadastrar'}
+                </Button>
+              )}
+            </div>
+            {trocandoEmpresa && (
+              <div className="space-y-1 rounded-lg border border-dashed bg-muted/60 p-3">
+                <Label className="text-xs">Id da empresa na Nota Gateway</Label>
+                <Input value={empresaId} onChange={e => setEmpresaId(e.target.value)} placeholder="cole o id da empresa" className="font-mono text-sm" autoComplete="off" />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-muted-foreground">Ao salvar, o MOVA confere na Nota Gateway se o CNPJ é o deste grupo.</p>
+                  <Button variant="ghost" size="sm" onClick={() => { setEmpresaId(''); setTrocandoEmpresa(false) }}>Cancelar</Button>
+                </div>
+              </div>
+            )}
             <Button onClick={salvarCredencial} disabled={pendCred} size="sm">
               {pendCred ? 'Salvando...' : 'Salvar credencial'}
             </Button>
+            </>)}
           </div>
 
           {/* Regra de saída */}

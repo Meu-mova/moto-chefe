@@ -328,6 +328,7 @@ export const notagatewayConfig = pgTable('notagateway_config', {
   atualizadoEm:         timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
   logoEnviadaEm:        timestamp('logo_enviada_em', { withTimezone: true }),
   logoEnviadaPor:       uuid('logo_enviada_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  siteDanfe:            text('site_danfe'),
 })
 
 // ─── regras_fiscais_saida (o que a NOSSA nota leva, por grupo) ──────────

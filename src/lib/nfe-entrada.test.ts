@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMotosInfCpl, mapearModelo, extrairDaNfe } from './nfe-entrada'
+import { parseMotosInfCpl, mapearModelo, extrairDaNfe, extrairItensDePeca } from './nfe-entrada'
+import { extrairFiscalDaNfe } from './nfe-fiscal'
 
 // infCpl reais das notas de amostra (FSist).
 const NF_1 = 'JETMAX 1000W LYDAE3936T1205576 JYX1000W260580054 VERMELHO;Valor de ICMS credito presumido: R$ 85,03'
@@ -205,4 +206,67 @@ test('de-para: JET MAX (com espaço) casa com JETMAX, não com JET', () => {
 test('de-para: espaço a mais/a menos casa nos dois sentidos', () => {
   assert.equal(mapearModelo('MC20MINI', MODELOS), 'MC20 MINI')
   assert.equal(mapearModelo('BIGTRI', ['BIG TRI', 'BIG']), 'BIG TRI')
+})
+
+// --- Itens de peça (#341) ---
+// Forma da NF 43837 (capacetes): o mesmo cProd em cores diferentes, uCom PECAS.
+function det(n: number, p: { cProd: string; xProd: string; ncm: string; uCom?: string; qCom: string; vUnCom: string }) {
+  return `<det nItem="${n}"><prod><cProd>${p.cProd}</cProd><cEAN>SEM GTIN</cEAN><xProd>${p.xProd}</xProd><NCM>${p.ncm}</NCM><CFOP>6102</CFOP><uCom>${p.uCom ?? 'PECAS'}</uCom><qCom>${p.qCom}</qCom><vUnCom>${p.vUnCom}</vUnCom></prod><imposto><ICMS><ICMS00><orig>1</orig><CST>00</CST></ICMS00></ICMS></imposto></det>`
+}
+const nota = (...dets: string[]) => `<nfeProc><NFe><infNFe Id="NFe${'1'.repeat(44)}"><ide><nNF>43837</nNF></ide>${dets.join('')}<infAdic><infCpl></infCpl></infAdic></infNFe></NFe></nfeProc>`
+const CAPACETE = 'CAPACETE PARA USO DESTINADO A CICLISTA FEITO COM ABS + EPS COM REGULAGEM DE AJUSTE COM PROTECAO SUPERIOR'
+
+test('itens de peça: nota de capacetes (forma da 43837) devolve as 5 linhas e 12 unidades, com código repetido', () => {
+  const xml = nota(
+    det(1, { cProd: '26102A', xProd: 'CAPACETE ABS SEM PROTETOR AURICULAR, PRETO', ncm: '65069900', qCom: '1.0000', vUnCom: '32.6100000000' }),
+    det(2, { cProd: '26102A', xProd: 'CAPACETE ABS SEM PROTECAO AURICULAR - CINZA CLARO', ncm: '65069900', qCom: '2.0000', vUnCom: '32.6100000000' }),
+    det(3, { cProd: '26302', xProd: `${CAPACETE}, BRANCO`, ncm: '65069900', qCom: '4.0000', vUnCom: '32.6100000000' }),
+    det(4, { cProd: '26302', xProd: `${CAPACETE}, PRETO`, ncm: '65069900', qCom: '4.0000', vUnCom: '32.6100000000' }),
+    det(5, { cProd: '26302', xProd: `${CAPACETE}, AZUL`, ncm: '65069900', qCom: '1.0000', vUnCom: '32.6100000000' }),
+  )
+  const itens = extrairItensDePeca(xml)
+  assert.deepEqual(itens[0], { codigo: '26102A', nomeXml: 'CAPACETE ABS SEM PROTETOR AURICULAR, PRETO', nomeLegivel: 'CAPACETE ABS SEM PROTETOR AURICULAR, PRETO', unidade: 'PECAS', quantidade: 1, quantidadeInteira: true, custoUnitario: 32.61, ncm: '65069900' })
+  assert.deepEqual(itens.map(i => [i.codigo, i.quantidade]), [['26102A', 1], ['26102A', 2], ['26302', 4], ['26302', 4], ['26302', 1]])
+  assert.equal(itens.reduce((s, i) => s + i.quantidade, 0), 12)
+})
+
+test('itens de peça: nota só de motos (NCM 8711) não devolve nada', () => {
+  const xml = nota(
+    det(1, { cProd: 'BOB', xProd: 'BOB 1000W', ncm: '87116000', uCom: 'UN', qCom: '5.0000', vUnCom: '6500.00' }),
+    det(2, { cProd: 'PITICA', xProd: 'PITICA 500W', ncm: '87116000', uCom: 'UNID', qCom: '3.0000', vUnCom: '4200.00' }),
+  )
+  assert.deepEqual(extrairItensDePeca(xml), [])
+})
+
+test('itens de peça: nota mista devolve só as linhas que não são moto, inclusive peça de moto (8714)', () => {
+  const xml = nota(
+    det(1, { cProd: 'X12', xProd: 'X12 MOTO CHEFE', ncm: '87116000', uCom: 'UN', qCom: '2.0000', vUnCom: '7000.00' }),
+    det(2, { cProd: 'RET-01', xProd: 'RETROVISOR ESQUERDO', ncm: '87141000', uCom: 'UN', qCom: '10.0000', vUnCom: '15.50' }),
+    det(3, { cProd: '26302', xProd: `${CAPACETE}, AZUL`, ncm: '65069900', qCom: '1.0000', vUnCom: '32.61' }),
+  )
+  assert.deepEqual(extrairItensDePeca(xml).map(i => i.codigo), ['RET-01', '26302'])
+})
+
+test('itens de peça: quantidade 1,5 sai como está e marcada como não inteira', () => {
+  const [item] = extrairItensDePeca(nota(det(1, { cProd: 'FIO', xProd: 'FIO 2,5MM', ncm: '85444900', uCom: 'M', qCom: '1.5000', vUnCom: '3.00' })))
+  assert.equal(item.quantidade, 1.5)
+  assert.equal(item.quantidadeInteira, false)
+})
+
+test('itens de peça: nomeXml sai igual ao x_prod da ficha fiscal das motos (mesmo leitor)', () => {
+  const xml = nota(det(1, { cProd: '26302', xProd: '  CAPACETE AZUL ', ncm: '65069900', qCom: '1.0000', vUnCom: '32.61' }))
+  assert.equal(extrairItensDePeca(xml)[0].nomeXml, extrairFiscalDaNfe(xml)[0].descricao)
+})
+
+test('itens de peça: nomeLegivel decodifica as entidades do XML; nomeXml fica como veio', () => {
+  const [item] = extrairItensDePeca(nota(det(1, { cProd: 'K1', xProd: 'KIT PARAFUSO &amp; PORCA 1&#47;2 &quot;M8&quot;', ncm: '73181500', qCom: '1.0000', vUnCom: '5.00' })))
+  assert.equal(item.nomeXml, 'KIT PARAFUSO &amp; PORCA 1&#47;2 &quot;M8&quot;')
+  assert.equal(item.nomeLegivel, 'KIT PARAFUSO & PORCA 1/2 "M8"')
+})
+
+test('itens de peça: linha sem qCom sai com quantidade 0 marcada como não inteira, para a conferência destacar', () => {
+  const xml = nota(det(1, { cProd: 'X', xProd: 'ITEM SEM QUANTIDADE', ncm: '65069900', qCom: '', vUnCom: '1.00' }))
+  const [item] = extrairItensDePeca(xml)
+  assert.equal(item.quantidade, 0)
+  assert.equal(item.quantidadeInteira, false)
 })
