@@ -105,8 +105,10 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* .tema-claro: trecho que fica claro mesmo no escuro (impressos, src/app/(print)/layout.tsx). */
+/* .tema-claro: trecho que fica claro mesmo no escuro (impressos, src/app/(print)/layout.tsx). O :has
+   leva o claro à página inteira: a margem do @page usa o fundo do html e sairia escura no papel. */
 :root,
+:root:has(.tema-claro),
 .tema-claro {
   /* Paleta 1 do MOVA (ADR-0016). Contraste de cada par medido em docs/produto/identidade-visual.md. */
   --background: #f4f6f9;
