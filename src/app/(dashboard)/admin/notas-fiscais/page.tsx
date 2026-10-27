@@ -6,6 +6,7 @@ import { NotasFiscaisClient } from './components/notas-fiscais-client'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarGruposVisiveis } from '@/lib/grupo'
 import { credencialParaTela } from '@/lib/notagateway/credencial-tela'
+import { podeGravarCredencialNg } from '@/lib/notagateway/credencial'
 
 /**
  * Configuração fiscal por grupo, para a emissão de NF-e própria.
@@ -102,7 +103,7 @@ export default async function NotasFiscaisPage() {
             cada grupo é um CNPJ com contabilidade própria.
           </p>
         </div>
-        <NotasFiscaisClient grupos={linhas} />
+        <NotasFiscaisClient grupos={linhas} podeEditarCredencial={podeGravarCredencialNg(usuario.papel)} />
       </div>
     </AdminGuard>
   )
