@@ -47,7 +47,8 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
     values (gen_random_uuid(), 'Aux', ${'aux-ep426' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
   const peca = await catalogo.inserirPeca(tx, conta.id, { nome: 'Capacete ' + nome, valor: 90 })
-  return { contaId: conta.id as string, grupoId: grupo.id as string, lojaId: loja.id as string, auxId: aux.id as string, pecaId: peca.id }
+  const usuario = { id: aux.id as string, papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string }
+  return { contaId: conta.id as string, grupoId: grupo.id as string, lojaId: loja.id as string, usuario, pecaId: peca.id }
 }
 
 const NOTA = { chaveAcesso: '5'.repeat(44), numero: '43837', fornecedorCnpj: '12345678000199' }
@@ -57,7 +58,7 @@ test('peça nova entra no catálogo da Conta da loja, com saldo, custo, vínculo
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     await entrada.gravarEntradaPecas(tx, {
-      lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA,
+      lojaId: a.lojaId, usuario: a.usuario, nota: NOTA,
       linhas: [{ ...CAPACETE, nova: { nome: 'Capacete ciclista azul', valor: 79.9 } }],
     })
 
@@ -85,7 +86,7 @@ test('peça da Conta B na entrada da loja da Conta A é recusada e nada é grava
     const a = await semearConta(tx, 'A', '11111111000191')
     const b = await semearConta(tx, 'B', '22222222000191')
     await recusa(tx, {
-      lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA,
+      lojaId: a.lojaId, usuario: a.usuario, nota: NOTA,
       linhas: [{ ...CAPACETE, pecaId: b.pecaId }],
     })
 
@@ -101,7 +102,7 @@ test('quantidade com decimal, zero ou negativa é recusada: estoque de peça é 
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     for (const quantidade of [1.5, 0, -2]) {
-      await recusa(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, quantidade, pecaId: a.pecaId }] })
+      await recusa(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, quantidade, pecaId: a.pecaId }] })
     }
     assert.equal(await saldos.saldoNaLoja(tx, a.pecaId, a.lojaId), 0)
   })
@@ -110,15 +111,43 @@ test('quantidade com decimal, zero ou negativa é recusada: estoque de peça é 
 test('peça nova sem preço de venda maior que zero é recusada', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
-    await recusa(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, nova: { nome: 'Sem preço', valor: 0 } }] })
+    await recusa(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, nova: { nome: 'Sem preço', valor: 0 } }] })
     assert.deepEqual(await linhas(tx, sql`select 1 from pecas_catalogo where nome = 'Sem preço'`), [])
+  })
+})
+
+test('aux_adm da Conta B não dá entrada na loja da Conta A: mesma recusa de loja inexistente', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const frase = async (lojaId: string) => {
+      const erro = await tx.transaction(t => entrada.gravarEntradaPecas(t, {
+        lojaId, usuario: b.usuario, nota: NOTA, linhas: [{ ...CAPACETE, nova: { nome: 'Intrusa', valor: 10 } }],
+      })).then(() => null, (e: unknown) => e)
+      assert.ok(erro instanceof entrada.EntradaPecasRecusada)
+      return erro.message
+    }
+    assert.equal(await frase(a.lojaId), await frase('00000000-0000-0000-0000-000000000000'))
+    assert.deepEqual(await linhas(tx, sql`select 1 from pecas_catalogo where nome = 'Intrusa'`), [])
+    assert.deepEqual(await linhas(tx, sql`select 1 from notas_entrada where loja_id = ${a.lojaId}`), [])
+  })
+})
+
+test('peça de outra Conta e id inexistente recebem a mesma frase', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const frase = (pecaId: string) => tx.transaction(t => entrada.gravarEntradaPecas(t, {
+      lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId }],
+    })).then(() => null, (e: Error) => e.message)
+    assert.equal(await frase(b.pecaId), await frase('00000000-0000-0000-0000-000000000000'))
   })
 })
 
 test('loja inexistente é recusada, sem gravar nada', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
-    await recusa(tx, { lojaId: '00000000-0000-0000-0000-000000000000', usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+    await recusa(tx, { lojaId: '00000000-0000-0000-0000-000000000000', usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
     assert.deepEqual(await linhas(tx, sql`select 1 from notas_entrada where chave_acesso = ${NOTA.chaveAcesso}`), [])
   })
 })
@@ -127,8 +156,8 @@ test('a Conta B lança o mesmo item do mesmo fornecedor e o vínculo da Conta A 
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const b = await semearConta(tx, 'B', '22222222000191')
-    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
-    await entrada.gravarEntradaPecas(tx, { lojaId: b.lojaId, usuarioId: b.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: b.pecaId }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: b.lojaId, usuario: b.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: b.pecaId }] })
 
     const vinculos = await linhas(tx, sql`select conta_id, peca_id from pecas_vinculo_fornecedor
       where nome_xml = ${CAPACETE.nomeXml} order by conta_id = ${a.contaId} desc`)
@@ -154,8 +183,8 @@ test('peça existente: soma ao saldo da loja, o custo passa a ser o da última n
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     await saldos.definirSaldo(tx, a.pecaId, a.lojaId, 3)
-    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId, custoUnitario: 30 }] })
-    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId, custoUnitario: 35.5 }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId, custoUnitario: 30 }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId, custoUnitario: 35.5 }] })
 
     assert.equal(await saldos.saldoNaLoja(tx, a.pecaId, a.lojaId), 11)
     const [peca] = await linhas(tx, sql`select custo, valor from pecas_catalogo where id = ${a.pecaId}`)
@@ -167,8 +196,8 @@ test('mesmo item ligado a outra peça da Conta: o vínculo passa a apontar para 
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const outra = await catalogo.inserirPeca(tx, a.contaId, { nome: 'Capacete azul (novo cadastro)', valor: 95 })
-    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
-    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuarioId: a.auxId, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: outra.id }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: outra.id }] })
     const vinculos = await linhas(tx, sql`select peca_id from pecas_vinculo_fornecedor where conta_id = ${a.contaId}`)
     assert.deepEqual(vinculos, [{ peca_id: outra.id }])
   })

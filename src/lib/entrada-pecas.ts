@@ -1,13 +1,14 @@
 /**
  * Entrada de peças pela NF-e (#341, #426). Tudo é gravado na Conta da LOJA de destino,
- * nunca na que vier do payload. Quem chama confere que o usuário pode usar a loja
- * (resolverLojaDestino) e roda isto dentro da mesma transação das motos (#429).
+ * nunca na que vier do payload, e só se o usuário pode usar a loja. Quem chama roda isto
+ * dentro da mesma transação das motos (#429).
  */
 import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { grupos, lojas, notasEntrada, pecasCatalogo, pecasVinculoFornecedor } from '@/lib/db/schema'
 import { inserirPeca, pecaUsavelNaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
 
@@ -20,7 +21,7 @@ export type LinhaEntradaPeca = {
 
 export type EntradaPecas = {
   lojaId: string
-  usuarioId: string
+  usuario: Parameters<typeof podeAbrirRegistroDaLoja>[0] & { id: string }
   nota: { chaveAcesso: string; numero: string; fornecedorCnpj: string }
   linhas: LinhaEntradaPeca[]
 }
@@ -29,6 +30,11 @@ export type EntradaPecas = {
 export class EntradaPecasRecusada extends Error {}
 
 export async function gravarEntradaPecas(exec: Executor, entrada: EntradaPecas): Promise<void> {
+  // Loja de outra Conta e loja inexistente recebem a mesma frase: a diferença revelaria
+  // que a loja existe.
+  if (!(await podeAbrirRegistroDaLoja(entrada.usuario, entrada.lojaId, exec))) {
+    throw new EntradaPecasRecusada('Loja de destino não encontrada')
+  }
   const [loja] = await exec.select({ grupoId: grupos.id, contaId: grupos.contaId })
     .from(lojas).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
     .where(eq(lojas.id, entrada.lojaId))
@@ -71,6 +77,6 @@ export async function gravarEntradaPecas(exec: Executor, entrada: EntradaPecas):
     grupoId,
     lojaId: entrada.lojaId,
     ...entrada.nota,
-    criadoPor: entrada.usuarioId,
+    criadoPor: entrada.usuario.id,
   })
 }
