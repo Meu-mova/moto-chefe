@@ -1867,12 +1867,11 @@ export const avaliacoesGoogleConfig = pgTable('avaliacoes_google_config', {
   atualizadoPor: uuid('atualizado_por'),
 })
 
-/** Ficha da loja no Google e o código público da placa NFC/QR (/avaliar/<codigo>). */
+/** Ficha da loja no Google (Place ID) e a última leitura. */
 export const avaliacoesGoogleLojas = pgTable('avaliacoes_google_lojas', {
   lojaId:            uuid('loja_id').primaryKey().references(() => lojas.id),
   grupoId:           uuid('grupo_id').notNull().references(() => grupos.id),
   placeId:           text('place_id'),
-  codigoPlaca:       text('codigo_placa').notNull().unique(),
   nota:              numeric('nota', { precision: 2, scale: 1 }),
   totalAvaliacoes:   integer('total_avaliacoes'),
   mapsUri:           text('maps_uri'),
@@ -1903,11 +1902,29 @@ export const avaliacoesGoogleHistorico = pgTable('avaliacoes_google_historico', 
   totalAvaliacoes: integer('total_avaliacoes'),
 }, t => [primaryKey({ columns: [t.lojaId, t.dia] })])
 
-/** Toque na placa (NFC) ou leitura do QR. Sem IP nem dado do cliente. */
+/**
+ * Plaquinha física: de uma loja e, opcionalmente, de um vendedor. `codigo` vai no link da
+ * tag (/avaliar/<codigo>). Desativada continua levando ao Google, mas não conta toque.
+ */
+export const avaliacoesGooglePlacas = pgTable('avaliacoes_google_placas', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:    uuid('loja_id').notNull().references(() => lojas.id),
+  usuarioId: uuid('usuario_id').references(() => usuarios.id),
+  nome:      text('nome'),
+  codigo:    text('codigo').notNull().unique(),
+  ativa:     boolean('ativa').notNull().default(true),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor: uuid('criado_por'),
+})
+
+/** Toque na placa (NFC) ou leitura do QR. usuarioId é o dono da placa na hora do toque. */
 export const avaliacoesGoogleToques = pgTable('avaliacoes_google_toques', {
-  id:       bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-  grupoId:  uuid('grupo_id').notNull().references(() => grupos.id),
-  lojaId:   uuid('loja_id').notNull().references(() => lojas.id),
-  origem:   text('origem').$type<'nfc' | 'qr'>().notNull(),
-  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  id:        bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:    uuid('loja_id').notNull().references(() => lojas.id),
+  placaId:   uuid('placa_id').notNull().references(() => avaliacoesGooglePlacas.id),
+  usuarioId: uuid('usuario_id').references(() => usuarios.id),
+  origem:    text('origem').$type<'nfc' | 'qr'>().notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

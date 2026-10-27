@@ -10,9 +10,16 @@ chave e as próprias lojas.
   as **até 5 avaliações** que a Places API devolve para cada loja. O botão "Atualizar agora"
   faz a mesma leitura na hora (no máximo uma vez a cada 10 minutos).
 - Guarda uma foto diária da nota e do total para mostrar a variação dos últimos 30 dias.
-- Gera o **link da plaquinha** de cada loja (`https://<mova>/avaliar/<código>`) e o **QR code**.
+- Cada **plaquinha** é cadastrada no MOVA, de uma loja e, se quiser, de um **vendedor** (crachá,
+  mesa) ou do balcão. Cada uma tem link próprio (`https://<mova>/avaliar/<código>`) e QR code.
   Quem encosta o celular na tag (ou lê o QR) cai direto na tela "escrever avaliação" da loja no
-  Google. O MOVA conta cada toque, separando NFC de QR.
+  Google. O MOVA conta cada toque por placa, por loja e por vendedor, separando NFC de QR, e
+  mostra o ranking do mês ("Toques por vendedor no mês"; dá para escolher meses anteriores).
+- O toque conta para quem era o dono da placa **na hora**: trocar o vendedor da placa (ele saiu
+  ou mudou de loja) não leva os toques antigos junto. Placa desativada continua levando o
+  cliente ao Google, mas não conta mais toque.
+- O Google não informa quem escreveu a avaliação a partir de qual placa: o MOVA mede o toque,
+  não a avaliação. Para ver o resultado, compare os toques com o aumento do total da loja.
 
 Limites da Places API: ela não traz todas as avaliações nem permite responder. Para isso seria
 preciso a Business Profile API, que exige pedir acesso ao Google e entrar com a conta dona das
@@ -43,8 +50,13 @@ por loja por dia (cerca de 30 por loja por mês). Confira a cota gratuita e o pr
 2. Busque a loja pelo nome e endereço, exatamente como aparece no Google Maps.
 3. Copie o código que começa com `ChIJ...` e cole no campo **Place ID** da loja.
 
-Depois de salvar, aparecem o link da tag e o QR code. Trocar o Place ID depois não muda o link:
-a placa já gravada continua valendo.
+Trocar o Place ID depois não muda o link das placas: a tag já gravada continua valendo.
+
+## 2b. Cadastrar as placas
+
+Em **Plaquinhas → Nova placa**, escolha a loja, o vendedor (ou "Balcão") e, se quiser, um
+apelido ("crachá", "mesa 2"). A placa aparece na lista com o link para gravar na tag e o QR para
+imprimir. Uma placa por pessoa: o link de uma placa não pode ir na tag de outra.
 
 ## 3. A plaquinha
 
@@ -71,7 +83,8 @@ a placa já gravada continua valendo.
    que alguém regrave a tag com outro link. Como o link aponta para o MOVA, não vai ser preciso
    regravar.
 
-Cada loja tem um link próprio: não grave o link de uma loja na placa de outra.
+Cada placa tem um link próprio: não grave o link de uma placa na tag de outra, senão o toque
+conta para a pessoa errada. Escreva o apelido ou o nome do vendedor no verso da placa.
 
 ## 4. Regras do Google que valem para a loja
 

@@ -5,26 +5,25 @@ import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { painelAvaliacoes } from '@/lib/avaliacoes-google/avaliacoes'
 import { urlBase } from '@/lib/assinatura/url'
 import { Star } from 'lucide-react'
-import { AvaliacoesClient, type PlacaTela } from './components/avaliacoes-client'
+import { AvaliacoesClient, type LinkPlaca } from './components/avaliacoes-client'
 
 /**
- * Avaliações do Google de cada loja do grupo ativo e a plaquinha NFC/QR que leva o
- * cliente a avaliar. Só os sócios (o item do menu é soPeloPapel).
+ * Avaliações do Google de cada loja do grupo ativo e as plaquinhas NFC/QR (por loja e por
+ * vendedor) que levam o cliente a avaliar. Só os sócios (o item do menu é soPeloPapel).
  */
-export default async function AvaliacoesGooglePage() {
+export default async function AvaliacoesGooglePage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+  const { mes } = await searchParams
   const usuario = await getUsuarioLogado()
   const grupo = await grupoAtivoDaRequisicao(usuario)
-  const painel = await painelAvaliacoes(usuario, grupo.id)
+  const painel = await painelAvaliacoes(usuario, grupo.id, undefined, { mes })
 
   const base = urlBase()
-  const placas: Record<string, PlacaTela> = {}
-  for (const l of painel?.lojas ?? []) {
-    if (!l.codigoPlaca) continue
-    const link = `${base}/avaliar/${l.codigoPlaca}`
-    const linkQr = `${link}?o=qr`
+  const links: Record<string, LinkPlaca> = {}
+  for (const p of painel?.placas ?? []) {
+    const link = `${base}/avaliar/${p.codigo}`
     // Margem de 2 módulos e correção M: aguenta risco e reflexo do acrílico.
-    const svg = await QRCode.toString(linkQr, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' })
-    placas[l.lojaId] = { link, linkQr, qrSvg: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` }
+    const svg = await QRCode.toString(`${link}?o=qr`, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' })
+    links[p.id] = { link, qrSvg: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` }
   }
 
   return (
@@ -35,11 +34,11 @@ export default async function AvaliacoesGooglePage() {
             <Star size={22} /> Avaliações Google
           </h1>
           <p className="text-muted-foreground text-sm">
-            Nota e avaliações de cada loja de {grupo.nome} no Google, e a plaquinha NFC/QR do balcão.
+            Nota e avaliações de cada loja de {grupo.nome} no Google, e o uso de cada plaquinha NFC/QR por loja e por vendedor.
           </p>
         </div>
         {painel
-          ? <AvaliacoesClient painel={painel} placas={placas} />
+          ? <AvaliacoesClient painel={painel} links={links} />
           : <p className="text-sm text-muted-foreground">Sem acesso a este grupo.</p>}
       </div>
     </AdminGuard>

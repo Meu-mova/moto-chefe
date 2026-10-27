@@ -2,17 +2,19 @@ import { and, asc, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   avaliacoesGoogle, avaliacoesGoogleConfig, avaliacoesGoogleHistorico, avaliacoesGoogleLojas,
-  avaliacoesGoogleToques, grupos, lojas,
+  avaliacoesGooglePlacas, avaliacoesGoogleToques, grupos, lojas, usuarios,
 } from '@/lib/db/schema'
 import { cifrar, decifrar } from '@/lib/cripto'
 import { grupoEstaNaConta } from '@/lib/conta'
 import { hojeBrt, inicioDoDiaBrt, mesBrt } from '@/lib/data-venda'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   codigoPlacaValido, gerarCodigoPlaca, linkEscreverAvaliacao, placeIdValido, type LugarPlaces,
 } from './places'
 
 /**
- * Avaliações do Google por loja e os toques da plaquinha NFC/QR.
+ * Avaliações do Google por loja e as plaquinhas NFC/QR, cada uma de uma loja e,
+ * opcionalmente, de um vendedor, para medir o uso de cada placa e de cada pessoa.
  * Tudo por grupo: só os sócios do próprio grupo leem e configuram, e nada cruza Conta.
  * Sem next/headers, para ser testado contra o banco; a action resolve o grupo ativo.
  */
@@ -35,6 +37,20 @@ async function grupoDoUsuario(usuario: Usuario, grupoId: string, exec: Executor)
   return grupoEstaNaConta(grupoId, usuario.contaId, exec)
 }
 
+async function lojaDoGrupo(lojaId: string, grupoId: string, exec: Executor): Promise<boolean> {
+  const [loja] = await exec.select({ id: lojas.id }).from(lojas)
+    .where(and(eq(lojas.id, lojaId), eq(lojas.grupoId, grupoId))).limit(1)
+  return !!loja
+}
+
+/** Responsável da placa: usuário ativo do grupo (mesma posse do seletor, dentro da Conta). */
+async function responsavelDoGrupo(usuarioId: string, grupoId: string, exec: Executor): Promise<boolean> {
+  const doGrupo = await listarUsuariosDoGrupo(grupoId, {}, exec)
+  if (!doGrupo.some(u => u.id === usuarioId)) return false
+  const [u] = await exec.select({ ativo: usuarios.ativo }).from(usuarios).where(eq(usuarios.id, usuarioId)).limit(1)
+  return u?.ativo === true
+}
+
 export async function salvarChaveGoogle(
   usuario: Usuario,
   data: { grupoId: string; chave: string },
@@ -55,9 +71,8 @@ export async function salvarChaveGoogle(
 }
 
 /**
- * Liga a loja à ficha dela no Google. Na primeira vez gera o código da placa, que não muda
- * depois (a tag já gravada continua valendo se o Place ID for trocado). Place ID vazio
- * desliga a leitura, mas mantém o código.
+ * Liga a loja à ficha dela no Google. As placas da loja não mudam: a tag já gravada continua
+ * valendo se o Place ID for trocado. Place ID vazio desliga a leitura e o redirecionamento.
  */
 export async function salvarPlaceIdLoja(
   usuario: Usuario,
@@ -66,15 +81,13 @@ export async function salvarPlaceIdLoja(
 ): Promise<Resultado> {
   const naoEncontrada = { ok: false as const, erro: 'Loja não encontrada' }
   if (!(await grupoDoUsuario(usuario, data.grupoId, exec))) return naoEncontrada
-  const [loja] = await exec.select({ id: lojas.id }).from(lojas)
-    .where(and(eq(lojas.id, data.lojaId), eq(lojas.grupoId, data.grupoId))).limit(1)
-  if (!loja) return naoEncontrada
+  if (!(await lojaDoGrupo(data.lojaId, data.grupoId, exec))) return naoEncontrada
 
   const placeId = data.placeId.trim() || null
   if (placeId && !placeIdValido(placeId)) return { ok: false, erro: 'Place ID em formato inválido' }
 
   const [atual] = await exec.select({ grupoId: avaliacoesGoogleLojas.grupoId, placeId: avaliacoesGoogleLojas.placeId })
-    .from(avaliacoesGoogleLojas).where(eq(avaliacoesGoogleLojas.lojaId, loja.id)).limit(1)
+    .from(avaliacoesGoogleLojas).where(eq(avaliacoesGoogleLojas.lojaId, data.lojaId)).limit(1)
   // Linha de outro grupo (loja que mudou de grupo): não reaproveita, para não levar histórico junto.
   if (atual && atual.grupoId !== data.grupoId) return naoEncontrada
 
@@ -83,7 +96,7 @@ export async function salvarPlaceIdLoja(
     ? { nota: null, totalAvaliacoes: null, mapsUri: null, sincronizadoEm: null, erroSincronizacao: null }
     : {}
   await exec.insert(avaliacoesGoogleLojas)
-    .values({ lojaId: loja.id, grupoId: data.grupoId, placeId, codigoPlaca: gerarCodigoPlaca() })
+    .values({ lojaId: data.lojaId, grupoId: data.grupoId, placeId })
     .onConflictDoUpdate({
       target: avaliacoesGoogleLojas.lojaId,
       set: { placeId, ...limpaLeitura },
@@ -91,9 +104,54 @@ export async function salvarPlaceIdLoja(
     })
   if (atual && trocouFicha) {
     // Avaliações e histórico eram da ficha antiga.
-    await exec.delete(avaliacoesGoogle).where(and(eq(avaliacoesGoogle.lojaId, loja.id), eq(avaliacoesGoogle.grupoId, data.grupoId)))
-    await exec.delete(avaliacoesGoogleHistorico).where(and(eq(avaliacoesGoogleHistorico.lojaId, loja.id), eq(avaliacoesGoogleHistorico.grupoId, data.grupoId)))
+    await exec.delete(avaliacoesGoogle).where(and(eq(avaliacoesGoogle.lojaId, data.lojaId), eq(avaliacoesGoogle.grupoId, data.grupoId)))
+    await exec.delete(avaliacoesGoogleHistorico).where(and(eq(avaliacoesGoogleHistorico.lojaId, data.lojaId), eq(avaliacoesGoogleHistorico.grupoId, data.grupoId)))
   }
+  return { ok: true }
+}
+
+const nomeDaPlaca = (nome: string | null | undefined) => nome?.trim().slice(0, 60) || null
+
+/** Nova placa da loja; `usuarioId` null = placa do balcão, sem vendedor. */
+export async function criarPlaca(
+  usuario: Usuario,
+  data: { grupoId: string; lojaId: string; usuarioId: string | null; nome?: string | null },
+  exec: Executor = db,
+): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
+  if (!(await grupoDoUsuario(usuario, data.grupoId, exec))) return { ok: false, erro: 'Loja não encontrada' }
+  if (!(await lojaDoGrupo(data.lojaId, data.grupoId, exec))) return { ok: false, erro: 'Loja não encontrada' }
+  if (data.usuarioId && !(await responsavelDoGrupo(data.usuarioId, data.grupoId, exec))) {
+    return { ok: false, erro: 'Vendedor não encontrado' }
+  }
+  const [placa] = await exec.insert(avaliacoesGooglePlacas).values({
+    grupoId: data.grupoId, lojaId: data.lojaId, usuarioId: data.usuarioId,
+    nome: nomeDaPlaca(data.nome), codigo: gerarCodigoPlaca(), criadoPor: usuario.id ?? null,
+  }).returning({ id: avaliacoesGooglePlacas.id })
+  return { ok: true, id: placa.id }
+}
+
+/**
+ * Troca o responsável, o nome ou liga/desliga a placa. O código não muda (a tag continua
+ * valendo) e os toques antigos ficam com quem era o responsável na hora.
+ */
+export async function editarPlaca(
+  usuario: Usuario,
+  data: { grupoId: string; placaId: string; usuarioId?: string | null; nome?: string | null; ativa?: boolean },
+  exec: Executor = db,
+): Promise<Resultado> {
+  const naoEncontrada = { ok: false as const, erro: 'Placa não encontrada' }
+  if (!(await grupoDoUsuario(usuario, data.grupoId, exec))) return naoEncontrada
+  const daPlaca = and(eq(avaliacoesGooglePlacas.id, data.placaId), eq(avaliacoesGooglePlacas.grupoId, data.grupoId))
+  const [placa] = await exec.select({ id: avaliacoesGooglePlacas.id }).from(avaliacoesGooglePlacas).where(daPlaca).limit(1)
+  if (!placa) return naoEncontrada
+  if (data.usuarioId && !(await responsavelDoGrupo(data.usuarioId, data.grupoId, exec))) {
+    return { ok: false, erro: 'Vendedor não encontrado' }
+  }
+  const set: Partial<typeof avaliacoesGooglePlacas.$inferInsert> = {}
+  if (data.usuarioId !== undefined) set.usuarioId = data.usuarioId
+  if (data.nome !== undefined) set.nome = nomeDaPlaca(data.nome)
+  if (data.ativa !== undefined) set.ativa = data.ativa
+  if (Object.keys(set).length) await exec.update(avaliacoesGooglePlacas).set(set).where(daPlaca)
   return { ok: true }
 }
 
@@ -106,11 +164,12 @@ export type AvaliacaoTela = {
   publicadaEm: string | null
 }
 
+export type Toques = { nfc: number; qr: number }
+
 export type LojaPainel = {
   lojaId: string
   nome: string
   placeId: string | null
-  codigoPlaca: string | null
   nota: number | null
   total: number | null
   mapsUri: string | null
@@ -118,29 +177,74 @@ export type LojaPainel = {
   erro: string | null
   /** Diferença para a foto mais antiga dos últimos 30 dias; null sem histórico. */
   variacao: { nota: number | null; total: number | null; desde: string } | null
-  toquesMes: { nfc: number; qr: number }
+  /** Toques de todas as placas da loja no mês escolhido. */
+  toquesMes: Toques
   avaliacoes: AvaliacaoTela[]
 }
 
-export type PainelAvaliacoes = { temChave: boolean; lojas: LojaPainel[] }
+export type PlacaPainel = {
+  id: string
+  lojaId: string
+  lojaNome: string
+  usuarioId: string | null
+  usuarioNome: string | null
+  nome: string | null
+  codigo: string
+  ativa: boolean
+  toquesMes: Toques
+  toquesTotal: number
+}
+
+/** Toques do mês por responsável na hora do toque; usuarioId null = placa de balcão. */
+export type ResponsavelPainel = { usuarioId: string | null; nome: string; lojaId: string; lojaNome: string; toques: Toques }
+
+export type PainelAvaliacoes = {
+  temChave: boolean
+  /** 'YYYY-MM' (Brasília) dos toques mostrados. */
+  mes: string
+  lojas: LojaPainel[]
+  placas: PlacaPainel[]
+  porResponsavel: ResponsavelPainel[]
+  /** Quem pode ser dono de placa: usuários ativos do grupo. */
+  responsaveis: { id: string; nome: string }[]
+}
 
 const num = (v: string | null) => (v === null ? null : Number(v))
+
+function proximoMes(mes: string): string {
+  const [a, m] = mes.split('-').map(Number)
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`
+}
+
+function somar(linhas: { origem: 'nfc' | 'qr'; n: number }[]): Toques {
+  const t = { nfc: 0, qr: 0 }
+  for (const l of linhas) t[l.origem] += l.n
+  return t
+}
 
 export async function painelAvaliacoes(
   usuario: Usuario,
   grupoId: string,
   exec: Executor = db,
-  agora: Date = new Date(),
+  opcoes: { mes?: string; agora?: Date } = {},
 ): Promise<PainelAvaliacoes | null> {
   if (!(await grupoDoUsuario(usuario, grupoId, exec))) return null
 
-  const inicioMes = inicioDoDiaBrt(`${mesBrt(agora)}-01`).toISOString()
-  const [config, linhas, historico, toques, avaliacoes] = await Promise.all([
+  const mes = opcoes.mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(opcoes.mes) ? opcoes.mes : mesBrt(opcoes.agora)
+  const inicio = inicioDoDiaBrt(`${mes}-01`).toISOString()
+  const fim = inicioDoDiaBrt(`${proximoMes(mes)}-01`).toISOString()
+  const doMes = and(
+    eq(avaliacoesGoogleToques.grupoId, grupoId),
+    gte(avaliacoesGoogleToques.criadoEm, sql`${inicio}::timestamptz`),
+    lt(avaliacoesGoogleToques.criadoEm, sql`${fim}::timestamptz`),
+  )
+
+  const [config, linhas, historico, placas, toquesPlacaMes, toquesPlacaTotal, toquesResp, avaliacoes, doGrupo] = await Promise.all([
     exec.select({ grupoId: avaliacoesGoogleConfig.grupoId }).from(avaliacoesGoogleConfig)
       .where(eq(avaliacoesGoogleConfig.grupoId, grupoId)).limit(1),
     exec.select({
       lojaId: lojas.id, nome: lojas.nome,
-      placeId: avaliacoesGoogleLojas.placeId, codigoPlaca: avaliacoesGoogleLojas.codigoPlaca,
+      placeId: avaliacoesGoogleLojas.placeId,
       nota: avaliacoesGoogleLojas.nota, total: avaliacoesGoogleLojas.totalAvaliacoes,
       mapsUri: avaliacoesGoogleLojas.mapsUri, sincronizadoEm: avaliacoesGoogleLojas.sincronizadoEm,
       erro: avaliacoesGoogleLojas.erroSincronizacao,
@@ -157,12 +261,31 @@ export async function painelAvaliacoes(
       .where(eq(avaliacoesGoogleHistorico.grupoId, grupoId))
       .orderBy(asc(avaliacoesGoogleHistorico.dia)),
     exec.select({
-      lojaId: avaliacoesGoogleToques.lojaId, origem: avaliacoesGoogleToques.origem,
-      n: sql<number>`count(*)::int`,
+      id: avaliacoesGooglePlacas.id, lojaId: avaliacoesGooglePlacas.lojaId, lojaNome: lojas.nome,
+      usuarioId: avaliacoesGooglePlacas.usuarioId, usuarioNome: usuarios.nome,
+      nome: avaliacoesGooglePlacas.nome, codigo: avaliacoesGooglePlacas.codigo, ativa: avaliacoesGooglePlacas.ativa,
+    })
+      .from(avaliacoesGooglePlacas)
+      .innerJoin(lojas, eq(lojas.id, avaliacoesGooglePlacas.lojaId))
+      .leftJoin(usuarios, eq(usuarios.id, avaliacoesGooglePlacas.usuarioId))
+      .where(eq(avaliacoesGooglePlacas.grupoId, grupoId))
+      .orderBy(desc(avaliacoesGooglePlacas.ativa), asc(lojas.nome), asc(usuarios.nome), asc(avaliacoesGooglePlacas.criadoEm)),
+    exec.select({ placaId: avaliacoesGoogleToques.placaId, origem: avaliacoesGoogleToques.origem, n: sql<number>`count(*)::int` })
+      .from(avaliacoesGoogleToques).where(doMes)
+      .groupBy(avaliacoesGoogleToques.placaId, avaliacoesGoogleToques.origem),
+    exec.select({ placaId: avaliacoesGoogleToques.placaId, n: sql<number>`count(*)::int` })
+      .from(avaliacoesGoogleToques).where(eq(avaliacoesGoogleToques.grupoId, grupoId))
+      .groupBy(avaliacoesGoogleToques.placaId),
+    exec.select({
+      usuarioId: avaliacoesGoogleToques.usuarioId, usuarioNome: usuarios.nome,
+      lojaId: avaliacoesGoogleToques.lojaId, lojaNome: lojas.nome,
+      origem: avaliacoesGoogleToques.origem, n: sql<number>`count(*)::int`,
     })
       .from(avaliacoesGoogleToques)
-      .where(and(eq(avaliacoesGoogleToques.grupoId, grupoId), gte(avaliacoesGoogleToques.criadoEm, sql`${inicioMes}::timestamptz`)))
-      .groupBy(avaliacoesGoogleToques.lojaId, avaliacoesGoogleToques.origem),
+      .innerJoin(lojas, eq(lojas.id, avaliacoesGoogleToques.lojaId))
+      .leftJoin(usuarios, eq(usuarios.id, avaliacoesGoogleToques.usuarioId))
+      .where(doMes)
+      .groupBy(avaliacoesGoogleToques.usuarioId, usuarios.nome, avaliacoesGoogleToques.lojaId, lojas.nome, avaliacoesGoogleToques.origem),
     exec.select({
       lojaId: avaliacoesGoogle.lojaId, googleId: avaliacoesGoogle.googleId, autor: avaliacoesGoogle.autor,
       autorUri: avaliacoesGoogle.autorUri, nota: avaliacoesGoogle.nota, texto: avaliacoesGoogle.texto,
@@ -171,10 +294,38 @@ export async function painelAvaliacoes(
       .from(avaliacoesGoogle)
       .where(eq(avaliacoesGoogle.grupoId, grupoId))
       .orderBy(desc(avaliacoesGoogle.publicadaEm)),
+    listarUsuariosDoGrupo(grupoId, {}, exec),
   ])
+
+  const ativos = doGrupo.length
+    ? new Set((await exec.select({ id: usuarios.id }).from(usuarios)
+        .where(and(eq(usuarios.ativo, true), sql`${usuarios.id} = any(${sql.param(doGrupo.map(u => u.id))}::uuid[])`))).map(u => u.id))
+    : new Set<string>()
+
+  const placasPainel: PlacaPainel[] = placas.map(p => ({
+    ...p,
+    toquesMes: somar(toquesPlacaMes.filter(t => t.placaId === p.id)),
+    toquesTotal: toquesPlacaTotal.find(t => t.placaId === p.id)?.n ?? 0,
+  }))
+
+  const porResponsavel = new Map<string, ResponsavelPainel>()
+  for (const t of toquesResp) {
+    const chave = `${t.usuarioId ?? 'balcao'}|${t.lojaId}`
+    const r = porResponsavel.get(chave) ?? {
+      usuarioId: t.usuarioId, nome: t.usuarioNome ?? 'Balcão (sem vendedor)',
+      lojaId: t.lojaId, lojaNome: t.lojaNome, toques: { nfc: 0, qr: 0 },
+    }
+    r.toques[t.origem] += t.n
+    porResponsavel.set(chave, r)
+  }
 
   return {
     temChave: config.length > 0,
+    mes,
+    placas: placasPainel,
+    porResponsavel: [...porResponsavel.values()]
+      .sort((a, b) => (b.toques.nfc + b.toques.qr) - (a.toques.nfc + a.toques.qr) || a.nome.localeCompare(b.nome)),
+    responsaveis: doGrupo.filter(u => ativos.has(u.id)),
     lojas: linhas.map(l => {
       const fotos = historico.filter(h => h.lojaId === l.lojaId)
       const primeira = fotos[0]
@@ -186,12 +337,11 @@ export async function painelAvaliacoes(
             desde: primeira.dia,
           }
         : null
-      const toquesDaLoja = toques.filter(t => t.lojaId === l.lojaId)
+      const daLoja = placasPainel.filter(p => p.lojaId === l.lojaId)
       return {
         lojaId: l.lojaId,
         nome: l.nome,
         placeId: l.placeId ?? null,
-        codigoPlaca: l.codigoPlaca ?? null,
         nota,
         total: l.total ?? null,
         mapsUri: l.mapsUri ?? null,
@@ -199,8 +349,8 @@ export async function painelAvaliacoes(
         erro: l.erro ?? null,
         variacao,
         toquesMes: {
-          nfc: toquesDaLoja.find(t => t.origem === 'nfc')?.n ?? 0,
-          qr: toquesDaLoja.find(t => t.origem === 'qr')?.n ?? 0,
+          nfc: daLoja.reduce((s, p) => s + p.toquesMes.nfc, 0),
+          qr: daLoja.reduce((s, p) => s + p.toquesMes.qr, 0),
         },
         avaliacoes: avaliacoes.filter(a => a.lojaId === l.lojaId).slice(0, 10).map(a => ({
           googleId: a.googleId, autor: a.autor, autorUri: a.autorUri, nota: a.nota, texto: a.texto,
@@ -213,8 +363,8 @@ export async function painelAvaliacoes(
 
 /**
  * Toque na placa ou leitura do QR (rota pública /avaliar/<codigo>). O código é a credencial:
- * devolve o link do Google para redirecionar, ou null se a placa não existe ou ainda não
- * tem ficha do Google.
+ * devolve o link do Google para redirecionar, ou null se a placa não existe ou a loja ainda
+ * não tem ficha do Google. Placa desativada leva ao Google, mas não conta toque.
  */
 export async function registrarToque(
   codigo: string,
@@ -223,12 +373,21 @@ export async function registrarToque(
 ): Promise<string | null> {
   if (!codigoPlacaValido(codigo)) return null
   const [placa] = await exec.select({
-    lojaId: avaliacoesGoogleLojas.lojaId, grupoId: avaliacoesGoogleLojas.grupoId, placeId: avaliacoesGoogleLojas.placeId,
+    id: avaliacoesGooglePlacas.id, lojaId: avaliacoesGooglePlacas.lojaId, grupoId: avaliacoesGooglePlacas.grupoId,
+    usuarioId: avaliacoesGooglePlacas.usuarioId, ativa: avaliacoesGooglePlacas.ativa, placeId: avaliacoesGoogleLojas.placeId,
   })
-    .from(avaliacoesGoogleLojas)
-    .where(eq(avaliacoesGoogleLojas.codigoPlaca, codigo)).limit(1)
+    .from(avaliacoesGooglePlacas)
+    .innerJoin(avaliacoesGoogleLojas, and(
+      eq(avaliacoesGoogleLojas.lojaId, avaliacoesGooglePlacas.lojaId),
+      eq(avaliacoesGoogleLojas.grupoId, avaliacoesGooglePlacas.grupoId),
+    ))
+    .where(eq(avaliacoesGooglePlacas.codigo, codigo)).limit(1)
   if (!placa?.placeId) return null
-  await exec.insert(avaliacoesGoogleToques).values({ lojaId: placa.lojaId, grupoId: placa.grupoId, origem })
+  if (placa.ativa) {
+    await exec.insert(avaliacoesGoogleToques).values({
+      placaId: placa.id, lojaId: placa.lojaId, grupoId: placa.grupoId, usuarioId: placa.usuarioId, origem,
+    })
+  }
   return linkEscreverAvaliacao(placa.placeId)
 }
 
@@ -250,7 +409,7 @@ export async function sincronizarGrupo(
   if (!config) return { lojas: 0, erros: 0 }
   const apiKey = decifrar(config.apiKey).toString('utf8')
 
-  const placas = await exec.select({ lojaId: avaliacoesGoogleLojas.lojaId, placeId: avaliacoesGoogleLojas.placeId })
+  const fichas = await exec.select({ lojaId: avaliacoesGoogleLojas.lojaId, placeId: avaliacoesGoogleLojas.placeId })
     .from(avaliacoesGoogleLojas)
     .innerJoin(lojas, eq(lojas.id, avaliacoesGoogleLojas.lojaId))
     .where(and(
@@ -260,23 +419,23 @@ export async function sincronizarGrupo(
 
   const doGrupo = (lojaId: string) => and(eq(avaliacoesGoogleLojas.lojaId, lojaId), eq(avaliacoesGoogleLojas.grupoId, grupoId))
   let erros = 0
-  for (const p of placas) {
+  for (const f of fichas) {
     let lugar: LugarPlaces
     try {
-      lugar = await deps.buscarLugar(apiKey, p.placeId!)
+      lugar = await deps.buscarLugar(apiKey, f.placeId!)
     } catch (e) {
       erros++
       await exec.update(avaliacoesGoogleLojas)
         .set({ erroSincronizacao: (e as Error).message.slice(0, 300) })
-        .where(doGrupo(p.lojaId))
+        .where(doGrupo(f.lojaId))
       continue
     }
     const nota = lugar.nota === null ? null : lugar.nota.toFixed(1)
     await exec.update(avaliacoesGoogleLojas)
       .set({ nota, totalAvaliacoes: lugar.total, mapsUri: lugar.mapsUri, sincronizadoEm: agora, erroSincronizacao: null })
-      .where(doGrupo(p.lojaId))
+      .where(doGrupo(f.lojaId))
     await exec.insert(avaliacoesGoogleHistorico)
-      .values({ lojaId: p.lojaId, grupoId, dia: hojeBrt(agora), nota, totalAvaliacoes: lugar.total })
+      .values({ lojaId: f.lojaId, grupoId, dia: hojeBrt(agora), nota, totalAvaliacoes: lugar.total })
       .onConflictDoUpdate({
         target: [avaliacoesGoogleHistorico.lojaId, avaliacoesGoogleHistorico.dia],
         set: { nota, totalAvaliacoes: lugar.total },
@@ -288,7 +447,7 @@ export async function sincronizarGrupo(
         publicadaEm: a.publicadaEm ? new Date(a.publicadaEm) : null, vistaEm: agora,
       }
       await exec.insert(avaliacoesGoogle)
-        .values({ grupoId, lojaId: p.lojaId, googleId: a.googleId, ...campos })
+        .values({ grupoId, lojaId: f.lojaId, googleId: a.googleId, ...campos })
         .onConflictDoUpdate({
           target: [avaliacoesGoogle.lojaId, avaliacoesGoogle.googleId],
           set: campos,
@@ -296,7 +455,7 @@ export async function sincronizarGrupo(
         })
     }
   }
-  return { lojas: placas.length, erros }
+  return { lojas: fichas.length, erros }
 }
 
 /** Apaga o conteúdo do Google com mais de 30 dias, de todos os grupos. */
@@ -324,4 +483,3 @@ export async function sincronizarTodosOsGrupos(deps: DependenciasSync, exec: Exe
   await limparConteudoVencido(exec)
   return porGrupo
 }
-
