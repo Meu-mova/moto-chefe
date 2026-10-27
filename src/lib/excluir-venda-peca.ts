@@ -9,6 +9,7 @@ import { aprovacoesVenda, conciliacoesCartao, pecasCatalogo, pixRecebimentosMcp,
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { vendaPecaEditavel, type UsuarioDaVenda } from '@/lib/venda-peca-editavel'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { moverSaldo } from '@/lib/estoque-pecas-loja'
 
 type Tx = Parameters<Parameters<typeof db['transaction']>[0]>[0]
 
@@ -40,6 +41,7 @@ export async function excluirVendaPecaTx(tx: Tx, usuario: UsuarioDaVenda & { id:
         atualizadoEm: new Date(),
       })
       .where(and(eq(pecasCatalogo.id, item.pecaId), daContaDaLoja(venda.lojaId)))
+    await moverSaldo(tx, item.pecaId, venda.lojaId, Number(item.quantidade))
   }
 
   // Soltar antes do DELETE: as duas colunas são FK pra vendas_pecas e segurariam a

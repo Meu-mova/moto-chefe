@@ -9,6 +9,7 @@ import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { moverSaldo } from '@/lib/estoque-pecas-loja'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -53,6 +54,7 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     await tx.update(pecasCatalogo)
       .set({ quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${n}`, atualizadoEm: new Date() })
       .where(eq(pecasCatalogo.id, pecaId))
+    await moverSaldo(tx, pecaId, venda.lojaId, -n)
   }
 
   const novos = e.itens.map(item => {

@@ -3,6 +3,7 @@ import { pecasCatalogo, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { moverSaldo } from '@/lib/estoque-pecas-loja'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -87,6 +88,7 @@ export async function aplicarVendaPeca(
         atualizadoEm: new Date(),
       })
       .where(eq(pecasCatalogo.id, item.pecaId))
+    await moverSaldo(tx, item.pecaId, input.lojaId, -item.quantidade)
   }
 
   return { id: venda.id }
