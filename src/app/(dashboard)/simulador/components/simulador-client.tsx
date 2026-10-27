@@ -227,11 +227,12 @@ function gerarHtmlPrint(
 
   const linhasCartaoParaPrint = entrada > 0 ? linhasCartaoComEntrada : linhasCartaoSemEntrada
 
+  // Cor de significado por seção: texto 4.5+ sobre o card e sobre o cabeçalho (10%), claro e escuro.
   const tabelasSelecionadas = [
     gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Crédito', corLabel: 'var(--info)', corBg: 'color-mix(in srgb, var(--info) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--info) 30%, var(--card))', corValor: 'var(--info)', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
-    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--chart-3)', corBg: 'color-mix(in srgb, var(--chart-3) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--chart-3) 30%, var(--card))', corValor: 'var(--chart-3)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
-    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Link de Pagamento', corLabel: 'var(--grupo-violet-selo-texto)', corBg: 'var(--grupo-violet-selo)', corBorder: 'color-mix(in srgb, var(--grupo-violet-selo-texto) 30%, var(--card))', corValor: 'var(--grupo-violet-selo-texto)', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
-    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Financiamento', corLabel: 'var(--warning)', corBg: 'color-mix(in srgb, var(--warning) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--warning) 30%, var(--card))', corValor: 'var(--warning)', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--success)', corBg: 'color-mix(in srgb, var(--success) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--success) 30%, var(--card))', corValor: 'var(--success)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Link de Pagamento', corLabel: 'var(--warning)', corBg: 'color-mix(in srgb, var(--warning) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--warning) 30%, var(--card))', corValor: 'var(--warning)', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Financiamento', corLabel: 'var(--muted-foreground)', corBg: 'color-mix(in srgb, var(--muted-foreground) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--muted-foreground) 30%, var(--card))', corValor: 'var(--muted-foreground)', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
 
   const blocoFrete = frete ? `
