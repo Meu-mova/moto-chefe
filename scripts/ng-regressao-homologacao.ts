@@ -10,6 +10,7 @@
  * Uso (só staging; credencial do "Grupo Teste Sul", que precisa estar em Homologacao):
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/ng-regressao-homologacao.ts --dry-run
  *   npx dotenv-cli -e .env.local -- node --import tsx scripts/ng-regressao-homologacao.ts
+ *   ... --ciclomotor   (a moto vai com o grupo veiculoNovo do RENAVE, padrões da sugestão do MOVA)
  *
  * A saída completa (com o corpo de cada requisição e resposta, sem headers nem token) vai
  * também para ~/Development/work/moto-chefe/ng-regressao-logs/<idTeste>.log (0600, fora do repo).
@@ -22,10 +23,12 @@ import { join, resolve } from 'node:path'
 import { criarRegistro, lerCredencialHomologacao, mascarar, rodarColecao, ufDoEmitente, type Regra } from './lib/postman-ng'
 import { montarNfeVendaMoto, type DadosVendaMoto } from '../src/lib/notagateway/payload'
 import { formaPagamentoNfe } from '../src/lib/notagateway/venda'
+import { montarVeiculoNovo, sugestaoRenave, validarRenave } from '../src/lib/notagateway/veiculo'
 
 const GRUPO = 'Grupo Teste Sul'
 const COLECAO = resolve(process.cwd(), 'scripts/postman/nf-regressao-homologacao.postman_collection.json')
 const dryRun = process.argv.includes('--dry-run')
+const ciclomotor = process.argv.includes('--ciclomotor')
 const LOG_DIR = join(homedir(), 'Development/work/moto-chefe/ng-regressao-logs')
 
 const registro = criarRegistro(LOG_DIR)
@@ -37,6 +40,17 @@ const NCM_MOTO = '87116000'
 const UF_EMITENTE_DRY_RUN = 'MG'
 // Texto da carta: entre 15 e 1000 caracteres (carta-correcao.ts).
 const TEXTO_CARTA = 'Teste de regressao 347: correcao da cor do veiculo para CINZA. Sem valor fiscal.'
+
+/** Veículo sintético com os padrões que a tela sugere hoje; só o que não tem padrão é preenchido aqui. */
+function veiculoSintetico() {
+  const v = validarRenave({
+    ...sugestaoRenave({ chassi: '9C2ABC1D2EF345678', cor: 'Preta', motor: 'MOTORTESTE01', potenciaW: '1000W', anoAtual: new Date().getFullYear() }),
+    pesoLiquido: '0,0850', pesoBruto: '0,2350', capacidadeMaximaTracao: '0', distanciaEixos: '1300',
+    codigoMarcaModelo: '000001', lotacao: '2',
+  })
+  if (!v.ok) throw new Error(`veículo sintético inválido: ${v.error}`)
+  return montarVeiculoNovo(v.dados)
+}
 
 function dadosSinteticos(idExterno: string, ufEmitente: string): DadosVendaMoto {
   const valor = 9990
@@ -52,7 +66,7 @@ function dadosSinteticos(idExterno: string, ufEmitente: string): DadosVendaMoto 
       indicadorIe: 'nao_contribuinte',
       endereco: { uf: 'MG', cidade: 'Pouso Alegre', logradouro: 'Rua Teste Sintetico', numero: '100', bairro: 'Centro', cep: '37550-000' },
     },
-    moto: { xProd: 'MOTO ELETRICA TESTE REGRESSAO 2000W', codigo: 'TESTE-REGRESSAO', ncm: NCM_MOTO, cest: '2600100', unidade: 'UN', origem: '0' },
+    moto: { xProd: 'MOTO ELETRICA TESTE REGRESSAO 2000W', codigo: 'TESTE-REGRESSAO', ncm: NCM_MOTO, cest: '2600100', unidade: 'UN', origem: '0', ...(ciclomotor ? { veiculo: veiculoSintetico() } : {}) },
     valor,
     pagamentos: [{ tipo: 'pix', valor }].map(formaPagamentoNfe),
     informacoesAdicionais: 'Teste de regressão fiscal (#347). Sem valor fiscal.',
@@ -96,6 +110,7 @@ async function main() {
     id: base.id, ambienteEmissao: base.ambienteEmissao, naturezaOperacao: base.naturezaOperacao,
     enviarPorEmail: base.enviarPorEmail, pagamento: base.pedido.pagamento.formas,
     cliente: { ...base.cliente, cpfCnpj: mascarar(base.cliente.cpfCnpj) },
+    veiculoNovo: item.veiculoNovo ?? null,
     item: { cfop: item.cfop, ncm: item.ncm, cest: item.cest, descricao: item.descricao, valorUnitario: item.valorUnitario, impostos: item.impostos },
   }, null, 2))
   log('Variantes:', Object.entries(variantes).map(([k, v]) => `${k} (${v.length} bytes)`).join(', '))
