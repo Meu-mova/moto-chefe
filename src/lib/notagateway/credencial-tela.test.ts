@@ -10,7 +10,7 @@ const cfg = {
 test('o que vai para a tela não leva o empresaId nem o token, só se estão cadastrados', () => {
   const c = credencialParaTela(cfg)
   assert.deepEqual(c, {
-    temToken: true, temEmpresa: true, ambiente: 'Producao', serieNfe: '2', proximoNumero: 10,
+    temToken: true, temEmpresa: true, ambiente: 'Producao',
     certificadoEnviadoEm: '2026-10-20T12:00:00.000Z',
   })
   const json = JSON.stringify(c)

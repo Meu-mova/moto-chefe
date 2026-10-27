@@ -4,12 +4,12 @@ import { notagatewayConfig, regrasFiscaisSaida, grupos } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeUsuarioVerGrupo } from '@/lib/grupo'
-import { cifrar } from '@/lib/cripto'
+import { salvarCredencial, type CredencialPayload } from '@/lib/notagateway/credencial'
 import { revalidatePath } from 'next/cache'
 import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type ResultadoLogo } from '@/lib/logo-danfe'
-import { configNotaGateway } from '@/lib/notagateway/client'
+import { cnpjDaEmpresaNaNg, configNotaGateway } from '@/lib/notagateway/client'
 import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
 
 /**
@@ -32,60 +32,13 @@ async function assertGrupo(usuario: Awaited<ReturnType<typeof assertAdmin>>, gru
   return g
 }
 
-export type CredencialPayload = {
-  grupoId: string
-  /** Vazio = não mexer no token já gravado (a tela nunca mostra o valor atual). */
-  token: string
-  ambiente: 'Homologacao' | 'Producao'
-  serieNfe: string
-  proximoNumero: number
-}
+export type { CredencialPayload }
 
-/**
- * Grava a credencial da Nota Gateway do grupo.
- *
- * O token é cifrado como o certificado A1 (`src/lib/cripto.ts`) e nunca volta
- * para a tela — quem quiser trocar digita o novo; campo vazio preserva o atual.
- * O `empresaId` não entra aqui: ele vem da API no cadastro da empresa.
- */
-export async function salvarCredencialAction(data: CredencialPayload) {
-  const usuario = await assertAdmin()
-  await assertGrupo(usuario, data.grupoId)
-
-  const serie = data.serieNfe.trim() || '1'
-  const numero = Number.isFinite(data.proximoNumero) && data.proximoNumero > 0 ? Math.trunc(data.proximoNumero) : 1
-
-  const jaTem = await db
-    .select({ grupoId: notagatewayConfig.grupoId })
-    .from(notagatewayConfig)
-    .where(eq(notagatewayConfig.grupoId, data.grupoId))
-    .limit(1)
-
-  if (!jaTem.length && !data.token.trim()) {
-    throw new Error('Informe o token da Nota Gateway para configurar este grupo')
-  }
-
-  const comum = {
-    ambiente: data.ambiente,
-    serieNfe: serie,
-    proximoNumero: numero,
-    atualizadoEm: sql`NOW()` as unknown as Date,
-  }
-
-  if (jaTem.length) {
-    await db
-      .update(notagatewayConfig)
-      .set(data.token.trim() ? { ...comum, token: cifrar(data.token.trim()) } : comum)
-      .where(eq(notagatewayConfig.grupoId, data.grupoId))
-  } else {
-    await db.insert(notagatewayConfig).values({
-      grupoId: data.grupoId,
-      token: cifrar(data.token.trim()),
-      ...comum,
-    })
-  }
-
-  revalidatePath('/admin/notas-fiscais')
+/** Grava a credencial da Nota Gateway do grupo: só o admin_geral (#446). */
+export async function salvarCredencialAction(data: CredencialPayload): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const r = await salvarCredencial(await getUsuarioLogado(), data, { cnpjDaEmpresaNaNg })
+  if (r.ok) revalidatePath('/admin/notas-fiscais')
+  return r
 }
 
 export type RegraPayload = {
