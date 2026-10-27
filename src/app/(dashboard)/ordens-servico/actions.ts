@@ -2,6 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
+import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
 import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, cuponsRevisao } from '@/lib/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -214,6 +215,10 @@ async function registrarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
 
   await validarCupomDoPagamento(usuario, osId, dados.pagamentos)
+  const [osAtual] = await db.select({ lojaId: ordensServico.lojaId, pagamentos: ordensServico.pagamentos })
+    .from(ordensServico).where(eq(ordensServico.id, osId)).limit(1)
+  if (!osAtual) throw new RecusaUsuario('OS não encontrada')
+  await conferirMaquininhas(db, osAtual.lojaId, dados.pagamentos, operadorasGravadas(osAtual.pagamentos))
 
   const somatorio = dados.pagamentos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
   if (dados.valorTotal >= 0.01 && Math.abs(somatorio - dados.valorTotal) > 0.01) {

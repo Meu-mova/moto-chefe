@@ -3,6 +3,7 @@
  * itens e pagamentos no lugar (mesmo número), acerta o estoque pela diferença
  * e grava o histórico. Permissão e saneamento ficam na action, como na criação.
  */
+import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
@@ -43,6 +44,7 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   // Também aqui, e não só na action: a edição aprovada aplica o que ficou guardado (#195).
   const recusaQuantidade = recusaDaQuantidadeVendida(e.itens)
   if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
+  await conferirMaquininhas(tx, venda.lojaId, e.pagamentos, operadorasGravadas(venda.pagamentos))
   for (const item of e.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new RecusaUsuario('Peça não encontrada')
