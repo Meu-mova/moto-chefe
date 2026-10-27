@@ -54,17 +54,21 @@ async function cenario(tx: Tx) {
 }
 
 /** NG e Storage de mentira: anotam o que receberam. */
-function dependencias(tx: Tx, opcoes: { storageFalha?: boolean } = {}) {
+function dependencias(tx: Tx, opcoes: { storageFalha?: boolean; ngFalha?: boolean; configFalha?: boolean } = {}) {
   const ng: string[] = []
   const storage: string[] = []
   return {
     ng, storage,
     deps: {
       configNg: async (grupoId: string) => {
+        if (opcoes.configFalha) throw new Error('connect ECONNREFUSED')
         const r = (await tx.execute(sql`select empresa_id from notagateway_config where grupo_id = ${grupoId}`)) as unknown as { rows: { empresa_id: string }[] }
         return r.rows[0] ? { token: 't', empresaId: r.rows[0].empresa_id, ambiente: 'Homologacao' as const } : null
       },
-      vincularNaNg: async (cfg: { empresaId: string }) => { ng.push(cfg.empresaId) },
+      vincularNaNg: async (cfg: { empresaId: string }) => {
+        if (opcoes.ngFalha) throw new Error('fetch failed')
+        ng.push(cfg.empresaId)
+      },
       salvarCopia: async (grupoId: string) => {
         if (opcoes.storageFalha) throw new Error('storage fora')
         storage.push(grupoId)
@@ -166,6 +170,40 @@ test('grupo sem a Nota Gateway configurada avisa e não envia', async () => {
     const r = await enviarLogoDanfe(c.socioA, c.grupoA, png, d.deps, tx)
     assert.deepEqual(r, { ok: false, erro: 'Configure a Nota Gateway deste grupo antes de enviar a logo.' })
     assert.deepEqual(d.ng, [])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+const FALHA_NG = 'Não deu para enviar a logo à Nota Gateway agora. Tente de novo em alguns minutos.'
+
+test('NG recusa ou fora do ar: frase fixa em português, nada no Storage, no registro nem no log', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const d = dependencias(tx, { ngFalha: true })
+    const r = await enviarLogoDanfe(c.socioA, c.grupoA, png, d.deps, tx)
+    assert.deepEqual(r, { ok: false, erro: FALHA_NG })
+    assert.deepEqual(d.storage, [])
+    assert.equal((await registroDoGrupo(tx, c.grupoA)).logo_enviada_em, null)
+    assert.equal((await logsDoTipo(tx, c.grupoA)).length, 0)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('falha ao ler a credencial da NG também vira a frase fixa, sem lançar', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const d = dependencias(tx, { configFalha: true })
+    assert.deepEqual(await enviarLogoDanfe(c.socioA, c.grupoA, png, d.deps, tx), { ok: false, erro: FALHA_NG })
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('admin_geral vê os grupos de todas as Contas na lista do card', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const admin = { id: c.socioA.id, papel: 'admin_geral', contaId: null }
+    const ids = (await gruposParaLogo(admin, tx)).map(g => g.id)
+    assert.ok(ids.includes(c.grupoA) && ids.includes(c.grupoB))
     throw new Desfazer()
   }), Desfazer)
 })

@@ -78,13 +78,14 @@ export async function enviarLogoDanfe(
 ): Promise<ResultadoLogo> {
   const logo = await previaLogoDanfe(usuario, grupoId, arquivo, exec)
   if (!logo.ok) return logo
-  const cfg = await deps.configNg(grupoId)
-  if (!cfg) return { ok: false, erro: 'Configure a Nota Gateway deste grupo antes de enviar a logo.' }
-
   try {
+    const cfg = await deps.configNg(grupoId)
+    if (!cfg) return { ok: false, erro: 'Configure a Nota Gateway deste grupo antes de enviar a logo.' }
     await deps.vincularNaNg(cfg, logo.png)
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : 'A Nota Gateway não aceitou a logo.' }
+    // Só a mensagem, que nunca leva token nem empresaId (logo-ng.ts põe só o status HTTP).
+    console.error('[logo-danfe] envio à NG falhou:', e instanceof Error ? e.message : 'erro desconhecido')
+    return { ok: false, erro: 'Não deu para enviar a logo à Nota Gateway agora. Tente de novo em alguns minutos.' }
   }
   // Daqui em diante a NG já imprime a logo nova: o log registra mesmo se a cópia falhar.
   try {
