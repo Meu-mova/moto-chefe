@@ -227,10 +227,9 @@ function gerarHtmlPrint(
 
   const linhasCartaoParaPrint = entrada > 0 ? linhasCartaoComEntrada : linhasCartaoSemEntrada
 
-  // Débito e link usam o selo do grupo (texto 4.5+ no claro e no escuro, tabela em identidade-visual.md).
   const tabelasSelecionadas = [
     gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Crédito', corLabel: 'var(--info)', corBg: 'color-mix(in srgb, var(--info) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--info) 30%, var(--card))', corValor: 'var(--info)', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
-    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--grupo-cyan-selo-texto)', corBg: 'var(--grupo-cyan-selo)', corBorder: 'color-mix(in srgb, var(--grupo-cyan-selo-texto) 30%, var(--card))', corValor: 'var(--grupo-cyan-selo-texto)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--chart-3)', corBg: 'color-mix(in srgb, var(--chart-3) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--chart-3) 30%, var(--card))', corValor: 'var(--chart-3)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
     gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Link de Pagamento', corLabel: 'var(--grupo-violet-selo-texto)', corBg: 'var(--grupo-violet-selo)', corBorder: 'color-mix(in srgb, var(--grupo-violet-selo-texto) 30%, var(--card))', corValor: 'var(--grupo-violet-selo-texto)', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
     gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Financiamento', corLabel: 'var(--warning)', corBg: 'color-mix(in srgb, var(--warning) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--warning) 30%, var(--card))', corValor: 'var(--warning)', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
