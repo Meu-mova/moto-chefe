@@ -9,7 +9,7 @@ import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
-import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDoEstoque } from './papeis'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDaQuantidadeVendida, recusaDoEstoque } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
@@ -178,6 +178,8 @@ async function registrarVendaPeca(input: DadosVendaPeca) {
   const usuario = await verificarAcessoVenda()
   if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
   if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
+  const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   if (!lojaIdsGrupo.includes(input.lojaId)) throw new RecusaUsuario('Sem permissão para esta loja')
@@ -290,6 +292,8 @@ async function editarVendaPeca(
   const { usuario, venda } = await vendaEditavel(vendaId)
   if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
   if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
+  const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
 
   const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
   const itens = podeGerirPecas(usuario.papel)

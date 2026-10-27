@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDoEstoque } from './papeis'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDaQuantidadeVendida, recusaDoEstoque } from './papeis'
 
 // Estas listas viviam duplicadas em page.tsx e actions.ts. A cópia desalinhada
 // foi o que derrubou a página de Peças para o mecânico: a guarda deixava entrar
@@ -60,4 +60,9 @@ test('estoque aceita só unidades inteiras e não negativas', () => {
   assert.equal(recusaDoEstoque(2.5), 'Estoque é em unidades inteiras, sem vírgula')
   assert.equal(recusaDoEstoque(-1), 'Estoque não pode ser negativo')
   assert.equal(recusaDoEstoque(Number.NaN), 'Estoque é em unidades inteiras, sem vírgula')
+})
+
+test('venda de peça aceita só quantidade inteira', () => {
+  assert.equal(recusaDaQuantidadeVendida([{ quantidade: 1 }, { quantidade: 3 }]), null)
+  assert.equal(recusaDaQuantidadeVendida([{ quantidade: 1 }, { quantidade: 1.5 }]), 'Quantidade é em unidades inteiras, sem vírgula.')
 })
