@@ -152,7 +152,7 @@ export default async function GarantiasRelatorioPage({
         .table-title { font-size: 13px; font-weight: 600; color: var(--foreground); padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--muted); }
         table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         thead th {
-          background: var(--foreground); color: var(--border); text-align: left;
+          background: var(--primary); color: var(--primary-foreground); text-align: left;
           padding: 10px 12px; font-size: 11px; font-weight: 600;
           text-transform: uppercase; letter-spacing: 0.05em;
           white-space: nowrap;
@@ -200,7 +200,7 @@ export default async function GarantiasRelatorioPage({
           .actions-bar { display: none !important; }
           .page-wrap { padding: 0; max-width: 100%; }
           .table-section { border: 1px solid var(--border) !important; border-radius: 0 !important; }
-          thead th { background: var(--foreground) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          thead th { background: var(--primary) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           tbody tr:nth-child(even) { background: var(--muted) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .summary-card { border: 1px solid var(--border) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           @page { margin: 15mm 12mm; size: A4 landscape; }
