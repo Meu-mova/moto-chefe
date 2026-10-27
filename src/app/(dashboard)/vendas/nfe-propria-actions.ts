@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
-import { motos, modelos, motosFiscal, motosRenave, lojas, vendas, regrasFiscaisSaida, notasFiscaisSaida, usuarios } from '@/lib/db/schema'
+import { motos, modelos, motosFiscal, vendas, regrasFiscaisSaida, notasFiscaisSaida, usuarios } from '@/lib/db/schema'
 import { and, desc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -22,7 +22,8 @@ import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
-import { exigeRenave, montarVeiculoNovo, sugestaoRenave, validarRenave, type DadosRenave } from '@/lib/notagateway/veiculo'
+import { exigeRenave, montarVeiculoNovo, validarRenave, type DadosRenave } from '@/lib/notagateway/veiculo'
+import { gravarRenaveDaMoto, renaveParaEmissao, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
@@ -101,7 +102,7 @@ const numOuNulo = (v: string | null) => (v == null ? null : v)
 /** Junta tudo o que a nota precisa. Pré-visualização e transmissão usam a MESMA montagem. */
 async function montarEmissao(motoId: string, usuario: Usuario) {
   const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.motoId, motoId))
-  if (!venda) throw new Error('Nenhuma venda encontrada para esta moto')
+  if (!venda) throw new Error(SEM_VENDA)
 
   const grupoId = await getGrupoIdDaLoja(venda.lojaId)
   await exigirGrupo(usuario, grupoId)
@@ -177,61 +178,16 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   // RENAVE: só ciclomotor. Preenchido no ato do envio; aqui só se monta o que
   // abre o formulário. Chassi e motor vêm do cadastro da moto, editáveis.
   const renaveExigido = exigeRenave(modelo?.categoria)
-  let renave: DadosRenave | null = null
-  if (renaveExigido) {
-    // Nova tentativa da mesma moto volta com o que foi enviado da última vez.
-    const [row] = await db.select().from(motosRenave).where(eq(motosRenave.motoId, motoId)).limit(1)
-    // Primeira vez: o que é do modelo vem da última moto do mesmo modelo no mesmo grupo.
-    const [anterior] = row ? [] : await db
-      .select({ r: motosRenave })
-      .from(motosRenave)
-      .innerJoin(motos, eq(motos.id, motosRenave.motoId))
-      .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-      .where(and(eq(motos.modeloId, moto.modeloId), eq(lojas.grupoId, grupoId)))
-      .orderBy(desc(motosRenave.atualizadoEm))
-      .limit(1)
-    renave = row ? renaveDaLinha(row) : sugestaoRenave({
-      chassi: moto.chassi,
-      cor: moto.cor,
-      motor: moto.motor,
-      potenciaW: modelo?.potenciaW ?? null,
-      anoAtual: Number(hojeBrt().slice(0, 4)),
-      anterior: anterior ? renaveDaLinha(anterior.r) : null,
-    })
-  }
+  const renave: DadosRenave | null = renaveExigido
+    ? await renaveParaEmissao({
+        motoId, grupoId, modeloId: moto.modeloId, chassi: moto.chassi, cor: moto.cor, motor: moto.motor,
+        potenciaW: modelo?.potenciaW ?? null, anoAtual: Number(hojeBrt().slice(0, 4)),
+      })
+    : null
 
   return {
     venda, grupoId, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
     renaveExigido, renave,
-  }
-}
-
-function renaveDaLinha(r: typeof motosRenave.$inferSelect): DadosRenave {
-  return {
-    chassi: r.chassi,
-    tipoOperacao: r.tipoOperacao,
-    corCodigo: r.corCodigo,
-    corDescricao: r.corDescricao,
-    corDenatran: r.corDenatran,
-    potenciaMotor: r.potenciaMotor,
-    cilindradas: r.cilindradas,
-    pesoLiquido: String(Number(r.pesoLiquido)),
-    pesoBruto: String(Number(r.pesoBruto)),
-    numeroSerie: r.numeroSerie,
-    tipoCombustivel: r.tipoCombustivel,
-    numeroMotor: r.numeroMotor,
-    capacidadeMaximaTracao: String(Number(r.capacidadeMaximaTracao)),
-    distanciaEixos: r.distanciaEixos,
-    anoModelo: String(r.anoModelo),
-    anoFabricacao: String(r.anoFabricacao),
-    tipoPintura: r.tipoPintura,
-    tipoVeiculo: r.tipoVeiculo,
-    especie: r.especie,
-    condicaoVin: r.condicaoVin,
-    condicao: r.condicao,
-    codigoMarcaModelo: r.codigoMarcaModelo,
-    lotacao: String(r.lotacao),
-    restricao: r.restricao,
   }
 }
 
@@ -423,24 +379,6 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
 }
 
 /**
- * Grava o veículo (RENAVE) já validado. Roda no envio: o que fica gravado é o
- * que foi para a nota, e volta preenchido numa nova tentativa.
- */
-async function gravarRenave(motoId: string, r: DadosRenave, usuarioId: string): Promise<void> {
-  const valores = {
-    ...r,
-    anoModelo: Number(r.anoModelo),
-    anoFabricacao: Number(r.anoFabricacao),
-    lotacao: Number(r.lotacao),
-    preenchidoPor: usuarioId,
-    atualizadoEm: new Date(),
-  }
-  await db.insert(motosRenave)
-    .values({ motoId, ...valores })
-    .onConflictDoUpdate({ target: motosRenave.motoId, set: valores })
-}
-
-/**
  * "Salvar e reenviar nº N" (#347): grava a correção no cadastro de origem e a nota é
  * remontada dele. Não há salvar sem enviar: deixaria a venda sem nota.
  */
@@ -539,9 +477,9 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const bloqueio = motivoBloqueioNf(await situacaoNfDaVenda(e.venda.id))
     if (bloqueio) return { ok: false, error: bloqueio }
     if (e.pendencias.length) return { ok: false, error: e.pendencias.join('\n') }
-    if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal — preencha antes de transmitir' }
+    if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal. Preencha a ficha antes de transmitir.' }
     if (e.renaveExigido) {
-      if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE) — preencha antes de transmitir' }
+      if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE). Preencha antes de transmitir.' }
       const v = validarRenave(renave)
       if (!v.ok) return { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
       e.renave = v.dados
@@ -598,7 +536,10 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const idExterno = escolha.idExterno
 
     // Grava só aqui, depois dos retornos antecipados: o que fica é o que vai na nota.
-    if (e.renaveExigido && e.renave) await gravarRenave(motoId, e.renave, usuario.id)
+    if (e.renaveExigido && e.renave) {
+      const g = await gravarRenaveDaMoto(usuario, motoId, e.renave, usuario.id)
+      if (!g.ok) return { ok: false, error: g.erro }
+    }
 
     const uf = await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
