@@ -1,6 +1,6 @@
 /**
  * Estoque de peças por loja (#195): o catálogo é da Conta, o saldo é de cada loja.
- * Sem linha = saldo zero. O saldo pode ficar negativo: estoque não barra venda (decisão
+ * Sem linha = saldo zero. Unidades inteiras. O saldo pode ficar negativo: estoque não barra venda (decisão
  * do Cesar, 31/08/2026). Toda leitura e gravação só casa peça e loja da mesma Conta.
  */
 import { and, eq, sql } from 'drizzle-orm'
@@ -11,7 +11,7 @@ type Executor = Pick<typeof db, 'select' | 'insert'>
 
 // A linha (peça, loja) só sai se a loja é da Conta da peça.
 const pecaELojaDaMesmaConta = (pecaId: string, lojaId: string, quantidade: number) => sql`
-  select p.id, l.id, ${String(quantidade)}::numeric, now()
+  select p.id, l.id, ${String(quantidade)}::integer, now()
     from pecas_catalogo p
     join lojas l on l.id = ${lojaId}
     join grupos g on g.id = l.grupo_id and g.conta_id = p.conta_id

@@ -18,7 +18,7 @@ function comSaldoDaLoja(exec: Executor, lojaId: string | null) {
     nome: pecasCatalogo.nome,
     valor: pecasCatalogo.valor,
     ativo: pecasCatalogo.ativo,
-    quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)::float8`,
+    quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)`,
   }).from(pecasCatalogo)
     .leftJoin(pecasEstoqueLoja, and(
       eq(pecasEstoqueLoja.pecaId, pecasCatalogo.id),

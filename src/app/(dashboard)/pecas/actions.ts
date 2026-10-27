@@ -9,7 +9,7 @@ import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
-import { lojaDoEstoque, podeGerirPecas, podeVenderPeca } from './papeis'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDoEstoque } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
@@ -78,7 +78,8 @@ async function criarPeca(input: PecaInput) {
   const nome = input.nome.trim()
   if (!nome) throw new RecusaUsuario('Nome é obrigatório')
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
+  const recusaEstoque = recusaDoEstoque(input.quantidadeEstoque)
+  if (recusaEstoque) throw new RecusaUsuario(recusaEstoque)
 
   const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
   if (input.quantidadeEstoque !== 0 && !lojaId) throw new RecusaUsuario('Escolha a loja do estoque')
@@ -104,7 +105,8 @@ async function atualizarPeca(id: string, input: PecaInput) {
   const nome = input.nome.trim()
   if (!nome) throw new RecusaUsuario('Nome é obrigatório')
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
+  const recusaEstoque = recusaDoEstoque(input.quantidadeEstoque)
+  if (recusaEstoque) throw new RecusaUsuario(recusaEstoque)
 
   // Sem loja, grava só nome e valor: usuário sem loja vinculada, ou estoque que não mudou no form.
   const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
@@ -260,7 +262,7 @@ async function carregarVendaPecaParaEdicao(vendaId: string) {
     db.select({
       pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade, valorUnitario: vendasPecasItens.valorUnitario,
       nome: pecasCatalogo.nome, valor: pecasCatalogo.valor,
-      quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)::float8`,
+      quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)`,
     })
       .from(vendasPecasItens)
       .innerJoin(pecasCatalogo, eq(pecasCatalogo.id, vendasPecasItens.pecaId))

@@ -142,3 +142,11 @@ test('ajuste não grava peça da Conta A em loja da Conta B (#195)', async () =>
     assert.deepEqual(linhasA, [])
   })
 })
+
+test('saldo é guardado em unidades inteiras (#195)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const [col] = await linhas(tx, sql`select data_type from information_schema.columns
+      where table_name = 'pecas_estoque_loja' and column_name = 'quantidade'`)
+    assert.equal(col.data_type, 'integer')
+  })
+})

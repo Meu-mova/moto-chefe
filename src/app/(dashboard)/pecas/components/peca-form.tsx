@@ -87,9 +87,9 @@ export function PecaForm({
       toast.error('Nome é obrigatório')
       return
     }
-    // Saldo é decimal, como a quantidade vendida. Na edição só vai se mudou: regravar o
+    // Unidades inteiras: o servidor recusa decimal. Na edição só vai se mudou: regravar o
     // número lido na abertura apagaria uma venda feita nesse meio-tempo.
-    const quantidadeEstoque = lojaEstoque && form.quantidadeEstoque ? parseFloat(form.quantidadeEstoque) : 0
+    const quantidadeEstoque = lojaEstoque && form.quantidadeEstoque ? Number(form.quantidadeEstoque) : 0
     const estoqueMudou = !pecaInicial || quantidadeEstoque !== pecaInicial.quantidadeEstoque
     const input: PecaInput = {
       nome: form.nome,
@@ -153,7 +153,7 @@ export function PecaForm({
               <Input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={form.quantidadeEstoque}
                 onChange={e => setCampo('quantidadeEstoque', e.target.value)}
               />

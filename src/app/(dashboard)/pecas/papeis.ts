@@ -35,3 +35,10 @@ export function lojaDoEstoque(
   if (pedida) return permitidas.includes(pedida) ? pedida : null
   return usuario.lojaId && permitidas.includes(usuario.lojaId) ? usuario.lojaId : (permitidas[0] ?? null)
 }
+
+/** Estoque é em unidades inteiras (decisão do Luis, 27/10/2026). `null` = aceito. */
+export function recusaDoEstoque(quantidade: number): string | null {
+  if (!Number.isInteger(quantidade)) return 'Estoque é em unidades inteiras, sem vírgula'
+  if (quantidade < 0) return 'Estoque não pode ser negativo'
+  return null
+}
