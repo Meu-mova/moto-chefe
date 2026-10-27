@@ -63,14 +63,14 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 40, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 13, color: '#334155' }}>MotoChefe {venda.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{venda.lojaNome}</p>
+            <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>MotoChefe {venda.grupoNome}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 2 }}>{venda.lojaNome}</p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="titulo">CHECKLIST DE ENTREGA</div>
-          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Cliente: {venda.clienteNome}</p>
-          <p style={{ fontSize: 10, color: '#94a3b8' }}>Data: {data}</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>Cliente: {venda.clienteNome}</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>Data: {data}</p>
         </div>
       </div>
 

@@ -100,8 +100,8 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe {os.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{os.lojaNome}</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>MotoChefe {os.grupoNome}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 2 }}>{os.lojaNome}</p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -111,9 +111,9 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
               {statusLabel[os.status] ?? os.status}
             </span>
           </div>
-          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Abertura: {abertura}</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>Abertura: {abertura}</p>
           {os.dataPrevisao && (
-            <p style={{ fontSize: 10, color: '#b45309', marginTop: 2 }}>
+            <p style={{ fontSize: 10, color: 'var(--warning)', marginTop: 2 }}>
               Previsão: {format(new Date(os.dataPrevisao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </p>
           )}
@@ -245,7 +245,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
           </tr>
           {pagamentosOS.map((p, i) => (
             <tr key={i}>
-              <td style={{ fontSize: 11, color: '#64748b' }}>
+              <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
                 {pagamentosOS.length > 1 ? `Pagamento ${i + 1}` : 'Forma de pagamento'}
               </td>
               <td className="tr" style={{ fontSize: 11 }}>

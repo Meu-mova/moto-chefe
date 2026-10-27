@@ -73,14 +73,14 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe {demanda.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{demanda.lojaNome}</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>MotoChefe {demanda.grupoNome}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 2 }}>{demanda.lojaNome}</p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="os-n">Recibo de Sinal{demanda.numero ? ` #${demanda.numero}` : ''}</div>
-          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Recebido em: {recebidoEm}</p>
-          <p style={{ fontSize: 10, color: '#b45309', marginTop: 2 }}>Encomenda — veículo a ser disponibilizado</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>Recebido em: {recebidoEm}</p>
+          <p style={{ fontSize: 10, color: 'var(--warning)', marginTop: 2 }}>Encomenda — veículo a ser disponibilizado</p>
         </div>
       </div>
 
@@ -113,12 +113,12 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
           </tr>
           {pagamentos.length === 0 ? (
             <tr>
-              <td style={{ fontSize: 11, color: '#64748b' }}>Meio de pagamento</td>
+              <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>Meio de pagamento</td>
               <td className="tr" style={{ fontSize: 11 }}>—</td>
             </tr>
           ) : pagamentos.map((p, i) => (
             <tr key={i}>
-              <td style={{ fontSize: 11, color: '#64748b' }}>
+              <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
                 {i === 0 ? (pagamentos.length > 1 ? 'Meios de pagamento' : 'Meio de pagamento') : ''}
               </td>
               <td className="tr" style={{ fontSize: 11 }}>
@@ -129,7 +129,7 @@ export default async function ImprimirDemandaPage({ params }: { params: Promise<
             </tr>
           ))}
           <tr>
-            <td style={{ fontSize: 11, color: '#64748b' }}>Atendente</td>
+            <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>Atendente</td>
             <td className="tr" style={{ fontSize: 11 }}>{demanda.solicitanteNome}</td>
           </tr>
         </tbody>

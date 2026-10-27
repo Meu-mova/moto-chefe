@@ -147,7 +147,7 @@ export default async function DocumentoImpressoPage({
         </p>
       </div>
 
-      <p className="no-print" style={{ marginTop: 20, fontSize: 12, color: '#64748b' }}>
+      <p className="no-print" style={{ marginTop: 20, fontSize: 12, color: 'var(--muted-foreground)' }}>
         Depois de assinado, fotografe ou digitalize a via e registre em Vendas → detalhes da venda
         → “Registrar assinatura em papel”. É esse registro que libera a emissão da NF.
       </p>

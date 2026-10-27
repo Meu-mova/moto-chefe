@@ -101,7 +101,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
       `}</style>
 
       <h1>Dossiê de assinatura {emPapel ? 'em papel' : 'eletrônica'}</h1>
-      <p style={{ color: '#64748b', marginBottom: 12 }}>
+      <p style={{ color: 'var(--muted-foreground)', marginBottom: 12 }}>
         {LABEL_TIPO[doc.tipo as TipoDocumento]} — venda #{venda?.numero ?? '—'}
       </p>
 
@@ -140,7 +140,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
           </tr>
         </tbody>
       </table>
-      <p style={{ fontSize: 10, color: '#64748b' }}>
+      <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
         O código de verificação é o SHA-256 do conjunto acima. Recalculá-lo sobre o JSON reproduz o
         mesmo valor — qualquer alteração posterior no documento, na foto ou nas evidências muda o
         resultado.
@@ -155,7 +155,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
                 /* eslint-disable-next-line @next/next/no-img-element */
                 : <img src={viaFisicaUrl} alt="Via do documento assinada à caneta" style={{ maxWidth: 420, border: '1px solid #e2e8f0' }} />)
             : <p style={{ fontSize: 11 }}>Via não localizada no arquivo.</p>}
-          <p style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>
             Resumo da via (SHA-256): <span className="mono">{doc.viaFisicaHash ?? '—'}</span>
           </p>
         </>

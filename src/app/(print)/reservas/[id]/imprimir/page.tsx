@@ -74,14 +74,14 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#334155' }}>MotoChefe {reserva.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{reserva.lojaNome}</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>MotoChefe {reserva.grupoNome}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 2 }}>{reserva.lojaNome}</p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="os-n">Reserva #{reserva.numero}</div>
-          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Registrada em: {criadoEm}</p>
-          <p style={{ fontSize: 10, color: '#b45309', marginTop: 2 }}>Previsão de finalização: {dataPrevista}</p>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>Registrada em: {criadoEm}</p>
+          <p style={{ fontSize: 10, color: 'var(--warning)', marginTop: 2 }}>Previsão de finalização: {dataPrevista}</p>
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
         // alguém pode ter guardado a URL). Sem esta tarja, o papel impresso
         // segue valendo como comprovante de uma reserva que não existe mais.
         <div style={{
-          border: '2px solid #b91c1c', background: '#fef2f2', color: '#b91c1c',
+          border: '2px solid var(--destructive)', background: 'color-mix(in srgb, var(--destructive) 10%, var(--card))', color: 'var(--destructive)',
           borderRadius: 8, padding: '10px 12px', marginBottom: 14,
           fontWeight: 800, fontSize: 14, textAlign: 'center', letterSpacing: '.04em',
         }}>
@@ -131,7 +131,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
       <table>
         <tbody>
           <tr>
-            <td style={{ fontSize: 11, color: '#64748b' }}>Valor da entrada (sinal pago)</td>
+            <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>Valor da entrada (sinal pago)</td>
             <td className="tr" style={{ fontSize: 11 }}>{fmtR(reserva.valorReserva)}</td>
           </tr>
           <tr className="tot">
@@ -140,7 +140,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
           </tr>
           {pagamentos.map((p, i) => (
             <tr key={i}>
-              <td style={{ fontSize: 11, color: '#64748b' }}>
+              <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
                 {i === 0 ? (pagamentos.length > 1 ? 'Formas de pagamento da entrada' : 'Forma de pagamento da entrada') : ''}
               </td>
               <td className="tr" style={{ fontSize: 11 }}>
@@ -151,7 +151,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
             </tr>
           ))}
           <tr>
-            <td style={{ fontSize: 11, color: '#64748b' }}>Vendedor</td>
+            <td style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>Vendedor</td>
             <td className="tr" style={{ fontSize: 11 }}>{reserva.vendedorNome}</td>
           </tr>
         </tbody>

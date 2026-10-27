@@ -113,14 +113,14 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
             <p style={{ fontWeight: 700 }}>{g.grupoRazaoSocial ?? g.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>CNPJ {formatarCpfCnpj(g.grupoCnpj)}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>CNPJ {formatarCpfCnpj(g.grupoCnpj)}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
               {g.lojaNome} — {g.lojaEndereco}, {g.lojaCidade}
             </p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             Comprovante
           </p>
           <p style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>Garantia encerrada</p>

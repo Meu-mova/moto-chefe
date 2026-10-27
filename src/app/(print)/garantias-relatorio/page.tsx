@@ -300,7 +300,7 @@ export default async function GarantiasRelatorioPage({
                       <td style={{ whiteSpace: 'nowrap' }}>{g.lojaNome}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <strong>{g.marca}</strong><br />
-                        <span style={{ color: '#64748b', fontSize: 11 }}>{g.modelo}</span>
+                        <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>{g.modelo}</span>
                       </td>
                       <td className="mono">{g.chassi}</td>
                       <td style={{ maxWidth: 220 }}>{g.descricao}</td>
