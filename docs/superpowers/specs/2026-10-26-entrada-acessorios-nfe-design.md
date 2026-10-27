@@ -16,7 +16,7 @@ Já fixado pela #195: o catálogo e o vínculo são da Conta da loja de destino;
 
 ## Comportamento
 
-- Importar o XML em `/entrada`: as motos (chassi no infCpl) seguem como hoje. Toda linha `<det>` que não é moto aparece numa tabela de conferência com: nome do XML, código, quantidade, custo unitário, peça sugerida (pelo vínculo) ou "cadastrar nova" (nome editável, preço de venda obrigatório) e "não dar entrada".
+- Importar o XML em `/entrada`: as motos (chassi no infCpl) seguem como hoje. Toda linha `<det>` que não é moto (NCM 8711; o 8714, peça de moto, entra como peça) aparece numa tabela de conferência com: nome do XML, código, quantidade, custo unitário, peça sugerida (pelo vínculo) ou "cadastrar nova" (nome editável, preço de venda obrigatório) e "não dar entrada".
 - Confirmar: numa transação, grava as motos, cria as peças novas na Conta, grava/atualiza o vínculo, soma a quantidade ao estoque da loja de destino (`quantidade = quantidade + n` no SQL, não lida e regravada no JS), grava o custo e registra a nota (chave + Conta + loja + data).
 - Conta: em peças, vínculo e `notas_entrada`, a Conta gravada **sai da loja de destino**, nunca do payload. O servidor confere que o usuário tem acesso à loja (como o `resolverLojaDestino` de hoje faz para as motos).
 - Isolamento: a sugestão, a busca de peça, o vínculo e o aviso de nota repetida só olham a Conta da loja de destino, com o filtro dentro da consulta. O servidor confere que toda peça escolhida é dessa Conta. A leitura da sugestão faz join com `pecas_catalogo.conta_id = vinculo.conta_id`.
@@ -48,11 +48,11 @@ Variações, markup, filtro por CFOP/NCM, NF de entrada fiscal (escrituração),
 
 ## Pendências
 
-Propostas da Turmalina, com a concordância do Maestro; **a confirmar pelo Luis**:
+Decididas pelo Luis em 26/10 (comentários na #341):
 
 - **P1 Unidade:** se o `uCom` for CX ou KIT com N unidades dentro, a quantidade da nota entra como está, mas fica editável na conferência.
 - **P2 Custo da peça existente:** é sobrescrito pelo custo da última nota. O histórico de custo fica para depois.
-- **P3 Quantidade fracionada** (qCom 1.5): avisa na linha e pré-preenche a quantidade arredondada para o inteiro mais próximo, editável. Grava em `quantidade` (integer) o inteiro que estiver no campo ao confirmar; zero ou campo vazio equivale a "não dar entrada".
+- **P3 Quantidade fracionada** (qCom 1.5): o estoque de peças é em unidades inteiras. A linha fica destacada na conferência e a pessoa corrige a quantidade para um inteiro (o campo é editável pela P1). O sistema não arredonda sozinho e não confirma a entrada enquanto houver decimal. É exceção ao "avise, não bloqueie", porque não existe estoque fracionado.
 
 Pré-requisito:
 
