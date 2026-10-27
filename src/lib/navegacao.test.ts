@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, itensDoMenu, itensVisiveis, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { ITENS, MODULOS_DE_CARGO, itensDoMenu, itensVisiveis, modulosQuePodeDar, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
 import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = { entrada: false }
@@ -175,5 +175,34 @@ test('Notas Emitidas abre para exatamente os papéis que operam NF de saída (#3
   const papeis: Papel[] = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
   for (const papel of papeis) {
     assert.equal(podeAcessar({ papel }, '/notas-emitidas', SEM_REGRA_PROPRIA), podeOperarNfSaida(papel), papel)
+  }
+})
+
+test('cargo vê só os módulos marcados mais os que todos veem (#449)', () => {
+  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['clientes', 'agenda'] }
+  assert.deepEqual(ids(cargo), ['agenda', 'calendario', 'clientes', 'dashboard', 'meus-documentos'])
+  assert.deepEqual(ids({ papel: 'cargo' }), ['calendario', 'dashboard', 'meus-documentos'])
+})
+
+test('cargo não abre tela só pelo papel nem só do admin_geral, mesmo marcada (#449)', () => {
+  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['usuarios', 'lojas', 'entrada'] }
+  assert.deepEqual(ids(cargo), ['calendario', 'dashboard', 'meus-documentos'])
+})
+
+test('bloqueio por pessoa ganha do cargo (#449)', () => {
+  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['clientes'], modulosBloqueados: ['clientes'] }
+  assert.ok(!ids(cargo).includes('clientes'))
+})
+
+test('módulos que o sócio pode dar: só os liberados para cargo que ele mesmo vê (#449)', () => {
+  const liberados = ['clientes', 'caixa', 'usuarios', 'lojas']
+  assert.deepEqual(modulosQuePodeDar(SOCIO, SEM_REGRA_PROPRIA, liberados), ['caixa', 'clientes'])
+  assert.deepEqual(modulosQuePodeDar(VENDEDOR, SEM_REGRA_PROPRIA, liberados), ['clientes'])
+})
+
+test('a lista de módulos liberados para cargo só tem itens que existem e não são só de papel (#449)', () => {
+  for (const id of MODULOS_DE_CARGO) {
+    const item = ITENS.find(i => i.id === id)
+    assert.ok(item && !item.soPeloPapel && !item.soAdminGeral && !item.regraPropria, id)
   }
 })
