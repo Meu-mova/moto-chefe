@@ -6,7 +6,7 @@ import { Building2, ChevronsUpDown, Check, ArrowRightLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { corDoGrupo } from '@/lib/grupo-cores'
-import { BotaoTema, useBotaoTemaLigado } from '@/components/theme-provider'
+import { BotaoTema } from '@/components/theme-provider'
 import { trocarGrupoAtivoAction } from './group-selector-actions'
 
 type Grupo = { id: string; nome: string; cor: string | null }
@@ -16,7 +16,6 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
   const [open, setOpen] = useState(false)
   const [selecionado, setSelecionado] = useState<string>(ativoId)
   const [pending, start] = useTransition()
-  const botaoTema = useBotaoTemaLigado()
 
   const ativo = grupos.find(g => g.id === ativoId) ?? grupos[0]
   const corAtivo = corDoGrupo(ativo)
@@ -51,7 +50,7 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {botaoTema && <BotaoTema local="barra" />}
+          <BotaoTema local="barra" />
           <button
             onClick={abrir}
             className={`shrink-0 inline-flex items-center gap-1.5 rounded-md bg-grupo-realce hover:bg-grupo-realce-hover px-3 py-1.5 text-sm font-medium transition-colors`}
