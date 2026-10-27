@@ -48,7 +48,7 @@ function Campo({ label, valor, onChange, placeholder, dica, largura = '' }: {
   )
 }
 
-export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
+export function NotasFiscaisClient({ grupos, podeEditarCredencial }: { grupos: LinhaGrupo[]; podeEditarCredencial: boolean }) {
   const [aberto, setAberto] = useState<string | null>(grupos[0]?.grupoId ?? null)
 
   return (
@@ -57,6 +57,7 @@ export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
         <CartaoGrupo
           key={g.grupoId}
           linha={g}
+          podeEditarCredencial={podeEditarCredencial}
           aberto={aberto === g.grupoId}
           onToggle={() => setAberto(aberto === g.grupoId ? null : g.grupoId)}
         />
@@ -65,7 +66,7 @@ export function NotasFiscaisClient({ grupos }: { grupos: LinhaGrupo[] }) {
   )
 }
 
-function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: boolean; onToggle: () => void }) {
+function CartaoGrupo({ linha, podeEditarCredencial, aberto, onToggle }: { linha: LinhaGrupo; podeEditarCredencial: boolean; aberto: boolean; onToggle: () => void }) {
   const [token, setToken] = useState('')
   const [ambiente, setAmbiente] = useState<'Homologacao' | 'Producao'>(linha.credencial?.ambiente ?? 'Homologacao')
   const [serie, setSerie] = useState(linha.credencial?.serieNfe ?? '1')
@@ -83,10 +84,11 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
   function salvarCredencial() {
     startCred(async () => {
       try {
-        await salvarCredencialAction({
+        const r = await salvarCredencialAction({
           grupoId: linha.grupoId, token, ambiente,
           serieNfe: serie, proximoNumero: Number(numero) || 1,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         setToken('')
         toast.success('Credencial salva')
       } catch (e) {
@@ -157,6 +159,14 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
           {/* Credencial */}
           <div className="px-6 py-5 space-y-3">
             <h3 className="font-medium text-foreground text-sm">Credencial da Nota Gateway</h3>
+            {!podeEditarCredencial ? (
+              // Só o admin_geral grava a credencial (#446); o sócio vê se está cadastrada.
+              <div className="text-sm space-y-1">
+                <p>Token: {linha.credencial?.temToken ? 'cadastrado' : 'ainda não cadastrado'}</p>
+                <p>Ambiente: {linha.credencial ? (linha.credencial.ambiente === 'Producao' ? 'Produção (nota valendo)' : 'Homologação (teste)') : '-'}</p>
+                <p className="text-[11px] text-muted-foreground">Só o Admin Geral altera a credencial da Nota Gateway.</p>
+              </div>
+            ) : (<>
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">Token Basic</Label>
@@ -187,6 +197,7 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
             <Button onClick={salvarCredencial} disabled={pendCred} size="sm">
               {pendCred ? 'Salvando...' : 'Salvar credencial'}
             </Button>
+            </>)}
           </div>
 
           {/* Regra de saída */}
