@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { motos, lojas, historicoEstoque, motosFiscal } from '@/lib/db/schema'
+import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
@@ -11,6 +11,9 @@ import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-co
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
+import { EntradaPecasRecusada } from '@/lib/entrada-pecas'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -35,55 +38,6 @@ async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
   }
 
   return { loja }
-}
-
-/**
- * Grava a ficha fiscal das motos que acabaram de entrar, copiada do XML da nota
- * que as trouxe.
- *
- * É o primeiro passo para emitir nota própria e sair do Bling. A ficha é da
- * MOTO e não do modelo: o mesmo X12 vem da LAIOUNS como CEST 2600101 / origem 1
- * / CST 10 e da Q.P.A como 2600100 / origem 4 / CST 60, e a NF de saída espelha
- * a de entrada daquela moto — inclusive no nome fiscal (`xProd`), que sai
- * literal como veio.
- *
- * Só os campos FISCAIS vêm do XML. O valor não: a nota da fábrica sai com valor
- * diferente do que se paga a ela, então o preço de compra continua sendo o
- * digitado na tela. Não troque isso por `vUnCom` do XML.
- *
- * `onConflictDoNothing` porque a ficha é um snapshot da entrada: reimportar a
- * mesma nota não reescreve o que já está gravado, e uma correção feita depois
- * no cadastro não é desfeita por aqui.
- */
-async function gravarFichaFiscalDasMotos(
-  fichas: { motoId: string; emitente: EmitenteNfe; ficha: FichaFiscal }[],
-) {
-  if (!fichas.length) return 0
-
-  const gravadas = await db
-    .insert(motosFiscal)
-    .values(fichas.map(({ motoId, emitente, ficha }) => ({
-      motoId,
-      emitenteCnpj: emitente.cnpj,
-      emitenteNome: emitente.nome || null,
-      nfNumero: emitente.nfNumero || null,
-      nfChave: emitente.nfChave || null,
-      cProd: ficha.codigo || null,
-      xProd: ficha.descricao || null,
-      ncm: ficha.ncm,
-      cest: ficha.cest || null,
-      unidade: ficha.unidade || null,
-      origem: ficha.origem || null,
-      cfopEntrada: ficha.cfopEntrada || null,
-      cstIcmsEntrada: ficha.cstIcmsEntrada || null,
-      cstPis: ficha.cstPis || null,
-      cstCofins: ficha.cstCofins || null,
-      classTribIbsCbs: ficha.classTribIbsCbs || null,
-    })))
-    .onConflictDoNothing()
-    .returning({ motoId: motosFiscal.motoId })
-
-  return gravadas.length
 }
 
 type MotoEntrada = {
@@ -186,14 +140,6 @@ export async function registrarEntrada(formData: {
   return { success: `${inseridos} moto(s) inserida(s) com sucesso!` }
 }
 
-type MotoEntradaLote = {
-  chassi: string
-  cor: string
-  motor?: string
-  modeloId: string
-  precoCompra: string
-  notaFiscal: string
-}
 
 export async function registrarEntradaLote(formData: {
   lojaId: string
@@ -264,30 +210,9 @@ export async function registrarEntradaLote(formData: {
       continue
     }
 
-    const nf = moto.notaFiscal.trim()
-
     try {
-      const [novaMoto] = await db.insert(motos).values({
-        chassi,
-        modeloId: moto.modeloId,
-        lojaId: loja.id,
-        status: 'caixa',
-        cor: normalizarCor(moto.cor),
-        notaFiscalEntrada: nf,
-        motor: moto.motor?.trim() || null,
-        precoCompra,
-      }).returning({ id: motos.id })
-
-      await db.insert(historicoEstoque).values({
-        motoId: novaMoto.id,
-        lojaDestinoId: loja.id,
-        usuarioId: usuario.id,
-        tipo: 'entrada',
-        statusNovo: 'caixa',
-        observacao: `Entrada NF ${nf}`,
-      })
-
-      idPorChassi.set(chassi, novaMoto.id)
+      const motoId = await inserirMotoDaEntrada(db, { lojaId: loja.id, usuarioId: usuario.id, chassi, moto, precoCompra })
+      idPorChassi.set(chassi, motoId)
       inseridos++
     } catch (e: any) {
       const isDup = e.code === '23505' || e.cause?.code === '23505' ||
@@ -303,6 +228,7 @@ export async function registrarEntradaLote(formData: {
   // Só as motos que de fato entraram: chassi recusado (duplicado, sem modelo)
   // não deixa ficha órfã para trás.
   const fichasGravadas = await gravarFichaFiscalDasMotos(
+    db,
     (formData.fiscais ?? [])
       .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
@@ -325,4 +251,27 @@ export async function registrarEntradaLote(formData: {
   }
 
   return { success: `${inseridos} moto(s) inserida(s) com sucesso!${avisoCadastro}` }
+}
+
+/**
+ * Nota com peças (#429): motos e peças numa transação só; qualquer erro desfaz tudo e
+ * volta a lista para a tela corrigir. Nota só de motos segue pelo registrarEntradaLote.
+ */
+export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>) {
+  const usuario = await getUsuarioLogado()
+  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
+
+  try {
+    await db.transaction(tx => registrarNotaComPecas(tx, { ...dados, usuario }))
+  } catch (e) {
+    if (e instanceof NotaRecusada) return { error: `Nada foi gravado. Corrija:\n${e.erros.join('\n')}` }
+    if (e instanceof EntradaPecasRecusada) return { error: `Nada foi gravado. ${e.message}` }
+    throw e
+  }
+
+  revalidatePath('/estoque')
+  revalidatePath('/pecas')
+  revalidatePath('/dashboard')
+  revalidatePath('/entrada')
+  return { success: `Nota lançada: ${dados.motos.length} moto(s) e ${dados.pecas.length} item(ns) de peça.` }
 }
