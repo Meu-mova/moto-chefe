@@ -1,4 +1,6 @@
 'use client'
+import { useMaquininhas } from '@/components/use-maquininhas'
+import { opcoesComGravada } from '@/lib/maquininhas-opcoes'
 
 import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -82,6 +84,8 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
 
   // Pagamentos
   const pgtosSrc = (v.pagamentos as { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[] | null) ?? []
+  const maquininhas = useMaquininhas(open ? { loja: v.lojaId } : null)
+  const opcoesMaquininha = opcoesComGravada(maquininhas, pgtosSrc.map(p => p.operadora))
   const [pgtos, setPgtos] = useState<Pgto[]>(pgtosSrc.length ? pgtosSrc.map(pgtoFromSchema) : [
     { id: gerarId(), tipo: v.formaPagamento ?? '', valor: Number(v.valor).toFixed(2) }
   ])
@@ -326,14 +330,15 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                       <div className="space-y-1">
                         <Label className="text-xs">Operadora</Label>
                         <Select value={p.operadora ?? ''} onValueChange={v => v && updatePgto(p.id, 'operadora', v)}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Operadora" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Operadora">
+                              {(val: string | null) => val ? (opcoesMaquininha.find(m => m.operadora === val)?.nome ?? val) : undefined}
+                            </SelectValue>
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="infinitypay" className="text-xs">InfinityPay</SelectItem>
-                            <SelectItem value="stone" className="text-xs">Stone</SelectItem>
-                            <SelectItem value="pagueveloz" className="text-xs">PaguéVeloz</SelectItem>
-                            <SelectItem value="cielo" className="text-xs">Cielo</SelectItem>
-                            <SelectItem value="getnet" className="text-xs">GetNet</SelectItem>
-                            <SelectItem value="redecard" className="text-xs">Redecard</SelectItem>
+                            {opcoesMaquininha.map(m => (
+                              <SelectItem key={m.operadora} value={m.operadora} className="text-xs">{m.nome}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

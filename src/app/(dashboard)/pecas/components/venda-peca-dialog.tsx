@@ -1,4 +1,6 @@
 'use client'
+import { useMaquininhas } from '@/components/use-maquininhas'
+import { opcoesComGravada } from '@/lib/maquininhas-opcoes'
 
 import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
@@ -30,10 +32,6 @@ const TIPO_LABEL: Record<string, string> = {
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
   bonificacao: 'Bonificação (sem cobrança)',
-}
-const OPERADORA_LABEL: Record<string, string> = {
-  infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',
-  cielo: 'Cielo', getnet: 'GetNet', redecard: 'Redecard',
 }
 
 function gerarId() { return Math.random().toString(36).slice(2) }
@@ -69,6 +67,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   const [avisos, setAvisos] = useState<string[]>([])
 
   const [lojaId, setLojaId] = useState(isAdmin ? '' : (lojaUsuarioId ?? ''))
+  const [gravadas, setGravadas] = useState<string[]>([])
+  const opcoesMaquininha = opcoesComGravada(useMaquininhas(lojaId ? { loja: lojaId } : null), gravadas)
   const [clienteNome, setClienteNome] = useState('')
   // Venda para empresa: muda o rótulo do nome (razão social) e passa a exigir CNPJ.
   const [tipoPessoa, setTipoPessoa] = useState('fisica')
@@ -171,6 +171,8 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
         if (!r.ok) { toast.error(r.erro); setOpen(false); return }
         const v = r.dados
         setClienteNome(v.clienteNome ?? '')
+        setLojaId(v.lojaId)
+        setGravadas(v.pagamentos.map(p => p.operadora ?? ''))
         setPecasNovas(prev => [...prev, ...v.pecas.filter(p => !pecas.some(x => x.id === p.id))])
         // O preço gravado vai na linha: é ele que vale, não o do catálogo de hoje.
         setItens(v.itens.map(i => ({ id: gerarId(), pecaId: i.pecaId, quantidade: String(i.quantidade), valor: i.valorUnitario.toFixed(2).replace('.', ',') })))
@@ -435,16 +437,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         <Select value={p.operadora ?? ''} onValueChange={v => v && updatePgto(p.id, 'operadora', v)}>
                           <SelectTrigger className="h-8 text-xs">
                             <span className={p.operadora ? '' : 'text-muted-foreground'}>
-                              {OPERADORA_LABEL[p.operadora ?? ''] ?? 'Operadora'}
+                              {opcoesMaquininha.find(m => m.operadora === p.operadora)?.nome ?? p.operadora ?? (lojaId && opcoesMaquininha.length === 0 ? 'Nenhuma maquininha cadastrada' : 'Operadora')}
                             </span>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="infinitypay" className="text-xs">InfinityPay</SelectItem>
-                            <SelectItem value="stone" className="text-xs">Stone</SelectItem>
-                            <SelectItem value="pagueveloz" className="text-xs">PaguéVeloz</SelectItem>
-                            <SelectItem value="cielo" className="text-xs">Cielo</SelectItem>
-                            <SelectItem value="getnet" className="text-xs">GetNet</SelectItem>
-                            <SelectItem value="redecard" className="text-xs">Redecard</SelectItem>
+                            {opcoesMaquininha.map(m => (
+                              <SelectItem key={m.operadora} value={m.operadora} className="text-xs">{m.nome}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

@@ -1,14 +1,15 @@
 'use client'
 import { useRef, useState } from 'react'
+import type { Maquininha } from '@/lib/maquininhas'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, Loader2 } from 'lucide-react'
 import { importarRelatorioAction } from '../actions'
 
-export function UploadRelatorio() {
+export function UploadRelatorio({ maquininhas }: { maquininhas: Maquininha[] }) {
   const fileRef = useRef<HTMLInputElement>(null)
-  const [operadora, setOperadora] = useState('infinitypay')
+  const [operadora, setOperadora] = useState(maquininhas[0]?.operadora ?? '')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -38,12 +39,12 @@ export function UploadRelatorio() {
     <form onSubmit={handleSubmit} className="flex items-center gap-3">
       <Select value={operadora} onValueChange={v => v && setOperadora(v)}>
         <SelectTrigger className="w-44">
-          <SelectValue />
+          <SelectValue placeholder="Nenhuma maquininha cadastrada">
+            {(v: string | null) => v ? (maquininhas.find(m => m.operadora === v)?.nome ?? v) : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="infinitypay">InfinityPay</SelectItem>
-          <SelectItem value="stone">Stone</SelectItem>
-          <SelectItem value="pagueveloz">PaguéVeloz</SelectItem>
+          {maquininhas.map(m => <SelectItem key={m.operadora} value={m.operadora}>{m.nome}</SelectItem>)}
         </SelectContent>
       </Select>
 

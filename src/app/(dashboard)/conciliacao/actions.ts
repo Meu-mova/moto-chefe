@@ -1,4 +1,5 @@
 'use server'
+import { maquininhasDoGrupo } from '@/lib/maquininhas'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
@@ -158,6 +159,9 @@ export async function importarRelatorioAction(formData: FormData) {
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
   else throw new Error(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
+  if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
+    throw new Error('Maquininha não encontrada')
+  }
 
   // ── Trava de grupo errado ───────────────────────────────────────────────────
   // A importação carimba o grupo ATIVO na sessão. Se o arquivo for de outro

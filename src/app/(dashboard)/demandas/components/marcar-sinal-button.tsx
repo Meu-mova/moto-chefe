@@ -1,4 +1,5 @@
 'use client'
+import { useMaquininhas } from '@/components/use-maquininhas'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ type Props = {
 const fmt = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmin }: Props) {
+  const maquininhas = useMaquininhas({ demanda: demandaId })
   const [open, setOpen] = useState(false)
   const [valor, setValor] = useState('')
   // O sinal pode ser dividido em mais de uma forma — mesmas linhas da venda.
@@ -30,7 +32,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
   const valorNum = parseFloat(valor) || 0
   const soma = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somaOk = valorNum > 0 && Math.abs(soma - valorNum) < 0.01
-  const pgtosOk = pgtos.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null))
+  const pgtosOk = pgtos.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null, maquininhas))
   const valido = clienteCompleto(cliente) && somaOk && pgtosOk
 
   function marcar() {
@@ -117,6 +119,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
             <div className="space-y-2">
               <Label>Formas de pagamento <span className="text-destructive">*</span></Label>
               <PagamentosFields
+                maquininhas={maquininhas}
                 pgtos={pgtos}
                 onAdd={() => setPgtos(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])}
                 onRemove={id => setPgtos(p => p.filter(x => x.id !== id))}

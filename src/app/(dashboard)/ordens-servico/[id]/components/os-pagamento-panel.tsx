@@ -1,4 +1,6 @@
 'use client'
+import type { Maquininha } from '@/lib/maquininhas'
+import { opcoesComGravada } from '@/lib/maquininhas-opcoes'
 import { useState, useTransition } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -21,14 +23,6 @@ const FORMAS = [
   { value: TIPO_PAGAMENTO_CUPOM, label: 'Cupom de revisão gratuita' },
 ]
 const FORMAS_CARTAO = new Set(['cartao_credito', 'cartao_debito'])
-const OPERADORAS = [
-  { value: 'infinitypay', label: 'InfinityPay' },
-  { value: 'stone',       label: 'Stone' },
-  { value: 'pagueveloz',  label: 'PaguéVeloz' },
-  { value: 'cielo',       label: 'Cielo' },
-  { value: 'getnet',      label: 'GetNet' },
-  { value: 'redecard',    label: 'Redecard' },
-]
 
 type Linha = { id: string; tipo: string; valor: string; operadora?: string; parcelas?: string; autorizacao?: string; cupom?: string }
 
@@ -40,6 +34,8 @@ type Props = {
   pagamentosIniciais: PgtoOS[]
   jaPago: boolean
   aprovacaoPendente?: boolean
+  /** Do grupo da loja da OS (#460). */
+  maquininhas: Maquininha[]
 }
 
 function linhasIniciais(pagamentos: PgtoOS[], valorTotal: number): Linha[] {
@@ -57,7 +53,8 @@ function linhasIniciais(pagamentos: PgtoOS[], valorTotal: number): Linha[] {
   return [{ id: '1', tipo: '', valor: valorTotal > 0 ? valorTotal.toFixed(2) : '' }]
 }
 
-export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIniciais, jaPago, aprovacaoPendente }: Props) {
+export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIniciais, jaPago, aprovacaoPendente, maquininhas }: Props) {
+  const opcoesMaquininha = opcoesComGravada(maquininhas, pagamentosIniciais.map(p => p.operadora))
   const [pending, start] = useTransition()
   const [linhas, setLinhas] = useState<Linha[]>(() => linhasIniciais(pagamentosIniciais, valorTotal))
   // Conferência do código digitado, por linha. Só informativa: a trava está em
@@ -201,8 +198,8 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select value={l.operadora ?? ''} onChange={e => updateLinha(l.id, 'operadora', e.target.value)}
                   className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
-                  <option value="">Operadora...</option>
-                  {OPERADORAS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  <option value="">{opcoesMaquininha.length === 0 ? 'Nenhuma maquininha cadastrada' : 'Operadora...'}</option>
+                  {opcoesMaquininha.map(m => <option key={m.operadora} value={m.operadora}>{m.nome}</option>)}
                 </select>
                 <select value={l.parcelas ?? ''} onChange={e => updateLinha(l.id, 'parcelas', e.target.value)}
                   className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">

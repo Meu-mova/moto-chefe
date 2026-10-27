@@ -7,6 +7,7 @@ import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { db } from '@/lib/db'
+import { maquininhasDaLoja } from '@/lib/maquininhas'
 import { servicosCatalogo, aprovacoesVenda } from '@/lib/db/schema'
 import { listarPecasDaLoja } from '@/lib/pecas-da-conta'
 import { eq, asc, and } from 'drizzle-orm'
@@ -50,6 +51,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
   const mecanicos = await listarUsuariosDoGrupo(await getGrupoIdDaLoja(os.lojaId), { papeis: ['mecanico'] })
   // Catálogo da Conta da loja da OS, mesmo para o admin com outro grupo ativo (#195).
   const pecas = await listarPecasDaLoja(db, os.lojaId)
+  const maquininhas = await maquininhasDaLoja(db, os.lojaId)
 
   const podeEditar = ['admin_geral', 'admin_socio', 'aux_adm', 'mecanico'].includes(usuario.papel)
   const podeFechar = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
@@ -238,6 +240,7 @@ export default async function OSDetalhePage({ params }: { params: Promise<{ id: 
               valorTotal={os.valorTotal ? parseFloat(os.valorTotal) : totalGeral}
               valorServicos={totalServicos}
               pagamentosIniciais={pagamentosOS}
+              maquininhas={maquininhas}
               jaPago={os.status === 'concluida'}
               aprovacaoPendente={aprovacaoPendente}
             />

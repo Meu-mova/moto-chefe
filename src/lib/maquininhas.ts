@@ -21,6 +21,12 @@ export async function maquininhasDaLoja(exec: Executor, lojaId: string): Promise
     .orderBy(asc(maquininhas.nome))
 }
 
+export async function maquininhasDoGrupo(exec: Executor, grupoId: string): Promise<Maquininha[]> {
+  return exec.select({ operadora: maquininhas.operadora, nome: maquininhas.nome }).from(maquininhas)
+    .where(and(eq(maquininhas.grupoId, grupoId), eq(maquininhas.ativo, true)))
+    .orderBy(asc(maquininhas.nome))
+}
+
 /**
  * Recusa pagamento com maquininha que não é do grupo da loja. A mesma frase para a de outro
  * grupo e para a inexistente. `jaGravadas`: operadoras que o registro já tinha, aceitas na
