@@ -713,7 +713,7 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
 export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
   pecaId: uuid('peca_id').notNull().references(() => pecasCatalogo.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
-  quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('0'),
+  quantidade: integer('quantidade').notNull().default(0),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.pecaId, t.lojaId] }),
