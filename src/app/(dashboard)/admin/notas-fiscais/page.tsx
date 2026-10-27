@@ -5,6 +5,7 @@ import { eq, sql, and, isNull } from 'drizzle-orm'
 import { NotasFiscaisClient } from './components/notas-fiscais-client'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarGruposVisiveis } from '@/lib/grupo'
+import { credencialParaTela } from '@/lib/notagateway/credencial-tela'
 
 /**
  * Configuração fiscal por grupo, para a emissão de NF-e própria.
@@ -57,16 +58,7 @@ export default async function NotasFiscaisPage() {
     return {
       grupoId: g.id,
       grupoNome: g.nome,
-      credencial: cfg
-        ? {
-            temToken: true,
-            empresaId: cfg.empresaId,
-            ambiente: cfg.ambiente as 'Homologacao' | 'Producao',
-            serieNfe: cfg.serieNfe,
-            proximoNumero: cfg.proximoNumero,
-            certificadoEnviadoEm: cfg.certificadoEnviadoEm?.toISOString() ?? null,
-          }
-        : null,
+      credencial: cfg ? credencialParaTela(cfg) : null,
       regra: regra
         ? {
             naturezaOperacao: regra.naturezaOperacao,
