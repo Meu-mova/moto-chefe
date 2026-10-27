@@ -84,19 +84,19 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 24px 28px; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 24px 28px; }
         h1 { font-size: 17px; margin-bottom: 2px; }
-        h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin: 18px 0 6px; }
+        h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin: 18px 0 6px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-        th, td { border: 1px solid #e2e8f0; padding: 4px 8px; text-align: left; vertical-align: top; }
-        th { background: #f8fafc; width: 190px; font-weight: 600; }
+        th, td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+        th { background: var(--muted); width: 190px; font-weight: 600; }
         .mono { font-family: ui-monospace, Consolas, monospace; word-break: break-all; }
-        .doc { border: 1px solid #e2e8f0; padding: 14px; margin-top: 6px; }
+        .doc { border: 1px solid var(--border); padding: 14px; margin-top: 6px; }
         .imgs { display: flex; gap: 14px; }
-        .imgs figure { border: 1px solid #e2e8f0; padding: 8px; }
+        .imgs figure { border: 1px solid var(--border); padding: 8px; }
         .imgs img { max-width: 240px; max-height: 300px; display: block; }
-        figcaption { font-size: 9px; color: #64748b; margin-top: 4px; }
-        .rodape { margin-top: 18px; font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+        figcaption { font-size: 9px; color: var(--muted-foreground); margin-top: 4px; }
+        .rodape { margin-top: 18px; font-size: 10px; color: var(--muted-foreground); border-top: 1px solid var(--border); padding-top: 8px; }
         @media print { .no-print { display: none } }
       `}</style>
 
@@ -153,7 +153,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
             ? (doc.viaFisicaPath?.endsWith('.pdf')
                 ? <p><a href={viaFisicaUrl}>Abrir o PDF da via assinada</a> (link válido por 10 minutos)</p>
                 /* eslint-disable-next-line @next/next/no-img-element */
-                : <img src={viaFisicaUrl} alt="Via do documento assinada à caneta" style={{ maxWidth: 420, border: '1px solid #e2e8f0' }} />)
+                : <img src={viaFisicaUrl} alt="Via do documento assinada à caneta" style={{ maxWidth: 420, border: '1px solid var(--border)' }} />)
             : <p style={{ fontSize: 11 }}>Via não localizada no arquivo.</p>}
           <p style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 4 }}>
             Resumo da via (SHA-256): <span className="mono">{doc.viaFisicaHash ?? '—'}</span>

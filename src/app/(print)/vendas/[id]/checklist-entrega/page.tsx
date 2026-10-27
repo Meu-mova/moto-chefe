@@ -32,24 +32,24 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1e293b; background: #fff; padding: 20px 28px; }
-        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 8px; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: var(--foreground); background: var(--card); padding: 20px 28px; }
+        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 8px; margin-bottom: 8px; }
         .titulo { font-size: 18px; font-weight: 900; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
-        .card  { border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 8px; }
-        .card h2 { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 4px; }
+        .card  { border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; }
+        .card h2 { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 4px; }
         .f  { margin-bottom: 3px; }
-        .fl { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 0; }
+        .fl { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); display: block; margin-bottom: 0; }
         .fv { font-size: 11px; font-weight: 600; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-        th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 8px; text-align: left; font-size: 9px; text-transform: uppercase; color: #64748b; }
-        td { border: 1px solid #e2e8f0; padding: 2px 8px; font-size: 10px; }
+        th { background: var(--muted); border: 1px solid var(--border); padding: 3px 8px; text-align: left; font-size: 9px; text-transform: uppercase; color: var(--muted-foreground); }
+        td { border: 1px solid var(--border); padding: 2px 8px; font-size: 10px; }
         .chk { text-align: center; width: 40px; }
-        .box { display: inline-block; width: 10px; height: 10px; border: 1px solid #64748b; }
+        .box { display: inline-block; width: 10px; height: 10px; border: 1px solid var(--muted-foreground); }
         .obs { margin: 4px 0 8px; font-size: 10px; }
-        .obsline { display: inline-block; border-bottom: 1px solid #94a3b8; width: 100%; min-height: 12px; }
+        .obsline { display: inline-block; border-bottom: 1px solid var(--muted-foreground); width: 100%; min-height: 12px; }
         .sig  { text-align: center; margin-top: 4px; }
-        .sigline { border-top: 1px solid #1e293b; padding-top: 3px; font-size: 9px; color: #64748b; margin-top: 16px; }
+        .sigline { border-top: 1px solid var(--foreground); padding-top: 3px; font-size: 9px; color: var(--muted-foreground); margin-top: 16px; }
         .sigs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 14px; }
         .localdata { margin: 6px 0; font-size: 10px; text-align: right; }
         @media print {

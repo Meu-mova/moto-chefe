@@ -17,22 +17,22 @@ export default async function CertificadoBateriaPage({ params }: { params: Promi
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 32px 40px; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 32px 40px; }
         .hdr { text-align: center; margin-bottom: 18px; }
         .titulo { font-size: 22px; font-weight: 900; margin-top: 10px; }
-        .subtitulo { font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: .04em; }
+        .subtitulo { font-size: 12px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .04em; }
         .destaque { text-align: center; margin: 16px 0; }
-        .destaque .a { font-size: 15px; font-weight: 900; color: #166534; }
-        .destaque .b { font-size: 11px; color: #64748b; }
+        .destaque .a { font-size: 15px; font-weight: 900; color: var(--success); }
+        .destaque .b { font-size: 11px; color: var(--muted-foreground); }
         .par { font-size: 11px; line-height: 1.6; text-align: justify; margin-bottom: 12px; }
-        .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
+        .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 8px; }
         .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .f  { margin-bottom: 5px; }
-        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
+        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); display: block; margin-bottom: 1px; }
         .fv { font-size: 12px; font-weight: 600; }
-        .selo { border: 1px dashed #94a3b8; border-radius: 8px; height: 90px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
-        .ftr { text-align: center; font-size: 10px; color: #64748b; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        .selo { border: 1px dashed var(--muted-foreground); border-radius: 8px; height: 90px; display: flex; align-items: center; justify-content: center; color: var(--muted-foreground); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+        .ftr { text-align: center; font-size: 10px; color: var(--muted-foreground); margin-top: 18px; border-top: 1px solid var(--border); padding-top: 10px; }
         @media print {
           body { padding: 0; }
           @page { margin: 1.5cm; }

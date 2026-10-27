@@ -42,27 +42,27 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 28px 32px; }
-        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 18px; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
+        .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 14px; margin-bottom: 18px; }
         .os-n { font-size: 26px; font-weight: 900; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-        .card  { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
+        .card  { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 8px; }
         .f  { margin-bottom: 5px; }
-        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
+        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); display: block; margin-bottom: 1px; }
         .fv { font-size: 12px; font-weight: 600; }
-        .obs { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-        .obs h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 6px; }
+        .obs { background: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+        .obs h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 6px; }
         .obs p  { font-size: 12px; line-height: 1.55; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        td { border: 1px solid #e2e8f0; padding: 7px 9px; font-size: 12px; }
+        td { border: 1px solid var(--border); padding: 7px 9px; font-size: 12px; }
         .tr { text-align: right; }
-        .tot td { font-weight: 700; background: #f8fafc; }
-        .grand { font-size: 15px; font-weight: 900; color: #166534; }
+        .tot td { font-weight: 700; background: var(--muted); }
+        .grand { font-size: 15px; font-weight: 900; color: var(--success); }
         .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; }
         .sig  { text-align: center; }
-        .sigline { border-top: 1px solid #1e293b; padding-top: 5px; font-size: 10px; color: #64748b; }
-        .ftr { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        .sigline { border-top: 1px solid var(--foreground); padding-top: 5px; font-size: 10px; color: var(--muted-foreground); }
+        .ftr { text-align: center; font-size: 9px; color: var(--muted-foreground); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
         @media print {
           body { padding: 0; }
           @page { margin: 1.5cm; }
