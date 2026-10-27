@@ -33,7 +33,7 @@ export default async function DreImprimirPage({
   const emitidoEm = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
   return (
-    <div className="p-8 text-[11px] text-black">
+    <div className="p-8 text-[11px] text-foreground">
       {/* Paisagem: o DRE por loja tem uma coluna por loja mais o total, e em
           retrato as últimas cairiam fora da folha. */}
       <style>{`@page { size: A4 landscape; margin: 10mm } @media print { .nao-imprime { display: none } }`}</style>
@@ -50,7 +50,7 @@ export default async function DreImprimirPage({
       {aba === 'lojas' && porLoja && <DreTabela colunas={porLoja.colunas} />}
       {aba === 'evolucao' && evolucao && <DreTabela colunas={evolucao} mostrarPercentual={false} />}
 
-      <footer className="mt-6 text-[9px] text-slate-500 space-y-0.5">
+      <footer className="mt-6 text-[9px] text-muted-foreground space-y-0.5">
         <p>
           Resultado operacional = receita líquida − custo das motos vendidas − despesas
           operacionais. É o mesmo Lucro Líquido da tela Financeiro.
