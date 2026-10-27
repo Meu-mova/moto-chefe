@@ -185,6 +185,8 @@ lado do nome da categoria e não carrega informação sozinho:
 
 ## Tema
 
-- Padrão: **segue o sistema** (claro ou escuro, conforme o celular ou o computador).
-- Troca manual no menu do usuário: Claro / Escuro / Sistema. A escolha fica salva no navegador.
-- Impressos ficam sempre claros.
+- Padrão: **claro**, sem seguir o tema do sistema do aparelho (decisão do Luis, #90).
+- Troca manual: Claro / Escuro. No computador, no menu que abre no card do usuário; no celular, na
+  barra do grupo ativo (ou no canto da tela, para quem não troca de grupo). Páginas públicas, como o
+  login, não têm a troca. A escolha fica salva no navegador, por aparelho.
+- Impressos ficam sempre claros (`.tema-claro`, `src/app/(print)/layout.tsx`).

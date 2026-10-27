@@ -161,7 +161,7 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
   return `
   <div style="margin-bottom:20px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${corLabel};margin-bottom:10px;border-left:3px solid ${corLabel};padding-left:8px">
-      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:#94a3b8">(entrada: ${fmt(entrada)})</span>` : ''}
+      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmt(entrada)})</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid ${corBorder};border-radius:8px;overflow:hidden">
       <thead>
@@ -177,12 +177,25 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
         <tr style="border-bottom:1px solid ${corBorder}">
           <td style="padding:8px 10px;font-weight:700;color:${corValor}">${parcelas}x</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmt(parcela)}</td>
-          <td style="padding:8px 10px;text-align:right;color:#64748b;font-size:11px">${fmt(credito)}</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmt(credito)}</td>
           ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmt(entrada + credito)}</td>` : ''}
         </tr>`).join('')}
       </tbody>
     </table>
   </div>`
+}
+
+// A janela da simulação não carrega o globals.css: cada var(--x) usada na folha recebe o valor
+// lido de um .tema-claro, para o papel sair claro mesmo com o escuro ligado na tela.
+function comPaletaClara(html: string) {
+  const nomes = [...new Set(Array.from(html.matchAll(/var\(--([\w-]+)\)/g), (m) => m[1]))]
+  const sonda = document.createElement('div')
+  sonda.className = 'tema-claro'
+  document.body.appendChild(sonda)
+  const estilo = getComputedStyle(sonda)
+  const declaracoes = nomes.map((nome) => `--${nome}: ${estilo.getPropertyValue(`--${nome}`).trim()};`).join(' ')
+  sonda.remove()
+  return html.replace('<style>', `<style>\n    :root { ${declaracoes} }`)
 }
 
 function gerarHtmlPrint(
@@ -214,17 +227,18 @@ function gerarHtmlPrint(
 
   const linhasCartaoParaPrint = entrada > 0 ? linhasCartaoComEntrada : linhasCartaoSemEntrada
 
+  // Cor de significado por seção: texto 4.5+ sobre o card e sobre o cabeçalho (10%), claro e escuro.
   const tabelasSelecionadas = [
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Crédito', corLabel: '#3b82f6', corBg: '#eff6ff', corBorder: '#bfdbfe', corValor: '#1d4ed8', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Débito', corLabel: '#0d9488', corBg: '#f0fdfa', corBorder: '#99f6e4', corValor: '#0f766e', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Link de Pagamento', corLabel: '#7c3aed', corBg: '#f5f3ff', corBorder: '#ddd6fe', corValor: '#6d28d9', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Financiamento', corLabel: '#d97706', corBg: '#fffbeb', corBorder: '#fde68a', corValor: '#b45309', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Crédito', corLabel: 'var(--info)', corBg: 'color-mix(in srgb, var(--info) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--info) 30%, var(--card))', corValor: 'var(--info)', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--success)', corBg: 'color-mix(in srgb, var(--success) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--success) 30%, var(--card))', corValor: 'var(--success)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Link de Pagamento', corLabel: 'var(--warning)', corBg: 'color-mix(in srgb, var(--warning) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--warning) 30%, var(--card))', corValor: 'var(--warning)', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Financiamento', corLabel: 'var(--muted-foreground)', corBg: 'color-mix(in srgb, var(--muted-foreground) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--muted-foreground) 30%, var(--card))', corValor: 'var(--muted-foreground)', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
 
   const blocoFrete = frete ? `
-  <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0">
-    <div style="font-size:11px;color:#64748b">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
-    <div style="font-size:13px;font-weight:700;color:#334155;margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
+  <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:var(--muted);border:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
+    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
   </div>` : ''
 
   // "Com entrada" subsections — só aparecem quando há entrada
@@ -233,9 +247,9 @@ function gerarHtmlPrint(
 
   const entradaSubTabela = (linha: Linha | null | undefined, cor: string) => linha ? `
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${cor}">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px">Com entrada</div>
-      <div style="font-size:14px;font-weight:700;color:#334155">${fmt(linha.credito)} no cartão</div>
-      <div style="font-size:10px;color:#94a3b8;margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:5px">Com entrada</div>
+      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmt(linha.credito)} no cartão</div>
+      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
     </div>` : ''
 
   return `<!DOCTYPE html>
@@ -245,39 +259,39 @@ function gerarHtmlPrint(
   <title>Simulação — ${nomeEsc}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;padding:40px;color:#1e293b;font-size:14px;max-width:640px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #e2e8f0}
-    .brand{font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+    body{font-family:Arial,sans-serif;padding:40px;color:var(--foreground);font-size:14px;max-width:640px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+    .brand{font-size:11px;color:var(--muted-foreground);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
     .model{font-size:26px;font-weight:700}
-    .date{font-size:11px;color:#94a3b8;text-align:right;white-space:nowrap}
+    .date{font-size:11px;color:var(--muted-foreground);text-align:right;white-space:nowrap}
     .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
     .price-card{border-radius:12px;padding:16px 12px;text-align:center}
-    .price-tabela{background:#f8fafc;border:2px solid #e2e8f0}
-    .price-desconto{background:#eff6ff;border:2px solid #bfdbfe}
-    .price-pix{background:#f0fdf4;border:2px solid #bbf7d0}
-    .price-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;color:#64748b}
-    .price-desconto .price-label{color:#3b82f6}
-    .price-pix .price-label{color:#16a34a}
-    .price-val{font-size:20px;font-weight:700;color:#334155;margin-bottom:4px}
-    .price-desconto .price-val{color:#1d4ed8}
-    .price-pix .price-val{color:#15803d}
-    .price-sub{font-size:11px;color:#94a3b8}
-    .price-desconto .price-sub{color:#93c5fd}
-    .price-pix .price-sub{color:#86efac}
+    .price-tabela{background:var(--muted);border:2px solid var(--border)}
+    .price-desconto{background:color-mix(in srgb, var(--info) 10%, var(--card));border:2px solid color-mix(in srgb, var(--info) 30%, var(--card))}
+    .price-pix{background:color-mix(in srgb, var(--success) 10%, var(--card));border:2px solid color-mix(in srgb, var(--success) 30%, var(--card))}
+    .price-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;color:var(--muted-foreground)}
+    .price-desconto .price-label{color:var(--info)}
+    .price-pix .price-label{color:var(--success)}
+    .price-val{font-size:20px;font-weight:700;color:var(--foreground);margin-bottom:4px}
+    .price-desconto .price-val{color:var(--info)}
+    .price-pix .price-val{color:var(--success)}
+    .price-sub{font-size:11px;color:var(--muted-foreground)}
+    .price-desconto .price-sub{color:var(--info)}
+    .price-pix .price-sub{color:var(--success)}
     .badge{display:inline-block;margin-top:7px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-    .badge-blue{background:#dbeafe;color:#1d4ed8}
-    .badge-green{background:#dcfce7;color:#15803d}
+    .badge-blue{background:color-mix(in srgb, var(--info) 15%, var(--card));color:var(--info)}
+    .badge-green{background:color-mix(in srgb, var(--success) 15%, var(--card));color:var(--success)}
     .eco{font-size:10px;margin-top:3px}
-    .price-desconto .eco{color:#3b82f6}
-    .price-pix .eco{color:#16a34a}
-    .entrada-tag{text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:#475569}
-    .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center}
+    .price-desconto .eco{color:var(--info)}
+    .price-pix .eco{color:var(--success)}
+    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}
+    .footer{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:10px;color:var(--muted-foreground);text-align:center}
   </style>
 </head>
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:16px">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px">` : ''}
+      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:var(--muted);border:1px solid var(--border);padding:4px">` : ''}
       <div>
         <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
         <div class="model">${nomeEsc}</div>
@@ -293,7 +307,7 @@ function gerarHtmlPrint(
       <div class="price-label">Valor de Tabela</div>
       <div class="price-val">${cartao21 ? fmt(cartao21.credito) : '—'}</div>
       <div class="price-sub">${cartao21 ? `21x de ${fmt(cartao21.parcela)}` : '21x no cartão'}</div>
-      ${entradaSubTabela(c21Entrada, '#e2e8f0')}
+      ${entradaSubTabela(c21Entrada, 'var(--border)')}
     </div>
     <div class="price-card price-desconto">
       <div class="price-label">Valor com Desconto</div>
@@ -301,7 +315,7 @@ function gerarHtmlPrint(
       <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
       ${desc12 ? `<div class="badge badge-blue">${desc12}% de desconto</div>` : ''}
       ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmt(eco12)}</div>` : ''}
-      ${entradaSubTabela(c12Entrada, '#bfdbfe')}
+      ${entradaSubTabela(c12Entrada, 'color-mix(in srgb, var(--info) 30%, var(--card))')}
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
@@ -474,7 +488,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       MOSTRAR_FINANCIAMENTO ? selFinanciamento : new Set<number>(),
       freteResultado?.ok ? freteResultado : null,
     )
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([comPaletaClara(html)], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const win = window.open(url, '_blank', 'width=780,height=960')
     win?.focus()
