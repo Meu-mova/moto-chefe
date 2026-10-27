@@ -100,7 +100,7 @@ async function atualizarPeca(id: string, input: PecaInput) {
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  // Sem loja (usuário sem loja vinculada), o form nem mostra o estoque: grava só nome e valor.
+  // Sem loja, grava só nome e valor: usuário sem loja vinculada, ou estoque que não mudou no form.
   const lojaId = await lojaDoEstoqueDoUsuario(usuario, input.lojaId)
   const quem = await quemVePecas(usuario)
   await db.transaction(async tx => {
