@@ -67,6 +67,8 @@ export async function montarImagemDanfe(arquivo: Buffer, emitente: EmitenteDanfe
   } catch {
     return { ok: false, erro: 'Não deu para ler a imagem. Confira o arquivo e envie de novo.' }
   }
+  // Defensiva: com o corte para 16 cores nem ruído aleatório passou de 64 KB nos testes; fica
+  // para o caso de a montagem mudar (mais texto, outra medida).
   if (png.length > MAX_SAIDA) {
     return { ok: false, erro: 'A imagem montada passou de 64 KB. Use uma logo mais simples, com menos detalhes.' }
   }

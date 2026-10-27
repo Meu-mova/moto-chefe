@@ -18,7 +18,7 @@ export type LinhaLogo = {
   logoUrl: string | null
 }
 
-type Previa = { dataUrl: string; kb: number; original: { url: string; kb: number } }
+type Previa = { dataUrl: string; kb: number; original: { kb: number } }
 
 const fmtData = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -101,7 +101,7 @@ function EnviarLogoForm({ grupo, onFechar }: { grupo: LinhaLogo; onFechar: () =>
     iniciar(async () => {
       const r = await previaLogoDanfeAction(form(f))
       if (!r.ok) { setErro(r.erro); return }
-      setPrevia({ dataUrl: r.dataUrl, kb: r.kb, original: { url: URL.createObjectURL(f), kb: Math.round(f.size / 1024) } })
+      setPrevia({ dataUrl: r.dataUrl, kb: r.kb, original: { kb: Math.round(f.size / 1024) } })
     })
   }
 
