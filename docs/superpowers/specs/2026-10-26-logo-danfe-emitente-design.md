@@ -85,8 +85,8 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
   endereço (evidência indireta).
 - CNPJ: o da NG (`cnpj` da Consultar Empresa), que é o do emitente da nota. Se divergir do CNPJ do
   grupo no MOVA, a prévia avisa e não gera a imagem: a divergência é erro de configuração.
-- Site: coluna nova `site_danfe` em `notagateway_config` (a NG não tem). Opcional. Fica na tabela
-  da configuração fiscal do grupo, que já tem o isolamento por Conta e a permissão deste card.
+- Site: digitado no diálogo da logo e guardado em `site_danfe` (ver "Guarda e registro"). A NG
+  não tem site.
 - A prévia só chama o GET da NG **depois** da checagem de papel e de Conta e do
   `ambienteLiberado`. Grupo de outra Conta não dispara chamada nenhuma à NG.
 - Se a consulta à NG falhar, a prévia avisa com frase fixa e não gera a imagem. Nada da resposta
@@ -98,9 +98,9 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
   entrada do usuário. Só a atual, sobrescrita a cada envio. Miniatura e prévia por link assinado
   de vida curta. Sem expiração nem cron, decisão do Luis (26/10): logo não é dado pessoal nem
   fiscal, então fica fora da regra de expiração do `AGENTS.md` (#402).
-- Coluna nova `notagateway_config.site_danfe` (texto, opcional), na migração do PR da imagem
-  composta, no próximo número livre. Editada só por `admin_geral` e `admin_socio` da Conta, como
-  o resto do card.
+- Coluna nova `notagateway_config.site_danfe` (texto, opcional; migração `0152`). Fica na tabela da
+  configuração fiscal do grupo, que já tem o isolamento por Conta, e é editada só por `admin_geral` e
+  `admin_socio` da Conta, como o resto do card.
 - Migração `0148` (ou o próximo número livre na `origin/dev` ao abrir o PR; a `0147` é do estoque
   por loja): bucket + colunas em `notagateway_config`: `logo_enviada_em timestamptz`,
   `logo_enviada_por uuid` (usuário) + refaz a `log_acoes_tipo_check` com o tipo novo.
@@ -112,15 +112,17 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
 ## Fluxo do envio
 
 ```text
-enviarLogoDanfe(grupoId, arquivo)
+enviarLogoDanfe(grupoId, arquivo, site)
   usuário é admin_geral ou admin_socio?      senão: recusa
   grupo existe e é da Conta do usuário?      senão: "Grupo não encontrado"
   grupo tem notagateway_config com empresa?  senão: avisa que falta configurar a NG
-  ajustarLogo(arquivo)                       recusa formato/tamanho
+  GET NG Consultar Empresa                   erro: frase fixa, sem token/empresaId
+  CNPJ da NG = CNPJ do grupo?                senão: recusa
+  montarImagemDanfe(arquivo, emitente+site)  recusa formato/tamanho
   POST NG /empresas/{empresaId}/logo         erro: mensagem sem token/empresaId
-  grava no Storage {grupoId}/logo.png
-  grava logo_enviada_em/por
   registra log_acoes
+  grava no Storage {grupoId}/logo.png
+  grava logo_enviada_em/por e site_danfe
 ```
 
 A ordem NG → Storage → banco faz o MOVA só mostrar como atual a logo que a NG aceitou.
@@ -161,6 +163,6 @@ tela. Teste manual por Postman só pelo mascarador de `scripts/lib/postman-ng.ts
 3. **Envio:** multipart no `client.ts`, Server Actions (prévia e envio), Storage, log, teste de
    banco do isolamento.
 4. **Tela:** card "Logo no DANFE" e diálogo com a prévia. Teste no navegador.
-5. **Imagem composta** (depois do teste em homologação de 26/10): fonte no repo, `ajustarLogo`
-   gera o 976x316 com os dados da NG e o site, coluna `site`, prévia = a imagem gerada. Teste
+5. **Imagem composta** (depois do teste em homologação de 26/10): fonte no repo, `montarImagemDanfe`
+   gera o 976x316 com os dados da NG e o site, coluna `site_danfe`, prévia = a imagem gerada. Teste
    final em homologação com print.
