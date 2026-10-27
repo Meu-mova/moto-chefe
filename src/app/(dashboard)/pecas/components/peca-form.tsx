@@ -35,6 +35,8 @@ type Props = {
    */
   open?: boolean
   onOpenChange?: (aberto: boolean) => void
+  /** Loja onde o estoque grava (#195). Sem ela o campo de estoque não aparece. */
+  lojaEstoque?: { id: string; nome: string } | null
 }
 
 type FormState = { nome: string; valor: string; quantidadeEstoque: string }
@@ -55,6 +57,7 @@ export function PecaForm({
   triggerClassName = 'inline-flex cursor-pointer',
   open,
   onOpenChange,
+  lojaEstoque,
 }: Props) {
   const [openInterno, setOpenInterno] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -84,10 +87,15 @@ export function PecaForm({
       toast.error('Nome é obrigatório')
       return
     }
+    // Unidades inteiras: o servidor recusa decimal. Na edição só vai se mudou: regravar o
+    // número lido na abertura apagaria uma venda feita nesse meio-tempo.
+    const quantidadeEstoque = lojaEstoque && form.quantidadeEstoque ? Number(form.quantidadeEstoque) : 0
+    const estoqueMudou = !pecaInicial || quantidadeEstoque !== pecaInicial.quantidadeEstoque
     const input: PecaInput = {
       nome: form.nome,
       valor: form.valor ? parseFloat(form.valor) : 0,
-      quantidadeEstoque: form.quantidadeEstoque ? parseInt(form.quantidadeEstoque, 10) : 0,
+      quantidadeEstoque,
+      lojaId: estoqueMudou ? lojaEstoque?.id ?? null : null,
     }
     setLoading(true)
     try {
@@ -140,8 +148,8 @@ export function PecaForm({
                 placeholder="0,00"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Estoque (unidades)</Label>
+            {lojaEstoque && <div className="space-y-1">
+              <Label>Estoque em {lojaEstoque.nome} (unidades)</Label>
               <Input
                 type="number"
                 min="0"
@@ -149,7 +157,7 @@ export function PecaForm({
                 value={form.quantidadeEstoque}
                 onChange={e => setCampo('quantidadeEstoque', e.target.value)}
               />
-            </div>
+            </div>}
           </div>
 
           <DialogFooter showCloseButton>

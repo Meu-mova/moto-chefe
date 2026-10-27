@@ -326,6 +326,8 @@ export const notagatewayConfig = pgTable('notagateway_config', {
   proximoNumero:        integer('proximo_numero').notNull().default(1),
   certificadoEnviadoEm: timestamp('certificado_enviado_em', { withTimezone: true }),
   atualizadoEm:         timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  logoEnviadaEm:        timestamp('logo_enviada_em', { withTimezone: true }),
+  logoEnviadaPor:       uuid('logo_enviada_por').references(() => usuarios.id, { onDelete: 'set null' }),
 })
 
 // ─── regras_fiscais_saida (o que a NOSSA nota leva, por grupo) ──────────
@@ -708,6 +710,16 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   // Catálogo da Conta: as lojas dela compartilham, as outras Contas não veem (#195).
   contaId: uuid('conta_id').notNull().references(() => contas.id),
 })
+
+// ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
+export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
+  pecaId: uuid('peca_id').notNull().references(() => pecasCatalogo.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  quantidade: integer('quantidade').notNull().default(0),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.pecaId, t.lojaId] }),
+}))
 
 // ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────
 export const vendasPecas = pgTable('vendas_pecas', {

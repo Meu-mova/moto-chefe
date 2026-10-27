@@ -101,12 +101,12 @@ export default async function DocumentoImpressoPage({
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; background: #fff; padding: 22px 26px; color: #1e293b; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; background: var(--card); padding: 22px 26px; color: var(--foreground); }
         .assina { margin-top: 30px; page-break-inside: avoid; }
-        .linha { border-top: 1px solid #1e293b; margin-top: 46px; padding-top: 4px; font-size: 11px; }
+        .linha { border-top: 1px solid var(--foreground); margin-top: 46px; padding-top: 4px; font-size: 11px; }
         .cols { display: flex; gap: 34px; }
         .cols > div { flex: 1; }
-        .aviso { border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; padding: 10px; font-size: 12px; margin-bottom: 12px; }
+        .aviso { border: 1px solid var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--card)); color: var(--warning); padding: 10px; font-size: 12px; margin-bottom: 12px; }
         @media print { .no-print { display: none } }
       `}</style>
 
@@ -147,7 +147,7 @@ export default async function DocumentoImpressoPage({
         </p>
       </div>
 
-      <p className="no-print" style={{ marginTop: 20, fontSize: 12, color: '#64748b' }}>
+      <p className="no-print" style={{ marginTop: 20, fontSize: 12, color: 'var(--muted-foreground)' }}>
         Depois de assinado, fotografe ou digitalize a via e registre em Vendas → detalhes da venda
         → “Registrar assinatura em papel”. É esse registro que libera a emissão da NF.
       </p>

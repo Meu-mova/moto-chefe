@@ -42,7 +42,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values (gen_random_uuid(), 'Aux', ${'aux-ex404' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
   const [socio] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
     values (gen_random_uuid(), 'Socio', ${'socio-ex404' + nome + '@teste.invalid'}, 'admin_socio', null) returning id`)
-  const [peca] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, quantidade_estoque, conta_id) values ('Retrovisor', 50, 8, ${conta.id}) returning id`)
+  const [peca] = await linhas(tx, sql`with p as (insert into pecas_catalogo (nome, valor, conta_id) values ('Retrovisor', 50, ${conta.id}) returning id) insert into pecas_estoque_loja (peca_id, loja_id, quantidade) select id, ${loja.id}, 8 from p returning peca_id as id`)
   return {
     grupoId: grupo.id as string, lojaId: loja.id as string, pecaId: peca.id as string,
     aux: { id: aux.id as string, papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
@@ -60,8 +60,9 @@ async function semearVendaConciliada(tx: Tx, c: Awaited<ReturnType<typeof semear
   return { id: venda.id as string, numero: venda.numero as number, cartaoId: cartao.id as string }
 }
 
+// Uma loja por Conta no cenário: o saldo dela é o da peça (#195).
 const estoque = async (tx: Tx, pecaId: string) =>
-  (await linhas(tx, sql`select quantidade_estoque from pecas_catalogo where id = ${pecaId}`))[0].quantidade_estoque as number
+  Number((await linhas(tx, sql`select coalesce(sum(quantidade), 0) q from pecas_estoque_loja where peca_id = ${pecaId}`))[0].q)
 const existe = async (tx: Tx, vendaId: string) =>
   (await linhas(tx, sql`select 1 from vendas_pecas where id = ${vendaId}`)).length === 1
 const cartaoDb = async (tx: Tx, id: string) =>
