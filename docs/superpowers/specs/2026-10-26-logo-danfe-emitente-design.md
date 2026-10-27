@@ -30,26 +30,54 @@ abaixo e separado do card de credencial/tributação, que não muda.
   enviada em e por quem, botão "Enviar logo".
 - "Enviar logo" abre um diálogo (`sm:max-w-*`):
   1. escolher arquivo (PNG ou JPG);
-  2. o servidor devolve a prévia: arquivo enviado → logo ajustada (340x120, com tamanho em KB);
-  3. abaixo, a simulação do topo do DANFE no padrão do DANFE real do Sul de Minas: quadro
-     "IDENTIFICAÇÃO DO EMITENTE" com a logo à esquerda e, à direita, razão social, endereço,
-     CEP, cidade/UF, fone, site e e-mail do grupo, uma informação por linha; ao lado, o bloco
-     DANFE e a chave. Legenda: "simulação; a nota real é gerada pela Nota Gateway";
+  2. campo opcional "Site" do grupo (o resto dos dados vem da NG, ver "Imagem");
+  3. o servidor devolve a prévia: arquivo enviado → **a própria imagem que vai para a NG**
+     (976x316, logo e dados do emitente juntos, com tamanho em KB). Não há mais simulação
+     desenhada pela tela: a prévia é o arquivo final;
   4. aviso: vale para notas emitidas depois do envio; não dá para apagar, para trocar envie outra;
   5. Cancelar / Enviar para a nota fiscal.
 - Sem botão de remover.
-- Só cores pelo nome (`globals.css`). A simulação do DANFE imita papel (preto no branco): usa
-  `bg-card`/`text-foreground`/`border-foreground`, sem cor nova.
+- Só cores pelo nome (`globals.css`).
 
 ## Imagem
 
-Função pura (`src/lib/notagateway/logo.ts`), com `sharp` como dependência direta:
+### O que a NG faz com a logo (homologação, 26/10)
 
-- Entrada: PNG ou JPG, até 5 MB. Fora disso, recusa com aviso.
-- Recorta a margem: pixels transparentes ou quase brancos nas bordas.
-- Encaixa no centro de um PNG 340x120, fundo transparente, sem distorcer.
-- Saída precisa ter até 64 KB (limite da doc v1 da NG; a v2 não cita). Passou: recusa com aviso.
-- Referência visual e dado de teste: a logo de Cuiabá (1254x1254 → 340x120, 7,6 KB).
+Medido dentro dos PDFs dos DANFEs (pdfplumber), notas de homologação 429 a 433 e a nota real
+3106 do Sul de Minas:
+
+- A NG desenha a logo numa **caixa fixa de 244x79 pt (3,09:1)** no quadro do emitente, qualquer
+  que seja o tamanho da imagem, **esticando sem manter a proporção**: uma imagem quadrada sai
+  achatada.
+- Com logo, a NG **não escreve** razão social nem endereço no quadro. No Sul de Minas, esses
+  dados estão **desenhados dentro da imagem** (1560x400 px); o único texto do quadro é o título.
+- Fundo **transparente sai preto**. PNG de 213 KB foi recusado (HTTP 400).
+- Notas emitidas antes do envio não mudam.
+
+### O que o MOVA gera
+
+`src/lib/notagateway/logo.ts`, com `sharp` e a fonte Arimo (SIL OFL 1.1) em `assets/fonts/`,
+desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do sistema na Vercel):
+
+- PNG **976x316** (3,09:1, 4x a caixa), **fundo branco opaco**.
+- À esquerda, a logo do arquivo com a margem recortada, na altura que couber.
+- À direita, uma informação por linha, no padrão do Sul de Minas: razão social (negrito),
+  logradouro, número e complemento, bairro, `CEP - cidade - UF`, CNPJ, fone, site e e-mail.
+  Linha sem dado não aparece.
+- Entrada: PNG ou JPG, até 5 MB. Saída até 64 KB (limite da doc v1 da NG). Fora disso, recusa.
+
+### De onde vêm os dados
+
+- Razão social, endereço, fone e e-mail: do cadastro da empresa na NG,
+  [Consultar Empresa](https://docs.notagateway.com.br/v2/reference/consultar-empresa)
+  (`GET /v2/empresas/{Id}`: `razaoSocial`, `email`, `telefoneComercial`, `endereco` com
+  `logradouro`, `numero`, `complemento`, `bairro`, `cep`, `cidade`, `uf`). Assim o endereço da
+  imagem não diverge do fiscal e ninguém digita de novo. Mesma chamada do `ufDaEmpresa`.
+  A doc não afirma que esse cadastro é o emitente da NF; a nota 415 de homologação saiu com esse
+  endereço (evidência indireta).
+- CNPJ: o do grupo no MOVA.
+- Site: campo novo do grupo (a NG não tem). Opcional.
+- Se a consulta à NG falhar, a prévia avisa e não gera a imagem.
 
 ## Guarda e registro
 
@@ -57,6 +85,8 @@ Função pura (`src/lib/notagateway/logo.ts`), com `sharp` como dependência dir
   entrada do usuário. Só a atual, sobrescrita a cada envio. Miniatura e prévia por link assinado
   de vida curta. Sem expiração nem cron, decisão do Luis (26/10): logo não é dado pessoal nem
   fiscal, então fica fora da regra de expiração do `AGENTS.md` (#402).
+- Coluna nova `site` (texto, opcional), na migração do PR da imagem composta, no próximo número
+  livre. Editada só por `admin_geral` e `admin_socio` da Conta, como o resto do card.
 - Migração `0148` (ou o próximo número livre na `origin/dev` ao abrir o PR; a `0147` é do estoque
   por loja): bucket + colunas em `notagateway_config`: `logo_enviada_em timestamptz`,
   `logo_enviada_por uuid` (usuário) + refaz a `log_acoes_tipo_check` com o tipo novo.
@@ -90,8 +120,8 @@ tela. Teste manual por Postman só pelo mascarador de `scripts/lib/postman-ng.ts
 
 ## Testes
 
-- Unitário (`logo.test.ts`): recorte de margem transparente e branca, encaixe 340x120 sem
-  distorção, recusa > 5 MB, formato errado e saída > 64 KB.
+- Unitário (`logo.test.ts`): saída 976x316 sem pixel transparente; logo recortada à esquerda;
+  linha sem dado não aparece; recusa > 5 MB, formato errado, arquivo ilegível e saída > 64 KB.
 - Unitário do envio multipart no `client.ts` (corpo com campo `logotipo`, sem token na mensagem
   de erro).
 - Banco (`*.db.test.ts`): sócio da Conta B não lista nem envia para grupo da Conta A e recebe a
@@ -113,4 +143,7 @@ tela. Teste manual por Postman só pelo mascarador de `scripts/lib/postman-ng.ts
    colunas e da `log_acoes_tipo_check`, `schema.ts`.
 3. **Envio:** multipart no `client.ts`, Server Actions (prévia e envio), Storage, log, teste de
    banco do isolamento.
-4. **Tela:** card "Logo no DANFE" e diálogo com a simulação. Teste no navegador.
+4. **Tela:** card "Logo no DANFE" e diálogo com a prévia. Teste no navegador.
+5. **Imagem composta** (depois do teste em homologação de 26/10): fonte no repo, `ajustarLogo`
+   gera o 976x316 com os dados da NG e o site, coluna `site`, prévia = a imagem gerada. Teste
+   final em homologação com print.
