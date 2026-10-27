@@ -42,6 +42,10 @@ export async function gruposParaLogo(usuario: UsuarioLogo, exec: Executor = db) 
     .select({
       id: grupos.id,
       nome: grupos.nome,
+      razaoSocial: grupos.razaoSocial,
+      enderecoSede: grupos.enderecoSede,
+      cidadeSede: grupos.cidadeSede,
+      cnpj: grupos.cnpj,
       temNg: sql<boolean>`${notagatewayConfig.empresaId} is not null`,
       logoEnviadaEm: notagatewayConfig.logoEnviadaEm,
       logoEnviadaPor: usuarios.nome,
