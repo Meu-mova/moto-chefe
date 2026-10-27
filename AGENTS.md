@@ -151,6 +151,14 @@ leitura e gravação:
   roda na próxima ação do próprio grupo deixa arquivo para sempre no grupo que não volta (#402).
 - Todo fluxo novo ou alterado tem teste de banco provando que a Conta B não lê nem sobrescreve
   dado da Conta A. Isso custou os hotfixes v1.8.1 e v1.8.2 (#320, #325).
+- **Opção que depende do cliente é dado do grupo no banco**: maquininha, banco, categoria,
+  modelo, marca, regra fiscal, integração, robô, quem aprova o quê. Mora numa tabela com
+  `grupo_id`, é lida por um ponto só filtrando pelo grupo da loja do registro, e a gravação
+  confere no servidor que a opção é do grupo. Grupo novo começa sem nenhuma e cadastra as suas.
+  Lista fixa no código (`const`, `type` união, `<option>` no JSX) serve só para o que vale igual
+  para qualquer Conta: status, papéis, regra da lei. Nome de cliente, CNPJ, e-mail ou grupo
+  escrito no código é dado de cliente fora do lugar: trate como vazamento e abra issue. As
+  maquininhas da MotoChefe em lista fixa apareciam para todas as Contas (#460).
 
 - O sistema é **multi-tenant por CNPJ** (grupos Sul de Minas, BH e Vale). **Toda
   funcionalidade nova nasce separada por grupo**: tabela com
