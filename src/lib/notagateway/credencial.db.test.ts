@@ -183,3 +183,15 @@ test('id da empresa fora do formato (../, ?) é recusado antes de chamar a NG', 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('id da empresa alfanumérico que não é uuid é aceito e consultado na NG', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const ng = ngFalsa({ 'EmpresaTeste_01-a': '49366097000140' })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: 'EmpresaTeste_01-a' }, ng.deps, tx)
+    assert.deepEqual(r, { ok: true })
+    assert.deepEqual(ng.chamadas, ['EmpresaTeste_01-a'])
+    assert.equal(await empresaDoGrupo(tx, c.grupo), 'EmpresaTeste_01-a')
+    throw new Desfazer()
+  }), Desfazer)
+})

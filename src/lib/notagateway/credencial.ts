@@ -30,6 +30,8 @@ export type DependenciasCredencial = {
 export const podeGravarCredencialNg = (papel: string) => papel === 'admin_geral'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// A doc da NG diz só 'string': não depende de uuid, mas nada que mude o caminho da URL.
+const ID_EMPRESA_NG = /^[A-Za-z0-9_-]{1,64}$/
 const digitos = (s: string) => s.replace(/\D/g, '')
 
 export async function salvarCredencial(
@@ -55,7 +57,7 @@ export async function salvarCredencial(
   const empresaId = data.empresaId.trim()
   if (empresaId) {
     // O id vai no caminho da URL da NG: fora do formato (../, ?) nem chega lá.
-    if (!UUID.test(empresaId)) {
+    if (!ID_EMPRESA_NG.test(empresaId)) {
       return { ok: false, erro: 'O id da empresa na Nota Gateway não está no formato certo. Copie de novo do painel da Nota Gateway.' }
     }
     // Mesma frase para qualquer outro grupo: não diz de qual Conta ele é.
