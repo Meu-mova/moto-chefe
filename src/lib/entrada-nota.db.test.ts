@@ -76,6 +76,34 @@ test('nota com motos e peças grava as duas na loja de destino', async () => {
   })
 })
 
+test('nota mista grava a ficha fiscal da moto com o xProd literal da nota (ADR-0008)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const ficha = { codigo: 'MT-X12', descricao: 'X12 MOTO CHEFE &amp; CIA', ncm: '87116000', cest: '', cfopEntrada: '6102', unidade: 'UN',
+      origem: '1', cstIcmsEntrada: '00', cstPis: '', cstCofins: '', classTribIbsCbs: '' }
+    const emitente = { cnpj: NOTA.fornecedorCnpj, nome: 'FORNECEDOR', nfNumero: NOTA.numero, nfChave: NOTA.chaveAcesso }
+    await nota.registrarNotaComPecas(tx, {
+      usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
+      motos: [moto(a.modeloId, 'EN429FICHA')], fiscais: [{ chassi: 'en429ficha', emitente, ficha }],
+      pecas: [capacete(a.pecaId)],
+    })
+    const [f] = await linhas(tx, sql`select f.x_prod from motos_fiscal f join motos m on m.id = f.moto_id where m.chassi = 'EN429FICHA'`)
+    assert.equal(f.x_prod, 'X12 MOTO CHEFE &amp; CIA')
+  })
+})
+
+test('o total devolvido conta só as motos com chassi e as linhas de peça', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const total = await nota.registrarNotaComPecas(tx, {
+      usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
+      motos: [moto(a.modeloId, 'EN429T1'), moto(a.modeloId, '  ')],
+      pecas: [capacete(a.pecaId)],
+    })
+    assert.deepEqual(total, { motos: 1, pecas: 1 })
+  })
+})
+
 test('chassi que já existe recusa a nota inteira: as peças também não entram', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
@@ -93,15 +121,19 @@ test('chassi que já existe recusa a nota inteira: as peças também não entram
   })
 })
 
-test('peça recusada desfaz as motos da mesma nota', async () => {
+test('peça recusada recusa a nota, com os erros de moto e de peça na mesma lista, e nenhuma moto entra', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const erro = await tentar(tx, {
       usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
-      motos: [moto(a.modeloId, 'EN429SOLO')],
+      motos: [moto(a.modeloId, 'EN429SOLO'), { ...moto(a.modeloId, 'EN429SEMPRECO'), precoCompra: '' }],
       pecas: [capacete(a.pecaId, 1.5)],
     })
-    assert.ok(erro instanceof Error)
+    assert.ok(erro instanceof nota.NotaRecusada)
+    assert.deepEqual(erro.erros, [
+      'EN429SEMPRECO: informe o preço de compra',
+      'CAPACETE AZUL: a quantidade precisa ser um número inteiro maior que zero',
+    ])
     assert.deepEqual(await motosGravadas(tx, ['EN429SOLO']), [])
   })
 })
@@ -118,7 +150,8 @@ test('aux_adm da Conta B não lança nota na loja da Conta A, e nada é gravado'
     assert.ok(erro instanceof nota.NotaRecusada)
     assert.deepEqual(erro.erros, ['Loja de destino não encontrada'])
     assert.deepEqual(await motosGravadas(tx, ['EN429INTRUSA']), [])
-    assert.equal(await saldos.saldoNaLoja(tx, b.pecaId, b.lojaId), 0)
+    assert.deepEqual(await linhas(tx, sql`select 1 from pecas_estoque_loja where loja_id = ${a.lojaId}`), [])
+    assert.deepEqual(await linhas(tx, sql`select 1 from notas_entrada where loja_id = ${a.lojaId}`), [])
   })
 })
 

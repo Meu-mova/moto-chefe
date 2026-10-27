@@ -261,8 +261,9 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
   const usuario = await getUsuarioLogado()
   if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
 
+  let total: { motos: number; pecas: number }
   try {
-    await db.transaction(tx => registrarNotaComPecas(tx, { ...dados, usuario }))
+    total = await db.transaction(tx => registrarNotaComPecas(tx, { ...dados, usuario }))
   } catch (e) {
     if (e instanceof NotaRecusada) return { error: `Nada foi gravado. Corrija:\n${e.erros.join('\n')}` }
     if (e instanceof EntradaPecasRecusada) return { error: `Nada foi gravado. ${e.message}` }
@@ -273,5 +274,5 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
   revalidatePath('/pecas')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  return { success: `Nota lançada: ${dados.motos.length} moto(s) e ${dados.pecas.length} item(ns) de peça.` }
+  return { success: `Nota lançada: ${total.motos} moto(s) e ${total.pecas} item(ns) de peça.` }
 }

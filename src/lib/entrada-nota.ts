@@ -11,7 +11,7 @@ import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
-import { gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
+import { conferirLinhasPecas, gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
 import type { EmitenteNfe, FichaFiscal } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -32,7 +32,7 @@ export type NotaComPecas = {
   pecas: LinhaEntradaPeca[]
 }
 
-export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Promise<void> {
+export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Promise<{ motos: number; pecas: number }> {
   // Mesma frase da gravação de peças: loja de outra Conta e loja inexistente não se distinguem.
   if (!(await podeAbrirRegistroDaLoja(e.usuario, e.lojaId, exec))) {
     throw new NotaRecusada(['Loja de destino não encontrada'])
@@ -62,6 +62,7 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
       .where(inArray(motos.chassi, prontas.map(p => p.chassi)))
     for (const { chassi } of existentes) erros.push(`${chassi}: chassi já existe no sistema`)
   }
+  erros.push(...await conferirLinhasPecas(exec, e.lojaId, e.pecas))
   if (erros.length) throw new NotaRecusada(erros)
 
   const idPorChassi = new Map<string, string>()
@@ -73,4 +74,5 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
     .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
 
   await gravarEntradaPecas(exec, { lojaId: e.lojaId, usuario: e.usuario, nota: e.nota, linhas: e.pecas })
+  return { motos: prontas.length, pecas: e.pecas.length }
 }
