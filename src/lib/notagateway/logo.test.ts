@@ -37,7 +37,7 @@ test('logo quadrada com margem transparente sai 340x120 com o desenho de cima a 
   assert.ok(Math.abs(c.right - 229) <= 1, `right=${c.right}`)
 })
 
-test('JPG com margem branca também é recortado e o branco de fundo vira transparente', async () => {
+test('JPG com margem branca sai 340x120 com o desenho de cima a baixo e transparente nas laterais', async () => {
   const r = await ajustarLogo(await comMargem(300, 300, 1200, { r: 255, g: 255, b: 255, alpha: 1 }, 'jpeg'))
   assert.ok(r.ok)
   const c = await caixaDoDesenho(r.png)
@@ -86,4 +86,16 @@ test('logo comum fica bem abaixo de 64 KB e informa o tamanho em KB', async () =
   const r = await ajustarLogo(await comMargem(300, 300, 1200, { r: 0, g: 0, b: 0, alpha: 0 }))
   assert.ok(r.ok)
   assert.ok(r.kb > 0 && r.kb < 64, `kb=${r.kb}`)
+})
+
+test('PNG cortado no meio do arquivo recusa com frase, sem lançar', async () => {
+  const inteiro = await comMargem(300, 300, 1200, { r: 0, g: 0, b: 0, alpha: 0 })
+  const r = await ajustarLogo(inteiro.subarray(0, Math.floor(inteiro.length / 2)))
+  assert.deepEqual(r, { ok: false, erro: 'Não deu para ler a imagem. Confira o arquivo e envie de novo.' })
+})
+
+test('imagem toda de uma cor só recusa com frase, sem lançar', async () => {
+  const branca = await sharp({ create: { width: 400, height: 400, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } } }).png().toBuffer()
+  const r = await ajustarLogo(branca)
+  assert.deepEqual(r, { ok: false, erro: 'Não deu para ler a imagem. Confira o arquivo e envie de novo.' })
 })

@@ -15,11 +15,19 @@ export async function ajustarLogo(arquivo: Buffer): Promise<LogoAjustada> {
   // O formato vem do conteúdo, não do nome: um .png pode ser WebP renomeado.
   const formato = await sharp(arquivo).metadata().then((m) => m.format, () => null)
   if (formato !== 'png' && formato !== 'jpeg') return { ok: false, erro: 'Envie a logo em PNG ou JPG.' }
-  const recortada = await sharp(arquivo).ensureAlpha().trim().toBuffer()
-  const png = await sharp(recortada)
-    .resize(LARGURA, ALTURA, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toBuffer()
+  let png: Buffer
+  try {
+    // De uma cor só não tem desenho para recortar; o trim devolveria a imagem inteira.
+    const { channels } = await sharp(arquivo).stats()
+    if (channels.every((c) => c.min === c.max)) throw new Error('imagem sem desenho')
+    const recortada = await sharp(arquivo).ensureAlpha().trim().toBuffer()
+    png = await sharp(recortada)
+      .resize(LARGURA, ALTURA, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer()
+  } catch {
+    return { ok: false, erro: 'Não deu para ler a imagem. Confira o arquivo e envie de novo.' }
+  }
   if (png.length > MAX_SAIDA) {
     return { ok: false, erro: 'A logo ajustada passou de 64 KB. Use uma imagem mais simples, com menos detalhes.' }
   }
