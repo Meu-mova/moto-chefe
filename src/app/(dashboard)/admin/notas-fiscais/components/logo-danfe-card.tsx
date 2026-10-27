@@ -2,12 +2,15 @@
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { emitenteDaSimulacao, type DadosEmitente } from '@/lib/logo-danfe-tela'
 import { enviarLogoDanfeAction, previaLogoDanfeAction } from '../actions'
 
-export type LinhaLogo = DadosEmitente & {
+export type LinhaLogo = {
   id: string
+  nome: string
+  siteDanfe: string | null
   temNg: boolean
   logoEnviadaEm: string | null
   logoEnviadaPor: string | null
@@ -68,6 +71,12 @@ export function LogoDanfeCard({ grupos }: { grupos: LinhaLogo[] }) {
 }
 
 function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFechar: () => void }) {
+  // Remonta a cada grupo aberto, para o site começar com o valor gravado do grupo.
+  return grupo ? <EnviarLogoForm key={grupo.id} grupo={grupo} onFechar={onFechar} /> : <Dialog open={false} />
+}
+
+function EnviarLogoForm({ grupo, onFechar }: { grupo: LinhaLogo; onFechar: () => void }) {
+  const [site, setSite] = useState(grupo.siteDanfe ?? '')
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [previa, setPrevia] = useState<Previa | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -80,13 +89,14 @@ function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFech
 
   function form(f: File) {
     const fd = new FormData()
-    fd.set('grupoId', grupo!.id)
+    fd.set('grupoId', grupo.id)
     fd.set('arquivo', f)
+    fd.set('site', site)
     return fd
   }
 
   function escolher(f: File | undefined) {
-    if (!f || !grupo) return
+    if (!f) return
     setArquivo(f); setPrevia(null); setErro(null)
     iniciar(async () => {
       const r = await previaLogoDanfeAction(form(f))
@@ -96,7 +106,7 @@ function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFech
   }
 
   function enviar() {
-    if (!arquivo || !grupo) return
+    if (!arquivo) return
     iniciar(async () => {
       const r = await enviarLogoDanfeAction(form(arquivo))
       if (!r.ok) { setErro(r.erro); return }
@@ -105,15 +115,22 @@ function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFech
     })
   }
 
-  const emitente = grupo ? emitenteDaSimulacao(grupo) : null
-
   return (
-    <Dialog open={!!grupo} onOpenChange={aberto => { if (!aberto) fechar() }} disablePointerDismissal>
+    <Dialog open onOpenChange={aberto => { if (!aberto) fechar() }} disablePointerDismissal>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Enviar logo do DANFE{grupo ? ` · ${grupo.nome}` : ''}</DialogTitle>
-          <DialogDescription>O MOVA tira a margem e encaixa no espaço da nota. Confira antes de enviar.</DialogDescription>
+          <DialogTitle>Enviar logo do DANFE · {grupo.nome}</DialogTitle>
+          <DialogDescription>O MOVA monta a imagem do quadro do emitente com a logo e os dados da empresa cadastrados na Nota Gateway. Confira antes de enviar.</DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-1">
+          <Label htmlFor="site-danfe" className="text-xs">Site (opcional)</Label>
+          <Input
+            id="site-danfe" value={site} disabled={pendente} placeholder="www.sualoja.com.br"
+            onChange={e => setSite(e.target.value)}
+            onBlur={() => { if (arquivo) escolher(arquivo) }}
+          />
+        </div>
 
         <input
           type="file"
@@ -126,31 +143,15 @@ function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFech
         {pendente && !previa && <p className="text-sm text-muted-foreground">Ajustando a imagem...</p>}
         {erro && <p className="text-sm text-destructive">{erro}</p>}
 
-        {previa && emitente && (
+        {previa && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-5">
-              <figure className="space-y-1.5">
-                <figcaption className="text-xs text-muted-foreground">Arquivo enviado</figcaption>
-                <div className="flex size-36 items-center justify-center rounded-md border bg-muted">
-                  <img src={previa.original.url} alt="Arquivo enviado" className="max-h-32 max-w-32" />
-                </div>
-                <p className="text-xs text-muted-foreground">{previa.original.kb} KB</p>
-              </figure>
-              <span className="text-xl text-muted-foreground">→</span>
-              <figure className="space-y-1.5">
-                <figcaption className="text-xs text-muted-foreground">Logo ajustada</figcaption>
-                <div className="rounded-md border border-dashed bg-muted">
-                  <img src={previa.dataUrl} alt="Logo ajustada" width={340} height={120} />
-                </div>
-                <p className="text-xs text-muted-foreground">340 x 120 · {previa.kb} KB</p>
-              </figure>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground">Como fica no topo da nota (simulação; a nota real é gerada pela Nota Gateway)</p>
-              <SimulacaoDanfe logo={previa.dataUrl} emitente={emitente} />
-            </div>
-
+            <figure className="space-y-1.5">
+              <figcaption className="text-xs text-muted-foreground">Imagem que vai para o quadro do emitente no DANFE</figcaption>
+              <div className="overflow-x-auto rounded-md border">
+                <img src={previa.dataUrl} alt="Imagem do quadro do emitente" width={488} height={158} />
+              </div>
+              <p className="text-xs text-muted-foreground">{previa.kb} KB · arquivo enviado com {previa.original.kb} KB</p>
+            </figure>
             <p className="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm">
               Vale para notas emitidas depois do envio. Não dá para apagar; para trocar, envie outra.
             </p>
@@ -163,37 +164,5 @@ function EnviarLogoDialog({ grupo, onFechar }: { grupo: LinhaLogo | null; onFech
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/** Topo do DANFE no padrão do Sul de Minas: logo à esquerda do quadro do emitente. */
-function SimulacaoDanfe({ logo, emitente }: { logo: string; emitente: { nome: string; linhas: string[] } }) {
-  return (
-    <div className="overflow-x-auto">
-      <div className="flex min-w-[680px] border border-foreground bg-card text-[9px] leading-snug text-foreground">
-        <div className="w-[320px] border-r border-foreground px-2 pt-1.5 pb-2">
-          <p className="mb-1.5 text-center text-[8px] font-bold italic">IDENTIFICAÇÃO DO EMITENTE</p>
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="" className="w-[110px] flex-none" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold">{emitente.nome}</p>
-              {emitente.linhas.map(l => <p key={l}>{l}</p>)}
-            </div>
-          </div>
-        </div>
-        <div className="w-[110px] border-r border-foreground p-1.5 text-center">
-          <p className="text-sm font-bold">DANFE</p>
-          <p className="text-[7px] font-bold">Documento Auxiliar da NOTA FISCAL ELETRÔNICA</p>
-          <p className="text-[7px]">0 - ENTRADA · 1 - SAÍDA</p>
-          <p className="text-xs">Nº 000.000.000</p>
-          <p className="text-xs">SÉRIE: 1</p>
-        </div>
-        <div className="flex-1 p-1.5">
-          <p className="text-[7px] font-bold italic">CHAVE DE ACESSO</p>
-          <p className="font-bold">0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000</p>
-          <p className="mt-3 text-center text-[8px] font-bold">Consulta de autenticidade no portal nacional da NF-e</p>
-        </div>
-      </div>
-    </div>
   )
 }

@@ -2,7 +2,8 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, notagatewayConfig, usuarios } from '@/lib/db/schema'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
-import { ajustarLogo } from '@/lib/notagateway/logo'
+import { montarImagemDanfe, type ImagemDanfe } from '@/lib/notagateway/logo'
+import type { EmitenteDanfe } from '@/lib/notagateway/emitente-danfe'
 import type { ConfigNotaGateway } from '@/lib/notagateway/client'
 
 /**
@@ -16,6 +17,8 @@ export type UsuarioLogo = { id: string; papel: string; contaId: string | null }
 
 export type DependenciasLogo = {
   configNg: (grupoId: string) => Promise<ConfigNotaGateway | null>
+  /** Cadastro do emitente na NG (Consultar Empresa): o que vai desenhado na imagem. */
+  dadosDaEmpresaNaNg: (cfg: ConfigNotaGateway) => Promise<Omit<EmitenteDanfe, 'site'>>
   vincularNaNg: (cfg: ConfigNotaGateway, png: Buffer) => Promise<void>
   salvarCopia: (grupoId: string, png: Buffer) => Promise<void>
 }
@@ -42,10 +45,7 @@ export async function gruposParaLogo(usuario: UsuarioLogo, exec: Executor = db) 
     .select({
       id: grupos.id,
       nome: grupos.nome,
-      razaoSocial: grupos.razaoSocial,
-      enderecoSede: grupos.enderecoSede,
-      cidadeSede: grupos.cidadeSede,
-      cnpj: grupos.cnpj,
+      siteDanfe: notagatewayConfig.siteDanfe,
       temNg: sql<boolean>`${notagatewayConfig.empresaId} is not null`,
       logoEnviadaEm: notagatewayConfig.logoEnviadaEm,
       logoEnviadaPor: usuarios.nome,
@@ -62,30 +62,60 @@ async function grupoDoUsuario(usuario: UsuarioLogo, grupoId: string, exec: Execu
   const daConta = filtroDaConta(usuario)
   // Id que não é uuid faria o Postgres lançar; responde como grupo inexistente.
   if (daConta === null || !UUID.test(grupoId)) return null
-  const [g] = await exec.select({ id: grupos.id }).from(grupos).where(and(eq(grupos.id, grupoId), daConta)).limit(1)
+  const [g] = await exec.select({ id: grupos.id, cnpj: grupos.cnpj }).from(grupos).where(and(eq(grupos.id, grupoId), daConta)).limit(1)
   return g ?? null
 }
 
-/** Confere permissão e devolve a logo ajustada para a prévia, sem enviar nada. */
-export async function previaLogoDanfe(usuario: UsuarioLogo, grupoId: string, arquivo: Buffer, exec: Executor = db) {
-  if (!PAPEIS.includes(usuario.papel)) return { ok: false as const, erro: 'Acesso restrito a Admin Geral e Sócio' }
-  if (!(await grupoDoUsuario(usuario, grupoId, exec))) return { ok: false as const, erro: 'Grupo não encontrado' }
-  return ajustarLogo(arquivo)
+const digitos = (s: string) => s.replace(/\D/g, '')
+
+type Montada = { ok: true; png: Buffer; kb: number; cfg: ConfigNotaGateway } | { ok: false; erro: string }
+
+/**
+ * Permissão e Conta primeiro: só depois a NG é consultada. A imagem leva os dados do
+ * cadastro da NG, que é o emitente da nota, e o CNPJ de lá precisa ser o do grupo.
+ */
+async function montar(usuario: UsuarioLogo, grupoId: string, arquivo: Buffer, site: string, deps: DependenciasLogo, exec: Executor): Promise<Montada> {
+  if (!PAPEIS.includes(usuario.papel)) return { ok: false, erro: 'Acesso restrito a Admin Geral e Sócio' }
+  const g = await grupoDoUsuario(usuario, grupoId, exec)
+  if (!g) return { ok: false, erro: 'Grupo não encontrado' }
+  let cfg: ConfigNotaGateway | null
+  let dados: Omit<EmitenteDanfe, 'site'>
+  try {
+    cfg = await deps.configNg(grupoId)
+    if (!cfg) return { ok: false, erro: 'Configure a Nota Gateway deste grupo antes de enviar a logo.' }
+    dados = await deps.dadosDaEmpresaNaNg(cfg)
+  } catch (e) {
+    // Só a mensagem, que o client.ts monta com o status HTTP; nunca token nem empresaId.
+    console.error('[logo-danfe] Consultar Empresa falhou:', e instanceof Error ? e.message : 'erro desconhecido')
+    return { ok: false, erro: 'Não deu para ler o cadastro da empresa na Nota Gateway agora. Tente de novo em alguns minutos.' }
+  }
+  if (digitos(dados.cnpj) !== digitos(g.cnpj)) {
+    return { ok: false, erro: 'A empresa da Nota Gateway deste grupo tem outro CNPJ. Confira a credencial antes de enviar a logo.' }
+  }
+  const imagem = await montarImagemDanfe(arquivo, { ...dados, site: site.trim() || null })
+  return imagem.ok ? { ...imagem, cfg } : imagem
+}
+
+/** A imagem que iria para a NG, sem enviar nada. */
+export async function previaLogoDanfe(
+  usuario: UsuarioLogo, grupoId: string, arquivo: Buffer, site: string, deps: DependenciasLogo, exec: Executor = db,
+): Promise<ImagemDanfe> {
+  const r = await montar(usuario, grupoId, arquivo, site, deps, exec)
+  return r.ok ? { ok: true, png: r.png, kb: r.kb } : r
 }
 
 export async function enviarLogoDanfe(
   usuario: UsuarioLogo,
   grupoId: string,
   arquivo: Buffer,
+  site: string,
   deps: DependenciasLogo,
   exec: Executor = db,
 ): Promise<ResultadoLogo> {
-  const logo = await previaLogoDanfe(usuario, grupoId, arquivo, exec)
+  const logo = await montar(usuario, grupoId, arquivo, site, deps, exec)
   if (!logo.ok) return logo
   try {
-    const cfg = await deps.configNg(grupoId)
-    if (!cfg) return { ok: false, erro: 'Configure a Nota Gateway deste grupo antes de enviar a logo.' }
-    await deps.vincularNaNg(cfg, logo.png)
+    await deps.vincularNaNg(logo.cfg, logo.png)
   } catch (e) {
     // Só a mensagem, que nunca leva token nem empresaId (logo-ng.ts põe só o status HTTP).
     console.error('[logo-danfe] envio à NG falhou:', e instanceof Error ? e.message : 'erro desconhecido')
@@ -102,7 +132,7 @@ export async function enviarLogoDanfe(
     await deps.salvarCopia(grupoId, logo.png)
     await exec
       .update(notagatewayConfig)
-      .set({ logoEnviadaEm: new Date(), logoEnviadaPor: usuario.id })
+      .set({ logoEnviadaEm: new Date(), logoEnviadaPor: usuario.id, siteDanfe: site.trim() || null })
       .where(eq(notagatewayConfig.grupoId, grupoId))
   } catch {
     return { ok: false, erro: 'A logo já vale nas próximas notas, mas a cópia do MOVA não foi salva. Envie de novo para ela aparecer aqui.' }
