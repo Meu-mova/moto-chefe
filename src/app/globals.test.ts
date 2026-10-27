@@ -10,12 +10,12 @@ function regra(seletor: string) {
   return i < 0 ? '' : css.slice(i, css.indexOf('}', i))
 }
 
-test('página impressa: html e body sem fundo e esquema claro forçado, para a margem do @page sair branca', () => {
+test('layout impresso tem data-impresso e o CSS tem :root:has([data-impresso]) com color-scheme light !important e fundo transparente, e o body dele sem fundo', () => {
   assert.match(layoutImpresso, /data-impresso/)
   assert.match(regra(':root:has([data-impresso])'), /color-scheme: light !important;[\s\S]*background: transparent;/)
   assert.match(regra(':root:has([data-impresso]) body'), /background: transparent;/)
 })
 
-test('a paleta do claro não divide regra com seletor mais específico que o .dark', () => {
+test('o CSS abre a paleta do claro com o seletor exato ":root, .tema-claro"', () => {
   assert.match(css, /\n:root,\n\.tema-claro \{/)
 })
