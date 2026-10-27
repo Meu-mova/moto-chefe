@@ -3,16 +3,19 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const css = readFileSync(new URL('./globals.css', import.meta.url), 'utf8')
+const layoutImpresso = readFileSync(new URL('./(print)/layout.tsx', import.meta.url), 'utf8')
 
-function variaveisDoBloco(seletor: RegExp) {
-  const corpo = css.match(new RegExp(`${seletor.source}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
-  return new Set(Array.from(corpo.matchAll(/(--[\w-]+)\s*:/g), (m) => m[1]))
+function regra(seletor: string) {
+  const i = css.indexOf(`\n${seletor} {`)
+  return i < 0 ? '' : css.slice(i, css.indexOf('}', i))
 }
 
-test('página com .tema-claro: o bloco do claro vale no html e redefine toda variável que o escuro troca', () => {
-  const claro = variaveisDoBloco(/:root,\s*:root:has\(\.tema-claro\),\s*\.tema-claro/)
-  const escuro = variaveisDoBloco(/\n\.dark/)
-  assert.ok(escuro.size > 0)
-  const faltando = [...escuro].filter((v) => !claro.has(v))
-  assert.deepEqual(faltando, [])
+test('página impressa: html e body sem fundo e esquema claro forçado, para a margem do @page sair branca', () => {
+  assert.match(layoutImpresso, /data-impresso/)
+  assert.match(regra(':root:has([data-impresso])'), /color-scheme: light !important;[\s\S]*background: transparent;/)
+  assert.match(regra(':root:has([data-impresso]) body'), /background: transparent;/)
+})
+
+test('a paleta do claro não divide regra com seletor mais específico que o .dark', () => {
+  assert.match(css, /\n:root,\n\.tema-claro \{/)
 })
