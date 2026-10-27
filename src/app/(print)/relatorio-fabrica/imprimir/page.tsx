@@ -29,7 +29,7 @@ export default async function RelatorioFabricaImprimirPage({
     <>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Geist', -apple-system, Arial, sans-serif; background: var(--muted); color: var(--foreground); }
+        .tema-claro { font-family: 'Geist', -apple-system, Arial, sans-serif; background: var(--muted); color: var(--foreground); }
 
         .page-wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
 
@@ -124,7 +124,7 @@ export default async function RelatorioFabricaImprimirPage({
 
         /* Print overrides */
         @media print {
-          body { background: var(--card) !important; }
+          .tema-claro { background: var(--card) !important; }
           .actions-bar { display: none !important; }
           .page-wrap { padding: 0; max-width: 100%; }
           .loja-block, .summary-card { border: 1px solid var(--border) !important; }

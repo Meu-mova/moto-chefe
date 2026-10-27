@@ -32,7 +32,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: var(--foreground); background: var(--card); padding: 20px 28px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: var(--foreground); background: var(--card); padding: 20px 28px; }
         .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 8px; margin-bottom: 8px; }
         .titulo { font-size: 18px; font-weight: 900; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
@@ -53,7 +53,7 @@ export default async function ChecklistEntregaPage({ params }: { params: Promise
         .sigs2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 14px; }
         .localdata { margin: 6px 0; font-size: 10px; text-align: right; }
         @media print {
-          body { padding: 0; }
+          .tema-claro { padding: 0; }
           @page { margin: 1cm; }
         }
       `}</style>

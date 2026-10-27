@@ -84,7 +84,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 24px 28px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 24px 28px; }
         h1 { font-size: 17px; margin-bottom: 2px; }
         h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin: 18px 0 6px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }

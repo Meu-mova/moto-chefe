@@ -17,7 +17,7 @@ export default async function CertificadoBateriaPage({ params }: { params: Promi
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 32px 40px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 32px 40px; }
         .hdr { text-align: center; margin-bottom: 18px; }
         .titulo { font-size: 22px; font-weight: 900; margin-top: 10px; }
         .subtitulo { font-size: 12px; font-weight: 700; color: var(--muted-foreground); letter-spacing: .04em; }
@@ -34,7 +34,7 @@ export default async function CertificadoBateriaPage({ params }: { params: Promi
         .selo { border: 1px dashed var(--muted-foreground); border-radius: 8px; height: 90px; display: flex; align-items: center; justify-content: center; color: var(--muted-foreground); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
         .ftr { text-align: center; font-size: 10px; color: var(--muted-foreground); margin-top: 18px; border-top: 1px solid var(--border); padding-top: 10px; }
         @media print {
-          body { padding: 0; }
+          .tema-claro { padding: 0; }
           @page { margin: 1.5cm; }
         }
       `}</style>

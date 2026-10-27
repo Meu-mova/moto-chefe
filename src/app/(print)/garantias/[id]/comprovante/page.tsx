@@ -89,7 +89,7 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
         .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 14px; margin-bottom: 18px; }
         .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
         .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 8px; }
@@ -104,7 +104,7 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
         .sig { text-align: center; }
         .sigline { border-top: 1px solid var(--foreground); padding-top: 5px; font-size: 10px; color: var(--muted-foreground); }
         .ftr { text-align: center; font-size: 9px; color: var(--muted-foreground); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
-        @media print { body { padding: 0; } @page { margin: 1.5cm; } }
+        @media print { .tema-claro { padding: 0; } @page { margin: 1.5cm; } }
       `}</style>
 
       <div className="hdr">

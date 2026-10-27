@@ -55,7 +55,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
         .hdr  { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 14px; margin-bottom: 18px; }
         .os-n { font-size: 26px; font-weight: 900; }
         .badges { display: flex; gap: 6px; margin-top: 4px; }
@@ -89,7 +89,7 @@ export default async function ImprimirOSPage({ params }: { params: Promise<{ id:
         .ftr { text-align: center; font-size: 9px; color: var(--muted-foreground); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
         .tbl-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 6px; margin-top: 14px; }
         @media print {
-          body { padding: 0; }
+          .tema-claro { padding: 0; }
           @page { margin: 1.5cm; }
         }
       `}</style>

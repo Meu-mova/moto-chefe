@@ -101,7 +101,7 @@ export default async function DocumentoImpressoPage({
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; background: var(--card); padding: 22px 26px; color: var(--foreground); }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; background: var(--card); padding: 22px 26px; color: var(--foreground); }
         .assina { margin-top: 30px; page-break-inside: avoid; }
         .linha { border-top: 1px solid var(--foreground); margin-top: 46px; padding-top: 4px; font-size: 11px; }
         .cols { display: flex; gap: 34px; }
