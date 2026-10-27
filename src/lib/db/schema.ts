@@ -1,6 +1,7 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
   timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique, uniqueIndex,
+  foreignKey, index,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
@@ -709,7 +710,44 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
   // Catálogo da Conta: as lojas dela compartilham, as outras Contas não veem (#195).
   contaId: uuid('conta_id').notNull().references(() => contas.id),
-})
+  // Custo da última nota de entrada (#341). Registro; não mexe no preço de venda.
+  custo: numeric('custo', { precision: 10, scale: 2 }),
+}, t => [unique('pecas_catalogo_conta_id_id_key').on(t.contaId, t.id)])
+
+// ─── pecas_vinculo_fornecedor (item do fornecedor → peça da Conta, #341) ──────
+// nomeXml é o xProd lido como o x_prod das motos (ADR-0008). A FK composta impede
+// vínculo apontando para peça de outra Conta.
+export const pecasVinculoFornecedor = pgTable('pecas_vinculo_fornecedor', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  fornecedorCnpj: text('fornecedor_cnpj').notNull(),
+  codigo: text('codigo').notNull(),
+  nomeXml: text('nome_xml').notNull(),
+  pecaId: uuid('peca_id').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  unique('pecas_vinculo_fornecedor_chave_key').on(t.contaId, t.fornecedorCnpj, t.codigo, t.nomeXml),
+  foreignKey({
+    name: 'pecas_vinculo_fornecedor_peca_da_conta_fkey',
+    columns: [t.contaId, t.pecaId],
+    foreignColumns: [pecasCatalogo.contaId, pecasCatalogo.id],
+  }),
+])
+
+// ─── notas_entrada (cada lançamento de NF de entrada, #341) ──────────────────
+// Sem unique na chave: nota repetida é aviso, não bloqueio.
+export const notasEntrada = pgTable('notas_entrada', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  chaveAcesso: text('chave_acesso').notNull(),
+  numero: text('numero').notNull(),
+  fornecedorCnpj: text('fornecedor_cnpj').notNull(),
+  criadoPor: uuid('criado_por').notNull().references(() => usuarios.id),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso)])
 
 // ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
 export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
