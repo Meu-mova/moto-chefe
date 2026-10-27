@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type ResultadoLogo } from '@/lib/logo-danfe'
-import { configNotaGateway } from '@/lib/notagateway/client'
+import { cnpjDaEmpresaNaNg, configNotaGateway } from '@/lib/notagateway/client'
 import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
 
 /**
@@ -36,7 +36,7 @@ export type { CredencialPayload }
 
 /** Grava a credencial da Nota Gateway do grupo: só o admin_geral (#446). */
 export async function salvarCredencialAction(data: CredencialPayload): Promise<{ ok: true } | { ok: false; erro: string }> {
-  const r = await salvarCredencial(await getUsuarioLogado(), data)
+  const r = await salvarCredencial(await getUsuarioLogado(), data, { cnpjDaEmpresaNaNg })
   if (r.ok) revalidatePath('/admin/notas-fiscais')
   return r
 }

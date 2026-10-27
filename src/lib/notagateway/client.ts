@@ -142,6 +142,15 @@ export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
   return String(uf)
 }
 
+/** CNPJ da empresa como a NG tem cadastrado (#446). Erro só com o status: a resposta pode trazer o empresaId. */
+export async function cnpjDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<string> {
+  const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}`)
+  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
+  const cnpj = (r.json as { cnpj?: unknown } | null)?.cnpj
+  if (typeof cnpj !== 'string' || !cnpj) throw new Error('Consultar Empresa sem CNPJ na resposta')
+  return cnpj
+}
+
 /** 4xx no envio da carta de correção: a API não aceitou e a carta não existe lá. */
 export class CartaRecusada extends Error {}
 
