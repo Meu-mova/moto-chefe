@@ -53,6 +53,12 @@ async function lojaDoEstoqueDoUsuario(usuario: Awaited<ReturnType<typeof getUsua
   return lojaDoEstoque(usuario, await listarLojaIdsDoGrupoAtivo(usuario), pedida)
 }
 
+// No form, sem loja = não mexe no saldo. Não pode cair na loja padrão do admin: editar só o
+// nome gravava o saldo lido de uma loja em outra.
+async function lojaPedidaNoForm(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, pedida?: string | null) {
+  return pedida ? lojaDoEstoqueDoUsuario(usuario, pedida) : null
+}
+
 export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
   const usuario = await verificarAcessoVenda()
   return listarPecas(db, await quemVePecas(usuario), {
@@ -74,7 +80,7 @@ async function criarPeca(input: PecaInput) {
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  const lojaId = await lojaDoEstoqueDoUsuario(usuario, input.lojaId)
+  const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
   if (input.quantidadeEstoque !== 0 && !lojaId) throw new RecusaUsuario('Escolha a loja do estoque')
 
   const contaId = await contaDoGrupoAtivo(usuario)
@@ -101,7 +107,7 @@ async function atualizarPeca(id: string, input: PecaInput) {
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
   // Sem loja, grava só nome e valor: usuário sem loja vinculada, ou estoque que não mudou no form.
-  const lojaId = await lojaDoEstoqueDoUsuario(usuario, input.lojaId)
+  const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
   const quem = await quemVePecas(usuario)
   await db.transaction(async tx => {
     if (!(await alterarPeca(tx, quem, id, { nome, valor: String(input.valor) }))) throw new RecusaUsuario('Peça não encontrada')
