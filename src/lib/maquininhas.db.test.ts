@@ -17,12 +17,14 @@ let db: Db['db']
 let mod: typeof import('@/lib/maquininhas')
 let aplicarVendaPeca: typeof import('@/lib/venda-peca')['aplicarVendaPeca']
 let editarVendaPecaTx: typeof import('@/lib/editar-venda-peca')['editarVendaPecaTx']
+let conferirMaquininhasDaOS: typeof import('@/lib/pagamento-os')['conferirMaquininhasDaOS']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   mod = await import('@/lib/maquininhas')
   ;({ aplicarVendaPeca } = await import('@/lib/venda-peca'))
   ;({ editarVendaPecaTx } = await import('@/lib/editar-venda-peca'))
+  ;({ conferirMaquininhasDaOS } = await import('@/lib/pagamento-os'))
 })
 
 after(async () => {
@@ -110,5 +112,20 @@ test('conferirMaquininhas: Conta B recusa a da A; cartão sem operadora passa (#
     await assert.rejects(mod.conferirMaquininhas(tx, b.lojaId, [{ operadora: 'stone' }]), /Maquininha não encontrada/)
     await mod.conferirMaquininhas(tx, b.lojaId, [{ operadora: 'pagueveloz' }, { operadora: '' }, {}])
     await mod.conferirMaquininhas(tx, b.lojaId, [{ operadora: 'stone' }], ['stone'])
+  })
+})
+
+test('pagamento de OS (fechamento ou aprovação) na Conta B recusa maquininha só da Conta A (#460)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    await semearConta(tx, 'A', '11111111000191', 'stone')
+    const b = await semearConta(tx, 'B', '22222222000191', 'pagueveloz')
+    const [os] = await linhas(tx, sql`insert into ordens_servico (loja_id, aberta_por, descricao, pagamentos)
+      values (${b.lojaId}, ${b.vendId}, 'OS MQ460', '[{"tipo":"cartao_credito","valor":50,"operadora":"infinitypay"}]'::jsonb) returning id`)
+    const cartao = (operadora: string) => [{ tipo: 'cartao_credito', valor: 50, operadora }]
+
+    await assert.rejects(conferirMaquininhasDaOS(tx, os.id, cartao('stone')), /Maquininha não encontrada/)
+    await assert.rejects(conferirMaquininhasDaOS(tx, '00000000-0000-0000-0000-000000000000', cartao('pagueveloz')), /OS não encontrada/)
+    await conferirMaquininhasDaOS(tx, os.id, cartao('pagueveloz'))
+    await conferirMaquininhasDaOS(tx, os.id, cartao('infinitypay'))
   })
 })

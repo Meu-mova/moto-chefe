@@ -22,7 +22,9 @@ export function UploadRelatorio({ maquininhas }: { maquininhas: Maquininha[] }) 
       const fd = new FormData()
       fd.set('operadora', operadora)
       fd.set('file', file)
-      const result = await importarRelatorioAction(fd)
+      const r = await importarRelatorioAction(fd)
+      if (!r.ok) { toast.error(r.erro); return }
+      const result = r.dados
       const partes = [`${result.importadas} importadas`]
       if (result.conciliadas) partes.push(`${result.conciliadas} conciliadas automaticamente`)
       if (result.duplicadas)  partes.push(`${result.duplicadas} duplicatas ignoradas`)
