@@ -11,6 +11,7 @@ export const TIPOS_LOG = [
   'login', 'troca_grupo', 'acesso_dia',
   'venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada',
   'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador',
+  'logo_danfe_enviada',
 ] as const
 export type TipoLog = (typeof TIPOS_LOG)[number]
 
