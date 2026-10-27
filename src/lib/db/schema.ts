@@ -709,6 +709,16 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   contaId: uuid('conta_id').notNull().references(() => contas.id),
 })
 
+// ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
+export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
+  pecaId: uuid('peca_id').notNull().references(() => pecasCatalogo.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  quantidade: integer('quantidade').notNull().default(0),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.pecaId, t.lojaId] }),
+}))
+
 // ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────
 export const vendasPecas = pgTable('vendas_pecas', {
   id: uuid('id').primaryKey().defaultRandom(),
