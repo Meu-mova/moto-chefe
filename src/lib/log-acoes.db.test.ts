@@ -70,6 +70,20 @@ test('tipo fora da lista é recusado pelo banco', async () => {
   }), Desfazer)
 })
 
+test('banco aceita todo tipo da lista do código, inclusive logo_danfe_enviada', async () => {
+  const { TIPOS_LOG } = await import('@/lib/log-acoes')
+  assert.ok(TIPOS_LOG.includes('logo_danfe_enviada'))
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    for (const tipo of TIPOS_LOG) {
+      await tx.execute(sql`insert into log_acoes (usuario_id, conta_id, tipo, dia) values (${c.usuario}, ${c.conta}, ${tipo}, current_date - 1)`)
+    }
+    const linhas = await linhasDoUsuario(tx, c.usuario)
+    assert.deepEqual(new Set(linhas.map(l => l.tipo)), new Set(TIPOS_LOG))
+    throw new Desfazer()
+  }), Desfazer)
+})
+
 test('limpeza apaga só o que passou de 12 meses', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
