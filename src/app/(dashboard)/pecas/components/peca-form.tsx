@@ -35,6 +35,8 @@ type Props = {
    */
   open?: boolean
   onOpenChange?: (aberto: boolean) => void
+  /** Loja onde o estoque grava (#195). Sem ela o campo de estoque não aparece. */
+  lojaEstoque?: { id: string; nome: string } | null
 }
 
 type FormState = { nome: string; valor: string; quantidadeEstoque: string }
@@ -55,6 +57,7 @@ export function PecaForm({
   triggerClassName = 'inline-flex cursor-pointer',
   open,
   onOpenChange,
+  lojaEstoque,
 }: Props) {
   const [openInterno, setOpenInterno] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -87,7 +90,8 @@ export function PecaForm({
     const input: PecaInput = {
       nome: form.nome,
       valor: form.valor ? parseFloat(form.valor) : 0,
-      quantidadeEstoque: form.quantidadeEstoque ? parseInt(form.quantidadeEstoque, 10) : 0,
+      quantidadeEstoque: lojaEstoque && form.quantidadeEstoque ? parseInt(form.quantidadeEstoque, 10) : 0,
+      lojaId: lojaEstoque?.id ?? null,
     }
     setLoading(true)
     try {
@@ -140,8 +144,8 @@ export function PecaForm({
                 placeholder="0,00"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Estoque (unidades)</Label>
+            {lojaEstoque && <div className="space-y-1">
+              <Label>Estoque em {lojaEstoque.nome} (unidades)</Label>
               <Input
                 type="number"
                 min="0"
@@ -149,7 +153,7 @@ export function PecaForm({
                 value={form.quantidadeEstoque}
                 onChange={e => setCampo('quantidadeEstoque', e.target.value)}
               />
-            </div>
+            </div>}
           </div>
 
           <DialogFooter showCloseButton>

@@ -3,7 +3,7 @@
  * itens e pagamentos no lugar (mesmo número), acerta o estoque pela diferença
  * e grava o histórico. Permissão e saneamento ficam na action, como na criação.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
@@ -51,9 +51,6 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     e.itens,
   )
   for (const [pecaId, n] of delta) {
-    await tx.update(pecasCatalogo)
-      .set({ quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${n}`, atualizadoEm: new Date() })
-      .where(eq(pecasCatalogo.id, pecaId))
     await moverSaldo(tx, pecaId, venda.lojaId, -n)
   }
 

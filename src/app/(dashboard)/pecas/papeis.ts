@@ -18,3 +18,20 @@ export function podeGerirPecas(papel: string): boolean {
 export function podeVenderPeca(papel: string): boolean {
   return (PAPEIS_VENDA_PECA as readonly string[]).includes(papel)
 }
+
+const ADMINS_ESTOQUE = ['admin_geral', 'admin_socio'] as const
+
+/**
+ * Loja cujo estoque o usuário vê e ajusta (#195). Usuário de loja: sempre a própria.
+ * Admin: a pedida, se estiver entre as `permitidas` (lojas do grupo ativo); sem pedido,
+ * a própria ou a primeira permitida. Pedido fora das permitidas não vira loja nenhuma.
+ */
+export function lojaDoEstoque(
+  usuario: { papel: string; lojaId: string | null },
+  permitidas: readonly string[],
+  pedida?: string | null,
+): string | null {
+  if (!(ADMINS_ESTOQUE as readonly string[]).includes(usuario.papel)) return usuario.lojaId
+  if (pedida) return permitidas.includes(pedida) ? pedida : null
+  return usuario.lojaId && permitidas.includes(usuario.lojaId) ? usuario.lojaId : (permitidas[0] ?? null)
+}

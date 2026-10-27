@@ -2,20 +2,21 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
+import { pecasCatalogo, pecasEstoqueLoja, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
-import { podeGerirPecas, podeVenderPeca } from './papeis'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
 import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
 import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
 import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
 import { excluirVendaPecaTx } from '@/lib/excluir-venda-peca'
 import { alterarPeca, inserirPeca, listarPecas, type QuemVePecas } from '@/lib/pecas-da-conta'
+import { definirSaldo } from '@/lib/estoque-pecas-loja'
 import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
 
 
@@ -43,11 +44,21 @@ export type PecaInput = {
   nome: string
   valor: number
   quantidadeEstoque: number
+  /** Loja do saldo; só o admin escolhe, os outros gravam na própria (lojaDoEstoque). */
+  lojaId?: string | null
+}
+
+// Loja do saldo conferida no servidor: a pedida só vale se estiver entre as do grupo ativo.
+async function lojaDoEstoqueDoUsuario(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, pedida?: string | null) {
+  return lojaDoEstoque(usuario, await listarLojaIdsDoGrupoAtivo(usuario), pedida)
 }
 
 export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
   const usuario = await verificarAcessoVenda()
-  return listarPecas(db, await quemVePecas(usuario), { apenasAtivos: params?.apenasAtivos })
+  return listarPecas(db, await quemVePecas(usuario), {
+    apenasAtivos: params?.apenasAtivos,
+    lojaId: await lojaDoEstoqueDoUsuario(usuario),
+  })
 }
 
 // Vendedor também cria: a peça nova aparece no balcão antes de alguém do escritório
@@ -63,7 +74,17 @@ async function criarPeca(input: PecaInput) {
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  const nova = await inserirPeca(db, await contaDoGrupoAtivo(usuario), { ...input, nome })
+  const lojaId = await lojaDoEstoqueDoUsuario(usuario, input.lojaId)
+  if (input.quantidadeEstoque !== 0 && !lojaId) throw new RecusaUsuario('Escolha a loja do estoque')
+
+  const contaId = await contaDoGrupoAtivo(usuario)
+  const nova = await db.transaction(async tx => {
+    const peca = await inserirPeca(tx, contaId, { nome, valor: input.valor })
+    if (lojaId && !(await definirSaldo(tx, peca.id, lojaId, input.quantidadeEstoque))) {
+      throw new RecusaUsuario('Escolha a loja do estoque')
+    }
+    return { ...peca, quantidadeEstoque: lojaId ? input.quantidadeEstoque : 0 }
+  })
 
   revalidatePath('/pecas')
   return nova
@@ -79,8 +100,14 @@ async function atualizarPeca(id: string, input: PecaInput) {
   if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
   if (input.quantidadeEstoque < 0) throw new RecusaUsuario('Estoque não pode ser negativo')
 
-  const campos = { nome, valor: String(input.valor), quantidadeEstoque: input.quantidadeEstoque }
-  if (!(await alterarPeca(db, await quemVePecas(usuario), id, campos))) throw new RecusaUsuario('Peça não encontrada')
+  // Sem loja (usuário sem loja vinculada), o form nem mostra o estoque: grava só nome e valor.
+  const lojaId = await lojaDoEstoqueDoUsuario(usuario, input.lojaId)
+  const quem = await quemVePecas(usuario)
+  await db.transaction(async tx => {
+    if (!(await alterarPeca(tx, quem, id, { nome, valor: String(input.valor) }))) throw new RecusaUsuario('Peça não encontrada')
+    // admin_geral altera peça de qualquer Conta, mas o saldo só grava em loja da Conta da peça.
+    if (lojaId && !(await definirSaldo(tx, id, lojaId, input.quantidadeEstoque))) throw new RecusaUsuario('Peça não encontrada')
+  })
 
   revalidatePath('/pecas')
 }
@@ -226,10 +253,13 @@ async function carregarVendaPecaParaEdicao(vendaId: string) {
     db.select({ clienteNome: vendasPecas.clienteNome, pagamentos: vendasPecas.pagamentos }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)),
     db.select({
       pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade, valorUnitario: vendasPecasItens.valorUnitario,
-      nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
+      nome: pecasCatalogo.nome, valor: pecasCatalogo.valor,
+      quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)::float8`,
     })
       .from(vendasPecasItens)
       .innerJoin(pecasCatalogo, eq(pecasCatalogo.id, vendasPecasItens.pecaId))
+      // Saldo da loja da venda, que é onde a edição baixa (#195).
+      .leftJoin(pecasEstoqueLoja, and(eq(pecasEstoqueLoja.pecaId, pecasCatalogo.id), eq(pecasEstoqueLoja.lojaId, venda.lojaId)))
       .where(eq(vendasPecasItens.vendaPecaId, vendaId)),
     avisosDaVenda(venda),
   ])

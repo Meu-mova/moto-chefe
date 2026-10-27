@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { podeGerirPecas, podeVenderPeca } from './papeis'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca } from './papeis'
 
 // Estas listas viviam duplicadas em page.tsx e actions.ts. A cópia desalinhada
 // foi o que derrubou a página de Peças para o mecânico: a guarda deixava entrar
@@ -33,4 +33,22 @@ test('quem gere também vende', () => {
 test('papel desconhecido não ganha nada por omissão', () => {
   assert.equal(podeGerirPecas('financeiro'), false)
   assert.equal(podeVenderPeca('financeiro'), false)
+})
+
+// Estoque por loja (#195): só o admin vê e ajusta outras lojas, e só as que lhe cabem.
+test('usuário de loja vê e ajusta só a própria loja, mesmo pedindo outra', () => {
+  for (const papel of ['aux_adm', 'vendedor']) {
+    assert.equal(lojaDoEstoque({ papel, lojaId: 'X' }, ['X', 'Y'], 'Y'), 'X')
+  }
+})
+
+test('admin escolhe entre as lojas permitidas; fora delas não ganha loja nenhuma', () => {
+  assert.equal(lojaDoEstoque({ papel: 'admin_socio', lojaId: 'X' }, ['X', 'Y'], 'Y'), 'Y')
+  assert.equal(lojaDoEstoque({ papel: 'admin_geral', lojaId: null }, ['X', 'Y'], 'Z'), null)
+})
+
+test('admin sem loja pedida fica na própria, ou na primeira permitida', () => {
+  assert.equal(lojaDoEstoque({ papel: 'admin_socio', lojaId: 'Y' }, ['X', 'Y']), 'Y')
+  assert.equal(lojaDoEstoque({ papel: 'admin_geral', lojaId: null }, ['X', 'Y']), 'X')
+  assert.equal(lojaDoEstoque({ papel: 'admin_geral', lojaId: 'Z' }, ['X', 'Y']), 'X')
 })

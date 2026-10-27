@@ -5,9 +5,26 @@
  */
 import { and, asc, eq, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { pecasCatalogo } from '@/lib/db/schema'
+import { pecasCatalogo, pecasEstoqueLoja } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
+
+// Peça com o saldo de UMA loja no lugar do número único antigo (#195). Linha de saldo só
+// existe com peça e loja da mesma Conta (estoque-pecas-loja.ts); a loja vem conferida
+// por quem chama.
+function comSaldoDaLoja(exec: Executor, lojaId: string | null) {
+  return exec.select({
+    id: pecasCatalogo.id,
+    nome: pecasCatalogo.nome,
+    valor: pecasCatalogo.valor,
+    ativo: pecasCatalogo.ativo,
+    quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)::float8`,
+  }).from(pecasCatalogo)
+    .leftJoin(pecasEstoqueLoja, and(
+      eq(pecasEstoqueLoja.pecaId, pecasCatalogo.id),
+      lojaId ? eq(pecasEstoqueLoja.lojaId, lojaId) : sql`false`,
+    ))
+}
 
 /** `contaId` é a Conta do grupo ativo da sessão. */
 export type QuemVePecas = { papel: string; contaId: string }
@@ -21,14 +38,19 @@ export function daContaDaLoja(lojaId: string): SQL {
   return sql`${pecasCatalogo.contaId} = (select g.conta_id from lojas l join grupos g on g.id = l.grupo_id where l.id = ${lojaId})`
 }
 
-export async function listarPecas(exec: Executor, quem: QuemVePecas, opcoes?: { apenasAtivos?: boolean }) {
-  return exec.select().from(pecasCatalogo)
+/** `lojaId` é a loja cujo saldo aparece; sem loja, o saldo sai zero. */
+export async function listarPecas(
+  exec: Executor,
+  quem: QuemVePecas,
+  opcoes?: { apenasAtivos?: boolean; lojaId?: string | null },
+) {
+  return comSaldoDaLoja(exec, opcoes?.lojaId ?? null)
     .where(and(daConta(quem), opcoes?.apenasAtivos ? eq(pecasCatalogo.ativo, true) : undefined))
     .orderBy(asc(pecasCatalogo.nome))
 }
 
 export async function listarPecasDaLoja(exec: Executor, lojaId: string) {
-  return exec.select().from(pecasCatalogo)
+  return comSaldoDaLoja(exec, lojaId)
     .where(and(daContaDaLoja(lojaId), eq(pecasCatalogo.ativo, true)))
     .orderBy(asc(pecasCatalogo.nome))
 }
@@ -43,18 +65,16 @@ export async function pecaUsavelNaLoja(exec: Executor, lojaId: string, pecaId: s
 export async function inserirPeca(
   exec: Executor,
   contaId: string,
-  input: { nome: string; valor: number; quantidadeEstoque: number },
+  input: { nome: string; valor: number },
 ) {
   const [nova] = await exec.insert(pecasCatalogo).values({
     nome: input.nome,
     valor: String(input.valor),
-    quantidadeEstoque: input.quantidadeEstoque,
     contaId,
   }).returning({
     id: pecasCatalogo.id,
     nome: pecasCatalogo.nome,
     valor: pecasCatalogo.valor,
-    quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
   })
   return nova
 }
@@ -67,7 +87,7 @@ export async function alterarPeca(
   exec: Executor,
   quem: QuemVePecas,
   id: string,
-  campos: { nome?: string; valor?: string; quantidadeEstoque?: number; ativo?: boolean },
+  campos: { nome?: string; valor?: string; ativo?: boolean },
 ): Promise<boolean> {
   const alteradas = await exec.update(pecasCatalogo)
     .set({ ...campos, atualizadoEm: new Date() })

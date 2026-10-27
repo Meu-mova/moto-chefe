@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { pecasCatalogo, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, inArray } from 'drizzle-orm'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
@@ -34,7 +34,7 @@ export async function aplicarVendaPeca(
 
   const pecaIds = input.itens.map(i => i.pecaId)
   const pecas = await tx
-    .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque })
+    .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor })
     .from(pecasCatalogo)
     // Peça de outra Conta fica de fora e cai no "Peça não encontrada" abaixo (#195).
     .where(and(inArray(pecasCatalogo.id, pecaIds), daContaDaLoja(input.lojaId)))
@@ -80,14 +80,6 @@ export async function aplicarVendaPeca(
       quantidade: String(item.quantidade),
       valorUnitario,
     })
-    // Decremento relativo, não `lido - quantidade`: a mesma peça em duas linhas do
-    // carrinho partia do mesmo valor lido e a segunda baixa apagava a primeira.
-    await tx.update(pecasCatalogo)
-      .set({
-        quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${item.quantidade}`,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(pecasCatalogo.id, item.pecaId))
     await moverSaldo(tx, item.pecaId, input.lojaId, -item.quantidade)
   }
 

@@ -8,7 +8,7 @@ import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { calcStatusMultiPagamento } from '@/lib/conciliacao-status'
 import { listarVendasPecasAction } from './actions'
-import { PAPEIS_VENDA_PECA, podeGerirPecas, podeVenderPeca } from './papeis'
+import { lojaDoEstoque, PAPEIS_VENDA_PECA, podeGerirPecas, podeVenderPeca } from './papeis'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { buttonVariants } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
@@ -19,6 +19,7 @@ import { VendasPecasTable } from './components/vendas-pecas-table'
 import { VendasPecasFiltros } from './components/vendas-pecas-filtros'
 import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 import { CatalogoTable } from './components/catalogo-table'
+import { LojaEstoqueSelect } from './components/loja-estoque-select'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -30,7 +31,7 @@ function primeiroDiaDoMes() {
 export default async function PecasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; loja?: string; vendedor?: string; forma?: string; de?: string; ate?: string }>
+  searchParams: Promise<{ q?: string; loja?: string; vendedor?: string; forma?: string; de?: string; ate?: string; estoque?: string }>
 }) {
   const usuario = await getUsuarioLogado()
   if (!usuarioPodeAcessar(usuario, '/pecas')) redirect('/dashboard')
@@ -44,10 +45,14 @@ export default async function PecasPage({
   const de  = params.de  ?? primeiroDiaDoMes()
   const ate = params.ate ?? hojeBrt()
 
-  const [pecas, lojasOpts, lojaIdsGrupo, vendas] = await Promise.all([
-    contaDoGrupoAtivo(usuario).then(contaId => listarPecas(db, { papel: usuario.papel, contaId })),
+  // Estoque por loja (#195): o catálogo mostra o saldo de uma loja só. Admin escolhe
+  // entre as do grupo ativo (?estoque=); os outros veem a própria.
+  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const lojaEstoqueId = lojaDoEstoque(usuario, lojaIdsGrupo, params.estoque)
+
+  const [pecas, lojasOpts, vendas] = await Promise.all([
+    contaDoGrupoAtivo(usuario).then(contaId => listarPecas(db, { papel: usuario.papel, contaId }, { lojaId: lojaEstoqueId })),
     listarLojasDoGrupoAtivo(usuario),
-    listarLojaIdsDoGrupoAtivo(usuario),
     podeVender
       ? listarVendasPecasAction({
           de, ate,
@@ -58,6 +63,10 @@ export default async function PecasPage({
         })
       : Promise.resolve([]),
   ])
+
+  const lojaEstoque = lojaEstoqueId
+    ? { id: lojaEstoqueId, nome: lojasOpts.find(l => l.id === lojaEstoqueId)?.nome ?? 'sua loja' }
+    : null
 
   const vendedoresOpts = podeVender && lojaIdsGrupo.length > 0
     ? await listarUsuariosDoGrupo((await getGrupoAtivo(usuario)).id, { papeis: PAPEIS_VENDA_PECA })
@@ -123,17 +132,18 @@ export default async function PecasPage({
         )}
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">
-          {isGestor && (
-            <div className="flex lg:justify-end">
-              <PecaForm triggerClassName="flex w-full cursor-pointer lg:inline-flex lg:w-auto" trigger={
+          {(isAdmin || isGestor) && (
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
+              {isAdmin && <LojaEstoqueSelect lojas={lojasOpts} lojaId={lojaEstoqueId} />}
+              {isGestor && <PecaForm lojaEstoque={lojaEstoque} triggerClassName="flex w-full cursor-pointer lg:inline-flex lg:w-auto" trigger={
                 <span className={`${buttonVariants({ variant: 'default' })} h-10 w-full gap-1.5 lg:h-9 lg:w-auto`}>
                   <Plus className="size-4" /> Nova peça
                 </span>
-              } />
+              } />}
             </div>
           )}
 
-          <CatalogoTable pecas={pecas} isGestor={isGestor} />
+          <CatalogoTable pecas={pecas} isGestor={isGestor} lojaEstoque={lojaEstoque} />
 
         </TabsContent>
 
