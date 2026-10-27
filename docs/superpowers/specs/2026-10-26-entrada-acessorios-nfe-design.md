@@ -7,7 +7,7 @@ Refs #341. Depende da #195: `pecas_catalogo.conta_id` e leituras por Conta (#419
 1. Cada cor ou tamanho é uma peça própria; não há modelo de variação.
 2. Vínculo "CNPJ do fornecedor + cProd + xProd → peça", por Conta, sugerido nas próximas notas e editável.
 3. Peça nova exige preço de venda na conferência; peça existente mantém o preço; o custo (vUnCom) é gravado em `custo`, sem mexer no preço.
-4. Permissão: a mesma de `/entrada` (inclui `aux_adm`).
+4. Permissão: a mesma de `/entrada` (`podeRegistrarEntradaMotos`: `admin_geral`, `admin_socio` e a exceção nominal). O `aux_adm` não entra hoje; liberar para ele é outra issue.
 5. Motos e peças da mesma nota entram numa confirmação só, numa transação.
 6. Chave de acesso guardada por Conta; nota repetida gera aviso "já entrou em DD/MM" e grava depois de uma confirmação explícita.
 7. "Não dar entrada" por linha.

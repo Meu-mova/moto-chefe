@@ -31,18 +31,18 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
 
   function destinoNaTabela(l: LinhaConferencia) {
     if (l.destino === 'ignorar') return 'Não dar entrada'
-    if (l.destino === 'nova') return l.nome.trim() ? `Nova: ${l.nome.trim()}` : 'Nova peça'
+    if (l.destino === 'nova') return 'Peça nova'
     return nomePeca(l.pecaId) ?? 'Escolher peça'
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+    <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
       <div className="bg-card rounded-lg border p-4">
         <h3 className="font-semibold text-foreground mb-3">Peças e acessórios da nota ({linhas.length})</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted-foreground border-b">
-              <th className="py-2 pr-2 font-medium">Item da nota</th>
+              <th className="py-2 px-2 font-medium">Item da nota</th>
               <th className="py-2 pr-2 font-medium whitespace-nowrap">Custo na nota</th>
               <th className="py-2 pr-2 font-medium">Qtd</th>
               <th className="py-2 font-medium">Vai para</th>
@@ -63,10 +63,10 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
                     l.destino === 'ignorar' ? 'text-muted-foreground' : '',
                   ].join(' ')}
                 >
-                  <td className="py-2 pr-2">
+                  <td className="py-2 px-2">
                     {l.item.nomeLegivel}
                     {problema && <p className="text-xs text-destructive mt-1">{problema}</p>}
-                    {!problema && aviso && <p className="text-xs text-warning mt-1">{aviso}</p>}
+                    {aviso && <p className="text-xs text-warning mt-1">{aviso}</p>}
                   </td>
                   <td className="py-2 pr-2 whitespace-nowrap">{real(l.item.custoUnitario)}</td>
                   <td className="py-2 pr-2">
@@ -79,7 +79,7 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
                       className="w-16 border border-input rounded-md px-2 py-1"
                     />
                   </td>
-                  <td className="py-2">
+                  <td className="py-2 pr-2">
                     {destinoNaTabela(l)}
                     {l.destino === 'catalogo' && sugestoes[i] && l.pecaId === sugestoes[i] && (
                       <span className="ml-1 rounded-full bg-primary-soft text-primary-text text-xs px-2 py-0.5">sugerida</span>
@@ -93,7 +93,7 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
       </div>
 
       {atual && (
-        <aside className="bg-card rounded-lg border flex flex-col lg:sticky lg:top-4 self-start" aria-label="Linha selecionada">
+        <aside className="bg-card rounded-lg border flex flex-col xl:sticky xl:top-4 self-start" aria-label="Linha selecionada">
           <div className="p-4 space-y-4">
             <div>
               <p className="font-semibold text-foreground leading-snug">{atual.item.nomeLegivel}</p>
