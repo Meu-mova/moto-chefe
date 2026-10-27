@@ -4,6 +4,7 @@ import { and, inArray } from 'drizzle-orm'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
+import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -46,6 +47,9 @@ export async function aplicarVendaPeca(
   // balcão — nenhuma chegou a ser registrada. A contagem segue sendo atualizada e pode
   // ficar negativa: é indicador de que falta lançar entrada, não impedimento de vender.
   // A tela já mostra o saldo em vermelho quando está zerado ou negativo.
+  // Também aqui, e não só na action: a aprovação de venda guardada chega direto (#195).
+  const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new RecusaUsuario('Peça não encontrada')

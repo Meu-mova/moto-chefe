@@ -10,6 +10,7 @@ import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
+import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -39,6 +40,9 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     ))
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
+  // Também aqui, e não só na action: a edição aprovada aplica o que ficou guardado (#195).
+  const recusaQuantidade = recusaDaQuantidadeVendida(e.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
   for (const item of e.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new RecusaUsuario('Peça não encontrada')

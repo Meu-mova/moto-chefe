@@ -150,3 +150,16 @@ test('saldo é guardado em unidades inteiras (#195)', async () => {
     assert.equal(col.data_type, 'integer')
   })
 })
+
+test('venda e edição recusam quantidade decimal mesmo vindo de aprovação, sem mexer no saldo (#195)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const s = await semear(tx)
+    await assert.rejects(aplicarVendaPeca(tx, s.x.vendId, venda(s.x.lojaId, s.pecaA, 1.5)), /Quantidade é em unidades inteiras/)
+    const { id: vendaId } = await aplicarVendaPeca(tx, s.x.vendId, venda(s.x.lojaId, s.pecaA, 1))
+    await assert.rejects(editarVendaPecaTx(tx, {
+      vendaId, grupoId: s.grupoA, usuarioId: s.x.vendId,
+      itens: [{ pecaId: s.pecaA, quantidade: 2.5 }], pagamentos: [{ tipo: 'pix', valor: 125 }],
+    }), /Quantidade é em unidades inteiras/)
+    assert.equal(await estoque.saldoNaLoja(tx, s.pecaA, s.x.lojaId), -1)
+  })
+})
