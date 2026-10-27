@@ -53,15 +53,16 @@ async function empresaDoGrupo(tx: Tx, grupoId: string) {
 }
 
 /** Dublê da Consultar Empresa da NG: anota as chamadas e devolve o CNPJ cadastrado de cada empresa. */
-function ngFalsa(cnpjs: Record<string, string>, opcoes: { foraDoAr?: boolean } = {}) {
+function ngFalsa(cnpjs: Record<string, string>, opcoes: { foraDoAr?: boolean; cnpjPorToken?: Record<string, string> } = {}) {
   const chamadas: string[] = []
   return {
     chamadas,
     deps: {
-      cnpjDaEmpresaNaNg: async (cfg: { empresaId: string }) => {
+      cnpjDaEmpresaNaNg: async (cfg: { token: string; empresaId: string }) => {
         chamadas.push(cfg.empresaId)
         if (opcoes.foraDoAr) throw new Error('fetch failed')
-        const cnpj = cnpjs[cfg.empresaId]
+        // Token de outra conta da NG enxerga outra empresa com o mesmo id.
+        const cnpj = opcoes.cnpjPorToken?.[cfg.token] ?? cnpjs[cfg.empresaId]
         if (!cnpj) throw new Error('HTTP 400')
         return cnpj
       },
@@ -192,6 +193,61 @@ test('id da empresa alfanumérico que não é uuid é aceito e consultado na NG'
     assert.deepEqual(r, { ok: true })
     assert.deepEqual(ng.chamadas, ['EmpresaTeste_01-a'])
     assert.equal(await empresaDoGrupo(tx, c.grupo), 'EmpresaTeste_01-a')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+async function tokenDoGrupo(tx: Tx, grupoId: string) {
+  const r = (await tx.execute(sql`select token from notagateway_config where grupo_id = ${grupoId}`)) as unknown as { rows: { token: string }[] }
+  return r.rows[0]?.token ?? null
+}
+
+const EMPRESA = '11111111-2222-4333-8444-555555555555'
+
+test('trocar só o token reconfere na NG: token de outra conta NG (CNPJ diferente) é recusado e nada muda', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente) values (${c.grupo}, 'cifrado-antigo', ${EMPRESA}, 'Homologacao')`)
+    const ng = ngFalsa({ [EMPRESA]: '49366097000140' }, { cnpjPorToken: { 'token-de-outra-conta': '11222333000181' } })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), token: 'token-de-outra-conta', empresaId: '' }, ng.deps, tx)
+    assert.deepEqual(r, { ok: false, erro: 'Essa empresa da Nota Gateway tem outro CNPJ, diferente do CNPJ deste grupo.' })
+    assert.deepEqual(ng.chamadas, [EMPRESA])
+    assert.equal(await tokenDoGrupo(tx, c.grupo), 'cifrado-antigo')
+    assert.equal((await configDoGrupo(tx, c.grupo))!.ambiente, 'Homologacao')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('trocar só o token com a NG fora do ar não grava', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id) values (${c.grupo}, 'cifrado-antigo', ${EMPRESA})`)
+    const ng = ngFalsa({}, { foraDoAr: true })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), token: 'token-novo', empresaId: '' }, ng.deps, tx)
+    assert.equal(r.ok, false)
+    assert.equal(await tokenDoGrupo(tx, c.grupo), 'cifrado-antigo')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('trocar só o token da mesma conta NG (CNPJ confere) grava', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id) values (${c.grupo}, 'cifrado-antigo', ${EMPRESA})`)
+    const ng = ngFalsa({ [EMPRESA]: '49366097000140' })
+    assert.deepEqual(await salvarCredencial(c.geral, { ...payload(c.grupo), token: 'token-novo', empresaId: '' }, ng.deps, tx), { ok: true })
+    assert.notEqual(await tokenDoGrupo(tx, c.grupo), 'cifrado-antigo')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('sem empresa gravada, o token novo é aceito sem consultar a NG', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`insert into notagateway_config (grupo_id, token) values (${c.grupo}, 'cifrado-antigo')`)
+    const ng = ngFalsa({})
+    assert.deepEqual(await salvarCredencial(c.geral, { ...payload(c.grupo), token: 'token-novo', empresaId: '' }, ng.deps, tx), { ok: true })
+    assert.deepEqual(ng.chamadas, [])
     throw new Desfazer()
   }), Desfazer)
 })

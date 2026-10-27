@@ -47,7 +47,7 @@ export async function salvarCredencial(
   if (!g) return { ok: false, erro: 'Grupo não encontrado' }
 
   const [atual] = await exec
-    .select({ token: notagatewayConfig.token })
+    .select({ token: notagatewayConfig.token, empresaId: notagatewayConfig.empresaId })
     .from(notagatewayConfig)
     .where(eq(notagatewayConfig.grupoId, data.grupoId))
     .limit(1)
@@ -67,11 +67,16 @@ export async function salvarCredencial(
       .where(and(eq(notagatewayConfig.empresaId, empresaId), ne(notagatewayConfig.grupoId, data.grupoId)))
       .limit(1)
     if (outro) return { ok: false, erro: 'Essa empresa da Nota Gateway já está ligada a outro grupo.' }
+  }
 
+  // Token novo com a empresa já gravada também reconfere: um token de outra conta da NG
+  // enxergaria outra empresa com o mesmo id.
+  const empresaAConferir = empresaId || (token ? atual?.empresaId : null)
+  if (empresaAConferir) {
     let cnpjNaNg: string
     try {
       const tokenNg = token || decifrar(atual!.token).toString('utf8')
-      cnpjNaNg = await deps.cnpjDaEmpresaNaNg({ token: tokenNg, empresaId, ambiente: data.ambiente })
+      cnpjNaNg = await deps.cnpjDaEmpresaNaNg({ token: tokenNg, empresaId: empresaAConferir, ambiente: data.ambiente })
     } catch (e) {
       // Só a mensagem, que o client.ts monta com o status HTTP; nunca token nem empresaId.
       console.error('[credencial-ng] Consultar Empresa falhou:', e instanceof Error ? e.message : 'erro desconhecido')
