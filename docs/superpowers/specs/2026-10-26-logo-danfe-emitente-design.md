@@ -25,7 +25,8 @@ mesma frase: "Grupo não encontrado" (como o `assertGrupo` de `/admin/notas-fisc
 Em Configuração → Notas Fiscais (`/admin/notas-fiscais`), um **card novo "Logo no DANFE"**,
 abaixo e separado do card de credencial/tributação, que não muda.
 
-- O card lista os grupos visíveis ao usuário: grupo, logo atual (miniatura ou "Nenhuma"),
+- O card lista os grupos visíveis ao usuário, filtrados pela Conta **dentro da consulta SQL**
+  (`contaDoGrupoAtivo()`), não depois no JS; a miniatura só é assinada para grupo dessa lista: grupo, logo atual (miniatura ou "Nenhuma"),
   enviada em e por quem, botão "Enviar logo".
 - "Enviar logo" abre um diálogo (`sm:max-w-*`):
   1. escolher arquivo (PNG ou JPG);
@@ -54,7 +55,8 @@ Função pura (`src/lib/notagateway/logo.ts`), com `sharp` como dependência dir
 
 - Bucket privado novo `logos-danfe`, caminho `{grupoId}/logo.png` montado no servidor, nunca de
   entrada do usuário. Só a atual, sobrescrita a cada envio. Miniatura e prévia por link assinado
-  de vida curta. Sem expiração nem cron: logo não é dado pessoal nem fiscal.
+  de vida curta. Sem expiração nem cron, decisão do Luis (26/10): logo não é dado pessoal nem
+  fiscal, então fica fora da regra de expiração do `AGENTS.md` (#402).
 - Migração `0148` (ou o próximo número livre na `origin/dev` ao abrir o PR; a `0147` é do estoque
   por loja): bucket + colunas em `notagateway_config`: `logo_enviada_em timestamptz`,
   `logo_enviada_por uuid` (usuário) + refaz a `log_acoes_tipo_check` com o tipo novo.
@@ -78,6 +80,13 @@ enviarLogoDanfe(grupoId, arquivo)
 ```
 
 A ordem NG → Storage → banco faz o MOVA só mostrar como atual a logo que a NG aceitou.
+
+**Falha parcial** (a NG aceitou, o Storage ou o banco falhou): a NG é a fonte da verdade. A tela
+diz que a logo já vale nas próximas notas, mas a cópia do MOVA não foi salva, e pede para enviar
+de novo (reenviar substitui na NG, é seguro).
+
+**Segredos:** a URL com `empresaId` e a resposta da NG nunca vão para `console`, log, erro nem
+tela. Teste manual por Postman só pelo mascarador de `scripts/lib/postman-ng.ts`.
 
 ## Testes
 

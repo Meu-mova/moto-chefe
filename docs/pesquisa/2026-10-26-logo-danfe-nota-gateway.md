@@ -24,13 +24,13 @@ logo (só vincular; mandar de novo substitui, segundo a página v1).
 
 ## Requisitos para a logo
 
-| Item | NG | Logo de Cuiabá recebida |
+| Item | NG | Logo de Cuiabá (PNG transparente, 2ª versão) |
 |---|---|---|
-| Formato | JPG, PNG ou GIF | JPEG ✓ |
-| Dimensão | 340 x 120 recomendada (≈ 2,8:1) | 1080 x 1080 (1:1) |
-| Peso | ≤ 64 KB (v1) | 34 KB ✓ |
+| Formato | JPG, PNG ou GIF | PNG ✓ |
+| Dimensão | 340 x 120 recomendada (≈ 2,8:1) | 1254 x 1254 (1:1); desenho recortado 1160 x 781 |
+| Peso | ≤ 64 KB (v1) | 213 KB original; 7,6 KB em 340 x 120 ✓ |
 
-**Recortar a margem: sim.** Quadrada com muita margem branca, encaixada num quadro
+**Recortar a margem: sim.** A 1ª versão (JPEG 1080 x 1080) foi substituída pela PNG. Quadrada com muita margem branca, encaixada num quadro
 340 x 120, a marca fica minúscula. Recortar ao conteúdo e salvar em ~340 x 120 (PNG ou JPG),
 conferindo o peso.
 
