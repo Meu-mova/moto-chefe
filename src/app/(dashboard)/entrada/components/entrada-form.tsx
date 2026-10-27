@@ -73,6 +73,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     return () => { vale = false }
   }, [notaPecas, lojaId])
 
+  // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
+  const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
+
   function mudarLinhaPeca(i: number, patch: Partial<LinhaConferencia>) {
     setLinhasPecas(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l))
   }
@@ -650,10 +653,15 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           )}
 
           {(linhasPlanilha.length > 0 || notaPecas) && (
-            <div className="flex justify-end">
+            <div className="flex items-center justify-end gap-4">
+              {pecasComProblema > 0 && (
+                <span className="text-sm text-destructive">
+                  {pecasComProblema === 1 ? '1 linha de peça precisa de correção.' : `${pecasComProblema} linhas de peça precisam de correção.`}
+                </span>
+              )}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || pecasComProblema > 0 || (!!conferencia?.notaJaLancada && !lancarRepetida)}
                 className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
               >
                 {loading
