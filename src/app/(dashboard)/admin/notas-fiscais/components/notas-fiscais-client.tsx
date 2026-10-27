@@ -6,16 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { salvarCredencialAction, salvarRegraAction } from '../actions'
+import type { CredencialTela } from '@/lib/notagateway/credencial-tela'
 import { ShieldCheck, ShieldAlert, FileCheck2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
-type Credencial = {
-  temToken: boolean
-  empresaId: string | null
-  ambiente: 'Homologacao' | 'Producao'
-  serieNfe: string
-  proximoNumero: number
-  certificadoEnviadoEm: string | null
-}
+type Credencial = CredencialTela
 type Regra = {
   naturezaOperacao: string; cfopInterno: string; cstIcmsInterno: string
   cfopInterestadual: string; cstIcmsInterestadual: string; aliquotaIcmsInterestadual: string
@@ -148,9 +142,9 @@ function CartaoGrupo({ linha, aberto, onToggle }: { linha: LinhaGrupo; aberto: b
                 : 'não cadastrado — envie em Radar Fiscal'}
             />
             <Situacao
-              ok={!!linha.credencial?.empresaId}
+              ok={!!linha.credencial?.temEmpresa}
               titulo="Empresa na Nota Gateway"
-              detalhe={linha.credencial?.empresaId ? `id ${linha.credencial.empresaId}` : 'ainda não cadastrada'}
+              detalhe={linha.credencial?.temEmpresa ? 'cadastrada' : 'ainda não cadastrada'}
             />
             <Situacao
               ok={semFicha === 0}
