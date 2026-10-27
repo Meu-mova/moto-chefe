@@ -22,8 +22,8 @@ test('quantidade com decimal vem como está, e a linha fica com problema até co
 test('peça nova sem preço, ou do catálogo sem peça escolhida, tem problema; "não dar entrada" nunca tem', () => {
   const nova = linhaInicial(item(), null)
   assert.equal(problemaDaLinha(nova), 'Informe o preço de venda da peça nova.')
-  assert.equal(problemaDaLinha({ ...nova, preco: '79,90' }), null)
-  assert.equal(problemaDaLinha({ ...nova, nome: '  ', preco: '79,90' }), 'Informe o nome da peça nova.')
+  assert.equal(problemaDaLinha({ ...nova, preco: '79.90' }), null)
+  assert.equal(problemaDaLinha({ ...nova, nome: '  ', preco: '79.90' }), 'Informe o nome da peça nova.')
   assert.equal(problemaDaLinha({ ...nova, destino: 'catalogo' }), 'Escolha a peça do catálogo.')
   assert.equal(problemaDaLinha({ ...nova, destino: 'ignorar', quantidade: '1,5' }), null)
 })
@@ -43,7 +43,7 @@ test('resumo diz o que vai acontecer com a linha', () => {
 })
 
 test('para gravar: pula "não dar entrada", converte quantidade e preço, e manda o xProd cru', () => {
-  const nova = { ...linhaInicial(item(), null), preco: '79,90', nome: ' Capacete azul ' }
+  const nova = { ...linhaInicial(item(), null), preco: '79.90', nome: ' Capacete azul ' }
   const cat = { ...linhaInicial(item({ quantidade: 4 }), 'p1') }
   const fora = { ...linhaInicial(item(), null), destino: 'ignorar' as const }
   assert.deepEqual(paraGravacao([nova, cat, fora]), [
@@ -52,11 +52,15 @@ test('para gravar: pula "não dar entrada", converte quantidade e preço, e mand
   ])
 })
 
-test('preço e quantidade aceitam vírgula ou ponto como decimal; ponto com vírgula é milhar', () => {
+test('preço vem do campo de moeda ("79.90", em reais com ponto); quantidade digitada aceita vírgula ou ponto', () => {
   const nova = { ...linhaInicial(item(), null), nome: 'X' }
   const valor = (preco: string) => (paraGravacao([{ ...nova, preco }])[0] as { nova: { valor: number } }).nova.valor
-  assert.equal(valor('79,90'), 79.9)
   assert.equal(valor('79.90'), 79.9)
-  assert.equal(valor('1.234,50'), 1234.5)
-  assert.equal(problemaDaLinha({ ...nova, preco: '10', quantidade: '1.5' }), 'A quantidade precisa ser um número inteiro maior que zero.')
+  assert.equal(valor('1234.50'), 1234.5)
+  assert.equal(problemaDaLinha({ ...nova, preco: '' }), 'Informe o preço de venda da peça nova.')
+  assert.equal(problemaDaLinha({ ...nova, preco: '0.00' }), 'Informe o preço de venda da peça nova.')
+  const qtd = (quantidade: string) => paraGravacao([{ ...nova, preco: '10.00', quantidade }])[0].quantidade
+  assert.equal(qtd('3'), 3)
+  assert.equal(problemaDaLinha({ ...nova, preco: '10.00', quantidade: '1.5' }), 'A quantidade precisa ser um número inteiro maior que zero.')
+  assert.equal(problemaDaLinha({ ...nova, preco: '10.00', quantidade: '1,5' }), 'A quantidade precisa ser um número inteiro maior que zero.')
 })

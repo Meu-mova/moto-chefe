@@ -6,6 +6,7 @@ import {
   type Destino, type LinhaConferencia,
 } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
+import { CurrencyInput } from '@/components/ui/currency-input'
 
 const real = (v: number | string) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -171,13 +172,11 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
                           />
                         </label>
                         <label className="block">
-                          <span className="block text-xs text-muted-foreground mb-1">Preço de venda</span>
-                          <input
-                            inputMode="decimal"
-                            placeholder="R$ 0,00"
+                          <span className="block text-xs text-muted-foreground mb-1">Preço de venda (R$)</span>
+                          <CurrencyInput
+                            placeholder="0,00"
                             value={atual.preco}
-                            onChange={e => onChange(sel, { preco: e.target.value })}
-                            className="w-full border border-input rounded-md px-2 py-2 text-sm"
+                            onChange={v => onChange(sel, { preco: v })}
                           />
                         </label>
                       </div>

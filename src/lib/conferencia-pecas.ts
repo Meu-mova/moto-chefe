@@ -14,11 +14,12 @@ export type LinhaConferencia = {
   destino: Destino
   pecaId: string
   nome: string
+  /** Valor do CurrencyInput: reais com ponto ("79.90") ou vazio. */
   preco: string
 }
 
-// Com vírgula, ela é o decimal e o ponto é milhar ("1.234,56"); sem vírgula, o ponto é
-// o decimal ("79.90").
+// Quantidade é texto livre. Com vírgula, ela é o decimal e o ponto é milhar
+// ("1.234,56"); sem vírgula, o ponto é o decimal ("1.5").
 const numero = (s: string) => {
   const t = s.trim()
   return Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t)
@@ -43,7 +44,7 @@ export function problemaDaLinha(l: LinhaConferencia): string | null {
   if (l.destino === 'catalogo' && !l.pecaId) return 'Escolha a peça do catálogo.'
   if (l.destino === 'nova') {
     if (!l.nome.trim()) return 'Informe o nome da peça nova.'
-    if (!(numero(l.preco) > 0)) return 'Informe o preço de venda da peça nova.'
+    if (!(Number(l.preco) > 0)) return 'Informe o preço de venda da peça nova.'
   }
   return null
 }
@@ -72,7 +73,7 @@ export function paraGravacao(linhas: LinhaConferencia[]): LinhaEntradaPeca[] {
   return linhas.filter(l => l.destino !== 'ignorar').map(l => {
     const base = { codigo: l.item.codigo, nomeXml: l.item.nomeXml, quantidade: numero(l.quantidade), custoUnitario: l.item.custoUnitario }
     return l.destino === 'nova'
-      ? { ...base, nova: { nome: l.nome.trim(), valor: numero(l.preco) } }
+      ? { ...base, nova: { nome: l.nome.trim(), valor: Number(l.preco) } }
       : { ...base, pecaId: l.pecaId }
   })
 }
