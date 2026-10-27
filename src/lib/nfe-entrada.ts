@@ -116,3 +116,40 @@ export function mapearModelo(nomeNf: string, modelosMova: string[]): string | nu
   }
   return melhor
 }
+
+export type ItemPecaNfe = {
+  codigo: string
+  /** `xProd` literal: é a chave do vínculo com o fornecedor (ADR-0008). */
+  nomeXml: string
+  unidade: string
+  quantidade: number
+  /** Estoque de peça é inteiro: a conferência barra a linha até corrigirem. */
+  quantidadeInteira: boolean
+  custoUnitario: number
+  ncm: string
+}
+
+/** Linhas `<det>` da nota que entram no catálogo de peças (#341). */
+export function extrairItensDePeca(xml: string): ItemPecaNfe[] {
+  const campo = (bloco: string, nome: string) =>
+    (bloco.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1] ?? ''
+  const itens: ItemPecaNfe[] = []
+  for (const m of (xml ?? '').matchAll(/<det\b[^>]*>([\s\S]*?)<\/det>/g)) {
+    const prod = (m[1].match(/<prod>([\s\S]*?)<\/prod>/) || [])[1] ?? ''
+    const ncm = campo(prod, 'NCM').trim()
+    // 8711 = motocicletas, que entram pelo chassi. Não vale 87 inteiro: 8714 é
+    // peça de moto e tem de entrar no catálogo.
+    if (ncm.startsWith('8711')) continue
+    const quantidade = parseFloat(campo(prod, 'qCom')) || 0
+    itens.push({
+      codigo: campo(prod, 'cProd').trim(),
+      nomeXml: campo(prod, 'xProd'),
+      unidade: campo(prod, 'uCom').trim(),
+      quantidade,
+      quantidadeInteira: Number.isInteger(quantidade),
+      custoUnitario: parseFloat(campo(prod, 'vUnCom')) || 0,
+      ncm,
+    })
+  }
+  return itens
+}
