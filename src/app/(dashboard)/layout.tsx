@@ -19,6 +19,7 @@ import { AvisoMensalidade } from '@/components/layout/aviso-mensalidade'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
+import { BotaoTema } from '@/components/theme-provider'
 
 // Timeout defensivo para as consultas do layout. O layout roda em TODA página;
 // sem isso, uma consulta que engasga no banco pendura qualquer tela até o limite
@@ -94,6 +95,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex min-w-0 flex-1 flex-col">
           <MenuMobile itensIds={itensIds} conecta={usuario.conecta} usuario={usuarioMenu} />
           <GroupSelector usuario={usuario} />
+          <BotaoTema local="canto" />
           {paga && grupoAtivo && <AvisoMensalidade situacao={mensalidade} grupoAtivo={grupoAtivo.nome} hoje={hojeBrt()} />}
           <main className="min-w-0 flex-1 p-4 lg:p-6">
             <BotaoVoltar />
