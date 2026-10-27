@@ -17,7 +17,7 @@ type Loja = {
   endereco: string
   cep: string | null
   fabricaEmail: string | null
-  fabricaSenha: string | null
+  temFabricaSenha: boolean
 }
 
 export function EditarLojaDialog({ loja }: { loja: Loja }) {
@@ -29,7 +29,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
   const [endereco, setEndereco] = useState(loja.endereco)
   const [cep, setCep] = useState(loja.cep ?? '')
   const [fabricaEmail, setFabricaEmail] = useState(loja.fabricaEmail ?? '')
-  const [fabricaSenha, setFabricaSenha] = useState(loja.fabricaSenha ?? '')
+  const [fabricaSenha, setFabricaSenha] = useState('')
 
   function handleOpen() {
     setNome(loja.nome)
@@ -37,7 +37,7 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
     setEndereco(loja.endereco)
     setCep(loja.cep ?? '')
     setFabricaEmail(loja.fabricaEmail ?? '')
-    setFabricaSenha(loja.fabricaSenha ?? '')
+    setFabricaSenha('')
     setOpen(true)
   }
 
@@ -94,19 +94,26 @@ export function EditarLojaDialog({ loja }: { loja: Loja }) {
             <div className="space-y-1.5">
               <Label className="text-xs">CEP</Label>
               <CepInput value={cep} onChange={setCep} className="h-9 text-sm" />
-              <p className="text-[11px] text-slate-400">Usado pra calcular frete no Simulador.</p>
+              <p className="text-[11px] text-muted-foreground">Usado pra calcular frete no Simulador.</p>
             </div>
             <div className="border-t pt-3 space-y-3">
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Portal da fábrica</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Portal da fábrica</p>
               <div className="space-y-1.5">
                 <Label className="text-xs">E-mail</Label>
                 <Input value={fabricaEmail} onChange={e => setFabricaEmail(e.target.value)} className="h-9 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Senha</Label>
-                <Input type="password" value={fabricaSenha} onChange={e => setFabricaSenha(e.target.value)} className="h-9 text-sm" />
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={fabricaSenha}
+                  onChange={e => setFabricaSenha(e.target.value)}
+                  placeholder={loja.temFabricaSenha ? '•••••• (deixe vazio para manter)' : 'senha do portal'}
+                  className="h-9 text-sm"
+                />
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Cada loja tem o cadastro dela no portal. Em branco, esta loja fica
                 de fora da sincronização de garantias e do aviso de pedidos.
               </p>

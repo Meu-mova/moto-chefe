@@ -32,7 +32,12 @@ function fmtBRL(v: string) {
  * Mesmo filtro da busca da Nova Venda (filtrarPecas): termo solto, sem acento,
  * prefixo primeiro.
  */
-export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: boolean }) {
+/** `quantidadeEstoque` é o saldo de `lojaEstoque`, a loja que o form de edição ajusta (#195). */
+export function CatalogoTable({ pecas, isGestor, lojaEstoque }: {
+  pecas: Peca[]
+  isGestor: boolean
+  lojaEstoque: { id: string; nome: string } | null
+}) {
   const [busca, setBusca] = useState('')
   const [soComEstoque, setSoComEstoque] = useState(false)
 
@@ -49,30 +54,57 @@ export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: bo
   const visiveis = encontradas.slice(0, LIMITE)
   const colunas = isGestor ? 5 : 4
 
+  const editar = (p: Peca) => (
+    <PecaForm
+      pecaInicial={{ id: p.id, nome: p.nome, valor: p.valor, quantidadeEstoque: p.quantidadeEstoque }}
+      lojaEstoque={lojaEstoque}
+      trigger={
+        <button type="button" aria-label={`Editar ${p.nome}`} className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <Pencil className="size-4" />
+        </button>
+      }
+    />
+  )
+  const status = (p: Peca) => isGestor
+    ? <PecaAtivoToggle id={p.id} ativo={p.ativo} />
+    : <span className="text-xs text-muted-foreground">{p.ativo ? 'Ativo' : 'Inativo'}</span>
+  const estoqueCls = (p: Peca) => (p.quantidadeEstoque <= 0 ? 'font-medium text-destructive' : '')
+
+  const vazio = !temCriterio
+    ? (
+      <span className="flex flex-col items-center gap-2">
+        <PackageSearch className="size-6 text-muted-foreground" />
+        Digite acima para buscar no catálogo.
+      </span>
+    )
+    : encontradas.length === 0
+      ? (soComEstoque && !busca.trim() ? 'Nenhuma peça com estoque no momento.' : 'Nenhuma peça encontrada.')
+      : null
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
+          <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={busca}
             onChange={e => setBusca(e.target.value)}
             placeholder={`Buscar entre ${pecas.length.toLocaleString('pt-BR')} peças…`}
-            className="w-full h-9 rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="h-10 w-full rounded-md border border-input bg-background pr-3 pl-9 text-base focus:ring-2 focus:ring-ring focus:outline-none lg:h-9 lg:text-sm"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
           <input
             type="checkbox"
             checked={soComEstoque}
             onChange={e => setSoComEstoque(e.target.checked)}
-            className="size-4 rounded border-slate-300"
+            className="size-4 rounded border-input accent-primary"
           />
           Só as com estoque
         </label>
         {temCriterio && (
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-muted-foreground">
             {encontradas.length === 0
               ? 'nenhuma peça'
               : encontradas.length > LIMITE
@@ -82,7 +114,26 @@ export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: bo
         )}
       </div>
 
-      <div className="bg-white rounded-lg border">
+      {/* Celular/tablet: uma peça por linha, nome em cima e números embaixo. */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card lg:hidden">
+        {vazio && <p className="py-10 text-center text-sm text-muted-foreground">{vazio}</p>}
+        <ul className="divide-y divide-border">
+          {visiveis.map(p => (
+            <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium break-words">{p.nome}</p>
+                <p className="text-sm text-muted-foreground">
+                  {fmtBRL(p.valor)} · estoque <span className={estoqueCls(p)}>{p.quantidadeEstoque}</span>
+                </p>
+              </div>
+              {status(p)}
+              {isGestor && editar(p)}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="hidden rounded-lg border border-border bg-card lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -98,47 +149,14 @@ export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: bo
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.nome}</TableCell>
                 <TableCell>{fmtBRL(p.valor)}</TableCell>
-                <TableCell className={p.quantidadeEstoque <= 0 ? 'text-red-600 font-medium' : ''}>
-                  {p.quantidadeEstoque}
-                </TableCell>
-                <TableCell>
-                  {isGestor ? (
-                    <PecaAtivoToggle id={p.id} ativo={p.ativo} />
-                  ) : (
-                    <span className="text-xs text-slate-500">{p.ativo ? 'Ativo' : 'Inativo'}</span>
-                  )}
-                </TableCell>
-                {isGestor && (
-                  <TableCell>
-                    <PecaForm
-                      pecaInicial={{ id: p.id, nome: p.nome, valor: p.valor, quantidadeEstoque: p.quantidadeEstoque }}
-                      trigger={
-                        <button className="text-slate-400 hover:text-slate-700">
-                          <Pencil size={14} />
-                        </button>
-                      }
-                    />
-                  </TableCell>
-                )}
+                <TableCell className={estoqueCls(p)}>{p.quantidadeEstoque}</TableCell>
+                <TableCell>{status(p)}</TableCell>
+                {isGestor && <TableCell>{editar(p)}</TableCell>}
               </TableRow>
             ))}
-
-            {!temCriterio && (
+            {vazio && (
               <TableRow>
-                <TableCell colSpan={colunas} className="text-center text-slate-400 py-10">
-                  <PackageSearch size={22} className="mx-auto mb-2 text-slate-300" />
-                  Digite acima para buscar no catálogo.
-                </TableCell>
-              </TableRow>
-            )}
-
-            {temCriterio && encontradas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={colunas} className="text-center text-slate-400 py-8">
-                  {soComEstoque && !busca.trim()
-                    ? 'Nenhuma peça com estoque no momento.'
-                    : 'Nenhuma peça encontrada.'}
-                </TableCell>
+                <TableCell colSpan={colunas} className="py-10 text-center text-muted-foreground">{vazio}</TableCell>
               </TableRow>
             )}
           </TableBody>

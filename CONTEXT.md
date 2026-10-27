@@ -7,9 +7,9 @@ conceito, como o negócio fala. Decisões de arquitetura ficam em `docs/adr/`.
 ## Organização
 
 **Conta**:
-Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário tem uma
-Conta de origem; ver grupo de outra Conta só por autorização de acesso (ADR-0018). Hoje: a Conta
-dos grupos do Cesar.
+Cliente do MOVA: a empresa que contrata o sistema, com um ou mais grupos. Todo usuário, menos o
+`admin_geral` (da plataforma), tem uma Conta de origem; ver grupo de outra Conta só por autorização
+de acesso (ADR-0018). Hoje: a Conta dos grupos do Cesar e uma por adesão.
 _Evitar_: cliente (é o comprador), tenant, assinante. Conta bancária e conta a pagar são outra
 coisa: diga o nome inteiro.
 
@@ -41,10 +41,11 @@ A função de quem usa o sistema, que define o que ele pode fazer: `admin_geral`
 `aux_adm`, vendedor, mecânico ou motorista. Papéis extras só somam permissão.
 
 **Administrador geral** (`admin_geral`):
-Administrador do sistema: o único que mexe em grupos, usuários e certificados.
+Administrador do sistema: o único que mexe em grupos e certificados e em usuários de qualquer Conta.
 
 **Sócio** (`admin_socio`):
-Sócio. Acompanha e aprova, mas não opera a rotina da loja.
+Sócio. Acompanha e aprova, mas não opera a rotina da loja. Gerencia os usuários dos grupos que vê
+e os modelos próprios da Conta.
 _Evitar_: adm, para se referir a ele
 
 **Auxiliar administrativo** (`aux_adm`):
@@ -70,7 +71,8 @@ cliente: a mesma empresa pode mandar pessoas diferentes em cada compra.
 
 **Modelo**:
 Produto do catálogo (ex.: X12, GIGA), com marca e categoria (autopropelido, ciclomotor,
-triciclo, bike, brinquedo, patinete).
+triciclo, bike, brinquedo, patinete). O catálogo é da plataforma; cada Conta pode acrescentar
+modelos que só ela vê.
 
 **Moto**:
 Unidade física, identificada pelo chassi, que sempre está em uma loja e entrou por uma nota

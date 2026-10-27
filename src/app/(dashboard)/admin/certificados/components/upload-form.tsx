@@ -44,18 +44,18 @@ export function UploadForm({ ufAtual }: { ufAtual: string | null }) {
                 <option key={uf.sigla} value={uf.sigla}>{uf.sigla} — {uf.nome}</option>
               ))}
             </select>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               É o estado onde a empresa deste CNPJ está registrada — é o que vai pra SEFAZ
               como autor da consulta. UF errada faz a consulta voltar recusada sem explicar
               o motivo.
             </p>
           </div>
           <button type="submit" disabled={enviando}
-            className="rounded-md bg-slate-800 text-white px-3 h-9 text-sm hover:bg-slate-700 disabled:opacity-60">
+            className="rounded-md bg-primary text-primary-foreground px-3 h-9 text-sm hover:bg-primary-hover disabled:opacity-60">
             {enviando ? 'Enviando…' : 'Enviar certificado'}
           </button>
           {msg && (
-            <p className={`text-sm ${msg.tipo === 'ok' ? 'text-green-700' : 'text-red-600'}`}>{msg.texto}</p>
+            <p className={`text-sm ${msg.tipo === 'ok' ? 'text-success' : 'text-destructive'}`}>{msg.texto}</p>
           )}
         </form>
       </CardContent>

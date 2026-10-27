@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { Sidebar, MenuMobile } from '@/components/layout/sidebar'
 import { COOKIE_SIDEBAR_RECOLHIDA } from '@/components/layout/sidebar-cookie'
 import { BotaoVoltar } from '@/components/layout/botao-voltar'
@@ -10,6 +10,7 @@ import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
 import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
+import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
 import { grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao } from '@/lib/grupo'
 import { situacaoMensalidade, SEM_MENSALIDADE } from '@/lib/mensalidade/bloqueio'
 import { podePagarMensalidade } from '@/lib/mensalidade/regras'
@@ -18,6 +19,7 @@ import { AvisoMensalidade } from '@/components/layout/aviso-mensalidade'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
 import { ComunicadoModal } from './components/comunicado-modal'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
+import { BotaoTema } from '@/components/theme-provider'
 
 // Timeout defensivo para as consultas do layout. O layout roda em TODA página;
 // sem isso, uma consulta que engasga no banco pendura qualquer tela até o limite
@@ -73,6 +75,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       ? withTimeout(registrarPrimeiroAcesso(grupoAtivo.id), 3000)
         .catch(e => console.error('[primeiro-acesso] falha ao registrar:', e instanceof Error ? e.message : e))
       : null,
+    // Toda página tenta; o índice único deixa só a 1ª do dia por grupo (#198).
+    grupoAtivo
+      ? withTimeout((async () => registrarSemFalhar({
+        tipo: 'acesso_dia', usuarioId: usuario.id, contaId: grupoAtivo.contaId, grupoId: grupoAtivo.id,
+        ...origemDaRequisicao(await headers()),
+      }))(), 3000).catch(e => console.error('[log-acoes] acesso_dia:', e instanceof Error ? e.message : e))
+      : null,
   ])
 
   const recolhida = (await cookies()).get(COOKIE_SIDEBAR_RECOLHIDA)?.value === '1'
@@ -86,6 +95,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex min-w-0 flex-1 flex-col">
           <MenuMobile itensIds={itensIds} conecta={usuario.conecta} usuario={usuarioMenu} />
           <GroupSelector usuario={usuario} />
+          <BotaoTema local="canto" />
           {paga && grupoAtivo && <AvisoMensalidade situacao={mensalidade} grupoAtivo={grupoAtivo.nome} hoje={hojeBrt()} />}
           <main className="min-w-0 flex-1 p-4 lg:p-6">
             <BotaoVoltar />

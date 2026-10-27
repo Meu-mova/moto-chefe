@@ -1,8 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { motos, modelos, veiculosHistorico, clientes, vendas } from '@/lib/db/schema'
-import { eq, ilike, sql } from 'drizzle-orm'
+import { veiculosHistorico, clientes } from '@/lib/db/schema'
+import { and, eq, ilike } from 'drizzle-orm'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { buscarMotosPorChassi, buscarHistoricoPorChassi } from '@/lib/busca-chassi'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -20,40 +22,24 @@ export type VeiculoEncontrado = {
 }
 
 export async function buscarVeiculoPorChassisAction(chassi: string): Promise<VeiculoEncontrado[]> {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const termo = chassi.trim().toUpperCase()
   if (termo.length < 3) return []
 
   const padrao = `%${termo}%`
 
-  // 1. Busca no estoque (motos cadastradas)
-  const motosBD = await db
-    .select({
-      id:          motos.id,
-      chassi:      motos.chassi,
-      cor:         motos.cor,
-      marca:       modelos.marca,
-      modelo:      modelos.modelo,
-      clienteId:   vendas.clienteId,
-      clienteNome: clientes.nome,
-      clienteCpf:  clientes.cpfCnpj,
-      clienteFone: clientes.celular,
-    })
-    .from(motos)
-    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .leftJoin(vendas,   eq(vendas.motoId,   motos.id))
-    .leftJoin(clientes, eq(vendas.clienteId, clientes.id))
-    .where(ilike(motos.chassi, padrao))
-    .limit(8)
+  // 1. Busca no estoque (motos cadastradas): só da Conta; admin_geral acha de qualquer uma (#325)
+  const conta = await contaDoGrupoAtivo(usuario)
+  const motosBD = (await buscarMotosPorChassi(termo, {
+    contaDasMotos: usuario.papel === 'admin_geral' ? null : conta,
+    contaDoComprador: conta,
+    limite: 8,
+  })).map(m => ({ ...m, id: m.motoId }))
 
   // 2. Busca no banco histórico (chassis que não estão no estoque)
   const chassisEstoque = new Set(motosBD.map(m => m.chassi).filter(Boolean) as string[])
 
-  const historico = await db
-    .select()
-    .from(veiculosHistorico)
-    .where(ilike(veiculosHistorico.chassi, padrao))
-    .limit(8)
+  const historico = await buscarHistoricoPorChassi(termo, usuario.papel === 'admin_geral' ? null : conta, 8)
 
   const resultados: VeiculoEncontrado[] = [
     ...motosBD.map(m => ({
@@ -86,14 +72,14 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
 }
 
 export async function buscarClientePorCpfAction(cpf: string) {
-  await getUsuarioLogado()
+  const usuario = await getUsuarioLogado()
   const cpfNorm = cpf.replace(/\D/g, '')
   if (cpfNorm.length < 11) return null
 
   const [cliente] = await db
     .select({ id: clientes.id, nome: clientes.nome, cpfCnpj: clientes.cpfCnpj, celular: clientes.celular, email: clientes.email })
     .from(clientes)
-    .where(ilike(clientes.cpfCnpj, `%${cpfNorm}%`))
+    .where(and(ilike(clientes.cpfCnpj, `%${cpfNorm}%`), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
     .limit(1)
 
   return cliente ?? null
@@ -123,6 +109,7 @@ export async function cadastrarVeiculoHistoricoAction(input: {
       modelo,
       cor:         input.cor?.trim() || null,
       numeroMotor: input.numeroMotor?.trim() || null,
+      contaId:     await contaDoGrupoAtivo(usuario),
     }).returning()
 
     return {

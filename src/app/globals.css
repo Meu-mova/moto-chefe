@@ -38,12 +38,108 @@
   --color-primary-text: var(--primary-text);
   --color-primary-soft: var(--primary-soft);
   --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-assinatura-quadro: var(--assinatura-quadro);
+  --color-camera-fundo: var(--camera-fundo);
   --color-primary-hover: var(--primary-hover);
   --color-primary-press: var(--primary-press);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-grupo-emerald: var(--grupo-emerald);
+  --color-grupo-emerald-hover: var(--grupo-emerald-hover);
+  --color-grupo-emerald-texto: var(--grupo-emerald-texto);
+  --color-grupo-emerald-selo: var(--grupo-emerald-selo);
+  --color-grupo-emerald-selo-texto: var(--grupo-emerald-selo-texto);
+  --color-grupo-emerald-ponto: var(--grupo-emerald-ponto);
+  --color-grupo-blue: var(--grupo-blue);
+  --color-grupo-blue-hover: var(--grupo-blue-hover);
+  --color-grupo-blue-texto: var(--grupo-blue-texto);
+  --color-grupo-blue-selo: var(--grupo-blue-selo);
+  --color-grupo-blue-selo-texto: var(--grupo-blue-selo-texto);
+  --color-grupo-blue-ponto: var(--grupo-blue-ponto);
+  --color-grupo-amber: var(--grupo-amber);
+  --color-grupo-amber-hover: var(--grupo-amber-hover);
+  --color-grupo-amber-texto: var(--grupo-amber-texto);
+  --color-grupo-amber-selo: var(--grupo-amber-selo);
+  --color-grupo-amber-selo-texto: var(--grupo-amber-selo-texto);
+  --color-grupo-amber-ponto: var(--grupo-amber-ponto);
+  --color-grupo-violet: var(--grupo-violet);
+  --color-grupo-violet-hover: var(--grupo-violet-hover);
+  --color-grupo-violet-texto: var(--grupo-violet-texto);
+  --color-grupo-violet-selo: var(--grupo-violet-selo);
+  --color-grupo-violet-selo-texto: var(--grupo-violet-selo-texto);
+  --color-grupo-violet-ponto: var(--grupo-violet-ponto);
+  --color-grupo-rose: var(--grupo-rose);
+  --color-grupo-rose-hover: var(--grupo-rose-hover);
+  --color-grupo-rose-texto: var(--grupo-rose-texto);
+  --color-grupo-rose-selo: var(--grupo-rose-selo);
+  --color-grupo-rose-selo-texto: var(--grupo-rose-selo-texto);
+  --color-grupo-rose-ponto: var(--grupo-rose-ponto);
+  --color-grupo-cyan: var(--grupo-cyan);
+  --color-grupo-cyan-hover: var(--grupo-cyan-hover);
+  --color-grupo-cyan-texto: var(--grupo-cyan-texto);
+  --color-grupo-cyan-selo: var(--grupo-cyan-selo);
+  --color-grupo-cyan-selo-texto: var(--grupo-cyan-selo-texto);
+  --color-grupo-cyan-ponto: var(--grupo-cyan-ponto);
+  --color-grupo-slate: var(--grupo-slate);
+  --color-grupo-slate-hover: var(--grupo-slate-hover);
+  --color-grupo-slate-texto: var(--grupo-slate-texto);
+  --color-grupo-slate-selo: var(--grupo-slate-selo);
+  --color-grupo-slate-selo-texto: var(--grupo-slate-selo-texto);
+  --color-grupo-slate-ponto: var(--grupo-slate-ponto);
+  --color-agenda-rose-ponto: var(--agenda-rose-ponto);
+  --color-agenda-rose-selo: var(--agenda-rose-selo);
+  --color-agenda-rose-selo-texto: var(--agenda-rose-selo-texto);
+  --color-agenda-rose-selo-borda: var(--agenda-rose-selo-borda);
+  --color-agenda-pink-ponto: var(--agenda-pink-ponto);
+  --color-agenda-pink-selo: var(--agenda-pink-selo);
+  --color-agenda-pink-selo-texto: var(--agenda-pink-selo-texto);
+  --color-agenda-pink-selo-borda: var(--agenda-pink-selo-borda);
+  --color-agenda-orange-ponto: var(--agenda-orange-ponto);
+  --color-agenda-orange-selo: var(--agenda-orange-selo);
+  --color-agenda-orange-selo-texto: var(--agenda-orange-selo-texto);
+  --color-agenda-orange-selo-borda: var(--agenda-orange-selo-borda);
+  --color-agenda-amber-ponto: var(--agenda-amber-ponto);
+  --color-agenda-amber-selo: var(--agenda-amber-selo);
+  --color-agenda-amber-selo-texto: var(--agenda-amber-selo-texto);
+  --color-agenda-amber-selo-borda: var(--agenda-amber-selo-borda);
+  --color-agenda-emerald-ponto: var(--agenda-emerald-ponto);
+  --color-agenda-emerald-selo: var(--agenda-emerald-selo);
+  --color-agenda-emerald-selo-texto: var(--agenda-emerald-selo-texto);
+  --color-agenda-emerald-selo-borda: var(--agenda-emerald-selo-borda);
+  --color-agenda-teal-ponto: var(--agenda-teal-ponto);
+  --color-agenda-teal-selo: var(--agenda-teal-selo);
+  --color-agenda-teal-selo-texto: var(--agenda-teal-selo-texto);
+  --color-agenda-teal-selo-borda: var(--agenda-teal-selo-borda);
+  --color-agenda-cyan-ponto: var(--agenda-cyan-ponto);
+  --color-agenda-cyan-selo: var(--agenda-cyan-selo);
+  --color-agenda-cyan-selo-texto: var(--agenda-cyan-selo-texto);
+  --color-agenda-cyan-selo-borda: var(--agenda-cyan-selo-borda);
+  --color-agenda-blue-ponto: var(--agenda-blue-ponto);
+  --color-agenda-blue-selo: var(--agenda-blue-selo);
+  --color-agenda-blue-selo-texto: var(--agenda-blue-selo-texto);
+  --color-agenda-blue-selo-borda: var(--agenda-blue-selo-borda);
+  --color-agenda-violet-ponto: var(--agenda-violet-ponto);
+  --color-agenda-violet-selo: var(--agenda-violet-selo);
+  --color-agenda-violet-selo-texto: var(--agenda-violet-selo-texto);
+  --color-agenda-violet-selo-borda: var(--agenda-violet-selo-borda);
+  --color-agenda-fuchsia-ponto: var(--agenda-fuchsia-ponto);
+  --color-agenda-fuchsia-selo: var(--agenda-fuchsia-selo);
+  --color-agenda-fuchsia-selo-texto: var(--agenda-fuchsia-selo-texto);
+  --color-agenda-fuchsia-selo-borda: var(--agenda-fuchsia-selo-borda);
+  --color-agenda-slate-ponto: var(--agenda-slate-ponto);
+  --color-agenda-slate-selo: var(--agenda-slate-selo);
+  --color-agenda-slate-selo-texto: var(--agenda-slate-selo-texto);
+  --color-agenda-slate-selo-borda: var(--agenda-slate-selo-borda);
+  --color-grupo-realce: var(--grupo-realce);
+  --color-grupo-realce-hover: var(--grupo-realce-hover);
+  --color-brand-instagram: var(--brand-instagram);
+  --color-brand-whatsapp: var(--brand-whatsapp);
+  --color-brand-facebook: var(--brand-facebook);
+  --color-brand-telegram: var(--brand-telegram);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -53,7 +149,9 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+/* .tema-claro: trecho que fica claro mesmo no escuro (impressos, src/app/(print)/layout.tsx). */
+:root,
+.tema-claro {
   /* Paleta 1 do MOVA (ADR-0016). Contraste de cada par medido em docs/produto/identidade-visual.md. */
   --background: #f4f6f9;
   --foreground: #0f172a;
@@ -75,9 +173,16 @@
   --muted-foreground: #526079;
   --accent: #eef1f5;
   --accent-foreground: #0f172a;
-  /* destructive e warning são cor de texto/ícone; o fundo usa a mesma cor com 10%. */
+  /* destructive, warning, success e info são cor de texto/ícone; o fundo usa a mesma cor com 10%. */
   --destructive: #b42318;
   --warning: #8a5300;
+  /* Mesmo verde do primary-text: sucesso não ganha um segundo verde. */
+  --success: #036443;
+  --info: #1d4ed8;
+  /* Iguais nos dois temas: a assinatura vira PNG com tinta escura para o contrato impresso. */
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #dde3ea;
   /* Borda de campo e controle: 3:1 (WCAG 1.4.11). A border decorativa não chega lá. */
   --input: #7c8aa0;
@@ -94,6 +199,103 @@
   --brand-3: #21f49a;
   --brand-o-1: #22e080;
   --brand-o-2: #00bb74;
+  /* Cor da bandeira de cada grupo (src/lib/grupo-cores.ts): no claro, os tons do Tailwind de antes;
+     no escuro, barra no tom 800 e texto claro na cor (decisão do Luis, #90). Contraste no guia. */
+  --grupo-emerald: oklch(59.6% 0.145 163.225);
+  --grupo-emerald-hover: oklch(50.8% 0.118 165.612);
+  --grupo-emerald-texto: oklch(97.9% 0.021 166.113);
+  --grupo-emerald-selo: oklch(95% 0.052 163.051);
+  --grupo-emerald-selo-texto: oklch(43.2% 0.095 166.913);
+  --grupo-emerald-ponto: oklch(69.6% 0.17 162.48);
+  --grupo-blue: oklch(48.8% 0.243 264.376);
+  --grupo-blue-hover: oklch(42.4% 0.199 265.638);
+  --grupo-blue-texto: oklch(97% 0.014 254.604);
+  --grupo-blue-selo: oklch(93.2% 0.032 255.585);
+  --grupo-blue-selo-texto: oklch(42.4% 0.199 265.638);
+  --grupo-blue-ponto: oklch(62.3% 0.214 259.815);
+  --grupo-amber: oklch(66.6% 0.179 58.318);
+  --grupo-amber-hover: oklch(55.5% 0.163 48.998);
+  --grupo-amber-texto: oklch(98.7% 0.022 95.277);
+  --grupo-amber-selo: oklch(96.2% 0.059 95.617);
+  --grupo-amber-selo-texto: oklch(41.4% 0.112 45.904);
+  --grupo-amber-ponto: oklch(76.9% 0.188 70.08);
+  --grupo-violet: oklch(49.1% 0.27 292.581);
+  --grupo-violet-hover: oklch(43.2% 0.232 292.759);
+  --grupo-violet-texto: oklch(96.9% 0.016 293.756);
+  --grupo-violet-selo: oklch(94.3% 0.029 294.588);
+  --grupo-violet-selo-texto: oklch(43.2% 0.232 292.759);
+  --grupo-violet-ponto: oklch(60.6% 0.25 292.717);
+  --grupo-rose: oklch(51.4% 0.222 16.935);
+  --grupo-rose-hover: oklch(45.5% 0.188 13.697);
+  --grupo-rose-texto: oklch(96.9% 0.015 12.422);
+  --grupo-rose-selo: oklch(94.1% 0.03 12.58);
+  --grupo-rose-selo-texto: oklch(45.5% 0.188 13.697);
+  --grupo-rose-ponto: oklch(64.5% 0.246 16.439);
+  --grupo-cyan: oklch(52% 0.105 223.128);
+  --grupo-cyan-hover: oklch(45% 0.085 224.283);
+  --grupo-cyan-texto: oklch(98.4% 0.019 200.873);
+  --grupo-cyan-selo: oklch(95.6% 0.045 203.388);
+  --grupo-cyan-selo-texto: oklch(45% 0.085 224.283);
+  --grupo-cyan-ponto: oklch(71.5% 0.143 215.221);
+  --grupo-slate: oklch(37.2% 0.044 257.287);
+  --grupo-slate-hover: oklch(27.9% 0.041 260.031);
+  --grupo-slate-texto: oklch(98.4% 0.003 247.858);
+  --grupo-slate-selo: oklch(96.8% 0.007 247.896);
+  --grupo-slate-selo-texto: oklch(27.9% 0.041 260.031);
+  --grupo-slate-ponto: oklch(55.4% 0.046 257.417);
+  /* Cor da categoria da agenda (src/lib/calendario.ts). */
+  --agenda-rose-ponto: oklch(64.5% 0.246 16.439);
+  --agenda-rose-selo: oklch(96.9% 0.015 12.422);
+  --agenda-rose-selo-texto: oklch(51.4% 0.222 16.935);
+  --agenda-rose-selo-borda: oklch(89.2% 0.058 10.001);
+  --agenda-pink-ponto: oklch(65.6% 0.241 354.308);
+  --agenda-pink-selo: oklch(97.1% 0.014 343.198);
+  --agenda-pink-selo-texto: oklch(52.5% 0.223 3.958);
+  --agenda-pink-selo-borda: oklch(89.9% 0.061 343.231);
+  --agenda-orange-ponto: oklch(70.5% 0.213 47.604);
+  --agenda-orange-selo: oklch(98% 0.016 73.684);
+  --agenda-orange-selo-texto: oklch(55.3% 0.195 38.402);
+  --agenda-orange-selo-borda: oklch(90.1% 0.076 70.697);
+  --agenda-amber-ponto: oklch(76.9% 0.188 70.08);
+  --agenda-amber-selo: oklch(98.7% 0.022 95.277);
+  --agenda-amber-selo-texto: oklch(55.5% 0.163 48.998);
+  --agenda-amber-selo-borda: oklch(92.4% 0.12 95.746);
+  --agenda-emerald-ponto: oklch(69.6% 0.17 162.48);
+  --agenda-emerald-selo: oklch(97.9% 0.021 166.113);
+  --agenda-emerald-selo-texto: oklch(50.8% 0.118 165.612);
+  --agenda-emerald-selo-borda: oklch(90.5% 0.093 164.15);
+  --agenda-teal-ponto: oklch(70.4% 0.14 182.503);
+  --agenda-teal-selo: oklch(98.4% 0.014 180.72);
+  --agenda-teal-selo-texto: oklch(51.1% 0.096 186.391);
+  --agenda-teal-selo-borda: oklch(91% 0.096 180.426);
+  --agenda-cyan-ponto: oklch(71.5% 0.143 215.221);
+  --agenda-cyan-selo: oklch(98.4% 0.019 200.873);
+  --agenda-cyan-selo-texto: oklch(52% 0.105 223.128);
+  --agenda-cyan-selo-borda: oklch(91.7% 0.08 205.041);
+  --agenda-blue-ponto: oklch(62.3% 0.214 259.815);
+  --agenda-blue-selo: oklch(97% 0.014 254.604);
+  --agenda-blue-selo-texto: oklch(48.8% 0.243 264.376);
+  --agenda-blue-selo-borda: oklch(88.2% 0.059 254.128);
+  --agenda-violet-ponto: oklch(60.6% 0.25 292.717);
+  --agenda-violet-selo: oklch(96.9% 0.016 293.756);
+  --agenda-violet-selo-texto: oklch(49.1% 0.27 292.581);
+  --agenda-violet-selo-borda: oklch(89.4% 0.057 293.283);
+  --agenda-fuchsia-ponto: oklch(66.7% 0.295 322.15);
+  --agenda-fuchsia-selo: oklch(97.7% 0.017 320.058);
+  --agenda-fuchsia-selo-texto: oklch(51.8% 0.253 323.949);
+  --agenda-fuchsia-selo-borda: oklch(90.3% 0.076 319.62);
+  --agenda-slate-ponto: oklch(70.4% 0.04 256.788);
+  --agenda-slate-selo: oklch(98.4% 0.003 247.858);
+  --agenda-slate-selo-texto: oklch(44.6% 0.043 257.281);
+  --agenda-slate-selo-borda: oklch(92.9% 0.013 255.508);
+  /* Botão sobre a barra do grupo: escurecer, e não clarear, não reduz o contraste do texto. */
+  --grupo-realce: rgb(0 0 0 / 0.15);
+  --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #047a4f;
@@ -126,6 +328,11 @@
   --accent-foreground: #e8edf5;
   --destructive: #ff8a80;
   --warning: #ffc861;
+  --success: #4ee8a8;
+  --info: #8ab4ff;
+  --assinatura-quadro: #f8fafc;
+  --assinatura-tinta: #0f172a;
+  --camera-fundo: #000000;
   --border: #26324a;
   --input: #64748f;
   --ring: #2ee09a;
@@ -134,6 +341,100 @@
   --chart-3: #4ee8a8;
   --chart-4: #9aa8bf;
   --chart-5: #ffc861;
+  --grupo-emerald: #047857;
+  --grupo-emerald-hover: #064e3b;
+  --grupo-emerald-texto: #ccf4e6;
+  --grupo-emerald-selo: #183b3f;
+  --grupo-emerald-selo-texto: #34d399;
+  --grupo-emerald-ponto: #34d399;
+  --grupo-blue: #1e40af;
+  --grupo-blue-hover: #1e3a8a;
+  --grupo-blue-texto: #c7e0fd;
+  --grupo-blue-selo: #203350;
+  --grupo-blue-selo-texto: #60a5fa;
+  --grupo-blue-ponto: #60a5fa;
+  --grupo-amber: #b45309;
+  --grupo-amber-hover: #92400e;
+  --grupo-amber-texto: #fef5de;
+  --grupo-amber-selo: #3c382a;
+  --grupo-amber-selo-texto: #fbbf24;
+  --grupo-amber-ponto: #fbbf24;
+  --grupo-violet: #5b21b6;
+  --grupo-violet-hover: #4c1d95;
+  --grupo-violet-texto: #e0d6fd;
+  --grupo-violet-selo: #2d2e50;
+  --grupo-violet-selo-texto: #a78bfa;
+  --grupo-violet-ponto: #a78bfa;
+  --grupo-rose: #9f1239;
+  --grupo-rose-hover: #881337;
+  --grupo-rose-texto: #fecdd4;
+  --grupo-rose-selo: #3c2a3b;
+  --grupo-rose-selo-texto: #fb7185;
+  --grupo-rose-ponto: #fb7185;
+  --grupo-cyan: #155e75;
+  --grupo-cyan-hover: #164e63;
+  --grupo-cyan-texto: #b2f0f9;
+  --grupo-cyan-selo: #153b4e;
+  --grupo-cyan-selo-texto: #22d3ee;
+  --grupo-cyan-ponto: #22d3ee;
+  --grupo-slate: #1e293b;
+  --grupo-slate-hover: #0f172a;
+  --grupo-slate-texto: #dadfe6;
+  --grupo-slate-selo: #293344;
+  --grupo-slate-selo-texto: #94a3b8;
+  --grupo-slate-ponto: #94a3b8;
+  /* Agenda no escuro: selo no tom 950, texto no 300. */
+  --agenda-rose-ponto: oklch(71.2% 0.194 13.428);
+  --agenda-rose-selo: oklch(27.1% 0.105 12.094);
+  --agenda-rose-selo-texto: oklch(81% 0.117 11.638);
+  --agenda-rose-selo-borda: oklch(45.5% 0.188 13.697);
+  --agenda-pink-ponto: oklch(71.8% 0.202 349.761);
+  --agenda-pink-selo: oklch(28.4% 0.109 3.907);
+  --agenda-pink-selo-texto: oklch(82.3% 0.12 346.018);
+  --agenda-pink-selo-borda: oklch(45.9% 0.187 3.815);
+  --agenda-orange-ponto: oklch(75% 0.183 55.934);
+  --agenda-orange-selo: oklch(26.6% 0.079 36.259);
+  --agenda-orange-selo-texto: oklch(83.7% 0.128 66.29);
+  --agenda-orange-selo-borda: oklch(47% 0.157 37.304);
+  --agenda-amber-ponto: oklch(82.8% 0.189 84.429);
+  --agenda-amber-selo: oklch(27.9% 0.077 45.635);
+  --agenda-amber-selo-texto: oklch(87.9% 0.169 91.605);
+  --agenda-amber-selo-borda: oklch(47.3% 0.137 46.201);
+  --agenda-emerald-ponto: oklch(76.5% 0.177 163.223);
+  --agenda-emerald-selo: oklch(26.2% 0.051 172.552);
+  --agenda-emerald-selo-texto: oklch(84.5% 0.143 164.978);
+  --agenda-emerald-selo-borda: oklch(43.2% 0.095 166.913);
+  --agenda-teal-ponto: oklch(77.7% 0.152 181.912);
+  --agenda-teal-selo: oklch(27.7% 0.046 192.524);
+  --agenda-teal-selo-texto: oklch(85.5% 0.138 181.071);
+  --agenda-teal-selo-borda: oklch(43.7% 0.078 188.216);
+  --agenda-cyan-ponto: oklch(78.9% 0.154 211.53);
+  --agenda-cyan-selo: oklch(30.2% 0.056 229.695);
+  --agenda-cyan-selo-texto: oklch(86.5% 0.127 207.078);
+  --agenda-cyan-selo-borda: oklch(45% 0.085 224.283);
+  --agenda-blue-ponto: oklch(70.7% 0.165 254.624);
+  --agenda-blue-selo: oklch(28.2% 0.091 267.935);
+  --agenda-blue-selo-texto: oklch(80.9% 0.105 251.813);
+  --agenda-blue-selo-borda: oklch(42.4% 0.199 265.638);
+  --agenda-violet-ponto: oklch(70.2% 0.183 293.541);
+  --agenda-violet-selo: oklch(28.3% 0.141 291.089);
+  --agenda-violet-selo-texto: oklch(81.1% 0.111 293.571);
+  --agenda-violet-selo-borda: oklch(43.2% 0.232 292.759);
+  --agenda-fuchsia-ponto: oklch(74% 0.238 322.16);
+  --agenda-fuchsia-selo: oklch(29.3% 0.136 325.661);
+  --agenda-fuchsia-selo-texto: oklch(83.3% 0.145 321.434);
+  --agenda-fuchsia-selo-borda: oklch(45.2% 0.211 324.591);
+  --agenda-slate-ponto: oklch(70.4% 0.04 256.788);
+  --agenda-slate-selo: oklch(12.9% 0.042 264.695);
+  --agenda-slate-selo-texto: oklch(86.9% 0.022 252.894);
+  --agenda-slate-selo-borda: oklch(27.9% 0.041 260.031);
+  --grupo-realce: rgb(0 0 0 / 0.15);
+  --grupo-realce-hover: rgb(0 0 0 / 0.25);
+  /* Cor oficial de cada marca (Simple Icons): é a marca, igual nos dois temas. */
+  --brand-instagram: #ff0069;
+  --brand-whatsapp: #25d366;
+  --brand-facebook: #0866ff;
+  --brand-telegram: #26a5e4;
   --sidebar: #0e1526;
   --sidebar-foreground: #e8edf5;
   --sidebar-primary: #2ee09a;
@@ -150,6 +451,16 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Campo de data, <select> nativo e barra de rolagem desenhados pelo navegador seguem o tema. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  .tema-claro {
+    color-scheme: light;
   }
   html {
     @apply font-sans;
@@ -218,3 +529,15 @@
 /* Login: sem o "elástico" do iOS ao arrastar além do fim da página; e o que o navegador mostrar
    além da página (teclado, barra recolhendo) sai no verde da base das ondas, não no fundo claro. */
 html:has(.mova-auth) { overscroll-behavior: none; background: var(--brand-1) }
+
+/* Impresso: a margem do @page pinta o fundo do html, que no escuro sairia escuro no papel com
+   "gráficos de fundo" ligado. Sem fundo no html e no body e com esquema claro (o next-themes põe
+   color-scheme inline no html), a margem sai branca. Seletor próprio: não juntar com o :root da
+   paleta, o Tailwind vira :is() e a especificidade maior venceria o .dark em todas as telas. */
+:root:has([data-impresso]) {
+  color-scheme: light !important;
+  background: transparent;
+}
+:root:has([data-impresso]) body {
+  background: transparent;
+}

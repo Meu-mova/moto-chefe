@@ -72,24 +72,24 @@ function TabelaOpcoes({
   onToggle?: (parcelas: number) => void
 }) {
   if (linhas.length === 0) {
-    return <p className="text-sm text-slate-400 py-4 text-center">Nenhuma opção configurada</p>
+    return <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma opção configurada</p>
   }
   const comCheckbox = !!selecionados && !!onToggle
   return (
     <div className="overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 border-b">
+        <thead className="bg-muted border-b">
           <tr>
             {comCheckbox && <th className="w-8 px-3 py-2" />}
-            <th className="text-left px-3 py-2 text-xs text-slate-500 font-medium">Parcelas</th>
-            <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">Valor da Parcela</th>
+            <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium">Parcelas</th>
+            <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">Valor da Parcela</th>
             {mostrarTotal && (
-              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">
                 Total{entrada > 0 ? ' (s/ entrada)' : ''}
               </th>
             )}
             {!mostrarTotal && entrada > 0 && (
-              <th className="text-right px-3 py-2 text-xs text-slate-500 font-medium">{labelCredito}</th>
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium">{labelCredito}</th>
             )}
           </tr>
         </thead>
@@ -99,7 +99,7 @@ function TabelaOpcoes({
             return (
               <tr
                 key={parcelas}
-                className={`hover:bg-slate-50/50 ${comCheckbox ? 'cursor-pointer' : ''} ${checked ? 'bg-blue-50/60' : ''}`}
+                className={`hover:bg-muted/50 ${comCheckbox ? 'cursor-pointer' : ''} ${checked ? 'bg-info/10' : ''}`}
                 onClick={comCheckbox ? () => onToggle!(parcelas) : undefined}
               >
                 {comCheckbox && (
@@ -109,17 +109,17 @@ function TabelaOpcoes({
                       checked={checked}
                       onChange={() => onToggle!(parcelas)}
                       onClick={e => e.stopPropagation()}
-                      className="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
                   </td>
                 )}
-                <td className="px-3 py-2 font-semibold text-slate-700">{parcelas}x</td>
+                <td className="px-3 py-2 font-semibold text-foreground">{parcelas}x</td>
                 <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmt(parcela)}</td>
                 {mostrarTotal && (
-                  <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
                 )}
                 {!mostrarTotal && entrada > 0 && (
-                  <td className="px-3 py-2 text-right text-slate-400 text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
                 )}
               </tr>
             )
@@ -127,7 +127,7 @@ function TabelaOpcoes({
         </tbody>
       </table>
       {comCheckbox && selecionados!.size > 0 && (
-        <p className="px-3 py-1.5 text-xs text-blue-600 bg-blue-50 border-t">
+        <p className="px-3 py-1.5 text-xs text-info bg-info/10 border-t">
           {selecionados!.size} opção(ões) selecionada(s) para impressão
         </p>
       )}
@@ -161,7 +161,7 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
   return `
   <div style="margin-bottom:20px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${corLabel};margin-bottom:10px;border-left:3px solid ${corLabel};padding-left:8px">
-      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:#94a3b8">(entrada: ${fmt(entrada)})</span>` : ''}
+      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmt(entrada)})</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid ${corBorder};border-radius:8px;overflow:hidden">
       <thead>
@@ -177,12 +177,25 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
         <tr style="border-bottom:1px solid ${corBorder}">
           <td style="padding:8px 10px;font-weight:700;color:${corValor}">${parcelas}x</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmt(parcela)}</td>
-          <td style="padding:8px 10px;text-align:right;color:#64748b;font-size:11px">${fmt(credito)}</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmt(credito)}</td>
           ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmt(entrada + credito)}</td>` : ''}
         </tr>`).join('')}
       </tbody>
     </table>
   </div>`
+}
+
+// A janela da simulação não carrega o globals.css: cada var(--x) usada na folha recebe o valor
+// lido de um .tema-claro, para o papel sair claro mesmo com o escuro ligado na tela.
+function comPaletaClara(html: string) {
+  const nomes = [...new Set(Array.from(html.matchAll(/var\(--([\w-]+)\)/g), (m) => m[1]))]
+  const sonda = document.createElement('div')
+  sonda.className = 'tema-claro'
+  document.body.appendChild(sonda)
+  const estilo = getComputedStyle(sonda)
+  const declaracoes = nomes.map((nome) => `--${nome}: ${estilo.getPropertyValue(`--${nome}`).trim()};`).join(' ')
+  sonda.remove()
+  return html.replace('<style>', `<style>\n    :root { ${declaracoes} }`)
 }
 
 function gerarHtmlPrint(
@@ -214,17 +227,18 @@ function gerarHtmlPrint(
 
   const linhasCartaoParaPrint = entrada > 0 ? linhasCartaoComEntrada : linhasCartaoSemEntrada
 
+  // Cor de significado por seção: texto 4.5+ sobre o card e sobre o cabeçalho (10%), claro e escuro.
   const tabelasSelecionadas = [
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Crédito', corLabel: '#3b82f6', corBg: '#eff6ff', corBorder: '#bfdbfe', corValor: '#1d4ed8', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Cartão de Débito', corLabel: '#0d9488', corBg: '#f0fdfa', corBorder: '#99f6e4', corValor: '#0f766e', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Link de Pagamento', corLabel: '#7c3aed', corBg: '#f5f3ff', corBorder: '#ddd6fe', corValor: '#6d28d9', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
-    gerarTabelaSelecionada({ titulo: 'Opções Selecionadas — Financiamento', corLabel: '#d97706', corBg: '#fffbeb', corBorder: '#fde68a', corValor: '#b45309', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Crédito', corLabel: 'var(--info)', corBg: 'color-mix(in srgb, var(--info) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--info) 30%, var(--card))', corValor: 'var(--info)', linhas: linhasCartaoParaPrint, selecionados: selCartao, comEntrada: true, entrada, labelTotal: 'Total Cartão' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Cartão de Débito', corLabel: 'var(--success)', corBg: 'color-mix(in srgb, var(--success) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--success) 30%, var(--card))', corValor: 'var(--success)', linhas: linhasDebito, selecionados: selDebito, comEntrada: true, entrada, labelTotal: 'Total Débito' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Link de Pagamento', corLabel: 'var(--warning)', corBg: 'color-mix(in srgb, var(--warning) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--warning) 30%, var(--card))', corValor: 'var(--warning)', linhas: linhasLink, selecionados: selLink, comEntrada: true, entrada, labelTotal: 'Total Link' }),
+    gerarTabelaSelecionada({ titulo: 'Opções selecionadas: Financiamento', corLabel: 'var(--muted-foreground)', corBg: 'color-mix(in srgb, var(--muted-foreground) 10%, var(--card))', corBorder: 'color-mix(in srgb, var(--muted-foreground) 30%, var(--card))', corValor: 'var(--muted-foreground)', linhas: linhasFinanciamento, selecionados: selFinanciamento, comEntrada: false, entrada, labelTotal: 'Total Financiado' }),
   ].join('')
 
   const blocoFrete = frete ? `
-  <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0">
-    <div style="font-size:11px;color:#64748b">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
-    <div style="font-size:13px;font-weight:700;color:#334155;margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
+  <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:var(--muted);border:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
+    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
   </div>` : ''
 
   // "Com entrada" subsections — só aparecem quando há entrada
@@ -233,9 +247,9 @@ function gerarHtmlPrint(
 
   const entradaSubTabela = (linha: Linha | null | undefined, cor: string) => linha ? `
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${cor}">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:5px">Com entrada</div>
-      <div style="font-size:14px;font-weight:700;color:#334155">${fmt(linha.credito)} no cartão</div>
-      <div style="font-size:10px;color:#94a3b8;margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:5px">Com entrada</div>
+      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmt(linha.credito)} no cartão</div>
+      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
     </div>` : ''
 
   return `<!DOCTYPE html>
@@ -245,39 +259,39 @@ function gerarHtmlPrint(
   <title>Simulação — ${nomeEsc}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;padding:40px;color:#1e293b;font-size:14px;max-width:640px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #e2e8f0}
-    .brand{font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+    body{font-family:Arial,sans-serif;padding:40px;color:var(--foreground);font-size:14px;max-width:640px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+    .brand{font-size:11px;color:var(--muted-foreground);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
     .model{font-size:26px;font-weight:700}
-    .date{font-size:11px;color:#94a3b8;text-align:right;white-space:nowrap}
+    .date{font-size:11px;color:var(--muted-foreground);text-align:right;white-space:nowrap}
     .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
     .price-card{border-radius:12px;padding:16px 12px;text-align:center}
-    .price-tabela{background:#f8fafc;border:2px solid #e2e8f0}
-    .price-desconto{background:#eff6ff;border:2px solid #bfdbfe}
-    .price-pix{background:#f0fdf4;border:2px solid #bbf7d0}
-    .price-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;color:#64748b}
-    .price-desconto .price-label{color:#3b82f6}
-    .price-pix .price-label{color:#16a34a}
-    .price-val{font-size:20px;font-weight:700;color:#334155;margin-bottom:4px}
-    .price-desconto .price-val{color:#1d4ed8}
-    .price-pix .price-val{color:#15803d}
-    .price-sub{font-size:11px;color:#94a3b8}
-    .price-desconto .price-sub{color:#93c5fd}
-    .price-pix .price-sub{color:#86efac}
+    .price-tabela{background:var(--muted);border:2px solid var(--border)}
+    .price-desconto{background:color-mix(in srgb, var(--info) 10%, var(--card));border:2px solid color-mix(in srgb, var(--info) 30%, var(--card))}
+    .price-pix{background:color-mix(in srgb, var(--success) 10%, var(--card));border:2px solid color-mix(in srgb, var(--success) 30%, var(--card))}
+    .price-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;color:var(--muted-foreground)}
+    .price-desconto .price-label{color:var(--info)}
+    .price-pix .price-label{color:var(--success)}
+    .price-val{font-size:20px;font-weight:700;color:var(--foreground);margin-bottom:4px}
+    .price-desconto .price-val{color:var(--info)}
+    .price-pix .price-val{color:var(--success)}
+    .price-sub{font-size:11px;color:var(--muted-foreground)}
+    .price-desconto .price-sub{color:var(--info)}
+    .price-pix .price-sub{color:var(--success)}
     .badge{display:inline-block;margin-top:7px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
-    .badge-blue{background:#dbeafe;color:#1d4ed8}
-    .badge-green{background:#dcfce7;color:#15803d}
+    .badge-blue{background:color-mix(in srgb, var(--info) 15%, var(--card));color:var(--info)}
+    .badge-green{background:color-mix(in srgb, var(--success) 15%, var(--card));color:var(--success)}
     .eco{font-size:10px;margin-top:3px}
-    .price-desconto .eco{color:#3b82f6}
-    .price-pix .eco{color:#16a34a}
-    .entrada-tag{text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:#475569}
-    .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center}
+    .price-desconto .eco{color:var(--info)}
+    .price-pix .eco{color:var(--success)}
+    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}
+    .footer{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:10px;color:var(--muted-foreground);text-align:center}
   </style>
 </head>
 <body>
   <div class="header">
     <div style="display:flex;align-items:center;gap:16px">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;padding:4px">` : ''}
+      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:var(--muted);border:1px solid var(--border);padding:4px">` : ''}
       <div>
         <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
         <div class="model">${nomeEsc}</div>
@@ -293,7 +307,7 @@ function gerarHtmlPrint(
       <div class="price-label">Valor de Tabela</div>
       <div class="price-val">${cartao21 ? fmt(cartao21.credito) : '—'}</div>
       <div class="price-sub">${cartao21 ? `21x de ${fmt(cartao21.parcela)}` : '21x no cartão'}</div>
-      ${entradaSubTabela(c21Entrada, '#e2e8f0')}
+      ${entradaSubTabela(c21Entrada, 'var(--border)')}
     </div>
     <div class="price-card price-desconto">
       <div class="price-label">Valor com Desconto</div>
@@ -301,7 +315,7 @@ function gerarHtmlPrint(
       <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
       ${desc12 ? `<div class="badge badge-blue">${desc12}% de desconto</div>` : ''}
       ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmt(eco12)}</div>` : ''}
-      ${entradaSubTabela(c12Entrada, '#bfdbfe')}
+      ${entradaSubTabela(c12Entrada, 'color-mix(in srgb, var(--info) 30%, var(--card))')}
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
@@ -358,52 +372,52 @@ function PrecosDestaque({
   return (
     <div className="grid grid-cols-3 gap-3">
       {/* Valor de Tabela — 21x */}
-      <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Valor de Tabela</p>
+      <div className="rounded-xl border-2 border-border bg-muted p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
-            <p className="text-lg font-bold text-slate-700">{fmt(cartao21.credito)}</p>
-            <p className="text-xs text-slate-400 mt-1">21x de {fmt(cartao21.parcela)}</p>
+            <p className="text-lg font-bold text-foreground">{fmt(cartao21.credito)}</p>
+            <p className="text-xs text-muted-foreground mt-1">21x de {fmt(cartao21.parcela)}</p>
             {c21Entrada && (
-              <div className="mt-2 pt-2 border-t border-slate-200">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-slate-700">{fmt(c21Entrada.credito)} no cartão</p>
-                <p className="text-xs text-slate-500">21x de {fmt(c21Entrada.parcela)}</p>
+              <div className="mt-2 pt-2 border-t border-border">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-foreground">{fmt(c21Entrada.credito)} no cartão</p>
+                <p className="text-xs text-muted-foreground">21x de {fmt(c21Entrada.parcela)}</p>
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-300 mt-2">—</p>
+          <p className="text-sm text-muted-foreground mt-2">—</p>
         )}
       </div>
 
       {/* Valor com Desconto — 12x */}
-      <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-2">Valor com Desconto</p>
+      <div className="rounded-xl border-2 border-info/30 bg-info/10 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-info mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
-            <p className="text-lg font-bold text-blue-700">{fmt(cartao12.credito)}</p>
-            <p className="text-xs text-blue-400 mt-1">12x de {fmt(cartao12.parcela)}</p>
-            <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-blue-100 text-blue-700" corEcon="text-blue-500" />
+            <p className="text-lg font-bold text-info">{fmt(cartao12.credito)}</p>
+            <p className="text-xs text-info mt-1">12x de {fmt(cartao12.parcela)}</p>
+            <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-info/10 text-info" corEcon="text-info" />
             {c12Entrada && (
-              <div className="mt-2 pt-2 border-t border-blue-200">
-                <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-blue-700">{fmt(c12Entrada.credito)} no cartão</p>
-                <p className="text-xs text-blue-500">12x de {fmt(c12Entrada.parcela)}</p>
+              <div className="mt-2 pt-2 border-t border-info/30">
+                <p className="text-[10px] text-info uppercase tracking-wide mb-1">Com entrada</p>
+                <p className="text-xs font-bold text-info">{fmt(c12Entrada.credito)} no cartão</p>
+                <p className="text-xs text-info">12x de {fmt(c12Entrada.parcela)}</p>
               </div>
             )}
           </>
         ) : (
-          <p className="text-sm text-blue-200 mt-2">—</p>
+          <p className="text-sm text-info mt-2">—</p>
         )}
       </div>
 
       {/* Valor Promocional — PIX/Dinheiro */}
-      <div className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-green-600 mb-2">Valor Promocional</p>
-        <p className="text-lg font-bold text-green-700">{fmt(base)}</p>
-        <p className="text-xs text-green-500 mt-1">PIX / Dinheiro</p>
-        <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-green-100 text-green-700" corEcon="text-green-600" />
+      <div className="rounded-xl border-2 border-success/50 bg-success/10 p-4 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-success mb-2">Valor Promocional</p>
+        <p className="text-lg font-bold text-success">{fmt(base)}</p>
+        <p className="text-xs text-success mt-1">PIX / Dinheiro</p>
+        <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-success/10 text-success" corEcon="text-success" />
       </div>
     </div>
   )
@@ -474,7 +488,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       MOSTRAR_FINANCIAMENTO ? selFinanciamento : new Set<number>(),
       freteResultado?.ok ? freteResultado : null,
     )
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([comPaletaClara(html)], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const win = window.open(url, '_blank', 'width=780,height=960')
     win?.focus()
@@ -484,9 +498,9 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
   return (
     <>
       {/* Seletor */}
-      <div className="bg-white rounded-xl border shadow-sm p-6">
+      <div className="bg-card rounded-xl border shadow-sm p-6">
         <div className="max-w-sm space-y-1.5">
-          <Label className="text-sm font-medium text-slate-700">Selecione o modelo</Label>
+          <Label className="text-sm font-medium text-foreground">Selecione o modelo</Label>
           <Select value={modeloId} onValueChange={v => setModeloId(v ?? '')}>
             <SelectTrigger className="h-11 text-base w-full">
               <span className={modeloId ? 'text-foreground' : 'text-muted-foreground'}>
@@ -504,18 +518,18 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
 
       {/* Resultado */}
       {modelo && (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="border-b bg-slate-50 flex items-center gap-5 px-6 py-4">
+        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+          <div className="border-b bg-muted flex items-center gap-5 px-6 py-4">
             {modelo.imagemUrl && (
               <img
                 src={modelo.imagemUrl}
                 alt={modelo.nome}
-                className="h-24 w-36 object-contain rounded-lg bg-white border p-1 shrink-0"
+                className="h-24 w-36 object-contain rounded-lg bg-card border p-1 shrink-0"
               />
             )}
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">{modelo.nome}</h2>
-              <p className="text-sm text-slate-400 mt-0.5">Condições de pagamento</p>
+              <h2 className="text-2xl font-bold text-foreground">{modelo.nome}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Condições de pagamento</p>
             </div>
           </div>
 
@@ -536,7 +550,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
             />
 
             {freteResultado?.ok && (
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 Total com frete (PIX): {fmt(base + freteResultado.custo)}
               </p>
             )}
@@ -546,7 +560,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
               <Label>Entrada (R$) — opcional</Label>
               <CurrencyInput value={entrada} onChange={setEntrada} placeholder="0,00" />
               {entradaInvalida && (
-                <p className="text-xs text-red-500">Entrada deve ser menor que o valor mínimo</p>
+                <p className="text-xs text-destructive">Entrada deve ser menor que o valor mínimo</p>
               )}
             </div>
 
@@ -556,24 +570,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('cartao')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <CreditCard size={15} className="text-blue-600" />
-                      <span className="font-semibold text-sm text-blue-800">Cartão de Crédito</span>
-                      <span className="text-xs text-blue-400">{linhasCartao.length} opções</span>
+                      <CreditCard size={15} className="text-info" />
+                      <span className="font-semibold text-sm text-info">Cartão de Crédito</span>
+                      <span className="text-xs text-info">{linhasCartao.length} opções</span>
                       {selCartao.size > 0 && (
-                        <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                           {selCartao.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-blue-500 transition-transform ${aberto.cartao ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-info transition-transform ${aberto.cartao ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.cartao && (
                     <TabelaOpcoes
                       linhas={linhasCartao}
-                      cor="text-blue-700"
+                      cor="text-info"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selCartao}
@@ -587,24 +601,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                   <div className="rounded-xl border overflow-hidden">
                     <button
                       onClick={() => toggle('debito')}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 hover:bg-teal-100 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <Wallet size={15} className="text-teal-600" />
-                        <span className="font-semibold text-sm text-teal-800">Cartão de Débito</span>
-                        <span className="text-xs text-teal-400">{linhasDebito.length} opções</span>
+                        <Wallet size={15} className="text-info" />
+                        <span className="font-semibold text-sm text-info">Cartão de Débito</span>
+                        <span className="text-xs text-info">{linhasDebito.length} opções</span>
                         {selDebito.size > 0 && (
-                          <span className="text-xs bg-teal-600 text-white px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                             {selDebito.size} selecionada(s)
                           </span>
                         )}
                       </div>
-                      <ChevronDown size={16} className={`text-teal-500 transition-transform ${aberto.debito ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={16} className={`text-info transition-transform ${aberto.debito ? 'rotate-180' : ''}`} />
                     </button>
                     {aberto.debito && (
                       <TabelaOpcoes
                         linhas={linhasDebito}
-                        cor="text-teal-700"
+                        cor="text-info"
                         entrada={entradaNum}
                         mostrarTotal
                         selecionados={selDebito}
@@ -618,24 +632,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('link')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-info/10 hover:bg-info/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Link2 size={15} className="text-purple-600" />
-                      <span className="font-semibold text-sm text-purple-800">Link de Pagamento</span>
-                      <span className="text-xs text-purple-400">{linhasLink.length} opções</span>
+                      <Link2 size={15} className="text-info" />
+                      <span className="font-semibold text-sm text-info">Link de Pagamento</span>
+                      <span className="text-xs text-info">{linhasLink.length} opções</span>
                       {selLink.size > 0 && (
-                        <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-info text-background px-1.5 py-0.5 rounded-full">
                           {selLink.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-purple-500 transition-transform ${aberto.link ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-info transition-transform ${aberto.link ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.link && (
                     <TabelaOpcoes
                       linhas={linhasLink}
-                      cor="text-purple-700"
+                      cor="text-info"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selLink}
@@ -649,24 +663,24 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                 <div className="rounded-xl border overflow-hidden">
                   <button
                     onClick={() => toggle('financiamento')}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-warning/10 hover:bg-warning/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Building2 size={15} className="text-amber-600" />
-                      <span className="font-semibold text-sm text-amber-800">Financiamento</span>
-                      <span className="text-xs text-amber-400">sujeito a aprovação de crédito</span>
+                      <Building2 size={15} className="text-warning" />
+                      <span className="font-semibold text-sm text-warning">Financiamento</span>
+                      <span className="text-xs text-warning">sujeito a aprovação de crédito</span>
                       {selFinanciamento.size > 0 && (
-                        <span className="text-xs bg-amber-600 text-white px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-warning text-background px-1.5 py-0.5 rounded-full">
                           {selFinanciamento.size} selecionada(s)
                         </span>
                       )}
                     </div>
-                    <ChevronDown size={16} className={`text-amber-500 transition-transform ${aberto.financiamento ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`text-warning transition-transform ${aberto.financiamento ? 'rotate-180' : ''}`} />
                   </button>
                   {aberto.financiamento && (
                     <TabelaOpcoes
                       linhas={linhasFinanciamento}
-                      cor="text-amber-700"
+                      cor="text-warning"
                       entrada={entradaNum}
                       mostrarTotal
                       selecionados={selFinanciamento}
@@ -681,7 +695,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                   return (
                     <div className="flex items-center justify-end gap-3 pt-2">
                       {total > 0 && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {total} opção(ões) selecionada(s) serão incluídas no PDF
                         </p>
                       )}
@@ -699,7 +713,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       )}
 
       {!modelo && (
-        <div className="rounded-xl border bg-white shadow-sm flex items-center justify-center py-24 text-slate-400">
+        <div className="rounded-xl border bg-card shadow-sm flex items-center justify-center py-24 text-muted-foreground">
           <p>Selecione um modelo acima para ver as condições</p>
         </div>
       )}

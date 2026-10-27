@@ -31,8 +31,9 @@ export function CancelarReservaButton({ reservaId, descricao, clienteNome, valor
   async function confirmar() {
     setLoading(true)
     try {
-      await cancelarReservaAction(reservaId, motivo)
-      toast.success('Reserva cancelada — a moto voltou para venda.')
+      const r = await cancelarReservaAction(reservaId, motivo)
+      if (!r.ok) { toast.error(r.erro); return }
+      toast.success('Reserva cancelada. A moto voltou para venda.')
       setOpen(false)
       setMotivo('')
     } catch (e) {
@@ -50,8 +51,8 @@ export function CancelarReservaButton({ reservaId, descricao, clienteNome, valor
         onClick={() => setOpen(true)}
         title="Cancelar reserva"
         className={showLabel
-          ? 'h-8 text-xs text-red-600 hover:bg-red-50 hover:text-red-700'
-          : 'h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-700'}
+          ? 'h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive'
+          : 'h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive'}
       >
         <CalendarX size={showLabel ? 14 : 16} />
         {showLabel && 'Cancelar reserva'}
@@ -61,20 +62,20 @@ export function CancelarReservaButton({ reservaId, descricao, clienteNome, valor
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancelar reserva</DialogTitle>
-            <p className="text-sm text-slate-500 pt-1">{descricao}</p>
+            <p className="text-sm text-muted-foreground pt-1">{descricao}</p>
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-              <p><span className="text-slate-500">Cliente:</span> <b>{clienteNome || '—'}</b></p>
-              {entrada && <p><span className="text-slate-500">Entrada:</span> <b>{entrada}</b></p>}
+            <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+              <p><span className="text-muted-foreground">Cliente:</span> <b>{clienteNome || '—'}</b></p>
+              {entrada && <p><span className="text-muted-foreground">Entrada:</span> <b>{entrada}</b></p>}
             </div>
 
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               A moto volta a ficar disponível para venda e a reserva fica registrada como
               cancelada.
             </p>
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-warning">
               O sistema <b>não devolve a entrada</b> — a reserva nunca lançou esse valor no
               caixa. Se o cliente for reembolsado, o acerto é por fora.
             </p>
@@ -92,8 +93,8 @@ export function CancelarReservaButton({ reservaId, descricao, clienteNome, valor
             </Button>
             <Button
               onClick={confirmar}
+              variant="destructive"
               disabled={loading || motivo.trim().length < 3}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {loading ? 'Cancelando…' : 'Cancelar reserva'}
             </Button>

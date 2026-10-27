@@ -5,6 +5,7 @@ import { eq, and, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
+import { funisParaAdmin } from '@/lib/queries/marketing'
 
 // aux_adm entra junto: é quem opera a loja e vai lançar a verba na prática.
 const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
@@ -15,13 +16,22 @@ async function exigirGestor() {
   return u
 }
 
+// Nome do canal e funil da Kommo são da integração inteira, não de uma Conta: só o
+// admin_geral mexe. Um gestor ligava ao próprio grupo o funil de outra Conta e passava
+// a ver os leads dela (#328). A Kommo vai sair (#59).
+async function exigirAdminGeral() {
+  const u = await getUsuarioLogado()
+  if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
+  return u
+}
+
 function revalidar() {
   revalidatePath('/admin/canais')
   revalidatePath('/marketing')
 }
 
 export async function salvarNomeCanalAction(sourceId: number, nome: string) {
-  await exigirGestor()
+  await exigirAdminGeral()
   const limpo = nome.trim()
   // Nome vazio volta ao rótulo automático (canal · perfil) em vez de virar ''.
   await db.update(kommoSources)
@@ -31,12 +41,9 @@ export async function salvarNomeCanalAction(sourceId: number, nome: string) {
 }
 
 export async function definirGrupoFunilAction(pipelineId: string, grupoId: string | null) {
-  const usuario = await exigirGestor()
+  const usuario = await exigirAdminGeral()
   // kommo_pipeline_grupo é a prova de tenant do /marketing inteiro (ver
-  // src/lib/queries/marketing.ts) — sem esta checagem, um aux_adm reatribuía o
-  // funil de outro lojista pro próprio grupo e passava a ver os leads do
-  // concorrente, só mandando outro grupoId pra esta action. `null` (remover o
-  // vínculo) continua liberado: não expõe dado de nenhum grupo.
+  // src/lib/queries/marketing.ts): o grupo de destino tem de existir para o admin.
   if (grupoId && !(await podeUsuarioVerGrupo(usuario, grupoId))) {
     throw new Error('Você não tem acesso a este grupo')
   }
@@ -64,6 +71,9 @@ export async function salvarInvestimentoAction(dados: {
   if (!plataforma) throw new Error('Informe a plataforma (ex.: Meta Ads)')
   if (!/^\d{4}-\d{2}$/.test(dados.mes)) throw new Error('Mês inválido')
   if (!(dados.valor >= 0)) throw new Error('Valor inválido')
+  if (dados.pipelineId && !(await funisParaAdmin(grupo.id)).some(f => f.pipelineId === dados.pipelineId)) {
+    throw new Error('Funil não encontrado')
+  }
 
   // Sempre dia 1: a unidade do lançamento é o mês. Como string — Date cru vira
   // meia-noite UTC e volta um dia em BRT.

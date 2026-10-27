@@ -2,6 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { listarMotos } from '@/lib/queries/motos'
+import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { buttonVariants } from '@/components/ui/button'
@@ -19,26 +20,28 @@ export default async function RadarPage({
   if (!usuarioPodeAcessar(usuario, '/radar')) redirect('/dashboard')
   const busca = q?.trim() ?? ''
 
+  // Cada Conta acha só as próprias motos (#320); o admin_geral, da plataforma, acha todas.
+  const contaId = usuario.papel === 'admin_geral' ? undefined : await contaDoGrupoAtivo(usuario)
   const motos = busca
-    ? await listarMotos({ chassiBusca: busca })
+    ? await listarMotos({ chassiBusca: busca, contaId })
     : []
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">RADAR</h1>
-        <p className="text-slate-500 text-sm">Localize qualquer moto pelo chassi — incluindo vendidas</p>
+        <p className="text-muted-foreground text-sm">Localize qualquer moto da sua rede pelo chassi — incluindo vendidas</p>
       </div>
 
       <form method="GET" className="flex gap-2 max-w-md">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             name="q"
             defaultValue={busca}
             placeholder="Digite o chassi ou parte dele..."
             autoFocus
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <button
@@ -50,17 +53,17 @@ export default async function RadarPage({
       </form>
 
       {!busca && (
-        <p className="text-slate-400 text-sm">Digite um chassi acima para começar a busca.</p>
+        <p className="text-muted-foreground text-sm">Digite um chassi acima para começar a busca.</p>
       )}
 
       {busca && motos.length === 0 && (
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Nenhuma moto encontrada para o chassi <strong>{busca}</strong>.
         </p>
       )}
 
       {motos.length > 0 && (
-        <div className="bg-white rounded-lg border">
+        <div className="bg-card rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>

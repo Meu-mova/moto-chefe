@@ -37,7 +37,7 @@ export function ResolverGarantiaButton({ motoId, descricao }: Props) {
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="text-green-600 border-green-200 hover:bg-green-50"
+        className="text-success border-success/30 hover:bg-success/10"
       >
         <CheckCircle size={14} className="mr-1.5" />
         Resolver Garantia
@@ -47,10 +47,10 @@ export function ResolverGarantiaButton({ motoId, descricao }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Resolver Garantia</DialogTitle>
-            <p className="text-sm text-slate-500 pt-1">{descricao}</p>
+            <p className="text-sm text-muted-foreground pt-1">{descricao}</p>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Esta moto está com status &quot;em garantia&quot; mas não possui registro formal de garantia no sistema.
               Ao confirmar, o status será alterado para <strong>Montada / Disponível</strong>.
             </p>

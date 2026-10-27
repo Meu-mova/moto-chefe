@@ -5,12 +5,14 @@ import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ehFinal, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
+import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import { RenaveForm } from './renave-form'
 import type { DadosRenave } from '@/lib/notagateway/veiculo'
+import { NfeRecusa } from './nfe-recusa'
+import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
-  previsualizarNfePropriaAction, transmitirNfePropriaAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
+  previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
   type PreviaNfe, type NotaResumo, type FichaMoto,
 } from '../../vendas/nfe-propria-actions'
 
@@ -63,8 +65,9 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [renave, setRenave] = useState<DadosRenave | null>(null)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
+  const [erroCorrecao, setErroCorrecao] = useState<string | null>(null)
 
-  function carregar() {
+  function carregar(abrirRecusa: boolean) {
     setErro('')
     startTransition(async () => {
       const r = await previsualizarNfePropriaAction(motoId)
@@ -72,10 +75,13 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
       setPrevia(r)
       setFicha(r.ficha ? null : r.sugestao)
       setRenave(r.exigeRenave ? r.renave : null)
+      // "Reenviar" volta à conferência: ali não reabre a recusa.
+      const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
+      if (recusa) setResultado({ nota: recusa })
     })
   }
 
-  useEffect(carregar, [motoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => carregar(true), [motoId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function salvarFicha() {
     if (!ficha) return
@@ -137,10 +143,21 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     setPrevia(p => p && { ...p, notas: p.notas.map(n => (n.id === nota.id ? nota : n)) })
   }
 
+  function salvarEReenviar(c: CorrecaoNf) {
+    setErroCorrecao(null)
+    setTransmitindo(true)
+    startTransition(async () => {
+      const r = await corrigirEReenviarNfAction(motoId, c, renave)
+      setTransmitindo(false)
+      if (r.nota) setResultado({ nota: r.nota, erro: r.ok ? undefined : r.error })
+      else if (!r.ok) setErroCorrecao(r.error)
+    })
+  }
+
   function tentarDeNovo() {
     setResultado(null)
     setConferido(false)
-    carregar()
+    carregar(false)
   }
 
   if (!previa) {
@@ -170,7 +187,15 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     )
   }
 
-  if (resultado) return <Resultado r={resultado} teste={teste} pending={pending} onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo} onVoltar={onVoltar} />
+  if (resultado) {
+    return (
+      <Resultado
+        r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
+        onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo}
+        onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
+      />
+    )
+  }
 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
@@ -377,9 +402,12 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
   )
 }
 
-function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeNovo, onVoltar }: {
+function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
+  previa: Previa | null
+  erroCorrecao: string | null
+  onSalvarEReenviar: (c: CorrecaoNf) => void
   pending: boolean
   onReconsultar: (id: string) => void
   onAtualizada: (nota: NotaResumo) => void
@@ -432,18 +460,13 @@ function Resultado({ r, teste, pending, onReconsultar, onAtualizada, onTentarDeN
     )
   }
 
+  // previa nulo só antes da primeira carga, e o Resultado nunca abre antes dela.
   return (
-    <div className="space-y-4 py-2">
-      <div className="border-l-4 border-l-destructive pl-3">
-        <p className="text-lg font-semibold">A SEFAZ recusou a nota</p>
-        <p className="whitespace-pre-line text-sm text-muted-foreground">{nota.motivoStatus ?? r.erro ?? 'Sem motivo informado.'}</p>
-      </div>
-      <p className="text-sm">
-        Nada foi faturado. Corrija o que a SEFAZ apontou (em geral, dados do cliente na venda) e tente de novo —
-        a nova tentativa usa um número de controle novo.
-      </p>
-      <Button onClick={onTentarDeNovo} className="h-11 w-full">Tentar de novo</Button>
-      <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
-    </div>
+    <NfeRecusa
+      // Recusa nova depois do reenvio: os campos partem do cadastro de novo.
+      key={`${nota.id}-${nota.motivoStatus}`}
+      nota={nota} previa={previa!} pending={pending} erro={erroCorrecao}
+      onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
+    />
   )
 }

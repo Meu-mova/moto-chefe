@@ -1,6 +1,6 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -127,6 +127,31 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
 
 ## Multi-grupo e permissões
 
+**Regra absoluta: nenhuma Conta lê, sobrescreve ou se liga a dado de outra Conta.** Sem
+exceção, em tela, busca, importação, upsert, contagem ou mensagem de erro. Vale para toda
+leitura e gravação:
+
+- Consulta de usuário que não é `admin_geral` filtra pela Conta (`contaDoGrupoAtivo()`,
+  `lojasDaConta()`) **dentro da consulta**, não depois no JS.
+- Busca por chave única global (chassi, CPF, código) procura só na Conta. "Não encontrado"
+  não pode revelar que o registro existe em outra.
+- Ação sobre um registro pelo id (editar, excluir, mudar status): busque com a Conta no `where`
+  e devolva `null` se não for dele, como `osDoUsuario` e `agendamentoDoUsuario`. Registro de
+  outra Conta e id inexistente recebem a mesma frase ("OS não encontrada"); "Sem permissão"
+  para um e "não encontrada" para o outro revela que o registro existe.
+- Mensagem de erro que passa a aparecer na tela (antes genérica ou escondida, como na #404) é
+  mudança de isolamento: confira se ela diferencia "não existe" de "é de outra Conta".
+- `upsert`/`onConflictDoUpdate` em tabela com Conta leva `setWhere` com a mesma Conta, e a
+  tela conta só as linhas que de fato entraram.
+- Gravação que referencia outro registro (moto, cliente, loja) confere no servidor que ele é
+  da Conta.
+- Arquivo com dado pessoal ou fiscal no Storage: bucket privado, caminho montado a partir do
+  `grupoId` (nunca de entrada do usuário), acesso por link assinado com validade, e já nasce
+  com expiração e uma rotina que limpa os vencidos de todos os grupos (cron). Limpeza que só
+  roda na próxima ação do próprio grupo deixa arquivo para sempre no grupo que não volta (#402).
+- Todo fluxo novo ou alterado tem teste de banco provando que a Conta B não lê nem sobrescreve
+  dado da Conta A. Isso custou os hotfixes v1.8.1 e v1.8.2 (#320, #325).
+
 - O sistema é **multi-tenant por CNPJ** (grupos Sul de Minas, BH e Vale). **Toda
   funcionalidade nova nasce separada por grupo**: tabela com
   `grupo_id not null references grupos(id)`, consulta filtrada por
@@ -154,6 +179,9 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   ramo da condição que a própria action muda — o diálogo fecha sozinho e a tela
   de sucesso some. Dê a mesma `key` às variantes, ou dispare o efeito
   (`window.open`) logo que a action volta. Só aparece testando no navegador.
+- Trocou `throw` por retorno `{ ok: false, erro }` numa Server Action (#404)? Confira
+  cada ramo da tela que lê o erro: um ramo feito para outro erro pode embrulhar a
+  recusa com um texto errado ("Não deu para conferir a NF..." no cancelar venda, #415).
 - Formulário controlado + busca assíncrona: `onChange(prev => ({ ...prev, ...patch }))`,
   nunca `{ ...value, ...patch }` — a resposta async desfaz a última tecla.
 - **Avise, não bloqueie**: validação que discorda do usuário vira aviso e deixa
@@ -163,6 +191,10 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
   a cancelar a NF antes (ADR-0014). Para o `aux_adm`, também recusa venda com
   número de NF preenchido (Bling ou "Confirmar NF"; adendo ao ADR-0014, #191). E
   CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (ADR-0015).
+  Também bloqueiam CPF/CNPJ com dígito errado digitado no balcão a venda de peças e
+  a OS (inclusive agendamento → OS); documento que não mudou em registro antigo não
+  é reconferido, e OS com cliente do cadastro não passa por essa regra (adendo ao
+  ADR-0015, #399).
 
 ## Fiscal — cuidado redobrado
 
@@ -179,6 +211,13 @@ A configuração do pool já derrubou /folha e /estoque em produção três veze
 - Origem na saída: entrada 1 sai 2; 0, 2 e 4 saem iguais (regra do contador).
 - Segredo de integração guardado no banco é cifrado com `src/lib/cripto.ts`
   (AES-256-GCM). Credencial nova: cifre igual.
+- **Token e `empresaId` da Nota Gateway nunca aparecem em log, saída de terminal,
+  issue, PR ou chat**, nem em pedaços. Script que chama a NG passa todo log e
+  toda saída pelo mascarador de `scripts/lib/postman-ng.ts`, que esconde qualquer
+  trecho de 8+ caracteres de um segredo, e termina com a varredura do log, que
+  reescreve mascarado e sai com erro se achar trecho. Não escreva máscara própria
+  por formato de linha: o Postman quebra a URL e o corpo onde quer, e cada
+  formato novo vazou antes de ser coberto (#362, três rodadas).
 - O Bling ainda convive durante a transição e vai ser desligado.
 
 ## Teste de banco

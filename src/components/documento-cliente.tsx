@@ -2,6 +2,7 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cpfValido, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { Check, TriangleAlert } from 'lucide-react'
 
 /**
  * Campo CPF/CNPJ do comprador: máscara enquanto digita e o resultado da
@@ -12,7 +13,7 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
   value: string
   onChange: (mascarado: string) => void
   autoFocus?: boolean
-  /** Esconde o "✓ válido" (ex.: enquanto a busca do cadastro roda). */
+  /** Esconde o "válido" (ex.: enquanto a busca do cadastro roda). */
   ocultarValido?: boolean
 }) {
   const completo = tipoPessoaSeCompleto(value) !== null
@@ -24,11 +25,11 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
         onChange={e => onChange(mascararCpfCnpj(e.target.value))}
         placeholder="CPF ou CNPJ"
         autoFocus={autoFocus}
-        className={completo && !doc.ok ? 'border-red-400 focus-visible:ring-red-400' : ''}
+        className={completo && !doc.ok ? 'border-destructive focus-visible:ring-destructive/50' : ''}
       />
-      {completo && !doc.ok && <p className="text-xs text-red-500">{doc.erro}</p>}
+      {completo && !doc.ok && <p className="text-xs text-destructive">{doc.erro}</p>}
       {doc.ok && !ocultarValido && (
-        <p className="text-xs text-green-600">✓ {rotuloDocumento(doc.documento)} válido</p>
+        <p className="text-xs text-success"><Check size={12} className="inline -mt-0.5 mr-1" aria-hidden />{rotuloDocumento(doc.documento)} válido</p>
       )}
     </>
   )
@@ -38,8 +39,8 @@ export function TipoPessoaEtiqueta({ documento }: { documento: string }) {
   const tipo = tipoPessoaSeCompleto(documento)
   if (!tipo) return null
   return tipo === 'juridica'
-    ? <span className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded px-1.5 py-0.5">Pessoa jurídica</span>
-    : <span className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Pessoa física</span>
+    ? <span className="text-xs text-info bg-info/10 border border-info/30 rounded px-1.5 py-0.5">Pessoa jurídica</span>
+    : <span className="text-xs text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5">Pessoa física</span>
 }
 
 /**
@@ -55,9 +56,9 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
   const digitos = soDigitosDoc(cpf)
   const valido = cpfValido(digitos)
   return (
-    <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3 grid grid-cols-2 gap-3">
-      <p className="col-span-2 text-sm font-medium text-slate-700">Representante legal</p>
-      <p className="col-span-2 text-xs text-slate-500">
+    <div className="col-span-2 rounded-md border border-border bg-muted p-3 grid grid-cols-2 gap-3">
+      <p className="col-span-2 text-sm font-medium text-foreground">Representante legal</p>
+      <p className="col-span-2 text-xs text-muted-foreground">
         Opcional. Sai no contrato como &quot;neste ato representada por…&quot;. Sem ele, o contrato sai com a linha em branco.
       </p>
       <div className="col-span-2 space-y-1">
@@ -70,12 +71,12 @@ export function RepresentanteLegalCampos({ nome, cpf, onNomeChange, onCpfChange 
           value={cpf}
           onChange={e => onCpfChange(mascararCpfCnpj(soDigitosDoc(e.target.value).slice(0, 11)))}
           placeholder="000.000.000-00"
-          className={digitos && !valido ? 'border-amber-400 focus-visible:ring-amber-300' : ''}
+          className={digitos && !valido ? 'border-warning focus-visible:ring-warning/50' : ''}
         />
         {digitos && !valido && (
-          <p className="text-xs text-amber-600">⚠ CPF parece inválido — confira. Dá para salvar assim.</p>
+          <p className="text-xs text-warning"><TriangleAlert size={12} className="inline -mt-0.5 mr-1" aria-hidden />CPF parece inválido. Confira. Dá para salvar assim.</p>
         )}
-        {valido && <p className="text-xs text-green-600">✓ CPF válido</p>}
+        {valido && <p className="text-xs text-success"><Check size={12} className="inline -mt-0.5 mr-1" aria-hidden />CPF válido</p>}
       </div>
     </div>
   )

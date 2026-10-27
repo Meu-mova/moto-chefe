@@ -9,6 +9,14 @@
     {
       "path": "/api/cron/mensalidades",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/log-acoes",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/notas-contador",
+      "schedule": "0 8 * * *"
     }
   ]
 }

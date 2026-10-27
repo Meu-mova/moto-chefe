@@ -34,14 +34,14 @@ function Matriz({
   const valor = (origem: string, coluna: string) =>
     dados.find(d => d.origem === origem && d.coluna === coluna)?.vendas ?? 0
 
-  if (!dados.length) return <p className="text-sm text-slate-500">{vazio}</p>
+  if (!dados.length) return <p className="text-sm text-muted-foreground">{vazio}</p>
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold text-slate-700">{titulo}</p>
-      <div className="border rounded-lg bg-white overflow-x-auto">
+      <p className="text-sm font-semibold text-foreground">{titulo}</p>
+      <div className="border rounded-lg bg-card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-500 text-xs">
+          <thead className="bg-muted text-muted-foreground text-xs">
             <tr>
               <th className="text-left px-3 py-2 font-medium">Origem</th>
               {colunas.map(c => (
@@ -57,7 +57,7 @@ function Matriz({
                 {colunas.map(c => {
                   const v = valor(o.nome, c.nome)
                   return (
-                    <td key={c.nome} className={`text-right px-3 py-2 ${v === 0 ? 'text-slate-300' : ''}`}>
+                    <td key={c.nome} className={`text-right px-3 py-2 ${v === 0 ? 'text-muted-foreground' : ''}`}>
                       {v === 0 ? '—' : fmtN(v)}
                     </td>
                   )
@@ -109,38 +109,38 @@ export async function VendasOrigemTab({
   return (
     <div className="space-y-6 pt-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className={resumo.cobertura < 0.9 ? 'border-amber-300' : ''}>
+        <Card className={resumo.cobertura < 0.9 ? 'border-warning/50' : ''}>
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-slate-500 font-medium">Cobertura da origem</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-medium">Cobertura da origem</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${resumo.cobertura < 0.9 ? 'text-amber-600' : ''}`}>
+            <p className={`text-2xl font-bold ${resumo.cobertura < 0.9 ? 'text-warning' : ''}`}>
               {fmtPct(resumo.cobertura)}
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               {fmtN(resumo.comOrigem)} de {fmtN(resumo.vendas)} vendas com origem apontada
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Vendas no período</CardTitle></CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground font-medium">Vendas no período</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{fmtN(resumo.vendas)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Faturamento</CardTitle></CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground font-medium">Faturamento</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{fmtBRL(resumo.faturamento)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">Sem origem</CardTitle></CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground font-medium">Sem origem</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{fmtN(resumo.semOrigem)}</p>
-            <p className="text-xs text-slate-400">venda anterior ao campo, ou corrigível na edição</p>
+            <p className="text-xs text-muted-foreground">venda anterior ao campo, ou corrigível na edição</p>
           </CardContent>
         </Card>
       </div>
 
       {resumo.cobertura < 1 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 text-sm text-warning flex items-start gap-2">
           <TriangleAlert size={16} className="mt-0.5 shrink-0" />
           <span>
             {resumo.semOrigem === resumo.vendas
@@ -152,14 +152,14 @@ export async function VendasOrigemTab({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-sm font-semibold text-slate-700">Vendas por origem — {grupoNome}</p>
-          <Link href="/admin/origens" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700">
+          <p className="text-sm font-semibold text-foreground">Vendas por origem — {grupoNome}</p>
+          <Link href="/admin/origens" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <Settings2 size={13} /> Editar catálogo de origens
           </Link>
         </div>
-        <div className="border rounded-lg bg-white overflow-x-auto">
+        <div className="border rounded-lg bg-card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs">
+            <thead className="bg-muted text-muted-foreground text-xs">
               <tr>
                 <th className="text-left px-3 py-2 font-medium">Origem</th>
                 <th className="text-right px-3 py-2 font-medium">Vendas</th>
@@ -178,10 +178,10 @@ export async function VendasOrigemTab({
                         <td className="px-3 py-2">{l.origem}</td>
                         <td className="text-right px-3 py-2">{fmtN(l.vendas)}</td>
                         <td className="text-right px-3 py-2">{fmtBRL(l.faturamento)}</td>
-                        <td className="text-right px-3 py-2 text-slate-500">{fmtBRL(l.ticket)}</td>
+                        <td className="text-right px-3 py-2 text-muted-foreground">{fmtBRL(l.ticket)}</td>
                       </tr>
                     ))}
-                    <tr key={`sub-${tipo}`} className="border-t bg-slate-50/70 text-xs text-slate-600">
+                    <tr key={`sub-${tipo}`} className="border-t bg-muted/70 text-xs text-muted-foreground">
                       <td className="px-3 py-1.5 font-semibold">Subtotal {tipo}</td>
                       <td className="text-right px-3 py-1.5 font-semibold">{fmtN(totalVendas)}</td>
                       <td className="text-right px-3 py-1.5 font-semibold">{fmtBRL(totalFat)}</td>
@@ -191,7 +191,7 @@ export async function VendasOrigemTab({
                 )
               })}
               {naoInformada && (
-                <tr className="border-t border-slate-300 bg-slate-50 text-slate-500">
+                <tr className="border-t border-input bg-muted text-muted-foreground">
                   <td className="px-3 py-2 italic">{NAO_INFORMADO}</td>
                   <td className="text-right px-3 py-2">{fmtN(naoInformada.vendas)}</td>
                   <td className="text-right px-3 py-2">{fmtBRL(naoInformada.faturamento)}</td>
@@ -199,7 +199,7 @@ export async function VendasOrigemTab({
                 </tr>
               )}
               {porOrigem.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-500">Nenhuma venda no período.</td></tr>
+                <tr><td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">Nenhuma venda no período.</td></tr>
               )}
             </tbody>
           </table>
@@ -208,10 +208,10 @@ export async function VendasOrigemTab({
 
       {meses.length > 1 && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">Evolução por tipo de origem</p>
-          <div className="border rounded-lg bg-white overflow-x-auto">
+          <p className="text-sm font-semibold text-foreground">Evolução por tipo de origem</p>
+          <div className="border rounded-lg bg-card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-xs">
+              <thead className="bg-muted text-muted-foreground text-xs">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">Tipo</th>
                   {meses.map(m => <th key={m} className="text-right px-3 py-2 font-medium">{m}</th>)}
@@ -224,7 +224,7 @@ export async function VendasOrigemTab({
                     {meses.map(m => {
                       const p = serie.find(s => s.mes === m && s.tipo === tipo)
                       return (
-                        <td key={m} className={`text-right px-3 py-2 ${p ? '' : 'text-slate-300'}`}>
+                        <td key={m} className={`text-right px-3 py-2 ${p ? '' : 'text-muted-foreground'}`}>
                           {p ? fmtN(p.vendas) : '—'}
                         </td>
                       )
@@ -241,16 +241,16 @@ export async function VendasOrigemTab({
       <Matriz titulo="Origem × vendedor" dados={porVendedor} vazio="Sem vendas no período." />
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-slate-700">Quem indicou / qual ação</p>
+        <p className="text-sm font-semibold text-foreground">Quem indicou / qual ação</p>
         {indicacoes.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Nenhum detalhe preenchido no período. O detalhe é obrigatório nas origens marcadas
             como &quot;exigir detalhe&quot; em Admin → Origens da venda.
           </p>
         ) : (
-          <div className="border rounded-lg bg-white overflow-x-auto">
+          <div className="border rounded-lg bg-card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-xs">
+              <thead className="bg-muted text-muted-foreground text-xs">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">Detalhe</th>
                   <th className="text-right px-3 py-2 font-medium">Vendas</th>
@@ -271,7 +271,7 @@ export async function VendasOrigemTab({
         )}
       </div>
 
-      <div className="text-xs text-slate-500 space-y-2 border-t pt-4">
+      <div className="text-xs text-muted-foreground space-y-2 border-t pt-4">
         <p>
           <strong>De onde vem este número:</strong> da venda fechada no MOVA, com a origem que o
           vendedor apontou — não do Kommo. É por isso que o faturamento aqui bate com o Financeiro,

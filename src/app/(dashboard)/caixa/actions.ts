@@ -1,5 +1,6 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { lancamentosCaixa } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -28,6 +29,7 @@ export async function criarLancamentoAction(dados: {
   if (!isAdmin && dados.lojaId && dados.lojaId !== usuario.lojaId) {
     throw new Error('Sem permissão para esta loja')
   }
+  if (!(await podeAgirNaLoja(usuario, lojaIdFinal))) throw new Error('Sem permissão para esta loja')
 
   const valorNum = parseFloat(dados.valor)
   if (isNaN(valorNum) || valorNum <= 0) {
@@ -110,12 +112,12 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
     : and(eq(lancamentosCaixa.comprovanteUrl, filePath), eq(lancamentosCaixa.lojaId, usuario.lojaId!))
 
   const [lancamento] = await db
-    .select({ id: lancamentosCaixa.id })
+    .select({ id: lancamentosCaixa.id, lojaId: lancamentosCaixa.lojaId })
     .from(lancamentosCaixa)
     .where(whereClause)
     .limit(1)
 
-  if (!lancamento) throw new Error('Comprovante não encontrado')
+  if (!lancamento || !(await podeAgirNaLoja(usuario, lancamento.lojaId))) throw new Error('Comprovante não encontrado')
 
   const supabaseAdmin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -136,12 +138,12 @@ export async function aprovarLancamentoAction(lancamentoId: string) {
   }
 
   const [lancamento] = await db
-    .select({ tipo: lancamentosCaixa.tipo, status: lancamentosCaixa.statusAprovacao })
+    .select({ tipo: lancamentosCaixa.tipo, status: lancamentosCaixa.statusAprovacao, lojaId: lancamentosCaixa.lojaId })
     .from(lancamentosCaixa)
     .where(eq(lancamentosCaixa.id, lancamentoId))
     .limit(1)
 
-  if (!lancamento) throw new Error('Lançamento não encontrado')
+  if (!lancamento || !(await podeAgirNaLoja(usuario, lancamento.lojaId))) throw new Error('Lançamento não encontrado')
   if (lancamento.tipo !== 'saida') throw new Error('Apenas saídas podem ser aprovadas')
   if (lancamento.status === 'aprovado') throw new Error('Lançamento já aprovado')
 
@@ -160,12 +162,12 @@ export async function reprovarLancamentoAction(lancamentoId: string) {
   }
 
   const [lancamento] = await db
-    .select({ tipo: lancamentosCaixa.tipo, status: lancamentosCaixa.statusAprovacao })
+    .select({ tipo: lancamentosCaixa.tipo, status: lancamentosCaixa.statusAprovacao, lojaId: lancamentosCaixa.lojaId })
     .from(lancamentosCaixa)
     .where(eq(lancamentosCaixa.id, lancamentoId))
     .limit(1)
 
-  if (!lancamento) throw new Error('Lançamento não encontrado')
+  if (!lancamento || !(await podeAgirNaLoja(usuario, lancamento.lojaId))) throw new Error('Lançamento não encontrado')
   if (lancamento.tipo !== 'saida') throw new Error('Apenas saídas podem ser reprovadas')
   if (lancamento.status === 'reprovado') throw new Error('Lançamento já reprovado')
 
@@ -182,6 +184,13 @@ export async function excluirLancamentoAction(lancamentoId: string) {
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
     throw new Error('Sem permissão')
   }
+
+  const [lancamento] = await db
+    .select({ lojaId: lancamentosCaixa.lojaId })
+    .from(lancamentosCaixa)
+    .where(eq(lancamentosCaixa.id, lancamentoId))
+    .limit(1)
+  if (!lancamento || !(await podeAgirNaLoja(usuario, lancamento.lojaId))) throw new Error('Lançamento não encontrado')
 
   await db.delete(lancamentosCaixa).where(eq(lancamentosCaixa.id, lancamentoId))
 

@@ -1,11 +1,13 @@
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import { hojeBrt } from '@/lib/data-venda'
 import { db } from '@/lib/db'
-import { usuarios, conciliacoesCartao, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
-import { eq, or, sql, and, count, gte, lt, inArray } from 'drizzle-orm'
+import { usuarios, premiacaoFaixas, funcionariosConfig, vendas } from '@/lib/db/schema'
+import { eq, or, sql, count, lt, inArray } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { contarPendenciasCartao } from '@/lib/queries/conciliacao-pendentes'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   getKPIs, getVendasPorDia, getSaldoCaixaPorLoja,
   getUltimasVendas, getTransferenciasPendentes, getGarantiasProxVencimento,
@@ -14,7 +16,6 @@ import {
   getPendenciasConciliacaoLoja,
 } from '@/lib/queries/dashboard'
 import { descontosPorVendedor, totalDescontos } from '@/lib/queries/descontos'
-import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
 import { periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { painelAtendimento } from '@/lib/queries/atendimento'
 import { getKommoStatus } from '@/lib/kommo'
@@ -24,13 +25,15 @@ import { montarMetaDoMes, hojeEmBrasilia } from '@/lib/meta-vendas'
 import { linhasMetaDoMes, vendidoNoDia } from '@/lib/queries/metas'
 import { DashboardFiltros } from './components/dashboard-filtros'
 import { PendenciasLojaCard } from './components/pendencias-loja-card'
+import { Secao } from './components/painel-secoes'
 import { PendenciasDocumentosCard } from './components/pendencias-documentos-card'
 import { pendenciasDeVendas } from '@/lib/queries/pendencias-venda'
 import { PedidosFabricaCard } from './components/pedidos-fabrica-card'
 import { pedidosFabricaDoGrupo } from '@/lib/queries/pedidos-fabrica'
-import { KpiCards } from './components/kpi-cards'
+import { PainelIndicadores } from './components/painel-indicadores'
 import { SimuladorComissaoOTE } from './components/simulador-comissao'
-import { GraficoVendasPorDia, GraficoCaixaPorLoja } from './components/charts'
+import { GraficoFaturamentoPorDia, GraficoAcumulado, GraficoCaixaPorLoja } from './components/charts'
+import { montarSeriesFaturamento } from '@/lib/dashboard-series'
 import {
   TabelaUltimasVendas, TabelaTransferenciasPendentes, TabelaGarantiasVencendo,
   TabelaOsAbertas, TabelaRankingVendedores, TabelaModelosMaisVendidos,
@@ -39,7 +42,7 @@ import { SectionErrorBoundary } from './section-error-boundary'
 import { proximosEventos } from '@/lib/queries/calendario'
 import { ProximosEventosCard } from './components/proximos-eventos-card'
 import { listarContasDoMesAction } from '../contas-pagar/actions'
-import { ContasPagarCard } from './components/contas-pagar-card'
+import { ContasPagarCard, ContasPagarEsqueleto } from './components/contas-pagar-card'
 
 // O botão "Atualizar" do card da fábrica roda por Server Action nesta rota, e
 // ele faz login + scraping no portal, uma conta por loja. Não cabe no default.
@@ -54,38 +57,38 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
+// Por grupo: a lista global mostrava vendedores de outros clientes do MOVA. O grupoId
+// entra na chave do cache como argumento.
 const getVendedoresOpts = unstable_cache(
-  () => db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios)
-    // Inclui quem vende sem ter 'vendedor' como papel principal — senão o filtro
-    // de vendedor esconde as vendas dessas pessoas.
-    .where(or(eq(usuarios.papel, 'vendedor'), sql`'vendedor' = ANY(${usuarios.papeisExtras})`))
-    .orderBy(usuarios.nome),
-  ['vendedores-opts'], { revalidate: 300 },
+  (grupoId: string) => listarUsuariosDoGrupo(grupoId, { papeis: ['vendedor'] }),
+  ['vendedores-opts-grupo'], { revalidate: 300 },
+)
+
+// Manchete e gráficos leem a mesma série: o cache do render faz uma consulta só por período.
+// Chave por identidade: as seções recebem o mesmo objeto `filtros`/`filtrosAnt` da página.
+const vendasPorDia = cache((filtros: Filtros, liquido: boolean) =>
+  getVendasPorDia(filtros, liquido ? { useLiquidoValue: true } : undefined),
 )
 
 // ── Seções async ──────────────────────────────────────────────────────────────
 
 async function KpiSection({
-  filtros, filtrosAnt, usuario,
-}: { filtros: Filtros; filtrosAnt: Filtros; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null } }) {
+  filtros, filtrosAnt, usuario, abaixoDaManchete,
+}: { filtros: Filtros; filtrosAnt: Filtros; abaixoDaManchete?: React.ReactNode; usuario: { id: string; papel: string; papeisExtras?: string[] | null; lojaId: string | null; contaId: string | null } }) {
   const papel = usuario.papel
   const isAdmin = ADMINS.includes(papel)
   const isAuxAdm = papel === 'aux_adm'
   const isVendedor = temPapel(usuario, 'vendedor')
   const kpiOpts = isVendedor ? { useLiquidoValue: true } : undefined
   try {
-    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos] = await withTimeout(
+    const [kpis, kpisAnt, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, config, descontos, serieDia] = await withTimeout(
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
         getMotoMaisVendida(filtros),
         isAdmin
-          // Mesmo corte da tela de /conciliacao, senão o card mostra um número
-          // de pendentes que a tela não lista — ver INICIO_CONCILIACAO.
-          ? db.$count(conciliacoesCartao, and(
-              eq(conciliacoesCartao.conciliado, false),
-              gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
-            ))
+          // Só o grupo ativo, como a tela /conciliacao: sem isso o card somava todas as Contas.
+          ? getGrupoAtivo(usuario).then(g => contarPendenciasCartao(g.id))
           : Promise.resolve(0),
         isVendedor ? Promise.resolve({ servicos: 0, pecas: 0 }) : getFaturamentoOS(filtros),
         isVendedor ? getGrupoAtivo(usuario).then(g => db.select().from(premiacaoFaixas).where(eq(premiacaoFaixas.grupoId, g.id))) : Promise.resolve([]),
@@ -95,13 +98,19 @@ async function KpiSection({
         (isAdmin || isAuxAdm || isVendedor)
           ? totalDescontos({ ...filtros, vendedorId: filtros.vendedorId ? [filtros.vendedorId] : undefined })
           : Promise.resolve(undefined),
+        // Tendência da manchete: mesma base (bruta ou líquida) do número ao lado.
+        vendasPorDia(filtros, isVendedor),
       ]),
       25000,
     )
     const comissaoPercentual = config ? parseFloat(config.comissaoPercentual) : 0.5
     return (
       <>
-        <KpiCards kpis={kpis} kpisAnt={kpisAnt} papel={papel} isVendedor={isVendedor} motoMaisVendida={motoMaisVendida} conciliacaoPendentes={conciliacaoPendentes} faturamentoOS={faturamentoOS} faixasOTE={faixasOTE} descontos={descontos} />
+        <PainelIndicadores
+          entrada={{ kpis, kpisAnt, papel, isVendedor, motoMaisVendida, conciliacaoPendentes, faturamentoOS, faixasOTE, descontos }}
+          serieDia={serieDia}
+          abaixoDaManchete={abaixoDaManchete}
+        />
         {isVendedor && (
           <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
         )}
@@ -118,7 +127,7 @@ async function KpiSection({
 async function PedidosFabricaSection({
   usuario,
 }: {
-  usuario: { papel: string; lojaId: string | null }
+  usuario: { papel: string; lojaId: string | null; contaId: string | null }
 }) {
   try {
     const grupo = await getGrupoAtivo(usuario)
@@ -148,7 +157,7 @@ async function PendenciasSection({ lojaId }: { lojaId: string }) {
 async function PendenciasDocumentosSection({
   usuario, isVendedor, isAdmin,
 }: {
-  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null }
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null }
   isVendedor: boolean
   isAdmin: boolean
 }) {
@@ -168,13 +177,18 @@ async function PendenciasDocumentosSection({
   }
 }
 
-async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin: boolean }) {
+async function GraficosSection({
+  filtros, filtrosAnt, isAdmin, isVendedor,
+}: { filtros: Filtros; filtrosAnt: Filtros; isAdmin: boolean; isVendedor: boolean }) {
   let vendasDia: Awaited<ReturnType<typeof getVendasPorDia>>,
+      vendasDiaAnt: Awaited<ReturnType<typeof getVendasPorDia>>,
       saldoCaixaLoja: Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>
   try {
-    ;[vendasDia, saldoCaixaLoja] = await withTimeout(
+    ;[vendasDia, vendasDiaAnt, saldoCaixaLoja] = await withTimeout(
       Promise.all([
-        getVendasPorDia(filtros),
+        // Mesma base (bruta ou líquida) da manchete, para o gráfico bater com o número de cima.
+        vendasPorDia(filtros, isVendedor),
+        vendasPorDia(filtrosAnt, isVendedor),
         isAdmin ? getSaldoCaixaPorLoja(filtros.lojaId) : Promise.resolve([] as Awaited<ReturnType<typeof getSaldoCaixaPorLoja>>),
       ]),
       25000,
@@ -183,10 +197,17 @@ async function GraficosSection({ filtros, isAdmin }: { filtros: Filtros; isAdmin
     console.error('[GraficosSection] erro:', e)
     throw e
   }
+  const serie = montarSeriesFaturamento(
+    { inicio: filtros.dataInicio, fim: filtros.dataFim, inicioAnterior: filtrosAnt.dataInicio },
+    vendasDia, vendasDiaAnt,
+  )
   return (
     <>
       {/* "Showroom por loja" oculto para a apresentação de 06/10/2026. */}
-      <GraficoVendasPorDia dados={vendasDia} />
+      <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+        <GraficoFaturamentoPorDia serie={serie} />
+        <GraficoAcumulado serie={serie} />
+      </div>
       {isAdmin && saldoCaixaLoja.length > 0 && <GraficoCaixaPorLoja dados={saldoCaixaLoja} />}
     </>
   )
@@ -226,11 +247,12 @@ async function RankingSection({
     periodoSemRegistro: periodoAnteriorAoRegistro(filtrosRanking.dataInicio),
   }
   return (
-    <>
+    // O ranking tem até 7 colunas (descontos): lado a lado só a partir de telas bem largas.
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[2fr_3fr]">
       {/* "Ranking de lojas" oculto para a apresentação de 06/10/2026. */}
       <TabelaModelosMaisVendidos modelos={modelosMaisVendidos} />
       <TabelaRankingVendedores ranking={rankingVendedores} vendedorAtualId={vendedorAtualId} descontos={descontosRanking} />
-    </>
+    </div>
   )
 }
 
@@ -257,16 +279,13 @@ async function TabelasSection({
   }
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TabelaUltimasVendas vendas={ultimasVendas} />
+      {/* Últimas vendas tem 6 colunas: na largura toda. As outras cabem em pares. */}
+      <TabelaUltimasVendas vendas={ultimasVendas} />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <TabelaTransferenciasPendentes transferencias={transfPendentes} />
+        {!isVendedor && <TabelaGarantiasVencendo garantias={garantiasVencendo} />}
+        {!isVendedor && <TabelaOsAbertas ordens={osAbertas} />}
       </div>
-      {!isVendedor && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TabelaGarantiasVencendo garantias={garantiasVencendo} />
-          <TabelaOsAbertas ordens={osAbertas} />
-        </div>
-      )}
     </>
   )
 }
@@ -277,10 +296,10 @@ function KpiSkeleton() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-white border rounded-lg p-4 space-y-2">
-          <div className="h-3 w-24 bg-slate-100 rounded" />
-          <div className="h-7 w-20 bg-slate-200 rounded" />
-          <div className="h-3 w-16 bg-slate-100 rounded" />
+        <div key={i} className="bg-card border rounded-lg p-4 space-y-2">
+          <div className="h-3 w-24 bg-muted rounded" />
+          <div className="h-7 w-20 bg-muted rounded" />
+          <div className="h-3 w-16 bg-muted rounded" />
         </div>
       ))}
     </div>
@@ -291,7 +310,7 @@ function SectionSkeleton({ rows = 1 }: { rows?: number }) {
   return (
     <div className="animate-pulse space-y-4">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="bg-white border rounded-lg h-48" />
+        <div key={i} className="bg-card border rounded-lg h-48" />
       ))}
     </div>
   )
@@ -305,7 +324,7 @@ const ADMINS = ['admin_geral', 'admin_socio']
 // fechamento no ritmo atual. Sempre o mês corrente, independente do filtro de
 // período do dashboard: meta é do mês, não do intervalo que o usuário escolheu
 // olhar. Sem meta cadastrada em /admin/metas, a seção inteira não aparece.
-async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null } }) {
+async function MetaSection({ usuario }: { usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null } }) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaIds = await listarLojaIdsDoGrupoAtivo(usuario)
   if (lojaIds.length === 0) return null
@@ -335,7 +354,7 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 async function AtendimentoSection({
   usuario, dataInicio, dataFim, usuarioId, lojaIdsFiltro,
 }: {
-  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null }
+  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null }
   dataInicio: string
   dataFim: string
   usuarioId?: string
@@ -355,11 +374,10 @@ async function AtendimentoSection({
 
 // Contas a pagar do mês. Materializa as ocorrências antes de ler (mesma função da
 // tela do módulo), então uma conta recorrente aparece aqui sem ninguém precisar
-// abrir /contas-pagar naquele mês. Fica no próprio Suspense porque a base
-// automática da folha roda o cálculo inteiro dela.
-async function ContasPagarSection() {
-  const hoje = hojeBrt()
-  const { doMes, atrasadas } = await listarContasDoMesAction(hoje.slice(0, 7))
+// abrir /contas-pagar naquele mês. Recebe a consulta já disparada pela página: ela
+// roda a base automática da folha inteira e não pode esperar os indicadores terminarem.
+async function ContasPagarSection({ contas, hoje }: { contas: ReturnType<typeof listarContasDoMesAction>; hoje: string }) {
+  const { doMes, atrasadas } = await contas
   return <ContasPagarCard doMes={doMes} atrasadas={atrasadas} hoje={hoje} />
 }
 
@@ -373,9 +391,10 @@ function hojeISO() {
   return hojeBrt()
 }
 
+// Mês de Brasília: no servidor (UTC), das 21h à meia-noite do último dia o relógio já
+// está no mês seguinte e o período padrão ficaria com o início depois do fim (#283).
 function inicioMesAtualISO() {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10)
+  return `${hojeBrt().slice(0, 7)}-01`
 }
 
 // Período de comparação: mesma duração do período selecionado, terminando um dia antes dele.
@@ -401,6 +420,10 @@ export default async function DashboardPage({
   const params = await searchParams
   const usuario = await getUsuarioLogado()
   const isAdmin = ADMINS.includes(usuario.papel)
+  const hoje = hojeBrt()
+  const contasDoMes = isAdmin ? listarContasDoMesAction(hoje.slice(0, 7)) : null
+  // Se os indicadores falharem antes de a seção montar, ninguém espera esta promessa.
+  contasDoMes?.catch(() => {})
   const isVendedor = temPapel(usuario, 'vendedor')
   const isAuxAdm = usuario.papel === 'aux_adm'
 
@@ -438,16 +461,16 @@ export default async function DashboardPage({
   const filtroKey = `${dataInicio}_${dataFim}-${lojaIds.join(',')}-${filtros.vendedorId ?? ''}`
 
   const [lojasOpts, vendedoresOpts] = await withTimeout(
-    Promise.all([listarLojasDoGrupoAtivo(usuario), getVendedoresOpts()]),
+    Promise.all([listarLojasDoGrupoAtivo(usuario), getGrupoAtivo(usuario).then(g => getVendedoresOpts(g.id))]),
     8000,
   )
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             {!isAdmin && usuario.lojaId
               ? `Resumo da loja`
               : 'Resumo da operação'}
@@ -463,39 +486,53 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Antes dos eventos: é a primeira coisa que o Cesar quer ver ao abrir. */}
-      {isAdmin && (
-        <SectionErrorBoundary label="as contas a pagar">
-          <Suspense fallback={null}>
-            <ContasPagarSection />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
-
-      <SectionErrorBoundary label="os próximos eventos">
-        <Suspense fallback={null}>
-          <ProximosEventosSection usuario={usuario} />
+      <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
+        <Suspense fallback={<KpiSkeleton />}>
+          <KpiSection
+            filtros={filtros}
+            filtrosAnt={filtrosAnt}
+            usuario={usuario}
+            // Logo abaixo da manchete: é a primeira coisa que o Cesar quer ver ao abrir.
+            abaixoDaManchete={contasDoMes && (
+              <SectionErrorBoundary label="as contas a pagar">
+                <Suspense fallback={<ContasPagarEsqueleto />}>
+                  <ContasPagarSection contas={contasDoMes} hoje={hoje} />
+                </Suspense>
+              </SectionErrorBoundary>
+            )}
+          />
         </Suspense>
       </SectionErrorBoundary>
-
-      {(isAdmin || isAuxAdm) && (
-        <SectionErrorBoundary label="os pedidos da fábrica">
-          <Suspense fallback={null}>
-            <PedidosFabricaSection usuario={usuario} />
-          </Suspense>
-        </SectionErrorBoundary>
+      {/* Requer atenção (#281): pendências à esquerda, fábrica à direita; cada bloco carrega sozinho. */}
+      {(isVendedor || isAdmin || isAuxAdm) && (
+        <Secao titulo="Requer atenção" escondeVazia>
+          <div className="grid gap-x-8 lg:grid-cols-[3fr_2fr]">
+            <div className="min-w-0">
+              {isAuxAdm && usuario.lojaId && (
+                <SectionErrorBoundary label="as pendências da loja">
+                  <Suspense fallback={null}>
+                    <PendenciasSection lojaId={usuario.lojaId} />
+                  </Suspense>
+                </SectionErrorBoundary>
+              )}
+              <SectionErrorBoundary label="as pendências de contrato e checklist">
+                <Suspense fallback={null}>
+                  <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
+                </Suspense>
+              </SectionErrorBoundary>
+            </div>
+            <div className="min-w-0">
+              {(isAdmin || isAuxAdm) && (
+                <SectionErrorBoundary label="os pedidos da fábrica">
+                  <Suspense fallback={null}>
+                    <PedidosFabricaSection usuario={usuario} />
+                  </Suspense>
+                </SectionErrorBoundary>
+              )}
+            </div>
+          </div>
+        </Secao>
       )}
-
-      {isAuxAdm && usuario.lojaId && (
-        <SectionErrorBoundary label="as pendências da loja">
-          <Suspense fallback={null}>
-            <PendenciasSection lojaId={usuario.lojaId} />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
-
-      {/* Painel de atendimento (Kommo) oculto para a apresentação de 06/10/2026;
-          AtendimentoSection continua acima, volta com o revert. */}
 
       {/* aux_adm entra junto: é quem cadastra a meta em /admin/metas e cobra a loja —
           não faz sentido preencher o alvo e não enxergar o placar. */}
@@ -507,23 +544,15 @@ export default async function DashboardPage({
         </SectionErrorBoundary>
       )}
 
-      <SectionErrorBoundary key={`kpi-${filtroKey}`} label="os KPIs">
-        <Suspense fallback={<KpiSkeleton />}>
-          <KpiSection filtros={filtros} filtrosAnt={filtrosAnt} usuario={usuario} />
+      <SectionErrorBoundary label="os próximos eventos">
+        <Suspense fallback={null}>
+          <ProximosEventosSection usuario={usuario} />
         </Suspense>
       </SectionErrorBoundary>
 
-      {(isVendedor || isAdmin || isAuxAdm) && (
-        <SectionErrorBoundary label="as pendências de contrato e checklist">
-          <Suspense fallback={null}>
-            <PendenciasDocumentosSection usuario={usuario} isVendedor={isVendedor} isAdmin={isAdmin} />
-          </Suspense>
-        </SectionErrorBoundary>
-      )}
-
       <SectionErrorBoundary key={`graficos-${filtroKey}`} label="os gráficos">
         <Suspense fallback={<SectionSkeleton rows={2} />}>
-          <GraficosSection filtros={filtros} isAdmin={isAdmin} />
+          <GraficosSection filtros={filtros} filtrosAnt={filtrosAnt} isAdmin={isAdmin} isVendedor={isVendedor} />
         </Suspense>
       </SectionErrorBoundary>
 

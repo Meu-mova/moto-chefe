@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { podeDescartarCarta, recusaNaGateway, proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
+import { MOTIVO_CARTA_SEM_INFORMACAO, motivoDaCartaRecusada, podeDescartarCarta, recusaNaGateway, proximoNumeroCarta, situacaoCarta, validarTextoCarta } from './carta-correcao'
 
 test('texto da carta: aceita de 15 a 1000 caracteres, contados sem os espaços das pontas', () => {
   assert.equal(validarTextoCarta('Chassi correto: X').ok, true)
@@ -61,4 +61,18 @@ test('recusa na Nota Gateway: status fora de Autorizada/Processando com motivo l
   assert.equal(recusaNaGateway({ status: 'Autorizada', motivoStatus: 'Evento registrado' }), null)
   assert.equal(recusaNaGateway({ status: 'Rejeitada', motivoStatus: null }), null)
   assert.equal(recusaNaGateway({ status: 'Rejeitada', motivoStatus: '  ' }), null)
+})
+
+test('recusa na Nota Gateway: "Negada" sem motivo é recusa, com o aviso de falar com o suporte; status intermediário sem motivo, não', () => {
+  // Visto na homologação em 24/10/2026: carta Negada com motivoStatus null.
+  assert.equal(recusaNaGateway({ status: 'Negada', motivoStatus: null }), MOTIVO_CARTA_SEM_INFORMACAO)
+  assert.equal(recusaNaGateway({ status: 'Negada', motivoStatus: '  ' }), MOTIVO_CARTA_SEM_INFORMACAO)
+  assert.equal(MOTIVO_CARTA_SEM_INFORMACAO, 'A SEFAZ recusou a carta sem informar o motivo. Fale com o suporte.')
+  assert.equal(recusaNaGateway({ status: 'AutorizacaoSolicitada', motivoStatus: null }), null)
+})
+
+test('motivo da carta recusada: o da SEFAZ quando veio; sem ele, o aviso de falar com o suporte', () => {
+  assert.equal(motivoDaCartaRecusada('Código: 594\r\nDescrição: Rejeicao'), 'Código: 594\r\nDescrição: Rejeicao')
+  assert.equal(motivoDaCartaRecusada(null), MOTIVO_CARTA_SEM_INFORMACAO)
+  assert.equal(motivoDaCartaRecusada(' '), MOTIVO_CARTA_SEM_INFORMACAO)
 })

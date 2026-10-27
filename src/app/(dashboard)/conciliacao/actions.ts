@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
@@ -423,7 +424,7 @@ export async function buscarConciliacoesDoAlvo(alvo: AlvoConciliacao) {
   const usuario = await getUsuarioLogado()
   const lojaId  = await lojaIdDoAlvo(alvo)
   if (!lojaId) return []
-  if (!GESTORES_CONC.includes(usuario.papel) && lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  if (GESTORES_CONC.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, lojaId)) : lojaId !== usuario.lojaId) throw new Error('Sem permissão')
 
   const coluna = alvo.tipo === 'peca' ? conciliacoesCartao.pecaVendaId
     : alvo.tipo === 'os'              ? conciliacoesCartao.osId
@@ -447,7 +448,7 @@ export async function buscarPixDoAlvo(alvo: AlvoConciliacao) {
   const usuario = await getUsuarioLogado()
   const lojaId  = await lojaIdDoAlvo(alvo)
   if (!lojaId) return []
-  if (!GESTORES_CONC.includes(usuario.papel) && lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+  if (GESTORES_CONC.includes(usuario.papel) ? !(await podeAbrirRegistroDaLoja(usuario, lojaId)) : lojaId !== usuario.lojaId) throw new Error('Sem permissão')
 
   // Fonte única desde 15/09/2026: o PIX do ValidaPix saiu junto com a
   // integração. Venda de antes de julho/2026, cujo pagamento só existia lá,

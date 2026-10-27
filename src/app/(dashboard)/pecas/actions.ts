@@ -1,29 +1,41 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
-import { eq, and, gte, lte, asc, desc, inArray, sql } from 'drizzle-orm'
+import { pecasCatalogo, pecasEstoqueLoja, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
+import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
-import { listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
-import { podeGerirPecas, podeVenderPeca } from './papeis'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeAprovarPagamentoSensivelNaLoja } from '@/lib/grupo'
+import { lojaDoEstoque, podeGerirPecas, podeVenderPeca, recusaDaQuantidadeVendida, recusaDoEstoque } from './papeis'
 import { avisosDaEdicao } from '@/lib/edicao-venda-peca'
-import { editarVendaPecaTx } from '@/lib/editar-venda-peca'
+import { vendaPecaEditavel } from '@/lib/venda-peca-editavel'
+import { editarClienteVendaPecaTx } from '@/lib/editar-cliente-venda-peca'
+import { editarVendaPecaTx, type EdicaoPendente } from '@/lib/editar-venda-peca'
+import { excluirVendaPecaTx } from '@/lib/excluir-venda-peca'
+import { alterarPeca, inserirPeca, listarPecas, type QuemVePecas } from '@/lib/pecas-da-conta'
+import { definirSaldo } from '@/lib/estoque-pecas-loja'
+import { aplicarVendaPeca, type DadosVendaPeca, type ItemVendaPecaInput, type PagamentoVendaPecaInput } from '@/lib/venda-peca'
 
 
 async function verificarAcesso() {
   const usuario = await getUsuarioLogado()
   if (!podeGerirPecas(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   return usuario
+}
+
+async function quemVePecas(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<QuemVePecas> {
+  return { papel: usuario.papel, contaId: await contaDoGrupoAtivo(usuario) }
 }
 
 async function verificarAcessoVenda() {
   const usuario = await getUsuarioLogado()
   if (!podeVenderPeca(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   return usuario
 }
@@ -32,91 +44,103 @@ export type PecaInput = {
   nome: string
   valor: number
   quantidadeEstoque: number
+  /** Loja do saldo; só o admin escolhe, os outros gravam na própria (lojaDoEstoque). */
+  lojaId?: string | null
+}
+
+// Loja do saldo conferida no servidor: a pedida só vale se estiver entre as do grupo ativo.
+async function lojaDoEstoqueDoUsuario(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, pedida?: string | null) {
+  return lojaDoEstoque(usuario, await listarLojaIdsDoGrupoAtivo(usuario), pedida)
+}
+
+// No form, sem loja = não mexe no saldo. Não pode cair na loja padrão do admin: editar só o
+// nome gravava o saldo lido de uma loja em outra.
+async function lojaPedidaNoForm(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, pedida?: string | null) {
+  return pedida ? lojaDoEstoqueDoUsuario(usuario, pedida) : null
 }
 
 export async function listarPecasAction(params?: { apenasAtivos?: boolean }) {
-  await verificarAcessoVenda()
-  const todas = await db.select().from(pecasCatalogo).orderBy(asc(pecasCatalogo.nome))
-  return params?.apenasAtivos ? todas.filter(p => p.ativo) : todas
+  const usuario = await verificarAcessoVenda()
+  return listarPecas(db, await quemVePecas(usuario), {
+    apenasAtivos: params?.apenasAtivos,
+    lojaId: await lojaDoEstoqueDoUsuario(usuario),
+  })
 }
 
 // Vendedor também cria: a peça nova aparece no balcão antes de alguém do escritório
 // cadastrar, e sem isso a venda não sai. Editar preço/estoque e inativar seguem só
 // com gestor — ver atualizarPecaAction abaixo.
-export async function criarPecaAction(input: PecaInput) {
-  await verificarAcessoVenda()
+export async function criarPecaAction(...a: Parameters<typeof criarPeca>) {
+  return acao(() => criarPeca(...a))
+}
+async function criarPeca(input: PecaInput) {
+  const usuario = await verificarAcessoVenda()
   const nome = input.nome.trim()
-  if (!nome) throw new Error('Nome é obrigatório')
-  if (input.valor < 0) throw new Error('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new Error('Estoque não pode ser negativo')
+  if (!nome) throw new RecusaUsuario('Nome é obrigatório')
+  if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
+  const recusaEstoque = recusaDoEstoque(input.quantidadeEstoque)
+  if (recusaEstoque) throw new RecusaUsuario(recusaEstoque)
 
-  const [nova] = await db.insert(pecasCatalogo).values({
-    nome,
-    valor: String(input.valor),
-    quantidadeEstoque: input.quantidadeEstoque,
-  }).returning({
-    id: pecasCatalogo.id,
-    nome: pecasCatalogo.nome,
-    valor: pecasCatalogo.valor,
-    quantidadeEstoque: pecasCatalogo.quantidadeEstoque,
+  const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
+  if (input.quantidadeEstoque !== 0 && !lojaId) throw new RecusaUsuario('Escolha a loja do estoque')
+
+  const contaId = await contaDoGrupoAtivo(usuario)
+  const nova = await db.transaction(async tx => {
+    const peca = await inserirPeca(tx, contaId, { nome, valor: input.valor })
+    if (lojaId && !(await definirSaldo(tx, peca.id, lojaId, input.quantidadeEstoque))) {
+      throw new RecusaUsuario('Escolha a loja do estoque')
+    }
+    return { ...peca, quantidadeEstoque: lojaId ? input.quantidadeEstoque : 0 }
   })
 
   revalidatePath('/pecas')
   return nova
 }
 
-export async function atualizarPecaAction(id: string, input: PecaInput) {
-  await verificarAcesso()
+export async function atualizarPecaAction(...a: Parameters<typeof atualizarPeca>) {
+  return acao(() => atualizarPeca(...a))
+}
+async function atualizarPeca(id: string, input: PecaInput) {
+  const usuario = await verificarAcesso()
   const nome = input.nome.trim()
-  if (!nome) throw new Error('Nome é obrigatório')
-  if (input.valor < 0) throw new Error('Valor não pode ser negativo')
-  if (input.quantidadeEstoque < 0) throw new Error('Estoque não pode ser negativo')
+  if (!nome) throw new RecusaUsuario('Nome é obrigatório')
+  if (input.valor < 0) throw new RecusaUsuario('Valor não pode ser negativo')
+  const recusaEstoque = recusaDoEstoque(input.quantidadeEstoque)
+  if (recusaEstoque) throw new RecusaUsuario(recusaEstoque)
 
-  await db.update(pecasCatalogo).set({
-    nome,
-    valor: String(input.valor),
-    quantidadeEstoque: input.quantidadeEstoque,
-    atualizadoEm: new Date(),
-  }).where(eq(pecasCatalogo.id, id))
+  // Sem loja, grava só nome e valor: usuário sem loja vinculada, ou estoque que não mudou no form.
+  const lojaId = await lojaPedidaNoForm(usuario, input.lojaId)
+  const quem = await quemVePecas(usuario)
+  await db.transaction(async tx => {
+    if (!(await alterarPeca(tx, quem, id, { nome, valor: String(input.valor) }))) throw new RecusaUsuario('Peça não encontrada')
+    // admin_geral altera peça de qualquer Conta, mas o saldo só grava em loja da Conta da peça.
+    if (lojaId && !(await definirSaldo(tx, id, lojaId, input.quantidadeEstoque))) throw new RecusaUsuario('Peça não encontrada')
+  })
 
   revalidatePath('/pecas')
 }
 
-export async function inativarPecaAction(id: string) {
-  await verificarAcesso()
-  await db.update(pecasCatalogo)
-    .set({ ativo: false, atualizadoEm: new Date() })
-    .where(eq(pecasCatalogo.id, id))
+export async function inativarPecaAction(...a: Parameters<typeof inativarPeca>) {
+  return acao(() => inativarPeca(...a))
+}
+async function inativarPeca(id: string) {
+  const usuario = await verificarAcesso()
+  if (!(await alterarPeca(db, await quemVePecas(usuario), id, { ativo: false }))) throw new RecusaUsuario('Peça não encontrada')
   revalidatePath('/pecas')
 }
 
-export async function reativarPecaAction(id: string) {
-  await verificarAcesso()
-  await db.update(pecasCatalogo)
-    .set({ ativo: true, atualizadoEm: new Date() })
-    .where(eq(pecasCatalogo.id, id))
+export async function reativarPecaAction(...a: Parameters<typeof reativarPeca>) {
+  return acao(() => reativarPeca(...a))
+}
+async function reativarPeca(id: string) {
+  const usuario = await verificarAcesso()
+  if (!(await alterarPeca(db, await quemVePecas(usuario), id, { ativo: true }))) throw new RecusaUsuario('Peça não encontrada')
   revalidatePath('/pecas')
 }
 
 // ─── Venda de Peças e Acessórios ──────────────────────────────────────────────
 // Vendida junto com OS (via os_itens, já existente) ou avulsa no balcão (aqui).
 // Não emite nota fiscal — só baixa estoque e registra o recebimento.
-
-// `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
-// balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
-// registrarVendaPecaAction.
-export type ItemVendaPecaInput = { pecaId: string; quantidade: number; valorUnitario?: number }
-export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
-export type DadosVendaPeca = {
-  lojaId: string
-  clienteNome?: string
-  /** 'fisica' (padrão) ou 'juridica'. Jurídica é o que faz o recibo sair no CNPJ. */
-  clienteTipoPessoa?: string
-  /** CPF/CNPJ só com dígitos. Obrigatório quando `clienteTipoPessoa` é 'juridica'. */
-  clienteDocumento?: string | null
-  itens: ItemVendaPecaInput[]
-  pagamentos: PagamentoVendaPecaInput[]
-}
 
 // 'financiamento' precisa da mesma aprovação exigida em venda de moto/OS — só quem tem
 // podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
@@ -140,90 +164,27 @@ function zerarBonificacoes(pagamentos: PagamentoVendaPecaInput[]): PagamentoVend
 function sanearPagamentos(entrada: PagamentoVendaPecaInput[]) {
   const pagamentos = zerarBonificacoes(entrada)
   const valorTotal = pagamentos.reduce((s, p) => s + p.valor, 0)
-  if (valorTotal < 0) throw new Error('Valor total inválido')
+  if (valorTotal < 0) throw new RecusaUsuario('Valor total inválido')
   if (valorTotal < 0.005 && !pagamentos.some(p => p.tipo === TIPO_PAGAMENTO_BONIFICACAO)) {
-    throw new Error('Valor total inválido — para entregar sem cobrar, lance o pagamento como Bonificação')
+    throw new RecusaUsuario('Valor total inválido. Para entregar sem cobrar, lance o pagamento como Bonificação')
   }
   return { pagamentos, valorTotal }
 }
 
-// Cria a venda de fato — sem checagem de permissão/sensibilidade, usada tanto pelo
-// fechamento direto quanto pela aprovação de pagamento sensível. Recebe a transação de
-// fora pra poder ficar atômico com o UPDATE de aprovação (ver aprovarVendaAction).
-export async function aplicarVendaPeca(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  vendedorId: string,
-  input: DadosVendaPeca,
-) {
-  const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
-
-  const pecaIds = input.itens.map(i => i.pecaId)
-  const pecas = await tx
-    .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor, quantidadeEstoque: pecasCatalogo.quantidadeEstoque })
-    .from(pecasCatalogo)
-    .where(inArray(pecasCatalogo.id, pecaIds))
-    .for('update')
-  const pecaById = new Map(pecas.map(p => [p.id, p]))
-
-  // Estoque NÃO barra a venda (decisão do Cesar em 31/08/2026). O catálogo veio da
-  // fábrica com 1.732 das 1.733 peças zeradas, então a trava reprovava toda venda de
-  // balcão — nenhuma chegou a ser registrada. A contagem segue sendo atualizada e pode
-  // ficar negativa: é indicador de que falta lançar entrada, não impedimento de vender.
-  // A tela já mostra o saldo em vermelho quando está zerado ou negativo.
-  for (const item of input.itens) {
-    const peca = pecaById.get(item.pecaId)
-    if (!peca) throw new Error('Peça não encontrada')
-    if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
-  }
-
-  const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
-
-  const [venda] = await tx.insert(vendasPecas).values({
-    lojaId: input.lojaId,
-    vendedorId,
-    clienteNome: input.clienteNome?.trim() || null,
-    // Já chega validado por registrarVendaPecaAction — aqui é só gravação.
-    clienteTipoPessoa: input.clienteTipoPessoa === 'juridica' ? 'juridica' : 'fisica',
-    clienteDocumento: input.clienteDocumento || null,
-    formaPagamento,
-    pagamentos: input.pagamentos,
-    valorTotal: valorTotal.toFixed(2),
-  }).returning({ id: vendasPecas.id })
-
-  for (const item of input.itens) {
-    const peca = pecaById.get(item.pecaId)!
-    // O `valorUnitario` já chega saneado por registrarVendaPecaAction: quem não pode
-    // mexer no preço não tem esse campo aqui. Ausente = preço do catálogo.
-    const valorUnitario = item.valorUnitario != null && item.valorUnitario >= 0
-      ? item.valorUnitario.toFixed(2)
-      : peca.valor
-    await tx.insert(vendasPecasItens).values({
-      vendaPecaId: venda.id,
-      pecaId: item.pecaId,
-      descricao: peca.nome,
-      quantidade: String(item.quantidade),
-      valorUnitario,
-    })
-    // Decremento relativo, não `lido - quantidade`: a mesma peça em duas linhas do
-    // carrinho partia do mesmo valor lido e a segunda baixa apagava a primeira.
-    await tx.update(pecasCatalogo)
-      .set({
-        quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${item.quantidade}`,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(pecasCatalogo.id, item.pecaId))
-  }
-
-  return { id: venda.id }
+export async function registrarVendaPecaAction(...a: Parameters<typeof registrarVendaPeca>) {
+  return acao(() => registrarVendaPeca(...a))
 }
-
-export async function registrarVendaPecaAction(input: DadosVendaPeca) {
+async function registrarVendaPeca(input: DadosVendaPeca) {
   const usuario = await verificarAcessoVenda()
-  if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
-  if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
+  if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
+  if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
+  const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
 
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(input.lojaId)) throw new Error('Loja fora do grupo ativo')
+  if (!lojaIdsGrupo.includes(input.lojaId)) throw new RecusaUsuario('Sem permissão para esta loja')
+  // Como na tela: quem não é admin vende peça só pela própria loja.
+  if (!(await podeAgirNaLoja(usuario, input.lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
 
   // Venda para empresa: sem CNPJ o recibo não identifica o tomador, e é justamente
   // o recibo que a empresa leva pra lançar a compra.
@@ -231,9 +192,9 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
     ? input.clienteTipoPessoa
     : 'fisica'
   const doc = validarDocumento(tipoPessoa, input.clienteDocumento)
-  if (!doc.ok) throw new Error(doc.erro)
+  if (!doc.ok) throw new RecusaUsuario(doc.erro)
   if (tipoPessoa === 'juridica' && !input.clienteNome?.trim()) {
-    throw new Error('Informe a razão social da empresa')
+    throw new RecusaUsuario('Informe a razão social da empresa')
   }
 
   const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
@@ -274,16 +235,9 @@ export async function registrarVendaPecaAction(input: DadosVendaPeca) {
 
 async function vendaEditavel(vendaId: string) {
   const usuario = await verificarAcessoVenda()
-  const [venda] = await db
-    .select({ id: vendasPecas.id, lojaId: vendasPecas.lojaId, dataVenda: vendasPecas.dataVenda, grupoId: lojas.grupoId })
-    .from(vendasPecas)
-    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
-    .where(eq(vendasPecas.id, vendaId))
-    .limit(1)
-  if (!venda) throw new Error('Venda não encontrada')
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const pode = isAdmin ? await podeUsuarioVerGrupo(usuario, venda.grupoId) : usuario.lojaId === venda.lojaId
-  if (!pode) throw new Error('Sem permissão para editar esta venda')
+  // Venda de outra Conta responde como inexistente (regra de isolamento).
+  const venda = await vendaPecaEditavel(db, usuario, vendaId)
+  if (!venda) throw new RecusaUsuario('Venda não encontrada')
   return { usuario, venda }
 }
 
@@ -295,35 +249,124 @@ async function avisosDaVenda(venda: { id: string; dataVenda: Date }) {
   return avisosDaEdicao({ conciliada: cartao.length + pix.length > 0, dataVenda: venda.dataVenda })
 }
 
-/** Avisos para a tela mostrar antes de salvar. Não bloqueiam. */
-export async function avisosEdicaoVendaPecaAction(vendaId: string): Promise<string[]> {
+/**
+ * O que o diálogo de edição precisa ao abrir: itens, pagamentos e os avisos,
+ * que aparecem antes de salvar. `pecas` traz as peças da venda mesmo inativas,
+ * para a busca mostrar o nome.
+ */
+export async function carregarVendaPecaParaEdicaoAction(...a: Parameters<typeof carregarVendaPecaParaEdicao>) {
+  return acao(() => carregarVendaPecaParaEdicao(...a))
+}
+async function carregarVendaPecaParaEdicao(vendaId: string) {
   const { venda } = await vendaEditavel(vendaId)
-  return avisosDaVenda(venda)
+  const [[cab], itens, avisos] = await Promise.all([
+    db.select({ clienteNome: vendasPecas.clienteNome, pagamentos: vendasPecas.pagamentos }).from(vendasPecas).where(eq(vendasPecas.id, vendaId)),
+    db.select({
+      pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade, valorUnitario: vendasPecasItens.valorUnitario,
+      nome: pecasCatalogo.nome, valor: pecasCatalogo.valor,
+      quantidadeEstoque: sql<number>`coalesce(${pecasEstoqueLoja.quantidade}, 0)`,
+    })
+      .from(vendasPecasItens)
+      .innerJoin(pecasCatalogo, eq(pecasCatalogo.id, vendasPecasItens.pecaId))
+      // Saldo da loja da venda, que é onde a edição baixa (#195).
+      .leftJoin(pecasEstoqueLoja, and(eq(pecasEstoqueLoja.pecaId, pecasCatalogo.id), eq(pecasEstoqueLoja.lojaId, venda.lojaId)))
+      .where(eq(vendasPecasItens.vendaPecaId, vendaId)),
+    avisosDaVenda(venda),
+  ])
+  return {
+    clienteNome: cab.clienteNome,
+    itens: itens.map(i => ({ pecaId: i.pecaId, quantidade: Number(i.quantidade), valorUnitario: Number(i.valorUnitario) })),
+    pecas: itens.map(i => ({ id: i.pecaId, nome: i.nome, valor: i.valor, quantidadeEstoque: i.quantidadeEstoque })),
+    pagamentos: (cab.pagamentos ?? []) as PagamentoVendaPecaInput[],
+    avisos,
+  }
 }
 
-export async function editarVendaPecaAction(
+export async function editarVendaPecaAction(...a: Parameters<typeof editarVendaPeca>) {
+  return acao(() => editarVendaPeca(...a))
+}
+async function editarVendaPeca(
   vendaId: string,
   input: { itens: ItemVendaPecaInput[]; pagamentos: PagamentoVendaPecaInput[] },
 ) {
   const { usuario, venda } = await vendaEditavel(vendaId)
-  if (input.itens.length === 0) throw new Error('Adicione ao menos um item')
-  if (input.pagamentos.length === 0) throw new Error('Informe ao menos uma forma de pagamento')
+  if (input.itens.length === 0) throw new RecusaUsuario('Adicione ao menos um item')
+  if (input.pagamentos.length === 0) throw new RecusaUsuario('Informe ao menos uma forma de pagamento')
+  const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
 
-  const { pagamentos } = sanearPagamentos(input.pagamentos)
-  // Financiamento sem permissão: na criação vai para aprovação; na edição, a
-  // aprovação ainda não existe (vem num PR seguinte da #242), então recusa.
-  if (temPagamentoSensivelPeca(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, venda.lojaId))) {
-    throw new Error('Financiamento precisa de aprovação — peça a um gestor para fazer esta edição')
-  }
+  const { pagamentos, valorTotal } = sanearPagamentos(input.pagamentos)
   const itens = podeGerirPecas(usuario.papel)
     ? input.itens
     : input.itens.map(({ pecaId, quantidade }) => ({ pecaId, quantidade }))
 
-  const r = await db.transaction(tx => editarVendaPecaTx(tx, {
-    vendaId, grupoId: venda.grupoId, usuarioId: usuario.id, itens, pagamentos,
-  }))
+  // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+  // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+  const exigeAprovacao = temPagamentoSensivelPeca(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, venda.lojaId))
+
+  // Trava a linha da venda: a checagem de pedido pendente e o que vem depois (pedir aprovação
+  // ou editar) não podem intercalar com outro clique ao mesmo tempo.
+  const r = await db.transaction(async tx => {
+    const [atual] = await tx.select({ numero: vendasPecas.numero, clienteNome: vendasPecas.clienteNome })
+      .from(vendasPecas).where(eq(vendasPecas.id, vendaId)).for('update')
+    if (!atual) throw new RecusaUsuario('Venda não encontrada')
+
+    // Uma edição esperando aprovação por vez: duas na fila se sobreporiam na hora de aprovar.
+    // Vale também para o gestor, senão a aprovação depois desfaria a edição dele.
+    const [pendente] = await tx.select({ id: aprovacoesVenda.id }).from(aprovacoesVenda).where(and(
+      eq(aprovacoesVenda.origem, 'peca_edicao'),
+      eq(aprovacoesVenda.status, 'pendente'),
+      sql`${aprovacoesVenda.dadosVenda}->>'vendaId' = ${vendaId}`,
+    )).limit(1)
+    if (pendente) throw new RecusaUsuario('Esta venda já tem uma edição aguardando aprovação. Aprove ou recuse o pedido em Vendas antes de editar de novo')
+
+    // Financiamento sem permissão: igual à criação, vira pedido de aprovação e a venda
+    // não muda até um gestor aprovar (aprovarVendaAction, origem 'peca_edicao').
+    if (exigeAprovacao) {
+      const pedido: EdicaoPendente & { clienteNome: string | null } = {
+        vendaId, numero: atual.numero, itens, pagamentos, clienteNome: atual.clienteNome,
+      }
+      await tx.insert(aprovacoesVenda).values({
+        origem: 'peca_edicao',
+        lojaId: venda.lojaId,
+        vendedorId: usuario.id,
+        valor: valorTotal.toFixed(2),
+        dadosVenda: pedido,
+        motivo: `Pagamento via Financiamento — edição da venda de peças #${atual.numero}`,
+        tipo: 'pagamento_sensivel',
+        status: 'pendente',
+      })
+      return { aguardandoAprovacao: true as const, numero: atual.numero }
+    }
+
+    const e = await editarVendaPecaTx(tx, { vendaId, grupoId: venda.grupoId, usuarioId: usuario.id, itens, pagamentos })
+    return { aguardandoAprovacao: false as const, numero: e.numero }
+  })
+  if (r.aguardandoAprovacao) {
+    revalidatePath('/pecas')
+    revalidatePath('/vendas')
+    return { aguardandoAprovacao: true as const, numero: r.numero, avisos: [] as string[] }
+  }
   revalidatePath('/pecas')
-  return { numero: r.numero, avisos: await avisosDaVenda(venda) }
+  return { aguardandoAprovacao: false as const, numero: r.numero, avisos: await avisosDaVenda(venda) }
+}
+
+// ─── Correção do cliente da venda de peças ───────────────────────────────────
+// Nome digitado errado no balcão: antes o único jeito era excluir e refazer, o que
+// solta a conciliação e mexe no estoque. Aqui só muda o tomador (nome, documento,
+// tipo de pessoa); itens, pagamentos e conciliação ficam como estão. Mesma permissão
+// e mesmas regras de documento da criação. Fica no histórico de edições da venda.
+export async function editarClienteVendaPecaAction(...a: Parameters<typeof editarClienteVendaPeca>) {
+  return acao(() => editarClienteVendaPeca(...a))
+}
+async function editarClienteVendaPeca(
+  vendaId: string,
+  input: { clienteNome: string | null; clienteTipoPessoa: string; clienteDocumento: string | null },
+) {
+  const usuario = await verificarAcessoVenda()
+  const { numero } = await db.transaction(tx => editarClienteVendaPecaTx(tx, usuario, vendaId, input))
+  revalidatePath('/pecas')
+  return { numero }
 }
 
 export type VendaPecaResumo = Awaited<ReturnType<typeof listarVendasPecasAction>>[number]
@@ -430,55 +473,20 @@ export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) 
     .limit(500)
 }
 
-// Excluir venda de peças: lançamento errado no balcão não tem como ser editado, então
-// o caminho é apagar e refazer. Devolve o estoque dos itens e SOLTA as transações que
+// Excluir venda de peças: para a venda que não devia existir (itens e pagamentos se
+// corrigem pelo editar, #242). Devolve o estoque dos itens e SOLTA as transações que
 // estavam casadas com essa venda — o dinheiro continua lá na conciliação, livre pra ser
 // vinculado ao lançamento certo. Gestor da loja (inclui aux_adm) resolve sozinho.
-export async function excluirVendaPecaAction(vendaId: string) {
+export async function excluirVendaPecaAction(...a: Parameters<typeof excluirVendaPeca>) {
+  return acao(() => excluirVendaPeca(...a))
+}
+async function excluirVendaPeca(vendaId: string) {
   const usuario = await verificarAcesso()
-
-  const [venda] = await db
-    .select({ id: vendasPecas.id, numero: vendasPecas.numero, lojaId: vendasPecas.lojaId })
-    .from(vendasPecas)
-    .where(eq(vendasPecas.id, vendaId))
-    .limit(1)
-  if (!venda) throw new Error('Venda não encontrada')
-
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (!lojaIdsGrupo.includes(venda.lojaId)) throw new Error('Venda fora do grupo ativo')
-
-  await db.transaction(async tx => {
-    const itens = await tx
-      .select({ pecaId: vendasPecasItens.pecaId, quantidade: vendasPecasItens.quantidade })
-      .from(vendasPecasItens)
-      .where(eq(vendasPecasItens.vendaPecaId, vendaId))
-
-    // Devolve na mesma forma que a venda baixou (incremento relativo) — duas linhas da
-    // mesma peça no carrinho têm que somar as duas de volta.
-    for (const item of itens) {
-      await tx.update(pecasCatalogo)
-        .set({
-          quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} + ${Number(item.quantidade)}`,
-          atualizadoEm: new Date(),
-        })
-        .where(eq(pecasCatalogo.id, item.pecaId))
-    }
-
-    // Soltar antes do DELETE: as duas colunas são FK pra vendas_pecas e segurariam a
-    // exclusão. Volta ao estado de transação não conciliada, como desvincular na mão.
-    await tx.update(conciliacoesCartao)
-      .set({ pecaVendaId: null, conciliado: false, conciliadoEm: null })
-      .where(eq(conciliacoesCartao.pecaVendaId, vendaId))
-    await tx.update(pixRecebimentosMcp)
-      .set({ tipoCorrespondencia: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null })
-      .where(eq(pixRecebimentosMcp.pecaVendaId, vendaId))
-
-    await tx.delete(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, vendaId))
-    await tx.delete(vendasPecas).where(eq(vendasPecas.id, vendaId))
-  })
+  const { numero } = await db.transaction(tx => excluirVendaPecaTx(tx, usuario, vendaId))
 
   revalidatePath('/pecas')
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
-  return { numero: venda.numero }
+  revalidatePath('/vendas')
+  return { numero }
 }

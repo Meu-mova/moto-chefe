@@ -29,10 +29,10 @@ export async function GarantiasTab({ motoId, papel, lojaIdUsuario }: Props) {
               {g.status === 'ativa' ? 'Ativa' : 'Encerrada'}
             </Badge>
           </div>
-          <div className="text-xs text-slate-400 space-y-0.5">
+          <div className="text-xs text-muted-foreground space-y-0.5">
             <p>Abertura: {formatDate(g.dataInicio)} · Prazo: {formatDate(g.dataFim)}</p>
             {g.dataEncerramento && (
-              <p>Encerrada em: <span className="text-slate-600 font-medium">{formatDate(g.dataEncerramento)}</span></p>
+              <p>Encerrada em: <span className="text-muted-foreground font-medium">{formatDate(g.dataEncerramento)}</span></p>
             )}
             {g.numeroPedidoFabrica && (
               <p>Pedido fábrica: {g.numeroPedidoFabrica}</p>
@@ -51,7 +51,7 @@ export async function GarantiasTab({ motoId, papel, lojaIdUsuario }: Props) {
         </div>
       ))}
       {lista.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-6">Nenhuma garantia para esta moto.</p>
+        <p className="text-sm text-muted-foreground text-center py-6">Nenhuma garantia para esta moto.</p>
       )}
     </div>
   )

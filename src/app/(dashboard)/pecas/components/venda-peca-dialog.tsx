@@ -1,5 +1,6 @@
 'use client'
 
+import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -8,8 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { Plus, Trash2, ShoppingCart } from 'lucide-react'
-import { registrarVendaPecaAction } from '../actions'
+import { Pencil, Plus, Trash2, ShoppingCart } from 'lucide-react'
+import { carregarVendaPecaParaEdicaoAction, editarVendaPecaAction, registrarVendaPecaAction } from '../actions'
 import { PecaLookup } from './peca-lookup'
 
 type Peca = { id: string; nome: string; valor: string; quantidadeEstoque: number }
@@ -54,11 +55,18 @@ type Props = {
   isAdmin: boolean
   /** Gestor pode sobrepor o preço do catálogo naquela venda. O servidor revalida. */
   podeDefinirPreco: boolean
+  /**
+   * Edição de venda já salva (#242): mesmo diálogo, só itens e pagamentos.
+   * Loja e cliente ficam como estão.
+   */
+  edicao?: { vendaId: string; numero: number }
 }
 
-export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefinirPreco }: Props) {
+export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefinirPreco, edicao }: Props) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [carregando, setCarregando] = useState(false)
+  const [avisos, setAvisos] = useState<string[]>([])
 
   const [lojaId, setLojaId] = useState(isAdmin ? '' : (lojaUsuarioId ?? ''))
   const [clienteNome, setClienteNome] = useState('')
@@ -134,9 +142,68 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
   // Espelha validarDocumento do servidor só pra desabilitar o botão — a trava de
   // verdade está em registrarVendaPecaAction.
-  const digitosDoc = documento.replace(/D/g, '')
-  const clientePJOk = tipoPessoa !== 'juridica' || (digitosDoc.length === 14 && clienteNome.trim().length > 0)
-  const podeSalvar = !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
+  const digitosDoc = soDigitosDoc(documento)
+  const clientePJOk = tipoPessoa !== 'juridica' || (cnpjValido(digitosDoc) && clienteNome.trim().length > 0)
+  const podeSalvar = edicao
+    ? !carregando && itensValidos.length > 0 && pgtosValidos.length > 0
+    : !!lojaId && itensValidos.length > 0 && pgtosValidos.length > 0 && clientePJOk
+
+  const itensParaEnviar = () => itensValidos.map(i => ({
+    pecaId: i.pecaId,
+    quantidade: parseFloat(i.quantidade),
+    ...(podeDefinirPreco && i.valor.trim() ? { valorUnitario: parseBRL(i.valor) } : {}),
+  }))
+  const pgtosParaEnviar = () => pgtosValidos.map(p => ({
+    tipo: p.tipo,
+    valor: p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor),
+    ...(p.operadora ? { operadora: p.operadora } : {}),
+    ...(p.parcelas ? { parcelas: parseInt(p.parcelas, 10) } : {}),
+    ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
+  }))
+
+  function abrirEdicao() {
+    if (!edicao) return
+    setOpen(true)
+    setCarregando(true)
+    startTransition(async () => {
+      try {
+        const r = await carregarVendaPecaParaEdicaoAction(edicao.vendaId)
+        if (!r.ok) { toast.error(r.erro); setOpen(false); return }
+        const v = r.dados
+        setClienteNome(v.clienteNome ?? '')
+        setPecasNovas(prev => [...prev, ...v.pecas.filter(p => !pecas.some(x => x.id === p.id))])
+        // O preço gravado vai na linha: é ele que vale, não o do catálogo de hoje.
+        setItens(v.itens.map(i => ({ id: gerarId(), pecaId: i.pecaId, quantidade: String(i.quantidade), valor: i.valorUnitario.toFixed(2).replace('.', ',') })))
+        setPgtos(v.pagamentos.map(p => ({
+          id: gerarId(), tipo: p.tipo, valor: p.valor.toFixed(2).replace('.', ','),
+          operadora: p.operadora, parcelas: p.parcelas ? String(p.parcelas) : undefined, autorizacao: p.autorizacao,
+        })))
+        setAvisos(v.avisos)
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao abrir a venda')
+        setOpen(false)
+      } finally {
+        setCarregando(false)
+      }
+    })
+  }
+
+  function handleSalvarEdicao() {
+    if (!edicao) return
+    startTransition(async () => {
+      try {
+        const r = await editarVendaPecaAction(edicao.vendaId, { itens: itensParaEnviar(), pagamentos: pgtosParaEnviar() })
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(r.dados.aguardandoAprovacao
+          ? `Edição da venda #${edicao.numero} enviada para aprovação (financiamento)`
+          : `Venda #${edicao.numero} atualizada`)
+        setOpen(false)
+        resetForm()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Erro ao salvar a edição')
+      }
+    })
+  }
 
   function handleSalvar() {
     if (!podeSalvar) {
@@ -150,20 +217,11 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
           clienteNome: clienteNome.trim() || undefined,
           clienteTipoPessoa: tipoPessoa,
           clienteDocumento: digitosDoc || null,
-          itens: itensValidos.map(i => ({
-            pecaId: i.pecaId,
-            quantidade: parseFloat(i.quantidade),
-            ...(podeDefinirPreco && i.valor.trim() ? { valorUnitario: parseBRL(i.valor) } : {}),
-          })),
-          pagamentos: pgtosValidos.map(p => ({
-            tipo: p.tipo,
-            valor: p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor),
-            ...(p.operadora ? { operadora: p.operadora } : {}),
-            ...(p.parcelas ? { parcelas: parseInt(p.parcelas, 10) } : {}),
-            ...(p.autorizacao?.trim() ? { autorizacao: p.autorizacao.trim().toUpperCase() } : {}),
-          })),
+          itens: itensParaEnviar(),
+          pagamentos: pgtosParaEnviar(),
         })
-        toast.success(resultado.aguardandoAprovacao
+        if (!resultado.ok) { toast.error(resultado.erro); return }
+        toast.success(resultado.dados.aguardandoAprovacao
           ? 'Venda com financiamento enviada para aprovação'
           : 'Venda registrada!')
         setOpen(false)
@@ -176,15 +234,34 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
 
   return (
     <>
-      <Button size="sm" className="gap-2" onClick={() => setOpen(true)}>
-        <ShoppingCart size={15} /> Nova Venda
-      </Button>
-      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) resetForm() }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nova Venda de Peças e Acessórios</DialogTitle></DialogHeader>
+      {edicao ? (
+        <Button variant="outline" onClick={abrirEdicao} className="h-10 flex-1 gap-1.5">
+          <Pencil className="size-4" /> Editar
+        </Button>
+      ) : (
+        <Button className="h-10 w-full gap-2 lg:h-9 lg:w-auto" onClick={() => setOpen(true)}>
+          <ShoppingCart className="size-4" /> Nova venda
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { resetForm(); setAvisos([]) } }}>
+        <DialogContent className="max-h-[90dvh] overflow-x-hidden overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{edicao ? `Editar venda de peças #${edicao.numero}` : 'Nova Venda de Peças e Acessórios'}</DialogTitle>
+          </DialogHeader>
 
           <div className="space-y-5 text-sm">
-            <div className="grid grid-cols-2 gap-3">
+            {edicao && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  {carregando ? 'Carregando…' : `Cliente: ${clienteNome || 'não informado'}. A loja não muda; o cliente se corrige pelo botão "Cliente".`}
+                </p>
+                {avisos.map(a => (
+                  <p key={a} className="border-l-2 border-warning pl-3 text-foreground">{a}</p>
+                ))}
+              </div>
+            )}
+            {!edicao && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {isAdmin && (
                 <div className="space-y-1.5">
                   <Label>Loja *</Label>
@@ -207,7 +284,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 <select
                   value={tipoPessoa}
                   onChange={e => setTipoPessoa(e.target.value)}
-                  className="h-9 w-full border border-slate-200 rounded-md px-2 text-sm bg-white"
+                  className="h-9 w-full border border-input rounded-md px-2 text-sm bg-background"
                 >
                   <option value="fisica">Pessoa física</option>
                   <option value="juridica">Empresa (CNPJ)</option>
@@ -230,15 +307,16 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   className="font-mono"
                 />
                 {tipoPessoa === 'juridica' && !clientePJOk && (
-                  <p className="text-xs text-amber-700">Venda para empresa exige razão social e CNPJ com 14 dígitos.</p>
+                  <p className="text-xs text-warning">Venda para empresa exige razão social e CNPJ válido.</p>
                 )}
               </div>
             </div>
+            )}
 
             {/* Itens */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Itens</p>
+                <p className="font-semibold text-foreground">Itens</p>
                 <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar item
                 </Button>
@@ -251,9 +329,10 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                 const estoqueInsuficiente = peca && qtd > peca.quantidadeEstoque
                 const precoAjustado = Boolean(peca && item.valor.trim() && Math.abs(preco - parseFloat(peca.valor)) > 0.005)
                 return (
-                  <div key={item.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
-                    <div className={`grid gap-2 items-end ${podeDefinirPreco ? 'grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_100px_auto]'}`}>
-                      <div className="space-y-1">
+                  <div key={item.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
+                    {/* Celular: a peça ocupa a linha e preço/quantidade vão embaixo; do sm para cima, uma linha só. */}
+                    <div className={`grid items-end gap-2 ${podeDefinirPreco ? 'grid-cols-[1fr_5rem_auto] sm:grid-cols-[1fr_110px_80px_auto]' : 'grid-cols-[1fr_auto] sm:grid-cols-[1fr_100px_auto]'}`}>
+                      <div className={`min-w-0 space-y-1 ${podeDefinirPreco ? 'col-span-3' : 'col-span-2'} sm:col-span-1`}>
                         <Label className="text-xs">Peça / Capacete</Label>
                         <PecaLookup
                           pecas={pecasDisponiveis}
@@ -283,13 +362,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         />
                       </div>
                       {itens.length > 1 && (
-                        <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 pb-1.5">
-                          <Trash2 size={14} />
+                        <button type="button" onClick={() => removeItem(item.id)} aria-label="Remover item" className="p-2 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="size-4" />
                         </button>
                       )}
                     </div>
                     {peca && (
-                      <p className={`text-xs ${estoqueInsuficiente ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                      <p className={`text-xs ${estoqueInsuficiente ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         Subtotal: {fmtBRL(subtotal)}
                         {precoAjustado ? ` — preço ajustado (catálogo: ${fmtBRL(parseFloat(peca.valor))})` : ''}
                         {estoqueInsuficiente ? ` — estoque insuficiente (disponível: ${peca.quantidadeEstoque})` : ''}
@@ -298,24 +377,24 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   </div>
                 )
               })}
-              <p className="text-right font-semibold text-slate-700">Total: {fmtBRL(totalItens)}</p>
+              <p className="text-right font-semibold text-foreground">Total: {fmtBRL(totalItens)}</p>
             </div>
 
             {/* Pagamentos */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-700">Pagamentos</p>
+                <p className="font-semibold text-foreground">Pagamentos</p>
                 <Button variant="outline" size="sm" onClick={addPgto} className="h-7 text-xs gap-1">
                   <Plus size={12} /> Adicionar
                 </Button>
               </div>
               {pgtos.map((p, idx) => (
-                <div key={p.id} className="border rounded-lg p-3 space-y-2 bg-slate-50">
+                <div key={p.id} className="space-y-2 rounded-lg border border-border bg-muted p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Pagamento {idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Pagamento {idx + 1}</span>
                     {pgtos.length > 1 && (
-                      <button onClick={() => removePgto(p.id)} className="text-red-400 hover:text-red-600">
-                        <Trash2 size={13} />
+                      <button type="button" onClick={() => removePgto(p.id)} aria-label="Remover pagamento" className="p-1 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="size-4" />
                       </button>
                     )}
                   </div>
@@ -339,13 +418,13 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         value={p.tipo === TIPO_BONIFICACAO ? '0,00' : p.valor}
                         onChange={e => updatePgto(p.id, 'valor', e.target.value)}
                         disabled={p.tipo === TIPO_BONIFICACAO}
-                        className="h-8 text-xs disabled:bg-slate-100 disabled:text-slate-400"
+                        className="h-8 text-xs disabled:bg-muted disabled:text-muted-foreground"
                         placeholder="0,00"
                       />
                     </div>
                   </div>
                   {p.tipo === TIPO_BONIFICACAO && (
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-warning">
                       Entrega sem cobrança — a venda é registrada com valor R$ 0,00 e não entra na receita.
                     </p>
                   )}
@@ -399,16 +478,16 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                   )}
                 </div>
               ))}
-              <p className="text-right text-sm text-slate-600">
-                Valor a registrar na venda: <span className="font-semibold text-slate-800">{fmtBRL(totalPgtos)}</span>
+              <p className="text-right text-sm text-muted-foreground">
+                Valor a registrar na venda: <span className="font-semibold text-foreground">{fmtBRL(totalPgtos)}</span>
               </p>
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={pending || !podeSalvar}>
-              {pending ? 'Registrando…' : 'Registrar Venda'}
+          <DialogFooter className="mt-2 gap-2">
+            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); setAvisos([]) }}>Cancelar</Button>
+            <Button onClick={edicao ? handleSalvarEdicao : handleSalvar} disabled={pending || !podeSalvar}>
+              {edicao ? (pending ? 'Salvando…' : 'Salvar alterações') : (pending ? 'Registrando…' : 'Registrar Venda')}
             </Button>
           </DialogFooter>
         </DialogContent>

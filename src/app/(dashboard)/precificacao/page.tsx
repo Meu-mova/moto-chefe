@@ -94,7 +94,7 @@ export default async function PrecificacaoPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Precificação</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Configure as taxas globais e os valores mínimos por modelo
         </p>
       </div>

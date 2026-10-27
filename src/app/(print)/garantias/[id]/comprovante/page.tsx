@@ -89,22 +89,22 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
       <PrintTrigger />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; background: #fff; padding: 28px 32px; }
-        .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 18px; }
-        .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 8px; }
+        .tema-claro { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: var(--foreground); background: var(--card); padding: 28px 32px; }
+        .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--foreground); padding-bottom: 14px; margin-bottom: 18px; }
+        .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+        .card h2 { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin-bottom: 8px; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .f { margin-bottom: 5px; }
-        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; margin-bottom: 1px; }
+        .fl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); display: block; margin-bottom: 1px; }
         .fv { font-size: 12px; font-weight: 600; }
-        .selo { display: inline-block; border: 2px solid #166534; color: #166534; border-radius: 6px;
+        .selo { display: inline-block; border: 2px solid var(--success); color: var(--success); border-radius: 6px;
                 padding: 4px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
         .texto { line-height: 1.6; margin-bottom: 14px; }
         .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 56px; }
         .sig { text-align: center; }
-        .sigline { border-top: 1px solid #1e293b; padding-top: 5px; font-size: 10px; color: #64748b; }
-        .ftr { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-        @media print { body { padding: 0; } @page { margin: 1.5cm; } }
+        .sigline { border-top: 1px solid var(--foreground); padding-top: 5px; font-size: 10px; color: var(--muted-foreground); }
+        .ftr { text-align: center; font-size: 9px; color: var(--muted-foreground); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 10px; }
+        @media print { .tema-claro { padding: 0; } @page { margin: 1.5cm; } }
       `}</style>
 
       <div className="hdr">
@@ -113,14 +113,14 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
           <img src="/motochefe-logo.png" alt="MotoChefe" style={{ height: 44, width: 'auto' }} />
           <div>
             <p style={{ fontWeight: 700 }}>{g.grupoRazaoSocial ?? g.grupoNome}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>CNPJ {formatarCpfCnpj(g.grupoCnpj)}</p>
-            <p style={{ fontSize: 10, color: '#64748b' }}>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>CNPJ {formatarCpfCnpj(g.grupoCnpj)}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>
               {g.lojaNome} — {g.lojaEndereco}, {g.lojaCidade}
             </p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          <p style={{ fontSize: 10, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             Comprovante
           </p>
           <p style={{ fontSize: 18, fontWeight: 900, marginBottom: 4 }}>Garantia encerrada</p>

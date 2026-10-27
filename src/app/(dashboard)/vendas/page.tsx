@@ -1,13 +1,16 @@
 import { redirect } from 'next/navigation'
+import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
 import { db } from '@/lib/db'
-import { motos, modelos, lojas, usuarios } from '@/lib/db/schema'
-import { eq, asc, inArray, and } from 'drizzle-orm'
+import { motos, modelos, lojas } from '@/lib/db/schema'
+import { eq, inArray, and } from 'drizzle-orm'
 import { PedidoCard } from './components/pedido-card'
 import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
@@ -79,23 +82,7 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const TOM_KPI = {
-  aviso:  'bg-warning/10 text-warning',
-  perigo: 'bg-destructive/10 text-destructive',
-  ok:     'bg-primary-soft text-primary-text',
-}
-
-function Kpi({ tom, titulo, valor, nota }: { tom: keyof typeof TOM_KPI; titulo: string; valor: React.ReactNode; nota?: string }) {
-  return (
-    <div className={`min-w-40 shrink-0 snap-start rounded-lg px-4 py-3 lg:min-w-0 ${TOM_KPI[tom]}`}>
-      <p className="text-xs font-medium tracking-wide uppercase opacity-80">{titulo}</p>
-      <p className="mt-0.5 text-2xl font-bold">{valor}</p>
-      {nota && <p className="mt-0.5 text-xs opacity-80">{nota}</p>}
-    </div>
-  )
-}
-
-const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
+const PAPEIS_VENDE = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'] as const
 
 export default async function VendasPage({
   searchParams,
@@ -149,11 +136,8 @@ export default async function VendasPage({
       .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
       .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
     listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(asc(modelos.modelo)),
-    db.select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(inArray(usuarios.papel, PAPEIS_VENDE as any[]))
-      .orderBy(asc(usuarios.nome)),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
+    listarUsuariosDoGrupo(grupoAtivo.id, { papeis: PAPEIS_VENDE }),
     isAdmin ? listarAprovacoesPendentes(lojaIdsGrupo) : Promise.resolve([]),
     // Todas as linhas de aprovacoesPendentes pertencem ao mesmo grupo ativo (lojaIdsGrupo),
     // então uma checagem com qualquer loja do grupo já vale pra todas — ver podeAprovarVendaBaixoValor.
@@ -188,7 +172,7 @@ export default async function VendasPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Vendas</h1>
-          <p className="text-slate-500 text-sm">Pedidos e histórico de vendas</p>
+          <p className="text-muted-foreground text-sm">Pedidos e histórico de vendas</p>
         </div>
         <CriarPedidoDialog motos={motosDisponiveis} papel={usuario.papel} />
       </div>
@@ -201,7 +185,7 @@ export default async function VendasPage({
 
       {pendentes.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             Pedidos Pendentes ({pendentes.length})
           </h2>
           {pendentes.map(p => (
@@ -218,7 +202,7 @@ export default async function VendasPage({
       )}
 
       <section className="space-y-4">
-        <h2 className="font-semibold text-sm text-slate-700">
+        <h2 className="font-semibold text-sm text-foreground">
           Vendas Realizadas ({vendasList.length})
         </h2>
 
@@ -269,13 +253,13 @@ export default async function VendasPage({
         />
         <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         {resumoDesconto && resumoDesconto.estimados > 0 && (
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a
             tabela de preços atual — as aprovações anteriores a 21/08/2026 não guardavam o preço mínimo da época.
           </p>
         )}
         {podeVerDescontos && periodoAnteriorAoRegistro(dataInicio) && (
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             Desconto só é registrado a partir de 10/07/2026 — antes disso o pedido de aprovação não existia no sistema.
           </p>
         )}

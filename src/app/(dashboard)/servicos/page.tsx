@@ -21,7 +21,7 @@ export default async function ServicosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Catálogo de Serviços</h1>
-          <p className="text-slate-500 text-sm">Serviços disponíveis para uso em Ordens de Serviço</p>
+          <p className="text-muted-foreground text-sm">Serviços disponíveis para uso em Ordens de Serviço</p>
         </div>
         <ServicoForm trigger={
           <span className={buttonVariants({ variant: 'default', size: 'sm' })}>
@@ -30,7 +30,7 @@ export default async function ServicosPage() {
         } />
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -56,7 +56,7 @@ export default async function ServicosPage() {
                   <ServicoForm
                     servicoInicial={{ id: s.id, nome: s.nome, tempoPrevistoMinutos: s.tempoPrevistoMinutos, valor: s.valor }}
                     trigger={
-                      <button className="text-slate-400 hover:text-slate-700">
+                      <button className="text-muted-foreground hover:text-foreground">
                         <Pencil size={14} />
                       </button>
                     }
@@ -66,7 +66,7 @@ export default async function ServicosPage() {
             ))}
             {servicos.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   Nenhum serviço cadastrado.
                 </TableCell>
               </TableRow>

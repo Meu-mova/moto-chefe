@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { motos, usuarios, reservas, vendas } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
@@ -17,6 +18,7 @@ import {
   type VendaVinculada,
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
+import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 
@@ -45,7 +47,7 @@ export async function alterarStatusAction(
   const supabase = await createClient()
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
 
   if (!(novoStatus in statusLabel)) throw new Error('Status inválido')
   const status = novoStatus as Status
@@ -131,7 +133,7 @@ export async function editarMotoAction(
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
 
   // Esta action é a ferramenta de correção do admin, e por isso aceita pular a
   // máquina de estados. O que ela NÃO pode fazer é aceitar valor fora do enum
@@ -158,8 +160,14 @@ export async function editarMotoAction(
     if (cor !== moto.cor) updates.cor = cor
   }
   if (dados.motor !== undefined && dados.motor !== moto.motor) updates.motor = dados.motor || null
-  if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) updates.modeloId = dados.modeloId
-  if (dados.lojaId !== undefined && dados.lojaId !== moto.lojaId) updates.lojaId = dados.lojaId
+  if (dados.lojaId !== undefined && dados.lojaId !== moto.lojaId) {
+    if (!(await podeAbrirRegistroDaLoja(usuario, dados.lojaId))) throw new Error('Loja fora do seu grupo')
+    updates.lojaId = dados.lojaId
+  }
+  if (dados.modeloId !== undefined && dados.modeloId !== moto.modeloId) {
+    if (!(await modeloUsavelNaLoja(dados.lojaId ?? moto.lojaId, dados.modeloId))) throw new Error('Modelo não encontrado')
+    updates.modeloId = dados.modeloId
+  }
   if (dados.notaFiscalEntrada !== undefined && dados.notaFiscalEntrada !== moto.notaFiscalEntrada) updates.notaFiscalEntrada = dados.notaFiscalEntrada
   if (dados.status !== undefined && dados.status !== moto.status) updates.status = dados.status
   if (dados.disponibilidade !== undefined && dados.disponibilidade !== moto.disponibilidade) updates.disponibilidade = dados.disponibilidade
@@ -211,7 +219,7 @@ export async function resolverGarantiaSemRegistroAction(motoId: string, observac
   }
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   if (moto.status !== 'em_garantia') throw new Error('Moto não está em garantia')
 
   const [garantiaAtiva] = await db
@@ -244,7 +252,7 @@ export async function alterarDisponibilidadeAction(motoId: string, novaDisp: str
   const usuario = await getUsuarioLogado()
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
 
   if (!(novaDisp in disponibilidadeLabel)) throw new Error('Disponibilidade inválida')
   const disp = novaDisp as Disponibilidade

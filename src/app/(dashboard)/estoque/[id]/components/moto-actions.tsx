@@ -88,7 +88,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
   const podeVenderAqui = podeAlterar || ((isVendedor ?? papel === 'vendedor') && podeVendedorReservarForaDaLoja(moto.lojaId))
-  const descricao = `${moto.modelo} — ${moto.cor} (${moto.lojaNome})`
+  const descricao = `${moto.modelo} · ${moto.cor} (${moto.lojaNome})`
 
   const acoes: React.ReactNode[] = []
 
@@ -183,7 +183,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
               target="_blank"
               rel="noopener noreferrer"
               title="Imprimir comprovante da reserva"
-              className="h-8 gap-1.5 text-xs border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-md px-3 inline-flex items-center"
+              className="h-8 gap-1.5 text-xs border border-border text-muted-foreground hover:bg-muted rounded-md px-3 inline-flex items-center"
             >
               <Printer size={14} />
               Comprovante
@@ -238,7 +238,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
           <span
             key="transf-pendente"
             title={moto.transferenciaDestino ?? 'Transferência pendente'}
-            className="h-8 flex items-center gap-1.5 text-xs text-purple-400 cursor-default"
+            className="h-8 flex items-center gap-1.5 text-xs text-info cursor-default"
           >
             <ArrowLeftRight size={14} />
             {moto.transferenciaDestino ?? 'Transf. pendente'}

@@ -56,8 +56,9 @@ export type DescontoVendedor = {
 
 function filtrosSql(f: Filtros): SQL {
   const partes: SQL[] = [
-    sql`d.data_venda >= ${f.dataInicio}::date`,
-    sql`d.data_venda < (${f.dataFim}::date + 1)`,
+    // data_venda é timestamptz e o banco roda em UTC: o dia começa à meia-noite de Brasília.
+    sql`d.data_venda >= (${f.dataInicio}::date::timestamp AT TIME ZONE 'America/Sao_Paulo')`,
+    sql`d.data_venda < ((${f.dataFim}::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo')`,
   ]
   // Array VAZIO significa "ninguém", não "sem filtro" — é o que o dashboard passa
   // para quem não pode ver desconto de terceiros. Tratar como ausente vazaria a

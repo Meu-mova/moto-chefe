@@ -54,7 +54,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
     if (!qty || !val) { toast.error('Quantidade e valor devem ser maiores que zero'); return }
     start(async () => {
       try {
-        await adicionarItemOSAction(osId, {
+        const r = await adicionarItemOSAction(osId, {
           tipo,
           descricao: form.descricao,
           quantidade: qty,
@@ -62,6 +62,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
           servicoId: tipo === 'servico' ? (catalogoId || null) : null,
           pecaId:    tipo === 'peca'    ? (catalogoId || null) : null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         setForm({ descricao: '', quantidade: '1', valorUnitario: '' })
         setCatalogoId('')
       } catch (e: any) { toast.error(e.message) }
@@ -70,7 +71,10 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
 
   function remover(id: string) {
     start(async () => {
-      try { await removerItemOSAction(id, osId) }
+      try {
+        const r = await removerItemOSAction(id, osId)
+        if (!r.ok) toast.error(r.erro)
+      }
       catch (e: any) { toast.error(e.message) }
     })
   }
@@ -81,18 +85,18 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
   function ItemRow({ item }: { item: OSItem }) {
     const subtotal = parseFloat(item.quantidade) * parseFloat(item.valorUnitario)
     return (
-      <div className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+      <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800">{item.descricao}</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm font-medium text-foreground">{item.descricao}</p>
+          <p className="text-xs text-muted-foreground">
             {parseFloat(item.quantidade).toLocaleString('pt-BR')} × {fmt(parseFloat(item.valorUnitario))}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-sm font-semibold text-slate-700">{fmt(subtotal)}</span>
+          <span className="text-sm font-semibold text-foreground">{fmt(subtotal)}</span>
           {podeEditar && (
-            <button onClick={() => remover(item.id)} disabled={pending}
-              className="text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40">
+            <button type="button" aria-label="Remover item" onClick={() => remover(item.id)} disabled={pending}
+              className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
               <Trash2 size={14} />
             </button>
           )}
@@ -112,7 +116,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
         {/* Serviços */}
         {servicosItens.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Wrench size={12} /> Mão de obra
             </p>
             {servicosItens.map(i => <ItemRow key={i.id} item={i} />)}
@@ -122,7 +126,7 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
         {/* Peças */}
         {pecasItens.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
               <Package size={12} /> Peças
             </p>
             {pecasItens.map(i => <ItemRow key={i.id} item={i} />)}
@@ -130,21 +134,21 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
         )}
 
         {itens.length === 0 && (
-          <p className="text-sm text-slate-400 text-center py-4">Nenhum item adicionado ainda.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum item adicionado ainda.</p>
         )}
 
         {/* Adicionar item */}
         {podeEditar && (
-          <div className="border-t border-slate-100 pt-4 space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Adicionar item</p>
+          <div className="border-t border-border pt-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Adicionar item</p>
 
             <div className="flex gap-2">
               {(['servico', 'peca'] as const).map(t => (
-                <button key={t} onClick={() => trocarTipo(t)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                <button type="button" key={t} onClick={() => trocarTipo(t)}
+                  className={`h-10 flex-1 text-sm font-medium rounded-md border transition-colors ${
                     tipo === t
-                      ? 'bg-slate-800 text-white border-slate-800'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-400'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-input text-muted-foreground hover:border-ring'
                   }`}>
                   {t === 'servico' ? 'Serviço / Mão de obra' : 'Peça'}
                 </button>
@@ -154,10 +158,10 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             <select
               value={catalogoId}
               onChange={e => selecionarDoCatalogo(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+              className="h-10 w-full border border-input rounded-md px-3 text-sm bg-background"
             >
               <option value="">
-                {tipo === 'servico' ? 'Escolher serviço do catálogo (opcional)' : 'Escolher peça do catálogo (opcional)'}
+                {tipo === 'servico' ? 'Serviço do catálogo (opcional)' : 'Peça do catálogo (opcional)'}
               </option>
               {opcoesCatalogo.map(o => (
                 <option key={o.id} value={o.id}>
@@ -167,13 +171,13 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
             </select>
 
             <Input placeholder="Descrição" value={form.descricao} onChange={e => setF('descricao', e.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
               <Input placeholder="Qtd" type="number" min="0.001" step="0.001"
                 value={form.quantidade} onChange={e => setF('quantidade', e.target.value)} />
               <Input placeholder="Valor unit. (R$)" type="number" min="0" step="0.01"
                 value={form.valorUnitario} onChange={e => setF('valorUnitario', e.target.value)} />
             </div>
-            <Button size="sm" onClick={adicionar} disabled={pending} className="w-full gap-1.5">
+            <Button onClick={adicionar} disabled={pending} className="h-10 w-full gap-1.5">
               <Plus size={14} /> {pending ? 'Adicionando…' : 'Adicionar'}
             </Button>
           </div>

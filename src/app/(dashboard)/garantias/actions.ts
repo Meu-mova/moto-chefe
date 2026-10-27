@@ -1,7 +1,10 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
+import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
+import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
@@ -10,6 +13,7 @@ import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica
 import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
+import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -23,17 +27,8 @@ export async function exportarRelatorioGarantiasAction(filtros: {
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(u.papel)) {
     throw new Error('Sem permissão')
   }
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(u.papel)
-
-  if (!isAdmin) {
-    const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: u.lojaId ?? undefined })
-    return rows
-  }
-
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(u)
-  const lojaIdValido = filtros.lojaId && lojaIdsGrupo.includes(filtros.lojaId) ? filtros.lojaId : undefined
-  const rows = await exportarRelatorioGarantias({ ...filtros, lojaId: lojaIdValido })
-  return lojaIdValido ? rows : rows.filter(r => lojaIdsGrupo.includes(r.lojaId))
+  const { lojaId, ...resto } = filtros
+  return exportarRelatorioGarantias({ ...resto, lojaIds: await lojasDoEscopoDeGarantias(u, lojaId) })
 }
 
 export async function abrirGarantiaAction(params: {
@@ -56,7 +51,8 @@ export async function abrirGarantiaAction(params: {
     .from(motos)
     .where(eq(motos.id, params.motoId))
     .limit(1)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  await conferirVinculosDaConta(moto.lojaId, { osId: params.osId })
 
   // Prazo fixo de 30 dias a partir da data de abertura
   const fim = new Date(params.dataInicio)
@@ -170,6 +166,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
   const supabase = await createClient()
   const porLoja: ResultadoImportacaoFabrica['porLoja'] = []
   const lojaIdsDoGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const contaId = await contaDoGrupoAtivo(usuario)
 
   // Carrega os números já lançados uma vez só, normalizados: quem lança à mão
   // grava "#38780", a importação grava "38780".
@@ -204,14 +201,15 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
           continue
         }
 
-        // Chassi exato na base toda (moto transferida de grupo cai certo, a loja
-        // da garantia sai de moto.loja_id). Final do chassi só dentro do grupo:
+        // Chassi exato em toda a Conta (moto transferida de grupo cai certo, a loja
+        // da garantia sai de moto.loja_id); nunca em moto de outra Conta (#325). Final do chassi só dentro do grupo:
         // na base toda, um "3024" casaria com moto de outro CNPJ.
         // O exato vem numa consulta própria: junto com os do final, um corte de
         // linhas podia deixá-lo de fora e a garantia cair na moto errada.
         const alvo = chassi.replace(/\s+/g, '').toUpperCase()
         const colunas = { id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }
-        const exatas = await db.select(colunas).from(motos).where(eq(motos.chassi, chassi)).limit(1)
+        const exata = await motoDaContaPorChassi(chassi, contaId)
+        const exatas = exata ? [exata] : []
         const podeBuscarPeloFinal = /^[A-Z0-9]+$/.test(alvo) && alvo.length >= MIN_DIGITOS_SUFIXO_CHASSI && lojaIdsDoGrupo.length > 0
         // Duas já bastam para ser ambíguo; o limite só evita trazer o estoque inteiro.
         const candidatas = exatas.length || !podeBuscarPeloFinal
@@ -280,6 +278,9 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
 
 export async function encerrarGarantiaAction(garantiaId: string, observacao?: string, dataEncerramento?: string) {
   const usuario = await getUsuarioLogado()
+  // A função do banco só compara com a loja do usuário: sem loja (admin_socio sem loja) ela deixa passar.
+  const [garantia] = await db.select({ lojaId: garantias.lojaId }).from(garantias).where(eq(garantias.id, garantiaId)).limit(1)
+  if (!garantia || !(await podeAbrirRegistroDaLoja(usuario, garantia.lojaId))) throw new Error('Garantia não encontrada')
   const supabase = await createClient()
   const { error } = await supabase.rpc('encerrar_garantia', {
     p_garantia_id: garantiaId,

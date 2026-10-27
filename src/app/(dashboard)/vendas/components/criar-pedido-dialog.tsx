@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { criarPedidoVendaAction } from '../actions'
+import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string; cor: string; lojaNome: string }
 
@@ -21,7 +22,8 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
     if (!motoId) return
     setLoading(true)
     try {
-      await criarPedidoVendaAction(motoId, observacao)
+      const r = await criarPedidoVendaAction(motoId, observacao)
+      if (!r.ok) { toast.error(r.erro); return }
       setOpen(false)
       setMotoId('')
       setObservacao('')
@@ -32,7 +34,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
     }
   }
 
-  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor'].includes(papel)) return null
+  if (!podeCriarPedido(papel)) return null
 
   return (
     <>

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
+import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
 
@@ -63,13 +64,15 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'motorista',    label: 'Motorista' },
 ]
 
+type Limites = LimitesDaTela
+
 const PAPEL_CORES: Record<string, string> = {
-  admin_geral: 'bg-purple-100 text-purple-800 border-purple-200',
-  admin_socio: 'bg-blue-100 text-blue-800 border-blue-200',
-  aux_adm:     'bg-amber-100 text-amber-800 border-amber-200',
-  vendedor:    'bg-green-100 text-green-800 border-green-200',
-  mecanico:    'bg-slate-100 text-slate-700 border-slate-200',
-  motorista:   'bg-teal-100 text-teal-800 border-teal-200',
+  admin_geral: 'bg-info/15 text-info border-info/30',
+  admin_socio: 'bg-info/15 text-info border-info/30',
+  aux_adm:     'bg-warning/15 text-warning border-warning/30',
+  vendedor:    'bg-success/15 text-success border-success/30',
+  mecanico:    'bg-muted text-foreground border-border',
+  motorista:   'bg-info/15 text-info border-info/30',
 }
 
 function SenhaInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -86,7 +89,7 @@ function SenhaInput({ value, onChange, placeholder }: { value: string; onChange:
       <button
         type="button"
         onClick={() => setMostrar(v => !v)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
       >
         {mostrar ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -101,10 +104,12 @@ function FormUsuario({
   onSubmit,
   onCancel,
   isEdit,
+  limites,
 }: {
   inicial?: Partial<Usuario>
   lojas: Loja[]
   grupos: Grupo[]
+  limites: Limites
   onSubmit: (dados: DadosForm) => void
   onCancel: () => void
   isEdit: boolean
@@ -177,14 +182,15 @@ function FormUsuario({
           </div>
           <div className="space-y-1.5">
             <Label>Função</Label>
-            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }}>
+            <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
                   {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {PAPEIS.map(p => (
+                {/* O papel atual sempre na lista: sem item para o valor, o Select mostraria o valor cru. */}
+                {PAPEIS.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -238,6 +244,7 @@ function FormUsuario({
                   O que está marcado como &quot;do papel&quot; vem da função. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
                 </p>
                 <ModulosPicker
+                  liberaveis={limites.itensLiberaveis}
                   papel={papel}
                   papeisExtras={inicial?.papeisExtras ?? []}
                   extras={modulosExtras}
@@ -257,7 +264,7 @@ function FormUsuario({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.map(g => (
+                {grupos.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
                   <label key={g.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -280,6 +287,7 @@ function FormUsuario({
                   type="checkbox"
                   className="rounded border-input"
                   checked={aprovaSensivel}
+                  disabled={!limites.aprovaPagamentoSensivel && !inicial?.aprovaPagamentoSensivel}
                   onChange={e => setAprovaSensivel(e.target.checked)}
                 />
                 <span>
@@ -332,7 +340,7 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[] }) {
+export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites }) {
   const [criando,    setCriando]    = useState(false)
   const [editando,   setEditando]   = useState<Usuario | null>(null)
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
@@ -404,13 +412,13 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-500">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm text-muted-foreground">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
         <Button onClick={() => setCriando(true)} className="gap-2">
           <UserPlus size={16} /> Novo usuário
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -428,80 +436,82 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
               <TableRow key={u.id} className={u.ativo ? '' : 'opacity-55'}>
                 <TableCell className="font-medium">
                   {u.nome}
-                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-medium align-middle">Inativo</span>}
+                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium align-middle">Inativo</span>}
                 </TableCell>
-                <TableCell className="text-slate-500 text-sm">{u.email}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                 <TableCell>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-muted text-foreground'}`}>
                     {PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel}
                   </span>
                 </TableCell>
-                <TableCell className="text-slate-500">{u.lojaNome ?? <span className="text-slate-300">—</span>}</TableCell>
+                <TableCell className="text-muted-foreground">{u.lojaNome ?? <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell>
                   {PAPEIS_APROVADORES.includes(u.papel) && (u.gruposAprovacao.length > 0 || u.aprovaPagamentoSensivel) ? (
                     <div className="flex flex-wrap gap-1">
                       {u.gruposAprovacao.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[11px]">
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">
                           + {nomeGrupo(gid)}
                         </span>
                       ))}
                       {u.aprovaPagamentoSensivel && (
-                        <span className="inline-flex px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px]">
+                        <span className="inline-flex px-1.5 py-0.5 rounded border border-success/30 bg-success/10 text-success text-[11px]">
                           transferência
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
                 <TableCell>
                   {u.papel === 'admin_geral' ? (
-                    <span className="inline-flex px-1.5 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-700 text-[11px]">todas</span>
+                    <span className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">todas</span>
                   ) : u.gruposAcesso.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {u.gruposAcesso.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-slate-200 bg-slate-100 text-slate-600 text-[11px]">
+                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground text-[11px]">
                           {nomeGrupo(gid)}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center gap-1 justify-end">
-                    <Button
+                    {!(u.id === limites.meuId && limites.travaASiMesmo) && <Button
                       variant="ghost" size="icon"
-                      className={`h-8 w-8 ${u.ativo ? 'text-slate-400 hover:text-slate-700' : 'text-emerald-600 hover:text-emerald-800'} hover:bg-slate-100`}
+                      className={`h-8 w-8 ${u.ativo ? 'text-muted-foreground hover:text-foreground' : 'text-success hover:text-success'} hover:bg-muted`}
                       onClick={() => handleToggleAtivo(u)}
                       title={u.ativo ? 'Desativar (sai dos relatórios)' : 'Reativar'}
                       disabled={pending}
                     >
                       {u.ativo ? <PowerOff size={15} /> : <Power size={15} />}
-                    </Button>
+                    </Button>}
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                      className="h-8 w-8 text-warning hover:text-warning hover:bg-warning/10"
                       onClick={() => setEditando(u)}
                     >
                       <Pencil size={15} />
                     </Button>
+                    {limites.podeExcluir && (
                     <Button
                       variant="ghost" size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => setExcluindo(u)}
                     >
                       <Trash2 size={15} />
                     </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ))}
             {usuarios.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Nenhum usuário cadastrado.
                 </TableCell>
               </TableRow>
@@ -519,6 +529,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           <FormUsuario
             lojas={lojas}
             grupos={grupos}
+            limites={limites}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -538,6 +549,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
               inicial={editando}
               lojas={lojas}
               grupos={grupos}
+              limites={limites}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit
@@ -552,7 +564,7 @@ export function UsuariosTable({ usuarios, lojas, grupos }: { usuarios: Usuario[]
           <DialogHeader>
             <DialogTitle>Excluir usuário</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Tem certeza que deseja excluir <strong>{excluindo?.nome}</strong>?
             Esta ação é irreversível e removerá o acesso ao sistema.
           </p>

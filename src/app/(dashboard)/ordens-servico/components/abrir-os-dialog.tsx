@@ -1,4 +1,5 @@
 'use client'
+import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -45,7 +46,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
   }
 
   const ehEmpresa = !cliente && form.clienteTipoPessoaExterno === 'juridica'
-  const digitosDoc = form.clienteDocumentoExterno.replace(/D/g, '')
+  const digitosDoc = soDigitosDoc(form.clienteDocumentoExterno)
 
   function salvar() {
     if (!veiculo?.chassi.trim()) {
@@ -55,13 +56,13 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
       toast.error('Informe a descrição / reclamação'); return
     }
     // Espelha a trava do servidor pra dar o erro antes de fechar a OS torta.
-    if (ehEmpresa && (digitosDoc.length !== 14 || !form.clienteNomeExterno.trim())) {
-      toast.error('OS para empresa exige razão social e CNPJ com 14 dígitos'); return
+    if (ehEmpresa && (!cnpjValido(digitosDoc) || !form.clienteNomeExterno.trim())) {
+      toast.error('OS para empresa exige razão social e CNPJ válido'); return
     }
 
     start(async () => {
       try {
-        await abrirOSAction({
+        const r = await abrirOSAction({
           lojaId:             form.lojaId,
           chassiOs:           veiculo.chassi,
           motoId:             veiculo?.motoId || null,
@@ -77,6 +78,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
           clienteTipoPessoaExterno: !cliente ? form.clienteTipoPessoaExterno : null,
           clienteDocumentoExterno:  !cliente ? (digitosDoc || null) : null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS aberta com sucesso')
         setOpen(false)
         resetar()
@@ -88,12 +90,12 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
-        <Plus size={15} /> Nova OS
+      <Button onClick={() => setOpen(true)} className="h-10 w-full gap-1.5 sm:h-9 sm:w-auto">
+        <Plus className="size-4" /> Nova OS
       </Button>
 
       <Dialog open={open} onOpenChange={o => { if (!pending) { setOpen(o); if (!o) resetar() } }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Nova Ordem de Serviço</DialogTitle>
           </DialogHeader>
@@ -104,7 +106,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
               <div className="space-y-1.5">
                 <Label>Loja</Label>
                 <select value={form.lojaId} onChange={e => set('lojaId', e.target.value)}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                  className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
                   <option value="">Selecione...</option>
                   {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
                 </select>
@@ -112,7 +114,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
             )}
 
             {/* Busca chassi + CPF */}
-            <div className="border border-slate-200 rounded-xl p-4 space-y-1 bg-slate-50">
+            <div className="border border-input rounded-xl p-4 space-y-1 bg-muted">
               <ChassiLookup
                 onVeiculoEncontrado={setVeiculo}
                 onClienteEncontrado={setCliente}
@@ -127,13 +129,13 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
 
             {/* Cliente externo — só quando não encontrado/cadastrado */}
             {!cliente && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Tipo de cliente</Label>
                   <select
                     value={form.clienteTipoPessoaExterno}
                     onChange={e => set('clienteTipoPessoaExterno', e.target.value)}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                    className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
                   >
                     <option value="fisica">Pessoa física</option>
                     <option value="juridica">Empresa (CNPJ)</option>
@@ -163,7 +165,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
             <div className="space-y-1.5">
               <Label>Mecânico responsável</Label>
               <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
                 <option value="">Sem mecânico definido</option>
                 {mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
@@ -175,7 +177,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
             </div>
 
             <div className="space-y-1.5">
-              <Label>Descrição / Reclamação do cliente <span className="text-red-500">*</span></Label>
+              <Label>Descrição / Reclamação do cliente <span className="text-destructive">*</span></Label>
               <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
                 placeholder="Descreva o que o cliente relatou..." rows={3} />
             </div>

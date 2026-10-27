@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,10 @@ import {
   salvarDadosContratoAction, recusarAdesaoAction, linkCartaoCnpjAction, enviarContratoAction, vincularGrupoAction,
   type AdesaoLinha, type GrupoOpcao,
 } from '../actions'
+import { AtivacaoAcessos, AtivacaoLoja, useAtivacao } from './ativar-cliente'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { EnderecoSedeCampos } from './endereco-sede-campos'
+import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
   pendente: 'border-warning text-warning',
@@ -146,8 +150,14 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
+type Aba = 'contrato' | 'grupo' | 'acessos'
+
+const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
+
 function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: AdesaoLinha; grupos: GrupoOpcao[]; envioTravado: boolean; onFechar: () => void }) {
   const [valores, setValores] = useState(() => valoresIniciais(a))
+  const [sede, setSede] = useState(() => sedeInicial(a))
+
   const [franqueado, setFranqueado] = useState(a.franqueadoMotochefe)
   const [erros, setErros] = useState<Partial<Record<CampoContrato, string>>>({})
   const [recusando, setRecusando] = useState(false)
@@ -155,15 +165,17 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
   const [pendente, iniciar] = useTransition()
   // Recusada ou processada não se edita mais por esta tela.
   const travada = a.status === 'recusada' || a.status === 'processada'
-  const faltam = camposFaltando(valores)
+  // Mesma regra do servidor: campos incompletos não tiram a linha que já vale.
+  const faltam = camposFaltando({ ...valores, enderecoSede: montarEnderecoSede(limparEnderecoSede(sede)) ?? valores.enderecoSede })
   const situacao = situacaoContrato(a.contrato, new Date())
   // O contrato sai do que está gravado: com edição não salva, o lojista
   // receberia valores diferentes dos que estão na tela.
   const alterado = JSON.stringify(valores) !== JSON.stringify(valoresIniciais(a)) || franqueado !== a.franqueadoMotochefe
+    || JSON.stringify(sede) !== JSON.stringify(sedeInicial(a))
 
   function salvar() {
     iniciar(async () => {
-      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado })
+      const r = await salvarDadosContratoAction(a.id, { ...valores, franqueadoMotochefe: franqueado, sede })
       if (!r.ok) {
         setErros(r.erros ?? {})
         toast.error(r.erro ?? 'Corrija os campos marcados')
@@ -206,9 +218,23 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
     })
   }
 
+  // Ativação só depois do contrato assinado e do grupo ligado; carrega ao abrir a aba.
+  const ativavel = a.contrato?.status === 'assinado' && !!a.grupoId && !travada
+  const ativacao = useAtivacao(a.id)
+  const [aba, setAba] = useState<Aba>('contrato')
+  const abaDeAtivacao = aba === 'grupo' || aba === 'acessos'
+  // Também cobre o grupo ligado com a aba já aberta: a ativação fica disponível sem trocar de aba.
+  const { dados: dadosAtivacao, pendente: carregandoAtivacao, carregar: carregarAtivacao } = ativacao
+  useEffect(() => {
+    if (abaDeAtivacao && ativavel && !dadosAtivacao && !carregandoAtivacao) carregarAtivacao()
+    // Só a aba e a disponibilidade disparam: carregar muda a cada render.
+  }, [abaDeAtivacao, ativavel])
+
   return (
-    <section className="bg-card rounded-lg border p-4 space-y-4 min-w-0">
-      <div className="flex items-center justify-between gap-2">
+    // No desktop o painel tem a altura da tela e rola por dentro, com cabeçalho e
+    // botões fixos (#312); no tablet e no celular rola com a página.
+    <section className="bg-card rounded-lg border min-w-0 flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)]">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <div className="flex items-center gap-2 flex-wrap">
           <button type="button" onClick={onFechar} className="lg:hidden text-muted-foreground" aria-label="Voltar para a lista">
             <ArrowLeft className="h-5 w-5" />
@@ -221,116 +247,154 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
         </button>
       </div>
 
-      <details open>
-        <summary className="text-sm font-medium cursor-pointer mb-2">O que o lojista enviou</summary>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm break-words">
-          <dt className="text-muted-foreground">Responsável</dt><dd>{a.responsavel}</dd>
-          <dt className="text-muted-foreground">Celular</dt><dd>{a.celular}</dd>
-          <dt className="text-muted-foreground">Recebida</dt><dd>{data(a.criadoEm)}</dd>
-          <dt className="text-muted-foreground">Usuários pedidos</dt><dd>{a.usuarios.length}</dd>
-          <dt className="text-muted-foreground">Cartão CNPJ</dt>
+      {/* O que o lojista enviou: uma faixa, não uma aba; cabe numa linha e sempre se vê. */}
+      <dl className="flex flex-wrap gap-x-4 gap-y-1 border-b bg-muted/40 px-4 py-2 text-sm break-words">
+        <div className="flex gap-1"><dt className="text-muted-foreground">Responsável</dt><dd>{a.responsavel}</dd></div>
+        <div className="flex gap-1"><dt className="text-muted-foreground">Celular</dt><dd>{a.celular}</dd></div>
+        <div className="flex gap-1"><dt className="text-muted-foreground">Recebida</dt><dd>{data(a.criadoEm)}</dd></div>
+        <div className="flex gap-1"><dt className="text-muted-foreground">Usuários</dt><dd>{a.usuarios.length}</dd></div>
+        <div className="flex gap-1">
+          <dt className="sr-only">Cartão CNPJ</dt>
           <dd>
             <button type="button" onClick={abrirCartao} disabled={pendente} className="text-primary-text underline">
-              abrir arquivo
+              Cartão CNPJ
             </button>
           </dd>
-          <dt className="text-muted-foreground">Certificado e senhas</dt>
-          <dd className="text-muted-foreground">guardados cifrados (não exibidos)</dd>
-        </dl>
-      </details>
+        </div>
+        <div className="flex gap-1"><dt className="sr-only">Certificado e senhas</dt><dd className="text-muted-foreground">A1 e senhas cifrados</dd></div>
+      </dl>
 
-      <div className="border-t pt-4 space-y-3">
-        <h3 className="font-medium">Dados do contrato</h3>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={franqueado}
-            disabled={travada || pendente}
-            onChange={e => {
-              const marcado = e.target.checked
-              const antes = precoFormatado(!marcado)
-              const depois = precoFormatado(marcado)
-              setFranqueado(marcado)
-              // Só troca o valor que ainda é o da tabela anterior: um valor negociado
-              // à mão não some calado ao mexer na marcação.
-              setValores(prev => ({
-                ...prev,
-                taxaImplantacao: prev.taxaImplantacao === antes.taxaImplantacao ? depois.taxaImplantacao : prev.taxaImplantacao,
-                valorMensal: prev.valorMensal === antes.valorMensal ? depois.valorMensal : prev.valorMensal,
-              }))
-            }}
-          />
-          Franqueado MotoChefe (desconto na implantação e na mensalidade)
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {CAMPOS_CONTRATO.map(c => (
-            <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
-              <Label htmlFor={`${a.id}-${c.chave}`}>{c.rotulo}</Label>
-              <Input
-                id={`${a.id}-${c.chave}`}
-                value={valores[c.chave]}
+      <Tabs value={aba} onValueChange={v => setAba(v as Aba)} className="flex min-h-0 flex-1 flex-col gap-0">
+        {/* overflow-y-hidden tira a barra vertical que o sublinhado da aba (5px abaixo) criava; o pb devolve esse espaço. */}
+        <div className="overflow-x-auto overflow-y-hidden border-b px-4 pb-[5px]">
+          <TabsList variant="line">
+            <TabsTrigger value="contrato">
+              Contrato
+              {!travada && situacao !== 'assinado' && faltam.length > 0 && <Badge variant="outline" className="border-warning text-warning">{faltam.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="grupo">Grupo e loja</TabsTrigger>
+            <TabsTrigger value="acessos">Usuários e acessos</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {/* keepMounted: trocar de aba não perde o que foi digitado. */}
+          <TabsContent value="contrato" keepMounted className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={franqueado}
                 disabled={travada || pendente}
-                inputMode={'inputMode' in c ? c.inputMode : undefined}
-                aria-invalid={!!erros[c.chave]}
                 onChange={e => {
-                  const v = e.target.value
-                  setValores(prev => ({ ...prev, [c.chave]: v }))
+                  const marcado = e.target.checked
+                  const antes = precoFormatado(!marcado)
+                  const depois = precoFormatado(marcado)
+                  setFranqueado(marcado)
+                  // Só troca o valor que ainda é o da tabela anterior: um valor negociado
+                  // à mão não some calado ao mexer na marcação.
+                  setValores(prev => ({
+                    ...prev,
+                    taxaImplantacao: prev.taxaImplantacao === antes.taxaImplantacao ? depois.taxaImplantacao : prev.taxaImplantacao,
+                    valorMensal: prev.valorMensal === antes.valorMensal ? depois.valorMensal : prev.valorMensal,
+                  }))
                 }}
               />
-              {erros[c.chave] && <p className="text-xs text-destructive">{erros[c.chave]}</p>}
+              Franqueado MotoChefe (desconto na implantação e na mensalidade)
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {CAMPOS_CONTRATO.map(c => c.chave === 'enderecoSede' ? (
+                <EnderecoSedeCampos
+                  key={c.chave}
+                  id={a.id}
+                  valor={sede}
+                  onChange={patch => setSede(prev => ({ ...prev, ...patch }))}
+                  disabled={travada || pendente}
+                  erro={erros.enderecoSede}
+                  linhaAtual={a.enderecoSede}
+                />
+              ) : (
+                <div key={c.chave} className={'largo' in c ? 'sm:col-span-2 space-y-1' : 'space-y-1'}>
+                  <Label htmlFor={`${a.id}-${c.chave}`}>{c.rotulo}</Label>
+                  <Input
+                    id={`${a.id}-${c.chave}`}
+                    value={valores[c.chave]}
+                    disabled={travada || pendente}
+                    inputMode={'inputMode' in c ? c.inputMode : undefined}
+                    aria-invalid={!!erros[c.chave]}
+                    onChange={e => {
+                      const v = e.target.value
+                      setValores(prev => ({ ...prev, [c.chave]: v }))
+                    }}
+                  />
+                  {erros[c.chave] && <p className="text-xs text-destructive">{erros[c.chave]}</p>}
+                </div>
+              ))}
             </div>
-          ))}
+          </TabsContent>
+
+          <TabsContent value="grupo" keepMounted className="space-y-4">
+            <GrupoVinculado adesao={a} grupos={grupos} />
+            {ativavel
+              ? <AtivacaoLoja adesaoId={a.id} ativacao={ativacao} />
+              : <p className="text-sm text-muted-foreground">A loja se cria depois do contrato assinado e do grupo ligado.</p>}
+          </TabsContent>
+
+          <TabsContent value="acessos" keepMounted>
+            {ativavel
+              ? <AtivacaoAcessos adesaoId={a.id} ativacao={ativacao} />
+              : <p className="text-sm text-muted-foreground">Usuários, certificado e portal se aplicam depois do contrato assinado e do grupo ligado.</p>}
+          </TabsContent>
         </div>
-      </div>
+      </Tabs>
 
-      <GrupoVinculado adesao={a} grupos={grupos} />
-
-      {a.status === 'processada' ? (
-        <p className="text-sm text-muted-foreground">Adesão já processada.</p>
-      ) : a.status === 'recusada' ? (
-        <p className="text-sm text-destructive">
-          Recusada em {a.recusadaEm ? data(a.recusadaEm) : '—'}: {a.motivoRecusa}
-          {/* 'enviado' só existe em recusas antigas, do tempo do aviso por WhatsApp. */}
-          {a.avisoRecusa !== 'enviado' && <AvisoManual adesao={a} />}
-        </p>
-      ) : recusando ? (
-        <div className="space-y-2">
-          <Label htmlFor={`${a.id}-motivo`}>Motivo da recusa (o aviso ao lojista é feito por vocês)</Label>
-          <Textarea id={`${a.id}-motivo`} value={motivo} onChange={e => setMotivo(e.target.value)} rows={3} />
-          <div className="flex flex-wrap gap-2">
-            <Button variant="destructive" onClick={recusar} disabled={pendente || motivo.trim().length < 3}>Registrar recusa</Button>
-            <Button variant="outline" onClick={() => setRecusando(false)} disabled={pendente}>Voltar</Button>
+      <div className="sticky bottom-0 border-t bg-card px-4 py-3 rounded-b-lg lg:static">
+        {a.status === 'processada' ? (
+          <p className="text-sm text-muted-foreground">Adesão já processada.</p>
+        ) : a.status === 'recusada' ? (
+          <p className="text-sm text-destructive">
+            Recusada em {a.recusadaEm ? data(a.recusadaEm) : '—'}: {a.motivoRecusa}
+            {/* 'enviado' só existe em recusas antigas, do tempo do aviso por WhatsApp. */}
+            {a.avisoRecusa !== 'enviado' && <AvisoManual adesao={a} />}
+          </p>
+        ) : recusando ? (
+          <div className="space-y-2">
+            <Label htmlFor={`${a.id}-motivo`}>Motivo da recusa (o aviso ao lojista é feito por vocês)</Label>
+            <Textarea id={`${a.id}-motivo`} value={motivo} onChange={e => setMotivo(e.target.value)} rows={3} />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="destructive" onClick={recusar} disabled={pendente || motivo.trim().length < 3}>Registrar recusa</Button>
+              <Button variant="outline" onClick={() => setRecusando(false)} disabled={pendente}>Voltar</Button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={salvar} disabled={pendente}>Salvar dados</Button>
-          <Button variant="outline" className="border-destructive text-destructive" onClick={() => setRecusando(true)} disabled={pendente}>
-            Recusar…
-          </Button>
-          {a.status === 'dados_completos' && situacao !== 'assinado' && (
-            <Button variant="outline" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
-              {situacao ? 'Reenviar contrato' : 'Enviar contrato'}
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="flex-1 sm:flex-none" onClick={salvar} disabled={pendente}>Salvar dados</Button>
+            <Button variant="outline" className="flex-1 border-destructive text-destructive sm:flex-none" onClick={() => setRecusando(true)} disabled={pendente}>
+              Recusar…
             </Button>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {envioTravado && a.status === 'dados_completos'
-              ? 'Envio travado até os termos do contrato serem confirmados'
-              : alterado && a.status === 'dados_completos'
-              ? 'Salve os dados antes de enviar o contrato'
-              : faltam.length ? `Faltam ${faltam.length} campo(s) para o contrato` : 'Pronto para o contrato'}
-          </span>
-          {a.contrato && situacao && (
-            <p className="w-full text-xs text-muted-foreground">
-              {situacao === 'assinado' && a.contrato.assinadoEm
-                ? `Assinado em ${data(a.contrato.assinadoEm)}`
-                : situacao === 'nao_entregue'
-                  ? `O e-mail para ${a.email} falhou em ${data(a.contrato.criadoEm)}. Confira o e-mail, salve e reenvie.`
-                  : `Enviado em ${data(a.contrato.criadoEm)} para ${a.email}`}
-            </p>
-          )}
-        </div>
-      )}
+            {a.status === 'dados_completos' && situacao !== 'assinado' && (
+              <Button variant="outline" className="flex-1 sm:flex-none" onClick={enviarContrato} disabled={pendente || alterado || envioTravado}>
+                {situacao ? 'Reenviar contrato' : 'Enviar contrato'}
+              </Button>
+            )}
+            <span className="w-full text-xs text-muted-foreground sm:w-auto">
+              {envioTravado && a.status === 'dados_completos'
+                ? 'Envio travado até os termos do contrato serem confirmados'
+                : alterado && a.status === 'dados_completos'
+                ? 'Salve os dados antes de enviar o contrato'
+                : faltam.length ? `Faltam ${faltam.length} campo(s) para o contrato` : 'Pronto para o contrato'}
+            </span>
+            {a.contrato && situacao && (
+              <p className="w-full text-xs text-muted-foreground">
+                {situacao === 'assinado' && a.contrato.assinadoEm
+                  ? `Assinado em ${data(a.contrato.assinadoEm)}`
+                  : situacao === 'nao_entregue'
+                    ? `O e-mail para ${a.email} falhou em ${data(a.contrato.criadoEm)}. Confira o e-mail, salve e reenvie.`
+                    : `Enviado em ${data(a.contrato.criadoEm)} para ${a.email}`}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -374,7 +438,7 @@ function GrupoVinculado({ adesao: a, grupos }: { adesao: AdesaoLinha; grupos: Gr
   }
 
   return (
-    <div className="border-t pt-4 space-y-1">
+    <div className="space-y-1">
       <Label htmlFor={`${a.id}-grupo`}>Grupo no MOVA</Label>
       {/* select nativo: o value é o id do grupo, e o Select do design system mostraria o UUID. */}
       <select

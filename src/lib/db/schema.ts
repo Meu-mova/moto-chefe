@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique,
+  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique, uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
@@ -32,6 +32,14 @@ export const tipoPessoaEnum = pgEnum('tipo_pessoa', ['fisica', 'juridica'])
 export const sexoEnum = pgEnum('sexo', ['masculino', 'feminino', 'nao_identificado'])
 export const demandaStatusEnum = pgEnum('demanda_status', ['aberta', 'atendida'])
 export const tipoCorrespondenciaPixEnum = pgEnum('tipo_correspondencia_pix', ['venda', 'os', 'pedido', 'peca'])
+
+// ─── contas ──────────────────────────────────────────────────────────────────
+// O cliente do MOVA, acima do grupo (ADR-0018): uma Conta tem um ou mais grupos.
+export const contas = pgTable('contas', {
+  id:       uuid('id').primaryKey().defaultRandom(),
+  nome:     text('nome').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
 
 // ─── grupos ──────────────────────────────────────────────────────────────────
 export const grupos = pgTable('grupos', {
@@ -67,6 +75,26 @@ export const grupos = pgTable('grupos', {
   // A 1ª mensalidade vence 30 dias depois disto (contrato 4.1). Gravado uma vez,
   // no primeiro acesso de quem não é admin_geral: a implantação não conta.
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
+  // Destino do "Enviar ao contador" em Notas Emitidas (#402); cada CNPJ tem o seu.
+  emailContador:      text('email_contador'),
+  contaId:            uuid('conta_id').notNull().references(() => contas.id),
+})
+
+// ─── log_acoes ────────────────────────────────────────────────────────────────
+// Acessos e ações sensíveis, 12 meses (#198). Gravar só por src/lib/log-acoes.ts.
+export const logAcoes = pgTable('log_acoes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  contaId:   uuid('conta_id').references(() => contas.id),
+  grupoId:   uuid('grupo_id').references(() => grupos.id),
+  // Sem FK de propósito: o log sobrevive à exclusão do usuário (0136).
+  usuarioId: uuid('usuario_id').notNull(),
+  /** Ver TIPOS_LOG em @/lib/log-acoes (check log_acoes_tipo_check no banco). */
+  tipo:      text('tipo').notNull(),
+  detalhe:   jsonb('detalhe').$type<Record<string, unknown>>(),
+  ip:        text('ip'),
+  userAgent: text('user_agent'),
+  dia:       date('dia').notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── pedidos_fabrica_alerta ──────────────────────────────────────────────────
@@ -149,6 +177,8 @@ export const usuarios = pgTable('usuarios', {
   // Inativo continua no sistema (histórico intacto), mas some dos relatórios de
   // vendedor e do 1-a-1. Ver /admin/usuarios e queries/individual.
   ativo: boolean('ativo').notNull().default(true),
+  // Conta de origem (ADR-0018). Nula só para admin_geral, que é da plataforma.
+  contaId: uuid('conta_id').references(() => contas.id),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────
@@ -177,7 +207,18 @@ export const modelos = pgTable('modelos', {
   velocidadeMax: text('velocidade_max').notNull(),
   precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
+  // Nulo = catálogo da plataforma; preenchido = modelo só daquela Conta (#321).
+  contaId: uuid('conta_id').references(() => contas.id),
 })
+
+// ─── conta_marcas ────────────────────────────────────────────────────────────
+// Marcas que a Conta enxerga nas listas de escolha (#287). Sem linha = todas.
+export const contaMarcas = pgTable('conta_marcas', {
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  marca: text('marca').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contaId, t.marca] }),
+}))
 
 // ─── modelo_bling_codigos (código do produto Bling por modelo + grupo) ───────
 export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
@@ -190,13 +231,16 @@ export const modeloBlingCodigos = pgTable('modelo_bling_codigos', {
 
 // ─── modelo_apelidos (nomes que as notas usam e o catalogo nao conhece) ───
 // O infCpl da LAIOUNS chama o DRIFT CAR de "DRIFT" e o PATINETE G5 de "G5".
-// Sem de-para o chassi nao acha a ficha fiscal do item. O apelido e a PK: um
-// apelido nunca pode apontar para dois modelos.
+// Sem de-para o chassi nao acha a ficha fiscal do item. Dentro da Conta (e entre os
+// da plataforma) um apelido nunca aponta para dois modelos.
 export const modeloApelidos = pgTable('modelo_apelidos', {
-  apelido:  text('apelido').primaryKey(),
+  apelido:  text('apelido').notNull(),
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id, { onDelete: 'cascade' }),
+  // Repete a Conta do modelo: o apelido é único dentro dela (#321).
+  contaId:  uuid('conta_id').references(() => contas.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+// O índice real é NULLS NOT DISTINCT (0143); o IndexBuilder do Drizzle não declara isso.
+}, t => [uniqueIndex('modelo_apelidos_conta_apelido_key').on(t.contaId, t.apelido)])
 
 // ─── notagateway_config (credencial da emissao propria, por grupo) ───────
 // Token cifrado como o certificado A1. empresaId vem do cadastro na API e e
@@ -207,7 +251,10 @@ export const modeloApelidos = pgTable('modelo_apelidos', {
 // recente que cria notas_fiscais_saida_uma_viva_idx).
 export const notasFiscaisSaida = pgTable('notas_fiscais_saida', {
   id:           uuid('id').primaryKey().defaultRandom(),
-  vendaId:      uuid('venda_id').notNull(),
+  /** Nulo depois que a venda é cancelada: a NF fica como histórico (#347). */
+  vendaId:      uuid('venda_id'),
+  /** Número da venda, que continua identificando a NF depois do cancelamento. */
+  vendaNumero:  integer('venda_numero').notNull(),
   grupoId:      uuid('grupo_id').notNull(),
   idExterno:    text('id_externo').notNull().unique(),
   ambiente:     text('ambiente').notNull(),
@@ -279,6 +326,9 @@ export const notagatewayConfig = pgTable('notagateway_config', {
   proximoNumero:        integer('proximo_numero').notNull().default(1),
   certificadoEnviadoEm: timestamp('certificado_enviado_em', { withTimezone: true }),
   atualizadoEm:         timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  logoEnviadaEm:        timestamp('logo_enviada_em', { withTimezone: true }),
+  logoEnviadaPor:       uuid('logo_enviada_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  siteDanfe:            text('site_danfe'),
 })
 
 // ─── regras_fiscais_saida (o que a NOSSA nota leva, por grupo) ──────────
@@ -503,7 +553,8 @@ export const origensVenda = pgTable('origens_venda', {
 // ─── aprovacoes_venda ────────────────────────────────────────────────────────
 // origem distingue o que está pendente de aprovação: 'moto' (fluxo original — venda
 // ainda não existe, só é criada quando aprovada), 'os' (a OS já existe, fica retida sem
-// o pagamento aplicado) ou 'peca' (venda de peça ainda não existe, mesmo padrão de moto).
+// o pagamento aplicado), 'peca' (venda de peça ainda não existe, mesmo padrão de moto) ou
+// 'peca_edicao' (a venda de peça existe; a edição guardada em dados_venda só é aplicada na aprovação).
 export const aprovacoesVenda = pgTable('aprovacoes_venda', {
   id: uuid('id').primaryKey().defaultRandom(),
   origem: text('origem').notNull().default('moto'),
@@ -625,15 +676,17 @@ export const agendamentos = pgTable('agendamentos', {
 // ─── veiculos_historico ───────────────────────────────────────────────────────
 export const veiculosHistorico = pgTable('veiculos_historico', {
   id:           uuid('id').primaryKey().defaultRandom(),
-  chassi:       text('chassi').notNull().unique(),
+  chassi:       text('chassi').notNull(),
   numeroMotor:  text('numero_motor'),
   marca:        text('marca').notNull().default(''),
   modelo:       text('modelo').notNull().default(''),
   cor:          text('cor'),
   ano:          integer('ano'),
   nfEntrada:    text('nf_entrada'),
+  // Conta que importou (#325): cada Conta só vê o próprio histórico.
+  contaId:      uuid('conta_id').notNull().references(() => contas.id),
   importadoEm:  timestamp('importado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+}, t => [uniqueIndex('veiculos_historico_conta_chassi_key').on(t.contaId, t.chassi)])
 
 // ─── servicos_catalogo ─────────────────────────────────────────────────────────
 export const servicosCatalogo = pgTable('servicos_catalogo', {
@@ -655,7 +708,19 @@ export const pecasCatalogo = pgTable('pecas_catalogo', {
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Catálogo da Conta: as lojas dela compartilham, as outras Contas não veem (#195).
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
 })
+
+// ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
+export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
+  pecaId: uuid('peca_id').notNull().references(() => pecasCatalogo.id),
+  lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  quantidade: integer('quantidade').notNull().default(0),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.pecaId, t.lojaId] }),
+}))
 
 // ─── vendas_pecas (venda de peças e acessórios — não emite nota fiscal) ───────
 export const vendasPecas = pgTable('vendas_pecas', {
@@ -1112,7 +1177,7 @@ export const clientes = pgTable('clientes', {
   id: uuid('id').primaryKey().defaultRandom(),
   nome: text('nome').notNull(),
   tipoPessoa: tipoPessoaEnum('tipo_pessoa').notNull().default('fisica'),
-  cpfCnpj: text('cpf_cnpj').unique(),
+  cpfCnpj: text('cpf_cnpj'),
   sexo: sexoEnum('sexo').notNull().default('nao_identificado'),
   email: text('email'),
   celular: text('celular'),
@@ -1127,7 +1192,9 @@ export const clientes = pgTable('clientes', {
   inscricaoEstadual: text('inscricao_estadual'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+  // Conta dona do cliente (ADR-0018): cada Conta só vê os próprios compradores.
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+}, t => [unique('clientes_conta_cpf_cnpj_key').on(t.contaId, t.cpfCnpj)])
 
 // ─── simulador_precos ─────────────────────────────────────────────────────────
 export const simuladorPrecos = pgTable('simulador_precos', {
@@ -1655,10 +1722,11 @@ export const adesoesMova = pgTable('adesoes_mova', {
   responsavel: text('responsavel').notNull(),
   celular: text('celular').notNull(),
   cnpjArquivoPath: text('cnpj_arquivo_path').notNull(),
-  certArquivo: text('cert_arquivo').notNull(),
-  certSenha: text('cert_senha').notNull(),
+  // Os três segredos ficam nulos depois de aplicados no grupo e na loja (#292).
+  certArquivo: text('cert_arquivo'),
+  certSenha: text('cert_senha'),
   storeLogin: text('store_login').notNull(),
-  storeSenha: text('store_senha').notNull(),
+  storeSenha: text('store_senha'),
   usuarios: jsonb('usuarios').$type<{ nome: string; email: string; papel: string }[]>().notNull(),
   status: text('status').$type<StatusAdesao>().notNull().default('pendente'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
@@ -1682,6 +1750,16 @@ export const adesoesMova = pgTable('adesoes_mova', {
   // Grupo que esta adesão gerou: a mensalidade dele sai daqui (#207). Um grupo,
   // uma adesão (índice único parcial na 0127).
   grupoId: uuid('grupo_id').references(() => grupos.id),
+  // Endereço da sede em campos (#292); endereco_sede é a linha montada deles.
+  sedeCep: text('sede_cep'),
+  sedeLogradouro: text('sede_logradouro'),
+  sedeNumero: text('sede_numero'),
+  sedeComplemento: text('sede_complemento'),
+  sedeBairro: text('sede_bairro'),
+  sedeCidade: text('sede_cidade'),
+  sedeUf: text('sede_uf'),
+  certificadoAplicadoEm: timestamp('certificado_aplicado_em', { withTimezone: true }),
+  portalAplicadoEm: timestamp('portal_aplicado_em', { withTimezone: true }),
 })
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────

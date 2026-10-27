@@ -1,9 +1,11 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { pagamentosFecham, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente } from '@/lib/documento'
 
@@ -87,7 +89,11 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   // Não-admins só criam na própria loja
   const effectiveLojaId = ADMINS.includes(usuario.papel) ? dados.lojaId : usuario.lojaId
   if (!effectiveLojaId) throw new Error('Usuário sem loja associada')
+  if (!(await podeAgirNaLoja(usuario, effectiveLojaId))) throw new Error('Sem permissão para esta loja')
   if (!dados.modelo.trim() || !dados.cor.trim()) throw new Error('Modelo e cor são obrigatórios')
+  if (dados.modeloId && !(await modeloUsavelNaLoja(effectiveLojaId, dados.modeloId))) {
+    throw new Error('Modelo não encontrado')
+  }
 
   const base = {
     modelo: dados.modelo.trim(),
@@ -121,11 +127,17 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   return { id: row.id }
 }
 
+async function exigirDemandaNoEscopo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>, demandaId: string) {
+  const [demanda] = await db.select({ lojaId: demandas.lojaId }).from(demandas).where(eq(demandas.id, demandaId)).limit(1)
+  if (!demanda || !(await podeAgirNaLoja(usuario, demanda.lojaId))) throw new Error('Demanda não encontrada')
+}
+
 export async function darBaixaAction(demandaId: string) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) {
     throw new Error('Sem permissão para dar baixa')
   }
+  await exigirDemandaNoEscopo(usuario, demandaId)
   await db.delete(demandas).where(eq(demandas.id, demandaId))
   revalidatePath('/demandas')
 }
@@ -137,10 +149,7 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
 
   const [demanda] = await db.select({ lojaId: demandas.lojaId, sinalRecebido: demandas.sinalRecebido, numero: demandas.numero })
     .from(demandas).where(eq(demandas.id, demandaId)).limit(1)
-  if (!demanda) throw new Error('Demanda não encontrada')
-  if (!ADMINS.includes(usuario.papel) && demanda.lojaId !== usuario.lojaId) {
-    throw new Error('Sem permissão para essa loja')
-  }
+  if (!demanda || !(await podeAgirNaLoja(usuario, demanda.lojaId))) throw new Error('Demanda não encontrada')
 
   validarSnapshot(sinal)
   const principal = validarSinal(sinal)
@@ -164,6 +173,7 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
 export async function desmarcarSinalDemandaAction(demandaId: string) {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão para desmarcar o sinal')
+  await exigirDemandaNoEscopo(usuario, demandaId)
 
   await db.update(demandas)
     .set({ sinalRecebido: false })

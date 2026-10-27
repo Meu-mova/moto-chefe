@@ -4,10 +4,14 @@ import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, listarTodasLojasAtivas } from '@/lib/grupo'
+import { listarLojasAtivasDaConta } from '@/lib/conta'
+import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
-import { modelos, usuarios, precificacao, configuracaoTaxas } from '@/lib/db/schema'
+import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -28,9 +32,13 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   // Rota do PAI: a tabela não tem item por id.
   if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
 
+  // Moto de grupo que o usuário não vê: 404, como id inexistente (não revela que existe).
   if (!moto) notFound()
-
-  const grupoIdDaMoto = await getGrupoIdDaLoja(moto.lojaId)
+  const [podeAbrir, grupoIdDaMoto] = await Promise.all([
+    podeAbrirRegistroDaLoja(usuario, moto.lojaId),
+    getGrupoIdDaLoja(moto.lojaId),
+  ])
+  if (!podeAbrir) notFound()
   const podeAprovarValorMinimo = await podeAprovarVendaBaixoValor(usuario, moto.lojaId)
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNaLoja(usuario, moto.lojaId)
   const tipoAprovacaoPendente = (moto.aprovacaoPendenteTipo ?? 'valor_minimo') as 'valor_minimo' | 'pagamento_sensivel'
@@ -39,13 +47,15 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
 
   const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')),
+    listarUsuariosDoGrupo(grupoIdDaMoto, { papeis: ['mecanico'] }),
     listarLojasDoGrupoAtivo(usuario),
     // Igual a /transferencias e /estoque: destino do botão "Transferir" inclui todos
     // os grupos só pra quem tem a exceção; lojasOpts (filtro/editar) segue por grupo.
-    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+    acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
+    listarUsuariosDoGrupo(grupoIdDaMoto),
+    // O modelo atual da moto fica na lista mesmo se a marca estiver escondida para a Conta.
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)).then(lista =>
+      lista.some(m => m.id === moto.modeloId) || !moto.modeloId ? lista : [...lista, { id: moto.modeloId, modelo: moto.modelo }]),
     db.select({ valorMinimo: precificacao.valorMinimo })
       .from(precificacao)
       .where(and(eq(precificacao.nome, moto.modelo), eq(precificacao.ativo, true), eq(precificacao.grupoId, grupoIdDaMoto)))
@@ -103,25 +113,25 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             )}
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">Chassi</span><span className="font-mono text-xs">{moto.chassi}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Status</span><Badge>{statusLabel[moto.status as Status] ?? moto.status}</Badge></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Chassi</span><span className="font-mono text-xs">{moto.chassi}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Status</span><Badge>{statusLabel[moto.status as Status] ?? moto.status}</Badge></div>
             {moto.disponibilidade && (
-              <div className="flex justify-between"><span className="text-slate-500">Disponibilidade</span><Badge variant="outline">{disponibilidadeLabel[moto.disponibilidade as Disponibilidade] ?? moto.disponibilidade}</Badge></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Disponibilidade</span><Badge variant="outline">{disponibilidadeLabel[moto.disponibilidade as Disponibilidade] ?? moto.disponibilidade}</Badge></div>
             )}
-            <div className="flex justify-between"><span className="text-slate-500">Loja</span><span>{moto.lojaNome}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Cor</span><span>{moto.cor}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Categoria</span><span>{moto.categoria}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Potência</span><span>{moto.potenciaW}W</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Motor</span><span>{moto.motor}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Loja</span><span>{moto.lojaNome}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cor</span><span>{moto.cor}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Categoria</span><span>{moto.categoria}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{moto.potenciaW}W</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Motor</span><span>{moto.motor}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
             {moto.precoCompra && ['admin_geral', 'admin_socio'].includes(usuario.papel) && (
-              <div className="flex justify-between"><span className="text-slate-500">Preço de Compra</span><span className="font-medium text-green-700">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Preço de Compra</span><span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
             )}
             {moto.dataMontagem && (
-              <div className="flex justify-between"><span className="text-slate-500">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
             )}
             {moto.mecanicoNome && (
-              <div className="flex justify-between"><span className="text-slate-500">Mecânico</span><span>{moto.mecanicoNome}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Mecânico</span><span>{moto.mecanicoNome}</span></div>
             )}
           </CardContent>
         </Card>
@@ -165,28 +175,28 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         </TabsList>
         <TabsContent value="historico">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <HistoricoTab motoId={moto.id} notaFiscalEntrada={moto.notaFiscalEntrada} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="os">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <OSTab motoId={moto.id} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="garantias">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <GarantiasTab motoId={moto.id} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
             </Suspense>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="venda">
           <Card><CardContent className="pt-4">
-            <Suspense fallback={<p className="text-sm text-slate-400">Carregando...</p>}>
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando...</p>}>
               <VendaTab motoId={moto.id} papel={usuario.papel} />
             </Suspense>
           </CardContent></Card>

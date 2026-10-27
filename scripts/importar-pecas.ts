@@ -1,6 +1,6 @@
 /**
  * Script de importação do catálogo de peças a partir de planilha Excel.
- * Uso: npx tsx scripts/importar-pecas.ts "D:\ECOMOV\todas peças moto chefe.xlsx"
+ * Uso: npx tsx scripts/importar-pecas.ts "D:\ECOMOV\todas peças moto chefe.xlsx" --conta <id da Conta>
  *
  * Espera a aba "Produtos" com colunas: Nome | Modelo/Aplicação | Preço (núm.) | Disponibilidade
  *
@@ -9,13 +9,15 @@
  *  - Nome final = "<Nome> (<Modelo/Aplicação>)", pois o mesmo nome de peça se repete
  *    para modelos e preços diferentes na planilha.
  *  - Pula nomes finais duplicados (mesma peça + mesmo modelo aparecendo mais de uma vez)
- *    e nomes que já existem no catálogo.
+ *    e nomes que já existem no catálogo da mesma Conta.
+ *  - O catálogo é por Conta (#195): sem --conta o script não roda.
  */
 
 import * as XLSX from 'xlsx'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { pecasCatalogo } from '../src/lib/db/schema'
+import { contas, pecasCatalogo } from '../src/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import * as path from 'path'
 
 const DB_URL = process.env.DATABASE_URL!
@@ -29,8 +31,10 @@ function lerPlanilha(arquivo: string): Record<string, unknown>[] {
 
 async function main() {
   const arquivo = process.argv[2]
-  if (!arquivo) {
-    console.error('\nUso: npx tsx scripts/importar-pecas.ts "caminho/planilha.xlsx"')
+  const iConta = process.argv.indexOf('--conta')
+  const contaId = iConta > 0 ? process.argv[iConta + 1] : undefined
+  if (!arquivo || arquivo.startsWith('--') || !contaId) {
+    console.error('\nUso: npx tsx scripts/importar-pecas.ts "caminho/planilha.xlsx" --conta <id da Conta>')
     process.exit(1)
   }
 
@@ -46,11 +50,19 @@ async function main() {
   const client = postgres(DB_URL, { prepare: false })
   const db = drizzle(client)
 
-  const existentes = await db.select({ nome: pecasCatalogo.nome }).from(pecasCatalogo)
+  const [conta] = await db.select({ nome: contas.nome }).from(contas).where(eq(contas.id, contaId)).limit(1)
+  if (!conta) {
+    console.error(`\nConta ${contaId} não encontrada.`)
+    await client.end()
+    process.exit(1)
+  }
+  console.log(`Conta de destino: ${conta.nome}`)
+
+  const existentes = await db.select({ nome: pecasCatalogo.nome }).from(pecasCatalogo).where(eq(pecasCatalogo.contaId, contaId))
   const nomesExistentes = new Set(existentes.map(p => p.nome))
 
   const vistosNestaImportacao = new Set<string>()
-  const paraInserir: { nome: string; valor: string }[] = []
+  const paraInserir: { nome: string; valor: string; contaId: string }[] = []
   let puladasDuplicadas = 0
   let puladasJaExistiam = 0
   let erros = 0
@@ -78,7 +90,7 @@ async function main() {
       }
       vistosNestaImportacao.add(nomeFinal)
 
-      paraInserir.push({ nome: nomeFinal, valor: String(preco) })
+      paraInserir.push({ nome: nomeFinal, valor: String(preco), contaId })
     } catch (err: any) {
       erros++
       console.error(`  ✖  Linha ${nLinha}: ${err.message}`)

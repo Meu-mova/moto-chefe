@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { garantias, motos, lojas, modelos } from '@/lib/db/schema'
-import { eq, and, ilike, desc, gte, lte, isNull, isNotNull } from 'drizzle-orm'
+import { eq, and, ilike, desc, gte, lte, isNull, isNotNull, inArray } from 'drizzle-orm'
 
 const CAMPOS_SELECT = {
   id: garantias.id,
@@ -26,8 +26,10 @@ const CAMPOS_SELECT = {
 
 export type GarantiaComDetalhes = Awaited<ReturnType<typeof listarGarantias>>[0]
 
-export async function listarGarantias(filtros?: {
-  lojaId?: string
+// lojaIds é obrigatório: é o escopo de quem consulta (lojas do grupo ativo, ou a própria
+// loja). Lista vazia não traz nada; nunca a base toda (#328).
+export async function listarGarantias(filtros: {
+  lojaIds: string[]
   status?: string
   chassiBusca?: string
   numeroPedidoFabrica?: string
@@ -40,7 +42,7 @@ export async function listarGarantias(filtros?: {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(garantias.lojaId, lojas.id))
     .where(and(
-      filtros?.lojaId             ? eq(garantias.lojaId, filtros.lojaId)                                    : undefined,
+      inArray(garantias.lojaId, filtros.lojaIds),
       filtros?.status             ? eq(garantias.status, filtros.status as any)                             : undefined,
       filtros?.chassiBusca?.trim()
         ? ilike(motos.chassi, `%${filtros.chassiBusca.trim()}%`)                                            : undefined,
@@ -52,7 +54,7 @@ export async function listarGarantias(filtros?: {
 }
 
 export async function exportarRelatorioGarantias(filtros: {
-  lojaId?: string
+  lojaIds: string[]
   status?: string
   modeloId?: string
   statusFabrica?: string
@@ -83,7 +85,7 @@ export async function exportarRelatorioGarantias(filtros: {
     .innerJoin(modelos, eq(motos.modeloId,       modelos.id))
     .innerJoin(lojas,   eq(garantias.lojaId,     lojas.id))
     .where(and(
-      filtros.lojaId      ? eq(garantias.lojaId, filtros.lojaId)                          : undefined,
+      inArray(garantias.lojaId, filtros.lojaIds),
       filtros.status      ? eq(garantias.status, filtros.status as any)                   : undefined,
       filtros.modeloId    ? eq(motos.modeloId, filtros.modeloId)                          : undefined,
       filtros.statusFabrica === '__sem'
@@ -95,15 +97,6 @@ export async function exportarRelatorioGarantias(filtros: {
       filtros.dataFim     ? lte(garantias.dataInicio, filtros.dataFim)                    : undefined,
     ))
     .orderBy(desc(garantias.dataInicio))
-}
-
-// Compat wrappers usados em outros lugares
-export async function listarGarantiasPorLoja(lojaId: string) {
-  return listarGarantias({ lojaId })
-}
-
-export async function listarTodasGarantias() {
-  return listarGarantias()
 }
 
 export async function listarGarantiasPorMoto(motoId: string) {

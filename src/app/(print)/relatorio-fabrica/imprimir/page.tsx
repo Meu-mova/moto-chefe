@@ -29,7 +29,7 @@ export default async function RelatorioFabricaImprimirPage({
     <>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Geist', -apple-system, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+        .tema-claro { font-family: 'Geist', -apple-system, Arial, sans-serif; background: var(--muted); color: var(--foreground); }
 
         .page-wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
 
@@ -37,69 +37,69 @@ export default async function RelatorioFabricaImprimirPage({
         .btn {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: 500;
-          cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff;
-          color: #334155; text-decoration: none;
+          cursor: pointer; border: 1.5px solid var(--border); background: var(--card);
+          color: var(--foreground); text-decoration: none;
         }
-        .btn:hover { background: #f1f5f9; }
-        .btn-primary { background: #1e293b; color: #fff; border-color: #1e293b; }
-        .btn-primary:hover { background: #334155; }
+        .btn:hover { background: var(--muted); }
+        .btn-primary { background: var(--foreground); color: var(--card); border-color: var(--foreground); }
+        .btn-primary:hover { background: var(--foreground); }
 
         /* Cabeçalho */
         .report-header {
           display: flex; justify-content: space-between; align-items: flex-start;
-          padding-bottom: 20px; border-bottom: 3px solid #1e293b; margin-bottom: 20px;
+          padding-bottom: 20px; border-bottom: 3px solid var(--foreground); margin-bottom: 20px;
         }
         .brand { display: flex; align-items: center; gap: 14px; }
         .brand-icon { height: 48px; width: auto; object-fit: contain; }
-        .brand-name { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-        .brand-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .brand-name { font-size: 20px; font-weight: 700; color: var(--foreground); line-height: 1.2; }
+        .brand-sub { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
         .report-meta { text-align: right; }
-        .report-title { font-size: 18px; font-weight: 700; color: #0f172a; }
-        .report-date { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .report-title { font-size: 18px; font-weight: 700; color: var(--foreground); }
+        .report-date { font-size: 12px; color: var(--muted-foreground); margin-top: 4px; }
 
         /* Período */
         .period-row {
-          background: #f1f5f9; border-radius: 8px; padding: 10px 16px;
-          font-size: 12px; color: #475569; margin-bottom: 20px;
+          background: var(--muted); border-radius: 8px; padding: 10px 16px;
+          font-size: 12px; color: var(--muted-foreground); margin-bottom: 20px;
           display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
-        .period-label { font-weight: 600; color: #334155; }
+        .period-label { font-weight: 600; color: var(--foreground); }
 
         /* Cards de resumo */
         .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
-        .summary-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; }
-        .summary-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; }
-        .summary-card-value { font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px; line-height: 1; }
-        .summary-card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-        .summary-card.valor .summary-card-value { color: #15803d; font-size: 22px; }
+        .summary-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+        .summary-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); font-weight: 600; }
+        .summary-card-value { font-size: 26px; font-weight: 700; color: var(--foreground); margin-top: 4px; line-height: 1; }
+        .summary-card-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 4px; }
+        .summary-card.valor .summary-card-value { color: var(--success); font-size: 22px; }
 
         /* Bloco por loja */
-        .loja-block { border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+        .loja-block { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
         .loja-head {
           display: flex; justify-content: space-between; align-items: center;
-          padding: 12px 16px; background: #1e293b; color: #fff;
+          padding: 12px 16px; background: var(--foreground); color: var(--card);
         }
         .loja-nome { font-size: 14px; font-weight: 700; letter-spacing: 0.01em; }
-        .loja-totais { font-size: 12px; color: #cbd5e1; }
-        .loja-totais strong { color: #fff; }
+        .loja-totais { font-size: 12px; color: var(--border); }
+        .loja-totais strong { color: var(--card); }
 
         table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         thead th {
-          background: #f8fafc; color: #475569; text-align: left;
+          background: var(--muted); color: var(--muted-foreground); text-align: left;
           padding: 8px 16px; font-size: 10.5px; font-weight: 600;
           text-transform: uppercase; letter-spacing: 0.05em;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--border);
         }
         thead th.num { text-align: right; }
-        tbody tr { border-bottom: 1px solid #f1f5f9; }
+        tbody tr { border-bottom: 1px solid var(--muted); }
         tbody tr:last-child { border-bottom: none; }
-        tbody tr:nth-child(even) { background: #f8fafc; }
-        td { padding: 8px 16px; vertical-align: middle; color: #334155; }
+        tbody tr:nth-child(even) { background: var(--muted); }
+        td { padding: 8px 16px; vertical-align: middle; color: var(--foreground); }
         td.num { text-align: right; font-variant-numeric: tabular-nums; }
-        td .marca { color: #94a3b8; font-size: 11px; margin-left: 4px; }
+        td .marca { color: var(--muted-foreground); font-size: 11px; margin-left: 4px; }
         tfoot td {
-          padding: 9px 16px; font-weight: 700; color: #0f172a;
-          border-top: 2px solid #e2e8f0; background: #f1f5f9;
+          padding: 9px 16px; font-weight: 700; color: var(--foreground);
+          border-top: 2px solid var(--border); background: var(--muted);
         }
         tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -107,27 +107,27 @@ export default async function RelatorioFabricaImprimirPage({
         .total-geral {
           display: flex; justify-content: space-between; align-items: center;
           margin-top: 8px; padding: 14px 18px; border-radius: 12px;
-          background: #0f172a; color: #fff;
+          background: var(--foreground); color: var(--card);
         }
         .total-geral-label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
         .total-geral-nums { display: flex; gap: 28px; align-items: baseline; }
-        .total-geral-qtd { font-size: 14px; color: #cbd5e1; }
-        .total-geral-qtd strong { color: #fff; font-size: 18px; }
+        .total-geral-qtd { font-size: 14px; color: var(--border); }
+        .total-geral-qtd strong { color: var(--card); font-size: 18px; }
         .total-geral-valor { font-size: 22px; font-weight: 700; }
 
-        .empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 14px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; }
+        .empty { text-align: center; padding: 60px 20px; color: var(--muted-foreground); font-size: 14px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card); }
 
         .report-footer {
-          margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0;
-          font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px;
+          margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border);
+          font-size: 11px; color: var(--muted-foreground); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px;
         }
 
         /* Print overrides */
         @media print {
-          body { background: #fff !important; }
+          .tema-claro { background: var(--card) !important; }
           .actions-bar { display: none !important; }
           .page-wrap { padding: 0; max-width: 100%; }
-          .loja-block, .summary-card { border: 1px solid #e2e8f0 !important; }
+          .loja-block, .summary-card { border: 1px solid var(--border) !important; }
           .loja-block { break-inside: avoid; page-break-inside: avoid; }
           .loja-head, .total-geral { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           thead th, tbody tr:nth-child(even), tfoot td, .summary-card.valor, .period-row {

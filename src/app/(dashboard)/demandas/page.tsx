@@ -4,7 +4,8 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { db } from '@/lib/db'
 import { demandas, lojas, usuarios, modelos, motos } from '@/lib/db/schema'
 import { eq, inArray, and, desc, asc } from 'drizzle-orm'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
 import { DemandasFiltros } from './components/demandas-filtros'
@@ -44,9 +45,9 @@ export default async function DemandasPage({
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Demandas</h1>
-          <p className="text-slate-500 text-sm">Pedidos de motos que não estão no estoque</p>
+          <p className="text-muted-foreground text-sm">Pedidos de motos que não estão no estoque</p>
         </div>
-        <p className="text-sm text-slate-400 text-center py-12">
+        <p className="text-sm text-muted-foreground text-center py-12">
           Seu usuário não está vinculado a nenhuma loja.
         </p>
       </div>
@@ -80,10 +81,7 @@ export default async function DemandasPage({
       .innerJoin(usuarios, eq(demandas.solicitanteId, usuarios.id))
       .where(where)
       .orderBy(desc(demandas.sinalRecebido), asc(demandas.criadoEm)),
-    db
-      .select({ id: modelos.id, marca: modelos.marca, modelo: modelos.modelo })
-      .from(modelos)
-      .orderBy(asc(modelos.marca), asc(modelos.modelo)),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     // Opções do filtro: só os modelos que têm demanda aberta no escopo do usuário.
     // Ignora o filtro de modelo/loja de propósito — senão a lista encolhe e trava
     // a seleção de um segundo modelo.
@@ -101,7 +99,7 @@ export default async function DemandasPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Demandas</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           Pedidos de motos que não estão no estoque
         </p>
       </div>

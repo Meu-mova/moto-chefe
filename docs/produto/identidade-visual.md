@@ -86,6 +86,10 @@ Paleta 1 (neutro frio + verde da marca):
 | `primary-press` | botão principal pressionado ou enviando | `#024d33` | `#1fc684` |
 | `primary-glow` | sombra do botão no hover (decorativa) | `#047a4f` a 35% | `#2ee09a` a 35% |
 | `warning` | texto e ícone de alerta; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#8a5300` | `#ffc861` |
+| `success` | texto e ícone de sucesso (pago, concluído); mesmo verde do `primary-text`; fundo como o de `warning` | `#036443` | `#4ee8a8` |
+| `info` | texto e ícone informativo (em andamento, aviso neutro); fundo como o de `warning` | `#1d4ed8` | `#8ab4ff` |
+| `assinatura-quadro` / `assinatura-tinta` | quadro e traço da assinatura do cliente; iguais nos dois temas, porque o traço vira PNG do contrato impresso | `#f8fafc` / `#0f172a` | `#f8fafc` / `#0f172a` |
+| `camera-fundo` | tarja em volta do vídeo da câmera (selfie da assinatura); igual nos dois temas | `#000000` | `#000000` |
 | `destructive` | texto e ícone de erro/pendência; fundo = a mesma cor a 10% (claro) ou 20% (escuro) | `#b42318` | `#ff8a80` |
 
 O verde do botão no claro (`#047a4f`) é mais escuro que o verde do logo de propósito: o verde do
@@ -118,14 +122,71 @@ Medido com a fórmula de luminância do WCAG sobre os valores acima:
 | `destructive` / `card` | 6.57 | 7.61 | 4.5 |
 | `destructive` / fundo de erro (sobre `card`) | 5.57 | 5.34 | 4.5 |
 | `destructive` / fundo de erro (sobre `background`, claro) | 5.16 | — | 4.5 |
+| `success` / `card` | 7.22 | 11.12 | 4.5 |
+| `success` / `background` | 6.67 | 12.04 | 4.5 |
+| `success` / fundo de sucesso (sobre `card`) | 6.20 | 6.92 | 4.5 |
+| `info` / `card` | 6.70 | 8.32 | 4.5 |
+| `info` / `background` | 6.19 | 9.01 | 4.5 |
+| `info` / fundo informativo (sobre `card`) | 5.72 | 5.54 | 4.5 |
+| `assinatura-tinta` / `assinatura-quadro` | 17.06 | 17.06 | 3 |
 | `input` / `card` | 3.50 | 3.67 | 3 |
 | `input` / `background` | 3.23 | 3.98 | 3 |
 | `primary` (foco) / `card` | 5.38 | 10.13 | 3 |
+| `brand-instagram` / `card` | 3.85 | 4.52 | — (logo) |
+| `brand-whatsapp` / `card` | 1.98 | 8.76 | — (logo) |
+| `brand-facebook` / `card` | 4.82 | 3.60 | — (logo) |
+| `brand-telegram` / `card` | 2.77 | 6.28 | — (logo) |
 
 Cor nova só entra nesta tabela com o par medido.
 
+`brand-*` é a cor oficial de cada marca (Simple Icons), igual nos dois temas, só para o logo do canal
+(`src/components/marca-canal.tsx`). O logo sai sempre ao lado do nome do canal escrito, então não
+carrega informação sozinho e fica fora do 3:1 do 1.4.11; WhatsApp e Telegram no claro ficam abaixo
+disso. Logo de marca nunca vira texto nem controle sem o nome ao lado.
+
+### Cor do grupo (barra do grupo ativo e selo)
+
+Cada grupo escolhe uma cor (`src/lib/grupo-cores.ts`); os valores ficam em `--grupo-*` no
+`globals.css`. No claro, os tons do Tailwind de antes; no escuro, barra no tom 800 e texto claro
+na cor (decisão do Luis no protótipo de 2026-10-24, #90). Texto da barra e do selo, mínimo 4.5:
+
+| Grupo | barra / texto (claro) | barra / texto (escuro) | selo (claro) | selo (escuro) |
+|---|---|---|---|---|
+| `emerald` | 3.48 ⚠ | 4.61 | 6.68 | 6.29 |
+| `blue` | 6.26 | 6.44 | 7.25 | 5.00 |
+| `amber` | 3.08 ⚠ | 4.62 | 8.17 | 7.02 |
+| `violet` | 6.64 | 6.50 | 7.71 | 4.77 |
+| `rose` | 5.51 | 5.69 | 6.59 | 4.92 |
+| `cyan` | 5.07 | 5.79 | 6.47 | 6.57 |
+| `slate` | 9.88 | 10.92 | 13.37 | 4.96 |
+
+⚠ Verde e âmbar no claro ficam abaixo de 4.5, como já estavam: o claro não mudou nesta decisão.
+
+### Cor da categoria da agenda
+
+Cada categoria da agenda escolhe uma cor (`src/lib/calendario.ts`); os valores ficam em `--agenda-*`
+no `globals.css`. No claro, os tons do Tailwind de antes (selo 50, texto 700, borda 200, ponto 500);
+no escuro, selo 950, texto 300, borda 800, ponto 400. Texto do selo, mínimo 4.5; o ponto fica ao
+lado do nome da categoria e não carrega informação sozinho:
+
+| Cor | selo (claro) | selo (escuro) | ponto / `card` (claro) | ponto / `card` (escuro) |
+|---|---|---|---|---|
+| `rose` | 5.51 | 8.15 | 3.76 | 6.08 |
+| `pink` | 5.39 | 8.28 | 3.58 | 6.30 |
+| `orange` | 4.93 | 9.20 | 2.89 | 7.31 |
+| `amber` | 4.87 | 10.37 | 2.15 | 10.12 |
+| `emerald` | 5.09 | 9.98 | 2.46 | 8.99 |
+| `teal` | 5.17 | 9.84 | 2.42 | 9.32 |
+| `cyan` | 5.07 | 9.27 | 2.36 | 9.60 |
+| `blue` | 6.26 | 8.13 | 3.76 | 6.59 |
+| `violet` | 6.64 | 8.21 | 4.40 | 6.10 |
+| `fuchsia` | 5.84 | 8.38 | 3.53 | 6.73 |
+| `slate` | 7.23 | 13.59 | 2.63 | 6.61 |
+
 ## Tema
 
-- Padrão: **segue o sistema** (claro ou escuro, conforme o celular ou o computador).
-- Troca manual no menu do usuário: Claro / Escuro / Sistema. A escolha fica salva no navegador.
-- Impressos ficam sempre claros.
+- Padrão: **claro**, sem seguir o tema do sistema do aparelho (decisão do Luis, #90).
+- Troca manual: Claro / Escuro. No computador, no menu que abre no card do usuário; no celular, na
+  barra do grupo ativo (ou no canto da tela, para quem não troca de grupo). Páginas públicas, como o
+  login, não têm a troca. A escolha fica salva no navegador, por aparelho.
+- Impressos ficam sempre claros (`.tema-claro`, `src/app/(print)/layout.tsx`).

@@ -28,9 +28,9 @@ const ou = (v: number | null, f: (n: number) => string) => (v == null ? '—' : 
 // Variação vs. período anterior. Verde/vermelho depende do que é bom em cada
 // métrica: CPL e CAC subindo é ruim, o resto subindo é bom.
 function Variacao({ v, menorMelhor = false }: { v: number | null; menorMelhor?: boolean }) {
-  if (v == null) return <p className="text-xs text-slate-400">sem base anterior</p>
+  if (v == null) return <p className="text-xs text-muted-foreground">sem base anterior</p>
   const bom = menorMelhor ? v < 0 : v > 0
-  const cor = v === 0 ? 'text-slate-400' : bom ? 'text-green-600' : 'text-red-600'
+  const cor = v === 0 ? 'text-muted-foreground' : bom ? 'text-success' : 'text-destructive'
   return (
     <p className={`text-xs ${cor}`}>
       {v > 0 ? '▲' : v < 0 ? '▼' : '='} {fmtPct(Math.abs(v))} vs. período anterior
@@ -44,10 +44,10 @@ function Kpi({ titulo, valor, sub, variacao, menorMelhor, destaque }: {
 }) {
   return (
     <Card>
-      <CardHeader className="pb-1"><CardTitle className="text-xs text-slate-500 font-medium">{titulo}</CardTitle></CardHeader>
+      <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground font-medium">{titulo}</CardTitle></CardHeader>
       <CardContent>
         <p className={`text-2xl font-bold ${destaque ?? ''}`}>{valor}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
         {variacao !== undefined && <Variacao v={variacao} menorMelhor={menorMelhor} />}
       </CardContent>
     </Card>
@@ -89,7 +89,8 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       serieEntrada(grupo.id, de, ate, gran),
       entradaPorHorario(grupo.id, de, ate),
       motivosPerdaCoorte(grupo.id, de, ate),
-      funisNaoClassificados(de, ate),
+      // Funil sem grupo pode ser de qualquer Conta: o aviso é para quem classifica (#328).
+      usuario.papel === 'admin_geral' ? funisNaoClassificados(de, ate) : Promise.resolve([]),
       valoresAtipicos(grupo.id, de, ate),
       investimentoPorFunil(grupo.id, de, ate),
       investimentoPorFunil(grupo.id, anterior.de, anterior.ate),
@@ -118,18 +119,18 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Megaphone size={22} /> Marketing — {grupo.nome}</h1>
-          <p className="text-slate-500 text-sm">Leads de entrada por canal, conversão e retorno da verba · grupo {grupo.nome}</p>
+          <p className="text-muted-foreground text-sm">Leads de entrada por canal, conversão e retorno da verba · grupo {grupo.nome}</p>
         </div>
         <div className="flex items-center gap-3">
           {ultimaSync && (
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-muted-foreground">
               Atualizado {format(new Date(ultimaSync), "dd/MM 'às' HH:mm", { locale: ptBR })}
             </span>
           )}
-          <Link href="/admin/canais" className="inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm hover:bg-slate-50">
+          <Link href="/admin/canais" className="inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm hover:bg-muted">
             <Settings2 size={14} /> Canais e verba
           </Link>
-          <Link href={`/marketing?${qsPeriodo}&sync=1`} className="inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm hover:bg-slate-50">
+          <Link href={`/marketing?${qsPeriodo}&sync=1`} className="inline-flex items-center gap-1.5 rounded-md border px-3 h-9 text-sm hover:bg-muted">
             <RefreshCw size={14} /> Atualizar agora
           </Link>
         </div>
@@ -149,27 +150,27 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       <div className="space-y-6 pt-4">
 
       {!status.conectado && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 text-sm text-warning flex items-center gap-2">
           <AlertTriangle size={16} /> Kommo não conectado. Configure em <Link href="/admin/kommo" className="underline font-medium">Admin → Kommo</Link>.
         </div>
       )}
       {erroSync && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3 text-sm text-destructive flex items-center gap-2">
           <AlertTriangle size={16} /> Falha ao sincronizar com o Kommo: {erroSync} (mostrando os últimos dados em cache)
         </div>
       )}
 
-      <form className="flex items-end gap-3 flex-wrap bg-white border rounded-lg p-4">
+      <form className="flex items-end gap-3 flex-wrap bg-card border rounded-lg p-4">
         <div className="space-y-1">
-          <label className="text-xs text-slate-500 block">De</label>
+          <label className="text-xs text-muted-foreground block">De</label>
           <input type="date" name="de" defaultValue={de} className="h-9 rounded-md border px-2 text-sm" />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-slate-500 block">Até</label>
+          <label className="text-xs text-muted-foreground block">Até</label>
           <input type="date" name="ate" defaultValue={ate} className="h-9 rounded-md border px-2 text-sm" />
         </div>
-        <button type="submit" className="h-9 px-4 rounded-md bg-slate-900 text-white text-sm">Filtrar</button>
-        <p className="text-xs text-slate-400 ml-auto self-center">
+        <button type="submit" className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm">Filtrar</button>
+        <p className="text-xs text-muted-foreground ml-auto self-center">
           Comparando com {format(new Date(`${anterior.de}T12:00:00`), 'dd/MM')} – {format(new Date(`${anterior.ate}T12:00:00`), 'dd/MM')}
         </p>
       </form>
@@ -178,7 +179,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
         <Kpi titulo="Leads de entrada" valor={fmtN(resumo.leads)} variacao={variacaoPct(resumo.leads, resumoAnt.leads)} />
         <Kpi titulo="Ganhos" valor={fmtN(resumo.ganhos)} sub={`${fmtN(resumo.emAberto)} ainda em aberto`}
-             variacao={variacaoPct(resumo.ganhos, resumoAnt.ganhos)} destaque="text-green-600" />
+             variacao={variacaoPct(resumo.ganhos, resumoAnt.ganhos)} destaque="text-success" />
         <Kpi titulo="Conversão" valor={fmtPct(resumo.conversao)} sub="dos leads que entraram"
              variacao={variacaoPct(resumo.conversao, resumoAnt.conversao)} />
         <Kpi titulo="Faturamento" valor={fmtBRL(resumo.faturamento)} sub={`ticket ${fmtBRL(resumo.ticket)}`}
@@ -194,31 +195,31 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
 
       {/* Confiabilidade do número — vem antes de tudo */}
       {resumo.leads > 0 && (
-        <Card className={coberturaCanal < 0.8 ? 'border-amber-300' : undefined}>
+        <Card className={coberturaCanal < 0.8 ? 'border-warning/50' : undefined}>
           <CardHeader className="pb-2"><CardTitle className="text-base">Confiança do relatório</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="w-52 shrink-0 text-slate-500">Leads com canal identificado</span>
-              <div className="flex-1 bg-slate-100 rounded h-4 overflow-hidden max-w-md">
-                <div className={coberturaCanal >= 0.8 ? 'bg-green-500 h-4' : 'bg-amber-500 h-4'} style={{ width: `${Math.round(coberturaCanal * 100)}%` }} />
+              <span className="w-52 shrink-0 text-muted-foreground">Leads com canal identificado</span>
+              <div className="flex-1 bg-muted rounded h-4 overflow-hidden max-w-md">
+                <div className={coberturaCanal >= 0.8 ? 'bg-success h-4' : 'bg-warning h-4'} style={{ width: `${Math.round(coberturaCanal * 100)}%` }} />
               </div>
               <span className="tabular-nums">{fmtPct(coberturaCanal)}</span>
             </div>
             {resumo.semCanal > 0 && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 {fmtN(resumo.semCanal)} lead(s) sem canal — em geral são cadastrados à mão no Kommo (cliente que
                 aparece na loja, indicação, telefone). Aparecem como <strong>Não identificado</strong> e não devem
                 ser atribuídos a campanha.
               </p>
             )}
             {resumo.ganhosSemValor > 0 && (
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-warning">
                 <TriangleAlert size={12} className="inline mb-0.5" /> {resumo.ganhosSemValor} de {resumo.ganhos} ganhos
                 estão <strong>sem valor preenchido</strong> no Kommo — o faturamento e o ROAS acima estão subestimados.
               </p>
             )}
             {perdas.total > 0 && perdas.motivos[0]?.motivo === '(não informado)' && (
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-warning">
                 <TriangleAlert size={12} className="inline mb-0.5" /> {fmtPct(perdas.motivos[0].qtd / perdas.total)} dos
                 leads perdidos estão sem motivo informado — sem isso não dá para saber se o lead da campanha era ruim
                 ou se faltou atendimento.
@@ -230,7 +231,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
 
       {/* Valor atípico distorce faturamento e ROAS */}
       {atipicos.leads.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800 space-y-1">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3 text-sm text-destructive space-y-1">
           <p className="font-medium flex items-center gap-2">
             <AlertTriangle size={16} /> {atipicos.leads.length} lead(s) ganho(s) com valor fora de escala — provável erro de digitação no Kommo.
           </p>
@@ -254,7 +255,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
 
       {/* Funil sem grupo — lead invisível no relatório */}
       {naoClassificados.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 text-sm text-warning">
           <p className="font-medium flex items-center gap-2">
             <TriangleAlert size={16} /> {naoClassificados.length} funil(is) sem grupo definido, com{' '}
             {fmtN(naoClassificados.reduce((a, f) => a + f.leads, 0))} lead(s) no período.
@@ -271,12 +272,12 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
         <CardHeader>
           <CardTitle className="text-base">
             Entrada por canal
-            <span className="text-xs font-normal text-slate-400"> · de onde vem o lead</span>
+            <span className="text-xs font-normal text-muted-foreground"> · de onde vem o lead</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-y text-slate-500">
+            <thead className="bg-muted border-y text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Canal</th>
                 <th className="text-right px-3 py-2 font-medium">Leads</th>
@@ -289,27 +290,27 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
             </thead>
             <tbody className="divide-y">
               {canaisComLead.map(c => (
-                <tr key={String(c.sourceId)} className="hover:bg-slate-50">
+                <tr key={String(c.sourceId)} className="hover:bg-muted">
                   <td className="px-4 py-2 font-medium whitespace-nowrap">
                     {c.canal}
                     {c.sourceId != null && !c.plataforma && (
-                      <span className="ml-1 text-xs text-amber-600" title="Canal ainda não nomeado">·sem nome</span>
+                      <span className="ml-1 text-xs text-warning" title="Canal ainda não nomeado">·sem nome</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtN(c.leads)}</td>
                   <td className="px-3 py-2">
-                    <div className="bg-slate-100 rounded h-3 overflow-hidden">
-                      <div className="bg-indigo-500 h-3" style={{ width: `${Math.round(c.participacao * 100)}%` }} />
+                    <div className="bg-muted rounded h-3 overflow-hidden">
+                      <div className="bg-info h-3" style={{ width: `${Math.round(c.participacao * 100)}%` }} />
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-green-700 tabular-nums">{c.ganhos}</td>
+                  <td className="px-3 py-2 text-right text-success tabular-nums">{c.ganhos}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtPct(c.conversao)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{c.ganhos > 0 ? fmtBRL(c.ticket) : '—'}</td>
                   <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">{fmtBRL(c.faturamento)}</td>
                 </tr>
               ))}
               {canaisComLead.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Sem leads no período.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Sem leads no período.</td></tr>
               )}
             </tbody>
           </table>
@@ -321,12 +322,12 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
         <CardHeader>
           <CardTitle className="text-base">
             Entrada por loja
-            <span className="text-xs font-normal text-slate-400"> · custo e retorno</span>
+            <span className="text-xs font-normal text-muted-foreground"> · custo e retorno</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-y text-slate-500">
+            <thead className="bg-muted border-y text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Loja / funil</th>
                 <th className="text-right px-3 py-2 font-medium">Leads</th>
@@ -345,10 +346,10 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
                 const fCac = calcularCac(f.investimento, f.ganhos)
                 const fRoas = calcularRoas(f.faturamento, f.investimento)
                 return (
-                  <tr key={f.pipelineId} className="hover:bg-slate-50">
+                  <tr key={f.pipelineId} className="hover:bg-muted">
                     <td className="px-4 py-2 font-medium whitespace-nowrap">{f.funil}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtN(f.leads)}</td>
-                    <td className="px-3 py-2 text-right text-green-700 tabular-nums">{f.ganhos}</td>
+                    <td className="px-3 py-2 text-right text-success tabular-nums">{f.ganhos}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtPct(f.conversao)}</td>
                     <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmtBRL(f.faturamento)}</td>
                     <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{f.investimento > 0 ? fmtBRL(f.investimento) : '—'}</td>
@@ -359,7 +360,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
                 )
               })}
               {funis.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">Sem leads no período.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">Sem leads no período.</td></tr>
               )}
             </tbody>
           </table>
@@ -383,24 +384,24 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           <CardHeader>
             <CardTitle className="text-base">
               Onde a verba vaza
-              <span className="text-xs font-normal text-slate-400"> · lead que ninguém respondeu</span>
+              <span className="text-xs font-normal text-muted-foreground"> · lead que ninguém respondeu</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {comIncomingTotal === 0 ? (
-              <p className="text-sm text-slate-400">Sem dados de conversa no período.</p>
+              <p className="text-sm text-muted-foreground">Sem dados de conversa no período.</p>
             ) : (
               <>
                 <p className="text-sm">
-                  <strong className={semRespTotal > 0 ? 'text-red-600' : 'text-green-700'}>{fmtN(semRespTotal)}</strong>{' '}
+                  <strong className={semRespTotal > 0 ? 'text-destructive' : 'text-success'}>{fmtN(semRespTotal)}</strong>{' '}
                   de {fmtN(comIncomingTotal)} leads que mandaram mensagem ficaram <strong>sem nenhuma resposta</strong>{' '}
                   ({fmtPct(semRespTotal / comIncomingTotal)}).
                 </p>
                 {canaisComLead.filter(c => c.semResposta > 0).slice(0, 8).map(c => (
                   <div key={String(c.sourceId)} className="flex items-center gap-2 text-sm">
-                    <span className="flex-1 truncate text-slate-600">{c.canal}</span>
-                    <div className="w-24 bg-slate-100 rounded h-3 overflow-hidden">
-                      <div className="bg-red-400 h-3" style={{ width: `${Math.round((c.semResposta / Math.max(1, c.comIncoming)) * 100)}%` }} />
+                    <span className="flex-1 truncate text-muted-foreground">{c.canal}</span>
+                    <div className="w-24 bg-muted rounded h-3 overflow-hidden">
+                      <div className="bg-destructive h-3" style={{ width: `${Math.round((c.semResposta / Math.max(1, c.comIncoming)) * 100)}%` }} />
                     </div>
                     <span className="w-24 text-right shrink-0 tabular-nums text-xs">
                       {c.semResposta}/{c.comIncoming} ({fmtPct(c.semResposta / Math.max(1, c.comIncoming))})
@@ -417,18 +418,18 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           <CardHeader>
             <CardTitle className="text-base">
               Por que o lead do período foi perdido
-              <span className="text-xs font-normal text-slate-400"> · qualidade do lead</span>
+              <span className="text-xs font-normal text-muted-foreground"> · qualidade do lead</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {perdas.total === 0 ? (
-              <p className="text-sm text-slate-400">Nenhum lead do período foi perdido ainda.</p>
+              <p className="text-sm text-muted-foreground">Nenhum lead do período foi perdido ainda.</p>
             ) : (
               perdas.motivos.map(m => (
                 <div key={m.motivo} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1 truncate text-slate-600">{m.motivo}</span>
-                  <div className="w-24 bg-slate-100 rounded h-3 overflow-hidden">
-                    <div className="bg-slate-400 h-3" style={{ width: `${Math.round((m.qtd / perdas.total) * 100)}%` }} />
+                  <span className="flex-1 truncate text-muted-foreground">{m.motivo}</span>
+                  <div className="w-24 bg-muted rounded h-3 overflow-hidden">
+                    <div className="bg-muted-foreground h-3" style={{ width: `${Math.round((m.qtd / perdas.total) * 100)}%` }} />
                   </div>
                   <span className="w-16 text-right shrink-0 tabular-nums">{m.qtd}</span>
                 </div>
@@ -438,7 +439,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
         </Card>
       </div>
 
-      <div className="text-xs text-slate-400 space-y-1">
+      <div className="text-xs text-muted-foreground space-y-1">
         <p>
           <strong>Conversão por coorte:</strong> dos leads que <em>entraram</em> no período, quantos já foram ganhos.
           Venda de moto demora, então o mês corrente ainda vai amadurecer — não leia a queda do mês atual como piora.

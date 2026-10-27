@@ -4,6 +4,8 @@ import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, rese
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { motoNaoVendida } from './showroom'
+import { lojasDaConta } from '@/lib/conta'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
@@ -15,6 +17,7 @@ export async function listarMotos(filtros?: {
   excluirVendidas?: boolean   // true = modo padrão: mostra null + disponivel + reservada, oculta vendida
   chassiBusca?: string
   lojaId?: string[]
+  contaId?: string   // só motos de lojas da Conta (#320); omitido = todas
   modeloId?: string[]
   cor?: string[]
   apenasTransferencia?: boolean   // só motos com transferência de loja pendente
@@ -172,9 +175,7 @@ export async function listarMotos(filtros?: {
         // Motos cadastradas só para garantia de veículo externo nunca são estoque.
         eq(motos.somenteGarantia, false),
         filtros?.status?.length          ? inArray(motos.status, filtros.status as any[])                   : undefined,
-        filtros?.excluirVendidas
-          ? sql`(${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`
-          : undefined,
+        filtros?.excluirVendidas ? motoNaoVendida() : undefined,
         filtros?.disponibilidade?.length
           ? inArray(motos.disponibilidade, filtros.disponibilidade as any[])
           : undefined,
@@ -182,6 +183,7 @@ export async function listarMotos(filtros?: {
           ? ilike(motos.chassi, `%${filtros.chassiBusca.trim()}%`)
           : undefined,
         filtros?.lojaId !== undefined    ? inArray(motos.lojaId, filtros.lojaId)                            : undefined,
+        filtros?.contaId                 ? inArray(motos.lojaId, lojasDaConta(filtros.contaId))            : undefined,
         filtros?.modeloId?.length        ? inArray(motos.modeloId, filtros.modeloId)                        : undefined,
         filtros?.cor?.length             ? inArray(motos.cor, filtros.cor)                                  : undefined,
         filtros?.apenasTransferencia

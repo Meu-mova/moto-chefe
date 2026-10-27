@@ -69,7 +69,7 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <CardTitle className="text-base">Lucro por Produto</CardTitle>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Faturamento líquido menos o custo da moto, por modelo. Não rateia despesa da operação.
             </p>
           </div>
@@ -80,8 +80,8 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
                 onClick={() => setOrdem(o.valor)}
                 className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
                   ordem === o.valor
-                    ? 'border-slate-800 bg-slate-800 text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-ring'
                 }`}
               >
                 {o.label}
@@ -92,7 +92,7 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
       </CardHeader>
       <CardContent>
         {ordenados.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-400">Nenhuma moto vendida no período.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma moto vendida no período.</p>
         ) : (
           <>
             <Table>
@@ -115,30 +115,30 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
                           lucro do modelo — dizer isso na linha evita decidir
                           estratégia em cima de um número que não existe. */}
                       {d.semCusto > 0 && (
-                        <span className="ml-1.5 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        <span className="ml-1.5 inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
                           <AlertTriangle size={9} /> {d.semCusto} sem custo
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">{d.qtd}</TableCell>
-                    <TableCell className="text-right font-mono text-slate-500">{fmt(d.precoMedio)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{fmt(d.precoMedio)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
                           <div
-                            className={`h-full rounded-full ${d.lucroMedio >= 0 ? 'bg-emerald-600' : 'bg-red-500'}`}
+                            className={`h-full rounded-full ${d.lucroMedio >= 0 ? 'bg-success' : 'bg-destructive'}`}
                             style={{ width: `${Math.min(100, Math.abs(d.lucroMedio) / maiorLucroMedio * 100)}%` }}
                           />
                         </div>
-                        <span className={`w-24 text-right font-mono font-semibold ${d.lucroMedio >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                        <span className={`w-24 text-right font-mono font-semibold ${d.lucroMedio >= 0 ? 'text-success' : 'text-destructive'}`}>
                           {fmt(d.lucroMedio)}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className={`text-right ${d.margem >= 0 ? 'text-slate-600' : 'text-red-600'}`}>
+                    <TableCell className={`text-right ${d.margem >= 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
                       {d.margem.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                     </TableCell>
-                    <TableCell className="text-right font-mono text-slate-500">{fmt(d.lucro)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{fmt(d.lucro)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -160,9 +160,9 @@ export function ResumoProdutos({ linhas }: { linhas: LinhaProduto[] }) {
             </Table>
 
             {semCustoTotal > 0 && (
-              <p className="mt-3 text-xs text-amber-600">
-                ⚠ {semCustoTotal} moto{semCustoTotal > 1 ? 's' : ''} sem preço de compra registrado
-                cont{semCustoTotal > 1 ? 'am' : 'a'} como custo R$ 0,00 — o lucro desses modelos está inflado.
+              <p className="mt-3 text-xs text-warning">
+                <AlertTriangle size={12} className="inline -mt-0.5 mr-1" aria-hidden />{semCustoTotal} moto{semCustoTotal > 1 ? 's' : ''} sem preço de compra registrado
+                cont{semCustoTotal > 1 ? 'am' : 'a'} como custo R$ 0,00: o lucro desses modelos está inflado.
               </p>
             )}
           </>

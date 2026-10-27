@@ -1,10 +1,14 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
+import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { agendamentos, ordensServico, lojas } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { agendamentoDoUsuario } from '@/lib/agendamento-do-usuario'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
+import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 
 const GESTORES = ['admin_geral', 'admin_socio', 'aux_adm'] as const
 
@@ -24,15 +28,20 @@ export type CriarAgendamentoInput = {
   duracaoMinutos?: number
 }
 
-export async function criarAgendamentoAction(input: CriarAgendamentoInput) {
+export async function criarAgendamentoAction(...a: Parameters<typeof criarAgendamento>) {
+  return acao(() => criarAgendamento(...a))
+}
+async function criarAgendamento(input: CriarAgendamentoInput) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão para criar agendamentos')
+    throw new RecusaUsuario('Sem permissão para criar agendamentos')
   }
   // Não-admins ficam restritos à própria loja — nunca usam input.lojaId
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const lojaId  = isAdmin ? input.lojaId : usuario.lojaId
-  if (!lojaId) throw new Error('Loja não identificada')
+  if (!lojaId) throw new RecusaUsuario('Loja não identificada')
+  if (!(await podeAgirNaLoja(usuario, lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
+  await conferirVinculosDaConta(lojaId, { mecanicoId: input.mecanicoId })
 
   const [ag] = await db.insert(agendamentos).values({
     lojaId,
@@ -51,10 +60,13 @@ export async function criarAgendamentoAction(input: CriarAgendamentoInput) {
   return ag
 }
 
-export async function confirmarAgendamentoAction(agendamentoId: string) {
+export async function confirmarAgendamentoAction(...a: Parameters<typeof confirmarAgendamento>) {
+  return acao(() => confirmarAgendamento(...a))
+}
+async function confirmarAgendamento(agendamentoId: string) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   await verificarTenantAgendamento(agendamentoId, usuario)
   await db.update(agendamentos).set({ status: 'confirmado' })
@@ -62,10 +74,13 @@ export async function confirmarAgendamentoAction(agendamentoId: string) {
   revalidatePath('/agenda')
 }
 
-export async function cancelarAgendamentoAction(agendamentoId: string) {
+export async function cancelarAgendamentoAction(...a: Parameters<typeof cancelarAgendamento>) {
+  return acao(() => cancelarAgendamento(...a))
+}
+async function cancelarAgendamento(agendamentoId: string) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   await verificarTenantAgendamento(agendamentoId, usuario)
   await db.update(agendamentos).set({ status: 'cancelado' })
@@ -91,14 +106,17 @@ export type VirarOSInput = {
   clienteDocumentoExterno?: string | null
 }
 
-export async function agendamentoVirarOSAction(agendamentoId: string, input: VirarOSInput = {}) {
+export async function agendamentoVirarOSAction(...a: Parameters<typeof agendamentoVirarOS>) {
+  return acao(() => agendamentoVirarOS(...a))
+}
+async function agendamentoVirarOS(agendamentoId: string, input: VirarOSInput = {}) {
   const usuario = await getUsuarioLogado()
   if (!(GESTORES as readonly string[]).includes(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
   const ag = await verificarTenantAgendamento(agendamentoId, usuario)
 
-  if (ag.osId) throw new Error('Este agendamento já tem uma OS vinculada')
+  if (ag.osId) throw new RecusaUsuario('Este agendamento já tem uma OS vinculada')
 
   // O agendamento nasce com dados básicos do cliente; ao virar OS o adm completa
   // veículo e cliente na tela. O que ele não mexeu cai de volta no agendamento.
@@ -110,16 +128,18 @@ export async function agendamentoVirarOSAction(agendamentoId: string, input: Vir
     ? input.clienteTipoPessoaExterno
     : 'fisica'
   const doc = validarDocumento(tipoPessoa, input.clienteDocumentoExterno)
-  if (!doc.ok) throw new Error(doc.erro)
+  if (!doc.ok) throw new RecusaUsuario(doc.erro)
   const nomeExterno = input.clienteNomeExterno?.trim() || ag.clienteNome
   if (!clienteId && tipoPessoa === 'juridica' && !nomeExterno) {
-    throw new Error('Informe a razão social da empresa')
+    throw new RecusaUsuario('Informe a razão social da empresa')
   }
+  const mecanicoId = input.mecanicoId !== undefined ? (input.mecanicoId || null) : (ag.mecanicoId || null)
+  await conferirVinculosDaConta(ag.lojaId, { motoId: input.motoId, clienteId, mecanicoId })
 
   const [os] = await db.insert(ordensServico).values({
     lojaId:       ag.lojaId,
     abertaPor:    usuario.id,
-    mecanicoId:   input.mecanicoId !== undefined ? (input.mecanicoId || null) : (ag.mecanicoId || null),
+    mecanicoId,
     origem:       'agendamento',
     descricao:    input.descricao?.trim() || ag.descricaoCliente || ag.tipoServico,
     agendamentoId,
@@ -147,7 +167,10 @@ export async function agendamentoVirarOSAction(agendamentoId: string, input: Vir
 
 // ─── Portal público (sem auth de usuário) ────────────────────────────────────
 
-export async function agendarPublicoAction(input: {
+export async function agendarPublicoAction(...a: Parameters<typeof agendarPublico>) {
+  return acao(() => agendarPublico(...a))
+}
+async function agendarPublico(input: {
   lojaId: string
   clienteNome: string
   clienteFone: string
@@ -156,23 +179,23 @@ export async function agendarPublicoAction(input: {
   dataHoraInicio: string
 }) {
   // Validações de input
-  if (!input.clienteNome?.trim()) throw new Error('Informe seu nome')
-  if (!input.clienteFone?.trim()) throw new Error('Informe seu telefone')
-  if (!input.tipoServico)         throw new Error('Selecione o tipo de serviço')
-  if (!input.dataHoraInicio)      throw new Error('Selecione data e horário')
+  if (!input.clienteNome?.trim()) throw new RecusaUsuario('Informe seu nome')
+  if (!input.clienteFone?.trim()) throw new RecusaUsuario('Informe seu telefone')
+  if (!input.tipoServico)         throw new RecusaUsuario('Selecione o tipo de serviço')
+  if (!input.dataHoraInicio)      throw new RecusaUsuario('Selecione data e horário')
 
   // Tipo de serviço deve ser da lista permitida
   if (!TIPOS_SERVICO_PERMITIDOS.has(input.tipoServico)) {
-    throw new Error('Tipo de serviço inválido')
+    throw new RecusaUsuario('Tipo de serviço inválido')
   }
 
   const data = new Date(input.dataHoraInicio)
-  if (isNaN(data.getTime())) throw new Error('Data inválida')
-  if (data < new Date())     throw new Error('Não é possível agendar no passado')
+  if (isNaN(data.getTime())) throw new RecusaUsuario('Data inválida')
+  if (data < new Date())     throw new RecusaUsuario('Não é possível agendar no passado')
 
   // Agendamento máximo 90 dias no futuro
   const maxData = new Date(); maxData.setDate(maxData.getDate() + 90)
-  if (data > maxData) throw new Error('Data muito distante')
+  if (data > maxData) throw new RecusaUsuario('Data muito distante')
 
   // Verificar que a loja existe e aceita agendamentos públicos
   const [loja] = await db
@@ -180,7 +203,7 @@ export async function agendarPublicoAction(input: {
     .from(lojas)
     .where(eq(lojas.id, input.lojaId))
     .limit(1)
-  if (!loja) throw new Error('Loja não encontrada')
+  if (!loja) throw new RecusaUsuario('Loja não encontrada')
 
   const [ag] = await db.insert(agendamentos).values({
     lojaId:           loja.id,                                          // loja verificada, não do input
@@ -198,24 +221,8 @@ export async function agendarPublicoAction(input: {
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-async function verificarTenantAgendamento(agendamentoId: string, usuario: { papel: string; lojaId: string | null }) {
-  const [ag] = await db
-    .select({
-      lojaId:           agendamentos.lojaId,
-      osId:             agendamentos.osId,
-      mecanicoId:       agendamentos.mecanicoId,
-      clienteId:        agendamentos.clienteId,
-      clienteNome:      agendamentos.clienteNome,
-      clienteFone:      agendamentos.clienteFone,
-      tipoServico:      agendamentos.tipoServico,
-      descricaoCliente: agendamentos.descricaoCliente,
-    })
-    .from(agendamentos)
-    .where(eq(agendamentos.id, agendamentoId))
-    .limit(1)
-
-  if (!ag) throw new Error('Agendamento não encontrado')
-  const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  if (!isAdmin && ag.lojaId !== usuario.lojaId) throw new Error('Sem permissão')
+async function verificarTenantAgendamento(agendamentoId: string, usuario: Parameters<typeof agendamentoDoUsuario>[0]) {
+  const ag = await agendamentoDoUsuario(usuario, agendamentoId)
+  if (!ag) throw new RecusaUsuario('Agendamento não encontrado')
   return ag
 }

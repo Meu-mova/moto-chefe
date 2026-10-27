@@ -81,7 +81,7 @@ export function ModeloDialog({ modelo, onClose }: Props) {
               disabled={nomeTravado}
             />
             {nomeTravado && (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 {modelo?.marca ? `${modelo.marca} · ` : ''}Cadastrado em Modelos — para renomear, edite lá.
               </p>
             )}
@@ -89,19 +89,19 @@ export function ModeloDialog({ modelo, onClose }: Props) {
           <div className="space-y-1.5">
             <Label>Custo (R$)</Label>
             <CurrencyInput value={custo} onChange={setCusto} placeholder="0,00" />
-            <p className="text-xs text-slate-400">Valor que pagamos pela moto</p>
+            <p className="text-xs text-muted-foreground">Valor que pagamos pela moto</p>
           </div>
           <div className="space-y-1.5">
             <Label>Valor Mínimo de Venda — PIX (R$) *</Label>
             <CurrencyInput value={valorMinimo} onChange={setValorMinimo} placeholder="0,00" autoFocus={nomeTravado} />
           </div>
           {margemR !== null && margemPct !== null && (
-            <div className={`rounded-lg p-3 text-sm ${margemPct >= 20 ? 'bg-green-50 border border-green-200' : margemPct >= 10 ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className={`rounded-lg p-3 text-sm ${margemPct >= 20 ? 'bg-success/10 border border-success/30' : margemPct >= 10 ? 'bg-warning/10 border border-warning/30' : 'bg-destructive/10 border border-destructive/30'}`}>
               <span className="font-medium">Margem: </span>
-              <span className={`font-bold ${margemPct >= 20 ? 'text-green-700' : margemPct >= 10 ? 'text-yellow-700' : 'text-red-700'}`}>
+              <span className={`font-bold ${margemPct >= 20 ? 'text-success' : margemPct >= 10 ? 'text-warning' : 'text-destructive'}`}>
                 {margemPct.toFixed(1)}%
               </span>
-              <span className={`ml-2 ${margemPct >= 20 ? 'text-green-600' : margemPct >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+              <span className={`ml-2 ${margemPct >= 20 ? 'text-success' : margemPct >= 10 ? 'text-warning' : 'text-destructive'}`}>
                 ({margemR.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
               </span>
             </div>

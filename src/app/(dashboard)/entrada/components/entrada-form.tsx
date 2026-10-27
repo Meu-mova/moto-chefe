@@ -7,15 +7,13 @@ import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
-import { sugerirModeloEPreco } from '@/lib/entrada-preco'
+import { casarModelo } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
   modelo: string
   marca: string
-  precoCompraPadrao: string | null
-  ultimoPrecoCompra: string | null
 }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
@@ -102,23 +100,16 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     e.target.value = ''
   }
 
-  // --- Modelo/preço das motos importadas ---
+  // --- Modelo das motos importadas ---
   // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
-  // modeloId e a pessoa escolhe na tela.
+  // modeloId e a pessoa escolhe na tela. O preço sempre vem vazio (#288).
   function sugerirModelo(nomeArquivo: string) {
-    return sugerirModeloEPreco(nomeArquivo, modelos)
+    return { modeloId: casarModelo(nomeArquivo, modelos), preco: '' }
   }
 
   function trocarModeloDoGrupo(indices: number[], modeloId: string) {
-    const escolhido = modelos.find(m => m.id === modeloId)
-    // Reaproveita a mesma cascata cadastro → último praticado da importação.
-    const sugerido = escolhido ? sugerirModeloEPreco(escolhido.modelo, modelos).preco : ''
     const alvo = new Set(indices)
-    setLinhasPlanilha(prev => prev.map((l, i) => (
-      // O preço sugerido do novo modelo reaplica no bloco inteiro — é o "aplicar a
-      // todas". Modelo sem preço conhecido preserva o que já estava digitado.
-      alvo.has(i) ? { ...l, modeloId, preco: sugerido || l.preco } : l
-    )))
+    setLinhasPlanilha(prev => prev.map((l, i) => (alvo.has(i) ? { ...l, modeloId } : l)))
   }
 
   function updatePreco(idx: number, preco: string) {
@@ -224,7 +215,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     })
     setFiscais(prev => [...prev, ...fichasNovas])
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
-    avisos.forEach(a => toast.warning(a, { duration: 9000 }))
+    // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
+    avisos.forEach(a => toast.warning(a, { duration: Infinity, closeButton: true }))
   }
 
   // --- Submit manual ---
@@ -344,7 +336,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         <button
           type="button"
           onClick={() => setModo('planilha')}
-          className={`px-4 py-2 text-sm rounded-md font-medium ${modo === 'planilha' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}
+          className={`px-4 py-2 text-sm rounded-md font-medium ${modo === 'planilha' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:bg-muted'}`}
         >
           <FileSpreadsheet size={14} className="inline mr-1.5 -mt-0.5" />
           Importar Planilha
@@ -352,7 +344,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         <button
           type="button"
           onClick={() => setModo('manual')}
-          className={`px-4 py-2 text-sm rounded-md font-medium ${modo === 'manual' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}
+          className={`px-4 py-2 text-sm rounded-md font-medium ${modo === 'manual' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:bg-muted'}`}
         >
           <Plus size={14} className="inline mr-1.5 -mt-0.5" />
           Entrada Manual
@@ -362,16 +354,16 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       {/* ===== MODO PLANILHA ===== */}
       {modo === 'planilha' && (
         <form onSubmit={handleSubmitPlanilha} className="space-y-6">
-          <div className="bg-white rounded-lg border p-4 space-y-4">
-            <h3 className="font-semibold text-slate-700">Importar NF-e (XML) ou Planilha</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-card rounded-lg border p-4 space-y-4">
+            <h3 className="font-semibold text-foreground">Importar NF-e (XML) ou Planilha</h3>
+            <p className="text-xs text-muted-foreground">
               Baixe os XMLs das notas (FSist) e importe direto — o MOVA lê as Informações
               Complementares e extrai modelo, chassi, motor e cor, casando o modelo com o
               cadastro. Ou use a planilha (colunas: NF ENTRADA, MODELO, CHASSI, MOTOR, COR).
             </p>
 
             <div>
-              <label className="block text-sm text-slate-500 mb-1">Loja de Destino *</label>
+              <label className="block text-sm text-muted-foreground mb-1">Loja de Destino *</label>
               <select
                 value={lojaId}
                 onChange={e => setLojaId(e.target.value)}
@@ -386,7 +378,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
 
             <div>
-              <label className="block text-sm text-slate-500 mb-1">XMLs de NF-e (recomendado)</label>
+              <label className="block text-sm text-muted-foreground mb-1">XMLs de NF-e (recomendado)</label>
               <input
                 ref={xmlRef}
                 type="file"
@@ -398,7 +390,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="button"
                 onClick={() => xmlRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-md px-3 py-2.5 text-sm text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-success/50 bg-success/10 rounded-md px-3 py-2.5 text-sm text-success hover:border-success hover:bg-success/15"
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0
@@ -408,7 +400,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
 
             <div>
-              <label className="block text-sm text-slate-500 mb-1">Ou planilha (.xlsx)</label>
+              <label className="block text-sm text-muted-foreground mb-1">Ou planilha (.xlsx)</label>
               <input
                 ref={xlsxRef}
                 type="file"
@@ -419,7 +411,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="button"
                 onClick={() => xlsxRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-2.5 text-sm text-slate-500 hover:border-slate-400 hover:bg-slate-50"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:border-ring hover:bg-muted"
               >
                 <Upload size={16} />
                 Selecionar planilha (.xlsx)
@@ -429,15 +421,15 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
           {/* Motos importadas agrupadas por modelo */}
           {linhasPlanilha.length > 0 && (
-            <div className="bg-white rounded-lg border p-4 space-y-4">
+            <div className="bg-card rounded-lg border p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-700">
+                <h3 className="font-semibold text-foreground">
                   Motos importadas ({linhasPlanilha.length})
                 </h3>
                 <button
                   type="button"
                   onClick={() => setLinhasPlanilha([])}
-                  className="text-sm text-red-500 hover:text-red-700"
+                  className="text-sm text-destructive hover:opacity-80"
                 >
                   Limpar
                 </button>
@@ -448,8 +440,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 return (
                   <div key={nf} className="space-y-3">
                     <div className="flex items-center gap-2 border-b pb-2">
-                      <span className="text-sm font-semibold text-slate-800">NF {nf}</span>
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                      <span className="text-sm font-semibold text-foreground">NF {nf}</span>
+                      <span className="text-xs bg-info/10 text-info px-2 py-0.5 rounded-full">
                         {totalNf} moto(s)
                       </span>
                     </div>
@@ -464,13 +456,13 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                         <div key={`${nf}-${modelo}`} className="border rounded-md p-3 space-y-2 ml-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium text-sm">{modelo}</span>
-                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                               {motosGrupo.length} un.
                             </span>
                             <select
                               value={modeloIdDoGrupo}
                               onChange={e => trocarModeloDoGrupo(indices, e.target.value)}
-                              className={`border rounded px-2 py-1 text-xs ${modeloIdDoGrupo ? '' : 'border-red-400 text-red-600 bg-red-50'}`}
+                              className={`border rounded px-2 py-1 text-xs ${modeloIdDoGrupo ? '' : 'border-destructive/50 text-destructive bg-destructive/10'}`}
                             >
                               <option value="">Escolha o modelo cadastrado...</option>
                               {modelos.map(m => (
@@ -478,14 +470,14 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                               ))}
                             </select>
                             {!modeloIdDoGrupo && (
-                              <span className="text-xs text-red-500 font-medium">
+                              <span className="text-xs text-destructive font-medium">
                                 Modelo não cadastrado — escolha o equivalente
                               </span>
                             )}
                           </div>
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="border-b text-slate-400">
+                              <tr className="border-b text-muted-foreground">
                                 <th className="text-left px-2 py-1 w-8">#</th>
                                 <th className="text-left px-2 py-1">Chassi</th>
                                 <th className="text-left px-2 py-1">Motor</th>
@@ -496,7 +488,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                             <tbody>
                               {motosGrupo.map(({ moto: m, idx }, i) => (
                                 <tr key={idx} className="border-b last:border-0">
-                                  <td className="px-2 py-1 text-slate-400">{i + 1}</td>
+                                  <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
                                   <td className="px-2 py-1 font-mono">{m.chassi}</td>
                                   <td className="px-2 py-1 font-mono">{m.motor}</td>
                                   <td className="px-2 py-1">{m.cor}</td>
@@ -526,7 +518,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
               >
                 {loading ? 'Registrando...' : `Registrar entrada (${linhasPlanilha.length} motos)`}
               </button>
@@ -538,11 +530,11 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       {/* ===== MODO MANUAL ===== */}
       {modo === 'manual' && (
         <form onSubmit={handleSubmitManual} className="space-y-6">
-          <div className="bg-white rounded-lg border p-4 space-y-4">
-            <h3 className="font-semibold text-slate-700">Dados da Nota Fiscal</h3>
+          <div className="bg-card rounded-lg border p-4 space-y-4">
+            <h3 className="font-semibold text-foreground">Dados da Nota Fiscal</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-slate-500 mb-1">Nº Nota Fiscal *</label>
+                <label className="block text-sm text-muted-foreground mb-1">Nº Nota Fiscal *</label>
                 <input
                   type="text"
                   value={notaFiscal}
@@ -553,7 +545,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-500 mb-1">Loja de Destino *</label>
+                <label className="block text-sm text-muted-foreground mb-1">Loja de Destino *</label>
                 <select
                   value={lojaId}
                   onChange={e => setLojaId(e.target.value)}
@@ -567,15 +559,10 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-slate-500 mb-1">Modelo *</label>
+                <label className="block text-sm text-muted-foreground mb-1">Modelo *</label>
                 <select
                   value={modeloId}
-                  onChange={e => {
-                    const id = e.target.value
-                    setModeloId(id)
-                    const m = modelos.find(m => m.id === id)
-                    setPrecoCompra(m ? sugerirModeloEPreco(m.modelo, modelos).preco : '')
-                  }}
+                  onChange={e => setModeloId(e.target.value)}
                   className="w-full border rounded-md px-3 py-2 text-sm"
                   required
                 >
@@ -586,7 +573,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-slate-500 mb-1">Preço de Compra (R$) *</label>
+                <label className="block text-sm text-muted-foreground mb-1">Preço de Compra (R$) *</label>
                 <CurrencyInput
                   value={precoCompra}
                   onChange={setPrecoCompra}
@@ -597,9 +584,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border p-4 space-y-4">
+          <div className="bg-card rounded-lg border p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-700">
+              <h3 className="font-semibold text-foreground">
                 Motos ({linhas.filter(l => l.chassi.trim()).length})
               </h3>
               <div className="flex gap-2">
@@ -613,7 +600,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md hover:bg-slate-50"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md hover:bg-muted"
                 >
                   <Upload size={14} />
                   Importar CSV
@@ -621,7 +608,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 <button
                   type="button"
                   onClick={addLinha}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-900 text-white rounded-md hover:bg-slate-800"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary-hover"
                 >
                   <Plus size={14} />
                   Adicionar
@@ -629,14 +616,14 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               </div>
             </div>
 
-            <div className="text-xs text-slate-400 flex items-center gap-1">
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
               <FileSpreadsheet size={12} />
               CSV: chassi, cor, motor (uma moto por linha)
             </div>
 
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-slate-500">
+                <tr className="border-b text-muted-foreground">
                   <th className="text-left px-2 py-2 font-medium w-8">#</th>
                   <th className="text-left px-2 py-2 font-medium">Chassi *</th>
                   <th className="text-left px-2 py-2 font-medium">Cor *</th>
@@ -647,7 +634,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <tbody>
                 {linhas.map((linha, i) => (
                   <tr key={i} className="border-b last:border-0">
-                    <td className="px-2 py-1 text-slate-400">{i + 1}</td>
+                    <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-1">
                       <input
                         type="text"
@@ -680,7 +667,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                         <button
                           type="button"
                           onClick={() => removeLinha(i)}
-                          className="text-red-400 hover:text-red-600 p-1"
+                          className="text-destructive hover:opacity-80 p-1"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -696,7 +683,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 font-medium"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
             >
               {loading ? 'Registrando...' : `Registrar entrada (${linhas.filter(l => l.chassi.trim()).length} motos)`}
             </button>

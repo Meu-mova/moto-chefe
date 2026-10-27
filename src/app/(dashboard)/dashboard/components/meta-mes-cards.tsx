@@ -1,5 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import type { MetaDoMes } from '@/lib/meta-vendas'
+import { Secao } from './painel-secoes'
 
 type Props = {
   meta: MetaDoMes
@@ -8,10 +9,10 @@ type Props = {
 }
 
 const SITUACAO = {
-  batida:   { rotulo: 'Meta batida',      cor: 'text-emerald-700', barra: 'bg-emerald-500' },
-  acima:    { rotulo: 'Acima do ritmo',   cor: 'text-emerald-700', barra: 'bg-emerald-500' },
-  no_ritmo: { rotulo: 'No ritmo',         cor: 'text-sky-700',     barra: 'bg-sky-500'     },
-  abaixo:   { rotulo: 'Abaixo do ritmo',  cor: 'text-amber-700',   barra: 'bg-amber-500'   },
+  batida:   { rotulo: 'Meta batida',     cor: 'text-primary-text', barra: 'bg-primary' },
+  acima:    { rotulo: 'Acima do ritmo',  cor: 'text-primary-text', barra: 'bg-primary' },
+  no_ritmo: { rotulo: 'No ritmo',        cor: 'text-foreground',   barra: 'bg-chart-3' },
+  abaixo:   { rotulo: 'Abaixo do ritmo', cor: 'text-warning',      barra: 'bg-warning' },
 } as const
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -25,109 +26,76 @@ const brlCurto = (v: number) => {
 
 const pct = (v: number) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`
 
+function Celula({ rotulo, children, nota }: { rotulo: string; children: React.ReactNode; nota?: React.ReactNode }) {
+  return (
+    // Celular e tablet: 2 colunas (a 2ª sem borda à direita); desktop: as 4 numa linha.
+    <div className="min-w-0 border-b border-border px-4 py-3 odd:border-r lg:border-b-0 lg:border-r lg:last:border-r-0">
+      <p className="text-xs text-muted-foreground">{rotulo}</p>
+      <div className="mt-0.5 text-xl font-bold tabular-nums text-foreground">{children}</div>
+      {nota && <p className="mt-0.5 text-xs text-muted-foreground">{nota}</p>}
+    </div>
+  )
+}
+
 export function MetaMesCards({ meta, grupoNome, vendidoHoje }: Props) {
   const p = meta.total
   const s = SITUACAO[p.situacao]
   const larguraBarra = Math.min(100, p.percentualAtingido)
-  // Onde a projeção cai na régua da meta — some quando passa de 100%.
+  const batidas = meta.lojas.filter(l => l.batida).length
+  // Onde a projeção cai na régua da meta; some quando a meta já foi batida.
   const marcaProjecao = p.meta > 0 ? Math.min(100, (p.projecao / p.meta) * 100) : 0
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card className="col-span-2 lg:col-span-4">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-slate-500">
-            Meta do Mês · {grupoNome}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <p className="text-3xl font-bold">{brl(p.vendidas)}</p>
-            <p className="text-lg text-slate-400">/ {brl(p.meta)}</p>
-            <p className={`ml-auto text-sm font-medium ${s.cor}`}>{s.rotulo}</p>
-          </div>
-
-          <div className="relative mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div className={`h-full rounded-full ${s.barra}`} style={{ width: `${larguraBarra}%` }} />
-          </div>
-          {/* Marca de onde o mês fecha no ritmo atual */}
+    <Secao
+      titulo={`Meta do mês · ${grupoNome}`}
+      acao={<Link href="/admin/metas" className="text-xs font-semibold text-primary-text hover:underline">Ver metas</Link>}
+    >
+      <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-md border border-border bg-card lg:grid-cols-4">
+        <Celula rotulo="Vendido no mês" nota={<><span className={`font-semibold ${s.cor}`}>{s.rotulo}</span> · {pct(p.percentualAtingido)} em {p.diasDeVendaDecorridos} de {p.diasDeVendaNoMes} dias (seg–sáb)</>}>
+          {brl(p.vendidas)} <span className="text-sm font-medium text-muted-foreground">/ {brl(p.meta)}</span>
+          <span role="progressbar" aria-label="Meta do mês atingida" aria-valuenow={Math.round(p.percentualAtingido)} aria-valuemin={0} aria-valuemax={100}
+            className="relative mt-2 block h-1.5 rounded-full bg-muted">
+            <span className={`block h-full rounded-full ${s.barra}`} style={{ width: `${larguraBarra}%` }} />
+            {p.situacao !== 'batida' && marcaProjecao > 0 && (
+              <span aria-hidden title={`Projeção ${brlCurto(p.projecao)}`} className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 bg-foreground" style={{ left: `${marcaProjecao}%` }} />
+            )}
+          </span>
           {p.situacao !== 'batida' && marcaProjecao > 0 && (
-            <div className="relative h-3">
-              <span
-                className="absolute -translate-x-1/2 text-[10px] text-slate-400 whitespace-nowrap"
-                style={{ left: `${marcaProjecao}%` }}
-              >
-                ▲ projeção {brlCurto(p.projecao)}
-              </span>
-            </div>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">| marca: projeção de {brlCurto(p.projecao)}</span>
           )}
+        </Celula>
+        <Celula rotulo="Vendido hoje" nota={`ritmo do mês: ${brlCurto(p.ritmoDiario)}/dia`}>{brlCurto(vendidoHoje)}</Celula>
+        <Celula
+          rotulo="Projeção do mês"
+          nota={p.necessarioPorDia === null
+            ? p.faltam === 0 ? 'meta atingida' : `faltaram ${brlCurto(p.faltam)}, sem dia de venda restante`
+            : `faltam ${brlCurto(p.faltam)} · ${brlCurto(p.necessarioPorDia)}/dia em ${p.diasDeVendaRestantes} dias`}
+        >
+          <span className={s.cor}>{brlCurto(p.projecao)}</span>
+        </Celula>
+        <Celula rotulo="Lojas na meta" nota={batidas === meta.lojas.length ? 'todas bateram a meta do mês' : `${meta.lojas.length - batidas} ainda não bateram`}>
+          {batidas} <span className="text-sm font-medium text-muted-foreground">/ {meta.lojas.length}</span>
+        </Celula>
+      </div>
 
-          <p className="text-xs text-slate-400 mt-2">
-            {pct(p.percentualAtingido)} da meta · {p.diasDeVendaDecorridos} de {p.diasDeVendaNoMes} dias
-            de venda (seg–sáb)
-          </p>
-
-          {/* Quebra por loja: o total do grupo esconde a loja que parou. */}
-          <ul className="mt-4 divide-y border-t">
-            {meta.lojas.map(l => (
-              <li key={l.lojaId} className="flex items-center gap-3 py-2 text-sm">
-                <span className="w-36 shrink-0 truncate">{l.loja}</span>
-                <span className="w-40 shrink-0 text-slate-500 tabular-nums">
-                  {brlCurto(l.realizado)} <span className="text-slate-300">/ {brlCurto(l.meta)}</span>
-                </span>
-                <span className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden min-w-12">
-                  <span
-                    className={`block h-full rounded-full ${l.batida ? 'bg-emerald-500' : 'bg-slate-400'}`}
-                    style={{ width: `${Math.min(100, l.percentual)}%` }}
-                  />
-                </span>
-                <span className={`w-16 text-right tabular-nums ${l.batida ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
-                  {pct(l.percentual)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Vendas Hoje</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-3xl font-bold">{brlCurto(vendidoHoje)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            ritmo do mês: {brlCurto(p.ritmoDiario)}/dia
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Projeção do Mês</CardTitle></CardHeader>
-        <CardContent>
-          <p className={`text-3xl font-bold ${s.cor}`}>{brlCurto(p.projecao)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {p.necessarioPorDia === null
-              ? p.faltam === 0
-                ? 'meta atingida'
-                : `faltaram ${brlCurto(p.faltam)} — sem dia de venda restante`
-              : `faltam ${brlCurto(p.faltam)} · ${brlCurto(p.necessarioPorDia)}/dia em ${p.diasDeVendaRestantes} dias`}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="col-span-2">
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Lojas na meta</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-3xl font-bold">
-            {meta.lojas.filter(l => l.batida).length}
-            <span className="text-lg text-slate-400"> / {meta.lojas.length}</span>
-          </p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {meta.lojas.filter(l => !l.batida).length === 0
-              ? 'todas bateram a meta do mês'
-              : `${meta.lojas.filter(l => !l.batida).length} ainda não bateram`}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Quebra por loja: o total do grupo esconde a loja que parou. */}
+      <ul className="mt-2 divide-y divide-border">
+        {meta.lojas.map(l => (
+          <li key={l.lojaId} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[10rem_11rem_1fr_4rem]">
+            <span className="truncate text-foreground">{l.loja}</span>
+            <span className="tabular-nums text-muted-foreground">
+              {brlCurto(l.realizado)} / {brlCurto(l.meta)}
+            </span>
+            <span role="progressbar" aria-label={`Meta de ${l.loja}`} aria-valuenow={Math.round(l.percentual)} aria-valuemin={0} aria-valuemax={100}
+              className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <span className={`block h-full ${l.batida ? 'bg-primary' : 'bg-input'}`} style={{ width: `${Math.min(100, l.percentual)}%` }} />
+            </span>
+            <span className={`text-right tabular-nums ${l.batida ? 'font-semibold text-primary-text' : 'text-muted-foreground'}`}>
+              {pct(l.percentual)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Secao>
   )
 }

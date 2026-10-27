@@ -27,7 +27,8 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
   async function aprovar() {
     setLoading(true)
     try {
-      await aprovarVendaAction(aprovacaoId)
+      const r = await aprovarVendaAction(aprovacaoId)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda aprovada!')
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao aprovar')
@@ -39,7 +40,8 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
   async function recusar() {
     setLoading(true)
     try {
-      await recusarVendaAction(aprovacaoId, observacao || undefined)
+      const r = await recusarVendaAction(aprovacaoId, observacao || undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Venda recusada')
       setRecusarOpen(false)
     } catch (e: unknown) {
@@ -50,20 +52,20 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
   }
 
   return (
-    <Card className="border-amber-300 bg-amber-50/50">
+    <Card className="border-warning/50 bg-warning/5">
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2 text-amber-800">
+        <CardTitle className="text-base flex items-center gap-2 text-warning">
           <AlertTriangle size={16} />
           Venda aguardando aprovação
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <div className="flex justify-between"><span className="text-slate-500">Valor</span><span className="font-bold">{fmtBRL(valor)}</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Vendedor</span><span>{vendedorNome}</span></div>
-        <div className="flex justify-between"><span className="text-slate-500">Pedido em</span><span>{new Date(dataSolicitacao).toLocaleString('pt-BR')}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Valor</span><span className="font-bold">{fmtBRL(valor)}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Vendedor</span><span>{vendedorNome}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Pedido em</span><span>{new Date(dataSolicitacao).toLocaleString('pt-BR')}</span></div>
         <div>
-          <p className="text-slate-500 mb-1">Motivo</p>
-          <p className="bg-white border rounded px-2 py-1.5">{motivo}</p>
+          <p className="text-muted-foreground mb-1">Motivo</p>
+          <p className="bg-card border rounded px-2 py-1.5">{motivo}</p>
         </div>
 
         {podeAprovar ? (
@@ -72,7 +74,7 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
             <Button size="sm" variant="outline" onClick={() => setRecusarOpen(true)} disabled={loading}>Recusar</Button>
           </div>
         ) : (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             {tipo === 'pagamento_sensivel'
               ? 'Financiamento/transferência — aguardando aprovação do responsável.'
               : 'Aguardando aprovação de um administrador ou sócio.'}

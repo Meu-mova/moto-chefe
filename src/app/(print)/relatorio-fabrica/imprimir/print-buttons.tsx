@@ -4,10 +4,10 @@ export function PrintButtons() {
   return (
     <div className="actions-bar">
       <button onClick={() => window.close()} className="btn">
-        ✕ Fechar
+        Fechar
       </button>
       <button onClick={() => window.print()} className="btn btn-primary">
-        🖨 Imprimir / Salvar PDF
+        Imprimir / Salvar PDF
       </button>
     </div>
   )

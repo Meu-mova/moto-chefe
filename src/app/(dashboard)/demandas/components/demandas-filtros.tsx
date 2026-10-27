@@ -57,7 +57,7 @@ export function DemandasFiltros({ lojas, modelos, mostrarLoja }: Props) {
         <button
           type="button"
           onClick={() => router.push(pathname)}
-          className="text-xs text-slate-500 hover:text-slate-700 underline"
+          className="text-xs text-muted-foreground hover:text-foreground underline"
         >
           Limpar
         </button>

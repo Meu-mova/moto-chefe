@@ -85,19 +85,19 @@ export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: P
   if (selecionada) {
     const semEstoque = selecionada.quantidadeEstoque <= 0
     return (
-      <div className="flex items-center gap-2 h-8 rounded-md border border-slate-200 bg-white px-2.5 text-xs">
-        <span className="flex-1 min-w-0 truncate font-medium text-slate-800" title={selecionada.nome}>
+      <div className="flex items-center gap-2 h-8 rounded-md border border-input bg-background px-2.5 text-xs">
+        <span className="flex-1 min-w-0 truncate font-medium text-foreground" title={selecionada.nome}>
           {selecionada.nome}
         </span>
-        <span className="shrink-0 text-slate-500">{fmtBRL(parseFloat(selecionada.valor))}</span>
-        <span className={`shrink-0 ${semEstoque ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+        <span className="shrink-0 text-muted-foreground">{fmtBRL(parseFloat(selecionada.valor))}</span>
+        <span className={`shrink-0 ${semEstoque ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
           est. {selecionada.quantidadeEstoque}
         </span>
         <button
           type="button"
           onClick={limpar}
           title="Trocar peça"
-          className="shrink-0 text-slate-400 hover:text-slate-700"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
         >
           <X size={13} />
         </button>
@@ -107,7 +107,7 @@ export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: P
 
   return (
     <div ref={containerRef} className="relative">
-      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
       <input
         ref={inputRef}
         type="text"
@@ -116,11 +116,11 @@ export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: P
         onFocus={() => setAberta(true)}
         onKeyDown={onKeyDown}
         placeholder="Digite o nome da peça…"
-        className="w-full h-8 rounded-md border border-slate-200 bg-white pl-8 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+        className="w-full h-8 rounded-md border border-input bg-background pl-8 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
       />
 
       {aberta && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
           {resultados.map((p, i) => (
             <button
               key={p.id}
@@ -128,28 +128,28 @@ export function PecaLookup({ pecas, selecionada, onSelecionar, onPecaCriada }: P
               onClick={() => escolher(p)}
               onMouseEnter={() => setDestaque(i)}
               className={`w-full text-left px-2.5 py-1.5 text-xs flex items-center gap-2 ${
-                i === destaque ? 'bg-blue-50' : 'hover:bg-slate-50'
+                i === destaque ? 'bg-accent' : 'hover:bg-muted'
               }`}
             >
-              <span className="flex-1 min-w-0 truncate text-slate-800">{p.nome}</span>
-              <span className="shrink-0 text-slate-500">{fmtBRL(parseFloat(p.valor))}</span>
-              <span className={`shrink-0 ${p.quantidadeEstoque <= 0 ? 'text-red-500' : 'text-slate-400'}`}>
+              <span className="flex-1 min-w-0 truncate text-foreground">{p.nome}</span>
+              <span className="shrink-0 text-muted-foreground">{fmtBRL(parseFloat(p.valor))}</span>
+              <span className={`shrink-0 ${p.quantidadeEstoque <= 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                 {p.quantidadeEstoque}
               </span>
             </button>
           ))}
 
           {resultados.length === 0 && (
-            <p className="px-2.5 py-2 text-xs text-slate-500">
+            <p className="px-2.5 py-2 text-xs text-muted-foreground">
               Nenhuma peça com esse nome.
             </p>
           )}
 
-          <div className="border-t border-slate-100 sticky bottom-0 bg-white">
+          <div className="border-t border-border sticky bottom-0 bg-popover">
             <button
               type="button"
               onClick={() => setCadastroAberto(true)}
-              className="w-full flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50"
+              className="w-full flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-primary-text hover:bg-accent"
             >
               <Plus size={12} />
               {busca.trim() ? `Cadastrar «${busca.trim()}»` : 'Cadastrar nova peça'}

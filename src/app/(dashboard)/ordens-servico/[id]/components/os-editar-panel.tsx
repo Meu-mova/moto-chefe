@@ -44,7 +44,7 @@ export function OSEditarPanel(props: Props) {
   function salvar() {
     start(async () => {
       try {
-        await atualizarOSAction(props.osId, {
+        const r = await atualizarOSAction(props.osId, {
           mecanicoId:         form.mecanicoId || null,
           descricao:          form.descricao,
           diagnostico:        form.diagnostico,
@@ -54,6 +54,7 @@ export function OSEditarPanel(props: Props) {
           clienteNomeExterno: form.clienteNomeExterno || null,
           clienteFoneExterno: form.clienteFoneExterno || null,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('OS atualizada')
         setEditing(false)
       } catch (e: any) { toast.error(e.message) }
@@ -79,7 +80,7 @@ export function OSEditarPanel(props: Props) {
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm">Detalhes da OS</CardTitle>
         {props.podeEditar && !editing && (
-          <button onClick={() => setEditing(true)} className="text-slate-400 hover:text-slate-700 transition-colors">
+          <button type="button" aria-label="Editar detalhes da OS" onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground transition-colors">
             <Pencil size={14} />
           </button>
         )}
@@ -97,11 +98,11 @@ export function OSEditarPanel(props: Props) {
       <CardContent className="space-y-4">
         {/* Mecânico e previsão */}
         {editing && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Mecânico</Label>
               <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
                 <option value="">Sem mecânico</option>
                 {props.mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
@@ -123,7 +124,7 @@ export function OSEditarPanel(props: Props) {
 
         {/* Cliente externo — só quando não há cliente cadastrado vinculado */}
         {editing && !props.temCliente && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome do cliente</Label>
               <Input value={form.clienteNomeExterno} onChange={e => set('clienteNomeExterno', e.target.value)} className="text-sm" />
@@ -137,28 +138,28 @@ export function OSEditarPanel(props: Props) {
 
         {/* Descrição */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500 uppercase tracking-wide">Reclamação / Descrição</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reclamação / Descrição</Label>
           {editing
             ? <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)} rows={3} />
-            : <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-md px-3 py-2">{props.descricao || '—'}</p>
+            : <p className="text-sm text-foreground whitespace-pre-wrap bg-muted rounded-md px-3 py-2">{props.descricao || '—'}</p>
           }
         </div>
 
         {/* Diagnóstico */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500 uppercase tracking-wide">Diagnóstico técnico</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Diagnóstico técnico</Label>
           {editing
             ? <Textarea value={form.diagnostico} onChange={e => set('diagnostico', e.target.value)} rows={3} placeholder="Laudo do mecânico..." />
-            : <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-md px-3 py-2">{props.diagnostico || <span className="text-slate-400">Não preenchido</span>}</p>
+            : <p className="text-sm text-foreground whitespace-pre-wrap bg-muted rounded-md px-3 py-2">{props.diagnostico || <span className="text-muted-foreground">Não preenchido</span>}</p>
           }
         </div>
 
         {/* Observações finais */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500 uppercase tracking-wide">Observações finais</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Observações finais</Label>
           {editing
             ? <Textarea value={form.observacoesFinais} onChange={e => set('observacoesFinais', e.target.value)} rows={2} placeholder="Recomendações, próxima revisão..." />
-            : <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-md px-3 py-2">{props.observacoesFinais || <span className="text-slate-400">Não preenchido</span>}</p>
+            : <p className="text-sm text-foreground whitespace-pre-wrap bg-muted rounded-md px-3 py-2">{props.observacoesFinais || <span className="text-muted-foreground">Não preenchido</span>}</p>
           }
         </div>
       </CardContent>

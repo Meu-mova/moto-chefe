@@ -1,17 +1,14 @@
 import { Resend } from 'resend'
+import { emailValido } from '@/lib/email-valido'
+
+// Reexportado: quem já importa daqui continua funcionando.
+export { emailValido }
 
 export type ResultadoEmail = 'enviado' | 'sem_email' | 'erro'
 
 /** Resultado do envio + o id do Resend (para casar bounce no webhook). */
 export type EnvioEmail = { status: ResultadoEmail; id: string | null }
 
-// Validação simples e conservadora — o objetivo é barrar vazio/lixo antes de
-// gastar uma chamada no Resend, não validar RFC 5322 inteira.
-const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-export function emailValido(email: string | null | undefined): boolean {
-  return !!email && RE_EMAIL.test(email.trim())
-}
 
 /**
  * Envia um e-mail transacional via Resend. Nunca lança — devolve o resultado
@@ -26,6 +23,7 @@ export async function enviarEmail(params: {
   assunto: string
   texto: string
   html?: string
+  anexos?: { nome: string; conteudo: Uint8Array }[]
 }): Promise<EnvioEmail> {
   const para = params.para?.trim()
   if (!emailValido(para)) return { status: 'sem_email', id: null }
@@ -45,6 +43,7 @@ export async function enviarEmail(params: {
       subject: params.assunto,
       text: params.texto,
       ...(params.html ? { html: params.html } : {}),
+      ...(params.anexos?.length ? { attachments: params.anexos.map(a => ({ filename: a.nome, content: Buffer.from(a.conteudo) })) } : {}),
     })
     if (error) {
       console.error('envio de e-mail (resend) falhou:', error.message ?? String(error))

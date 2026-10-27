@@ -1,0 +1,118 @@
+name: Navegação do preview
+
+# #393: com o geral@ do seed, clica em cada item do menu nos temas claro e escuro e em 3
+# larguras (scripts/navegacao-ci.ts). Só roda quando o PR do commit mexe em tela; não é
+# check obrigatório. O preview usa o staging e passa pelo bypass, como o smoke.yml.
+on:
+  deployment_status:
+  # Toda noite (03h de Brasília) contra a dev. Schedule só dispara pelo arquivo da main.
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  filtro:
+    name: mexe em tela?
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       !contains(github.event.deployment.environment, 'Production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rodar: ${{ steps.f.outputs.rodar }}
+      url: ${{ steps.f.outputs.url }}
+      ref: ${{ steps.f.outputs.ref }}
+    steps:
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENTO: ${{ github.event_name }}
+          SHA: ${{ github.event.deployment.sha }}
+          URL_PREVIEW: ${{ github.event.deployment_status.environment_url }}
+        run: |
+          if [ "$EVENTO" != "deployment_status" ]; then
+            echo "url=https://dev.meumova.com" >> "$GITHUB_OUTPUT"
+            # Noturno testa a dev; disparo manual roda o script da ref escolhida, mas sempre
+            # contra o site da dev (dev.meumova.com), não contra um preview dessa ref.
+            if [ "$EVENTO" = "schedule" ]; then echo "ref=dev" >> "$GITHUB_OUTPUT"; else echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"; fi
+            echo "rodar=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "url=$URL_PREVIEW" >> "$GITHUB_OUTPUT"
+          echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          arquivos=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[].number' |
+            while read -r pr; do gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$pr/files" --jq '.[].filename'; done)
+          # Mesma regra do tocaTelas (scripts/lib/navegacao-ci.ts), mais o próprio teste.
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/.*|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|\.github/workflows/navegacao\.yml)$'; then
+            echo "rodar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nenhum PR deste commit mexe em src/app, src/components ou no próprio teste; pulando."
+            echo "rodar=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  navegacao:
+    name: navegação ${{ matrix.larguras }}px
+    needs: filtro
+    if: needs.filtro.outputs.rodar == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Dois jobs, cada um numa vaga da fila própria: no máximo 2 sessões nossas no staging (com o
+    # smoke, 3). Uma vaga por job: o GitHub guarda só 1 pendente por grupo, e dois jobs do mesmo
+    # run na mesma vaga podiam cancelar um ao outro. Por isso 390 e 1280 vão em sequência num job.
+    # Não é a fila do smoke pelo mesmo motivo: um run cancelaria o pendente do outro.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { larguras: '390 1280', vaga: a }
+          - { larguras: '768', vaga: b }
+    concurrency:
+      group: navegacao-staging-${{ matrix.vaga }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.filtro.outputs.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Sem cache do Chromium: o actions/cache recusa o evento deployment_status.
+      - run: npx playwright install --with-deps chromium
+
+      - name: navegação
+        env:
+          # O navegacao-ci.ts recusa host que não seja preview do projeto ou dev.meumova.com.
+          NAVEGACAO_URL: ${{ needs.filtro.outputs.url }}
+          SMOKE_SENHA: ${{ secrets.SMOKE_SENHA }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          LARGURAS: ${{ matrix.larguras }}
+          # Até a fase 5 da #90 o escuro só reporta; ligar NAVEGACAO_ESCURO_FALHA na fase 5 da #90.
+          NAVEGACAO_ESCURO_FALHA: '0'
+        run: |
+          echo "Alvo: $NAVEGACAO_URL"
+          falhou=0
+          for l in $LARGURAS; do
+            node --import tsx scripts/navegacao-ci.ts --largura "$l" --prints prints || falhou=1
+          done
+          exit $falhou
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: navegacao-${{ matrix.vaga }}
+          path: prints/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,4 +1,5 @@
 'use client'
+import { cnpjValido } from '@/lib/documento'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -62,13 +63,13 @@ export function VirarOSDialog({
       toast.error('Informe a descrição / reclamação'); return
     }
     // Espelha a trava do servidor pra dar o erro antes de abrir a OS torta.
-    if (ehEmpresa && (digitosDoc.length !== 14 || !form.clienteNomeExterno.trim())) {
-      toast.error('OS para empresa exige razão social e CNPJ com 14 dígitos'); return
+    if (ehEmpresa && (!cnpjValido(digitosDoc) || !form.clienteNomeExterno.trim())) {
+      toast.error('OS para empresa exige razão social e CNPJ válido'); return
     }
 
     start(async () => {
       try {
-        const os = await agendamentoVirarOSAction(agendamentoId, {
+        const r = await agendamentoVirarOSAction(agendamentoId, {
           chassiOs:      veiculo.chassi,
           motoId:        veiculo.motoId || null,
           clienteId:     cliente?.id || null,
@@ -83,7 +84,8 @@ export function VirarOSDialog({
           clienteTipoPessoaExterno: !cliente ? form.clienteTipoPessoaExterno : null,
           clienteDocumentoExterno:  !cliente ? (digitosDoc || null) : null,
         })
-        toast.success(`OS #${os.numero} criada`)
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(`OS #${r.dados.numero} criada`)
         setOpen(false)
         resetar()
       } catch (e: any) { toast.error(e.message ?? 'Erro ao virar OS') }
@@ -93,7 +95,7 @@ export function VirarOSDialog({
   return (
     <>
       <button onClick={() => setOpen(true)} disabled={disabled}
-        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50">
+        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50">
         <FileText size={11} /> Virar OS
       </button>
 
@@ -105,7 +107,7 @@ export function VirarOSDialog({
 
           <div className="space-y-5 py-1">
             {/* Busca chassi + CPF */}
-            <div className="border border-slate-200 rounded-xl p-4 space-y-1 bg-slate-50">
+            <div className="border border-border rounded-xl p-4 space-y-1 bg-muted">
               <ChassiLookup
                 onVeiculoEncontrado={setVeiculo}
                 onClienteEncontrado={setCliente}
@@ -126,7 +128,7 @@ export function VirarOSDialog({
                   <select
                     value={form.clienteTipoPessoaExterno}
                     onChange={e => set('clienteTipoPessoaExterno', e.target.value)}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card"
                   >
                     <option value="fisica">Pessoa física</option>
                     <option value="juridica">Empresa (CNPJ)</option>
@@ -158,7 +160,7 @@ export function VirarOSDialog({
             <div className="space-y-1.5">
               <Label>Mecânico responsável</Label>
               <select value={form.mecanicoId} onChange={e => set('mecanicoId', e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white">
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card">
                 <option value="">Sem mecânico definido</option>
                 {mecanicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
@@ -170,7 +172,7 @@ export function VirarOSDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Descrição / Reclamação do cliente <span className="text-red-500">*</span></Label>
+              <Label>Descrição / Reclamação do cliente <span className="text-destructive">*</span></Label>
               <Textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
                 placeholder="Descreva o que o cliente relatou..." rows={3} />
             </div>

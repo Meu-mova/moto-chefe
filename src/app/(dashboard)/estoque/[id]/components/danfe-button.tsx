@@ -9,8 +9,9 @@ export function DanfeButton({ motoId }: { motoId: string }) {
   function baixar() {
     startTransition(async () => {
       try {
-        const { linkDanfe, linkPDF } = await buscarDanfeAction(motoId)
-        const url = linkDanfe ?? linkPDF
+        const r = await buscarDanfeAction(motoId)
+        if (!r.ok) { alert(r.erro); return }
+        const url = r.dados.linkDanfe ?? r.dados.linkPDF
         if (url) window.open(url, '_blank')
       } catch (e: any) {
         alert(e.message ?? 'Erro ao buscar DANFE')
@@ -22,7 +23,7 @@ export function DanfeButton({ motoId }: { motoId: string }) {
     <button
       onClick={baixar}
       disabled={pending}
-      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:opacity-50"
+      className="inline-flex items-center gap-1 text-xs text-info hover:underline disabled:opacity-50"
       title="Baixar DANFE"
     >
       <FileDown size={13} />

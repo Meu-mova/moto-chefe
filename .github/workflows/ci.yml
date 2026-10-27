@@ -89,6 +89,29 @@ jobs:
 
       - run: npm run test:db
 
+  # CLAUDE.md "Cores" e épica #90: linha nova em código de interface não traz cor fixa
+  # (paleta do Tailwind, hex, rgb, valor arbitrário). As linhas antigas migram pela #90.
+  cores:
+    name: cor fixa nas linhas novas
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git -c core.quotePath=false diff -U0 "$BASE...$HEAD" | node --import tsx scripts/cores-fixas.ts --diff
+
   gitleaks:
     name: segredo no diff
     runs-on: ubuntu-latest

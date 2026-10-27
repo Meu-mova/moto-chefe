@@ -3,16 +3,19 @@ import { Suspense } from 'react'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarGarantias } from '@/lib/queries/garantias'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
-import { modelos, ordensServico, lojas } from '@/lib/db/schema'
-import { inArray, eq } from 'drizzle-orm'
+import { ordensServico, lojas } from '@/lib/db/schema'
+import { and, inArray, eq } from 'drizzle-orm'
 import { GarantiaCard } from './components/garantia-card'
 import { AbrirGarantiaDialog } from './components/abrir-garantia-dialog'
 import { GarantiasFiltros } from './components/garantias-filtros'
 import { SincronizarFabricaButton } from './components/sincronizar-button'
 import { ImportarFabricaButton } from './components/importar-fabrica-button'
 import { RelatorioGarantiasButton } from './components/relatorio-garantias-button'
+import { OctagonAlert, TriangleAlert } from 'lucide-react'
 
 // A primeira importação de uma loja varre o histórico inteiro do portal, com uma
 // requisição por pedido. Estourar no meio deixa um buraco que o botão não alcança
@@ -34,16 +37,13 @@ export default async function GarantiasPage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   // Filtros de busca
-  const lojaIdsGrupo = isAdmin ? await listarLojaIdsDoGrupoAtivo(usuario) : []
-  const lojaFiltro   = isAdmin
-    ? (params.loja && lojaIdsGrupo.includes(params.loja) ? params.loja : undefined)
-    : (usuario.lojaId ?? undefined)
+  const lojaIds      = await lojasDoEscopoDeGarantias(usuario, params.loja)
   const statusFiltro = params.status  // 'ativa' | 'encerrada' | undefined = todos
   const modeloFiltro = params.modelo
 
-  const [listaBruta, ordensAbertas, lojasOpts, modelosOpts, lojaUsuarioRow] = await Promise.all([
+  const [lista, ordensAbertas, lojasOpts, modelosOpts, lojaUsuarioRow] = await Promise.all([
     listarGarantias({
-      lojaId:               lojaFiltro,
+      lojaIds,
       status:               statusFiltro,
       chassiBusca:          params.q,
       numeroPedidoFabrica:  params.nf,
@@ -52,12 +52,12 @@ export default async function GarantiasPage({
 
     db.select({ id: ordensServico.id, descricao: ordensServico.descricao, motoId: ordensServico.motoId })
       .from(ordensServico)
-      .where(inArray(ordensServico.status, ['aberta', 'em_andamento'])),
+      // Vão para o diálogo no navegador: só as OS das lojas do escopo (#328).
+      .where(and(inArray(ordensServico.status, ['aberta', 'em_andamento']), inArray(ordensServico.lojaId, lojaIds))),
 
     isAdmin ? listarLojasDoGrupoAtivo(usuario) : Promise.resolve([]),
 
-    db.select({ id: modelos.id, marca: modelos.marca, modelo: modelos.modelo })
-      .from(modelos).orderBy(modelos.marca, modelos.modelo),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
 
     !isAdmin && usuario.lojaId
       ? db.select({ nome: lojas.nome }).from(lojas).where(eq(lojas.id, usuario.lojaId)).limit(1)
@@ -65,10 +65,6 @@ export default async function GarantiasPage({
   ])
 
   const lojaUsuarioNome = lojaUsuarioRow[0]?.nome ?? null
-
-  const lista = isAdmin && !lojaFiltro
-    ? listaBruta.filter(g => lojaIdsGrupo.includes(g.lojaId))
-    : listaBruta
 
   const ativas      = lista.filter(g => g.status === 'ativa')
   const encerradas  = lista.filter(g => g.status === 'encerrada')
@@ -87,7 +83,7 @@ export default async function GarantiasPage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Garantias</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             Acompanhamento — uma moto pode ter múltiplas garantias ao longo do tempo
           </p>
         </div>
@@ -125,12 +121,12 @@ export default async function GarantiasPage({
 
       {/* Banner fábrica — status críticos */}
       {!statusFiltro && criticas.length > 0 && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm space-y-1">
-          <p className="font-semibold text-red-800">
-            🚨 {criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm space-y-1">
+          <p className="font-semibold text-destructive">
+            <OctagonAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{criticas.length} garantia{criticas.length !== 1 ? 's' : ''} requer{criticas.length !== 1 ? 'em' : ''} ação na fábrica
           </p>
           {criticas.map(g => (
-            <p key={g.id} className="text-red-700 text-xs">
+            <p key={g.id} className="text-destructive text-xs">
               · {g.marca} {g.modelo} ({g.chassi.slice(-6)}) — <strong>{g.statusFabrica}</strong>
               {g.numeroPedidoFabrica && (
                 <a
@@ -149,15 +145,15 @@ export default async function GarantiasPage({
 
       {/* Banner de urgência — só quando não há filtro de status */}
       {!statusFiltro && ativas.length > 0 && (urgentes.length > 0 || atencao.length > 0) && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm space-y-1">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm space-y-1">
           {urgentes.length > 0 && (
-            <p className="font-medium text-red-700">
-              ⚠ {urgentes.length} {urgentes.length === 1 ? 'garantia urgente (≥ 20 dias)' : 'garantias urgentes (≥ 20 dias)'}
+            <p className="font-medium text-destructive">
+              <TriangleAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{urgentes.length} {urgentes.length === 1 ? 'garantia urgente (≥ 20 dias)' : 'garantias urgentes (≥ 20 dias)'}
             </p>
           )}
           {atencao.length > 0 && (
-            <p className="text-amber-700">
-              ⚠ {atencao.length} {atencao.length === 1 ? 'garantia requer atenção (10–19 dias)' : 'garantias requerem atenção (10–19 dias)'}
+            <p className="text-warning">
+              <TriangleAlert size={14} className="inline -mt-0.5 mr-1" aria-hidden />{atencao.length} {atencao.length === 1 ? 'garantia requer atenção (10–19 dias)' : 'garantias requerem atenção (10–19 dias)'}
             </p>
           )}
         </div>
@@ -165,7 +161,7 @@ export default async function GarantiasPage({
 
       {/* Resultados */}
       {lista.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-12">
+        <p className="text-sm text-muted-foreground text-center py-12">
           {temFiltro ? 'Nenhuma garantia corresponde aos filtros.' : 'Nenhuma garantia registrada.'}
         </p>
       )}
@@ -173,7 +169,7 @@ export default async function GarantiasPage({
       {/* Quando filtro de status está ativo: lista plana */}
       {statusFiltro && lista.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-sm text-slate-700">
+          <h2 className="font-semibold text-sm text-foreground">
             {statusFiltro === 'ativa' ? 'Ativas' : 'Encerradas'} ({lista.length})
           </h2>
           {lista.map(g => (
@@ -187,7 +183,7 @@ export default async function GarantiasPage({
         <>
           {ativas.length > 0 && (
             <section className="space-y-3">
-              <h2 className="font-semibold text-sm text-slate-700">Ativas ({ativas.length})</h2>
+              <h2 className="font-semibold text-sm text-foreground">Ativas ({ativas.length})</h2>
               {ativas.map(g => (
                 <GarantiaCard key={g.id} garantia={g} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
               ))}
@@ -196,7 +192,7 @@ export default async function GarantiasPage({
 
           {encerradas.length > 0 && (
             <section className="space-y-3">
-              <h2 className="font-semibold text-sm text-slate-700">Encerradas ({encerradas.length})</h2>
+              <h2 className="font-semibold text-sm text-foreground">Encerradas ({encerradas.length})</h2>
               {encerradas.map(g => (
                 <GarantiaCard key={g.id} garantia={g} papel={usuario.papel} lojaIdUsuario={usuario.lojaId ?? null} />
               ))}

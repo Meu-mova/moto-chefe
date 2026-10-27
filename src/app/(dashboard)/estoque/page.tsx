@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 // src/app/(dashboard)/estoque/page.tsx
 import { db } from '@/lib/db'
-import { eq } from 'drizzle-orm'
-import { modelos, motos, usuarios } from '@/lib/db/schema'
+import { motos } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
 import { MotoTable } from './components/moto-table'
 import { EstoqueFiltros } from './components/filtros'
@@ -10,7 +9,10 @@ import { listarMotos } from '@/lib/queries/motos'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, listarTodasLojasAtivas, getGrupoAtivo } from '@/lib/grupo'
+import { listarLojasAtivasDaConta } from '@/lib/conta'
+import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -65,6 +67,7 @@ export default async function EstoquePage({
   const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
   const dir = params.dir === 'desc' ? 'desc' : 'asc'
 
+  const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
   const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await withTimeout(Promise.all([
     listarMotos({
       status:          parseParam(params.status),
@@ -82,18 +85,17 @@ export default async function EstoquePage({
     // Lojas oferecidas como destino no botão "Transferir" — igual a /transferencias,
     // o usuário com a exceção multi-grupo vê lojas de todos os grupos aqui; o filtro
     // "Loja" acima (lojasOpts) continua escopado ao grupo ativo pra todo mundo.
-    acessoMultiGrupo ? listarTodasLojasAtivas() : listarLojasDoGrupoAtivo(usuario),
-    db.select({ id: modelos.id, modelo: modelos.modelo }).from(modelos).orderBy(modelos.modelo),
+    acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
+    contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(motos.cor),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).orderBy(usuarios.nome),
-    db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios).where(eq(usuarios.papel, 'mecanico')).orderBy(usuarios.nome),
+    listarUsuariosDoGrupo(grupo.id),
+    listarUsuariosDoGrupo(grupo.id, { papeis: ['mecanico'] }),
   ]), 20000)
 
   // Demandas abertas com sinal — candidatas a vínculo ao vender/reservar (casadas por modelo no MotoTable)
   const demandasComSinal = await withTimeout(listarDemandasComSinalAbertas(lojaValues), 20000)
 
   // Origem da venda: o catálogo é do grupo, e o /estoque já é escopado por grupo.
-  const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
   const origens = await withTimeout(listarOrigensAtivasDoGrupo(grupo.id), 8000)
 
   const counts = {
@@ -110,7 +112,7 @@ export default async function EstoquePage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
-        <p className="text-slate-500 text-sm">
+        <p className="text-muted-foreground text-sm">
           {!isAdmin && usuario.lojaId
             ? `Motos da loja ${lojasOpts.find(l => l.id === usuario.lojaId)?.nome ?? ''}`
             : 'Todas as motos do grupo'}
@@ -124,7 +126,7 @@ export default async function EstoquePage({
         lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
         chassiInicial={params.q ?? ''}
       />
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <MotoTable
           motos={motosList}
           demandasComSinal={demandasComSinal}

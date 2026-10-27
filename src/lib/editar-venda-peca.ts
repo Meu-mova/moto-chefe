@@ -3,10 +3,14 @@
  * itens e pagamentos no lugar (mesmo número), acerta o estoque pela diferença
  * e grava o histórico. Permissão e saneamento ficam na action, como na criação.
  */
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
+import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
+import { RecusaUsuario } from '@/lib/resultado-action'
+import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { moverSaldo } from '@/lib/estoque-pecas-loja'
+import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -21,7 +25,7 @@ export type EdicaoVendaPeca = {
 
 export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   const [venda] = await tx.select().from(vendasPecas).where(eq(vendasPecas.id, e.vendaId)).for('update')
-  if (!venda) throw new Error('Venda não encontrada')
+  if (!venda) throw new RecusaUsuario('Venda não encontrada')
 
   const antigos = await tx.select().from(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, e.vendaId))
   const precoAnterior = new Map(antigos.map(i => [i.pecaId, i.valorUnitario]))
@@ -29,13 +33,20 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   const pecas = await tx
     .select({ id: pecasCatalogo.id, nome: pecasCatalogo.nome, valor: pecasCatalogo.valor })
     .from(pecasCatalogo)
-    .where(inArray(pecasCatalogo.id, [...new Set([...e.itens.map(i => i.pecaId), ...antigos.map(i => i.pecaId)])]))
+    // Só da Conta da loja da venda: peça de outra Conta cai no "Peça não encontrada" (#195).
+    .where(and(
+      inArray(pecasCatalogo.id, [...new Set([...e.itens.map(i => i.pecaId), ...antigos.map(i => i.pecaId)])]),
+      daContaDaLoja(venda.lojaId),
+    ))
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
+  // Também aqui, e não só na action: a edição aprovada aplica o que ficou guardado (#195).
+  const recusaQuantidade = recusaDaQuantidadeVendida(e.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
   for (const item of e.itens) {
     const peca = pecaById.get(item.pecaId)
-    if (!peca) throw new Error('Peça não encontrada')
-    if (item.quantidade <= 0) throw new Error(`Quantidade inválida para ${peca.nome}`)
+    if (!peca) throw new RecusaUsuario('Peça não encontrada')
+    if (item.quantidade <= 0) throw new RecusaUsuario(`Quantidade inválida para ${peca.nome}`)
   }
 
   // Incremento relativo, como na venda e na exclusão: estoque pode ficar negativo.
@@ -44,9 +55,7 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     e.itens,
   )
   for (const [pecaId, n] of delta) {
-    await tx.update(pecasCatalogo)
-      .set({ quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${n}`, atualizadoEm: new Date() })
-      .where(eq(pecasCatalogo.id, pecaId))
+    await moverSaldo(tx, pecaId, venda.lojaId, -n)
   }
 
   const novos = e.itens.map(item => {
@@ -87,4 +96,29 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   })
 
   return { numero: venda.numero }
+}
+
+/** O que fica guardado em `aprovacoes_venda.dados_venda` quando a edição pede aprovação (origem 'peca_edicao'). */
+export type EdicaoPendente = {
+  vendaId: string
+  numero: number
+  itens: EdicaoVendaPeca['itens']
+  pagamentos: EdicaoVendaPeca['pagamentos']
+}
+
+/**
+ * Aplica a edição que esperava aprovação (financiamento sem permissão). O grupo vem da
+ * loja da venda, lido agora; o histórico fica em nome de quem pediu a edição — quem
+ * aprovou está na própria aprovação.
+ */
+export async function aplicarEdicaoAprovadaTx(tx: Tx, e: EdicaoPendente, solicitanteId: string) {
+  const [venda] = await tx
+    .select({ grupoId: lojas.grupoId })
+    .from(vendasPecas)
+    .innerJoin(lojas, eq(lojas.id, vendasPecas.lojaId))
+    .where(eq(vendasPecas.id, e.vendaId))
+  if (!venda) throw new RecusaUsuario(`Venda não encontrada: a venda de peças #${e.numero} pode ter sido excluída`)
+  return editarVendaPecaTx(tx, {
+    vendaId: e.vendaId, grupoId: venda.grupoId, usuarioId: solicitanteId, itens: e.itens, pagamentos: e.pagamentos,
+  })
 }

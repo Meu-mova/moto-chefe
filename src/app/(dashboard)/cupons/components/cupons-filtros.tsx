@@ -38,8 +38,8 @@ export function CuponsFiltros() {
             onClick={() => update('status', o.value)}
             className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
               status === o.value
-                ? 'bg-slate-800 text-white border-slate-800'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:border-ring'
             }`}
           >
             {o.label}

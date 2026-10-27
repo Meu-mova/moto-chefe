@@ -26,7 +26,7 @@
  * se paga a ela, então o preço de compra continua sendo o digitado na tela.
  */
 
-import { mapearModelo } from './nfe-entrada'
+import { mapearModelo, tagNfe as tag, grupoNfe as grupo, lerItensDaNfe, ehNcmDeMoto } from './nfe-entrada'
 
 export type FichaFiscal = {
   /** `cProd` — código do produto na nota do fornecedor. É por ele que se acha o modelo. */
@@ -50,13 +50,6 @@ export type FichaFiscal = {
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
 export type NomeDeModelo = { nome: string; canonico: string }
 
-const tag = (xml: string, nome: string): string =>
-  (xml.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1]?.trim() ?? ''
-
-/** Conteúdo de um grupo (`<ICMS>…</ICMS>`), incluindo as tags aninhadas. */
-const grupo = (xml: string, nome: string): string =>
-  (xml.match(new RegExp(`<${nome}\\b[^>]*>([\\s\\S]*?)</${nome}>`)) || [])[1] ?? ''
-
 /**
  * Lê a ficha fiscal de cada item (`<det>`) de uma NF-e.
  *
@@ -66,10 +59,7 @@ const grupo = (xml: string, nome: string): string =>
 export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
   const fichas: FichaFiscal[] = []
 
-  for (const m of (xml ?? '').matchAll(/<det\b[^>]*>([\s\S]*?)<\/det>/g)) {
-    const det = m[1]
-    const prod = grupo(det, 'prod')
-    const imposto = grupo(det, 'imposto')
+  for (const { prod, imposto } of lerItensDaNfe(xml)) {
 
     const ncm = tag(prod, 'NCM')
     if (!ncm) continue
@@ -164,9 +154,9 @@ export function ligarFichasAosChassis(
     return achado ? canonicoPorNome.get(achado) ?? achado : null
   }
 
-  // NCM 8711 = motocicletas. Serve para não eleger o guarda-sol da nota como
+  // Só veículo (ehNcmDeMoto). Serve para não eleger o guarda-sol da nota como
   // "item único" quando a moto não casa pelo nome.
-  const deVeiculo = fichas.filter(f => f.ncm.startsWith('8711'))
+  const deVeiculo = fichas.filter(f => ehNcmDeMoto(f.ncm))
   const fichaUnica = deVeiculo.length === 1 ? deVeiculo[0] : null
 
   // Pré-resolve o lado das fichas: o código manda, a descrição é o reforço.
@@ -257,7 +247,7 @@ export function acharFichaDoModelo(
   if (!alvo) return null
 
   const candidatas = fichas.filter(
-    f => f.ncm.startsWith('8711') && (resolver(f.codigo) ?? resolver(f.descricao)) === alvo,
+    f => ehNcmDeMoto(f.ncm) && (resolver(f.codigo) ?? resolver(f.descricao)) === alvo,
   )
   return candidatas.length === 1 ? candidatas[0] : null
 }

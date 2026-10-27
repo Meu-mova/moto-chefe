@@ -1,21 +1,22 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { motos, lojas, historicoEstoque, modelos, motosFiscal } from '@/lib/db/schema'
-import { and, eq, isNull, lte, or } from 'drizzle-orm'
+import { motos, lojas, historicoEstoque, motosFiscal } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
+import { contaDaLoja } from '@/lib/conta'
+import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
-import { precosParaCadastrar } from '@/lib/entrada-preco'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
-// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la.
-// Admin escolhe qualquer loja (o seletor já é filtrado pelo grupo ativo do cookie);
-// quem entra pela exceção nominal fica restrito ao grupo da própria loja, para que
-// um lojaId forjado no payload não jogue moto no estoque de outro grupo.
+// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la:
+// admin só no grupo que vê; quem entra pela exceção nominal, no grupo da própria loja.
+// Assim um lojaId forjado no payload não joga moto no estoque de outro grupo.
 async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
   const [loja] = await db
     .select({ id: lojas.id, grupoId: lojas.grupoId })
@@ -25,43 +26,15 @@ async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
 
   if (!loja) return { error: 'Loja não encontrada' as const }
 
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) {
+    if (!(await podeAbrirRegistroDaLoja(usuario, loja.id))) return { error: 'Loja fora do seu grupo' as const }
+  } else {
     if (!usuario.lojaId) return { error: 'Usuário sem loja associada' as const }
     const grupoUsuario = await getGrupoIdDaLoja(usuario.lojaId)
     if (grupoUsuario !== loja.grupoId) return { error: 'Loja fora do seu grupo' as const }
   }
 
   return { loja }
-}
-
-/**
- * Preenche o preço padrão dos modelos que entraram sem ter um. O cadastro do
- * catálogo nunca foi preenchido por completo, então o valor digitado na entrada
- * vira o padrão do modelo e a próxima importação já vem sugerida.
- *
- * A condição de "ainda não tem preço" vive no WHERE, não em um select antes:
- * duas entradas simultâneas do mesmo modelo não se atropelam, e preço já
- * cadastrado nunca é sobrescrito por aqui — isso continua sendo mexida no
- * cadastro do modelo, feita de propósito na tela de Modelos.
- */
-async function cadastrarPrecoPadraoFaltante(inseridas: { modeloId: string; preco: string }[]) {
-  const porModelo = precosParaCadastrar(inseridas)
-  let gravados = 0
-
-  for (const [modeloId, preco] of porModelo) {
-    const alterados = await db
-      .update(modelos)
-      .set({ precoCompraPadrao: preco })
-      .where(and(
-        eq(modelos.id, modeloId),
-        or(isNull(modelos.precoCompraPadrao), lte(modelos.precoCompraPadrao, '0')),
-      ))
-      .returning({ id: modelos.id })
-
-    gravados += alterados.length
-  }
-
-  return gravados
 }
 
 /**
@@ -140,6 +113,7 @@ export async function registrarEntrada(formData: {
   const destino = await resolverLojaDestino(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
+  if (!(await modeloUsavelNaLoja(loja.id, formData.modeloId))) return { error: 'Modelo não encontrado' }
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
@@ -197,28 +171,19 @@ export async function registrarEntrada(formData: {
     }
   }
 
-  const cadastrados = inseridos > 0
-    ? await cadastrarPrecoPadraoFaltante([{ modeloId: formData.modeloId, preco: precoCompra }])
-    : 0
-
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  if (cadastrados > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
   }
 
-  const avisoCadastro = cadastrados > 0
-    ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
-    : ''
-
   if (erros.length) {
-    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}${avisoCadastro}` }
+    return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}` }
   }
 
-  return { success: `${inseridos} moto(s) inserida(s) com sucesso!${avisoCadastro}` }
+  return { success: `${inseridos} moto(s) inserida(s) com sucesso!` }
 }
 
 type MotoEntradaLote = {
@@ -256,12 +221,12 @@ export async function registrarEntradaLote(formData: {
 
   // O modelo e o preço de cada moto chegam já revisados na tela (o de-para do XML
   // é só a sugestão inicial). Aqui o id vindo do payload é conferido contra o
-  // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum.
-  const allModelos = await db
-    .select({ id: modelos.id })
-    .from(modelos)
-
-  const idsValidos = new Set(allModelos.map(m => m.id))
+  // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum
+  // nem para o modelo de outra Conta.
+  const idsValidos = await modelosUsaveisPelaConta(
+    await contaDaLoja(loja.id),
+    [...new Set(formData.motos.map(m => m.modeloId).filter(Boolean))],
+  )
 
   const chassisExistentes = new Set<string>()
   const duplicados: string[] = []
@@ -281,7 +246,6 @@ export async function registrarEntradaLote(formData: {
 
   let inseridos = 0
   const erros: string[] = []
-  const entraram: { modeloId: string; preco: string }[] = []
   // chassi -> id da moto recém-inserida, para casar com a ficha fiscal do XML
   const idPorChassi = new Map<string, string>()
 
@@ -323,7 +287,6 @@ export async function registrarEntradaLote(formData: {
         observacao: `Entrada NF ${nf}`,
       })
 
-      entraram.push({ modeloId: moto.modeloId, preco: precoCompra })
       idPorChassi.set(chassi, novaMoto.id)
       inseridos++
     } catch (e: any) {
@@ -337,7 +300,6 @@ export async function registrarEntradaLote(formData: {
     }
   }
 
-  const cadastrados = await cadastrarPrecoPadraoFaltante(entraram)
   // Só as motos que de fato entraram: chassi recusado (duplicado, sem modelo)
   // não deixa ficha órfã para trás.
   const fichasGravadas = await gravarFichaFiscalDasMotos(
@@ -349,15 +311,12 @@ export async function registrarEntradaLote(formData: {
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  if (cadastrados > 0) revalidatePath('/admin/modelos')
 
   if (erros.length && inseridos === 0) {
     return { error: `Nenhuma moto inserida. Erros:\n${erros.join('\n')}` }
   }
 
-  const avisoCadastro = (cadastrados > 0
-    ? `\nPreço padrão cadastrado para ${cadastrados} modelo(s) que ainda não tinha.`
-    : '') + (fichasGravadas > 0
+  const avisoCadastro = (fichasGravadas > 0
     ? `\nFicha fiscal da nota de entrada gravada para ${fichasGravadas} moto(s).`
     : '')
 

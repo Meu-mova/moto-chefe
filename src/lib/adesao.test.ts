@@ -4,12 +4,16 @@ import { adesaoSchema, validarArquivoCnpj, validarArquivoCert, emailNovaAdesao }
 
 const base = {
   loja: 'Loja Centro', responsavel: 'Carlos', celular: '(35) 99999-0000',
-  certSenha: 'x', storeLogin: 'l', storeSenha: 's',
+  certSenha: 'x', storeLogin: 'loja@x.com', storeSenha: 's',
   usuarios: [{ nome: 'Ana', email: 'ana@x.com', papel: 'vendedor' }],
 }
 
 test('adesaoSchema aceita dados válidos', () => {
   assert.equal(adesaoSchema.safeParse(base).success, true)
+})
+
+test('adesaoSchema recusa login do motochefe.store que não é e-mail', () => {
+  assert.equal(adesaoSchema.safeParse({ ...base, storeLogin: 'marlon' }).success, false)
 })
 
 test('adesaoSchema recusa papel fora da lista, inclusive admin_geral', () => {

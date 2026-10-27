@@ -37,13 +37,10 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
       fd.set('modelo', nome.trim())
       fd.set('categoria', categoria)
       fd.set('potencia_w', potencia.trim())
-      if (modelo) {
-        await editarModeloAction(modelo.id, fd)
-        toast.success('Modelo atualizado')
-      } else {
-        await criarModeloAction(fd)
-        toast.success('Modelo criado')
-      }
+      const { aviso } = modelo ? await editarModeloAction(modelo.id, fd) : await criarModeloAction(fd)
+      // Nome repetido avisa e deixa gravar.
+      if (aviso) toast.warning(aviso)
+      else toast.success(modelo ? 'Modelo atualizado' : 'Modelo criado')
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
@@ -74,7 +71,7 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
             <select
               value={categoria}
               onChange={e => setCategoria(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-card"
             >
               {CATEGORIAS.map(c => (
                 <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
@@ -85,7 +82,7 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
             <Label>Potência (W) *</Label>
             <Input value={potencia} onChange={e => setPotencia(e.target.value)} placeholder="Ex: 1000" inputMode="numeric" />
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             O número do motor não é do modelo — cada moto recebe o seu na importação do XML.
           </p>
           <DialogFooter>
