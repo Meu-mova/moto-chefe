@@ -129,3 +129,20 @@ test('pagamento de OS (fechamento ou aprovação) na Conta B recusa maquininha s
     await conferirMaquininhasDaOS(tx, os.id, cartao('infinitypay'))
   })
 })
+
+test('trava de grupo errado só enxerga terminal da própria Conta (#460)', async () => {
+  const { gruposDoTerminalNaConta } = await import('@/lib/terminal-da-conta')
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191', 'stone')
+    const b = await semearConta(tx, 'B', '22222222000191', 'stone')
+    const [{ conta_id: contaB }] = await linhas(tx, sql`select conta_id from grupos where id = ${b.grupoId}`)
+    const [outroB] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('MQ460 B2', '33333333000191', ${contaB}) returning id`)
+    const conc = (grupoId: string, serial: string) => linhas(tx, sql`insert into conciliacoes_cartao (grupo_id, operadora, data_transacao, valor_bruto, raw_data)
+      values (${grupoId}, 'stone', '2026-10-01', 10, ${JSON.stringify({ serial })}::jsonb)`)
+    await conc(a.grupoId, 'SERIAL-A')
+    await conc(outroB.id, 'SERIAL-B2')
+
+    assert.deepEqual(await gruposDoTerminalNaConta(tx, contaB, 'SERIAL-A'), [])
+    assert.deepEqual(await gruposDoTerminalNaConta(tx, contaB, 'SERIAL-B2'), [outroB.id])
+  })
+})

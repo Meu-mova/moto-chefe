@@ -1,6 +1,7 @@
 'use server'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { maquininhasDoGrupo } from '@/lib/maquininhas'
+import { gruposDoTerminalNaConta } from '@/lib/terminal-da-conta'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
@@ -10,7 +11,7 @@ import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
-import { extrairTerminalInfinityPay, padraoNsuDoTerminal } from '@/lib/conciliacao-terminal'
+import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -178,21 +179,10 @@ async function importarRelatorio(formData: FormData) {
   // guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
-    const vistos = await db
-      .selectDistinct({ grupoId: conciliacoesCartao.grupoId, grupoNome: grupos.nome })
-      .from(conciliacoesCartao)
-      .innerJoin(grupos, eq(conciliacoesCartao.grupoId, grupos.id))
-      .where(or(
-        ilike(conciliacoesCartao.nsu, padraoNsuDoTerminal(terminal)),
-        eq(sql`${conciliacoesCartao.rawData}->>'serial'`, terminal),
-      ))
-
-    if (vistos.length > 0 && !vistos.some(v => v.grupoId === grupo.id)) {
-      const onde = vistos.map(v => v.grupoNome).join(', ')
-      throw new RecusaUsuario(
-        `Este arquivo é da maquininha ${terminal}, que pertence ao grupo ${onde}. ` +
-        `Você está em ${grupo.nome}. Troque de grupo antes de importar — nada foi gravado.`,
-      )
+    // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal) : []
+    if (vistos.length > 0 && !vistos.includes(grupo.id)) {
+      throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
   }
 
