@@ -54,6 +54,10 @@ export async function salvarCredencial(
 
   const empresaId = data.empresaId.trim()
   if (empresaId) {
+    // O id vai no caminho da URL da NG: fora do formato (../, ?) nem chega lá.
+    if (!UUID.test(empresaId)) {
+      return { ok: false, erro: 'O id da empresa na Nota Gateway não está no formato certo. Copie de novo do painel da Nota Gateway.' }
+    }
     // Mesma frase para qualquer outro grupo: não diz de qual Conta ele é.
     const [outro] = await exec
       .select({ grupoId: notagatewayConfig.grupoId })

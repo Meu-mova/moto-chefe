@@ -113,11 +113,11 @@ test('admin_geral com grupo inexistente recebe "Grupo não encontrado"', async (
 test('admin_geral grava o empresaId quando o CNPJ da empresa na NG é o do grupo', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    const ng = ngFalsa({ 'empresa-cuiaba': '49366097000140' })
-    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: ' empresa-cuiaba ' }, ng.deps, tx)
+    const ng = ngFalsa({ '11111111-2222-4333-8444-555555555555': '49366097000140' })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: ' 11111111-2222-4333-8444-555555555555 ' }, ng.deps, tx)
     assert.deepEqual(r, { ok: true })
-    assert.deepEqual(ng.chamadas, ['empresa-cuiaba'])
-    assert.equal(await empresaDoGrupo(tx, c.grupo), 'empresa-cuiaba')
+    assert.deepEqual(ng.chamadas, ['11111111-2222-4333-8444-555555555555'])
+    assert.equal(await empresaDoGrupo(tx, c.grupo), '11111111-2222-4333-8444-555555555555')
     throw new Desfazer()
   }), Desfazer)
 })
@@ -125,8 +125,8 @@ test('admin_geral grava o empresaId quando o CNPJ da empresa na NG é o do grupo
 test('admin_socio não grava o empresaId e a NG nem é consultada', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    const ng = ngFalsa({ 'empresa-cuiaba': '49366097000140' })
-    const r = await salvarCredencial(c.socio, { ...payload(c.grupo), empresaId: 'empresa-cuiaba' }, ng.deps, tx)
+    const ng = ngFalsa({ '11111111-2222-4333-8444-555555555555': '49366097000140' })
+    const r = await salvarCredencial(c.socio, { ...payload(c.grupo), empresaId: '11111111-2222-4333-8444-555555555555' }, ng.deps, tx)
     assert.deepEqual(r, { ok: false, erro: 'Acesso restrito ao Admin Geral' })
     assert.deepEqual(ng.chamadas, [])
     assert.equal(await empresaDoGrupo(tx, c.grupo), null)
@@ -137,8 +137,8 @@ test('admin_socio não grava o empresaId e a NG nem é consultada', async () => 
 test('CNPJ da empresa na NG diferente do grupo bloqueia, sem mostrar o CNPJ de lá', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    const ng = ngFalsa({ 'empresa-outra': '11222333000181' })
-    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: 'empresa-outra' }, ng.deps, tx)
+    const ng = ngFalsa({ '66666666-7777-4888-9999-000000000000': '11222333000181' })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: '66666666-7777-4888-9999-000000000000' }, ng.deps, tx)
     assert.deepEqual(r, { ok: false, erro: 'Essa empresa da Nota Gateway tem outro CNPJ, diferente do CNPJ deste grupo.' })
     assert.equal(await configDoGrupo(tx, c.grupo), null)
     throw new Desfazer()
@@ -148,11 +148,12 @@ test('CNPJ da empresa na NG diferente do grupo bloqueia, sem mostrar o CNPJ de l
 test('empresaId já ligado a grupo de outra Conta bloqueia, com frase que não diz qual', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
-    await tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id) values (${c.grupoB}, 'cifrado', 'empresa-cuiaba')`)
-    const ng = ngFalsa({ 'empresa-cuiaba': '49366097000140' })
-    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: 'empresa-cuiaba' }, ng.deps, tx)
+    await tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id) values (${c.grupoB}, 'cifrado', '11111111-2222-4333-8444-555555555555')`)
+    const ng = ngFalsa({ '11111111-2222-4333-8444-555555555555': '49366097000140' })
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: '11111111-2222-4333-8444-555555555555' }, ng.deps, tx)
     assert.deepEqual(r, { ok: false, erro: 'Essa empresa da Nota Gateway já está ligada a outro grupo.' })
     assert.ok(!/Teresina|Conta B/.test(r.ok ? '' : r.erro))
+    assert.deepEqual(ng.chamadas, [], 'duplicado não chega a consultar a NG')
     assert.equal(await empresaDoGrupo(tx, c.grupo), null)
     throw new Desfazer()
   }), Desfazer)
@@ -162,8 +163,22 @@ test('NG fora do ar: frase fixa e nada gravado', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
     const ng = ngFalsa({}, { foraDoAr: true })
-    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: 'empresa-cuiaba' }, ng.deps, tx)
+    const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: '11111111-2222-4333-8444-555555555555' }, ng.deps, tx)
     assert.deepEqual(r, { ok: false, erro: 'Não deu para confirmar a empresa na Nota Gateway agora. Confira o token e o id e tente de novo.' })
+    assert.equal(await configDoGrupo(tx, c.grupo), null)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('id da empresa fora do formato (../, ?) é recusado antes de chamar a NG', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const ng = ngFalsa({})
+    for (const id of ['../../empresas', '11111111-2222-4333-8444-555555555555?x=1', 'abc/def']) {
+      const r = await salvarCredencial(c.geral, { ...payload(c.grupo), empresaId: id }, ng.deps, tx)
+      assert.deepEqual(r, { ok: false, erro: 'O id da empresa na Nota Gateway não está no formato certo. Copie de novo do painel da Nota Gateway.' }, id)
+    }
+    assert.deepEqual(ng.chamadas, [])
     assert.equal(await configDoGrupo(tx, c.grupo), null)
     throw new Desfazer()
   }), Desfazer)

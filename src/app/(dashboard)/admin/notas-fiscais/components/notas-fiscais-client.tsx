@@ -209,7 +209,10 @@ function CartaoGrupo({ linha, podeEditarCredencial, aberto, onToggle }: { linha:
               <div className="space-y-1 rounded-lg border border-dashed bg-muted/60 p-3">
                 <Label className="text-xs">Id da empresa na Nota Gateway</Label>
                 <Input value={empresaId} onChange={e => setEmpresaId(e.target.value)} placeholder="cole o id da empresa" className="font-mono text-sm" autoComplete="off" />
-                <p className="text-[11px] text-muted-foreground">Ao salvar, o MOVA confere na Nota Gateway se o CNPJ é o deste grupo.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-muted-foreground">Ao salvar, o MOVA confere na Nota Gateway se o CNPJ é o deste grupo.</p>
+                  <Button variant="ghost" size="sm" onClick={() => { setEmpresaId(''); setTrocandoEmpresa(false) }}>Cancelar</Button>
+                </div>
               </div>
             )}
             <Button onClick={salvarCredencial} disabled={pendCred} size="sm">
