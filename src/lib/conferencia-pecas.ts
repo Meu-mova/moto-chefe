@@ -17,7 +17,12 @@ export type LinhaConferencia = {
   preco: string
 }
 
-const numero = (s: string) => Number(s.replace(/\./g, '').replace(',', '.').trim())
+// Com vírgula, ela é o decimal e o ponto é milhar ("1.234,56"); sem vírgula, o ponto é
+// o decimal ("79.90").
+const numero = (s: string) => {
+  const t = s.trim()
+  return Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t)
+}
 
 export function linhaInicial(item: ItemPecaNfe, sugestao: string | null): LinhaConferencia {
   return {

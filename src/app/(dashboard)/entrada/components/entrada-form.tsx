@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
-import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, type ItemPecaNfe } from '@/lib/nfe-entrada'
+import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
@@ -67,7 +67,16 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       if (!vale) return
       if ('error' in r) { toast.error(r.error); setConferencia(null); return }
       setConferencia(r.conferencia)
-      setLinhasPecas(notaPecas.itens.map((it, i) => linhaInicial(it, r.conferencia.sugestoes[i])))
+      // Trocar a loja pode trocar a Conta: a escolha de peça do catálogo volta para a
+      // sugestão desta Conta, mas quantidade, peça nova e "não dar entrada" ficam.
+      setLinhasPecas(prev => notaPecas.itens.map((it, i) => {
+        const nova = linhaInicial(it, r.conferencia.sugestoes[i])
+        const antes = prev.length === notaPecas.itens.length ? prev[i] : null
+        if (!antes) return nova
+        return antes.destino === 'catalogo'
+          ? { ...nova, quantidade: antes.quantidade }
+          : { ...antes, pecaId: '' }
+      }))
       setLancarRepetida(false)
     })
     return () => { vale = false }
@@ -210,7 +219,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     for (const file of files) {
       try {
         const xml = await file.text()
-        const { nNF, infCpl, qtdProdutos } = extrairDaNfe(xml)
+        const { nNF, infCpl } = extrairDaNfe(xml)
         const motos = parseMotosInfCpl(infCpl)
         const itensPeca = extrairItensDePeca(xml)
 
@@ -233,7 +242,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         }
         // Conferência: o nº de motos lidas tem que bater com a qtd de motos da nota
         // (as linhas de peça vão para a conferência de peças).
-        const qtdMotosNaNota = qtdProdutos - itensPeca.reduce((s, i) => s + Math.round(i.quantidade), 0)
+        const qtdMotosNaNota = lerItensDaNfe(xml)
+          .filter(d => ehNcmDeMoto(tagNfe(d.prod, 'NCM')))
+          .reduce((s, d) => s + (Number(tagNfe(d.prod, 'qCom')) || 0), 0)
         if (qtdMotosNaNota > 0 && motos.length !== qtdMotosNaNota) {
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdMotosNaNota} moto(s). Confira.`)
         }
@@ -625,7 +636,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                   <span>
                     <strong>
                       {conferencia.notaJaLancada.soPeloNumero ? 'Uma nota com este número' : 'Esta nota'} já entrou em{' '}
-                      {new Date(conferencia.notaJaLancada.em).toLocaleDateString('pt-BR')} por {conferencia.notaJaLancada.por}.
+                      {new Date(conferencia.notaJaLancada.em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por {conferencia.notaJaLancada.por}.
                     </strong>{' '}
                     Confira antes de lançar de novo.
                   </span>

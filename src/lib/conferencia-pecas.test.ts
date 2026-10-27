@@ -51,3 +51,12 @@ test('para gravar: pula "não dar entrada", converte quantidade e preço, e mand
     { codigo: '26302', nomeXml: 'CAPACETE AZUL &amp; PRETO', quantidade: 4, custoUnitario: 32.61, pecaId: 'p1' },
   ])
 })
+
+test('preço e quantidade aceitam vírgula ou ponto como decimal; ponto com vírgula é milhar', () => {
+  const nova = { ...linhaInicial(item(), null), nome: 'X' }
+  const valor = (preco: string) => (paraGravacao([{ ...nova, preco }])[0] as { nova: { valor: number } }).nova.valor
+  assert.equal(valor('79,90'), 79.9)
+  assert.equal(valor('79.90'), 79.9)
+  assert.equal(valor('1.234,50'), 1234.5)
+  assert.equal(problemaDaLinha({ ...nova, preco: '10', quantidade: '1.5' }), 'A quantidade precisa ser um número inteiro maior que zero.')
+})
