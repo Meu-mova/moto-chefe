@@ -55,9 +55,12 @@ Função pura (`src/lib/notagateway/logo.ts`), com `sharp` como dependência dir
 - Bucket privado novo `logos-danfe`, caminho `{grupoId}/logo.png` montado no servidor, nunca de
   entrada do usuário. Só a atual, sobrescrita a cada envio. Miniatura e prévia por link assinado
   de vida curta. Sem expiração nem cron: logo não é dado pessoal nem fiscal.
-- Migração `0147` (confirmar o próximo número livre na hora): bucket + colunas em
-  `notagateway_config`: `logo_enviada_em timestamptz`, `logo_enviada_por uuid` (usuário).
+- Migração `0148` (ou o próximo número livre na `origin/dev` ao abrir o PR; a `0147` é do estoque
+  por loja): bucket + colunas em `notagateway_config`: `logo_enviada_em timestamptz`,
+  `logo_enviada_por uuid` (usuário) + refaz a `log_acoes_tipo_check` com o tipo novo.
 - `log_acoes`: tipo novo `logo_danfe_enviada` com grupo e tamanho; nunca token nem `empresaId`.
+  A `log_acoes_tipo_check` lista os tipos aceitos (última versão na `0145`): a migração a refaz
+  com a lista inteira mais o tipo novo.
   Resumo na tela do log.
 
 ## Fluxo do envio
@@ -97,8 +100,8 @@ A ordem NG → Storage → banco faz o MOVA só mostrar como atual a logo que a 
 ## Plano de PRs (até ~400 linhas cada, todos para a `dev`, Refs #428)
 
 1. **Spec** (este arquivo + pesquisa).
-2. **Imagem e banco:** `sharp` no `package.json`, `logo.ts` + testes, migração do bucket e das
-   colunas, `schema.ts`.
+2. **Imagem e banco:** `sharp` no `package.json`, `logo.ts` + testes, migração do bucket, das
+   colunas e da `log_acoes_tipo_check`, `schema.ts`.
 3. **Envio:** multipart no `client.ts`, Server Actions (prévia e envio), Storage, log, teste de
    banco do isolamento.
 4. **Tela:** card "Logo no DANFE" e diálogo com a simulação. Teste no navegador.
