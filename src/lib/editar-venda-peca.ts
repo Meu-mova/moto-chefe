@@ -3,12 +3,14 @@
  * itens e pagamentos no lugar (mesmo número), acerta o estoque pela diferença
  * e grava o histórico. Permissão e saneamento ficam na action, como na criação.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { lojas, pecasCatalogo, vendasPecas, vendasPecasEdicoes, vendasPecasItens } from '@/lib/db/schema'
 import { diferencaDeEstoque, resumoDaEdicao } from './edicao-venda-peca'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { moverSaldo } from '@/lib/estoque-pecas-loja'
+import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -38,6 +40,9 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     ))
     .for('update')
   const pecaById = new Map(pecas.map(p => [p.id, p]))
+  // Também aqui, e não só na action: a edição aprovada aplica o que ficou guardado (#195).
+  const recusaQuantidade = recusaDaQuantidadeVendida(e.itens)
+  if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
   for (const item of e.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new RecusaUsuario('Peça não encontrada')
@@ -50,9 +55,7 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
     e.itens,
   )
   for (const [pecaId, n] of delta) {
-    await tx.update(pecasCatalogo)
-      .set({ quantidadeEstoque: sql`${pecasCatalogo.quantidadeEstoque} - ${n}`, atualizadoEm: new Date() })
-      .where(eq(pecasCatalogo.id, pecaId))
+    await moverSaldo(tx, pecaId, venda.lojaId, -n)
   }
 
   const novos = e.itens.map(item => {

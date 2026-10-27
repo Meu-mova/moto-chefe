@@ -16,17 +16,17 @@ export type CalendarioVisibilidade = typeof VISIBILIDADES[number]
 // As classes precisam aparecer literalmente aqui para o Tailwind incluí-las
 // (não dá para montar nome de classe dinamicamente).
 export const CORES = {
-  rose:    { label: 'Vermelho', dot: 'bg-rose-500',    chip: 'bg-rose-50 text-rose-700 border-rose-200',       swatch: 'bg-rose-500' },
-  pink:    { label: 'Rosa',     dot: 'bg-pink-500',    chip: 'bg-pink-50 text-pink-700 border-pink-200',       swatch: 'bg-pink-500' },
-  orange:  { label: 'Laranja',  dot: 'bg-orange-500',  chip: 'bg-orange-50 text-orange-700 border-orange-200', swatch: 'bg-orange-500' },
-  amber:   { label: 'Âmbar',    dot: 'bg-amber-500',   chip: 'bg-amber-50 text-amber-700 border-amber-200',    swatch: 'bg-amber-500' },
-  emerald: { label: 'Verde',    dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', swatch: 'bg-emerald-500' },
-  teal:    { label: 'Turquesa', dot: 'bg-teal-500',    chip: 'bg-teal-50 text-teal-700 border-teal-200',       swatch: 'bg-teal-500' },
-  cyan:    { label: 'Ciano',    dot: 'bg-cyan-500',    chip: 'bg-cyan-50 text-cyan-700 border-cyan-200',       swatch: 'bg-cyan-500' },
-  blue:    { label: 'Azul',     dot: 'bg-blue-500',    chip: 'bg-blue-50 text-blue-700 border-blue-200',       swatch: 'bg-blue-500' },
-  violet:  { label: 'Roxo',     dot: 'bg-violet-500',  chip: 'bg-violet-50 text-violet-700 border-violet-200', swatch: 'bg-violet-500' },
-  fuchsia: { label: 'Magenta',  dot: 'bg-fuchsia-500', chip: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200', swatch: 'bg-fuchsia-500' },
-  slate:   { label: 'Cinza',    dot: 'bg-slate-400',   chip: 'bg-slate-50 text-slate-600 border-slate-200',    swatch: 'bg-slate-400' },
+  rose:    { label: 'Vermelho', dot: 'bg-agenda-rose-ponto', chip: 'bg-agenda-rose-selo text-agenda-rose-selo-texto border-agenda-rose-selo-borda', swatch: 'bg-agenda-rose-ponto' },
+  pink:    { label: 'Rosa',     dot: 'bg-agenda-pink-ponto', chip: 'bg-agenda-pink-selo text-agenda-pink-selo-texto border-agenda-pink-selo-borda', swatch: 'bg-agenda-pink-ponto' },
+  orange:  { label: 'Laranja',  dot: 'bg-agenda-orange-ponto', chip: 'bg-agenda-orange-selo text-agenda-orange-selo-texto border-agenda-orange-selo-borda', swatch: 'bg-agenda-orange-ponto' },
+  amber:   { label: 'Âmbar',    dot: 'bg-agenda-amber-ponto', chip: 'bg-agenda-amber-selo text-agenda-amber-selo-texto border-agenda-amber-selo-borda', swatch: 'bg-agenda-amber-ponto' },
+  emerald: { label: 'Verde',    dot: 'bg-agenda-emerald-ponto', chip: 'bg-agenda-emerald-selo text-agenda-emerald-selo-texto border-agenda-emerald-selo-borda', swatch: 'bg-agenda-emerald-ponto' },
+  teal:    { label: 'Turquesa', dot: 'bg-agenda-teal-ponto', chip: 'bg-agenda-teal-selo text-agenda-teal-selo-texto border-agenda-teal-selo-borda', swatch: 'bg-agenda-teal-ponto' },
+  cyan:    { label: 'Ciano',    dot: 'bg-agenda-cyan-ponto', chip: 'bg-agenda-cyan-selo text-agenda-cyan-selo-texto border-agenda-cyan-selo-borda', swatch: 'bg-agenda-cyan-ponto' },
+  blue:    { label: 'Azul',     dot: 'bg-agenda-blue-ponto', chip: 'bg-agenda-blue-selo text-agenda-blue-selo-texto border-agenda-blue-selo-borda', swatch: 'bg-agenda-blue-ponto' },
+  violet:  { label: 'Roxo',     dot: 'bg-agenda-violet-ponto', chip: 'bg-agenda-violet-selo text-agenda-violet-selo-texto border-agenda-violet-selo-borda', swatch: 'bg-agenda-violet-ponto' },
+  fuchsia: { label: 'Magenta',  dot: 'bg-agenda-fuchsia-ponto', chip: 'bg-agenda-fuchsia-selo text-agenda-fuchsia-selo-texto border-agenda-fuchsia-selo-borda', swatch: 'bg-agenda-fuchsia-ponto' },
+  slate:   { label: 'Cinza',    dot: 'bg-agenda-slate-ponto', chip: 'bg-agenda-slate-selo text-agenda-slate-selo-texto border-agenda-slate-selo-borda', swatch: 'bg-agenda-slate-ponto' },
 } as const
 
 export type CorCategoria = keyof typeof CORES

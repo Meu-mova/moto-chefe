@@ -32,7 +32,12 @@ function fmtBRL(v: string) {
  * Mesmo filtro da busca da Nova Venda (filtrarPecas): termo solto, sem acento,
  * prefixo primeiro.
  */
-export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: boolean }) {
+/** `quantidadeEstoque` é o saldo de `lojaEstoque`, a loja que o form de edição ajusta (#195). */
+export function CatalogoTable({ pecas, isGestor, lojaEstoque }: {
+  pecas: Peca[]
+  isGestor: boolean
+  lojaEstoque: { id: string; nome: string } | null
+}) {
   const [busca, setBusca] = useState('')
   const [soComEstoque, setSoComEstoque] = useState(false)
 
@@ -52,6 +57,7 @@ export function CatalogoTable({ pecas, isGestor }: { pecas: Peca[]; isGestor: bo
   const editar = (p: Peca) => (
     <PecaForm
       pecaInicial={{ id: p.id, nome: p.nome, valor: p.valor, quantidadeEstoque: p.quantidadeEstoque }}
+      lojaEstoque={lojaEstoque}
       trigger={
         <button type="button" aria-label={`Editar ${p.nome}`} className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
           <Pencil className="size-4" />
