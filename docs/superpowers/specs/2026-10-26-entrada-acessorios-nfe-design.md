@@ -23,7 +23,8 @@ Já fixado pela #195: o catálogo e o vínculo são da Conta da loja de destino;
 
 ## Fiscal (ADR-0008)
 
-- `nome_xml` guarda o `xProd` **literal** da nota, sem trim, sem mudar caixa e sem normalizar. Serve só para casar o vínculo.
+- `nome_xml` guarda o `xProd` **pelo mesmo leitor do `motos_fiscal.x_prod`**: aparado nas pontas, sem mudar caixa, sem normalizar e com as entidades XML (`&amp;`) como vieram. "Literal" quer dizer a mesma coisa nos dois. Serve só para casar o vínculo.
+- O nome sugerido para a peça nova é o `nome_xml` com as entidades decodificadas (`&amp;` vira `&`), e a pessoa pode editá-lo.
 - As motos seguem como hoje: `motos_fiscal.x_prod` fica intacto e é o nome que sai na NF de saída (ADR-0008).
 - O nome editável da peça nova é comercial: `vendas_pecas` não emite nota fiscal, então o ADR-0008 não se aplica a ele.
 

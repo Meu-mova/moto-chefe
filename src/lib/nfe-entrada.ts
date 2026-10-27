@@ -117,13 +117,50 @@ export function mapearModelo(nomeNf: string, modelosMova: string[]): string | nu
   return melhor
 }
 
+/** Valor de uma tag plana (`<NCM>…</NCM>`), aparado. Entidades ficam como vieram. */
+export const tagNfe = (xml: string, nome: string): string =>
+  (xml.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1]?.trim() ?? ''
+
+/** Conteúdo de um grupo (`<ICMS>…</ICMS>`), incluindo as tags aninhadas. */
+export const grupoNfe = (xml: string, nome: string): string =>
+  (xml.match(new RegExp(`<${nome}\\b[^>]*>([\\s\\S]*?)</${nome}>`)) || [])[1] ?? ''
+
+/** `<prod>` e `<imposto>` de cada item (`<det>`) da nota, na ordem. */
+export function lerItensDaNfe(xml: string): { prod: string; imposto: string }[] {
+  return [...(xml ?? '').matchAll(/<det\b[^>]*>([\s\S]*?)<\/det>/g)].map(m => ({
+    prod: grupoNfe(m[1], 'prod'),
+    imposto: grupoNfe(m[1], 'imposto'),
+  }))
+}
+
+/** NCM 8711 = motocicletas. Só ele: o 8714 é peça de moto. */
+export const ehNcmDeMoto = (ncm: string): boolean => ncm.startsWith('8711')
+
+const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+
+/** `&amp;` → `&` etc. Só para exibir; o que casa e o que vai para a NF fica como veio. */
+export function decodificarEntidadesXml(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (inteira, e: string) => {
+    if (e[0] === '#') {
+      const n = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
+      return Number.isFinite(n) ? String.fromCodePoint(n) : inteira
+    }
+    return ENTIDADES[e.toLowerCase()] ?? inteira
+  })
+}
+
 export type ItemPecaNfe = {
   codigo: string
-  /** `xProd` literal: é a chave do vínculo com o fornecedor (ADR-0008). */
+  /**
+   * `xProd` pelo mesmo leitor do `x_prod` das motos (aparado, entidades cruas):
+   * é a chave do vínculo com o fornecedor (ADR-0008).
+   */
   nomeXml: string
+  /** `nomeXml` com as entidades decodificadas: sugestão de nome da peça nova. */
+  nomeLegivel: string
   unidade: string
   quantidade: number
-  /** Estoque de peça é inteiro: a conferência barra a linha até corrigirem. */
+  /** Falso para decimal, zero ou qCom ausente. Estoque de peça é inteiro. */
   quantidadeInteira: boolean
   custoUnitario: number
   ncm: string
@@ -131,25 +168,20 @@ export type ItemPecaNfe = {
 
 /** Linhas `<det>` da nota que entram no catálogo de peças (#341). */
 export function extrairItensDePeca(xml: string): ItemPecaNfe[] {
-  const campo = (bloco: string, nome: string) =>
-    (bloco.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1] ?? ''
-  const itens: ItemPecaNfe[] = []
-  for (const m of (xml ?? '').matchAll(/<det\b[^>]*>([\s\S]*?)<\/det>/g)) {
-    const prod = (m[1].match(/<prod>([\s\S]*?)<\/prod>/) || [])[1] ?? ''
-    const ncm = campo(prod, 'NCM').trim()
-    // 8711 = motocicletas, que entram pelo chassi. Não vale 87 inteiro: 8714 é
-    // peça de moto e tem de entrar no catálogo.
-    if (ncm.startsWith('8711')) continue
-    const quantidade = parseFloat(campo(prod, 'qCom')) || 0
-    itens.push({
-      codigo: campo(prod, 'cProd').trim(),
-      nomeXml: campo(prod, 'xProd'),
-      unidade: campo(prod, 'uCom').trim(),
-      quantidade,
-      quantidadeInteira: Number.isInteger(quantidade),
-      custoUnitario: parseFloat(campo(prod, 'vUnCom')) || 0,
-      ncm,
+  return lerItensDaNfe(xml)
+    .filter(({ prod }) => !ehNcmDeMoto(tagNfe(prod, 'NCM')))
+    .map(({ prod }) => {
+      const quantidade = parseFloat(tagNfe(prod, 'qCom')) || 0
+      const nomeXml = tagNfe(prod, 'xProd')
+      return {
+        codigo: tagNfe(prod, 'cProd'),
+        nomeXml,
+        nomeLegivel: decodificarEntidadesXml(nomeXml),
+        unidade: tagNfe(prod, 'uCom'),
+        quantidade,
+        quantidadeInteira: Number.isInteger(quantidade) && quantidade > 0,
+        custoUnitario: parseFloat(tagNfe(prod, 'vUnCom')) || 0,
+        ncm: tagNfe(prod, 'NCM'),
+      }
     })
-  }
-  return itens
 }
