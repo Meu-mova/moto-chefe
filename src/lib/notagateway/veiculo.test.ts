@@ -121,6 +121,16 @@ test('monta o grupo veiculoNovo como a API recebe', () => {
   assert.equal(g.restricao, 'NaoHa')
 })
 
+test('combustível e tipo de veículo vão à API sem zero à esquerda, como no exemplo da NG', () => {
+  const v = validarRenave(PREENCHIDO)
+  assert.ok(v.ok)
+  const g = montarVeiculoNovo(v.dados)
+  assert.equal(g.tipoCombustivel, '7')
+  assert.equal(g.tipoVeiculo, '2')
+  // Código RENAVAM continua com o zero: lá ele faz parte do código.
+  assert.equal(g.codigoMarcaModelo, '012345')
+})
+
 test('tipo da operação e restrição não vêm da moto anterior: são da venda', () => {
   const h = sugestaoRenave({
     chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026,

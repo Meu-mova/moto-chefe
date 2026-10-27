@@ -320,6 +320,9 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
   return erros.length ? { ok: false, error: erros.join('\n') } : { ok: true, dados }
 }
 
+/** A tela mostra o código da tabela com 2 dígitos; o exemplo de payload da NG (Hermes, 27/10) manda sem o zero. */
+const semZeroAEsquerda = (codigo: string) => String(Number(codigo))
+
 /** Dados já validados → grupo `veiculoNovo` da API. */
 export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
   return {
@@ -331,14 +334,14 @@ export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
     pesoLiquido: Number(d.pesoLiquido),
     pesoBruto: Number(d.pesoBruto),
     numeroSerie: d.numeroSerie,
-    tipoCombustivel: d.tipoCombustivel,
+    tipoCombustivel: semZeroAEsquerda(d.tipoCombustivel),
     numeroMotor: d.numeroMotor,
     capacidadeMaximaTracao: Number(d.capacidadeMaximaTracao),
     distanciaEixos: d.distanciaEixos,
     anoModelo: Number(d.anoModelo),
     anoFabricacao: Number(d.anoFabricacao),
     tipoPintura: d.tipoPintura,
-    tipoVeiculo: d.tipoVeiculo,
+    tipoVeiculo: semZeroAEsquerda(d.tipoVeiculo),
     especie: d.especie,
     condicaoVin: d.condicaoVin,
     condicao: d.condicao,
