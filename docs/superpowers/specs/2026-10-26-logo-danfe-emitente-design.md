@@ -56,6 +56,9 @@ Medido dentro dos PDFs dos DANFEs (pdfplumber), notas de homologação 429 a 433
 
 ### O que o MOVA gera
 
+Decisão do Luis em 26/10/2026 (opção A, registrada na #428), depois do teste em homologação.
+
+
 `src/lib/notagateway/logo.ts`, com `sharp` e a fonte Arimo (SIL OFL 1.1) em `assets/fonts/`,
 desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do sistema na Vercel):
 
@@ -64,7 +67,12 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
 - À direita, uma informação por linha, no padrão do Sul de Minas: razão social (negrito),
   logradouro, número e complemento, bairro, `CEP - cidade - UF`, CNPJ, fone, site e e-mail.
   Linha sem dado não aparece.
-- Entrada: PNG ou JPG, até 5 MB. Saída até 64 KB (limite da doc v1 da NG). Fora disso, recusa.
+- Entrada: PNG ou JPG, até 5 MB. Saída até 64 KB (limite da doc v1 da NG): PNG com paleta
+  (o teste com a logo de Cuiabá e 5 linhas deu 29,8 KB). Passou de 64 KB, tenta de novo com menos
+  cores; ainda acima, recusa com aviso.
+- Todo dado que vai para o Pango (vindo da NG ou digitado, como o site) é escapado antes
+  (`&`, `<`, `>`, aspas): o Pango interpreta marcação, e texto cru quebraria a imagem ou mudaria
+  o desenho.
 
 ### De onde vêm os dados
 
@@ -75,9 +83,14 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
   imagem não diverge do fiscal e ninguém digita de novo. Mesma chamada do `ufDaEmpresa`.
   A doc não afirma que esse cadastro é o emitente da NF; a nota 415 de homologação saiu com esse
   endereço (evidência indireta).
-- CNPJ: o do grupo no MOVA.
-- Site: campo novo do grupo (a NG não tem). Opcional.
-- Se a consulta à NG falhar, a prévia avisa e não gera a imagem.
+- CNPJ: o da NG (`cnpj` da Consultar Empresa), que é o do emitente da nota. Se divergir do CNPJ do
+  grupo no MOVA, a prévia avisa e não gera a imagem: a divergência é erro de configuração.
+- Site: coluna nova `site_danfe` em `notagateway_config` (a NG não tem). Opcional. Fica na tabela
+  da configuração fiscal do grupo, que já tem o isolamento por Conta e a permissão deste card.
+- A prévia só chama o GET da NG **depois** da checagem de papel e de Conta e do
+  `ambienteLiberado`. Grupo de outra Conta não dispara chamada nenhuma à NG.
+- Se a consulta à NG falhar, a prévia avisa com frase fixa e não gera a imagem. Nada da resposta
+  da NG (nem o `empresaId`) vai para a tela, o erro ou o log; no log do servidor, só o status HTTP.
 
 ## Guarda e registro
 
@@ -85,8 +98,9 @@ desenhada pelo Pango (`sharp` `text` com `fontfile`; não depende de fonte do si
   entrada do usuário. Só a atual, sobrescrita a cada envio. Miniatura e prévia por link assinado
   de vida curta. Sem expiração nem cron, decisão do Luis (26/10): logo não é dado pessoal nem
   fiscal, então fica fora da regra de expiração do `AGENTS.md` (#402).
-- Coluna nova `site` (texto, opcional), na migração do PR da imagem composta, no próximo número
-  livre. Editada só por `admin_geral` e `admin_socio` da Conta, como o resto do card.
+- Coluna nova `notagateway_config.site_danfe` (texto, opcional), na migração do PR da imagem
+  composta, no próximo número livre. Editada só por `admin_geral` e `admin_socio` da Conta, como
+  o resto do card.
 - Migração `0148` (ou o próximo número livre na `origin/dev` ao abrir o PR; a `0147` é do estoque
   por loja): bucket + colunas em `notagateway_config`: `logo_enviada_em timestamptz`,
   `logo_enviada_por uuid` (usuário) + refaz a `log_acoes_tipo_check` com o tipo novo.
@@ -121,7 +135,10 @@ tela. Teste manual por Postman só pelo mascarador de `scripts/lib/postman-ng.ts
 ## Testes
 
 - Unitário (`logo.test.ts`): saída 976x316 sem pixel transparente; logo recortada à esquerda;
-  linha sem dado não aparece; recusa > 5 MB, formato errado, arquivo ilegível e saída > 64 KB.
+  linha sem dado não aparece; texto com `<` e `&` sai desenhado literalmente; recusa > 5 MB,
+  formato errado, arquivo ilegível e saída > 64 KB.
+- Banco: sócio da Conta B pedindo a prévia de grupo da Conta A recebe "Grupo não encontrado" e
+  a NG não é chamada; CNPJ da NG diferente do grupo recusa a prévia.
 - Unitário do envio multipart no `client.ts` (corpo com campo `logotipo`, sem token na mensagem
   de erro).
 - Banco (`*.db.test.ts`): sócio da Conta B não lista nem envia para grupo da Conta A e recebe a
