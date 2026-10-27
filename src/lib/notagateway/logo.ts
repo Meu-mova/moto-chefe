@@ -13,6 +13,7 @@ const LARGURA = 976
 const ALTURA = 316
 const MARGEM = 30
 const ALTURA_LOGO = 220
+const FUNDO = '#ffffff' // cor-fixa-ok: fundo da imagem do DANFE, a NG pinta transparente de preto
 const MAX_ENTRADA = 5 * 1024 * 1024
 // Limite da doc v1 da NG (a v2 não cita): https://docs.notagateway.com.br/docs/como-inserir-a-logo-na-nota-fiscal
 const MAX_SAIDA = 64 * 1024
@@ -49,7 +50,7 @@ export async function montarImagemDanfe(arquivo: Buffer, emitente: EmitenteDanfe
     const { channels } = await sharp(arquivo).stats()
     if (channels.every((c) => c.min === c.max)) throw new Error('imagem sem desenho')
     const logo = await sharp(arquivo)
-      .flatten({ background: '#ffffff' })
+      .flatten({ background: FUNDO })
       .trim({ threshold: 20 })
       .resize({ height: ALTURA_LOGO, width: Math.round(LARGURA * 0.36), fit: 'inside' })
       .toBuffer()
@@ -57,7 +58,7 @@ export async function montarImagemDanfe(arquivo: Buffer, emitente: EmitenteDanfe
     const xTexto = MARGEM + metaLogo.width! + 36
     const texto = await textoDoEmitente(emitente, LARGURA - xTexto - MARGEM)
     const metaTexto = await sharp(texto).metadata()
-    const montada = sharp({ create: { width: LARGURA, height: ALTURA, channels: 3, background: '#ffffff' } }).composite([
+    const montada = sharp({ create: { width: LARGURA, height: ALTURA, channels: 3, background: FUNDO } }).composite([
       { input: logo, left: MARGEM, top: Math.round((ALTURA - metaLogo.height!) / 2) },
       { input: texto, left: xTexto, top: Math.round((ALTURA - metaTexto.height!) / 2) },
     ])
