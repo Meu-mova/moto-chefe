@@ -4,9 +4,9 @@
  * motos continua parcial, pelo registrarEntradaLote. Roda dentro da transação de quem
  * chama.
  */
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { motos } from '@/lib/db/schema'
+import { grupos, lojas, motos } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
@@ -39,8 +39,9 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
   }
 
   const erros: string[] = []
+  const contaId = await contaDaLoja(e.lojaId, exec)
   const modelosValidos = await modelosUsaveisPelaConta(
-    await contaDaLoja(e.lojaId, exec),
+    contaId,
     [...new Set(e.motos.map(m => m.modeloId).filter(Boolean))],
     exec,
   )
@@ -58,9 +59,15 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
   }
   // Conferido antes de gravar: um insert que falha dentro da transação a invalida inteira.
   if (prontas.length) {
-    const existentes = await exec.select({ chassi: motos.chassi }).from(motos)
+    const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId }).from(motos)
+      .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
       .where(inArray(motos.chassi, prontas.map(p => p.chassi)))
-    for (const { chassi } of existentes) erros.push(`${chassi}: chassi já existe no sistema`)
+    // Chassi de outra Conta recusa sem dizer onde está (#456).
+    for (const m of existentes) {
+      erros.push(m.contaId === contaId
+        ? `${m.chassi}: chassi já existe no sistema`
+        : `${m.chassi}: não deu para registrar este chassi. Confira o número.`)
+    }
   }
   erros.push(...await conferirLinhasPecas(exec, e.lojaId, e.pecas))
   if (erros.length) throw new NotaRecusada(erros)

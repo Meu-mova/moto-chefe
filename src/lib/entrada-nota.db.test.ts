@@ -169,3 +169,21 @@ test('modelo próprio da Conta B não serve para moto da nota na loja da Conta A
     assert.equal(await saldos.saldoNaLoja(tx, a.pecaId, a.lojaId), 0)
   })
 })
+
+test('chassi que só existe na Conta A recusa a nota da Conta B com frase neutra, e nada é gravado', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    await nota.registrarNotaComPecas(tx, { usuario: a.usuario, lojaId: a.lojaId, nota: NOTA, motos: [moto(a.modeloId, 'EN429DEA')], pecas: [capacete(a.pecaId, 1)] })
+
+    const erro = await tentar(tx, {
+      usuario: b.usuario, lojaId: b.lojaId, nota: NOTA,
+      motos: [moto(b.modeloId, 'EN429NOVAB'), moto(b.modeloId, 'EN429DEA')],
+      pecas: [capacete(b.pecaId, 2)],
+    })
+    assert.ok(erro instanceof nota.NotaRecusada)
+    assert.deepEqual(erro.erros, ['EN429DEA: não deu para registrar este chassi. Confira o número.'])
+    assert.deepEqual(await motosGravadas(tx, ['EN429NOVAB']), [])
+    assert.equal(await saldos.saldoNaLoja(tx, b.pecaId, b.lojaId), 0)
+  })
+})

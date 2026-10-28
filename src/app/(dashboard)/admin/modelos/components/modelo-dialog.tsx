@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { criarModeloAction, editarModeloAction } from '../actions'
+import { ajustarModeloAction, criarModeloAction, editarModeloAction } from '../actions'
 
 const CATEGORIAS = ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'] as const
 
@@ -17,7 +17,8 @@ export type ModeloEditavel = {
   potenciaW: string
 }
 
-export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | null; onClose: () => void }) {
+// Ajuste: o sócio muda o modelo da plataforma só para a própria Conta (#476); marca não se ajusta.
+export function ModeloDialog({ modelo, ajuste = false, onClose }: { modelo?: ModeloEditavel | null; ajuste?: boolean; onClose: () => void }) {
   const [marca, setMarca] = useState(modelo?.marca ?? '')
   const [nome, setNome] = useState(modelo?.modelo ?? '')
   const [categoria, setCategoria] = useState(modelo?.categoria ?? 'autopropelido')
@@ -37,7 +38,9 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
       fd.set('modelo', nome.trim())
       fd.set('categoria', categoria)
       fd.set('potencia_w', potencia.trim())
-      const { aviso } = modelo ? await editarModeloAction(modelo.id, fd) : await criarModeloAction(fd)
+      const { aviso } = modelo
+        ? await (ajuste ? ajustarModeloAction : editarModeloAction)(modelo.id, fd)
+        : await criarModeloAction(fd)
       // Nome repetido avisa e deixa gravar.
       if (aviso) toast.warning(aviso)
       else toast.success(modelo ? 'Modelo atualizado' : 'Modelo criado')
@@ -53,13 +56,13 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{modelo ? 'Editar Modelo' : 'Novo Modelo'}</DialogTitle>
+          <DialogTitle>{ajuste ? 'Ajustar Modelo' : modelo ? 'Editar Modelo' : 'Novo Modelo'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Marca *</Label>
-              <Input value={marca} onChange={e => setMarca(e.target.value)} placeholder="Ex: MotoChefe" autoFocus />
+              <Input value={marca} onChange={e => setMarca(e.target.value)} placeholder="Ex: MotoChefe" autoFocus={!ajuste} disabled={ajuste} />
             </div>
             <div className="space-y-1.5">
               <Label>Modelo *</Label>
@@ -82,6 +85,11 @@ export function ModeloDialog({ modelo, onClose }: { modelo?: ModeloEditavel | nu
             <Label>Potência (W) *</Label>
             <Input value={potencia} onChange={e => setPotencia(e.target.value)} placeholder="Ex: 1000" inputMode="numeric" />
           </div>
+          {ajuste && (
+            <p className="text-xs text-muted-foreground">
+              Vale só para a sua Conta. As outras continuam vendo o modelo como a MotoChefe cadastrou.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             O número do motor não é do modelo — cada moto recebe o seu na importação do XML.
           </p>

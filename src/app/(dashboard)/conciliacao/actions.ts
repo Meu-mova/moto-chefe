@@ -1,4 +1,7 @@
 'use server'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { maquininhasDoGrupo } from '@/lib/maquininhas'
+import { gruposDoTerminalNaConta } from '@/lib/terminal-da-conta'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
@@ -8,7 +11,7 @@ import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
-import { extrairTerminalInfinityPay, padraoNsuDoTerminal } from '@/lib/conciliacao-terminal'
+import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -124,15 +127,19 @@ function detectarFormato(primeiraLinha: string): string | null {
   return null
 }
 
+// Recusa volta como valor: em produção a mensagem de erro lançado não chega à tela (#404).
 export async function importarRelatorioAction(formData: FormData) {
+  return acao(() => importarRelatorio(formData))
+}
+async function importarRelatorio(formData: FormData) {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new Error('Sem permissão')
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
   const operadoraSelecionada = formData.get('operadora') as string
   const file = formData.get('file') as File
-  if (!file || !operadoraSelecionada) throw new Error('Arquivo ou operadora não informados')
+  if (!file || !operadoraSelecionada) throw new RecusaUsuario('Arquivo ou operadora não informados')
 
   // Tenta UTF-8; se falhar, tenta latin1 (comum em arquivos Windows brasileiros)
   let text: string
@@ -157,7 +164,10 @@ export async function importarRelatorioAction(formData: FormData) {
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
-  else throw new Error(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
+  else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
+  if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
+    throw new RecusaUsuario('Maquininha não encontrada')
+  }
 
   // ── Trava de grupo errado ───────────────────────────────────────────────────
   // A importação carimba o grupo ATIVO na sessão. Se o arquivo for de outro
@@ -169,21 +179,10 @@ export async function importarRelatorioAction(formData: FormData) {
   // guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
-    const vistos = await db
-      .selectDistinct({ grupoId: conciliacoesCartao.grupoId, grupoNome: grupos.nome })
-      .from(conciliacoesCartao)
-      .innerJoin(grupos, eq(conciliacoesCartao.grupoId, grupos.id))
-      .where(or(
-        ilike(conciliacoesCartao.nsu, padraoNsuDoTerminal(terminal)),
-        eq(sql`${conciliacoesCartao.rawData}->>'serial'`, terminal),
-      ))
-
-    if (vistos.length > 0 && !vistos.some(v => v.grupoId === grupo.id)) {
-      const onde = vistos.map(v => v.grupoNome).join(', ')
-      throw new Error(
-        `Este arquivo é da maquininha ${terminal}, que pertence ao grupo ${onde}. ` +
-        `Você está em ${grupo.nome}. Troque de grupo antes de importar — nada foi gravado.`,
-      )
+    // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal) : []
+    if (vistos.length > 0 && !vistos.includes(grupo.id)) {
+      throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
   }
 

@@ -145,6 +145,20 @@ export const lojas = pgTable('lojas', {
   fabricaSenha: text('fabrica_senha'),
 })
 
+// ─── maquininhas ─────────────────────────────────────────────────────────────
+// Maquininhas de cartão do grupo (#460). Ler e conferir via @/lib/maquininhas.
+export const maquininhas = pgTable('maquininhas', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  nome:      text('nome').notNull(),
+  // Código gravado no pagamento e usado pela conciliação.
+  operadora: text('operadora').notNull(),
+  ativo:     boolean('ativo').notNull().default(true),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  grupoOperadora: unique().on(t.grupoId, t.operadora),
+}))
+
 // ─── usuarios ────────────────────────────────────────────────────────────────
 export const usuarios = pgTable('usuarios', {
   id: uuid('id').primaryKey(), // vinculado ao Supabase Auth uid
@@ -211,6 +225,24 @@ export const modelos = pgTable('modelos', {
   // Nulo = catálogo da plataforma; preenchido = modelo só daquela Conta (#321).
   contaId: uuid('conta_id').references(() => contas.id),
 })
+
+// ─── modelo_ajustes ──────────────────────────────────────────────────────────
+// O que a Conta mudou num modelo da plataforma (#476). Coluna nula herda o original.
+export const modeloAjustes = pgTable('modelo_ajustes', {
+  contaId: uuid('conta_id').notNull().references(() => contas.id),
+  modeloId: uuid('modelo_id').notNull().references(() => modelos.id, { onDelete: 'cascade' }),
+  modelo: text('modelo'),
+  categoria: categoriaEnum('categoria'),
+  potenciaW: text('potencia_w'),
+  motor: text('motor'),
+  velocidadeMax: text('velocidade_max'),
+  precoCompraPadrao: numeric('preco_compra_padrao', { precision: 12, scale: 2 }),
+  imagemUrl: text('imagem_url'),
+  oculto: boolean('oculto').notNull().default(false),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.contaId, t.modeloId] }),
+}))
 
 // ─── conta_marcas ────────────────────────────────────────────────────────────
 // Marcas que a Conta enxerga nas listas de escolha (#287). Sem linha = todas.
