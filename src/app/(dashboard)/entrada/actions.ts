@@ -3,9 +3,9 @@
 import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
@@ -17,27 +17,12 @@ import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
-// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la:
-// admin só no grupo que vê; quem entra pela exceção nominal, no grupo da própria loja.
-// Assim um lojaId forjado no payload não joga moto no estoque de outro grupo.
+// Loja de destino que o usuário pode usar, pela mesma regra da entrada de peças. Loja de
+// outra Conta e loja inexistente recebem a mesma frase, para um lojaId forjado no payload
+// não revelar que a loja existe.
 async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
-  const [loja] = await db
-    .select({ id: lojas.id, grupoId: lojas.grupoId })
-    .from(lojas)
-    .where(eq(lojas.id, lojaId))
-    .limit(1)
-
-  if (!loja) return { error: 'Loja não encontrada' as const }
-
-  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) {
-    if (!(await podeAbrirRegistroDaLoja(usuario, loja.id))) return { error: 'Loja fora do seu grupo' as const }
-  } else {
-    if (!usuario.lojaId) return { error: 'Usuário sem loja associada' as const }
-    const grupoUsuario = await getGrupoIdDaLoja(usuario.lojaId)
-    if (grupoUsuario !== loja.grupoId) return { error: 'Loja fora do seu grupo' as const }
-  }
-
-  return { loja }
+  if (!(await podeAbrirRegistroDaLoja(usuario, lojaId))) return { error: 'Loja não encontrada' as const }
+  return { loja: { id: lojaId } }
 }
 
 type MotoEntrada = {
@@ -54,7 +39,7 @@ export async function registrarEntrada(formData: {
   motos: MotoEntrada[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) {
+  if (!acessaModulo(usuario, 'entrada')) {
     return { error: 'Sem permissão' }
   }
 
@@ -149,7 +134,7 @@ export async function registrarEntradaLote(formData: {
   fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) {
+  if (!acessaModulo(usuario, 'entrada')) {
     return { error: 'Sem permissão' }
   }
 
@@ -259,7 +244,7 @@ export async function registrarEntradaLote(formData: {
  */
 export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' }
 
   let total: { motos: number; pecas: number }
   try {
@@ -286,7 +271,7 @@ export async function carregarConferenciaPecas(
   nota: Parameters<typeof carregarConferencia>[3],
 ) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
 }

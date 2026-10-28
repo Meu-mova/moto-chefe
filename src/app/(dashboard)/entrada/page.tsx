@@ -1,4 +1,5 @@
-import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { redirect } from 'next/navigation'
@@ -6,7 +7,7 @@ import { EntradaForm } from './components/entrada-form'
 
 export default async function EntradaPage() {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) redirect('/dashboard')
+  if (!acessaModulo(usuario, 'entrada')) redirect('/dashboard')
 
   const lojasOpts = await listarLojasDoGrupoAtivo(usuario)
 

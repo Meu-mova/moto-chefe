@@ -91,17 +91,6 @@ export function temPapel(
   return usuario.papel === papel || (usuario.papeisExtras ?? []).includes(papel)
 }
 
-// ─── Exceção pontual: entrada/importação de motos ─────────────────────────────
-// Liberado nominalmente para o adm da loja de Pouso Alegre, por decisão
-// explícita — NÃO é uma permissão do papel aux_adm, os demais aux_adm continuam
-// de fora. Mesmo padrão de podeTransferirEntreGrupos em @/lib/grupo.
-const EMAIL_ENTRADA_MOTOS = 'pedro.henrique@motochefesuldeminas.com.br'
-
-export function podeRegistrarEntradaMotos(usuario: { papel: string; email: string }) {
-  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) return true
-  return usuario.email === EMAIL_ENTRADA_MOTOS
-}
-
 // ─── Exceção pontual: categorizar saída do banco (/despesas) ──────────────────
 // Decisão do Cesar (12/08/2026): lançar, editar e cancelar a categorização das
 // saídas do Open Finance é só dele e do Mateus. Os demais sócios (Luiz Paulo,
@@ -109,7 +98,7 @@ export function podeRegistrarEntradaMotos(usuario: { papel: string; email: strin
 // 06/10/2026, também a pedido do Cesar.
 //
 // É nominal porque o Mateus é admin_socio igual aos outros: não existe papel que
-// separe os dois grupos. Mesmo padrão de podeRegistrarEntradaMotos acima.
+// separe os dois grupos.
 const EMAILS_CATEGORIZA_DESPESA_BANCO = [
   'mateus@motochefesuldeminas.com.br',
   'joao.brito@motochefesuldeminas.com.br',

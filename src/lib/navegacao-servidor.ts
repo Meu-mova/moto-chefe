@@ -1,19 +1,15 @@
-// Liga a tabela pura de navegação às regras que dependem de e-mail. Fica em
-// arquivo separado porque @/lib/auth importa o db no topo, e navegacao.ts
-// precisa continuar testável sem banco.
-import { podeRegistrarEntradaMotos } from '@/lib/auth'
+// Ponto único do menu e das rotas para o servidor. Hoje nenhum item tem regra própria
+// (a Entrada virou módulo liberável na #488); quem precisar de uma informa aqui.
 import { itensDoMenu, podeAcessar, type ItemNav, type UsuarioNav } from '@/lib/navegacao'
 
 export type UsuarioServidor = UsuarioNav & { email: string }
 
-function regrasDe(usuario: UsuarioServidor) {
-  return { entrada: podeRegistrarEntradaMotos(usuario) }
-}
+const SEM_REGRAS_PROPRIAS = {}
 
 export function itensDoUsuario(usuario: UsuarioServidor): ItemNav[] {
-  return itensDoMenu(usuario, regrasDe(usuario))
+  return itensDoMenu(usuario, SEM_REGRAS_PROPRIAS)
 }
 
 export function usuarioPodeAcessar(usuario: UsuarioServidor, href: string): boolean {
-  return podeAcessar(usuario, href, regrasDe(usuario))
+  return podeAcessar(usuario, href, SEM_REGRAS_PROPRIAS)
 }
