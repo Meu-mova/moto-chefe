@@ -32,6 +32,8 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
     id: modelos.id,
     marca: modelos.marca,
     modelo: nome,
+    // A nota da fábrica traz o nome original, mesmo que a Conta tenha ajustado (#476).
+    nomeOriginal: modelos.modelo,
     categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
     potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
     motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
@@ -123,7 +125,8 @@ export async function listarApelidosDaConta(contaId: string, exec: Executor = db
     .from(modeloApelidos)
     .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
     .where(daPlataformaOuDa(modeloApelidos.contaId, contaId))
-    .orderBy(asc(modeloApelidos.apelido))
+    // Os da Conta primeiro: com o mesmo texto, vale o que a Conta escolheu.
+    .orderBy(asc(sql`${modeloApelidos.contaId} is null`), asc(modeloApelidos.apelido))
 }
 
 // O texto da nota ligado a um modelo na entrada vira apelido da Conta, para a próxima
@@ -151,7 +154,7 @@ export async function lembrarApelidosDaEntrada(
   const novos: (typeof modeloApelidos.$inferInsert)[] = []
   for (const [texto, modeloId] of escolhas) {
     if (!nomePorId.has(modeloId)) continue
-    const dono = doCadastro.find(m => normalizarModelo(m.modelo) === texto)?.id
+    const dono = doCadastro.find(m => normalizarModelo(m.modelo) === texto || normalizarModelo(m.nomeOriginal) === texto)?.id
       ?? apelidos.find(a => normalizarModelo(a.nome) === texto)?.modeloId
     if (dono && dono !== modeloId) {
       avisos.push(`"${texto}" já é do ${nomePorId.get(dono) ?? 'outro modelo'}; a próxima nota continua indo para ele, e não para o ${nomePorId.get(modeloId)}.`)
@@ -203,7 +206,12 @@ export async function salvarApelidosDoModelo(
   }
 
   await exec.transaction(async tx => {
-    await tx.delete(modeloApelidos).where(eq(modeloApelidos.modeloId, modeloId))
+    // Só os da Conta do modelo: num modelo da plataforma ficam também os apelidos que
+    // cada Conta aprendeu na entrada (#476), e esses não são de quem edita aqui.
+    await tx.delete(modeloApelidos).where(and(
+      eq(modeloApelidos.modeloId, modeloId),
+      sql`${modeloApelidos.contaId} is not distinct from ${modelo.contaId}`,
+    ))
     if (apelidos.length) {
       await tx.insert(modeloApelidos).values(apelidos.map(apelido => ({ apelido, modeloId, contaId: modelo.contaId })))
     }

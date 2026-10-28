@@ -125,11 +125,12 @@ export function mapearModelo(nomeNf: string, modelosMova: string[]): string | nu
  */
 export function modeloIdDaNota(
   texto: string,
-  modelos: { id: string; modelo: string }[],
+  modelos: { id: string; modelo: string; nomeOriginal?: string }[],
   apelidos: { nome: string; modeloId: string }[],
 ): string | null {
   const alvo = normalizarModelo(texto)
   const peloNome = modelos.find(m => normalizarModelo(m.modelo) === alvo)
+    ?? modelos.find(m => m.nomeOriginal && normalizarModelo(m.nomeOriginal) === alvo)
   if (peloNome) return peloNome.id
   const peloApelido = apelidos.find(a => normalizarModelo(a.nome) === alvo)
   if (peloApelido) return peloApelido.modeloId
