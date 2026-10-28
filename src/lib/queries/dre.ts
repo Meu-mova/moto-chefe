@@ -267,6 +267,7 @@ export async function dreEvolucao(opts: {
       ))
       .groupBy(sql`1`),
 
+    // O filtro de loja fica no SQL: sem ele a consulta lê a taxa de todas as Contas.
     execRows(sql`
       SELECT to_char(data AT TIME ZONE 'UTC', 'YYYY-FMMM') AS mes,
              COALESCE(SUM(taxa), 0)::text AS taxa
