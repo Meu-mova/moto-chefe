@@ -243,6 +243,14 @@ test('sócio ajusta, oculta, mostra e volta ao original só na própria Conta', 
       (({ modelo, categoria, potenciaW, ajustado }) => ({ modelo, categoria, potenciaW, ajustado }))((await visto(contaA.id, daPlataforma.id))!),
       { modelo: 'NOME DA A', categoria: 'ciclomotor', potenciaW: '3000', ajustado: true }, 'gravar de novo atualiza')
 
+    // Campo igual ao original não fica da Conta: a correção da plataforma chega nele.
+    await salvarAjusteDoModelo(contaA.id, daPlataforma.id, { modelo: 'SO O NOME', categoria: 'autopropelido', potenciaW: '1000' }, tx)
+    await tx.execute(sql`update modelos set potencia_w = '1500' where id = ${daPlataforma.id}`)
+    const soNome = await visto(contaA.id, daPlataforma.id)
+    assert.deepEqual([soNome?.modelo, soNome?.potenciaW], ['SO O NOME', '1500'])
+    await salvarAjusteDoModelo(contaA.id, daPlataforma.id, { modelo: 'ORIGINAL', categoria: 'autopropelido', potenciaW: '1500' }, tx)
+    assert.equal((await visto(contaA.id, daPlataforma.id))?.ajustado, false, 'tudo igual ao original não é ajuste')
+
     await ocultarModelo(contaA.id, daPlataforma.id, true, tx)
     assert.equal((await visto(contaA.id, daPlataforma.id))?.oculto, true)
     const tela = await carregarTelaModelos({ adminGeral: false, contaId: contaA.id, grupoId: '00000000-0000-0000-0000-000000000000' }, tx)

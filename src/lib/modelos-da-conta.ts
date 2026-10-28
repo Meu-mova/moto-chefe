@@ -55,9 +55,10 @@ type Escritor = Pick<typeof db, 'select' | 'insert' | 'update'>
 // Só modelo da plataforma se ajusta; o da Conta se edita. Id de modelo de outra Conta
 // recebe a mesma frase de id inexistente.
 async function exigirDaPlataforma(modeloId: string, exec: Executor) {
-  const [modelo] = await exec.select({ id: modelos.id }).from(modelos)
-    .where(and(eq(modelos.id, modeloId), isNull(modelos.contaId))).limit(1)
+  const [modelo] = await exec.select({ modelo: modelos.modelo, categoria: modelos.categoria, potenciaW: modelos.potenciaW })
+    .from(modelos).where(and(eq(modelos.id, modeloId), isNull(modelos.contaId))).limit(1)
   if (!modelo) throw new Error('Modelo não encontrado')
+  return modelo
 }
 
 type CamposAjustaveis = Pick<typeof modeloAjustes.$inferInsert, 'modelo' | 'categoria' | 'potenciaW'>
@@ -73,8 +74,12 @@ async function gravarAjuste(contaId: string, modeloId: string, set: Partial<type
     })
 }
 
+// Campo igual ao original grava nulo: fica da Conta só o que ela mudou, e o resto
+// acompanha as correções da plataforma.
 export async function salvarAjusteDoModelo(contaId: string, modeloId: string, campos: CamposAjustaveis, exec: Escritor = db) {
-  await gravarAjuste(contaId, modeloId, campos, exec)
+  const original = await exigirDaPlataforma(modeloId, exec)
+  const seMudou = <K extends keyof CamposAjustaveis>(k: K) => (campos[k] === original[k] ? null : campos[k])
+  await gravarAjuste(contaId, modeloId, { modelo: seMudou('modelo'), categoria: seMudou('categoria'), potenciaW: seMudou('potenciaW') }, exec)
 }
 
 export async function ocultarModelo(contaId: string, modeloId: string, oculto: boolean, exec: Escritor = db) {
