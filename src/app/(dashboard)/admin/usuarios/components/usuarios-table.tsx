@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type Cargo } from './cargos-dialog'
-import { cargosDoAlvo } from '@/lib/cargos-opcoes'
+import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
@@ -443,9 +443,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2">
+          {CARGOS_VISIVEIS && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2">
             <BadgeCheck size={16} /> Cargos
-          </Button>
+          </Button>}
           <Button onClick={() => setCriando(true)} className="gap-2">
             <UserPlus size={16} /> Novo usuário
           </Button>
@@ -554,7 +554,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         </Table>
       </div>
 
-      <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />
+      {CARGOS_VISIVEIS && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />}
 
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>

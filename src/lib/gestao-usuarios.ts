@@ -7,6 +7,8 @@
 // grupo de fora para o usuário sair do alcance; senão o sócio trocaria a senha de um
 // par com mais grupos e entraria por ele.
 
+import { CARGO_INDISPONIVEL, CARGOS_VISIVEIS } from '@/lib/cargos-opcoes'
+
 export type Gestor = {
   id: string
   papel: string
@@ -55,6 +57,7 @@ export function recusaDaGravacao(
   antes: (CadastroGestao & { id: string }) | null,
   depois: CadastroGestao,
 ): string | null {
+  if (!CARGOS_VISIVEIS && depois.papel === 'cargo') return CARGO_INDISPONIVEL
   if (gestor.papel === 'admin_geral') return null
   if (gestor.papel !== 'admin_socio') return 'Sem permissão para gerenciar usuários'
   if (antes && !podeGerenciar(gestor, antes)) return 'Usuário fora do seu alcance'
@@ -96,7 +99,7 @@ export function limitesDaTela(gestor: Gestor) {
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral'),
+    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,

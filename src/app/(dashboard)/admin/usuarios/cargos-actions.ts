@@ -6,6 +6,7 @@ import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { ehGestorDeUsuarios } from '@/lib/gestao-usuarios'
 import { modulosQuePodeDar } from '@/lib/navegacao'
 import { apagarCargo, criarCargo, editarCargo, type DadosCargo } from '@/lib/cargos'
+import { CARGO_INDISPONIVEL, CARGOS_VISIVEIS } from '@/lib/cargos-opcoes'
 
 type Resultado = { ok: true } | { ok: false; erro: string }
 
@@ -20,8 +21,10 @@ async function sessao() {
 }
 
 const SEM_PERMISSAO = { ok: false, erro: 'Sem permissão para gerenciar cargos' } as const
+const INDISPONIVEL = { ok: false, erro: CARGO_INDISPONIVEL } as const
 
 export async function criarCargoAction(dados: DadosCargo): Promise<Resultado> {
+  if (!CARGOS_VISIVEIS) return INDISPONIVEL
   const s = await sessao()
   if (!s) return SEM_PERMISSAO
   const r = await criarCargo(db, s.quem, dados, s.podeDar)
@@ -31,6 +34,7 @@ export async function criarCargoAction(dados: DadosCargo): Promise<Resultado> {
 }
 
 export async function editarCargoAction(id: string, dados: DadosCargo): Promise<Resultado> {
+  if (!CARGOS_VISIVEIS) return INDISPONIVEL
   const s = await sessao()
   if (!s) return SEM_PERMISSAO
   const r = await editarCargo(db, s.quem, id, dados, s.podeDar)
@@ -39,6 +43,7 @@ export async function editarCargoAction(id: string, dados: DadosCargo): Promise<
 }
 
 export async function apagarCargoAction(id: string): Promise<Resultado> {
+  if (!CARGOS_VISIVEIS) return INDISPONIVEL
   const s = await sessao()
   if (!s) return SEM_PERMISSAO
   const r = await apagarCargo(db, s.quem, id)
