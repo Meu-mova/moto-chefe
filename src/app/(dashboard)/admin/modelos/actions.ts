@@ -4,15 +4,22 @@ import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { contaDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { contaDoGrupoUsaBling } from '@/lib/conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
-import { avisoDeNomeRepetido, excluirModelo, salvarApelidosDoModelo, salvarMarcasDaConta } from '@/lib/modelos-da-conta'
-import { contaDoModeloNovo, podeEditarModelo } from '@/lib/gestao-modelos'
+import { avisoDeNomeRepetido, excluirModelo, ocultarModelo, salvarAjusteDoModelo, salvarApelidosDoModelo, salvarMarcasDaConta, voltarAoOriginal } from '@/lib/modelos-da-conta'
+import { contaDoModeloNovo, podeAjustarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
   return u
+}
+
+// Cód. Bling e apelidos só na Conta que usa Bling (#476); a tela já esconde os campos.
+async function exigirContaComBling(grupoId?: string) {
+  const id = grupoId ?? (await getGrupoAtivo(await getUsuarioLogado())).id
+  if (!(await contaDoGrupoUsaBling(id))) throw new Error('Sua Conta não usa o Bling')
 }
 
 async function quemEdita() {
@@ -26,6 +33,13 @@ async function modeloEditavel(id: string) {
   const [modelo] = await db.select({ id: modelos.id, contaId: modelos.contaId }).from(modelos).where(eq(modelos.id, id)).limit(1)
   if (!modelo || !podeEditarModelo(quem, modelo)) throw new Error('Modelo não encontrado')
   return modelo
+}
+
+// Ajuste só do sócio na própria Conta; a função de gravação confere que o modelo é da plataforma.
+async function contaQueAjusta() {
+  const quem = await quemEdita()
+  if (!quem.contaId || !podeAjustarModelo(quem, { contaId: null })) throw new Error('Modelo não encontrado')
+  return quem.contaId
 }
 
 function camposDoForm(formData: FormData) {
@@ -78,6 +92,7 @@ export async function atualizarBlingCodigoAction(modeloId: string, codigo: strin
   // Modelo da Conta não tem código Bling: o cliente novo emite pela Nota Gateway.
   if (modelo.contaId) throw new Error('Modelo da Conta não tem código Bling')
   const grupo = await getGrupoAtivo(u)
+  await exigirContaComBling(grupo.id)
 
   if (!codigo.trim()) {
     await db.delete(modeloBlingCodigos)
@@ -109,6 +124,7 @@ export async function atualizarBlingCodigoAction(modeloId: string, codigo: strin
  */
 export async function salvarApelidosAction(modeloId: string, texto: string) {
   await modeloEditavel(modeloId)
+  await exigirContaComBling()
 
   const apelidos = [...new Set(
     texto.split(',').map(a => normalizarModelo(a)).filter(Boolean),
@@ -123,5 +139,23 @@ export async function salvarApelidosAction(modeloId: string, texto: string) {
 export async function salvarMarcasDaContaAction(contaId: string, marcas: string[]) {
   await assertAdmin()
   await salvarMarcasDaConta(contaId, marcas)
+  revalidatePath('/admin/modelos')
+}
+
+export async function ajustarModeloAction(id: string, formData: FormData): Promise<{ aviso: string | null }> {
+  const contaId = await contaQueAjusta()
+  const { modelo, categoria, potenciaW } = camposDoForm(formData)
+  await salvarAjusteDoModelo(contaId, id, { modelo, categoria, potenciaW })
+  revalidatePath('/admin/modelos')
+  return { aviso: await avisoDeNomeRepetido(contaId, modelo, id) }
+}
+
+export async function ocultarModeloAction(id: string, oculto: boolean) {
+  await ocultarModelo(await contaQueAjusta(), id, oculto)
+  revalidatePath('/admin/modelos')
+}
+
+export async function voltarAoOriginalAction(id: string) {
+  await voltarAoOriginal(await contaQueAjusta(), id)
   revalidatePath('/admin/modelos')
 }

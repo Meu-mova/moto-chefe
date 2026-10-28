@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { registrarEntrada, registrarEntradaLote } from '../actions'
+import { useState, useRef, useEffect } from 'react'
+import { registrarEntrada, registrarEntradaLote, registrarEntradaNota, carregarConferenciaPecas } from '../actions'
 import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
-import { parseMotosInfCpl, extrairDaNfe, mapearModelo } from '@/lib/nfe-entrada'
+import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
+import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
+import type { Conferencia } from '@/lib/entrada-pecas'
+import { ConferenciaPecas } from './conferencia-pecas'
 import { casarModelo } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
@@ -43,6 +46,48 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
   // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
   const [fiscais, setFiscais] = useState<{ chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]>([])
+
+  // Peças da nota (#427): uma nota com peças por vez, conferida contra o catálogo
+  // da Conta da loja de destino.
+  const [notaPecas, setNotaPecas] = useState<{
+    nota: { chaveAcesso: string; numero: string; fornecedorCnpj: string; fornecedorNome: string }
+    itens: ItemPecaNfe[]
+  } | null>(null)
+  const [conferencia, setConferencia] = useState<Conferencia | null>(null)
+  const [linhasPecas, setLinhasPecas] = useState<LinhaConferencia[]>([])
+  const [lancarRepetida, setLancarRepetida] = useState(false)
+
+  useEffect(() => {
+    if (!notaPecas || !lojaId) { setConferencia(null); return }
+    let vale = true
+    const { fornecedorNome: _, ...nota } = notaPecas.nota
+    carregarConferenciaPecas(lojaId, {
+      ...nota, itens: notaPecas.itens.map(i => ({ codigo: i.codigo, nomeXml: i.nomeXml })),
+    }).then(r => {
+      if (!vale) return
+      if ('error' in r) { toast.error(r.error); setConferencia(null); return }
+      setConferencia(r.conferencia)
+      // Trocar a loja pode trocar a Conta: a escolha de peça do catálogo volta para a
+      // sugestão desta Conta, mas quantidade, peça nova e "não dar entrada" ficam.
+      setLinhasPecas(prev => notaPecas.itens.map((it, i) => {
+        const nova = linhaInicial(it, r.conferencia.sugestoes[i])
+        const antes = prev.length === notaPecas.itens.length ? prev[i] : null
+        if (!antes) return nova
+        return antes.destino === 'catalogo'
+          ? { ...nova, quantidade: antes.quantidade }
+          : { ...antes, pecaId: '' }
+      }))
+      setLancarRepetida(false)
+    })
+    return () => { vale = false }
+  }, [notaPecas, lojaId])
+
+  // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
+  const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
+
+  function mudarLinhaPeca(i: number, patch: Partial<LinhaConferencia>) {
+    setLinhasPecas(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l))
+  }
 
   const [loading, setLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -169,23 +214,39 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     const novas: MotoLinhaPlanilha[] = []
     const fichasNovas: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] = []
     const avisos: string[] = []
+    let pecasNovas: typeof notaPecas = null
 
     for (const file of files) {
       try {
         const xml = await file.text()
-        const { nNF, infCpl, qtdProdutos } = extrairDaNfe(xml)
+        const { nNF, infCpl } = extrairDaNfe(xml)
         const motos = parseMotosInfCpl(infCpl)
+        const itensPeca = extrairItensDePeca(xml)
 
         // Ficha fiscal por CHASSI, não por modelo: o mesmo X12 vem da LAIOUNS
         // e da Q.P.A com CEST, origem e CST diferentes, e cada moto tem de sair
         // com a classificação da nota que a trouxe.
         const emitente = extrairEmitenteDaNfe(xml)
+        if (itensPeca.length) {
+          if (pecasNovas || notaPecas) {
+            avisos.push(`NF ${nNF || file.name}: já há uma nota com peças nesta entrada. Lance uma nota com peças por vez.`)
+          } else {
+            pecasNovas = {
+              nota: { chaveAcesso: emitente.nfChave, numero: nNF, fornecedorCnpj: emitente.cnpj, fornecedorNome: emitente.nome },
+              itens: itensPeca,
+            }
+          }
+        }
         for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])) {
           fichasNovas.push({ chassi, emitente, ficha })
         }
-        // Conferência: o nº de motos lidas tem que bater com a qtd de produtos da nota.
-        if (qtdProdutos && motos.length !== qtdProdutos) {
-          avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdProdutos} produto(s) — confira`)
+        // Conferência: o nº de motos lidas tem que bater com a qtd de motos da nota
+        // (as linhas de peça vão para a conferência de peças).
+        const qtdMotosNaNota = lerItensDaNfe(xml)
+          .filter(d => ehNcmDeMoto(tagNfe(d.prod, 'NCM')))
+          .reduce((s, d) => s + (Number(tagNfe(d.prod, 'qCom')) || 0), 0)
+        if (qtdMotosNaNota > 0 && motos.length !== qtdMotosNaNota) {
+          avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdMotosNaNota} moto(s). Confira.`)
         }
         for (const m of motos) {
           const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
@@ -203,8 +264,10 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       }
     }
 
+    if (pecasNovas) setNotaPecas(pecasNovas)
     if (!novas.length) {
-      toast.error('Nenhuma moto encontrada nos XMLs')
+      if (!pecasNovas) toast.error('Nenhuma moto nem peça encontrada nos XMLs')
+      avisos.forEach(a => toast.warning(a, { duration: Infinity, closeButton: true }))
       return
     }
 
@@ -267,7 +330,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return
     }
 
-    if (linhasPlanilha.length === 0) {
+    if (linhasPlanilha.length === 0 && !notaPecas) {
       toast.error('Importe uma planilha primeiro')
       return
     }
@@ -287,6 +350,47 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     const semPreco = linhasPlanilha.filter(l => !l.preco)
     if (semPreco.length > 0) {
       toast.error(`${semPreco.length} moto(s) sem preço de compra`)
+      return
+    }
+
+    if (notaPecas) {
+      if (!conferencia) {
+        toast.error('Espere carregar a conferência das peças')
+        return
+      }
+      const comProblema = linhasPecas.filter(l => problemaDaLinha(l))
+      if (comProblema.length) {
+        toast.error(`${comProblema.length} linha(s) de peça precisam de correção`)
+        return
+      }
+      if (conferencia.notaJaLancada && !lancarRepetida) {
+        toast.error('Esta nota já entrou. Marque "Lançar mesmo assim" para continuar.')
+        return
+      }
+      setLoading(true)
+      try {
+        const { fornecedorNome: _, ...nota } = notaPecas.nota
+        const result = await registrarEntradaNota({
+          lojaId,
+          nota,
+          motos: linhasPlanilha.map(l => ({
+            chassi: l.chassi, cor: l.cor, motor: l.motor, modeloId: l.modeloId, precoCompra: l.preco, notaFiscal: l.nf,
+          })),
+          fiscais,
+          pecas: paraGravacao(linhasPecas),
+        })
+        if (result.error) {
+          toast.error(result.error, { duration: Infinity, closeButton: true })
+        } else {
+          toast.success(result.success)
+          setLinhasPlanilha([])
+          setNotaPecas(null)
+          setLinhasPecas([])
+          setLojaId('')
+        }
+      } finally {
+        setLoading(false)
+      }
       return
     }
 
@@ -513,14 +617,69 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           )}
 
-          {linhasPlanilha.length > 0 && (
-            <div className="flex justify-end">
+          {notaPecas && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  NF {notaPecas.nota.numero}, de {notaPecas.nota.fornecedorNome || notaPecas.nota.fornecedorCnpj}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setNotaPecas(null); setLinhasPecas([]) }}
+                  className="text-sm text-destructive hover:opacity-80"
+                >
+                  Tirar as peças
+                </button>
+              </div>
+              {conferencia?.notaJaLancada && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning bg-muted px-4 py-3 text-sm text-warning">
+                  <span>
+                    <strong>
+                      {conferencia.notaJaLancada.soPeloNumero ? 'Uma nota com este número' : 'Esta nota'} já entrou em{' '}
+                      {new Date(conferencia.notaJaLancada.em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} por {conferencia.notaJaLancada.por}.
+                    </strong>{' '}
+                    Confira antes de lançar de novo.
+                  </span>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={lancarRepetida} onChange={e => setLancarRepetida(e.target.checked)} />
+                    Lançar mesmo assim
+                  </label>
+                </div>
+              )}
+              {!lojaId && (
+                <p className="bg-card rounded-lg border p-4 text-sm text-muted-foreground">
+                  Escolha a loja de destino para conferir as peças.
+                </p>
+              )}
+              {lojaId && conferencia && (
+                <ConferenciaPecas
+                  linhas={linhasPecas}
+                  onChange={mudarLinhaPeca}
+                  pecas={conferencia.pecas}
+                  sugestoes={conferencia.sugestoes}
+                  lojaNome={lojas.find(l => l.id === lojaId)?.nome ?? 'loja'}
+                />
+              )}
+            </div>
+          )}
+
+          {(linhasPlanilha.length > 0 || notaPecas) && (
+            <div className="flex items-center justify-end gap-4">
+              {pecasComProblema > 0 && (
+                <span className="text-sm text-destructive">
+                  {pecasComProblema === 1 ? '1 linha de peça precisa de correção.' : `${pecasComProblema} linhas de peça precisam de correção.`}
+                </span>
+              )}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || pecasComProblema > 0 || (!!conferencia?.notaJaLancada && !lancarRepetida)}
                 className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
               >
-                {loading ? 'Registrando...' : `Registrar entrada (${linhasPlanilha.length} motos)`}
+                {loading
+                  ? 'Registrando...'
+                  : notaPecas
+                    ? `Registrar entrada (${linhasPlanilha.length} motos e ${linhasPecas.filter(l => l.destino !== 'ignorar').length} peças)`
+                    : `Registrar entrada (${linhasPlanilha.length} motos)`}
               </button>
             </div>
           )}

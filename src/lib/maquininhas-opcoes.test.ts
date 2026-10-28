@@ -12,7 +12,7 @@ test('edição mostra as do grupo mais a operadora já gravada, sem repetir (#46
 
 test('operadora gravada sem maquininha no grupo aparece com o nome da marca (#460)', () => {
   const nomes = opcoesComGravada([], ['infinitypay', 'pagueveloz', 'stone', 'getnet', 'redecard', 'outra']).map(m => m.nome)
-  assert.deepEqual(nomes, ['InfinityPay', 'PagueVeloz', 'Stone', 'Getnet', 'Redecard', 'outra'])
+  assert.deepEqual(nomes, ['InfinityPay', 'PagueVeloz', 'Stone', 'GetNet', 'Redecard', 'outra'])
 })
 
 test('select de operadora vazio avisa quando o grupo não tem maquininha (#460)', () => {

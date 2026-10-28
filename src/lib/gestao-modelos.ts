@@ -16,3 +16,9 @@ export function contaDoModeloNovo(quem: Quem): string | null {
   if (!podeCadastrarModelo(quem)) throw new Error('Sem permissão para cadastrar modelo')
   return quem.papel === 'admin_geral' ? null : quem.contaId
 }
+
+// Modelo da plataforma o sócio não edita: ajusta só para a própria Conta (#476). O
+// admin_geral edita o original, que vale para todas.
+export function podeAjustarModelo(quem: Quem, modelo: { contaId: string | null }): boolean {
+  return quem.papel === 'admin_socio' && !!quem.contaId && modelo.contaId === null
+}

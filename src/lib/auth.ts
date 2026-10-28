@@ -4,6 +4,7 @@ import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
+import { modulosDoCargoDoUsuario } from '@/lib/cargos'
 
 // getUsuarioLogado roda PRIMEIRO em toda página (layout e página). Se a query de
 // usuário fica esperando uma conexão do pool (instância do Fluid com conexões
@@ -65,7 +66,9 @@ export const getUsuarioLogado = cache(async () => {
   // ativo = true), não por uma exceção de papel no código.
   if (!usuario.ativo) redirect('/conta-desativada')
 
-  return usuario
+  // Lido a cada requisição: editar o cargo vale na hora para todos os usuários dele.
+  const modulosDoCargo = await withTimeout(modulosDoCargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
+  return { ...usuario, modulosDoCargo }
 })
 
 export function isAdmin(papel: string) {

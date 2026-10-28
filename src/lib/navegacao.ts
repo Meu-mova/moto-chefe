@@ -7,7 +7,8 @@ import {
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
   Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History} from 'lucide-react'
 
-export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista'
+// 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum.
+export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
 export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao'
 
 export type ItemNav = {
@@ -42,6 +43,8 @@ export type UsuarioNav = {
   papeisExtras?: string[] | null
   modulosExtras?: string[] | null
   modulosBloqueados?: string[] | null
+  /** Módulos do cargo da Conta, só para papel 'cargo' (#449). */
+  modulosDoCargo?: string[] | null
 }
 
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
@@ -67,7 +70,7 @@ const TODOS:     Papel[] = [...COMERCIAL, 'mecanico']
 // Motorista fica FORA de TODOS de propósito: TODOS abre a oficina inteira (OS,
 // agenda, garantia, cupom, peças), que não é trabalho dele. Ele entra no sistema
 // só para pegar o holerite, então só os itens marcados com BASICO aparecem.
-const BASICO:    Papel[] = [...TODOS, 'motorista']
+const BASICO:    Papel[] = [...TODOS, 'motorista', 'cargo']
 
 // `oculto: true` temporário: menu enxuto para a apresentação de 06/10/2026.
 // Sai com o revert do PR, quando o Luis decidir.
@@ -137,6 +140,7 @@ export const ITENS: ItemNav[] = [
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
   { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
+  { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', papeis: ADMINS },
   { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
   { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', papeis: ADMINS },
   { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', papeis: GESTORES, oculto: true },
@@ -162,6 +166,7 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if (!item.soPeloPapel && (usuario.modulosExtras ?? []).includes(item.id)) return true
+  if (!item.soPeloPapel && usuario.papel === 'cargo' && (usuario.modulosDoCargo ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }
 
@@ -181,4 +186,27 @@ export function podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasPro
   // precisa declará-la aqui, e é isso que a torna alcançável.
   if (!item) return false
   return visivel(item, usuario, regras)
+}
+
+/**
+ * Gate de action por módulo, com a regra do menu: lista positiva, então papel novo (como
+ * 'cargo') não entra por omissão. Item com regraPropria não serve aqui.
+ */
+export function acessaModulo(usuario: UsuarioNav, id: string): boolean {
+  const item = ITENS.find(i => i.id === id)
+  return !!item && !item.regraPropria && visivel(item, usuario, {})
+}
+
+/**
+ * Módulos que um cargo da Conta pode receber (#449). Só entra aqui o módulo cujas ações já
+ * aceitam o papel 'cargo' pelo acesso ao módulo, com teste; a lista cresce PR a PR.
+ */
+export const MODULOS_DE_CARGO: string[] = ['clientes']
+
+/** O que quem gerencia cargos pode marcar: os liberados para cargo que ele mesmo vê. */
+export function modulosQuePodeDar(usuario: UsuarioNav, regras: RegrasProprias, liberados = MODULOS_DE_CARGO): string[] {
+  return itensVisiveis(usuario, regras)
+    .filter(i => liberados.includes(i.id) && !i.soPeloPapel && !i.soAdminGeral && !i.regraPropria)
+    .map(i => i.id)
+    .sort()
 }

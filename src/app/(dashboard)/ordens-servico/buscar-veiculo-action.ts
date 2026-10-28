@@ -1,10 +1,10 @@
 'use server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { veiculosHistorico, clientes } from '@/lib/db/schema'
-import { and, eq, ilike } from 'drizzle-orm'
+import { veiculosHistorico } from '@/lib/db/schema'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { buscarMotosPorChassi, buscarHistoricoPorChassi } from '@/lib/busca-chassi'
+import { clienteDaOs, clientePorCpfDaOs } from '@/lib/cliente-da-os'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -73,16 +73,12 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
 
 export async function buscarClientePorCpfAction(cpf: string) {
   const usuario = await getUsuarioLogado()
-  const cpfNorm = cpf.replace(/\D/g, '')
-  if (cpfNorm.length < 11) return null
+  return clientePorCpfDaOs(db, { ...usuario, contaId: await contaDoGrupoAtivo(usuario) }, cpf)
+}
 
-  const [cliente] = await db
-    .select({ id: clientes.id, nome: clientes.nome, cpfCnpj: clientes.cpfCnpj, celular: clientes.celular, email: clientes.email })
-    .from(clientes)
-    .where(and(ilike(clientes.cpfCnpj, `%${cpfNorm}%`), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
-    .limit(1)
-
-  return cliente ?? null
+export async function buscarClienteDaOsAction(id: string) {
+  const usuario = await getUsuarioLogado()
+  return clienteDaOs(db, { ...usuario, contaId: await contaDoGrupoAtivo(usuario) }, id)
 }
 
 export async function cadastrarVeiculoHistoricoAction(input: {
@@ -93,7 +89,8 @@ export async function cadastrarVeiculoHistoricoAction(input: {
   numeroMotor?: string | null
 }): Promise<VeiculoEncontrado> {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  // Lista positiva: papel novo (como 'cargo') não entra por omissão.
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'motorista'].includes(usuario.papel)) throw new Error('Sem permissão')
 
   const chassi = input.chassi.trim().toUpperCase()
   const marca  = input.marca.trim()
