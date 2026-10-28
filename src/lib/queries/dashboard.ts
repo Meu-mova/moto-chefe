@@ -6,6 +6,7 @@ import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliaca
 import { valorLiquidoExpr } from './valor-liquido'
 import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 
 type Filtros = {
   dataInicio: string
@@ -178,7 +179,7 @@ export async function getUltimasVendas(filtros: Filtros, limite = 5) {
       valor: sql<string>`${valorLiquidoExpr()}`,
       dataVenda: vendas.dataVenda,
       loja: lojas.nome,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(vendas.lojaId),
       chassi: motos.chassi,
       vendedor: usuarios.nome,
     })
@@ -217,7 +218,7 @@ export async function getTransferenciasPendentes(lojaId?: string[], limite = 5) 
     .select({
       id: transferencias.id,
       chassi: motos.chassi,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(transferencias.lojaOrigemId),
       lojaOrigem: lojaOrigem.nome,
       lojaDestino: lojaDestino.nome,
       dataSolicitacao: transferencias.dataSolicitacao,
@@ -242,7 +243,7 @@ export async function getGarantiasProxVencimento(lojaId?: string[], limite = 5) 
     .select({
       id: garantias.id,
       chassi: motos.chassi,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(garantias.lojaId),
       loja: lojas.nome,
       dataFim: garantias.dataFim,
       descricao: garantias.descricao,
@@ -267,7 +268,7 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
     .select({
       id: ordensServico.id,
       chassi: motos.chassi,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(ordensServico.lojaId),
       loja: lojas.nome,
       status: ordensServico.status,
       descricao: ordensServico.descricao,
@@ -282,7 +283,11 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
     .limit(limite)
 }
 
-export async function getMotoMaisVendida(filtros: Filtros) {
+// admin_geral olha a rede: o modelo soma as Contas numa linha, com o nome original
+// (decisão do Luis, #476). Cada Conta vê o nome dela.
+type OpcoesRankingModelo = { nomeOriginal?: boolean }
+
+export async function getMotoMaisVendida(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = inicioDoDiaBrt(dataInicio)
   const fim = fimDoDiaBrt(dataFim)
@@ -294,16 +299,17 @@ export async function getMotoMaisVendida(filtros: Filtros) {
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
+  const nome = nomeOriginal ? modelos.modelo : nomeDoModeloNaLoja(vendas.lojaId)
   const [result] = await db
     .select({
-      modelo: modelos.modelo,
+      modelo: nome,
       total: count(),
     })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .where(and(...conditions))
-    .groupBy(modelos.modelo)
+    .groupBy(modelos.id, nome)
     .orderBy(desc(count()))
     .limit(1)
 
@@ -366,7 +372,7 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
     .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
 }
 
-export async function getModelosMaisVendidos(filtros: Filtros) {
+export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = inicioDoDiaBrt(dataInicio)
   const fim = fimDoDiaBrt(dataFim)
@@ -378,9 +384,10 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
+  const nome = nomeOriginal ? modelos.modelo : nomeDoModeloNaLoja(vendas.lojaId)
   return db
     .select({
-      modelo: modelos.modelo,
+      modelo: nome,
       marca: modelos.marca,
       totalVendas: count(),
       faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
@@ -389,7 +396,7 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .where(and(...conditions))
-    .groupBy(modelos.modelo, modelos.marca)
+    .groupBy(modelos.id, nome, modelos.marca)
     .orderBy(desc(count()))
 }
 
