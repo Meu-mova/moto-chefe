@@ -16,7 +16,8 @@ todo dia pelas lojas. Converse e comente em **português**; nomes de código
 seguem o padrão do arquivo em volta.
 
 Cada regra abaixo nasceu de um incidente real. Se uma parecer exagerada, pergunte
-ao Cesar antes de contornar.
+ao Cesar antes de contornar. Erro real corrigido vira regra nova aqui pela skill
+`registrar-licao` (`.claude/skills/registrar-licao/`).
 
 ## ⚠️ Local é staging; produção só explícita
 
@@ -179,6 +180,8 @@ leitura e gravação:
 
 - `@base-ui/react`: `Button` **não tem `asChild`** (use `buttonVariants()` num
   `<Link>`); `Dialog` usa `disablePointerDismissal`.
+- `SelectValue` com função de render: devolva o texto do placeholder quando não houver valor.
+  Devolver vazio apaga o placeholder e o campo parece quebrado (#460).
 - Largura de diálogo: **`sm:max-w-*`** (com prefixo). `max-w-*` sozinho não vence
   o `sm:max-w-lg` da base.
 - `<Select>` do design system mostra o UUID cru quando `value` ≠ texto exibido.
