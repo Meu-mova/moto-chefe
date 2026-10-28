@@ -186,3 +186,31 @@ test('sócio vê só os modelos das marcas da sua Conta e não recebe a lista de
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('ajuste e ocultação de modelo da plataforma valem só para a Conta que fez', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const ajustado = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+      values ('TESTE-AJ', 'ORIGINAL', 'autopropelido', '1000', 'M1', '30') returning id`)
+    const oculto = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+      values ('TESTE-AJ', 'SOME', 'autopropelido', '1000', '', '') returning id`)
+    await tx.execute(sql`insert into modelo_ajustes (conta_id, modelo_id, modelo, motor) values (${contaA.id}, ${ajustado.id}, 'NOME DA A', 'M2')`)
+    await tx.execute(sql`insert into modelo_ajustes (conta_id, modelo_id, oculto) values (${contaA.id}, ${oculto.id}, true)`)
+
+    const daA = await listarModelosDaConta(contaA.id, tx)
+    const ajustadoNaA = daA.find(m => m.id === ajustado.id)
+    assert.equal(ajustadoNaA?.modelo, 'NOME DA A', 'nome ajustado')
+    assert.equal(ajustadoNaA?.motor, 'M2', 'motor ajustado')
+    assert.equal(ajustadoNaA?.velocidadeMax, '30', 'campo sem ajuste mantém o original')
+    assert.ok(!daA.some(m => m.id === oculto.id), 'oculto some da lista da A')
+    assert.ok((await listarModelosDaConta(contaA.id, tx, { incluirOcultos: true })).some(m => m.id === oculto.id && m.oculto),
+      'a tela de modelos ainda vê o oculto, marcado')
+
+    const daB = await listarModelosDaConta(contaB.id, tx)
+    assert.equal(daB.find(m => m.id === ajustado.id)?.modelo, 'ORIGINAL', 'B vê o nome original')
+    assert.ok(daB.some(m => m.id === oculto.id && !m.oculto), 'B continua vendo o que a A ocultou')
+    throw new Desfazer()
+  }), Desfazer)
+})
