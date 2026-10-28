@@ -1,4 +1,6 @@
 'use client'
+import type { Maquininha } from '@/lib/maquininhas'
+import { textoSemOperadora } from '@/lib/maquininhas-opcoes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -21,11 +23,6 @@ export const FORMAS = [
   { value: 'transferencia', label: 'Transferência Bancária' },
 ]
 
-export const OPERADORAS = [
-  { value: 'infinitypay', label: 'InfinityPay' },
-  { value: 'stone', label: 'Stone' },
-  { value: 'pagueveloz', label: 'PagueVeloz' },
-]
 
 // Tipos com taxa aplicada sobre parcelas
 export const TIPOS_COM_PARCELAS = new Set(['cartao_credito', 'link_pagamento', 'financiamento'])
@@ -51,8 +48,9 @@ export function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): num
 }
 
 /** Linha incompleta = trava o submit. Mesma regra na venda e na reserva. */
-export function pgtoIncompleto(p: Pgto, taxasVenda: TaxasVenda | null): boolean {
-  if (p.tipo === 'cartao_credito') return !p.operadora || !p.parcelas
+// Loja sem maquininha cadastrada não escolhe operadora, então ela não é exigida (#460).
+export function pgtoIncompleto(p: Pgto, taxasVenda: TaxasVenda | null, maquininhas: Maquininha[] | null = null): boolean {
+  if (p.tipo === 'cartao_credito') return (!p.operadora && (maquininhas === null || maquininhas.length > 0)) || !p.parcelas
   return TIPOS_COM_PARCELAS.has(p.tipo)
     && !!taxasVenda
     && parcelasDisponiveis(p.tipo, taxasVenda).length > 0
@@ -69,9 +67,11 @@ type Props = {
   comAutorizacao?: boolean
   /** Rótulo acima de uma linha específica (ex.: "Entrada recebida"). */
   rotulo?: (idx: number) => string | null
+  /** Do grupo da loja do registro (useMaquininhas); `null` enquanto carrega. */
+  maquininhas: Maquininha[] | null
 }
 
-export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda, comAutorizacao = false, rotulo }: Props) {
+export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda, comAutorizacao = false, rotulo, maquininhas }: Props) {
   return (
     <>
       {pgtos.map((p, idx) => {
@@ -107,16 +107,22 @@ export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda,
 
             {p.tipo === 'cartao_credito' && (
               <div className="flex gap-2">
-                <Select value={p.operadora ?? ''} onValueChange={v => onUpdate(p.id, 'operadora', v ?? '')}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Operadora" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OPERADORAS.map(o => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {maquininhas?.length === 0 ? (
+                  <p className="flex-1 self-center text-sm text-muted-foreground">{textoSemOperadora(maquininhas)}</p>
+                ) : (
+                  <Select value={p.operadora ?? ''} onValueChange={v => onUpdate(p.id, 'operadora', v ?? '')}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Operadora">
+                        {(v: string | null) => v ? (maquininhas?.find(m => m.operadora === v)?.nome ?? v) : textoSemOperadora(maquininhas)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(maquininhas ?? []).map(m => (
+                        <SelectItem key={m.operadora} value={m.operadora}>{m.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Select value={p.parcelas ?? ''} onValueChange={v => onUpdate(p.id, 'parcelas', v ?? '')}>
                   <SelectTrigger className="w-28">
                     <SelectValue placeholder="Parcelas" />

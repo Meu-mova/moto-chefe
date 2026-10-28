@@ -145,6 +145,20 @@ export const lojas = pgTable('lojas', {
   fabricaSenha: text('fabrica_senha'),
 })
 
+// ─── maquininhas ─────────────────────────────────────────────────────────────
+// Maquininhas de cartão do grupo (#460). Ler e conferir via @/lib/maquininhas.
+export const maquininhas = pgTable('maquininhas', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  nome:      text('nome').notNull(),
+  // Código gravado no pagamento e usado pela conciliação.
+  operadora: text('operadora').notNull(),
+  ativo:     boolean('ativo').notNull().default(true),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  grupoOperadora: unique().on(t.grupoId, t.operadora),
+}))
+
 // ─── usuarios ────────────────────────────────────────────────────────────────
 export const usuarios = pgTable('usuarios', {
   id: uuid('id').primaryKey(), // vinculado ao Supabase Auth uid
