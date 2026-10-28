@@ -283,7 +283,11 @@ export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limit
     .limit(limite)
 }
 
-export async function getMotoMaisVendida(filtros: Filtros) {
+// admin_geral olha a rede: o modelo soma as Contas numa linha, com o nome original
+// (decisão do Luis, #476). Cada Conta vê o nome dela.
+type OpcoesRankingModelo = { nomeOriginal?: boolean }
+
+export async function getMotoMaisVendida(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = inicioDoDiaBrt(dataInicio)
   const fim = fimDoDiaBrt(dataFim)
@@ -295,7 +299,7 @@ export async function getMotoMaisVendida(filtros: Filtros) {
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
-  const nome = nomeDoModeloNaLoja(vendas.lojaId)
+  const nome = nomeOriginal ? modelos.modelo : nomeDoModeloNaLoja(vendas.lojaId)
   const [result] = await db
     .select({
       modelo: nome,
@@ -305,7 +309,7 @@ export async function getMotoMaisVendida(filtros: Filtros) {
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .where(and(...conditions))
-    .groupBy(nome)
+    .groupBy(modelos.id, nome)
     .orderBy(desc(count()))
     .limit(1)
 
@@ -368,7 +372,7 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
     .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
 }
 
-export async function getModelosMaisVendidos(filtros: Filtros) {
+export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
   const { dataInicio, dataFim, lojaId, vendedorId } = filtros
   const inicio = inicioDoDiaBrt(dataInicio)
   const fim = fimDoDiaBrt(dataFim)
@@ -380,7 +384,7 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
   if (lojaId !== undefined) conditions.push(lojaFilter(vendas.lojaId, lojaId)!)
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
-  const nome = nomeDoModeloNaLoja(vendas.lojaId)
+  const nome = nomeOriginal ? modelos.modelo : nomeDoModeloNaLoja(vendas.lojaId)
   return db
     .select({
       modelo: nome,
@@ -392,7 +396,7 @@ export async function getModelosMaisVendidos(filtros: Filtros) {
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .where(and(...conditions))
-    .groupBy(nome, modelos.marca)
+    .groupBy(modelos.id, nome, modelos.marca)
     .orderBy(desc(count()))
 }
 

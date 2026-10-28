@@ -85,7 +85,7 @@ async function KpiSection({
       Promise.all([
         getKPIs(filtros, kpiOpts),
         getKPIs(filtrosAnt, kpiOpts),
-        getMotoMaisVendida(filtros),
+        getMotoMaisVendida(filtros, { nomeOriginal: papel === 'admin_geral' }),
         isAdmin
           // Só o grupo ativo, como a tela /conciliacao: sem isso o card somava todas as Contas.
           ? getGrupoAtivo(usuario).then(g => contarPendenciasCartao(g.id))
@@ -214,9 +214,10 @@ async function GraficosSection({
 }
 
 async function RankingSection({
-  filtros, filtrosRanking, podeVerTodosDescontos, vendedorAtualId,
+  filtros, filtrosRanking, podeVerTodosDescontos, vendedorAtualId, nomeOriginal,
 }: {
   filtros: Filtros
+  nomeOriginal: boolean
   filtrosRanking: { dataInicio: string; dataFim: string; lojaId?: string[] }
   podeVerTodosDescontos: boolean
   vendedorAtualId?: string
@@ -228,7 +229,7 @@ async function RankingSection({
     ;[rankingVendedores, modelosMaisVendidos, descontos] = await withTimeout(
       Promise.all([
         getRankingVendedores(filtrosRanking),
-        getModelosMaisVendidos(filtros),
+        getModelosMaisVendidos(filtros, { nomeOriginal }),
         // Quem não pode ver o desconto dos colegas recebe só a própria linha —
         // a query já filtra por vendedor, então o dado nem chega ao cliente.
         descontosPorVendedor({
@@ -560,6 +561,7 @@ export default async function DashboardPage({
         <Suspense fallback={<SectionSkeleton rows={2} />}>
           <RankingSection
             filtros={filtros}
+            nomeOriginal={usuario.papel === 'admin_geral'}
             filtrosRanking={filtrosRanking}
             podeVerTodosDescontos={isAdmin || isAuxAdm}
             vendedorAtualId={isVendedor ? usuario.id : undefined}

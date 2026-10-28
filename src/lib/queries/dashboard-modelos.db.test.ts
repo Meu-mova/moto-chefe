@@ -72,8 +72,14 @@ test('modelos mais vendidos: cada Conta vê o nome dela e a soma das partes bate
   assert.deepEqual((await getModelosMaisVendidos(setembro([lojas.a]))).map(m => [m.modelo, m.totalVendas]), [['NOME476 DA A', 2]])
   assert.deepEqual((await getModelosMaisVendidos(setembro([lojas.b]))).map(m => [m.modelo, m.totalVendas]), [['ORIG476', 1]])
   const juntas = await getModelosMaisVendidos(setembro([lojas.a, lojas.b]))
-  assert.deepEqual(juntas.map(m => [m.modelo, m.totalVendas]), [['NOME476 DA A', 2], ['ORIG476', 1]], 'admin_geral: uma linha por nome')
+  assert.deepEqual(juntas.map(m => [m.modelo, m.totalVendas]), [['NOME476 DA A', 2], ['ORIG476', 1]], 'sem nome original: uma linha por nome')
   assert.equal(juntas.reduce((s, m) => s + m.totalVendas, 0), 3, 'nenhuma venda some nem duplica')
+})
+
+test('admin_geral: o modelo soma as Contas numa linha só, com o nome original', async () => {
+  const rede = setembro([lojas.a, lojas.b])
+  assert.deepEqual((await getModelosMaisVendidos(rede, { nomeOriginal: true })).map(m => [m.modelo, m.totalVendas]), [['ORIG476', 3]])
+  assert.deepEqual(await getMotoMaisVendida(rede, { nomeOriginal: true }), { modelo: 'ORIG476', total: 3 })
 })
 
 test('moto mais vendida: o nome da Conta da loja', async () => {
