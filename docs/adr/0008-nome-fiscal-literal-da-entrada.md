@@ -35,3 +35,12 @@ conforme o CNPJ da fábrica (`64b71a3`), então só a nota de entrada diz o que 
 ## Quando revisar
 
 Só com orientação do contador.
+
+## Adendo de 2026-10-27: o que "literal" quer dizer (#341)
+
+- **Decisão (Luis):** "literal" é o texto do `xProd` com só os espaços das pontas removidos (trim),
+  igual nas motos (`motos_fiscal.x_prod`) e nas peças (`nome_xml` do vínculo com o fornecedor).
+  Nada mais muda: as entidades XML (`&amp;`) ficam como vieram e nada é padronizado.
+- **Por quê:** espaço nas pontas não tem valor fiscal, e as motos já eram lidas assim.
+- O `nomeLegivel`, com as entidades decodificadas, serve só para sugerir o nome da peça nova
+  na conferência. Ele nunca vai para a NF.

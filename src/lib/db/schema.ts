@@ -9,7 +9,7 @@ import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
-export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista'])
+export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'])
 export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
 export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
 export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
@@ -40,6 +40,17 @@ export const contas = pgTable('contas', {
   id:       uuid('id').primaryKey().defaultRandom(),
   nome:     text('nome').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── cargos ──────────────────────────────────────────────────────────────────
+// Cargo da Conta (#449): nome e módulos de @/lib/navegacao. Ler e gravar via @/lib/cargos.
+export const cargos = pgTable('cargos', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  contaId:      uuid('conta_id').notNull().references(() => contas.id),
+  nome:         text('nome').notNull(),
+  modulos:      text('modulos').array().notNull().default([]),
+  criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── grupos ──────────────────────────────────────────────────────────────────
@@ -194,6 +205,8 @@ export const usuarios = pgTable('usuarios', {
   ativo: boolean('ativo').notNull().default(true),
   // Conta de origem (ADR-0018). Nula só para admin_geral, que é da plataforma.
   contaId: uuid('conta_id').references(() => contas.id),
+  // Só com papel 'cargo' (#449); o banco garante os dois juntos.
+  cargoId: uuid('cargo_id').references(() => cargos.id),
 })
 
 // ─── usuarios_dados ──────────────────────────────────────────────────────────
