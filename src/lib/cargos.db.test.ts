@@ -161,3 +161,31 @@ test('papel cargo exige cargo_id, e cargo_id só com papel cargo (#449)', async 
       values (gen_random_uuid(), 'Vend', 'vend-cg449@teste.invalid', 'vendedor', ${a.lojaId}, ${a.cargoId})`))
   })
 })
+
+test('atribuir cargo só aceita cargo da Conta do usuário; o da outra Conta recebe a frase do id inexistente (#450)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const inexistente = '00000000-0000-0000-0000-000000000000'
+    assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'cargo', contaId: b.quem.contaId, cargoId: b.cargoId }),
+      { ok: true, cargoId: b.cargoId })
+    for (const cargoId of [a.cargoId, inexistente, null]) {
+      assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'cargo', contaId: b.quem.contaId, cargoId }),
+        { ok: false, erro: 'Cargo não encontrado' })
+    }
+    // Outro papel não carrega cargo, nem se a tela mandar um.
+    assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'vendedor', contaId: b.quem.contaId, cargoId: b.cargoId }),
+      { ok: true, cargoId: null })
+  })
+})
+
+test('módulos do cargo do usuário: só de cargo da Conta da loja dele (#450)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'cargo', lojaId: a.lojaId, cargoId: a.cargoId }), ['clientes'])
+    // Cargo de A ligado a usuário da loja de B (só por fora do código): não vale nada.
+    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'cargo', lojaId: b.lojaId, cargoId: a.cargoId }), [])
+    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'vendedor', lojaId: a.lojaId, cargoId: null }), [])
+  })
+})

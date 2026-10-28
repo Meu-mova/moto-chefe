@@ -5,6 +5,7 @@ import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema
 import { lojasDaConta } from '@/lib/conta'
 import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
 
@@ -40,7 +41,7 @@ export async function listarClientesAction(params: {
   porPagina?: number
 }) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const pageSize = params.porPagina === 20 ? 20 : PAGE_SIZE
   const page = Math.max(1, params.page ?? 1)
@@ -83,7 +84,7 @@ export async function listarClientesAction(params: {
 
 export async function buscarClientesAction(termo: string) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   if (termo.length < 3) return []
   const termoCpf = termo.replace(/\D/g, '')
@@ -106,7 +107,7 @@ export async function buscarClientesAction(termo: string) {
 
 export async function buscarClientePorIdAction(id: string) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const [cliente] = await db.select().from(clientes)
     .where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
@@ -116,7 +117,7 @@ export async function buscarClientePorIdAction(id: string) {
 
 export async function listarCidadesAction() {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const rows = await db.selectDistinct({ cidade: clientes.cidade })
     .from(clientes)
@@ -133,7 +134,7 @@ function cpfRepetido(e: unknown): boolean {
 
 export async function criarClienteAction(dados: ClienteInput): Promise<string> {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const cpfCnpj = limparCpfCnpj(dados.cpfCnpj)
 
@@ -153,7 +154,7 @@ export async function criarClienteAction(dados: ClienteInput): Promise<string> {
 
 export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const cpfCnpj = dados.cpfCnpj !== undefined ? limparCpfCnpj(dados.cpfCnpj) : undefined
 
@@ -182,7 +183,7 @@ export async function excluirClienteAction(id: string) {
 
 export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string | null) {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   // Histórico só da Conta: o CPF casa com vendas de qualquer loja do sistema, e o
   // cliente pode ser de outra Conta (aí não há histórico nenhum a mostrar).

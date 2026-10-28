@@ -93,7 +93,8 @@ export async function cadastrarVeiculoHistoricoAction(input: {
   numeroMotor?: string | null
 }): Promise<VeiculoEncontrado> {
   const usuario = await getUsuarioLogado()
-  if (usuario.papel === 'mecanico') throw new Error('Sem permissão')
+  // Lista positiva: papel novo (como 'cargo') não entra por omissão.
+  if (!['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'motorista'].includes(usuario.papel)) throw new Error('Sem permissão')
 
   const chassi = input.chassi.trim().toUpperCase()
   const marca  = input.marca.trim()
