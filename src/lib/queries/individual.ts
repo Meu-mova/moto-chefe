@@ -1,6 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { valorLiquidoSql } from './valor-liquido'
+import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import { metricasAtendimento } from './atendimento'
 import { descontosPorVendedor } from './descontos'
 import { percentualDesconto } from '@/lib/desconto'
@@ -73,10 +74,10 @@ export async function dadosIndividual(opts: {
       group by v.vendedor_id, u.nome, l.nome, gr.nome
       having count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}) > 0`),
     execRows(sql`
-      select v.vendedor_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
+      select v.vendedor_id, ${nomeDoModeloSql('mo', 'v.loja_id')} as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
-      group by v.vendedor_id, mo.modelo`),
+      group by v.vendedor_id, ${nomeDoModeloSql('mo', 'v.loja_id')}`),
     metricasAtendimento(new Date(ini), new Date(Date.UTC(ano, mes, 1) - 1), `${ano}-${pad(mes)}-01`, `${ano}-${pad(mes)}-${pad(ultimoDia)}`, lojaIds),
     descontosPorVendedor({ dataInicio: `${ano}-${pad(mes)}-01`, dataFim: `${ano}-${pad(mes)}-${pad(ultimoDia)}`, lojaId: lojaIds }),
     // Tarefas do Kommo em aberto AGORA (snapshot), por vendedor — atrasadas = passou do prazo.
