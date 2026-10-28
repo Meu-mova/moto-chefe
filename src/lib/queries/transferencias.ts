@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { transferencias, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, or, and, ilike, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -32,7 +33,7 @@ export async function listarTransferencias(filtros?: {
       chassi:             motos.chassi,
       motoStatus:         motos.status,
       cor:                motos.cor,
-      modelo:             modelos.modelo,
+      modelo:             nomeDoModeloNaLoja(transferencias.lojaOrigemId),
       modeloId:           motos.modeloId,
       lojaOrigemId:       transferencias.lojaOrigemId,
       lojaOrigemNome:     lojaOrigem.nome,

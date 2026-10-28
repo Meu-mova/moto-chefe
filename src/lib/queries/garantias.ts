@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, motos, lojas, modelos } from '@/lib/db/schema'
 import { eq, and, ilike, desc, gte, lte, isNull, isNotNull, inArray } from 'drizzle-orm'
 
@@ -18,7 +19,7 @@ const CAMPOS_SELECT = {
   chassi: motos.chassi,
   cor: motos.cor,
   marca: modelos.marca,
-  modelo: modelos.modelo,
+  modelo: nomeDoModeloNaLoja(garantias.lojaId),
   modeloId: motos.modeloId,
   lojaNome: lojas.nome,
   osId: garantias.osId,
@@ -76,7 +77,7 @@ export async function exportarRelatorioGarantias(filtros: {
       chassi:              motos.chassi,
       cor:                 motos.cor,
       marca:               modelos.marca,
-      modelo:              modelos.modelo,
+      modelo:              nomeDoModeloNaLoja(garantias.lojaId),
       lojaId:              garantias.lojaId,
       lojaNome:            lojas.nome,
     })

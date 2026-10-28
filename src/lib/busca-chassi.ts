@@ -1,5 +1,6 @@
 import { and, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, lojas, modelos, motos, vendas, veiculosHistorico } from '@/lib/db/schema'
 import { lojasDaConta } from '@/lib/conta'
 
@@ -19,7 +20,7 @@ export async function buscarMotosPorChassi(
       motoId:      motos.id,
       chassi:      motos.chassi,
       marca:       modelos.marca,
-      modelo:      modelos.modelo,
+      modelo:      nomeDoModeloNaLoja(motos.lojaId),
       cor:         motos.cor,
       status:      motos.status,
       lojaId:      motos.lojaId,

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { pedidosVenda, vendas, motos, lojas, grupos, usuarios, modelos, origensVenda } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -76,7 +77,7 @@ export async function listarVendas(filtros?: {
       chassi:           motos.chassi,
       cor:              motos.cor,
       modeloId:         motos.modeloId,
-      modelo:           modelos.modelo,
+      modelo:           nomeDoModeloNaLoja(vendas.lojaId),
       marca:            modelos.marca,
       lojaNome:         lojas.nome,
       vendedorNome:     usuarios.nome,
@@ -114,7 +115,7 @@ export async function listarPedidosPorLoja(lojaId: string) {
       chassi: motos.chassi,
       cor: motos.cor,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(pedidosVenda.lojaId),
       lojaNome: lojas.nome,
       vendedorId: pedidosVenda.vendedorId,
       vendedorNome: usuarios.nome,
@@ -141,7 +142,7 @@ export async function listarTodosPedidos(lojaIds?: string[]) {
       chassi: motos.chassi,
       cor: motos.cor,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(pedidosVenda.lojaId),
       lojaNome: lojas.nome,
       vendedorId: pedidosVenda.vendedorId,
       vendedorNome: usuarios.nome,
@@ -170,7 +171,7 @@ export async function buscarPedido(id: string) {
       motoStatus: motos.status,
       motoLojaId: motos.lojaId,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(pedidosVenda.lojaId),
       lojaNome: lojas.nome,
       vendedorId: pedidosVenda.vendedorId,
       vendedorNome: usuarios.nome,
@@ -199,7 +200,7 @@ export async function buscarVenda(id: string) {
       lojaCidade: lojas.cidade,
       grupoNome: grupos.nome,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(vendas.lojaId),
       chassi: motos.chassi,
       cor: motos.cor,
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),

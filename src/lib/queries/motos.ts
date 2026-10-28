@@ -1,5 +1,6 @@
 // src/lib/queries/motos.ts
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, reservas, vendas, aprovacoesVenda, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -26,7 +27,7 @@ export async function listarMotos(filtros?: {
 }) {
   const { asc, desc } = await import('drizzle-orm')
   const campoMap = {
-    modelo:         modelos.modelo,
+    modelo:         nomeDoModeloNaLoja(motos.lojaId),
     cor:            motos.cor,
     loja:           lojas.nome,
     status:         motos.status,
@@ -49,7 +50,7 @@ export async function listarMotos(filtros?: {
       lojaNome: lojas.nome,
       modeloId: motos.modeloId,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(motos.lojaId),
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       transferenciaPendente: sql<boolean>`EXISTS (
@@ -220,7 +221,7 @@ export async function buscarMoto(id: string) {
       lojaId: motos.lojaId,
       lojaNome: lojas.nome,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(motos.lojaId),
       categoria: modelos.categoria,
       potenciaW: modelos.potenciaW,
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
@@ -399,7 +400,7 @@ export async function listarAprovacoesPendentes(lojaIds: string[]) {
       chassi:          motos.chassi,
       cor:             motos.cor,
       marca:           modelos.marca,
-      modelo:          modelos.modelo,
+      modelo:          nomeDoModeloNaLoja(aprovacoesVenda.lojaId),
       // os (null quando origem != 'os')
       osNumero:        ordensServico.numero,
       osClienteNome:   sql<string | null>`COALESCE(${clientesOS.nome}, ${ordensServico.clienteNomeExterno})`,
