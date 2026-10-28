@@ -310,3 +310,38 @@ test('nome do modelo nas consultas: o ajustado pela Conta dona da loja, o origin
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('Cód. Bling e Apelidos só para Conta com credencial do Bling em algum grupo dela', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const conta = (nome: string) => linha(sql`insert into contas (nome) values (${nome}) returning id`)
+    const grupo = (contaId: string, cnpj: string, id: string | null, segredo: string | null) =>
+      linha(sql`insert into grupos (nome, cnpj, conta_id, bling_client_id, bling_client_secret) values (${'G ' + cnpj}, ${cnpj}, ${contaId}, ${id}, ${segredo}) returning id`)
+    const contaA = await conta('Com Bling')
+    const contaB = await conta('Sem Bling')
+    const contaC = await conta('Meia credencial')
+    // A: um grupo sem e outro com credencial; basta um.
+    const grupoA = await grupo(contaA.id, '47600000000101', null, null)
+    await grupo(contaA.id, '47600000000102', 'cliente', 'segredo')
+    const grupoB = await grupo(contaB.id, '47600000000201', null, null)
+    const grupoC = await grupo(contaC.id, '47600000000301', 'cliente', null)
+    const modelo = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+      values ('TESTE-BL', 'BL1', 'autopropelido', '1000', '', '') returning id`)
+    await tx.execute(sql`insert into modelo_bling_codigos (modelo_id, grupo_id, codigo) values (${modelo.id}, ${grupoA.id}, 'COD1')`)
+    await tx.execute(sql`insert into modelo_apelidos (apelido, modelo_id) values ('BL-APELIDO', ${modelo.id})`)
+
+    const daA = await carregarTelaModelos({ adminGeral: false, contaId: contaA.id, grupoId: grupoA.id }, tx)
+    assert.equal(daA.usaBling, true)
+    assert.ok(daA.codigos.some(c => c.codigo === 'COD1') && daA.apelidos.some(a => a.apelido === 'BL-APELIDO'))
+
+    for (const [contaId, grupoId, quem] of [[contaB.id, grupoB.id, 'sem credencial'], [contaC.id, grupoC.id, 'só o client_id']] as const) {
+      const tela = await carregarTelaModelos({ adminGeral: false, contaId, grupoId }, tx)
+      assert.equal(tela.usaBling, false, quem)
+      assert.deepEqual([tela.codigos, tela.apelidos], [[], []], `${quem}: nem busca códigos e apelidos`)
+    }
+    assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoB.id }, tx)).usaBling, false,
+      'admin_geral num grupo de Conta sem Bling')
+    assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoA.id }, tx)).usaBling, true)
+    throw new Desfazer()
+  }), Desfazer)
+})
