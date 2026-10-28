@@ -29,6 +29,24 @@ export type EntradaPecas = {
 /** Entrada recusada; a transação desfaz tudo. A frase não revela dado de outra Conta. */
 export class EntradaPecasRecusada extends Error {}
 
+/**
+ * O que impede cada linha de entrar, sem gravar nada. Peça de outra Conta e id
+ * inexistente recebem a mesma frase.
+ */
+export async function conferirLinhasPecas(exec: Executor, lojaId: string, linhas: LinhaEntradaPeca[]): Promise<string[]> {
+  const erros: string[] = []
+  for (const linha of linhas) {
+    if (!Number.isInteger(linha.quantidade) || linha.quantidade <= 0) {
+      erros.push(`${linha.nomeXml}: a quantidade precisa ser um número inteiro maior que zero`)
+    } else if ('nova' in linha && !(linha.nova.valor > 0)) {
+      erros.push(`${linha.nomeXml}: peça nova precisa de preço de venda`)
+    } else if ('pecaId' in linha && !(await pecaUsavelNaLoja(exec, lojaId, linha.pecaId))) {
+      erros.push(`${linha.nomeXml}: peça não encontrada`)
+    }
+  }
+  return erros
+}
+
 export async function gravarEntradaPecas(exec: Executor, entrada: EntradaPecas): Promise<void> {
   // Loja de outra Conta e loja inexistente recebem a mesma frase: a diferença revelaria
   // que a loja existe.
@@ -41,16 +59,10 @@ export async function gravarEntradaPecas(exec: Executor, entrada: EntradaPecas):
   if (!loja) throw new EntradaPecasRecusada('Loja de destino não encontrada')
   const { contaId, grupoId } = loja
 
+  const erros = await conferirLinhasPecas(exec, entrada.lojaId, entrada.linhas)
+  if (erros.length) throw new EntradaPecasRecusada(erros.join('\n'))
+
   for (const linha of entrada.linhas) {
-    if (!Number.isInteger(linha.quantidade) || linha.quantidade <= 0) {
-      throw new EntradaPecasRecusada('Quantidade de peça precisa ser um número inteiro maior que zero')
-    }
-    if ('nova' in linha && !(linha.nova.valor > 0)) {
-      throw new EntradaPecasRecusada('Peça nova precisa de preço de venda')
-    }
-    if ('pecaId' in linha && !(await pecaUsavelNaLoja(exec, entrada.lojaId, linha.pecaId))) {
-      throw new EntradaPecasRecusada('Peça não encontrada')
-    }
     const pecaId = 'pecaId' in linha
       ? linha.pecaId
       : (await inserirPeca(exec, contaId, linha.nova)).id
