@@ -4,6 +4,7 @@ import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { contaDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { contaDoGrupoUsaBling } from '@/lib/conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
 import { avisoDeNomeRepetido, excluirModelo, ocultarModelo, salvarAjusteDoModelo, salvarApelidosDoModelo, salvarMarcasDaConta, voltarAoOriginal } from '@/lib/modelos-da-conta'
@@ -13,6 +14,12 @@ async function assertAdmin() {
   const u = await getUsuarioLogado()
   if (u.papel !== 'admin_geral') throw new Error('Acesso restrito ao Admin Geral')
   return u
+}
+
+// Cód. Bling e apelidos só na Conta que usa Bling (#476); a tela já esconde os campos.
+async function exigirContaComBling() {
+  const grupo = await getGrupoAtivo(await getUsuarioLogado())
+  if (!(await contaDoGrupoUsaBling(grupo.id))) throw new Error('Sua Conta não usa o Bling')
 }
 
 async function quemEdita() {
@@ -85,6 +92,7 @@ export async function atualizarBlingCodigoAction(modeloId: string, codigo: strin
   // Modelo da Conta não tem código Bling: o cliente novo emite pela Nota Gateway.
   if (modelo.contaId) throw new Error('Modelo da Conta não tem código Bling')
   const grupo = await getGrupoAtivo(u)
+  await exigirContaComBling()
 
   if (!codigo.trim()) {
     await db.delete(modeloBlingCodigos)
@@ -116,6 +124,7 @@ export async function atualizarBlingCodigoAction(modeloId: string, codigo: strin
  */
 export async function salvarApelidosAction(modeloId: string, texto: string) {
   await modeloEditavel(modeloId)
+  await exigirContaComBling()
 
   const apelidos = [...new Set(
     texto.split(',').map(a => normalizarModelo(a)).filter(Boolean),

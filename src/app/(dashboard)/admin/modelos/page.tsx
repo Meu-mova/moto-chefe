@@ -21,7 +21,7 @@ export default async function ModelosPage() {
   const contaId = adminGeral ? null : await contaDoGrupoAtivo(usuario)
   const quem = { papel: usuario.papel, contaId }
   const podeCadastrar = podeCadastrarModelo(quem)
-  const { modelos: todos, codigos, apelidos, contas } = await carregarTelaModelos(contaId === null
+  const { modelos: todos, codigos, apelidos, contas, usaBling } = await carregarTelaModelos(contaId === null
     ? { adminGeral: true, contaId: null, grupoId: grupo.id }
     : { adminGeral: false, contaId, grupoId: grupo.id })
   const nomeDaConta = new Map((contas ?? []).map(c => [c.id, c.nome]))
@@ -39,7 +39,7 @@ export default async function ModelosPage() {
           <div>
             <h1 className="text-2xl font-bold">Modelos</h1>
             <p className="text-muted-foreground text-sm">
-              {adminGeral ? <>Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
+              {adminGeral && usaBling ? <>Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
               <strong>Apelidos na NF</strong> para editar inline. Apelido é como a nota de entrada
               escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo. Os da plataforma você ajusta ou oculta só para a sua Conta.</>}
             </p>
@@ -55,8 +55,8 @@ export default async function ModelosPage() {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Potência</TableHead>
                 {adminGeral && <TableHead>Conta</TableHead>}
-                {adminGeral && <TableHead>Cód. Bling</TableHead>}
-                <TableHead>Apelidos na NF</TableHead>
+                {adminGeral && usaBling && <TableHead>Cód. Bling</TableHead>}
+                {usaBling && <TableHead>Apelidos na NF</TableHead>}
                 <TableHead className="w-28"></TableHead>
               </TableRow>
             </TableHeader>
@@ -74,17 +74,19 @@ export default async function ModelosPage() {
                   </TableCell>
                   <TableCell>{m.potenciaW}W</TableCell>
                   {adminGeral && <TableCell className="text-muted-foreground">{m.contaId ? nomeDaConta.get(m.contaId) ?? '—' : 'Plataforma'}</TableCell>}
-                  {adminGeral && (
+                  {adminGeral && usaBling && (
                     <TableCell>
                       {/* Modelo da Conta não tem código Bling: o cliente novo emite pela Nota Gateway. */}
                       {m.contaId ? '—' : <BlingCodigoCell modeloId={m.id} valor={codigoPorModelo.get(m.id) ?? null} />}
                     </TableCell>
                   )}
-                  <TableCell>
-                    {podeEditarModelo(quem, m)
-                      ? <ApelidosCell modeloId={m.id} valores={apelidosPorModelo.get(m.id) ?? []} />
-                      : (apelidosPorModelo.get(m.id) ?? []).join(', ') || '—'}
-                  </TableCell>
+                  {usaBling && (
+                    <TableCell>
+                      {podeEditarModelo(quem, m)
+                        ? <ApelidosCell modeloId={m.id} valores={apelidosPorModelo.get(m.id) ?? []} />
+                        : (apelidosPorModelo.get(m.id) ?? []).join(', ') || '—'}
+                    </TableCell>
+                  )}
                   <TableCell>
                     {podeAjustarModelo(quem, m) && (
                       <div className="flex">
