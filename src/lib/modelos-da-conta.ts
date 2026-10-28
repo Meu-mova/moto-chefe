@@ -62,7 +62,8 @@ export function nomeDoModeloNaLoja(lojaId: AnyColumn) {
   return nomeDoModeloSql('"modelos"', `"${getTableName(lojaId.table)}"."${lojaId.name}"`)
 }
 
-// Para SQL escrito à mão, com alias: nomeDoModeloSql('mo', 'v.loja_id').
+// Para SQL escrito à mão, com alias: nomeDoModeloSql('mo', 'v.loja_id'). Vai cru para o
+// SQL: só literais do código, nunca entrada do usuário.
 export function nomeDoModeloSql(modelos: string, lojaId: string) {
   return sql<string>`coalesce((
     select ma.modelo from modelo_ajustes ma
