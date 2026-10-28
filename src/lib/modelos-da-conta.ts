@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, isNull, ne, notExists, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, not, notExists, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { contaMarcas, demandas, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
+import { contaMarcas, demandas, modeloAjustes, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
@@ -17,14 +17,36 @@ const daPlataformaOuDa = (coluna: typeof modelos.contaId | typeof modeloApelidos
 // tem de bater com `modelos.marca`.
 export const MARCAS_DA_CONTA_NOVA = ['MotoChefe']
 
-export async function listarModelosDaConta(contaId: string, exec: Executor = db) {
+// Valor visto pela Conta: o ajuste dela (#476) ou, sem ajuste, o original.
+const comAjuste = <T>(ajuste: unknown, original: unknown) => sql<T>`coalesce(${ajuste}, ${original})`
+
+export async function listarModelosDaConta(contaId: string, exec: Executor = db, { incluirOcultos = false } = {}) {
   const marcasDaConta = exec.select({ marca: contaMarcas.marca }).from(contaMarcas)
     .where(eq(contaMarcas.contaId, contaId))
   // O modelo da própria Conta aparece mesmo de marca fora da escolha: foi ela que cadastrou (#321).
   const daPlataformaNasMarcas = and(isNull(modelos.contaId), or(notExists(marcasDaConta), inArray(modelos.marca, marcasDaConta)))
-  return exec.select().from(modelos)
-    .where(or(daPlataformaNasMarcas, eq(modelos.contaId, contaId)))
-    .orderBy(asc(modelos.marca), asc(modelos.modelo))
+  const oculto = sql<boolean>`coalesce(${modeloAjustes.oculto}, false)`
+  const nome = comAjuste<string>(modeloAjustes.modelo, modelos.modelo)
+  return exec.select({
+    id: modelos.id,
+    marca: modelos.marca,
+    modelo: nome,
+    categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
+    potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
+    motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
+    velocidadeMax: comAjuste<string>(modeloAjustes.velocidadeMax, modelos.velocidadeMax),
+    precoCompraPadrao: comAjuste<string | null>(modeloAjustes.precoCompraPadrao, modelos.precoCompraPadrao),
+    imagemUrl: comAjuste<string | null>(modeloAjustes.imagemUrl, modelos.imagemUrl),
+    contaId: modelos.contaId,
+    oculto,
+  }).from(modelos)
+    // A Conta no join: o ajuste de outra Conta nunca entra.
+    .leftJoin(modeloAjustes, and(eq(modeloAjustes.modeloId, modelos.id), eq(modeloAjustes.contaId, contaId)))
+    .where(and(
+      or(daPlataformaNasMarcas, eq(modelos.contaId, contaId)),
+      incluirOcultos ? undefined : not(oculto),
+    ))
+    .orderBy(asc(modelos.marca), asc(nome))
 }
 
 // Apelidos que as notas usam ("DRIFT" para DRIFT CAR): os da plataforma e os da Conta.
