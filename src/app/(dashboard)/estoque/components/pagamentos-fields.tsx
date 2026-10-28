@@ -112,7 +112,7 @@ export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda,
                   <Select value={p.operadora ?? ''} onValueChange={v => onUpdate(p.id, 'operadora', v ?? '')}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Operadora">
-                        {(v: string | null) => v ? (maquininhas?.find(m => m.operadora === v)?.nome ?? v) : undefined}
+                        {(v: string | null) => v ? (maquininhas?.find(m => m.operadora === v)?.nome ?? v) : 'Operadora'}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>

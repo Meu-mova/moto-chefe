@@ -332,7 +332,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                         <Select value={p.operadora ?? ''} onValueChange={v => v && updatePgto(p.id, 'operadora', v)}>
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="Operadora">
-                              {(val: string | null) => val ? (opcoesMaquininha.find(m => m.operadora === val)?.nome ?? val) : undefined}
+                              {(val: string | null) => val ? (opcoesMaquininha.find(m => m.operadora === val)?.nome ?? val) : 'Operadora'}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>

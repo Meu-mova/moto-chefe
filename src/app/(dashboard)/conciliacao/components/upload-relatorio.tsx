@@ -42,7 +42,7 @@ export function UploadRelatorio({ maquininhas }: { maquininhas: Maquininha[] }) 
       <Select value={operadora} onValueChange={v => v && setOperadora(v)}>
         <SelectTrigger className="w-44">
           <SelectValue placeholder="Nenhuma maquininha cadastrada">
-            {(v: string | null) => v ? (maquininhas.find(m => m.operadora === v)?.nome ?? v) : undefined}
+            {(v: string | null) => v ? (maquininhas.find(m => m.operadora === v)?.nome ?? v) : 'Nenhuma maquininha cadastrada'}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
