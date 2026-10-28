@@ -54,8 +54,10 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
 // pela Conta dona da loja do registro, ou o original. Recebe a coluna da loja da linha,
 // para nenhuma consulta precisar de parâmetro novo. Colunas qualificadas à mão: em
 // consulta sem join o Drizzle não qualifica e o nome casaria com as tabelas de dentro.
-// Fiscal (NF, export contábil), precificação (casa pelo nome) e relatório da fábrica
-// ficam com o original de propósito.
+// Não aceita coluna de alias(): getTableName devolve a tabela real e a subconsulta
+// apontaria para ela sem erro. Ficam com o original de propósito: fiscal (NF própria e
+// do Bling, export contábil), precificação (casa pelo nome), relatório da fábrica e
+// admin/acoes. Dashboard e compras passam por aqui em PR à parte.
 export function nomeDoModeloNaLoja(lojaId: AnyColumn) {
   const loja = sql.raw(`"${getTableName(lojaId.table)}"."${lojaId.name}"`)
   return sql<string>`coalesce((
