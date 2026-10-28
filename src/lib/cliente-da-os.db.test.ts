@@ -71,3 +71,29 @@ test('sem o módulo OS, não lê cliente pela OS (#450)', async () => {
     }
   })
 })
+
+test('busca por CPF na OS: só com o módulo OS, só da Conta, CPF inteiro (#450)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semear(tx, 'A')
+    const b = await semear(tx, 'B')
+    const daA = { papel: 'vendedor', modulosBloqueados: ['clientes'], contaId: a.contaId }
+    assert.equal((await mod.clientePorCpfDaOs(tx, daA, '529.982.247-25'))?.id, a.clienteId)
+    // Trecho do CPF não casa mais.
+    assert.equal(await mod.clientePorCpfDaOs(tx, daA, '5299822472'), null)
+    assert.equal(await mod.clientePorCpfDaOs(tx, daA, '05299822472'), null)
+    // B tem cliente com o mesmo CPF: cada Conta só acha o seu.
+    assert.equal((await mod.clientePorCpfDaOs(tx, { papel: 'aux_adm', contaId: b.contaId }, '52998224725'))?.id, b.clienteId)
+    for (const u of [{ papel: 'motorista' }, { papel: 'cargo', modulosDoCargo: ['clientes'] }]) {
+      assert.equal(await mod.clientePorCpfDaOs(tx, { ...u, contaId: a.contaId }, '52998224725'), null, u.papel)
+    }
+  })
+})
+
+test('busca por CPF na OS: Conta B não acha cliente que só existe na A (#450)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semear(tx, 'A')
+    await linhas(tx, sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Só A', '11144477735', ${a.contaId})`)
+    const [contaB] = await linhas(tx, sql`insert into contas (nome) values ('CO450 B') returning id`)
+    assert.equal(await mod.clientePorCpfDaOs(tx, { papel: 'admin_socio', contaId: contaB.id }, '11144477735'), null)
+  })
+})
