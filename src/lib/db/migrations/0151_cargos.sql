@@ -8,8 +8,16 @@ create table cargos (
   atualizado_em timestamptz not null default now()
 );
 
--- Nome único dentro da Conta, sem diferença de maiúscula; outra Conta pode repetir.
-create unique index cargos_conta_nome_idx on cargos (conta_id, lower(nome));
+-- Chave do nome sem acento, maiúscula nem espaço ('Recepção' = 'RECEP CAO'). translate em vez
+-- da extensão unaccent: unaccent não é immutable e não pode entrar num índice. O
+-- src/lib/cargos.ts compara pela mesma função, para tela e índice nunca discordarem.
+create function cargo_nome_chave(nome text) returns text
+  language sql immutable parallel safe
+  as $$ select regexp_replace(
+    translate(lower(nome), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), '\s+', '', 'g') $$;
+
+-- Nome único dentro da Conta; outra Conta pode repetir.
+create unique index cargos_conta_nome_idx on cargos (conta_id, cargo_nome_chave(nome));
 
 alter table usuarios add column cargo_id uuid references cargos(id);
 create index usuarios_cargo_id_idx on usuarios (cargo_id);

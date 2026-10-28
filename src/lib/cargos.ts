@@ -16,14 +16,16 @@ type Resultado = { ok: true } | { ok: false; erro: string }
 
 const NAO_ENCONTRADO = { ok: false, erro: 'Cargo não encontrado' } as const
 
-// Nomes dos papéis fixos como aparecem na tela e como o Cesar fala.
+// Nomes dos papéis fixos como aparecem na tela e como o Cesar fala, nos dois gêneros.
 const NOMES_FIXOS = [
-  'admin geral', 'admin socio', 'socio', 'aux adm', 'aux. administrativo', 'auxiliar administrativo',
-  'vendedor', 'mecanico', 'motorista', 'cargo',
+  'admin geral', 'admin socio', 'admin socia', 'socio', 'socia',
+  'administrador geral', 'administradora geral', 'administrador socio', 'administradora socia',
+  'aux adm', 'aux administrativo', 'aux administrativa', 'auxiliar administrativo', 'auxiliar administrativa',
+  'vendedor', 'vendedora', 'mecanico', 'mecanica', 'motorista', 'cargo',
 ]
 
 function normalizar(nome: string): string {
-  return nome.normalize('NFD').replace(/\p{M}/gu, '').replace(/[_\s]+/g, ' ').trim().toLowerCase()
+  return nome.normalize('NFD').replace(/\p{M}/gu, '').replace(/[._\s]+/g, ' ').trim().toLowerCase()
 }
 
 function daConta(quem: QuemGerenciaCargos): SQL | undefined {
@@ -40,7 +42,7 @@ async function validar(
   const [repetido] = await exec.select({ id: cargos.id }).from(cargos)
     .where(and(
       eq(cargos.contaId, contaId),
-      sql`lower(${cargos.nome}) = lower(${nome})`,
+      sql`cargo_nome_chave(${cargos.nome}) = cargo_nome_chave(${nome})`,
       ignorarId ? ne(cargos.id, ignorarId) : undefined,
     ))
     .limit(1)
