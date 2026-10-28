@@ -2,6 +2,7 @@ import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
 import { valorLiquidoSql } from './valor-liquido'
+import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import { dreDoMes } from './dre'
 import { montarDre, somarEntradas, ENTRADA_VAZIA, type LinhaDre } from '@/lib/dre'
 
@@ -100,10 +101,10 @@ export async function dadosFechamento(opts: {
       where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by v.loja_id, u.nome`),
     execRows(sql`
-      select v.loja_id, mo.modelo as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
+      select v.loja_id, ${nomeDoModeloSql('mo', 'v.loja_id')} as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
-      group by v.loja_id, mo.modelo`),
+      group by v.loja_id, ${nomeDoModeloSql('mo', 'v.loja_id')}`),
     execRows(sql`
       select v.loja_id, coalesce(o.nome,'(sem origem)') as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v left join origens_venda o on o.id=v.origem_id join lojas l on l.id=v.loja_id

@@ -2,6 +2,7 @@ import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
 import { valorLiquidoSql } from './valor-liquido'
+import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import {
   gerarOportunidades, type PodioVendedor, type ItemColetiva, type LojaMeta, type Oportunidade,
 } from '@/lib/coletiva'
@@ -70,10 +71,10 @@ export async function dadosColetiva(opts: {
       group by v.vendedor_id, u.nome, l.nome`),
     // Modelos campeões do mês
     execRows(sql`
-      select mo.modelo as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
+      select ${nomeDoModeloSql('mo', 'v.loja_id')} as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
-      group by mo.modelo`),
+      group by ${nomeDoModeloSql('mo', 'v.loja_id')}`),
     // Faturamento por loja (pra parear com a meta)
     execRows(sql`
       select l.id as loja_id, l.nome as loja,

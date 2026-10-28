@@ -57,15 +57,19 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
 // Não aceita coluna de alias(): getTableName devolve a tabela real e a subconsulta
 // apontaria para ela sem erro. Ficam com o original de propósito: fiscal (NF própria e
 // do Bling, export contábil), precificação (casa pelo nome), relatório da fábrica e
-// admin/acoes. Dashboard e compras passam por aqui em PR à parte.
+// admin/acoes.
 export function nomeDoModeloNaLoja(lojaId: AnyColumn) {
-  const loja = sql.raw(`"${getTableName(lojaId.table)}"."${lojaId.name}"`)
+  return nomeDoModeloSql('"modelos"', `"${getTableName(lojaId.table)}"."${lojaId.name}"`)
+}
+
+// Para SQL escrito à mão, com alias: nomeDoModeloSql('mo', 'v.loja_id').
+export function nomeDoModeloSql(modelos: string, lojaId: string) {
   return sql<string>`coalesce((
     select ma.modelo from modelo_ajustes ma
       join grupos g on g.conta_id = ma.conta_id
       join lojas l on l.grupo_id = g.id
-     where ma.modelo_id = ${sql.raw('"modelos"."id"')} and l.id = ${loja}
-  ), ${sql.raw('"modelos"."modelo"')})`
+     where ma.modelo_id = ${sql.raw(`${modelos}.id`)} and l.id = ${sql.raw(lojaId)}
+  ), ${sql.raw(`${modelos}.modelo`)})`
 }
 
 type Escritor = Pick<typeof db, 'select' | 'insert' | 'update'>
