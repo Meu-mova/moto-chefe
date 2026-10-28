@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas } from '@/lib/db/schema'
 
@@ -44,4 +44,15 @@ export async function contaDaLoja(lojaId: string, exec: Executor = db): Promise<
     .limit(1)
   if (!r) throw new Error('Loja não encontrada')
   return r.contaId
+}
+
+// "Cód. Bling" e "Apelidos na NF" só para a Conta que usa Bling (#476, adendo ao ADR-0018):
+// algum grupo da Conta tem as duas credenciais que src/lib/bling.ts exige (vazio não conta). Dado do banco,
+// nunca nome ou CNPJ. Recebe o grupo (ativo) e olha só os grupos da mesma Conta.
+export async function contaDoGrupoUsaBling(grupoId: string, exec: Executor = db): Promise<boolean> {
+  const daConta = exec.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId))
+  const [comBling] = await exec.select({ id: grupos.id }).from(grupos)
+    .where(and(inArray(grupos.contaId, daConta), sql`coalesce(${grupos.blingClientId}, '') <> ''`, sql`coalesce(${grupos.blingClientSecret}, '') <> ''`))
+    .limit(1)
+  return !!comBling
 }
