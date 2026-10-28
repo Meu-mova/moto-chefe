@@ -17,6 +17,8 @@ type Modelo = {
   id: string
   modelo: string
   marca: string
+  // Nome da fábrica, para casar o XML de modelo que a Conta ajustou (#476).
+  nomeOriginal?: string
 }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
