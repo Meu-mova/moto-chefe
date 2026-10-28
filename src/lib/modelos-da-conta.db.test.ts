@@ -211,6 +211,12 @@ test('ajuste e ocultação de modelo da plataforma valem só para a Conta que fe
     const daB = await listarModelosDaConta(contaB.id, tx)
     assert.equal(daB.find(m => m.id === ajustado.id)?.modelo, 'ORIGINAL', 'B vê o nome original')
     assert.ok(daB.some(m => m.id === oculto.id && !m.oculto), 'B continua vendo o que a A ocultou')
+
+    await tx.execute(sql`insert into modelo_ajustes (conta_id, modelo_id, modelo, oculto) values (${contaB.id}, ${ajustado.id}, 'NOME DA B', true)`)
+    assert.equal((await listarModelosDaConta(contaB.id, tx, { incluirOcultos: true })).find(m => m.id === ajustado.id)?.modelo, 'NOME DA B')
+    const daAOutraVez = await listarModelosDaConta(contaA.id, tx)
+    assert.equal(daAOutraVez.find(m => m.id === ajustado.id)?.modelo, 'NOME DA A', 'o ajuste da B não muda o da A')
+    assert.equal(daAOutraVez.filter(m => m.id === ajustado.id).length, 1, 'o ajuste da B não duplica a linha na A')
     throw new Desfazer()
   }), Desfazer)
 })
