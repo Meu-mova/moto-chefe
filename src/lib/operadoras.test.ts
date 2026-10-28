@@ -29,3 +29,11 @@ test('conciliação: importa só as com relatório; as outras viram aviso de man
   const r = separarPorRelatorio([{ operadora: 'rede', nome: 'Rede Itaú' }, { operadora: 'stone', nome: 'Stone' }])
   assert.deepEqual(r, { comRelatorio: [{ operadora: 'stone', nome: 'Stone' }], manuais: [{ operadora: 'rede', nome: 'Rede Itaú' }] })
 })
+
+test('Outra com nome de operadora da lista é recusada (#471)', () => {
+  const naLista = { message: 'Essa operadora já está na lista: escolha ela no campo Operadora.' }
+  assert.throws(() => codigoOperadora('outra', 'Stone'), naLista)
+  assert.throws(() => codigoOperadora('outra', ' rede '), naLista)
+  assert.throws(() => codigoOperadora('outra', 'Mercado Pago'), naLista)
+  assert.equal(codigoOperadora('outra', 'Rede Itaú'), 'rede-itau')
+})

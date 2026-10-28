@@ -1,4 +1,5 @@
 // Sem banco: operadoras do cadastro de maquininhas (#471) e nome de marca do código gravado (#460).
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 export const OPERADORAS = [
   { codigo: 'infinitypay', nome: 'InfinityPay' },
@@ -26,8 +27,13 @@ export function separarPorRelatorio<T extends { operadora: string }>(lista: T[])
 /** Código gravado: o da lista, ou o nome livre de "Outra" sem acento e espaço. Vazio = inválido. */
 export function codigoOperadora(escolha: string, nomeLivre: string): string {
   if (escolha !== 'outra') return OPERADORAS.some(o => o.codigo === escolha) ? escolha : ''
-  return nomeLivre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const codigo = nomeLivre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  // "Outra" chamada Stone gravaria um segundo código para a mesma operadora.
+  if (OPERADORAS.some(o => o.codigo !== 'outra' && o.codigo === codigo.replace(/-/g, ''))) {
+    throw new RecusaUsuario('Essa operadora já está na lista: escolha ela no campo Operadora.')
+  }
+  return codigo
 }
 
 // 'redecard' só aparece em registro antigo; o cadastro grava 'rede'.
