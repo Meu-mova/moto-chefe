@@ -7,6 +7,11 @@ const NOME_OPERADORA: Record<string, string> = {
   cielo: 'Cielo', getnet: 'Getnet', redecard: 'Redecard',
 }
 
+/** Texto do select de operadora sem escolha; `null` = lista ainda carregando. */
+export function textoSemOperadora(opcoes: Maquininha[] | null): string {
+  return opcoes?.length === 0 ? 'Nenhuma maquininha cadastrada' : 'Operadora'
+}
+
 /**
  * Opções da edição: as do grupo mais a operadora já gravada no registro, para a venda antiga
  * continuar mostrando e mantendo o que tinha (o servidor aceita a já gravada).

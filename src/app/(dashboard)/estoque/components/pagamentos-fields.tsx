@@ -1,5 +1,6 @@
 'use client'
 import type { Maquininha } from '@/lib/maquininhas'
+import { textoSemOperadora } from '@/lib/maquininhas-opcoes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -107,12 +108,12 @@ export function PagamentosFields({ pgtos, onAdd, onRemove, onUpdate, taxasVenda,
             {p.tipo === 'cartao_credito' && (
               <div className="flex gap-2">
                 {maquininhas?.length === 0 ? (
-                  <p className="flex-1 self-center text-sm text-muted-foreground">Nenhuma maquininha cadastrada</p>
+                  <p className="flex-1 self-center text-sm text-muted-foreground">{textoSemOperadora(maquininhas)}</p>
                 ) : (
                   <Select value={p.operadora ?? ''} onValueChange={v => onUpdate(p.id, 'operadora', v ?? '')}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Operadora">
-                        {(v: string | null) => v ? (maquininhas?.find(m => m.operadora === v)?.nome ?? v) : 'Operadora'}
+                        {(v: string | null) => v ? (maquininhas?.find(m => m.operadora === v)?.nome ?? v) : textoSemOperadora(maquininhas)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>

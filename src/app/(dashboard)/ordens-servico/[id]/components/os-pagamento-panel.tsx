@@ -1,6 +1,6 @@
 'use client'
 import type { Maquininha } from '@/lib/maquininhas'
-import { opcoesComGravada } from '@/lib/maquininhas-opcoes'
+import { opcoesComGravada, textoSemOperadora } from '@/lib/maquininhas-opcoes'
 import { useState, useTransition } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -198,7 +198,7 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select value={l.operadora ?? ''} onChange={e => updateLinha(l.id, 'operadora', e.target.value)}
                   className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background">
-                  <option value="">{opcoesMaquininha.length === 0 ? 'Nenhuma maquininha cadastrada' : 'Operadora...'}</option>
+                  <option value="">{textoSemOperadora(opcoesMaquininha)}</option>
                   {opcoesMaquininha.map(m => <option key={m.operadora} value={m.operadora}>{m.nome}</option>)}
                 </select>
                 <select value={l.parcelas ?? ''} onChange={e => updateLinha(l.id, 'parcelas', e.target.value)}

@@ -1,6 +1,6 @@
 'use client'
 import { useMaquininhas } from '@/components/use-maquininhas'
-import { opcoesComGravada } from '@/lib/maquininhas-opcoes'
+import { opcoesComGravada, textoSemOperadora } from '@/lib/maquininhas-opcoes'
 
 import { cnpjValido, soDigitosDoc } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
@@ -437,7 +437,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
                         <Select value={p.operadora ?? ''} onValueChange={v => v && updatePgto(p.id, 'operadora', v)}>
                           <SelectTrigger className="h-8 text-xs">
                             <span className={p.operadora ? '' : 'text-muted-foreground'}>
-                              {opcoesMaquininha.find(m => m.operadora === p.operadora)?.nome ?? p.operadora ?? (lojaId && opcoesMaquininha.length === 0 ? 'Nenhuma maquininha cadastrada' : 'Operadora')}
+                              {opcoesMaquininha.find(m => m.operadora === p.operadora)?.nome ?? p.operadora ?? textoSemOperadora(lojaId ? opcoesMaquininha : null)}
                             </span>
                           </SelectTrigger>
                           <SelectContent>
