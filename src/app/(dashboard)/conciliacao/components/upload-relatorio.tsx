@@ -6,8 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, Loader2 } from 'lucide-react'
 import { importarRelatorioAction } from '../actions'
+import { separarPorRelatorio } from '@/lib/operadoras'
 
-export function UploadRelatorio({ maquininhas }: { maquininhas: Maquininha[] }) {
+export function UploadRelatorio({ maquininhas: doGrupo }: { maquininhas: Maquininha[] }) {
+  const { comRelatorio: maquininhas, manuais } = separarPorRelatorio(doGrupo)
+  const semOpcao = manuais.length > 0 ? 'Nenhuma com relatório' : 'Nenhuma maquininha cadastrada'
   const fileRef = useRef<HTMLInputElement>(null)
   const [operadora, setOperadora] = useState(maquininhas[0]?.operadora ?? '')
   const [loading, setLoading] = useState(false)
@@ -38,29 +41,36 @@ export function UploadRelatorio({ maquininhas }: { maquininhas: Maquininha[] }) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-3">
-      <Select value={operadora} onValueChange={v => v && setOperadora(v)}>
-        <SelectTrigger className="w-44">
-          <SelectValue placeholder="Nenhuma maquininha cadastrada">
-            {(v: string | null) => v ? (maquininhas.find(m => m.operadora === v)?.nome ?? v) : 'Nenhuma maquininha cadastrada'}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {maquininhas.map(m => <SelectItem key={m.operadora} value={m.operadora}>{m.nome}</SelectItem>)}
-        </SelectContent>
-      </Select>
+    <div className="space-y-2">
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <Select value={operadora} onValueChange={v => v && setOperadora(v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder={semOpcao}>
+              {(v: string | null) => v ? (maquininhas.find(m => m.operadora === v)?.nome ?? v) : semOpcao}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {maquininhas.map(m => <SelectItem key={m.operadora} value={m.operadora}>{m.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv,.txt"
-        className="text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-xs file:font-medium file:bg-card file:text-foreground hover:file:bg-muted cursor-pointer"
-      />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,.txt"
+          className="text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-xs file:font-medium file:bg-card file:text-foreground hover:file:bg-muted cursor-pointer"
+        />
 
-      <Button type="submit" size="sm" disabled={loading}>
-        {loading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-        <span className="ml-1.5">{loading ? 'Importando...' : 'Importar'}</span>
-      </Button>
-    </form>
+        <Button type="submit" size="sm" disabled={loading}>
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          <span className="ml-1.5">{loading ? 'Importando...' : 'Importar'}</span>
+        </Button>
+      </form>
+      {manuais.length > 0 && (
+        <p className="text-xs text-warning">
+          Conciliação manual (o relatório não é importado): {manuais.map(m => m.nome).join(', ')}.
+        </p>
+      )}
+    </div>
   )
 }
