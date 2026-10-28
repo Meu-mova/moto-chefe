@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Trash2, UserPlus, Eye, EyeOff, Power, PowerOff } from 'lucide-react'
+import { BadgeCheck, Pencil, Trash2, UserPlus, Eye, EyeOff, Power, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
+import { CargosDialog, type Cargo } from './cargos-dialog'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
@@ -36,6 +37,7 @@ type Usuario = {
   ativo: boolean
   modulosExtras: string[]
   modulosBloqueados: string[]
+  cargoId: string | null
 }
 
 type DadosForm = {
@@ -50,6 +52,7 @@ type DadosForm = {
   gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
+  cargoId: string | null
 }
 
 // Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
@@ -62,6 +65,7 @@ const PAPEIS: { value: string; label: string }[] = [
   { value: 'vendedor',     label: 'Vendedor' },
   { value: 'mecanico',     label: 'Mecânico' },
   { value: 'motorista',    label: 'Motorista' },
+  { value: 'cargo',        label: 'Cargo da Conta' },
 ]
 
 type Limites = LimitesDaTela
@@ -73,6 +77,7 @@ const PAPEL_CORES: Record<string, string> = {
   vendedor:    'bg-success/15 text-success border-success/30',
   mecanico:    'bg-muted text-foreground border-border',
   motorista:   'bg-info/15 text-info border-info/30',
+  cargo:       'bg-muted text-foreground border-border',
 }
 
 function SenhaInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -105,8 +110,10 @@ function FormUsuario({
   onCancel,
   isEdit,
   limites,
+  cargos,
 }: {
   inicial?: Partial<Usuario>
+  cargos: Cargo[]
   lojas: Loja[]
   grupos: Grupo[]
   limites: Limites
@@ -125,6 +132,7 @@ function FormUsuario({
   const [gruposAcesso, setGruposAcesso] = useState<string[]>(inicial?.gruposAcesso ?? [])
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
+  const [cargoId, setCargoId] = useState(inicial?.cargoId ?? '')
   const diferenca = diferencaDaFuncao(papel, inicial?.papeisExtras ?? [], modulosExtras, modulosBloqueados, IDS_MODULOS)
   // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define. Quem
   // já tem diferença salva abre aberto, para o ajuste não ficar escondido.
@@ -147,6 +155,7 @@ function FormUsuario({
     if (!nome.trim())  { toast.error('Informe o nome');  return }
     if (!email.trim()) { toast.error('Informe o e-mail'); return }
     if (!papel)        { toast.error('Selecione a função'); return }
+    if (papel === 'cargo' && !cargoId) { toast.error('Selecione o cargo'); return }
     if (!isEdit && !senha.trim()) { toast.error('Informe a senha'); return }
     onSubmit({
       nome: nome.trim(),
@@ -160,6 +169,7 @@ function FormUsuario({
       gruposAcesso: mostrarAcessoGrupos ? gruposAcesso : [],
       modulosExtras,
       modulosBloqueados,
+      cargoId: papel === 'cargo' ? cargoId : null,
     })
   }
 
@@ -196,6 +206,17 @@ function FormUsuario({
               </SelectContent>
             </Select>
           </div>
+          {papel === 'cargo' && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="cargo-usuario">Cargo</Label>
+              {/* select nativo: o Select do design system mostraria o UUID cru. */}
+              <select id="cargo-usuario" value={cargoId} onChange={e => setCargoId(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">{cargos.length ? 'Selecione o cargo' : 'Crie um cargo no botão Cargos'}</option>
+                {cargos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Loja</Label>
             <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
@@ -340,7 +361,10 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites }) {
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, podeDarAoCargo }: {
+  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; podeDarAoCargo: string[]
+}) {
+  const [vendoCargos, setVendoCargos] = useState(false)
   const [criando,    setCriando]    = useState(false)
   const [editando,   setEditando]   = useState<Usuario | null>(null)
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
@@ -413,9 +437,14 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
     <>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
-        <Button onClick={() => setCriando(true)} className="gap-2">
-          <UserPlus size={16} /> Novo usuário
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2">
+            <BadgeCheck size={16} /> Cargos
+          </Button>
+          <Button onClick={() => setCriando(true)} className="gap-2">
+            <UserPlus size={16} /> Novo usuário
+          </Button>
+        </div>
       </div>
 
       <div className="bg-card rounded-lg border">
@@ -441,7 +470,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
                 <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-muted text-foreground'}`}>
-                    {PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel}
+                    {u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)}
                   </span>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{u.lojaNome ?? <span className="text-muted-foreground">—</span>}</TableCell>
@@ -520,6 +549,8 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
         </Table>
       </div>
 
+      <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargos} podeDar={podeDarAoCargo} />
+
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
@@ -530,6 +561,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
             lojas={lojas}
             grupos={grupos}
             limites={limites}
+            cargos={cargos}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -550,6 +582,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites }: { usuarios: 
               lojas={lojas}
               grupos={grupos}
               limites={limites}
+              cargos={cargos}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

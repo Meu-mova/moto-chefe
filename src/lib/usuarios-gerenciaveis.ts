@@ -28,6 +28,7 @@ export async function listarUsuariosGerenciaveis(
       ativo:                   usuarios.ativo,
       modulosExtras:           usuarios.modulosExtras,
       modulosBloqueados:       usuarios.modulosBloqueados,
+      cargoId:                 usuarios.cargoId,
       // Grupo da loja fixa: já aprova nele por padrão, então o formulário
       // mostra esse grupo como fixo em vez de oferecê-lo como opção.
       grupoDaLojaId:           lojas.grupoId,

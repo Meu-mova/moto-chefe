@@ -88,7 +88,7 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {

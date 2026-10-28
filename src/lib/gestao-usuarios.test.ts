@@ -114,6 +114,7 @@ test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () =>
   assert.equal(l.podeExcluir, false)
   assert.equal(l.papeis.includes('admin_geral'), false)
   assert.equal(l.papeis.includes('admin_socio'), true)
+  assert.equal(l.papeis.includes('cargo'), true, 'sócio dá cargo da Conta (#450)')
   assert.deepEqual(l.itensLiberaveis, ['estoque'])
   assert.deepEqual(l.gruposAprovacao, [], 'aprovação só nos grupos onde ele aprova')
   assert.equal(l.travaASiMesmo, true, 'não desativa nem troca o próprio papel')
