@@ -100,7 +100,7 @@ test('o total devolvido conta só as motos com chassi e as linhas de peça', asy
       motos: [moto(a.modeloId, 'EN429T1'), moto(a.modeloId, '  ')],
       pecas: [capacete(a.pecaId)],
     })
-    assert.deepEqual(total, { motos: 1, pecas: 1 })
+    assert.deepEqual(total, { motos: 1, pecas: 1, avisos: [] })
   })
 })
 
@@ -185,5 +185,33 @@ test('chassi que só existe na Conta A recusa a nota da Conta B com frase neutra
     assert.deepEqual(erro.erros, ['EN429DEA: não deu para registrar este chassi. Confira o número.'])
     assert.deepEqual(await motosGravadas(tx, ['EN429NOVAB']), [])
     assert.equal(await saldos.saldoNaLoja(tx, b.pecaId, b.lojaId), 0)
+  })
+})
+
+test('nota gravada lembra o texto da nota como apelido da Conta da loja (#476)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    await nota.registrarNotaComPecas(tx, {
+      usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
+      motos: [{ ...moto(a.modeloId, 'EN429CHA1'), textoNota: 'EN429 APELIDO' }],
+      pecas: [capacete(a.pecaId)],
+    })
+    const apelidos = await linhas(tx, sql`select conta_id from modelo_apelidos where apelido = 'EN429 APELIDO'`)
+    assert.deepEqual(apelidos, [{ conta_id: a.contaId }])
+    assert.notEqual(a.contaId, b.contaId)
+  })
+})
+
+test('nota recusada não lembra apelido (#476)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const erro = await tentar(tx, {
+      usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
+      motos: [{ ...moto(a.modeloId, 'EN429CHA1'), textoNota: 'EN429 RECUSADA', precoCompra: '' }],
+      pecas: [capacete(a.pecaId)],
+    })
+    assert.ok(erro)
+    assert.deepEqual(await linhas(tx, sql`select 1 from modelo_apelidos where apelido = 'EN429 RECUSADA'`), [])
   })
 })

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMotosInfCpl, mapearModelo, extrairDaNfe, extrairItensDePeca } from './nfe-entrada'
+import { parseMotosInfCpl, mapearModelo, modeloIdDaNota, extrairDaNfe, extrairItensDePeca } from './nfe-entrada'
 import { extrairFiscalDaNfe } from './nfe-fiscal'
 
 // infCpl reais das notas de amostra (FSist).
@@ -269,4 +269,15 @@ test('itens de peça: linha sem qCom sai com quantidade 0 marcada como não inte
   const [item] = extrairItensDePeca(xml)
   assert.equal(item.quantidade, 0)
   assert.equal(item.quantidadeInteira, false)
+})
+
+// #476: o texto da nota casa pelo nome, depois pelo apelido da Conta, e só então pelo prefixo.
+test('modeloIdDaNota: nome, apelido da Conta e prefixo, nessa ordem', () => {
+  const modelos = [{ id: 'giga', modelo: 'GIGA' }, { id: 'giga-bau', modelo: 'GIGA BAU PRO' }, { id: 'x12', modelo: 'X12' }]
+  const apelidos = [{ nome: 'GIGA C/ BAU', modeloId: 'giga-bau' }, { nome: 'X 12 RC', modeloId: 'x12' }]
+  assert.equal(modeloIdDaNota('giga', modelos, apelidos), 'giga', 'nome exato')
+  assert.equal(modeloIdDaNota('GIGA C/ BAU', modelos, apelidos), 'giga-bau', 'apelido vence o prefixo GIGA')
+  assert.equal(modeloIdDaNota('x-12 rc', modelos, apelidos), 'x12', 'apelido comparado normalizado')
+  assert.equal(modeloIdDaNota('GIGA LITE', modelos, apelidos), 'giga', 'sem apelido, cai no prefixo')
+  assert.equal(modeloIdDaNota('SOMA', modelos, apelidos), null)
 })

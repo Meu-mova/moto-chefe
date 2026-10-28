@@ -7,11 +7,11 @@ import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
-import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
+import { lembrarApelidosDaEntrada, modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, paresDaNota, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
 
@@ -169,8 +169,9 @@ export async function registrarEntradaLote(formData: {
   // é só a sugestão inicial). Aqui o id vindo do payload é conferido contra o
   // cadastro para que um modeloId forjado não crie moto apontando pra lugar nenhum
   // nem para o modelo de outra Conta.
+  const contaId = await contaDaLoja(loja.id)
   const idsValidos = await modelosUsaveisPelaConta(
-    await contaDaLoja(loja.id),
+    contaId,
     [...new Set(formData.motos.map(m => m.modeloId).filter(Boolean))],
   )
 
@@ -234,6 +235,11 @@ export async function registrarEntradaLote(formData: {
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
+  const avisosApelido = await lembrarApelidosDaEntrada(
+    contaId,
+    paresDaNota(formData.motos.filter(m => idPorChassi.has(m.chassi.trim().toUpperCase()))),
+  )
+
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -244,7 +250,7 @@ export async function registrarEntradaLote(formData: {
 
   const avisoCadastro = (fichasGravadas > 0
     ? `\nFicha fiscal da nota de entrada gravada para ${fichasGravadas} moto(s).`
-    : '')
+    : '') + avisosApelido.map(a => `\n${a}`).join('')
 
   if (erros.length) {
     return { success: `${inseridos} moto(s) inserida(s). Erros:\n${erros.join('\n')}${avisoCadastro}` }
@@ -261,7 +267,7 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
   const usuario = await getUsuarioLogado()
   if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
 
-  let total: { motos: number; pecas: number }
+  let total: Awaited<ReturnType<typeof registrarNotaComPecas>>
   try {
     total = await db.transaction(tx => registrarNotaComPecas(tx, { ...dados, usuario }))
   } catch (e) {
@@ -274,7 +280,7 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
   revalidatePath('/pecas')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
-  return { success: `Nota lançada: ${total.motos} moto(s) e ${total.pecas} item(ns) de peça.` }
+  return { success: `Nota lançada: ${total.motos} moto(s) e ${total.pecas} item(ns) de peça.${total.avisos.map(a => `\n${a}`).join('')}` }
 }
 
 /**

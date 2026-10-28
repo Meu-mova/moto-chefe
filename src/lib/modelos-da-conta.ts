@@ -2,6 +2,7 @@ import { type AnyColumn, and, asc, eq, getTableName, inArray, isNull, ne, not, n
 import { db } from '@/lib/db'
 import { contaMarcas, demandas, modeloAjustes, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
+import { modeloIdDaNota, normalizarModelo } from '@/lib/nfe-entrada'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -123,6 +124,44 @@ export async function listarApelidosDaConta(contaId: string, exec: Executor = db
     .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
     .where(daPlataformaOuDa(modeloApelidos.contaId, contaId))
     .orderBy(asc(modeloApelidos.apelido))
+}
+
+// O texto da nota ligado a um modelo na entrada vira apelido da Conta, para a próxima
+// nota já casar sozinha (#476). Só depois da entrada gravada, e sem mostrar o campo.
+// Texto que já é nome ou apelido de outro modelo não muda de dono: volta um aviso.
+export async function lembrarApelidosDaEntrada(
+  contaId: string,
+  pares: { texto: string; modeloId: string }[],
+  exec: Escritor = db,
+): Promise<string[]> {
+  const escolhas = new Map<string, string>()
+  for (const p of pares) {
+    const texto = normalizarModelo(p.texto)
+    if (texto && !escolhas.has(texto)) escolhas.set(texto, p.modeloId)
+  }
+  if (!escolhas.size) return []
+
+  const [doCadastro, apelidos] = await Promise.all([
+    listarModelosDaConta(contaId, exec, { incluirOcultos: true }),
+    listarApelidosDaConta(contaId, exec),
+  ])
+  // Modelo de outra Conta (id forjado) não está no cadastro e não ganha apelido.
+  const nomePorId = new Map(doCadastro.map(m => [m.id, m.modelo]))
+  const avisos: string[] = []
+  const novos: (typeof modeloApelidos.$inferInsert)[] = []
+  for (const [texto, modeloId] of escolhas) {
+    if (!nomePorId.has(modeloId)) continue
+    const dono = doCadastro.find(m => normalizarModelo(m.modelo) === texto)?.id
+      ?? apelidos.find(a => normalizarModelo(a.nome) === texto)?.modeloId
+    if (dono && dono !== modeloId) {
+      avisos.push(`"${texto}" já é do ${nomePorId.get(dono) ?? 'outro modelo'}; a próxima nota continua indo para ele, e não para o ${nomePorId.get(modeloId)}.`)
+      continue
+    }
+    if (modeloIdDaNota(texto, doCadastro, apelidos) === modeloId) continue
+    novos.push({ apelido: texto, modeloId, contaId })
+  }
+  if (novos.length) await exec.insert(modeloApelidos).values(novos).onConflictDoNothing()
+  return avisos
 }
 
 // Para conferir um modeloId vindo do navegador: um id forjado não pode ligar a moto

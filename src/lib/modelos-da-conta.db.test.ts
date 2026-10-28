@@ -25,11 +25,12 @@ let salvarAjusteDoModelo: Mod['salvarAjusteDoModelo']
 let ocultarModelo: Mod['ocultarModelo']
 let voltarAoOriginal: Mod['voltarAoOriginal']
 let nomeDoModeloNaLoja: Mod['nomeDoModeloNaLoja']
+let lembrarApelidosDaEntrada: Mod['lembrarApelidosDaEntrada']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal, nomeDoModeloNaLoja } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal, nomeDoModeloNaLoja, lembrarApelidosDaEntrada } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -342,6 +343,55 @@ test('Cód. Bling e Apelidos só para Conta com credencial do Bling em algum gru
     assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoB.id }, tx)).usaBling, false,
       'admin_geral num grupo de Conta sem Bling')
     assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoA.id }, tx)).usaBling, true)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('entrada lembra o texto da nota como apelido da Conta, só da Conta, e não rouba apelido de outro modelo (#476)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const giga = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-MC', 'TESTE GIGA', 'autopropelido', '1000', '', '') returning id`)
+    const x12 = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-MC', 'TESTE X12', 'autopropelido', '1000', '', '') returning id`)
+    const apelidosDe = async (contaId: string) =>
+      (await listarApelidosDaConta(contaId, tx)).filter(a => a.nome.startsWith('TESTE')).map(a => `${a.nome}>${a.canonico}`).sort()
+
+    const avisos = await lembrarApelidosDaEntrada(contaA.id, [
+      { texto: 'teste bau grande', modeloId: giga.id },
+      { texto: 'TESTE BAU GRANDE', modeloId: giga.id },
+      { texto: 'TESTE GIGA LITE', modeloId: giga.id },
+      { texto: 'TESTE X12', modeloId: x12.id },
+    ], tx)
+    assert.deepEqual(avisos, [])
+    assert.deepEqual(await apelidosDe(contaA.id), ['TESTE BAU GRANDE>TESTE GIGA'], 'grava uma vez, normalizado; o que já casa pelo nome ou prefixo não vira apelido')
+    assert.deepEqual(await apelidosDe(contaB.id), [], 'a Conta B não recebe o apelido da A')
+
+    const avisosDoConflito = await lembrarApelidosDaEntrada(contaA.id, [
+      { texto: 'TESTE BAU GRANDE', modeloId: x12.id },
+      { texto: 'TESTE GIGA', modeloId: x12.id },
+    ], tx)
+    assert.equal(avisosDoConflito.length, 2, 'avisa os dois: apelido e nome de outro modelo')
+    assert.match(avisosDoConflito[0], /TESTE BAU GRANDE.*TESTE GIGA/)
+    assert.deepEqual(await apelidosDe(contaA.id), ['TESTE BAU GRANDE>TESTE GIGA'], 'não regrava')
+
+    assert.deepEqual(await lembrarApelidosDaEntrada(contaB.id, [{ texto: 'TESTE BAU GRANDE', modeloId: x12.id }], tx), [],
+      'apelido da A não pesa na B')
+    assert.deepEqual(await apelidosDe(contaB.id), ['TESTE BAU GRANDE>TESTE X12'])
+    assert.deepEqual(await apelidosDe(contaA.id), ['TESTE BAU GRANDE>TESTE GIGA'], 'a gravação da B não mexe na A')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('entrada não lembra apelido para modelo de outra Conta (#476)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const daB = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('TESTE-MC', 'Segredo da B', 'autopropelido', '1000', '', '', ${contaB.id}) returning id`)
+    await lembrarApelidosDaEntrada(contaA.id, [{ texto: 'TESTE FORJADO', modeloId: daB.id }], tx)
+    const gravados = await tx.execute(sql`select 1 from modelo_apelidos where apelido = 'TESTE FORJADO'`) as unknown as { rows: unknown[] }
+    assert.equal(gravados.rows.length, 0)
     throw new Desfazer()
   }), Desfazer)
 })

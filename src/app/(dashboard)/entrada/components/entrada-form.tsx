@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
-import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
+import { parseMotosInfCpl, extrairDaNfe, modeloIdDaNota, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
@@ -30,9 +30,11 @@ type MotoLinhaPlanilha = {
   nf: string
   modeloId: string
   preco: string
+  // Só no XML: o nome como veio na nota, que o servidor lembra como apelido (#476).
+  textoNota?: string
 }
 
-export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
+export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: (NomeDeModelo & { modeloId: string })[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
 
   const [notaFiscal, setNotaFiscal] = useState('')
@@ -249,14 +251,16 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdMotosNaNota} moto(s). Confira.`)
         }
         for (const m of motos) {
-          const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
+          const modeloId = modeloIdDaNota(m.modelo, modelos, apelidos) ?? '' // de-para NF → MOVA
           novas.push({
             chassi: m.chassi,
             cor: m.cor,
             motor: m.motor,
-            modelo,
+            modelo: modelos.find(c => c.id === modeloId)?.modelo ?? m.modelo,
             nf: nNF,
-            ...sugerirModelo(modelo),
+            modeloId,
+            preco: '',
+            textoNota: m.modelo,
           })
         }
       } catch {
@@ -374,7 +378,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           lojaId,
           nota,
           motos: linhasPlanilha.map(l => ({
-            chassi: l.chassi, cor: l.cor, motor: l.motor, modeloId: l.modeloId, precoCompra: l.preco, notaFiscal: l.nf,
+            chassi: l.chassi, cor: l.cor, motor: l.motor, modeloId: l.modeloId, precoCompra: l.preco, notaFiscal: l.nf, textoNota: l.textoNota,
           })),
           fiscais,
           pecas: paraGravacao(linhasPecas),
@@ -405,6 +409,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           modeloId: l.modeloId,
           precoCompra: l.preco,
           notaFiscal: l.nf,
+          textoNota: l.textoNota,
         })),
         fiscais,
       })

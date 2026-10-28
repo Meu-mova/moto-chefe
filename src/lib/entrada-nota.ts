@@ -10,7 +10,8 @@ import { grupos, lojas, motos } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, paresDaNota, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { lembrarApelidosDaEntrada } from '@/lib/modelos-da-conta'
 import { conferirLinhasPecas, gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
 import type { EmitenteNfe, FichaFiscal } from '@/lib/nfe-fiscal'
 
@@ -32,7 +33,7 @@ export type NotaComPecas = {
   pecas: LinhaEntradaPeca[]
 }
 
-export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Promise<{ motos: number; pecas: number }> {
+export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Promise<{ motos: number; pecas: number; avisos: string[] }> {
   // Mesma frase da gravação de peças: loja de outra Conta e loja inexistente não se distinguem.
   if (!(await podeAbrirRegistroDaLoja(e.usuario, e.lojaId, exec))) {
     throw new NotaRecusada(['Loja de destino não encontrada'])
@@ -81,5 +82,6 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
     .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
 
   await gravarEntradaPecas(exec, { lojaId: e.lojaId, usuario: e.usuario, nota: e.nota, linhas: e.pecas })
-  return { motos: prontas.length, pecas: e.pecas.length }
+  const avisos = await lembrarApelidosDaEntrada(contaId, paresDaNota(prontas.map(p => p.moto)), exec)
+  return { motos: prontas.length, pecas: e.pecas.length, avisos }
 }
