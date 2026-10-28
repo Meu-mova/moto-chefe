@@ -5,6 +5,7 @@ import { veiculosHistorico, clientes } from '@/lib/db/schema'
 import { and, eq, ilike } from 'drizzle-orm'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { buscarMotosPorChassi, buscarHistoricoPorChassi } from '@/lib/busca-chassi'
+import { clienteDaOs } from '@/lib/cliente-da-os'
 
 export type VeiculoEncontrado = {
   fonte: 'estoque' | 'historico'
@@ -83,6 +84,11 @@ export async function buscarClientePorCpfAction(cpf: string) {
     .limit(1)
 
   return cliente ?? null
+}
+
+export async function buscarClienteDaOsAction(id: string) {
+  const usuario = await getUsuarioLogado()
+  return clienteDaOs(db, { ...usuario, contaId: await contaDoGrupoAtivo(usuario) }, id)
 }
 
 export async function cadastrarVeiculoHistoricoAction(input: {
