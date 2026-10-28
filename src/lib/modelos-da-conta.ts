@@ -31,6 +31,8 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
     id: modelos.id,
     marca: modelos.marca,
     modelo: nome,
+    // A precificação casa pelo nome original (ver nomeDoModeloNaLoja).
+    modeloOriginal: modelos.modelo,
     categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
     potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
     motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
