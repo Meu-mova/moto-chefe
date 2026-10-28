@@ -5,25 +5,14 @@ import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
-
-type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
-
-// Loja de destino que o usuário pode usar, pela mesma regra da entrada de peças. Loja de
-// outra Conta e loja inexistente recebem a mesma frase, para um lojaId forjado no payload
-// não revelar que a loja existe.
-async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
-  if (!(await podeAbrirRegistroDaLoja(usuario, lojaId))) return { error: 'Loja não encontrada' as const }
-  return { loja: { id: lojaId } }
-}
 
 type MotoEntrada = {
   chassi: string
@@ -49,7 +38,7 @@ export async function registrarEntrada(formData: {
 
   const precoCompra = formData.precoCompra.replace(',', '.')
 
-  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  const destino = await lojaDestinoDaEntrada(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
   if (!(await modeloUsavelNaLoja(loja.id, formData.modeloId))) return { error: 'Modelo não encontrado' }
@@ -146,7 +135,7 @@ export async function registrarEntradaLote(formData: {
     return { error: 'Importe as motos da planilha' }
   }
 
-  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  const destino = await lojaDestinoDaEntrada(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
 

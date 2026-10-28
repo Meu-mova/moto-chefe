@@ -1,13 +1,29 @@
 /**
  * Gravação das motos de uma nota de entrada, comum ao lote (parcial, direto no banco)
- * e à nota com peças (#429, tudo ou nada numa transação). Quem chama confere a loja.
+ * e à nota com peças (#429, tudo ou nada numa transação). Quem chama confere a loja
+ * com lojaDestinoDaEntrada.
  */
-import type { db } from '@/lib/db'
+import { db } from '@/lib/db'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { historicoEstoque, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'insert'>
+
+/**
+ * Loja de destino que o usuário pode usar, pela mesma regra da entrada de peças. Loja de
+ * outra Conta e loja inexistente recebem a mesma frase, para um lojaId forjado no payload
+ * não revelar que a loja existe.
+ */
+export async function lojaDestinoDaEntrada(
+  usuario: Parameters<typeof podeAbrirRegistroDaLoja>[0],
+  lojaId: string,
+  exec: Pick<typeof db, 'select'> = db,
+) {
+  if (!(await podeAbrirRegistroDaLoja(usuario, lojaId, exec))) return { error: 'Loja não encontrada' as const }
+  return { loja: { id: lojaId } }
+}
 
 export type MotoEntradaLote = {
   chassi: string
