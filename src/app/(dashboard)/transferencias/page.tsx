@@ -4,7 +4,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTransferencias } from '@/lib/queries/transferencias'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { db } from '@/lib/db'
 import { motos, modelos } from '@/lib/db/schema'
 import { eq, inArray, and } from 'drizzle-orm'
@@ -54,7 +54,7 @@ export default async function TransferenciasPage({
     listarLojasDoGrupoAtivo(usuario),
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
     db
-      .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
+      .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: nomeDoModeloNaLoja(motos.lojaId), lojaId: motos.lojaId })
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .where(

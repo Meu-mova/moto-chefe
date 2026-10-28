@@ -1,5 +1,6 @@
 'use server'
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
 import { lojasDaConta } from '@/lib/conta'
 import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
@@ -203,7 +204,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       valor: vendas.valor,
       formaPagamento: vendas.formaPagamento,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(vendas.lojaId),
       chassi: motos.chassi,
     })
       .from(vendas)
@@ -221,7 +222,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       descricao: ordensServico.descricao,
       valorTotal: ordensServico.valorTotal,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(ordensServico.lojaId),
       chassi: motos.chassi,
     })
       .from(ordensServico)

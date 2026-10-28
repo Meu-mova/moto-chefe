@@ -4,7 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { listarPedidosPorLoja, listarTodosPedidos, listarVendas } from '@/lib/queries/vendas'
 import { listarAprovacoesPendentes } from '@/lib/queries/motos'
@@ -127,7 +127,7 @@ export default async function VendasPage({
         chassi:   motos.chassi,
         cor:      motos.cor,
         marca:    modelos.marca,
-        modelo:   modelos.modelo,
+        modelo:   nomeDoModeloNaLoja(motos.lojaId),
         lojaNome: lojas.nome,
         lojaId:   motos.lojaId,
       })
