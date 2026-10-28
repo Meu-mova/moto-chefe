@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type Cargo } from './cargos-dialog'
+import { cargosDoAlvo } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
@@ -38,6 +39,7 @@ type Usuario = {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId: string | null
+  contaId: string | null
 }
 
 type DadosForm = {
@@ -110,10 +112,12 @@ function FormUsuario({
   onCancel,
   isEdit,
   limites,
-  cargos,
+  cargos: todosCargos,
+  contaAtiva,
 }: {
   inicial?: Partial<Usuario>
   cargos: Cargo[]
+  contaAtiva: string
   lojas: Loja[]
   grupos: Grupo[]
   limites: Limites
@@ -133,6 +137,7 @@ function FormUsuario({
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
   const [cargoId, setCargoId] = useState(inicial?.cargoId ?? '')
+  const cargos = cargosDoAlvo(todosCargos, inicial?.contaId ?? null, contaAtiva)
   const diferenca = diferencaDaFuncao(papel, inicial?.papeisExtras ?? [], modulosExtras, modulosBloqueados, IDS_MODULOS)
   // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define. Quem
   // já tem diferença salva abre aberto, para o ajuste não ficar escondido.
@@ -361,8 +366,8 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, podeDarAoCargo }: {
-  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; podeDarAoCargo: string[]
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo }: {
+  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; contaAtiva: string; podeDarAoCargo: string[]
 }) {
   const [vendoCargos, setVendoCargos] = useState(false)
   const [criando,    setCriando]    = useState(false)
@@ -549,7 +554,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, podeDa
         </Table>
       </div>
 
-      <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargos} podeDar={podeDarAoCargo} />
+      <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />
 
       {/* Dialog Criar */}
       <Dialog open={criando} onOpenChange={setCriando}>
@@ -562,6 +567,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, podeDa
             grupos={grupos}
             limites={limites}
             cargos={cargos}
+            contaAtiva={contaAtiva}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -583,6 +589,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, podeDa
               grupos={grupos}
               limites={limites}
               cargos={cargos}
+              contaAtiva={contaAtiva}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

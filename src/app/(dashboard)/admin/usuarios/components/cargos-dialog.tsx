@@ -10,7 +10,7 @@ import { ITENS } from '@/lib/navegacao'
 import { apagarCargoAction, criarCargoAction, editarCargoAction } from '../cargos-actions'
 import { ModulosPicker } from './modulos-picker'
 
-export type Cargo = { id: string; nome: string; modulos: string[] }
+export type Cargo = { id: string; nome: string; modulos: string[]; contaId: string }
 
 const rotulo = (id: string) => ITENS.find(i => i.id === id)?.label ?? id
 

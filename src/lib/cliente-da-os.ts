@@ -28,7 +28,8 @@ export async function clientePorCpfDaOs(exec: Executor, usuario: UsuarioNav & { 
   if (digitos.length !== 11 && digitos.length !== 14) return null
   const [cliente] = await exec.select(colunas).from(clientes)
     .where(and(
-      sql`regexp_replace(${clientes.cpfCnpj}, '\D', '', 'g') = ${digitos}`,
+      // Padrão como parâmetro: escrito no template, a barra de \D some antes de chegar ao SQL.
+      sql`regexp_replace(${clientes.cpfCnpj}, ${'[^0-9]'}, '', 'g') = ${digitos}`,
       eq(clientes.contaId, usuario.contaId),
     ))
     .limit(1)

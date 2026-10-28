@@ -18,16 +18,17 @@ export default async function UsuariosPage() {
   const gestor = await gestorDaSessao()
   const ehGeral = gestor.papel === 'admin_geral'
 
-  const [todos, lojasOpts, gruposAtivos, cargosDaConta] = await Promise.all([
+  const [todos, lojasOpts, gruposAtivos, contaAtiva] = await Promise.all([
     listarUsuariosGerenciaveis(gestor),
     // admin_geral segue com as lojas do grupo ativo; o sócio escolhe entre todos os grupos que vê.
     ehGeral ? listarLojasDoGrupoAtivo(usuario) : lojasDosGruposVisiveis(gestor.gruposVisiveis),
     // Todos os grupos, não só o ativo: a liberação é justamente para o sócio
     // aprovar num grupo diferente do que ele está olhando. Para o sócio, só os que ele vê.
     listarGruposAtivos(),
-    // Só a Conta do grupo ativo, também para o admin_geral: é nela que o cargo novo nasce.
-    contaDoGrupoAtivo(usuario).then(async contaId => (await listarCargos(db, { papel: gestor.papel, contaId })).filter(c => c.contaId === contaId)),
+    contaDoGrupoAtivo(usuario),
   ])
+  // admin_geral recebe os de todas as Contas: o select mostra os da Conta do usuário editado.
+  const cargos = await listarCargos(db, { papel: gestor.papel, contaId: contaAtiva })
   const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
   return (
@@ -42,7 +43,8 @@ export default async function UsuariosPage() {
           lojas={lojasOpts}
           grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
           limites={limitesDaTela(gestor)}
-          cargos={cargosDaConta.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos }))}
+          cargos={cargos.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos, contaId: c.contaId }))}
+          contaAtiva={contaAtiva}
           podeDarAoCargo={modulosQuePodeDar(usuario, {})}
         />
       </div>
