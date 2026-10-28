@@ -145,13 +145,14 @@ visão da própria Conta, os modelos que ela recebeu.
 - Ajustáveis: nome, categoria, potência, motor, velocidade, foto e preço de compra padrão. Marca não.
 - Motos e demandas não trocam de modelo; reimpressão mostra o nome ajustado. Documento assinado
   (`html_snapshot`) e NF de saída (`x_prod`) não mudam.
-- O sócio pode ocultar um modelo da plataforma das listas da Conta.
+- PENDENTE (a): o sócio pode ocultar um modelo da plataforma das listas da Conta?
+- PENDENTE (b): só `admin_socio` e `admin_geral` ajustam?
 - Nome repetido: avisa e deixa gravar.
-- "Cód. Bling" e "Apelidos na NF" aparecem só para a Conta que usa Bling, definido pelo dado
-  (algum grupo da Conta com credencial Bling), nunca por nome ou CNPJ no código.
+- "Cód. Bling" e "Apelidos na NF" aparecem só para a Conta que usa Bling, nunca por nome ou CNPJ
+  no código. PENDENTE (d): derivado do dado (grupo da Conta com credencial Bling) ou flag na Conta?
 - Conta sem esses campos casa o XML pela própria entrada: produto que não casa com nenhum nome
   oferece "associar a um modelo" ou "criar modelo com este nome"; a escolha grava o apelido da
-  Conta sem mostrar o campo. Associar: quem acessa a entrada; criar: só o sócio. Ordem do casamento: apelido da Conta, nome ajustado, nome original.
+  Conta sem mostrar o campo. PENDENTE (c): quem associa e quem cria. Ordem do casamento: apelido da Conta, nome ajustado, nome original.
 
 ## Quando revisar
 
