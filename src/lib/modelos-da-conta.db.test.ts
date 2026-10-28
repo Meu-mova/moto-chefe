@@ -21,11 +21,14 @@ let listarApelidosDaConta: Mod['listarApelidosDaConta']
 let modelosUsaveisPelaConta: Mod['modelosUsaveisPelaConta']
 let salvarApelidosDoModelo: Mod['salvarApelidosDoModelo']
 let excluirModelo: Mod['excluirModelo']
+let salvarAjusteDoModelo: Mod['salvarAjusteDoModelo']
+let ocultarModelo: Mod['ocultarModelo']
+let voltarAoOriginal: Mod['voltarAoOriginal']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -217,6 +220,53 @@ test('ajuste e ocultação de modelo da plataforma valem só para a Conta que fe
     const daAOutraVez = await listarModelosDaConta(contaA.id, tx)
     assert.equal(daAOutraVez.find(m => m.id === ajustado.id)?.modelo, 'NOME DA A', 'o ajuste da B não muda o da A')
     assert.equal(daAOutraVez.filter(m => m.id === ajustado.id).length, 1, 'o ajuste da B não duplica a linha na A')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('sócio ajusta, oculta, mostra e volta ao original só na própria Conta', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const daPlataforma = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+      values ('TESTE-AJ', 'ORIGINAL', 'autopropelido', '1000', '', '') returning id`)
+    const daA = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id)
+      values ('TESTE-AJ', 'SO DA A', 'autopropelido', '1000', '', '', ${contaA.id}) returning id`)
+    const visto = async (contaId: string, id: string) =>
+      (await listarModelosDaConta(contaId, tx, { incluirOcultos: true })).find(m => m.id === id)
+
+    const campos = { modelo: 'NOME DA A', categoria: 'ciclomotor' as const, potenciaW: '2000' }
+    await salvarAjusteDoModelo(contaA.id, daPlataforma.id, campos, tx)
+    await salvarAjusteDoModelo(contaA.id, daPlataforma.id, { ...campos, potenciaW: '3000' }, tx)
+    assert.deepEqual(
+      (({ modelo, categoria, potenciaW, ajustado }) => ({ modelo, categoria, potenciaW, ajustado }))((await visto(contaA.id, daPlataforma.id))!),
+      { modelo: 'NOME DA A', categoria: 'ciclomotor', potenciaW: '3000', ajustado: true }, 'gravar de novo atualiza')
+
+    await ocultarModelo(contaA.id, daPlataforma.id, true, tx)
+    assert.equal((await visto(contaA.id, daPlataforma.id))?.oculto, true)
+    const tela = await carregarTelaModelos({ adminGeral: false, contaId: contaA.id, grupoId: '00000000-0000-0000-0000-000000000000' }, tx)
+    assert.ok(tela.modelos.some(m => m.id === daPlataforma.id && m.oculto), 'a tela do sócio mostra o oculto, para ele reexibir')
+    await ocultarModelo(contaA.id, daPlataforma.id, false, tx)
+    assert.equal((await visto(contaA.id, daPlataforma.id))?.oculto, false, 'mostrar de novo')
+
+    await ocultarModelo(contaA.id, daPlataforma.id, true, tx)
+    await voltarAoOriginal(contaA.id, daPlataforma.id, tx)
+    const voltou = await visto(contaA.id, daPlataforma.id)
+    assert.equal(voltou?.modelo, 'ORIGINAL')
+    assert.equal(voltou?.ajustado, false)
+    assert.equal(voltou?.oculto, true, 'voltar ao original não reexibe')
+
+    const naB = await visto(contaB.id, daPlataforma.id)
+    assert.equal(naB?.modelo, 'ORIGINAL')
+    assert.equal(naB?.oculto, false, 'nada da A aparece na B')
+
+    for (const tentativa of [
+      () => salvarAjusteDoModelo(contaB.id, daA.id, campos, tx),
+      () => ocultarModelo(contaB.id, daA.id, true, tx),
+      () => voltarAoOriginal(contaB.id, daA.id, tx),
+    ]) await assert.rejects(tentativa(), /Modelo não encontrado/, 'modelo próprio da A não se ajusta pela B')
+    await assert.rejects(salvarAjusteDoModelo(contaA.id, daA.id, campos, tx), /Modelo não encontrado/, 'o próprio se edita, não se ajusta')
     throw new Desfazer()
   }), Desfazer)
 })

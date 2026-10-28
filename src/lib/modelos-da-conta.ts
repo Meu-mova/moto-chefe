@@ -39,6 +39,7 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
     imagemUrl: comAjuste<string | null>(modeloAjustes.imagemUrl, modelos.imagemUrl),
     contaId: modelos.contaId,
     oculto,
+    ajustado: sql<boolean>`(${modeloAjustes.modelo} is not null or ${modeloAjustes.categoria} is not null or ${modeloAjustes.potenciaW} is not null)`,
   }).from(modelos)
     // A Conta no join: o ajuste de outra Conta nunca entra.
     .leftJoin(modeloAjustes, and(eq(modeloAjustes.modeloId, modelos.id), eq(modeloAjustes.contaId, contaId)))
@@ -47,6 +48,42 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
       incluirOcultos ? undefined : not(oculto),
     ))
     .orderBy(asc(modelos.marca), asc(nome))
+}
+
+type Escritor = Pick<typeof db, 'select' | 'insert' | 'update'>
+
+// Só modelo da plataforma se ajusta; o da Conta se edita. Id de modelo de outra Conta
+// recebe a mesma frase de id inexistente.
+async function exigirDaPlataforma(modeloId: string, exec: Executor) {
+  const [modelo] = await exec.select({ id: modelos.id }).from(modelos)
+    .where(and(eq(modelos.id, modeloId), isNull(modelos.contaId))).limit(1)
+  if (!modelo) throw new Error('Modelo não encontrado')
+}
+
+type CamposAjustaveis = Pick<typeof modeloAjustes.$inferInsert, 'modelo' | 'categoria' | 'potenciaW'>
+
+async function gravarAjuste(contaId: string, modeloId: string, set: Partial<typeof modeloAjustes.$inferInsert>, exec: Escritor) {
+  await exigirDaPlataforma(modeloId, exec)
+  await exec.insert(modeloAjustes)
+    .values({ contaId, modeloId, ...set })
+    .onConflictDoUpdate({
+      target: [modeloAjustes.contaId, modeloAjustes.modeloId],
+      set: { ...set, atualizadoEm: new Date() },
+      setWhere: eq(modeloAjustes.contaId, contaId),
+    })
+}
+
+export async function salvarAjusteDoModelo(contaId: string, modeloId: string, campos: CamposAjustaveis, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, campos, exec)
+}
+
+export async function ocultarModelo(contaId: string, modeloId: string, oculto: boolean, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, { oculto }, exec)
+}
+
+// Volta os valores aos da plataforma; ocultar e mostrar são à parte.
+export async function voltarAoOriginal(contaId: string, modeloId: string, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, { modelo: null, categoria: null, potenciaW: null }, exec)
 }
 
 // Apelidos que as notas usam ("DRIFT" para DRIFT CAR): os da plataforma e os da Conta.
