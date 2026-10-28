@@ -7,6 +7,26 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { listarGruposVisiveis } from '@/lib/grupo'
 import { credencialParaTela } from '@/lib/notagateway/credencial-tela'
 import { podeGravarCredencialNg } from '@/lib/notagateway/credencial'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { caminhoLogoDanfe, gruposParaLogo } from '@/lib/logo-danfe'
+import { LogoDanfeCard, type LinhaLogo } from './components/logo-danfe-card'
+
+/** Miniatura da logo atual: link assinado de 10 min, só para os grupos que o usuário já pode ver. */
+async function linhasDaLogo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<LinhaLogo[]> {
+  const grupos = await gruposParaLogo(usuario)
+  const comLogo = grupos.filter(g => g.logoEnviadaEm).map(g => caminhoLogoDanfe(g.id))
+  const urls = new Map<string, string>()
+  if (comLogo.length) {
+    const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data } = await admin.storage.from('logos-danfe').createSignedUrls(comLogo, 600)
+    for (const d of data ?? []) if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl)
+  }
+  return grupos.map(g => ({
+    ...g,
+    logoEnviadaEm: g.logoEnviadaEm?.toISOString() ?? null,
+    logoUrl: urls.get(caminhoLogoDanfe(g.id)) ?? null,
+  }))
+}
 
 /**
  * Configuração fiscal por grupo, para a emissão de NF-e própria.
@@ -17,7 +37,7 @@ import { podeGravarCredencialNg } from '@/lib/notagateway/credencial'
  */
 export default async function NotasFiscaisPage() {
   const usuario = await getUsuarioLogado()
-  const [todosGrupos, configs, regras, certificados, prontidao] = await Promise.all([
+  const [todosGrupos, configs, regras, certificados, prontidao, logos] = await Promise.all([
     // Só os grupos que o usuário vê: o sócio não enxerga nem mexe na configuração fiscal de outro CNPJ.
     listarGruposVisiveis(usuario),
     db.select().from(notagatewayConfig),
@@ -44,6 +64,7 @@ export default async function NotasFiscaisPage() {
       .leftJoin(motosFiscal, eq(motosFiscal.motoId, motos.id))
       .where(eq(motos.disponibilidade, 'disponivel'))
       .groupBy(lojas.grupoId),
+    linhasDaLogo(usuario),
   ])
 
   const porGrupo = new Map(configs.map(c => [c.grupoId, c]))
@@ -104,6 +125,7 @@ export default async function NotasFiscaisPage() {
           </p>
         </div>
         <NotasFiscaisClient grupos={linhas} podeEditarCredencial={podeGravarCredencialNg(usuario.papel)} />
+        <LogoDanfeCard grupos={logos} />
       </div>
     </AdminGuard>
   )

@@ -5,6 +5,7 @@ import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
 import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
+import { conferirMaquininhas } from '@/lib/maquininhas'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -50,6 +51,7 @@ export async function aplicarVendaPeca(
   // Também aqui, e não só na action: a aprovação de venda guardada chega direto (#195).
   const recusaQuantidade = recusaDaQuantidadeVendida(input.itens)
   if (recusaQuantidade) throw new RecusaUsuario(recusaQuantidade)
+  await conferirMaquininhas(tx, input.lojaId, input.pagamentos)
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)
     if (!peca) throw new RecusaUsuario('Peça não encontrada')

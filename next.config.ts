@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   // nfe-danfe-pdf (rota /api/nfe/[chave]/danfe) usa pdfkit por baixo, que
   // carrega fonte .afm do disco em runtime — empacotado pelo bundler do Next
   // esses arquivos não acompanham o build e o PDF sai sem fonte (ou quebra).
+  // A imagem da logo do DANFE (#428) desenha texto com a fonte do repo; ela não é importada,
+  // então o rastreio de arquivos não a leva sozinho para a função da página.
+  outputFileTracingIncludes: { '/admin/notas-fiscais': ['./assets/fonts/**'] },
   serverExternalPackages: ['unpdf', 'nfe-danfe-pdf', 'pdfkit'],
 }
 
