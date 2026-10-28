@@ -41,7 +41,7 @@ export default async function ModelosPage() {
             <p className="text-muted-foreground text-sm">
               {adminGeral && usaBling ? <>Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
               <strong>Apelidos na NF</strong> para editar inline. Apelido é como a nota de entrada
-              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo. Os da plataforma você ajusta ou oculta só para a sua Conta.</>}
+              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : adminGeral ? <>Você edita os modelos de todas as Contas. A Conta do grupo <strong>{grupo.nome}</strong> não usa o Bling, por isso não aparecem Cód. Bling nem Apelidos na NF.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo. Os da plataforma você ajusta ou oculta só para a sua Conta.</>}
             </p>
           </div>
           {podeCadastrar && <ModeloFormButton />}

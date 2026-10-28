@@ -17,9 +17,9 @@ async function assertAdmin() {
 }
 
 // Cód. Bling e apelidos só na Conta que usa Bling (#476); a tela já esconde os campos.
-async function exigirContaComBling() {
-  const grupo = await getGrupoAtivo(await getUsuarioLogado())
-  if (!(await contaDoGrupoUsaBling(grupo.id))) throw new Error('Sua Conta não usa o Bling')
+async function exigirContaComBling(grupoId?: string) {
+  const id = grupoId ?? (await getGrupoAtivo(await getUsuarioLogado())).id
+  if (!(await contaDoGrupoUsaBling(id))) throw new Error('Sua Conta não usa o Bling')
 }
 
 async function quemEdita() {
@@ -92,7 +92,7 @@ export async function atualizarBlingCodigoAction(modeloId: string, codigo: strin
   // Modelo da Conta não tem código Bling: o cliente novo emite pela Nota Gateway.
   if (modelo.contaId) throw new Error('Modelo da Conta não tem código Bling')
   const grupo = await getGrupoAtivo(u)
-  await exigirContaComBling()
+  await exigirContaComBling(grupo.id)
 
   if (!codigo.trim()) {
     await db.delete(modeloBlingCodigos)
