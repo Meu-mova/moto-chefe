@@ -24,9 +24,12 @@ const NOMES_FIXOS = [
   'vendedor', 'vendedora', 'mecanico', 'mecanica', 'motorista', 'cargo',
 ]
 
-function normalizar(nome: string): string {
-  return nome.normalize('NFD').replace(/\p{M}/gu, '').replace(/[._\s]+/g, ' ').trim().toLowerCase()
+// Sem espaço nem pontuação: "AuxAdm", "Aux-Adm" e "Vendedor(a)" também são nomes fixos.
+function chaveDeNomeFixo(nome: string): string {
+  return nome.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\([ao]\)/g, '').replace(/[^a-z]/g, '')
 }
+
+const CHAVES_FIXAS = new Set(NOMES_FIXOS.map(chaveDeNomeFixo))
 
 function daConta(quem: QuemGerenciaCargos): SQL | undefined {
   return quem.papel === 'admin_geral' ? undefined : eq(cargos.contaId, quem.contaId)
@@ -35,9 +38,10 @@ function daConta(quem: QuemGerenciaCargos): SQL | undefined {
 async function validar(
   exec: Executor, contaId: string, dados: DadosCargo, podeDar: string[], ignorarId?: string,
 ): Promise<{ ok: false; erro: string } | { ok: true; nome: string; modulos: string[] }> {
-  const nome = dados.nome.replace(/\s+/g, ' ').trim()
+  // NFC: o cargo_nome_chave() do banco não reconhece acento decomposto (texto colado do Mac).
+  const nome = dados.nome.normalize('NFC').replace(/\s+/g, ' ').trim()
   if (!nome) return { ok: false, erro: 'Informe o nome do cargo' }
-  if (NOMES_FIXOS.includes(normalizar(nome))) return { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }
+  if (CHAVES_FIXAS.has(chaveDeNomeFixo(nome))) return { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }
   if (dados.modulos.some(m => !podeDar.includes(m))) return { ok: false, erro: 'Módulo não disponível para cargo' }
   const [repetido] = await exec.select({ id: cargos.id }).from(cargos)
     .where(and(

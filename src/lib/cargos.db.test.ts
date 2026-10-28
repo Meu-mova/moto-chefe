@@ -91,7 +91,7 @@ test('nome repetido só conta dentro da Conta; nome de papel fixo é recusado (#
 test('nome repetido ignora acento, maiúscula e espaços (#450)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
-    for (const nome of ['Recepcao', 'RECEPÇÃO', 'Re cepção']) {
+    for (const nome of ['Recepcao', 'RECEPÇÃO', 'Re cepção', 'Recepção'.normalize('NFD')]) {
       assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, modulos: [] }, PODE_DAR),
         { ok: false, erro: 'Já existe um cargo com esse nome' }, nome)
     }
@@ -101,8 +101,8 @@ test('nome repetido ignora acento, maiúscula e espaços (#450)', async () => {
 test('o banco recusa cargo repetido sem acento na mesma Conta e aceita em outra (#450)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
-    const b = await semearConta(tx, 'B', '22222222000191')
-    await linhas(tx, sql`insert into cargos (conta_id, nome) values (${b.quem.contaId}, 'Pos Venda')`)
+    // semearConta grava 'Recepção' também na B: outra Conta repetir passa no índice.
+    await semearConta(tx, 'B', '22222222000191')
     await assert.rejects(
       tx.transaction(async sp => {
         await sp.execute(sql`insert into cargos (conta_id, nome) values (${a.quem.contaId}, 'RECEP CAO')`)
@@ -116,7 +116,8 @@ test('nome de papel fixo é recusado também no feminino e com variações (#450
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     for (const nome of ['Vendedora', 'Mecânica', 'Sócia', 'Admin Sócia', 'Auxiliar Administrativa',
-      'Aux. Administrativa', 'aux_adm', 'Admin  Geral']) {
+      'Aux. Administrativa', 'aux_adm', 'Admin  Geral', 'AuxAdm', 'adminGeral', 'Aux-Adm',
+      'Vendedor(a)', 'Mecânico(a)']) {
       assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, modulos: [] }, PODE_DAR),
         { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }, nome)
     }
