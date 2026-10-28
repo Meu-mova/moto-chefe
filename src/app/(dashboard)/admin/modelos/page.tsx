@@ -9,7 +9,8 @@ import { ModeloFormButton } from './components/modelo-form-button'
 import { ApelidosCell } from './components/apelidos-cell'
 import { MarcasDaConta } from './components/marcas-da-conta'
 import { ExcluirModeloButton } from './components/excluir-modelo-button'
-import { podeCadastrarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
+import { AjusteModeloAcoes } from './components/ajuste-modelo-acoes'
+import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
@@ -40,7 +41,7 @@ export default async function ModelosPage() {
             <p className="text-muted-foreground text-sm">
               {adminGeral ? <>Clique em <strong>Cód. Bling</strong> (do grupo <strong>{grupo.nome}</strong>) ou em{' '}
               <strong>Apelidos na NF</strong> para editar inline. Apelido é como a nota de entrada
-              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo.</>}
+              escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo. Os da plataforma você ajusta ou oculta só para a sua Conta.</>}
             </p>
           </div>
           {podeCadastrar && <ModeloFormButton />}
@@ -56,14 +57,18 @@ export default async function ModelosPage() {
                 {adminGeral && <TableHead>Conta</TableHead>}
                 {adminGeral && <TableHead>Cód. Bling</TableHead>}
                 <TableHead>Apelidos na NF</TableHead>
-                <TableHead className="w-20"></TableHead>
+                <TableHead className="w-28"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {todos.map(m => (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.marca}</TableCell>
-                  <TableCell>{m.modelo}</TableCell>
+                  <TableCell>
+                    <span className={m.oculto ? 'text-muted-foreground' : undefined}>{m.modelo}</span>
+                    {m.ajustado && <Badge variant="secondary" className="ml-2">Ajustado</Badge>}
+                    {m.oculto && <Badge variant="outline" className="ml-2">Oculto</Badge>}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline">{m.categoria}</Badge>
                   </TableCell>
@@ -81,6 +86,15 @@ export default async function ModelosPage() {
                       : (apelidosPorModelo.get(m.id) ?? []).join(', ') || '—'}
                   </TableCell>
                   <TableCell>
+                    {podeAjustarModelo(quem, m) && (
+                      <div className="flex">
+                        <ModeloFormButton ajuste modelo={{
+                          id: m.id, marca: m.marca, modelo: m.modelo,
+                          categoria: m.categoria, potenciaW: m.potenciaW,
+                        }} />
+                        <AjusteModeloAcoes id={m.id} nome={m.modelo} oculto={m.oculto} ajustado={m.ajustado} />
+                      </div>
+                    )}
                     {podeEditarModelo(quem, m) && (
                       <div className="flex">
                         <ModeloFormButton modelo={{
