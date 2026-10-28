@@ -13,7 +13,7 @@ import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
-import { EntradaPecasRecusada } from '@/lib/entrada-pecas'
+import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -275,4 +275,18 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
   return { success: `Nota lançada: ${total.motos} moto(s) e ${total.pecas} item(ns) de peça.` }
+}
+
+/**
+ * Dados da conferência das peças (#427), só da Conta da loja de destino. Loja que o
+ * usuário não pode usar e loja inexistente recebem a mesma frase (#452).
+ */
+export async function carregarConferenciaPecas(
+  lojaId: string,
+  nota: Parameters<typeof carregarConferencia>[3],
+) {
+  const usuario = await getUsuarioLogado()
+  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
+  const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
+  return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
 }
