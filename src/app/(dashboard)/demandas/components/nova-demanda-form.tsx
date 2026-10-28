@@ -1,4 +1,5 @@
 'use client'
+import { useMaquininhas } from '@/components/use-maquininhas'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const [modeloId, setModeloId] = useState('')
   const [cor, setCor] = useState('')
   const [lojaId, setLojaId] = useState(lojaIdFixa ?? '')
+  const maquininhas = useMaquininhas(lojaId ? { loja: lojaId } : null)
   const [sinalRecebido, setSinalRecebido] = useState(false)
   const [valorSinal, setValorSinal] = useState('')
   // O sinal pode ser dividido em mais de uma forma — mesmas linhas da venda.
@@ -33,7 +35,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const valorSinalNum = parseFloat(valorSinal) || 0
   const somaSinal = pgtosSinal.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somaSinalOk = valorSinalNum > 0 && Math.abs(somaSinal - valorSinalNum) < 0.01
-  const pgtosSinalOk = pgtosSinal.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null))
+  const pgtosSinalOk = pgtosSinal.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null, maquininhas))
   const sinalValido = !sinalRecebido || (clienteCompleto(cliente) && somaSinalOk && pgtosSinalOk)
   const formValido = !!modeloId && !!cor.trim() && !!lojaId && sinalValido
 
@@ -173,6 +175,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
           <div className="space-y-2">
             <Label>Formas de pagamento do sinal <span className="text-destructive">*</span></Label>
             <PagamentosFields
+              maquininhas={maquininhas}
               pgtos={pgtosSinal}
               onAdd={() => setPgtosSinal(p => [...p, { id: Date.now().toString(), tipo: '', valor: '' }])}
               onRemove={id => setPgtosSinal(p => p.filter(x => x.id !== id))}

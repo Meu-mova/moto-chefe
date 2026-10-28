@@ -5,10 +5,22 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom } from '@/lib/cupom-revisao'
+import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 export type DadosPagamentoOS = {
   valorTotal: number
   pagamentos: PgtoOS[]
+}
+
+/** Maquininha do pagamento é do grupo da loja da OS; a já gravada na OS continua aceita (#460). */
+export async function conferirMaquininhasDaOS(
+  exec: Pick<typeof db, 'select'>, osId: string, pagamentos: { operadora?: string | null }[],
+) {
+  const [os] = await exec.select({ lojaId: ordensServico.lojaId, pagamentos: ordensServico.pagamentos })
+    .from(ordensServico).where(eq(ordensServico.id, osId)).limit(1)
+  if (!os) throw new RecusaUsuario('OS não encontrada')
+  await conferirMaquininhas(exec, os.lojaId, pagamentos, operadorasGravadas(os.pagamentos))
 }
 
 // Aplica o pagamento de fato na OS, sem checagem de permissão: quem chama confere antes
@@ -28,6 +40,8 @@ export async function aplicarPagamentoOS(osId: string, dados: DadosPagamentoOS) 
   const pagamentos = dados.pagamentos ?? (legado.formaPagamento
     ? [{ tipo: legado.formaPagamento, valor: dados.valorTotal }]
     : [])
+  // Aqui, e não só no fechamento: a aprovação de pagamento sensível chega direto (#460).
+  await conferirMaquininhasDaOS(db, osId, pagamentos)
 
   const usuario = await getUsuarioLogado()
   const pagamentosDinheiro = pagamentos.filter(p => p.tipo === 'dinheiro')

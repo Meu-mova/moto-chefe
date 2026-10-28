@@ -1,4 +1,5 @@
 'use client'
+import { useMaquininhas } from '@/components/use-maquininhas'
 import { useState, useEffect } from 'react'
 import { hojeBrt } from '@/lib/data-venda'
 import { toast } from 'sonner'
@@ -101,6 +102,7 @@ type Props = {
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 
 export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens }: Props) {
+  const maquininhas = useMaquininhas({ moto: motoId })
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
   const [loading, setLoading] = useState(false)
@@ -343,7 +345,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somatorioOk = valorNum > 0 && Math.abs(somatorio - valorNum) < 0.01
-  const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda))
+  const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda, maquininhas))
   const clientePreenchido = !!(clienteNome && lerDocumentoCliente(clienteCpf).ok && clienteCelular && clienteEmail)
 
   // ── Validação de preço mínimo (venda) ──
@@ -372,7 +374,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const valorTotalNum = parseFloat(valorTotalVenda) || 0
   const somaReserva = pgtosReserva.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somaReservaOk = valorReservaNum > 0 && Math.abs(somaReserva - valorReservaNum) < 0.01
-  const pgtosReservaOk = pgtosReserva.every(p => p.tipo && p.valor && !pgtoIncompleto(p, taxasVenda))
+  const pgtosReservaOk = pgtosReserva.every(p => p.tipo && p.valor && !pgtoIncompleto(p, taxasVenda, maquininhas))
   const reservaValidacao = precoMinimoPix
     ? validarReserva(valorReservaNum, valorTotalNum, precoMinimoPix)
     : null
@@ -756,6 +758,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   <div className="space-y-2">
                     <Label>Formas de Pagamento <span className="text-destructive">*</span></Label>
                     <PagamentosFields
+                      maquininhas={maquininhas}
                       pgtos={pgtos}
                       onAdd={pgtoVenda.add}
                       onRemove={pgtoVenda.remove}
@@ -870,6 +873,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   <div className="space-y-2">
                     <Label>Formas de Pagamento da Entrada <span className="text-destructive">*</span></Label>
                     <PagamentosFields
+                      maquininhas={maquininhas}
                       pgtos={pgtosReserva}
                       onAdd={pgtoReserva.add}
                       onRemove={pgtoReserva.remove}
