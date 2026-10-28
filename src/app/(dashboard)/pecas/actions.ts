@@ -275,6 +275,7 @@ async function carregarVendaPecaParaEdicao(vendaId: string) {
   ])
   return {
     clienteNome: cab.clienteNome,
+    lojaId: venda.lojaId,
     itens: itens.map(i => ({ pecaId: i.pecaId, quantidade: Number(i.quantidade), valorUnitario: Number(i.valorUnitario) })),
     pecas: itens.map(i => ({ id: i.pecaId, nome: i.nome, valor: i.valor, quantidadeEstoque: i.quantidadeEstoque })),
     pagamentos: (cab.pagamentos ?? []) as PagamentoVendaPecaInput[],

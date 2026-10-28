@@ -5,6 +5,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
+import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -267,6 +268,8 @@ async function criarVendaTx(
   }
 ): Promise<{ vendaId: string }> {
   const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem } = params
+  // Aqui, e não só na action: a aprovação guardada chega direto (#460).
+  await conferirMaquininhas(tx, moto.lojaId, data.pagamentos)
   const valorNum = parseFloat(data.valorTotal)
 
   // Verificar reserva ativa para linkar
@@ -1107,6 +1110,7 @@ async function registrarReserva(data: DadosReserva) {
 
   const moto = await motoDoUsuario(usuario, data.motoId)
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  await conferirMaquininhas(db, moto.lojaId, data.pagamentos)
   if (moto.status === 'vendida' || moto.disponibilidade === 'vendida') {
     throw new RecusaUsuario('Moto já foi vendida')
   }
@@ -1380,6 +1384,7 @@ async function editarVenda(vendaId: string, dados: {
   if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
     throw new RecusaUsuario('Sem permissão para editar vendas de outra loja')
   }
+  await conferirMaquininhas(db, vendaAtual.lojaId, dados.pagamentos, operadorasGravadas(vendaAtual.pagamentos))
 
   // Origem é corrigível: campo obrigatório que só pudesse ser preenchido uma vez
   // produziria dado ruim para sempre. Só valida quando veio no payload — editar
@@ -1677,6 +1682,7 @@ async function solicitarAprovacaoVenda(
   const moto = await motoDoUsuario(usuario, data.motoId)
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
   const bloqueio = motivoBloqueioPedidoAprovacao(moto)
+  await conferirMaquininhas(db, moto.lojaId, data.pagamentos)
   if (bloqueio) throw new RecusaUsuario(bloqueio)
 
   const valorNum = parseFloat(data.valorTotal)
