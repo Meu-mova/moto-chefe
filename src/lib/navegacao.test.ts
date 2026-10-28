@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, MODULOS_DE_CARGO, itensDoMenu, itensVisiveis, modulosQuePodeDar, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { ITENS, MODULOS_DE_CARGO, acessaModulo, itensDoMenu, itensVisiveis, modulosQuePodeDar, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
 import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = { entrada: false }
@@ -205,4 +205,17 @@ test('a lista de módulos liberados para cargo só tem itens que existem e não 
     const item = ITENS.find(i => i.id === id)
     assert.ok(item && !item.soPeloPapel && !item.soAdminGeral && !item.regraPropria, id)
   }
+})
+
+test('acessaModulo segue a mesma regra do menu, por id (#450)', () => {
+  assert.ok(acessaModulo({ papel: 'cargo', modulosDoCargo: ['clientes'] }, 'clientes'))
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: [] }, 'clientes'))
+  assert.ok(!acessaModulo({ papel: 'mecanico' }, 'clientes'))
+  assert.ok(acessaModulo({ papel: 'vendedor' }, 'clientes'))
+  assert.ok(!acessaModulo({ papel: 'vendedor', modulosBloqueados: ['clientes'] }, 'clientes'))
+  assert.ok(!acessaModulo({ papel: 'admin_geral' }, 'nao-existe'))
+})
+
+test('clientes é o primeiro módulo liberado para cargo (#450)', () => {
+  assert.deepEqual(MODULOS_DE_CARGO, ['clientes'])
 })

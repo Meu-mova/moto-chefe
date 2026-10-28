@@ -189,10 +189,19 @@ export function podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasPro
 }
 
 /**
+ * Gate de action por módulo, com a regra do menu: lista positiva, então papel novo (como
+ * 'cargo') não entra por omissão. Item com regraPropria não serve aqui.
+ */
+export function acessaModulo(usuario: UsuarioNav, id: string): boolean {
+  const item = ITENS.find(i => i.id === id)
+  return !!item && !item.regraPropria && visivel(item, usuario, {})
+}
+
+/**
  * Módulos que um cargo da Conta pode receber (#449). Só entra aqui o módulo cujas ações já
  * aceitam o papel 'cargo' pelo acesso ao módulo, com teste; a lista cresce PR a PR.
  */
-export const MODULOS_DE_CARGO: string[] = []
+export const MODULOS_DE_CARGO: string[] = ['clientes']
 
 /** O que quem gerencia cargos pode marcar: os liberados para cargo que ele mesmo vê. */
 export function modulosQuePodeDar(usuario: UsuarioNav, regras: RegrasProprias, liberados = MODULOS_DE_CARGO): string[] {

@@ -4,7 +4,7 @@
  */
 import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { cargos, usuarios } from '@/lib/db/schema'
+import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
@@ -100,4 +100,30 @@ export async function apagarCargo(exec: Executor, quem: QuemGerenciaCargos, id: 
   if (n > 0) return { ok: false, erro: `Cargo em uso por ${n} ${n === 1 ? 'usuário' : 'usuários'}` }
   await exec.delete(cargos).where(and(eq(cargos.id, id), eq(cargos.contaId, cargo.contaId)))
   return { ok: true }
+}
+
+/**
+ * cargo_id a gravar no usuário. `contaId` é a Conta do usuário-alvo (da loja dele), não a
+ * de quem edita. Cargo de outra Conta e id inexistente recebem a mesma frase.
+ */
+export async function cargoParaGravar(
+  exec: Executor, alvo: { papel: string; contaId: string | null; cargoId: string | null },
+): Promise<{ ok: true; cargoId: string | null } | { ok: false; erro: string }> {
+  if (alvo.papel !== 'cargo') return { ok: true, cargoId: null }
+  if (!alvo.cargoId || !alvo.contaId) return NAO_ENCONTRADO
+  const cargo = await cargoDaConta(exec, alvo.contaId, alvo.cargoId)
+  return cargo ? { ok: true, cargoId: cargo.id } : NAO_ENCONTRADO
+}
+
+/** Módulos do cargo, só se o cargo for da Conta da loja do usuário. */
+export async function modulosDoCargoDoUsuario(
+  exec: Executor, usuario: { papel: string; lojaId: string | null; cargoId: string | null },
+): Promise<string[]> {
+  if (usuario.papel !== 'cargo' || !usuario.cargoId || !usuario.lojaId) return []
+  const [linha] = await exec.select({ modulos: cargos.modulos }).from(cargos)
+    .innerJoin(grupos, eq(grupos.contaId, cargos.contaId))
+    .innerJoin(lojas, and(eq(lojas.grupoId, grupos.id), eq(lojas.id, usuario.lojaId)))
+    .where(eq(cargos.id, usuario.cargoId))
+    .limit(1)
+  return linha?.modulos ?? []
 }
