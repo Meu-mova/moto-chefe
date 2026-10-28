@@ -137,6 +137,7 @@ export const ITENS: ItemNav[] = [
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
   { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
+  { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', papeis: ADMINS },
   { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
   { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', papeis: ADMINS },
   { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', papeis: GESTORES, oculto: true },
