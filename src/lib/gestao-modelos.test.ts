@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { contaDoModeloNovo, podeCadastrarModelo, podeEditarModelo } from './gestao-modelos'
+import { contaDoModeloNovo, podeAjustarModelo, podeCadastrarModelo, podeEditarModelo } from './gestao-modelos'
 
 const contaA = 'conta-a'
 const contaB = 'conta-b'
@@ -28,4 +28,12 @@ test('modelo novo: do admin_geral é da plataforma, do sócio é da Conta dele',
   assert.equal(contaDoModeloNovo(socioA), contaA)
   assert.throws(() => contaDoModeloNovo(auxA))
   assert.deepEqual([geral, socioA, auxA].map(podeCadastrarModelo), [true, true, false])
+})
+
+test('ajuste de modelo da plataforma: só o sócio, na própria Conta', () => {
+  assert.equal(podeAjustarModelo(socioA, { contaId: null }), true)
+  assert.equal(podeAjustarModelo(socioA, { contaId: contaA }), false, 'o da Conta se edita, não se ajusta')
+  assert.equal(podeAjustarModelo(socioA, { contaId: contaB }), false, 'de outra Conta')
+  assert.equal(podeAjustarModelo(geral, { contaId: null }), false, 'o admin_geral edita o original')
+  assert.equal(podeAjustarModelo(auxA, { contaId: null }), false)
 })

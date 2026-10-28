@@ -14,8 +14,10 @@ export async function carregarTelaModelos(
 ) {
   const [lista, codigos, apelidos, contasComMarcas] = await Promise.all([
     quem.adminGeral
-      ? exec.select().from(modelos).orderBy(modelos.marca)
-      : listarModelosDaConta(quem.contaId, exec),
+      // O admin_geral vê o original; ajuste e ocultação são de cada Conta.
+      ? exec.select().from(modelos).orderBy(modelos.marca).then(l => l.map(m => ({ ...m, oculto: false, ajustado: false })))
+      // Com os ocultos: é aqui que o sócio volta a mostrá-los (#476).
+      : listarModelosDaConta(quem.contaId, exec, { incluirOcultos: true }),
     exec.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
       .from(modeloBlingCodigos)
       .where(eq(modeloBlingCodigos.grupoId, quem.grupoId)),
