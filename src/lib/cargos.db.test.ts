@@ -117,7 +117,7 @@ test('nome de papel fixo é recusado também no feminino e com variações (#450
     const a = await semearConta(tx, 'A', '11111111000191')
     for (const nome of ['Vendedora', 'Mecânica', 'Sócia', 'Admin Sócia', 'Auxiliar Administrativa',
       'Aux. Administrativa', 'aux_adm', 'Admin  Geral', 'AuxAdm', 'adminGeral', 'Aux-Adm',
-      'Vendedor(a)', 'Mecânico(a)']) {
+      'Vendedor(a)', 'Mecânico(a)', 'Admin', 'ADMIN.', 'Administrador', 'Administradora', 'Administrador(a)']) {
       assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, modulos: [] }, PODE_DAR),
         { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }, nome)
     }

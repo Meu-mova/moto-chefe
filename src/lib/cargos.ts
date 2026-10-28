@@ -18,6 +18,7 @@ const NAO_ENCONTRADO = { ok: false, erro: 'Cargo não encontrado' } as const
 
 // Nomes dos papéis fixos como aparecem na tela e como o Cesar fala, nos dois gêneros.
 const NOMES_FIXOS = [
+  'admin', 'administrador', 'administradora',
   'admin geral', 'admin socio', 'admin socia', 'socio', 'socia',
   'administrador geral', 'administradora geral', 'administrador socio', 'administradora socia',
   'aux adm', 'aux administrativo', 'aux administrativa', 'auxiliar administrativo', 'auxiliar administrativa',
