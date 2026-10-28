@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, motos, modelos, lojas, grupos, usuarios, ordensServico, vendas } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -49,7 +50,7 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
       chassi: motos.chassi,
       cor: motos.cor,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(garantias.lojaId),
       osNumero: ordensServico.numero,
       clienteNome: vendas.clienteNome,
       clienteDoc: vendas.clienteCpf,

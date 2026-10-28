@@ -155,6 +155,32 @@ visão da própria Conta, os modelos que ela recebeu.
   oferece "associar a um modelo" ou "criar modelo com este nome"; a escolha grava o apelido da
   Conta sem mostrar o campo. Associar: quem acessa a entrada; criar modelo novo: só o sócio. Ordem do casamento: apelido da Conta, nome ajustado, nome original.
 
+## Adendo de 2026-10-27: cargos da Conta (#449)
+
+O `admin_socio` cria cargos próprios da Conta: escreve o nome e marca os módulos que o cargo
+acessa. Os papéis fixos não mudam. Decisões do Luis:
+
+- O cargo pertence à Conta (`cargos.conta_id`). Outra Conta não vê, não usa e não edita.
+  O usuário só recebe cargo da própria Conta, e o servidor confere isso.
+- Uma permissão é um módulo de `src/lib/navegacao.ts`, com o menu e a rota dele. O sócio só
+  oferece os módulos que ele mesmo vê, e o servidor recusa qualquer outro. Quem tem o cargo vê
+  só os módulos marcados, mais os que todos veem (Dashboard, Meus Documentos, Calendário).
+- O cargo não tem papel base na tela. Quem tem cargo recebe o papel interno `cargo`, que
+  sozinho não dá poder nenhum. As ações de rotina de um módulo passam a aceitar quem acessa o
+  módulo. O que hoje é só de admin ou do `aux_adm` (aprovar, cancelar venda, caixa, telas
+  `soPeloPapel` e `soAdminGeral`) fica fora do cargo.
+- A lista de módulos que o sócio pode marcar só tem os módulos cujas ações já foram adaptadas
+  e testadas para o papel `cargo`. Ela cresce a cada PR.
+- Editar o cargo vale na hora para todos os usuários dele. Cargo com usuário não se apaga
+  ("Cargo em uso por N usuários").
+- A exceção por pessoa (`modulos_extras` e `modulos_bloqueados`) continua valendo por cima do
+  cargo.
+- O nome é único dentro da Conta e não repete o nome de um papel fixo.
+- Quem gerencia: o `admin_socio` (nos grupos que ele vê, como no adendo #322) e o
+  `admin_geral`. O `aux_adm` não.
+- A tela é um diálogo aberto por um botão na lista de `/admin/usuarios`, no mesmo padrão dos
+  diálogos de usuário. O cargo aparece na escolha de papel do usuário.
+
 ## Quando revisar
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.

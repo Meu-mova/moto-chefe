@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { motos, vendas, modelos } from '@/lib/db/schema'
 import { eq, and, gte, sql, inArray } from 'drizzle-orm'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 
 export type ItemCompra = {
   modeloId: string
@@ -35,11 +36,13 @@ export async function listarDadosCompras(lojaId: string | undefined, grupoLojaId
 
   const lojaCond = lojaId ? eq(motos.lojaId, lojaId) : inArray(motos.lojaId, grupoLojaIds)
 
+  const nome = nomeDoModeloNaLoja(motos.lojaId)
+
   const [estoqueRows, vendasRows] = await Promise.all([
     db
       .select({
         modeloId: motos.modeloId,
-        modelo: modelos.modelo,
+        modelo: nome,
         marca: modelos.marca,
         cor: motos.cor,
         qtd: sql<number>`count(*)::int`,
@@ -65,12 +68,12 @@ export async function listarDadosCompras(lojaId: string | undefined, grupoLojaId
         sql`(${motos.status}::text != 'vendida' AND ${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`,
         lojaCond,
       ))
-      .groupBy(motos.modeloId, modelos.modelo, modelos.marca, motos.cor),
+      .groupBy(motos.modeloId, nome, modelos.marca, motos.cor),
 
     db
       .select({
         modeloId: motos.modeloId,
-        modelo: modelos.modelo,
+        modelo: nome,
         marca: modelos.marca,
         cor: motos.cor,
         qtd: sql<number>`count(*)::int`,
@@ -82,7 +85,7 @@ export async function listarDadosCompras(lojaId: string | undefined, grupoLojaId
         gte(vendas.dataVenda, quinzeDiasAtras),
         lojaCond,
       ))
-      .groupBy(motos.modeloId, modelos.modelo, modelos.marca, motos.cor),
+      .groupBy(motos.modeloId, nome, modelos.marca, motos.cor),
   ])
 
   // Merge estoque + vendas por (modeloId, cor)

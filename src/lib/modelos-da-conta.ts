@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, not, notExists, or, sql } from 'drizzle-orm'
+import { type AnyColumn, and, asc, eq, getTableName, inArray, isNull, ne, not, notExists, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contaMarcas, demandas, modeloAjustes, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
@@ -48,6 +48,29 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
       incluirOcultos ? undefined : not(oculto),
     ))
     .orderBy(asc(modelos.marca), asc(nome))
+}
+
+// Nome do modelo para as consultas que mostram moto, venda, OS etc. (#476): o ajustado
+// pela Conta dona da loja do registro, ou o original. Recebe a coluna da loja da linha,
+// para nenhuma consulta precisar de parâmetro novo. Colunas qualificadas à mão: em
+// consulta sem join o Drizzle não qualifica e o nome casaria com as tabelas de dentro.
+// Não aceita coluna de alias(): getTableName devolve a tabela real e a subconsulta
+// apontaria para ela sem erro. Ficam com o original de propósito: fiscal (NF própria e
+// do Bling, export contábil), precificação (casa pelo nome), relatório da fábrica e
+// admin/acoes.
+export function nomeDoModeloNaLoja(lojaId: AnyColumn) {
+  return nomeDoModeloSql('"modelos"', `"${getTableName(lojaId.table)}"."${lojaId.name}"`)
+}
+
+// Para SQL escrito à mão, com alias: nomeDoModeloSql('mo', 'v.loja_id'). Vai cru para o
+// SQL: só literais do código, nunca entrada do usuário.
+export function nomeDoModeloSql(modelos: string, lojaId: string) {
+  return sql<string>`coalesce((
+    select ma.modelo from modelo_ajustes ma
+      join grupos g on g.conta_id = ma.conta_id
+      join lojas l on l.grupo_id = g.id
+     where ma.modelo_id = ${sql.raw(`${modelos}.id`)} and l.id = ${sql.raw(lojaId)}
+  ), ${sql.raw(`${modelos}.modelo`)})`
 }
 
 type Escritor = Pick<typeof db, 'select' | 'insert' | 'update'>

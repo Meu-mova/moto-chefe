@@ -24,11 +24,12 @@ let excluirModelo: Mod['excluirModelo']
 let salvarAjusteDoModelo: Mod['salvarAjusteDoModelo']
 let ocultarModelo: Mod['ocultarModelo']
 let voltarAoOriginal: Mod['voltarAoOriginal']
+let nomeDoModeloNaLoja: Mod['nomeDoModeloNaLoja']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal, nomeDoModeloNaLoja } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -275,6 +276,37 @@ test('sócio ajusta, oculta, mostra e volta ao original só na própria Conta', 
       () => voltarAoOriginal(contaB.id, daA.id, tx),
     ]) await assert.rejects(tentativa(), /Modelo não encontrado/, 'modelo próprio da A não se ajusta pela B')
     await assert.rejects(salvarAjusteDoModelo(contaA.id, daA.id, campos, tx), /Modelo não encontrado/, 'o próprio se edita, não se ajusta')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('nome do modelo nas consultas: o ajustado pela Conta dona da loja, o original nas outras', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const lojaDa = async (nome: string, cnpj: string) => {
+      const conta = await linha(sql`insert into contas (nome) values (${nome}) returning id`)
+      const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values (${'G ' + nome}, ${cnpj}, ${conta.id}) returning id`)
+      const loja = await linha(sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'L ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
+      return { contaId: conta.id, lojaId: loja.id }
+    }
+    const a = await lojaDa('Conta A', '11111111000191')
+    const b = await lojaDa('Conta B', '22222222000191')
+    const modelo = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+      values ('TESTE-AJ', 'ORIGINAL', 'autopropelido', '1000', '', '') returning id`)
+    await salvarAjusteDoModelo(a.contaId, modelo.id, { modelo: 'NOME DA A', categoria: 'autopropelido', potenciaW: '1000' }, tx)
+    const motoNa = async (lojaId: string, chassi: string) => linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
+      values (${chassi}, ${modelo.id}, ${lojaId}, 'Preta', '1', 'disponivel', 'disponivel') returning id`)
+    const motoA = await motoNa(a.lojaId, 'TESTEAJ00000000A1')
+    const motoB = await motoNa(b.lojaId, 'TESTEAJ00000000B1')
+
+    const { modelos, motos } = await import('@/lib/db/schema')
+    const { eq, inArray } = await import('drizzle-orm')
+    const linhas = await tx.select({ id: motos.id, nome: nomeDoModeloNaLoja(motos.lojaId) })
+      .from(motos).innerJoin(modelos, eq(modelos.id, motos.modeloId))
+      .where(inArray(motos.id, [motoA.id, motoB.id]))
+    const nome = new Map(linhas.map(l => [l.id, l.nome]))
+    assert.equal(nome.get(motoA.id), 'NOME DA A', 'moto da loja da A')
+    assert.equal(nome.get(motoB.id), 'ORIGINAL', 'moto da loja da B não vê o ajuste da A')
     throw new Desfazer()
   }), Desfazer)
 })
