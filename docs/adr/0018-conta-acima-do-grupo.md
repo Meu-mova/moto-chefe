@@ -135,6 +135,24 @@ não do modelo, e o apelido da NF passa a ser único dentro da Conta.
   Gateway).
 - O `admin_geral` vê e edita todos, com a Conta de cada um.
 
+**Ajuste dos modelos da plataforma por Conta (#476).** Complementa o adendo #321. O modelo da
+plataforma continua único e nenhuma Conta o altera; o `admin_socio` **ajusta por cima**, só na
+visão da própria Conta, os modelos que ela recebeu.
+
+- O ajuste mora em `modelo_ajustes` (`conta_id`, `modelo_id`, um campo nulável por item
+  ajustável). Leitura por um ponto só: o campo ajustado mostra o valor da Conta; o resto acompanha
+  a plataforma. "Voltar ao da MotoChefe" apaga o campo ajustado.
+- Ajustáveis: nome, categoria, potência, motor, velocidade, foto e preço de compra padrão. Marca não.
+- Motos e demandas não trocam de modelo; reimpressão mostra o nome ajustado. Documento assinado
+  (`html_snapshot`) e NF de saída (`x_prod`) não mudam.
+- O sócio pode ocultar um modelo da plataforma das listas da Conta.
+- Nome repetido: avisa e deixa gravar.
+- "Cód. Bling" e "Apelidos na NF" aparecem só para a Conta que usa Bling, definido pelo dado
+  (algum grupo da Conta com credencial Bling), nunca por nome ou CNPJ no código.
+- Conta sem esses campos casa o XML pela própria entrada: produto que não casa com nenhum nome
+  oferece "associar a um modelo" ou "criar modelo com este nome"; a escolha grava o apelido da
+  Conta sem mostrar o campo. Associar: quem acessa a entrada; criar: só o sócio. Ordem do casamento: apelido da Conta, nome ajustado, nome original.
+
 ## Quando revisar
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.
