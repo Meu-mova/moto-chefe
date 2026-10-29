@@ -428,6 +428,8 @@ export const motosFiscal = pgTable('motos_fiscal', {
   cstCofins:       text('cst_cofins'),
   classTribIbsCbs: text('class_trib_ibscbs'),
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // tpPint (veicProd) da nota de entrada; a saída repete. Migração 0157.
+  tpPint:          text('tp_pint'),
 })
 
 // ─── motos_renave (detalhamento de veículo novo da NF de saída, grupo veicProd) ─
@@ -464,6 +466,8 @@ export const motosRenave = pgTable('motos_renave', {
   preenchidoPor:          uuid('preenchido_por').references(() => usuarios.id),
   criadoEm:               timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm:           timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Unidade em que potenciaMotor foi para a nota (0157). Antes dela, era CV.
+  unidadePotencia:        text('unidade_potencia').notNull().default('CV'),
 })
 
 // ─── motos ───────────────────────────────────────────────────────────────────

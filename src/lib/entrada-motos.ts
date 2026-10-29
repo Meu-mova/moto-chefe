@@ -88,6 +88,7 @@ export async function gravarFichaFiscalDasMotos(
       cstPis: ficha.cstPis || null,
       cstCofins: ficha.cstCofins || null,
       classTribIbsCbs: ficha.classTribIbsCbs || null,
+      tpPint: ficha.tpPint || null,
     })))
     .onConflictDoNothing()
     .returning({ motoId: motosFiscal.motoId })
