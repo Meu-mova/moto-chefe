@@ -41,12 +41,14 @@ const UF_EMITENTE_DRY_RUN = 'MG'
 // Texto da carta: entre 15 e 1000 caracteres (carta-correcao.ts).
 const TEXTO_CARTA = 'Teste de regressao 347: correcao da cor do veiculo para CINZA. Sem valor fiscal.'
 
-/** Veículo sintético com os padrões que a tela sugere hoje; só o que não tem padrão é preenchido aqui. */
+/** Veículo sintético: o que a tela sugere da moto, mais os valores de tabela escolhidos aqui. */
 function veiculoSintetico() {
   const v = validarRenave({
     ...sugestaoRenave({ chassi: '9C2ABC1D2EF345678', cor: 'Preta', motor: 'MOTORTESTE01', potenciaW: '1000W', anoAtual: new Date().getFullYear() }),
     pesoLiquido: '0,0850', pesoBruto: '0,2350', capacidadeMaximaTracao: '0', distanciaEixos: '1300',
     codigoMarcaModelo: '000001', lotacao: '2',
+    tipoOperacao: 'VendaConcessionaria', cilindradas: '0', tipoCombustivel: '07', tipoPintura: 'S', tipoVeiculo: '02',
+    especie: 'Passageiro', condicaoVin: 'Normal', condicao: 'Acabado', restricao: 'NaoHa',
   })
   if (!v.ok) throw new Error(`veículo sintético inválido: ${v.error}`)
   return montarVeiculoNovo(v.dados)

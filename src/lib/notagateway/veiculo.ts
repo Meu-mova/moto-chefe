@@ -193,9 +193,9 @@ const CAMPOS_DO_MODELO = [
 
 /**
  * Pré-preenche o formulário. O que é da moto sai do cadastro dela; o que é do
- * modelo sai da última moto do mesmo modelo, e na primeira vez de um padrão de
- * ciclomotor elétrico. Peso, entre-eixos e código RENAVAM não têm padrão: ficam
- * em branco para alguém olhar o documento do fabricante.
+ * modelo sai da última moto do mesmo modelo. Valor de tabela (operação, combustível,
+ * restrição etc.) o MOVA não supõe: cada loja tem a sua prática, então na primeira
+ * moto fica em branco e a loja escolhe.
  */
 export function sugestaoRenave(m: {
   chassi: string
@@ -209,30 +209,30 @@ export function sugestaoRenave(m: {
   const denatran = corDenatranSugerida(m.cor)
   const base: DadosRenave = {
     chassi,
-    tipoOperacao: 'VendaConcessionaria',
+    tipoOperacao: '',
     corCodigo: CODIGO_DENATRAN[denatran],
     corDescricao: (m.cor ?? '').trim().toUpperCase().slice(0, 40),
     corDenatran: denatran,
     potenciaMotor: potenciaCvSugerida(m.potenciaW),
-    cilindradas: '0',
+    cilindradas: '',
     pesoLiquido: '',
     pesoBruto: '',
     // Os últimos 8 do chassi são o sequencial de fabricação (VIN, posições 10 a 17).
     numeroSerie: chassi.slice(-8),
-    tipoCombustivel: '07',
+    tipoCombustivel: '',
     numeroMotor: (m.motor ?? '').trim().toUpperCase(),
     capacidadeMaximaTracao: '',
     distanciaEixos: '',
     anoModelo: String(m.anoAtual),
     anoFabricacao: String(m.anoAtual),
-    tipoPintura: 'S',
-    tipoVeiculo: '02',
-    especie: 'Passageiro',
-    condicaoVin: 'Normal',
-    condicao: 'Acabado',
+    tipoPintura: '',
+    tipoVeiculo: '',
+    especie: '',
+    condicaoVin: '',
+    condicao: '',
     codigoMarcaModelo: '',
     lotacao: '',
-    restricao: 'NaoHa',
+    restricao: '',
   }
   if (!m.anterior) return base
   const herdado = Object.fromEntries(CAMPOS_DO_MODELO.map(k => [k, m.anterior![k]]))

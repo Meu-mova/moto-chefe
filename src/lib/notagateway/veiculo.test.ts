@@ -68,7 +68,6 @@ test('sugestão usa a moto e, havendo, o modelo da última moto igual', () => {
   assert.equal(s.corDenatran, 'Branca')
   assert.equal(s.corCodigo, '04')
   assert.equal(s.numeroMotor, 'MT1')
-  assert.equal(s.tipoVeiculo, '02')
   assert.equal(s.pesoBruto, '')
 
   const h = sugestaoRenave({ chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026, anterior: PREENCHIDO })
@@ -136,8 +135,17 @@ test('tipo da operação e restrição não vêm da moto anterior: são da venda
     chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026,
     anterior: { ...PREENCHIDO, restricao: 'AlienacaoFiduciaria', tipoOperacao: 'Outros' },
   })
-  assert.equal(h.restricao, 'NaoHa')
-  assert.equal(h.tipoOperacao, 'VendaConcessionaria')
+  assert.equal(h.restricao, '')
+  assert.equal(h.tipoOperacao, '')
+})
+
+test('sem moto anterior, o MOVA não supõe nenhum valor de tabela: a loja escolhe', () => {
+  const s = sugestaoRenave({ chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026 })
+  for (const k of ['tipoOperacao', 'cilindradas', 'tipoCombustivel', 'tipoPintura', 'tipoVeiculo', 'especie', 'condicaoVin', 'condicao', 'restricao'] as const) {
+    assert.equal(s[k], '', k)
+  }
+  const v = validarRenave(s)
+  assert.ok(!v.ok && /Tipo da operação: escolha/.test(v.error) && /Restrição: escolha/.test(v.error))
 })
 
 test('CMT zero é aceita; pesos zero não', () => {
