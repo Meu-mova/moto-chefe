@@ -208,3 +208,14 @@ test('origem: diz de onde veio cada valor; o que a loja tem de escolher fica sem
   assert.ok(camposFaltando(herdada.dados).includes('restricao'))
   assert.deepEqual(camposFaltando(PREENCHIDO), [])
 })
+
+test('etapas: todo campo do RENAVE está em exatamente uma, e a contagem por etapa soma o total', async () => {
+  const { PARTES_RENAVE, faltandoPorParte } = await import('./veiculo')
+  const nas = PARTES_RENAVE.flatMap(p => [...p.campos]).sort()
+  assert.deepEqual(nas, Object.keys(PREENCHIDO).sort())
+  const vazia = sugestaoRenave({ chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026 })
+  const f = faltandoPorParte(vazia)
+  assert.equal(f.moto + f.modelo + f.operacao, camposFaltando(vazia).length)
+  assert.equal(f.operacao, 4)
+  assert.deepEqual(faltandoPorParte(PREENCHIDO), { moto: 0, modelo: 0, operacao: 0 })
+})

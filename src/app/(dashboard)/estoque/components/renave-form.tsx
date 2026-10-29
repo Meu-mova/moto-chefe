@@ -5,12 +5,14 @@ import { cn } from '@/lib/utils'
 import {
   OPCOES_COMBUSTIVEL, OPCOES_CONDICAO, OPCOES_CONDICAO_VIN, OPCOES_COR_DENATRAN, OPCOES_ESPECIE,
   OPCOES_RESTRICAO, OPCOES_UNIDADE_POTENCIA, SUGESTOES_PINTURA, converterPotencia, OPCOES_TIPO_OPERACAO, OPCOES_TIPO_VEICULO,
-  type DadosRenave, type OrigemRenave,
+  type DadosRenave, type OrigemRenave, type ParteRenave,
 } from '@/lib/notagateway/veiculo'
 
 type Props = {
   dados: DadosRenave
   origem: OrigemRenave
+  /** Só esta etapa (o diálogo mostra uma por vez). Sem ela, todas. */
+  parte?: ParteRenave
   onChange: (atualizar: (prev: DadosRenave) => DadosRenave) => void
 }
 
@@ -29,7 +31,8 @@ function dicaPotencia(valor: string, unidade: string): string {
  * transmissão, que valida e grava o que foi enviado na moto. Ao lado de cada
  * campo, de onde veio o valor; campo vazio fica em destaque até ser preenchido.
  */
-export function RenaveForm({ dados, origem, onChange }: Props) {
+export function RenaveForm({ dados, origem, parte, onChange }: Props) {
+  const mostra = (p: ParteRenave) => !parte || parte === p
   const set = (campo: keyof DadosRenave) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const valor = e.target.value
     onChange(prev => ({ ...prev, [campo]: valor }))
@@ -97,6 +100,7 @@ export function RenaveForm({ dados, origem, onChange }: Props) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {mostra('moto') && <>
         <p className="text-sm font-medium sm:col-span-2">Desta moto</p>
         {texto('chassi', 'Chassi', { dica: '17 letras e números. Corrige só a nota, não o cadastro.' })}
         {texto('numeroMotor', 'Número do motor')}
@@ -108,6 +112,9 @@ export function RenaveForm({ dados, origem, onChange }: Props) {
         {texto('corCodigo', 'Código da cor', { dica: 'Da montadora, até 4 caracteres. Sem ele, use o da cor DENATRAN.' })}
         {texto('tipoPintura', 'Tipo de pintura', { placeholder: 'S', sugestoes: SUGESTOES_PINTURA, dica: 'Uma letra, como na nota de entrada. Comuns: S sólida, M metálica, P perolizada.' })}
 
+        </>}
+
+        {mostra('modelo') && <>
         <p className="pt-2 text-sm font-medium sm:col-span-2">Do modelo</p>
         {texto('codigoMarcaModelo', 'Código marca/modelo RENAVAM', { numerico: true, placeholder: '143402', dica: 'Até 6 dígitos, da tabela RENAVAM.' })}
         {opcoes('tipoVeiculo', 'Tipo de veículo', OPCOES_TIPO_VEICULO)}
@@ -146,11 +153,15 @@ export function RenaveForm({ dados, origem, onChange }: Props) {
         {texto('distanciaEixos', 'Distância entre eixos (mm)', { numerico: true, placeholder: '1300' })}
         {texto('lotacao', 'Lotação (passageiros)', { numerico: true, placeholder: '2' })}
 
+        </>}
+
+        {mostra('operacao') && <>
         <p className="pt-2 text-sm font-medium sm:col-span-2">Da operação</p>
         {opcoes('tipoOperacao', 'Tipo da operação', OPCOES_TIPO_OPERACAO)}
         {opcoes('restricao', 'Restrição', OPCOES_RESTRICAO)}
         {opcoes('condicao', 'Condição do veículo', OPCOES_CONDICAO)}
         {opcoes('condicaoVin', 'Condição do chassi (VIN)', OPCOES_CONDICAO_VIN)}
+        </>}
       </div>
     </div>
   )

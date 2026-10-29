@@ -242,6 +242,24 @@ const CAMPOS_DO_MODELO = [...MEDIDAS_DO_MODELO, ...TABELA_DO_MODELO]
 /** De onde veio cada valor sugerido, em texto curto para a tela. Campo sem origem: a loja preenche. */
 export type OrigemRenave = Partial<Record<keyof DadosRenave, string>>
 
+/** As etapas do formulário, na ordem da tela. Todo campo do RENAVE está em exatamente uma. */
+export const PARTES_RENAVE = [
+  { id: 'moto', nome: 'Desta moto', campos: ['chassi', 'numeroMotor', 'numeroSerie', 'anoFabricacao', 'anoModelo', 'corDescricao', 'corDenatran', 'corCodigo', 'tipoPintura'] },
+  { id: 'modelo', nome: 'Do modelo', campos: [
+    'codigoMarcaModelo', 'tipoVeiculo', 'especie', 'tipoCombustivel', 'potenciaMotor', 'unidadePotencia', 'cilindradas',
+    'pesoLiquido', 'pesoBruto', 'capacidadeMaximaTracao', 'distanciaEixos', 'lotacao',
+  ] },
+  { id: 'operacao', nome: 'Da operação', campos: ['tipoOperacao', 'restricao', 'condicao', 'condicaoVin'] },
+] as const satisfies readonly { id: string; nome: string; campos: readonly (keyof DadosRenave)[] }[]
+
+export type ParteRenave = (typeof PARTES_RENAVE)[number]['id']
+
+/** Quantos campos faltam em cada etapa. */
+export function faltandoPorParte(d: DadosRenave): Record<ParteRenave, number> {
+  const vazios = new Set(camposFaltando(d))
+  return Object.fromEntries(PARTES_RENAVE.map(p => [p.id, p.campos.filter(k => vazios.has(k)).length])) as Record<ParteRenave, number>
+}
+
 /** Campos ainda vazios: a nota não sai sem eles. */
 export function camposFaltando(d: DadosRenave): (keyof DadosRenave)[] {
   return (Object.keys(d) as (keyof DadosRenave)[]).filter(k => !String(d[k] ?? '').trim())
