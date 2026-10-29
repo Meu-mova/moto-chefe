@@ -9,8 +9,10 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
 - Trabalho novo nasce de `dev`, com o tipo do Conventional Commits como prefixo:
   `feat/*`, `fix/*`, `chore/*`, `docs/*`... PR para `dev`, merge por **squash** (exceção: o PR
   `main → dev` depois de hotfix ou de release que entrou por squash vai com merge commit).
-- `dev → main`: PR com **merge commit** (não squash), sempre que houver algo validado,
-  no mínimo semanal. Lote pequeno e frequente evita que o release vire um pacotão. Cada
+- `dev → main`: PR com **squash e mensagem escrita à mão**, sem trailer de co-autoria de IA,
+  seguido do PR `main → dev` com merge commit; sempre que houver algo validado, no mínimo
+  semanal. O squash mantém a `main` com um commit limpo por release, mesmo que algum commit da
+  `dev` tenha entrado com co-autoria de IA (ver `CLAUDE.md`, "Sem co-autoria de IA"). Lote pequeno e frequente evita que o release vire um pacotão. Cada
   promoção é uma release — ver "Issues, quadro e releases".
 - Branch de trabalho se apaga à mão depois do merge. Não ligue "apagar branch após o merge"
   no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main` (ADR 0013).
@@ -126,11 +128,13 @@ Não crie label nova sem combinar.
 - Passo a passo:
   1. Na `dev`, por PR, commit `chore(release): vX.Y.Z` atualizando o `version` do
      `package.json`.
-  2. PR `dev → main` com merge commit (antes, `scripts/schema-diff.ts` sem diferença — ver
-     `docs/infra/staging.md`). No botão do GitHub, "Create a merge commit", não squash. Se
-     entrar por squash, abra um PR `main → dev` e faça o merge dele com merge commit: sem isso a
-     `main` fica fora do histórico da `dev` e a próxima release mostra os commits de novo.
-  3. Tag `vX.Y.Z` no merge commit da `main`.
+  2. PR `dev → main` (antes, `scripts/schema-diff.ts` sem diferença — ver
+     `docs/infra/staging.md`). No botão do GitHub, "Squash and merge", com título
+     `release: vX.Y.Z (#N)` e corpo escrito à mão: apague da caixa de mensagem toda linha
+     `Co-authored-by`, `Claude-Session` ou "Generated with" que o GitHub juntou dos commits.
+     Depois, abra o PR `main → dev` e faça o merge dele com merge commit: sem isso a `main`
+     fica fora do histórico da `dev` e a próxima release mostra os commits de novo.
+  3. Tag `vX.Y.Z` no commit do squash na `main`.
   4. GitHub Release com notas em português, para o Cesar: **Novidades**, **Correções**,
      **Interno**, cada item com o link da issue ou do PR. O rascunho pode ser de um agente; o
      Luis revisa antes de publicar.
