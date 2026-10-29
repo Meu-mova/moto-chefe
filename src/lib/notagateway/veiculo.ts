@@ -193,9 +193,9 @@ const CAMPOS_DO_MODELO = [
 
 /**
  * Pré-preenche o formulário. O que é da moto sai do cadastro dela; o que é do
- * modelo sai da última moto do mesmo modelo, e na primeira vez de um padrão de
- * ciclomotor elétrico. Peso, entre-eixos e código RENAVAM não têm padrão: ficam
- * em branco para alguém olhar o documento do fabricante.
+ * modelo sai da última moto do mesmo modelo. Valor de tabela (operação, combustível,
+ * restrição etc.) o MOVA não supõe: cada loja tem a sua prática, então na primeira
+ * moto fica em branco e a loja escolhe.
  */
 export function sugestaoRenave(m: {
   chassi: string
@@ -209,30 +209,30 @@ export function sugestaoRenave(m: {
   const denatran = corDenatranSugerida(m.cor)
   const base: DadosRenave = {
     chassi,
-    tipoOperacao: 'VendaConcessionaria',
+    tipoOperacao: '',
     corCodigo: CODIGO_DENATRAN[denatran],
     corDescricao: (m.cor ?? '').trim().toUpperCase().slice(0, 40),
     corDenatran: denatran,
     potenciaMotor: potenciaCvSugerida(m.potenciaW),
-    cilindradas: '0',
+    cilindradas: '',
     pesoLiquido: '',
     pesoBruto: '',
     // Os últimos 8 do chassi são o sequencial de fabricação (VIN, posições 10 a 17).
     numeroSerie: chassi.slice(-8),
-    tipoCombustivel: '07',
+    tipoCombustivel: '',
     numeroMotor: (m.motor ?? '').trim().toUpperCase(),
     capacidadeMaximaTracao: '',
     distanciaEixos: '',
     anoModelo: String(m.anoAtual),
     anoFabricacao: String(m.anoAtual),
-    tipoPintura: 'S',
-    tipoVeiculo: '02',
-    especie: 'Passageiro',
-    condicaoVin: 'Normal',
-    condicao: 'Acabado',
+    tipoPintura: '',
+    tipoVeiculo: '',
+    especie: '',
+    condicaoVin: '',
+    condicao: '',
     codigoMarcaModelo: '',
     lotacao: '',
-    restricao: 'NaoHa',
+    restricao: '',
   }
   if (!m.anterior) return base
   const herdado = Object.fromEntries(CAMPOS_DO_MODELO.map(k => [k, m.anterior![k]]))
@@ -320,6 +320,9 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
   return erros.length ? { ok: false, error: erros.join('\n') } : { ok: true, dados }
 }
 
+/** A tela mostra o código da tabela com 2 dígitos; o exemplo de payload da NG (Hermes, 27/10) manda sem o zero. */
+const semZeroAEsquerda = (codigo: string) => String(Number(codigo))
+
 /** Dados já validados → grupo `veiculoNovo` da API. */
 export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
   return {
@@ -331,14 +334,14 @@ export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
     pesoLiquido: Number(d.pesoLiquido),
     pesoBruto: Number(d.pesoBruto),
     numeroSerie: d.numeroSerie,
-    tipoCombustivel: d.tipoCombustivel,
+    tipoCombustivel: semZeroAEsquerda(d.tipoCombustivel),
     numeroMotor: d.numeroMotor,
     capacidadeMaximaTracao: Number(d.capacidadeMaximaTracao),
     distanciaEixos: d.distanciaEixos,
     anoModelo: Number(d.anoModelo),
     anoFabricacao: Number(d.anoFabricacao),
     tipoPintura: d.tipoPintura,
-    tipoVeiculo: d.tipoVeiculo,
+    tipoVeiculo: semZeroAEsquerda(d.tipoVeiculo),
     especie: d.especie,
     condicaoVin: d.condicaoVin,
     condicao: d.condicao,
@@ -346,4 +349,18 @@ export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
     lotacao: Number(d.lotacao),
     restricao: d.restricao,
   }
+}
+
+/**
+ * A checagem do RENAVE antes de emitir. Fica fora da action para o "Salvar e reenviar"
+ * recusar antes de gravar a correção: senão a correção ficava gravada sem nota nenhuma.
+ */
+export function conferirRenave(
+  exigido: boolean,
+  renave: DadosRenave | null | undefined,
+): { ok: true; dados: DadosRenave | null } | { ok: false; error: string } {
+  if (!exigido) return { ok: true, dados: null }
+  if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE). Preencha antes de transmitir.' }
+  const v = validarRenave(renave)
+  return v.ok ? v : { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
 }

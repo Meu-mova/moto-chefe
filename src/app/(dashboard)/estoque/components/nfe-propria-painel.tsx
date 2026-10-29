@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
+import { RenaveForm } from './renave-form'
+import type { DadosRenave } from '@/lib/notagateway/veiculo'
 import { NfeRecusa } from './nfe-recusa'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
@@ -59,6 +61,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [conferido, setConferido] = useState(false)
   const [ficha, setFicha] = useState<FichaMoto | null>(null)
   const [cestEdicao, setCestEdicao] = useState<string | null>(null)
+  // Ciclomotor: os dados do veículo se preenchem aqui e vão junto com a transmissão.
+  const [renave, setRenave] = useState<DadosRenave | null>(null)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
   const [erroCorrecao, setErroCorrecao] = useState<string | null>(null)
@@ -70,6 +74,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
       if (!r.ok) { setErro(r.error); return }
       setPrevia(r)
       setFicha(r.ficha ? null : r.sugestao)
+      setRenave(r.exigeRenave ? r.renave : null)
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
       if (recusa) setResultado({ nota: recusa })
@@ -108,7 +113,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     setErro('')
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await transmitirNfePropriaAction(motoId)
+      const r = await transmitirNfePropriaAction(motoId, renave)
       setTransmitindo(false)
       if (r.nota) {
         if (r.nota.status === 'Autorizada' && r.nota.ambiente === 'Producao') {
@@ -142,7 +147,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
     setErroCorrecao(null)
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await corrigirEReenviarNfAction(motoId, c)
+      const r = await corrigirEReenviarNfAction(motoId, c, renave)
       setTransmitindo(false)
       if (r.nota) setResultado({ nota: r.nota, erro: r.ok ? undefined : r.error })
       else if (!r.ok) setErroCorrecao(r.error)
@@ -320,12 +325,16 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
         </div>
       )}
 
+      {r && renave && (
+        <RenaveForm dados={renave} onChange={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))} />
+      )}
+
       {erro && cestEdicao == null && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
 
       {r && !bloqueadaProducao && (
         <label className="flex cursor-pointer items-start gap-3 py-1">
           <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-primary" checked={conferido} onChange={e => setConferido(e.target.checked)} />
-          Conferi cliente, moto, valor e pagamentos.
+          {renave ? 'Conferi cliente, moto, dados do veículo, valor e pagamentos.' : 'Conferi cliente, moto, valor e pagamentos.'}
         </label>
       )}
 
