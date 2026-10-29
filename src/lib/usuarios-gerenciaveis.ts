@@ -65,7 +65,7 @@ export async function cadastroPedido(
     ? await exec.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, dados.lojaId)).limit(1)
     : []
   return {
-    papel: dados.papel, grupoDaLoja: loja?.grupoId ?? null, ativo,
+    papel: dados.papel, grupoDaLoja: loja?.grupoId ?? null, lojaPedida: !!dados.lojaId, ativo,
     gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras, modulosBloqueados: dados.modulosBloqueados,
     aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
   }

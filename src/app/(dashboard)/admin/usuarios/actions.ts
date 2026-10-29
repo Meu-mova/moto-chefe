@@ -186,27 +186,27 @@ export async function criarUsuarioAction(dados: {
       email_confirm: true,
       // Senha definida pelo sócio: o usuário troca no 1º login (/trocar-senha).
       ...(admin.papel === 'admin_socio' ? { user_metadata: { must_change_password: true } } : {}),
-  })
-  if (error) throw new Error(error.message)
+    })
+    if (error) throw new Error(error.message)
 
-  await db.insert(usuarios).values({
-    id: data.user.id,
-    nome: dados.nome,
-    email: dados.email,
-    papel: dados.papel as any,
-    lojaId: dados.lojaId,
-    contaId,
-    conecta,
-    gruposAprovacao:         aprovacao.gruposAprovacao,
-    aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
-    gruposAcesso:            acesso.gruposAcesso,
-    modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
-    modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
-    cargoId: cargo.cargoId,
-  })
-  await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
+    await db.insert(usuarios).values({
+      id: data.user.id,
+      nome: dados.nome,
+      email: dados.email,
+      papel: dados.papel as any,
+      lojaId: dados.lojaId,
+      contaId,
+      conecta,
+      gruposAprovacao:         aprovacao.gruposAprovacao,
+      aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+      gruposAcesso:            acesso.gruposAcesso,
+      modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
+      modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
+      cargoId: cargo.cargoId,
+    })
+    await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
 
-  revalidatePath('/admin/usuarios')
+    revalidatePath('/admin/usuarios')
   })
 }
 
@@ -275,18 +275,18 @@ export async function editarUsuarioAction(id: string, dados: {
           WHERE id = ${id}::uuid
         `)
       }
-  })
+    })
 
-  const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
-  const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
-  if (campos.length) {
-    const detalhe = { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) }
-    await registrarPermissao(admin.id, depois, detalhe)
-    // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
-    if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)
-  }
+    const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
+    const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
+    if (campos.length) {
+      const detalhe = { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) }
+      await registrarPermissao(admin.id, depois, detalhe)
+      // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
+      if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)
+    }
 
-  revalidatePath('/admin/usuarios')
+    revalidatePath('/admin/usuarios')
   })
 }
 

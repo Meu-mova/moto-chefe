@@ -31,6 +31,8 @@ export type CadastroGestao = AlvoGestao & {
   modulosBloqueados: string[]
   aprovaPagamentoSensivel: boolean
   ativo: boolean
+  /** O formulário informou uma loja; grupoDaLoja null aí é loja que não existe. */
+  lojaPedida?: boolean
 }
 
 export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
@@ -60,12 +62,17 @@ export function recusaDaGravacao(
   if (!CARGOS_VISIVEIS && depois.papel === 'cargo') return CARGO_INDISPONIVEL
   if (gestor.papel === 'admin_geral') return null
   if (gestor.papel !== 'admin_socio') return 'Sem permissão para gerenciar usuários'
-  if (antes && !podeGerenciar(gestor, antes)) return 'Usuário fora do seu alcance'
+  // Mesma frase de id inexistente: a recusa não revela que o usuário existe fora do alcance.
+  if (antes && !podeGerenciar(gestor, antes)) return 'Usuário não encontrado'
   // Para a Conta não ficar sem sócio.
   if (antes?.id === gestor.id && (depois.papel !== antes.papel || !depois.ativo)) {
     return 'Você não pode desativar nem trocar o papel de si mesmo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
+  // Loja inexistente e loja de grupo que o sócio não vê recebem a mesma frase.
+  if (depois.lojaPedida && (depois.grupoDaLoja === null || !gestor.gruposVisiveis.includes(depois.grupoDaLoja))) {
+    return 'Loja não encontrada'
+  }
   // Sem loja nem grupo, o usuário sairia do alcance do próprio sócio que o criou.
   // Só o sócio usa grupos de acesso; os demais papéis precisam de loja.
   if (depois.grupoDaLoja === null && (depois.papel !== 'admin_socio' || depois.gruposAcesso.length === 0)) {
