@@ -153,10 +153,14 @@ test('CMT zero é aceita; pesos zero não', () => {
   assert.equal(validarRenave({ ...PREENCHIDO, pesoLiquido: '0' }).ok, false)
 })
 
-test('tipo de pintura só aceita S, M ou P', () => {
-  const v = validarRenave({ ...PREENCHIDO, tipoPintura: 'x' })
-  assert.equal(v.ok, false)
-  if (!v.ok) assert.match(v.error, /Tipo de pintura/)
+test('tipo de pintura aceita qualquer caractere único (J18), como o A da nota da fábrica', () => {
+  const a = validarRenave({ ...PREENCHIDO, tipoPintura: 'a' })
+  assert.ok(a.ok && a.dados.tipoPintura === 'A')
+  for (const ruim of ['', 'AB']) {
+    const v = validarRenave({ ...PREENCHIDO, tipoPintura: ruim })
+    assert.equal(v.ok, false)
+    if (!v.ok) assert.match(v.error, /Tipo de pintura/)
+  }
 })
 
 test('conferirRenave: recusa ciclomotor sem dados ou com dado inválido, e passa o resto', () => {

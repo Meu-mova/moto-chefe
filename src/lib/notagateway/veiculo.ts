@@ -52,7 +52,9 @@ export const OPCOES_ESPECIE: [string, string][] = [
   ['Corrida', '4 — Corrida'], ['Tracao', '5 — Tração'], ['Especial', '6 — Especial'],
 ]
 
-export const OPCOES_PINTURA: [string, string][] = [['S', 'S — Sólida'], ['M', 'M — Metálica'], ['P', 'P — Perolizada']]
+// tpPint (J18 do leiaute, MOC): 1 caractere sem lista de valores na SEFAZ. A nota da
+// fábrica traz 'A', fora do S/M/P usual; então só sugere, não restringe.
+export const SUGESTOES_PINTURA: [string, string][] = [['S', 'Sólida'], ['M', 'Metálica'], ['P', 'Perolizada'], ['A', 'Como na nota da fábrica']]
 
 export const OPCOES_CONDICAO_VIN: [string, string][] = [['Normal', 'N — Normal'], ['Remarcado', 'R — Remarcado']]
 
@@ -306,7 +308,7 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
     distanciaEixos: txt(d.distanciaEixos, 4, 'Distância entre eixos'),
     anoModelo: d.anoModelo.trim(),
     anoFabricacao: d.anoFabricacao.trim(),
-    tipoPintura: opcao(d.tipoPintura.trim().toUpperCase(), OPCOES_PINTURA, 'Tipo de pintura'),
+    tipoPintura: txt(d.tipoPintura, 1, 'Tipo de pintura'),
     tipoVeiculo: opcao(d.tipoVeiculo, OPCOES_TIPO_VEICULO, 'Tipo de veículo'),
     especie: opcao(d.especie, OPCOES_ESPECIE, 'Espécie'),
     condicaoVin: opcao(d.condicaoVin, OPCOES_CONDICAO_VIN, 'Condição do VIN'),

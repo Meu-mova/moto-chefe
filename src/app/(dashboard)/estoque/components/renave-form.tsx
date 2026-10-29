@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   OPCOES_COMBUSTIVEL, OPCOES_CONDICAO, OPCOES_CONDICAO_VIN, OPCOES_COR_DENATRAN, OPCOES_ESPECIE,
-  OPCOES_PINTURA, OPCOES_RESTRICAO, OPCOES_TIPO_OPERACAO, OPCOES_TIPO_VEICULO, type DadosRenave,
+  OPCOES_RESTRICAO, SUGESTOES_PINTURA, OPCOES_TIPO_OPERACAO, OPCOES_TIPO_VEICULO, type DadosRenave,
 } from '@/lib/notagateway/veiculo'
 
 type Props = {
@@ -22,7 +22,7 @@ export function RenaveForm({ dados, onChange }: Props) {
     onChange(prev => ({ ...prev, [campo]: valor }))
   }
 
-  const texto = (campo: keyof DadosRenave, rotulo: string, extra?: { placeholder?: string; numerico?: boolean; dica?: string; largo?: boolean }) => (
+  const texto = (campo: keyof DadosRenave, rotulo: string, extra?: { placeholder?: string; numerico?: boolean; dica?: string; largo?: boolean; sugestoes?: [string, string][] }) => (
     <div className={extra?.largo ? 'space-y-1 sm:col-span-2' : 'space-y-1'}>
       <Label htmlFor={`renave-${campo}`}>{rotulo}</Label>
       <Input
@@ -31,7 +31,13 @@ export function RenaveForm({ dados, onChange }: Props) {
         onChange={set(campo)}
         inputMode={extra?.numerico ? 'decimal' : undefined}
         placeholder={extra?.placeholder}
+        list={extra?.sugestoes ? `renave-${campo}-sugestoes` : undefined}
       />
+      {extra?.sugestoes && (
+        <datalist id={`renave-${campo}-sugestoes`}>
+          {extra.sugestoes.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </datalist>
+      )}
       {extra?.dica && <p className="text-xs text-muted-foreground">{extra.dica}</p>}
     </div>
   )
@@ -71,7 +77,7 @@ export function RenaveForm({ dados, onChange }: Props) {
         {texto('corDescricao', 'Cor (descrição)', { placeholder: 'PRETA' })}
         {opcoes('corDenatran', 'Cor DENATRAN', OPCOES_COR_DENATRAN)}
         {texto('corCodigo', 'Código da cor', { dica: 'Da montadora, até 4 caracteres. Sem ele, use o da cor DENATRAN.' })}
-        {opcoes('tipoPintura', 'Tipo de pintura', OPCOES_PINTURA)}
+        {texto('tipoPintura', 'Tipo de pintura', { placeholder: 'S', sugestoes: SUGESTOES_PINTURA, dica: 'Uma letra, como na nota de entrada. Comuns: S sólida, M metálica, P perolizada.' })}
 
         <p className="pt-2 text-sm font-medium sm:col-span-2">Do modelo</p>
         {texto('codigoMarcaModelo', 'Código marca/modelo RENAVAM', { numerico: true, placeholder: '143402', dica: 'Até 6 dígitos, da tabela RENAVAM.' })}
