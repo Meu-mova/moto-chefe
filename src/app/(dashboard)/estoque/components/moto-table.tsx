@@ -1,3 +1,5 @@
+'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -7,7 +9,7 @@ import { MotoStatusIcon } from '@/components/moto-status-icon'
 import { VenderButton } from './vender-button'
 import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
-import { NfSaidaButton } from './nf-saida-button'
+import { NfSaidaButton, NfSaidaGatilho } from './nf-saida-button'
 import { MontarButton } from './montar-button'
 import { CancelarReservaButton } from './cancelar-reserva-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
@@ -72,6 +74,9 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
 
 export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
+  // Fora das linhas: na produção a nota autorizada fatura a venda e o revalidatePath
+  // tira a moto vendida da lista; o diálogo aberto tem de continuar e mostrar a nota.
+  const [nf, setNf] = useState<{ motoId: string; descricao: string; blingNfeId: string | null } | null>(null)
 
   function th(campo: Campo, label: string) {
     return (
@@ -88,6 +93,18 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
   }
 
   return (
+    <>
+    {nf && (
+      <NfSaidaButton
+        key={nf.motoId}
+        motoId={nf.motoId}
+        descricao={nf.descricao}
+        blingNfeId={nf.blingNfeId}
+        gatilho={() => null}
+        abrirAoMontar
+        onFechado={() => setNf(null)}
+      />
+    )}
     <Table>
       <TableHeader>
         <TableRow>
@@ -130,12 +147,18 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                     <>
                       {moto.status === 'vendida' && moto.disponibilidade === null
                         ? (
-                          /* Vendida aguardando NF: Garantia (a NF Saída vem logo abaixo, fora do ramo) */
+                          /* Vendida aguardando NF: Garantia + NF Saída (o diálogo fica fora da tabela) */
                           podeAlterar && podeGarantia.has(papel) && (
-                            <GarantiaButton
-                              motoId={moto.id}
-                              descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
-                            />
+                            <>
+                              <GarantiaButton
+                                motoId={moto.id}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
+                              />
+                              <NfSaidaGatilho
+                                blingNfeId={moto.blingNfeId}
+                                onClick={() => setNf({ motoId: moto.id, descricao: `${moto.modelo} · ${moto.cor} (${moto.lojaNome})`, blingNfeId: moto.blingNfeId })}
+                              />
+                            </>
                           )
                         )
                         : (
@@ -267,16 +290,6 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                           </>
                         )
                       }
-                      {/* Fora do ramo acima, na mesma posição: a nota autorizada na produção
-                          fatura a venda e a linha muda de ramo; o diálogo aberto continua. */}
-                      {podeAlterar && podeGarantia.has(papel) && (
-                        <NfSaidaButton
-                          motoId={moto.id}
-                          descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
-                          blingNfeId={moto.blingNfeId}
-                          semBotao={!(moto.status === 'vendida' && moto.disponibilidade === null)}
-                        />
-                      )}
                     </>
                   )
                 })()}
@@ -302,5 +315,6 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
         )}
       </TableBody>
     </Table>
+    </>
   )
 }

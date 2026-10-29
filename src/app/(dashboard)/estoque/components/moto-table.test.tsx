@@ -1,5 +1,5 @@
 // Na produção, a nota autorizada fatura a venda e o revalidatePath redesenha o
-// Showroom com a moto 'vendida': a linha sai do ramo "aguardando NF". Aqui a tabela é
+// Showroom sem a moto, que passou a vendida e o filtro padrão esconde. Aqui a tabela é
 // redesenhada assim, e o diálogo da NF aberto tem de continuar o mesmo.
 import { JSDOM } from 'jsdom'
 import { createElement, useState } from 'react'
@@ -23,14 +23,13 @@ for (const [caminho, nome] of [
   ['./vender-button', 'VenderButton'], ['./garantia-button', 'GarantiaButton'], ['./logistica-button', 'LogisticaButton'],
   ['./montar-button', 'MontarButton'], ['./cancelar-reserva-button', 'CancelarReservaButton'],
 ]) mock.module(caminho, { namedExports: { [nome]: () => null } })
-// Como o diálogo real: o que mostra fica no useState; desmontar perde.
+// Como o diálogo real: o que mostra fica no useState; desmontar perde. Abre ao montar.
 mock.module('./nf-saida-button', {
   namedExports: {
-    NfSaidaButton: function NfSaidaButton({ semBotao }: { semBotao?: boolean }) {
-      const [tela, setTela] = useState('fechado')
-      return createElement('div', null,
-        semBotao ? null : createElement('button', { 'data-nf': '', onClick: () => setTela('NF-e 440 autorizada') }, 'NF Saída'),
-        createElement('output', { 'data-tela': '' }, tela))
+    NfSaidaGatilho: ({ onClick }: { onClick: () => void }) => createElement('button', { 'data-nf': '', onClick }, 'NF Saída'),
+    NfSaidaButton: function NfSaidaButton() {
+      const [tela] = useState('NF-e 440 autorizada')
+      return createElement('output', { 'data-tela': '' }, tela)
     },
   },
 })
@@ -40,7 +39,7 @@ const MOTO = {
   lojaId: 'loja-1', lojaNome: 'Centro', status: 'vendida', disponibilidade: null, blingNfeId: null,
 } as unknown as MotoComDetalhes
 
-test('o diálogo da NF aberto continua quando a moto passa a vendida (faturamento na produção)', async () => {
+test('o diálogo da NF aberto continua quando a moto vendida sai da lista (faturamento na produção)', async () => {
   const React = (await import('react')).default
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -60,8 +59,9 @@ test('o diálogo da NF aberto continua quando a moto passa a vendida (faturament
   await act(async () => { document.querySelector('[data-nf]')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })) })
   assert.equal(tela(), 'NF-e 440 autorizada')
 
-  await desenhar([{ ...MOTO, disponibilidade: 'vendida' } as MotoComDetalhes])
+  // O Showroom padrão esconde a moto vendida: ela sai da lista.
+  await desenhar([])
   assert.equal(tela(), 'NF-e 440 autorizada', 'o mesmo diálogo, sem desmontar')
-  assert.equal(document.querySelector('[data-nf]'), null, 'e a linha já não oferece NF Saída')
+  assert.equal(document.querySelector('[data-nf]'), null, 'e a linha já não está na tela')
   await act(async () => { root.unmount() })
 })

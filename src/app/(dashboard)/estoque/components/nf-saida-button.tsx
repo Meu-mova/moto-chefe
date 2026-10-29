@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink, FileCheck, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -18,16 +18,33 @@ type Props = {
   /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
   gatilho?: (abrir: () => void) => React.ReactNode
   /**
-   * Sem o botão, só o diálogo. A linha do Showroom passa isto quando a moto deixa de
-   * aguardar NF (a nota autorizada na produção fatura a venda e o revalidatePath troca
-   * os botões): o diálogo continua montado e mostra a nota autorizada.
+   * Abre assim que monta e avisa quando fecha. O Showroom usa isto para manter o
+   * diálogo fora da linha: na produção a nota autorizada fatura a venda, o
+   * revalidatePath tira a moto vendida da lista, e o diálogo precisa continuar.
    */
-  semBotao?: boolean
+  abrirAoMontar?: boolean
+  onFechado?: () => void
+}
+
+/** O botão da linha que abre a NF de saída. */
+export function NfSaidaGatilho({ blingNfeId, onClick }: { blingNfeId?: string | null; onClick: () => void }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      className="h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10"
+      title="Emitir NF de saída"
+    >
+      <FileCheck size={14} />
+      {blingNfeId ? 'Confirmar NF' : 'NF Saída'}
+    </Button>
+  )
 }
 
 type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado' | 'propria'
 
-export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, semBotao }: Props) {
+export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoMontar, onFechado }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
 
   const [aberto, setAberto] = useState(false)
@@ -139,22 +156,17 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, semBotao
     })
   }
 
-  if (semBotao && !aberto) return null
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (abrirAoMontar) abrir() }, [])
+  const abriu = useRef(false)
+  useEffect(() => {
+    if (aberto) abriu.current = true
+    else if (abriu.current) onFechado?.()
+  }, [aberto, onFechado])
 
   return (
     <>
-      {semBotao ? null : gatilho ? gatilho(abrir) : (
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={abrir}
-        className="h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10"
-        title="Emitir NF de saída"
-      >
-        <FileCheck size={14} />
-        {blingNfeId ? 'Confirmar NF' : 'NF Saída'}
-      </Button>
-      )}
+      {gatilho ? gatilho(abrir) : <NfSaidaGatilho blingNfeId={blingNfeId} onClick={abrir} />}
 
       <Dialog open={aberto} onOpenChange={fechar} disablePointerDismissal>
         <DialogContent
