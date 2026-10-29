@@ -4,6 +4,7 @@ import {
   categoriaEnum, contratosGrupo, grupos, lojas, modeloAjustes, modelos, motos, usuarios, vendas,
 } from '@/lib/db/schema'
 import { grupoEstaNaConta } from '@/lib/conta'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { montarHtmlDocumento, envolverDocumento, type DadosDocumento } from '@/lib/assinatura/documento'
 import { renderizarContratoGrupo, validarTextoContrato } from '@/lib/assinatura/contrato-grupo'
 
@@ -50,6 +51,17 @@ export async function listarContratosDoGrupo(
     .leftJoin(usuarios, eq(usuarios.id, contratosGrupo.criadoPor))
     .where(eq(contratosGrupo.grupoId, grupoId))
     .orderBy(contratosGrupo.categoria, desc(contratosGrupo.versao))
+}
+
+/**
+ * Categorias que a tela mostra: as dos modelos que a Conta do grupo usa (com o ajuste dela),
+ * e autopropelido sempre, porque é a que tem contrato padrão do MOVA.
+ */
+export async function categoriasDoGrupo(grupoId: string, exec: Executor = db): Promise<Categoria[]> {
+  const [g] = await exec.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
+  const daConta = g?.contaId ? (await listarModelosDaConta(g.contaId, exec)).map(m => m.categoria) : []
+  const usadas = new Set<Categoria>(['autopropelido', ...daConta])
+  return CATEGORIAS.filter(c => usadas.has(c))
 }
 
 export type ResultadoSalvar = { ok: true; versao: number } | { ok: false; erro: string }

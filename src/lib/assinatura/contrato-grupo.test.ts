@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  CAMPOS_CONTRATO, validarTextoContrato, renderizarContratoGrupo, valorPorExtenso,
+  CAMPOS_CONTRATO, colarNoTexto, textoColadoParaMarcacao, validarTextoContrato, renderizarContratoGrupo, valorPorExtenso,
 } from './contrato-grupo'
 import { ITENS_CARTILHA_BATERIA, type DadosDocumento } from './documento'
 
@@ -128,4 +128,46 @@ test('valor por extenso em reais e centavos', () => {
   assert.equal(valorPorExtenso('1.000.000,00'), 'um milhão de reais')
   assert.equal(valorPorExtenso('2.500.000,00'), 'dois milhões e quinhentos mil reais')
   assert.equal(valorPorExtenso('1.000.001,00'), 'um milhão e um reais')
+})
+
+test('colar do Word: marcadores viram "- " e linha toda em caixa alta vira título', () => {
+  const colado = [
+    'CONTRATO DE COMPRA E VENDA DE CICLOMOTOR ELÉTRICO',
+    '',
+    '',
+    'CLÁUSULA PRIMEIRA – O objeto é o veículo.',
+    '\t•\tNUNCA deixe a bateria carregando.',
+    '◦ Item de segundo nível',
+    '- Já marcado',
+    'ANEXO I',
+    'A MAIORIA DOS ACIDENTES COM BATERIAS OCORRE POR NEGLIGÊNCIA OU USO INCORRETO. SIGA CUIDADOSAMENTE ESTAS RECOMENDAÇÕES.',
+    '# Já é título',
+    '{cliente_nome}',
+  ].join('\r\n')
+  assert.equal(textoColadoParaMarcacao(colado), [
+    '# CONTRATO DE COMPRA E VENDA DE CICLOMOTOR ELÉTRICO',
+    '',
+    'CLÁUSULA PRIMEIRA – O objeto é o veículo.',
+    '- NUNCA deixe a bateria carregando.',
+    '- Item de segundo nível',
+    '- Já marcado',
+    '# ANEXO I',
+    // Parágrafo longo em caixa alta é aviso, não título.
+    'A MAIORIA DOS ACIDENTES COM BATERIAS OCORRE POR NEGLIGÊNCIA OU USO INCORRETO. SIGA CUIDADOSAMENTE ESTAS RECOMENDAÇÕES.',
+    '# Já é título',
+    '{cliente_nome}',
+  ].join('\n'))
+})
+
+test('colar várias linhas no meio de uma linha abre linhas próprias para o trecho colado', () => {
+  const texto = 'Cidade, {data}.\n## ANEXO I'
+  const fim = 'Cidade, {data}.'.length
+  const r = colarNoTexto(texto, fim, fim, '\r\nANEXO II\r\n\t•\tUm.')
+  assert.equal(r.texto, 'Cidade, {data}.\n# ANEXO II\n- Um.\n## ANEXO I')
+  assert.equal(r.cursor, 'Cidade, {data}.\n# ANEXO II\n- Um.'.length)
+})
+
+test('colar uma palavra no meio da frase não quebra a linha', () => {
+  const r = colarNoTexto('Preço de R$ .', 12, 12, '{valor}')
+  assert.deepEqual(r, { texto: 'Preço de R$ {valor}.', cursor: 19 })
 })
