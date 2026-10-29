@@ -179,3 +179,43 @@ export function valorPorExtenso(valor: string): string {
   const textoCentavos = `${inteiroPorExtenso(centavos)} ${centavos === 1 ? 'centavo' : 'centavos'}`
   return reais ? `${textoReais} e ${textoCentavos}` : textoCentavos
 }
+
+// Título colado do Word: linha curta, toda em caixa alta e sem ponto final. Parágrafo de
+// aviso em caixa alta (o "A MAIORIA DOS ACIDENTES..." da cartilha) fica como parágrafo.
+function pareceTitulo(l: string): boolean {
+  return l.length <= 80 && !/[.:;]$/.test(l) && /\p{Lu}/u.test(l) && l === l.toLocaleUpperCase('pt-BR')
+}
+
+/**
+ * Texto colado do Word → a marcação da tela: marcadores viram "- ", título vira "# ",
+ * linhas em branco repetidas viram uma. O sócio ajusta o que a regra errar.
+ */
+export function textoColadoParaMarcacao(colado: string): string {
+  const brutas = colado.replace(/\r\n?/g, '\n').split('\n')
+  // Palavra solta em caixa alta (CPF, MG) colada no meio da frase não é título.
+  const variasLinhas = brutas.filter(l => l.trim()).length > 1
+  const linhas = brutas.map(l => {
+    const t = l.trim()
+    // Travessão (–) fica de fora: no contrato ele separa título e texto da cláusula.
+    // "*" e "-" só com espaço depois: "**negrito**" não é marcador.
+    const item = /^(?:[•◦▪·●○■]\s*|[*-]\s+)(.*)$/u.exec(t)
+    if (item) return `- ${item[1].trim()}`
+    if (!t || t.startsWith('#') || t.startsWith('{')) return t
+    return variasLinhas && pareceTitulo(t) ? `# ${t}` : t
+  })
+  return linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/**
+ * Cola no cursor. Trecho de várias linhas ganha linhas próprias: sem isso o título colado
+ * grudava no fim do parágrafo de cima e deixava de ser título.
+ */
+export function colarNoTexto(texto: string, ini: number, fim: number, colado: string): { texto: string; cursor: number } {
+  const trecho = textoColadoParaMarcacao(colado)
+  const variasLinhas = trecho.includes('\n')
+  const antes = variasLinhas && ini > 0 && texto[ini - 1] !== '\n' ? '\n' : ''
+  const depois = variasLinhas && fim < texto.length && texto[fim] !== '\n' ? '\n' : ''
+  // O cursor fica no fim do trecho colado, antes da quebra que separa o resto da linha.
+  const cursor = ini + antes.length + trecho.length
+  return { texto: texto.slice(0, ini) + antes + trecho + depois + texto.slice(fim), cursor }
+}
