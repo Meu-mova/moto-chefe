@@ -198,11 +198,12 @@ test('a tela lista autopropelido e as categorias dos modelos que a Conta usa', a
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11222333000181')
     const b = await semearConta(tx, 'B', '00000000000272')
-    // Modelo próprio de cada Conta: ciclomotor na A, triciclo na B.
+    // Modelo próprio de cada Conta: ciclomotor na A, triciclo na B. O da B não aparece para a A.
     await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id)
       values ('M', 'CG Ciclo A', 'ciclomotor', '1', 'h', '1', ${a.contaId}), ('M', 'CG Tri B', 'triciclo', '1', 'h', '1', ${b.contaId})`)
     const doA = await m.categoriasDoGrupo(a.grupoId, tx)
     assert.ok(doA.includes('autopropelido') && doA.includes('ciclomotor'))
+    assert.equal(doA.includes('triciclo'), false)
     assert.ok((await m.categoriasDoGrupo(b.grupoId, tx)).includes('triciclo'))
   })
 })

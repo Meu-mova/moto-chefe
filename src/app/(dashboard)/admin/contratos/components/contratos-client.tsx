@@ -156,7 +156,7 @@ export function ContratosClient({ categorias, versoes, podeEditar }: {
                   }}
                   aria-label="Texto do contrato"
                   className="h-[28rem] w-full resize-y rounded-lg border border-input bg-transparent p-3 font-mono text-xs leading-relaxed outline-none focus-visible:border-ring"
-                  placeholder={'# CONTRATO DE COMPRA E VENDA\n{comprador_qualificacao}\n**CLÁUSULA PRIMEIRA** – ...'}
+                  placeholder={'# CONTRATO DE COMPRA E VENDA\n{comprador_qualificacao}\n**CLÁUSULA PRIMEIRA**: o objeto deste contrato é...'}
                 />
                 <p className="text-xs text-muted-foreground">
                   # título · ## subtítulo · cada linha é um parágrafo · - item de lista · **negrito**
