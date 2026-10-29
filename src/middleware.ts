@@ -82,6 +82,7 @@ export async function middleware(request: NextRequest) {
 // `assinar` fora do matcher: é a rota pública de assinatura de documento, onde
 // quem entra é o cliente, sem conta no sistema. A credencial ali é o token do
 // link, não a sessão do Supabase.
+// `avaliar`: link da plaquinha NFC/QR de avaliação no Google — quem toca é o cliente.
 // `adesao`: página pública de adesão ao MOVA (formulário de dados da loja) — não exige login.
 // `.*\..*`: qualquer caminho COM extensão (arquivos de /public: .png, .svg…) sai
 // do matcher. Sem isso o middleware redireciona o arquivo pro /login — e o
@@ -89,5 +90,5 @@ export async function middleware(request: NextRequest) {
 // falha (a logo do MOVA na landing pública não carregava). Nenhuma rota
 // autenticada tem ponto no caminho, então é seguro.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar|adesao|.*\\..*).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|assinar|adesao|avaliar|.*\\..*).*)'],
 }
