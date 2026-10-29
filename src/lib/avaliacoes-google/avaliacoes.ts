@@ -369,35 +369,39 @@ export async function painelAvaliacoes(
 export async function registrarToque(
   codigo: string,
   origem: 'nfc' | 'qr',
-  exec: Executor = db,
+  exec: Pick<typeof db, 'transaction'> = db,
   agora: Date = new Date(),
 ): Promise<string | null> {
   if (!codigoPlacaValido(codigo)) return null
-  const [placa] = await exec.select({
-    id: avaliacoesGooglePlacas.id, lojaId: avaliacoesGooglePlacas.lojaId, grupoId: avaliacoesGooglePlacas.grupoId,
-    usuarioId: avaliacoesGooglePlacas.usuarioId, ativa: avaliacoesGooglePlacas.ativa, placeId: avaliacoesGoogleLojas.placeId,
-  })
-    .from(avaliacoesGooglePlacas)
-    .innerJoin(avaliacoesGoogleLojas, and(
-      eq(avaliacoesGoogleLojas.lojaId, avaliacoesGooglePlacas.lojaId),
-      eq(avaliacoesGoogleLojas.grupoId, avaliacoesGooglePlacas.grupoId),
-    ))
-    .where(eq(avaliacoesGooglePlacas.codigo, codigo)).limit(1)
-  if (!placa?.placeId) return null
-  if (placa.ativa) {
-    // A rota é pública: sem este limite, um script inflava o contador da placa à vontade.
-    const [recente] = await exec.select({ id: avaliacoesGoogleToques.id }).from(avaliacoesGoogleToques)
-      .where(and(
-        eq(avaliacoesGoogleToques.placaId, placa.id),
-        gt(avaliacoesGoogleToques.criadoEm, new Date(agora.getTime() - 60_000)),
-      )).limit(1)
-    if (!recente) {
-      await exec.insert(avaliacoesGoogleToques).values({
-        placaId: placa.id, lojaId: placa.lojaId, grupoId: placa.grupoId, usuarioId: placa.usuarioId, origem, criadoEm: agora,
-      })
+  return exec.transaction(async tx => {
+    const [placa] = await tx.select({
+      id: avaliacoesGooglePlacas.id, lojaId: avaliacoesGooglePlacas.lojaId, grupoId: avaliacoesGooglePlacas.grupoId,
+      usuarioId: avaliacoesGooglePlacas.usuarioId, ativa: avaliacoesGooglePlacas.ativa, placeId: avaliacoesGoogleLojas.placeId,
+    })
+      .from(avaliacoesGooglePlacas)
+      .innerJoin(avaliacoesGoogleLojas, and(
+        eq(avaliacoesGoogleLojas.lojaId, avaliacoesGooglePlacas.lojaId),
+        eq(avaliacoesGoogleLojas.grupoId, avaliacoesGooglePlacas.grupoId),
+      ))
+      .where(eq(avaliacoesGooglePlacas.codigo, codigo)).limit(1)
+      // Trava a placa: toques simultâneos esperam aqui, e o limite de 60 s vê o anterior.
+      .for('update', { of: avaliacoesGooglePlacas })
+    if (!placa?.placeId) return null
+    if (placa.ativa) {
+      // A rota é pública: sem este limite, um script inflava o contador da placa à vontade.
+      const [recente] = await tx.select({ id: avaliacoesGoogleToques.id }).from(avaliacoesGoogleToques)
+        .where(and(
+          eq(avaliacoesGoogleToques.placaId, placa.id),
+          gt(avaliacoesGoogleToques.criadoEm, new Date(agora.getTime() - 60_000)),
+        )).limit(1)
+      if (!recente) {
+        await tx.insert(avaliacoesGoogleToques).values({
+          placaId: placa.id, lojaId: placa.lojaId, grupoId: placa.grupoId, usuarioId: placa.usuarioId, origem, criadoEm: agora,
+        })
+      }
     }
-  }
-  return linkEscreverAvaliacao(placa.placeId)
+    return linkEscreverAvaliacao(placa.placeId)
+  })
 }
 
 /**

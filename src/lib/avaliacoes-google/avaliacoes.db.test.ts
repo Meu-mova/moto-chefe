@@ -401,3 +401,38 @@ test('"Atualizar agora" conta a tentativa: chave errada não chama o Google de n
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('toques simultâneos na mesma placa contam 1 por janela de 60 s (gravados de verdade, sem transação de fora)', async () => {
+  const grupoId = crypto.randomUUID()
+  const lojaId = crypto.randomUUID()
+  const placaId = crypto.randomUUID()
+  const contaId = crypto.randomUUID()
+  const codigo = Array.from({ length: 10 }, () => 'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 31)]).join('')
+  try {
+    await db.execute(sql`insert into contas (id, nome) values (${contaId}, 'Conta paralela')`)
+    await db.execute(sql`insert into grupos (id, nome, cnpj, conta_id)
+      values (${grupoId}, 'Grupo paralelo', ${String(Date.now()).padStart(14, '9').slice(-14)}, ${contaId})`)
+    await db.execute(sql`insert into lojas (id, nome, cidade, endereco, grupo_id) values (${lojaId}, 'Loja P', 'X', 'Rua P', ${grupoId})`)
+    await db.execute(sql`insert into avaliacoes_google_lojas (loja_id, grupo_id, place_id) values (${lojaId}, ${grupoId}, ${PLACE_A})`)
+    await db.execute(sql`insert into avaliacoes_google_placas (id, grupo_id, loja_id, codigo) values (${placaId}, ${grupoId}, ${lojaId}, ${codigo})`)
+
+    // Várias rodadas de 10 toques juntos (o tamanho do pool), cada uma 61 s depois da outra.
+    const rodadas = 20
+    const base = Date.now() - rodadas * 61_000
+    for (let r = 0; r < rodadas; r++) {
+      const agora = new Date(base + r * 61_000)
+      const links = await Promise.all(Array.from({ length: 10 }, () => m.registrarToque(codigo, 'nfc', db, agora)))
+      assert.ok(links.every(l => l === `https://search.google.com/local/writereview?placeid=${PLACE_A}`))
+    }
+    const { rows: [{ n }] } = (await db.execute(
+      sql`select count(*)::int as n from avaliacoes_google_toques where placa_id = ${placaId}`)) as unknown as { rows: { n: number }[] }
+    assert.equal(n, rodadas)
+  } finally {
+    await db.execute(sql`delete from avaliacoes_google_toques where placa_id = ${placaId}`)
+    await db.execute(sql`delete from avaliacoes_google_placas where id = ${placaId}`)
+    await db.execute(sql`delete from avaliacoes_google_lojas where loja_id = ${lojaId}`)
+    await db.execute(sql`delete from lojas where id = ${lojaId}`)
+    await db.execute(sql`delete from grupos where id = ${grupoId}`)
+    await db.execute(sql`delete from contas where id = ${contaId}`)
+  }
+})
