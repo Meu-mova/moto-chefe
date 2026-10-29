@@ -23,3 +23,12 @@ test('mesmo nome em marcas diferentes fica separado', () => {
   const r = agruparPorModelo([moto('X12', 'C1', 'MotoChefe'), moto('X12', 'C2', 'Outra')], null)
   assert.equal(r.grupos.length, 2)
 })
+
+test('moto sem preço de compra não vira R$ 0 calado: conta quantas ficaram fora da soma', () => {
+  const precos = new Map<string, string | null>([['C1', '5200'], ['C2', null]])
+  const r = agruparPorModelo([moto('GIGA', 'C1'), moto('GIGA', 'C2'), moto('X12', 'C3')], precos)
+  assert.equal(r.comValores, true)
+  assert.deepEqual(r.grupos.map(g => [g.modelo, g.subtotal, g.semPreco]), [['GIGA', 5200, 1], ['X12', 0, 1]])
+  assert.equal(r.grupos[0].motos[1].preco, null)
+  assert.deepEqual([r.total, r.semPreco], [5200, 2])
+})

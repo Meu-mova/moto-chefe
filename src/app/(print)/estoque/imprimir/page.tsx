@@ -10,6 +10,7 @@ import { disponibilidadeLabel, statusLabel_legado } from '@/lib/estado-moto'
 import { PrintButtons } from '../../relatorio-fabrica/imprimir/print-buttons'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const foraDaSoma = (n: number) => n === 1 ? '(1 moto sem preço não somada)' : `(${n} motos sem preço não somadas)`
 
 
 export default async function EstoqueImprimirPage({ searchParams }: { searchParams: Promise<ParamsShowroom> }) {
@@ -27,7 +28,7 @@ export default async function EstoqueImprimirPage({ searchParams }: { searchPara
   const lista = await listarMotos({ ...filtros, contaId })
 
   const precos = await precosParaImpressao(usuario.papel, lista.map(m => m.id), filtros.lojaId)
-  const { grupos, quantidade, total } = agruparPorModelo(lista, precos)
+  const { grupos, quantidade, total, semPreco, comValores } = agruparPorModelo(lista, precos)
 
   const nomesLojas = lojasDoGrupo.filter(l => filtros.lojaId.includes(l.id)).map(l => l.nome)
   const ativos = [
@@ -87,7 +88,7 @@ export default async function EstoqueImprimirPage({ searchParams }: { searchPara
           <div key={`${g.marca}|${g.modelo}`} className="grupo">
             <h3>
               <span>{g.modelo}<span className="marca">{g.marca}</span> · {g.quantidade} {g.quantidade === 1 ? 'moto' : 'motos'}</span>
-              {g.subtotal !== null && <span>{fmt(g.subtotal)}</span>}
+              {g.subtotal !== null && <span>{fmt(g.subtotal)}{g.semPreco > 0 && <span className="marca">{foraDaSoma(g.semPreco)}</span>}</span>}
             </h3>
             <table>
               <tbody>
@@ -97,7 +98,7 @@ export default async function EstoqueImprimirPage({ searchParams }: { searchPara
                     <td className="mono">{m.chassi}</td>
                     <td>{statusLabel_legado[m.status] ?? m.status}</td>
                     <td>{m.lojaNome}</td>
-                    {m.preco !== null && <td className="num">{fmt(m.preco)}</td>}
+                    {comValores && <td className="num">{m.preco !== null ? fmt(m.preco) : <span className="marca">sem preço</span>}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -107,7 +108,7 @@ export default async function EstoqueImprimirPage({ searchParams }: { searchPara
 
         <div className="total">
           <span>{quantidade} {quantidade === 1 ? 'moto' : 'motos'}</span>
-          {total !== null && <span>Total de compra: {fmt(total)}</span>}
+          {total !== null && <span>Total de compra: {fmt(total)}{semPreco > 0 && <span className="marca">{foraDaSoma(semPreco)}</span>}</span>}
         </div>
       </div>
     </>
