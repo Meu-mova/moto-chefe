@@ -111,21 +111,20 @@ test('bloqueio ganha de liberação quando os dois marcam o mesmo item', () => {
   assert.ok(!ids(confuso).includes('marketing'))
 })
 
-test('Entrada: sócio e admin geral pelo papel; aux_adm e cargo só com o módulo liberado (#488)', () => {
+test('Entrada: só sócio e admin geral, nem liberada por pessoa nem por cargo (#488)', () => {
   assert.ok(acessaModulo(ADMIN_GERAL, 'entrada'))
   assert.ok(acessaModulo({ papel: 'admin_socio' }, 'entrada'))
   assert.ok(!acessaModulo({ papel: 'aux_adm' }, 'entrada'))
-  assert.ok(acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'))
-  assert.ok(!acessaModulo({ papel: 'cargo' }, 'entrada'))
-  assert.ok(acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'))
+  assert.ok(!acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'))
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'))
   assert.ok(!acessaModulo({ papel: 'admin_socio', modulosBloqueados: ['entrada'] }, 'entrada'))
   assert.ok(!acessaModulo({ papel: 'vendedor' }, 'entrada'))
+  assert.ok(!ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'))
 })
 
-test('Entrada pode ir para cargo e aparece no menu de quem tem o módulo (#488)', () => {
-  assert.ok(MODULOS_DE_CARGO.includes('entrada'))
-  assert.ok(ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'))
-  assert.ok(!ids({ papel: 'aux_adm' }).includes('entrada'))
+test('Entrada fora do que se libera por pessoa e por cargo (#488)', () => {
+  assert.ok(!MODULOS_DE_CARGO.includes('entrada'))
+  assert.ok(ITENS.find(i => i.id === 'entrada')?.soPeloPapel)
 })
 
 test('item oculto some do menu de todos os papéis, e o admin_geral ainda abre a rota', () => {
@@ -228,6 +227,6 @@ test('acessaModulo segue a mesma regra do menu, por id (#450)', () => {
   assert.ok(!acessaModulo({ papel: 'admin_geral' }, 'nao-existe'))
 })
 
-test('módulos liberados para cargo: clientes (#450) e entrada (#488)', () => {
-  assert.deepEqual(MODULOS_DE_CARGO, ['clientes', 'entrada'])
+test('módulos liberados para cargo: clientes (#450)', () => {
+  assert.deepEqual(MODULOS_DE_CARGO, ['clientes'])
 })

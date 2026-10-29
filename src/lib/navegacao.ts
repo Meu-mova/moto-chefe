@@ -102,8 +102,8 @@ export const ITENS: ItemNav[] = [
 
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
-  // aux_adm e cargo só com o módulo liberado pelo sócio (#488).
-  { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: ADMINS },
+  // Só sócio e admin geral: decisão do Luis, nem liberada por pessoa nem por cargo (#488).
+  { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: ADMINS, soPeloPapel: true },
   { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES, oculto: true },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
   { id: 'precificacao',   href: '/precificacao',   label: 'Precificação',      icon: Tag,           categoria: 'estoque',      papeis: ADMINS },
@@ -202,7 +202,7 @@ export function acessaModulo(usuario: UsuarioNav, id: string): boolean {
  * Módulos que um cargo da Conta pode receber (#449). Só entra aqui o módulo cujas ações já
  * aceitam o papel 'cargo' pelo acesso ao módulo, com teste; a lista cresce PR a PR.
  */
-export const MODULOS_DE_CARGO: string[] = ['clientes', 'entrada']
+export const MODULOS_DE_CARGO: string[] = ['clientes']
 
 /** O que quem gerencia cargos pode marcar: os liberados para cargo que ele mesmo vê. */
 export function modulosQuePodeDar(usuario: UsuarioNav, regras: RegrasProprias, liberados = MODULOS_DE_CARGO): string[] {
