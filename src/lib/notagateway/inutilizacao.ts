@@ -46,7 +46,8 @@ export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDa
     return { ok: false, erro: 'Esta nota não tem número gravado: não há o que inutilizar.' }
   }
   if (ehDenegada(nota) || ehDuplicidade(nota)) return { ok: false, erro: 'O número desta nota já foi usado na SEFAZ e não pode ser inutilizado.' }
-  const substituida = !!outraNotaVivaDaVenda && outraNotaVivaDaVenda.numero !== nota.numero
+  // Inteiro, não texto: "0974" e "974" são o mesmo número.
+  const substituida = !!outraNotaVivaDaVenda && Number(outraNotaVivaDaVenda.numero) !== numero
   if (nota.vendaId && !substituida) return { ok: false, erro: 'A venda desta nota continua ativa: corrija e reenvie a nota em vez de inutilizar o número.' }
   return { ok: true, serie: nota.serie.trim(), numero }
 }

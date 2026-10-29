@@ -37,6 +37,7 @@ test('elegível: rejeitada de venda ativa que já saiu em outra nota, com outro 
 test('não elegível: rejeitada de venda ativa, que ainda vai ser reenviada', () => {
   assert.equal(elegivelParaInutilizar({ ...negada, vendaId: 'v1' }, null).ok, false)
   assert.equal(elegivelParaInutilizar({ ...negada, vendaId: 'v1' }, { numero: '974' }).ok, false)
+  assert.equal(elegivelParaInutilizar({ ...negada, vendaId: 'v1' }, { numero: '0974' }).ok, false)
 })
 
 test('não elegível: sem número ou série gravados', () => {
