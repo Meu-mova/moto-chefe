@@ -5,7 +5,7 @@ import {
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
-  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History} from 'lucide-react'
+  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star} from 'lucide-react'
 
 // 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum.
 export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
@@ -126,6 +126,7 @@ export const ITENS: ItemNav[] = [
   { id: 'individual',     href: '/relatorios/individual', label: 'Desempenho Individual', icon: IdCard, categoria: 'gestao',    papeis: ADMINS },
   { id: 'metas',          href: '/admin/metas',    label: 'Metas',             icon: Target,        categoria: 'gestao',       papeis: GESTORES },
   { id: 'calendario',     href: '/calendario',     label: 'Calendário',        icon: CalendarRange, categoria: 'gestao',       papeis: BASICO },
+  { id: 'avaliacoes-google', href: '/admin/avaliacoes-google', label: 'Avaliações Google', icon: Star, categoria: 'gestao', papeis: ADMINS, soPeloPapel: true },
   { id: 'comunicados',    href: '/admin/comunicados', label: 'Comunicados',    icon: Megaphone,     categoria: 'gestao',       papeis: ADMINS },
   { id: 'veiculos-historico', href: '/admin/veiculos-historico', label: 'Histórico de Veículos', icon: FileText, categoria: 'gestao', papeis: ADMINS, oculto: true },
   { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER, oculto: true },

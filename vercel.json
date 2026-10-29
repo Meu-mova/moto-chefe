@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/notas-contador",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/avaliacoes-google",
+      "schedule": "0 10 * * *"
     }
   ]
 }
