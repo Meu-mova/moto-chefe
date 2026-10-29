@@ -8,10 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { corDoGrupo } from '@/lib/grupo-cores'
 import { BotaoTema } from '@/components/theme-provider'
 import { trocarGrupoAtivoAction } from './group-selector-actions'
+import type { BlocoDoSeletor } from '@/lib/blocos-seletor'
 
-type Grupo = { id: string; nome: string; cor: string | null }
-
-export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: string }) {
+export function GroupSwitcher({ blocos, ativoId }: { blocos: BlocoDoSeletor[]; ativoId: string }) {
+  const grupos = blocos.flatMap(b => b.grupos)
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selecionado, setSelecionado] = useState<string>(ativoId)
@@ -72,8 +72,11 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
             Escolha a empresa. Todos os novos lançamentos (caixa, entrada, vendas, despesas) passam a ser registrados nela.
           </p>
 
-          <div className="space-y-2 py-1">
-            {grupos.map(g => {
+          <div className="space-y-3 py-1">
+            {blocos.map((bloco, i) => (
+            <div key={bloco.titulo ?? i} className="space-y-2">
+            {bloco.titulo && <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{bloco.titulo}</p>}
+            {bloco.grupos.map(g => {
               const cor = corDoGrupo(g)
               const isAtivo = g.id === ativoId
               const isSel = g.id === selecionado
@@ -86,12 +89,17 @@ export function GroupSwitcher({ grupos, ativoId }: { grupos: Grupo[]; ativoId: s
                   }`}
                 >
                   <span className={`h-3.5 w-3.5 rounded-full shrink-0 ${cor.dot}`} />
-                  <span className="font-medium flex-1">{g.nome}</span>
+                  <span className="font-medium flex-1">
+                    {g.nome}
+                    {g.mostrarConta && g.contaNome && <span className="font-normal text-muted-foreground"> ({g.contaNome})</span>}
+                  </span>
                   {isAtivo && <span className="text-xs text-muted-foreground">Atual</span>}
                   {isSel && !isAtivo && <Check size={16} className="text-foreground" />}
                 </button>
               )
             })}
+            </div>
+            ))}
           </div>
 
           <DialogFooter>
