@@ -3,12 +3,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   OPCOES_COMBUSTIVEL, OPCOES_CONDICAO, OPCOES_CONDICAO_VIN, OPCOES_COR_DENATRAN, OPCOES_ESPECIE,
-  OPCOES_RESTRICAO, SUGESTOES_PINTURA, OPCOES_TIPO_OPERACAO, OPCOES_TIPO_VEICULO, type DadosRenave,
+  OPCOES_RESTRICAO, OPCOES_UNIDADE_POTENCIA, SUGESTOES_PINTURA, converterPotencia, OPCOES_TIPO_OPERACAO, OPCOES_TIPO_VEICULO, type DadosRenave,
 } from '@/lib/notagateway/veiculo'
 
 type Props = {
   dados: DadosRenave
   onChange: (atualizar: (prev: DadosRenave) => DadosRenave) => void
+}
+
+/** Equivalência e o que vai no XML. O leiaute descreve o pot em CV; a unidade é escolha da loja. */
+function dicaPotencia(valor: string, unidade: string): string {
+  const outra = unidade === 'W' ? 'CV' : 'W'
+  const eq = unidade === 'W' || unidade === 'CV' ? converterPotencia(valor, unidade, outra) : ''
+  const xml = valor.trim() ? `Vai na nota: ${valor.trim()} (${unidade || 'sem unidade'}).` : 'Até 4 caracteres.'
+  return eq ? `${xml} Equivale a ${eq} ${outra}.` : xml
 }
 
 /**
@@ -84,7 +92,30 @@ export function RenaveForm({ dados, onChange }: Props) {
         {opcoes('tipoVeiculo', 'Tipo de veículo', OPCOES_TIPO_VEICULO)}
         {opcoes('especie', 'Espécie', OPCOES_ESPECIE)}
         {opcoes('tipoCombustivel', 'Combustível', OPCOES_COMBUSTIVEL)}
-        {texto('potenciaMotor', 'Potência (CV)', { numerico: true, dica: 'Até 4 caracteres. 1000 W ≈ 1.36 CV.' })}
+        <div className="space-y-1">
+          <Label htmlFor="renave-potenciaMotor">Potência</Label>
+          <div className="flex gap-2">
+            <Input
+              id="renave-potenciaMotor"
+              value={dados.potenciaMotor}
+              onChange={set('potenciaMotor')}
+              inputMode="decimal"
+            />
+            <select
+              aria-label="Unidade da potência"
+              value={dados.unidadePotencia}
+              onChange={e => {
+                const para = e.target.value
+                onChange(prev => ({ ...prev, unidadePotencia: para, potenciaMotor: converterPotencia(prev.potenciaMotor, prev.unidadePotencia, para) || prev.potenciaMotor }))
+              }}
+              className="h-10 rounded-md border border-input bg-background px-2 text-base sm:text-sm"
+            >
+              {!OPCOES_UNIDADE_POTENCIA.some(([v]) => v === dados.unidadePotencia) && <option value={dados.unidadePotencia}>Escolha…</option>}
+              {OPCOES_UNIDADE_POTENCIA.map(([v]) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">{dicaPotencia(dados.potenciaMotor, dados.unidadePotencia)}</p>
+        </div>
         {texto('cilindradas', 'Cilindradas', { numerico: true, dica: 'Elétrico: 0.' })}
         {texto('pesoLiquido', 'Peso líquido (toneladas)', { numerico: true, placeholder: '0,0850', dica: '85 kg = 0,0850' })}
         {texto('pesoBruto', 'Peso bruto (toneladas)', { numerico: true, placeholder: '0,2350' })}

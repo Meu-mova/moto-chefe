@@ -69,6 +69,11 @@ export const OPCOES_RESTRICAO: [string, string][] = [
   ['Outras', '9 — Outras'],
 ]
 
+// pot (veicProd): o leiaute descreve o campo em CV, mas a nota da fábrica manda o valor
+// em watts (3000). Por decisão do Luis (29/10) a unidade é escolha da loja; o MOVA
+// sugere watts e mostra a conversão.
+export const OPCOES_UNIDADE_POTENCIA: [string, string][] = [['W', 'Watts (W)'], ['CV', 'Cavalo-vapor (CV)']]
+
 /** Código de 2 dígitos da tabela DENATRAN, para sugerir o cCor quando não há código da montadora. */
 const CODIGO_DENATRAN: Record<string, string> = Object.fromEntries(
   OPCOES_COR_DENATRAN.map(([v, l]) => [v, l.slice(0, 2)]),
@@ -82,6 +87,8 @@ export type DadosRenave = {
   corDescricao: string
   corDenatran: string
   potenciaMotor: string
+  /** Unidade em que `potenciaMotor` vai no XML: 'W' ou 'CV'. */
+  unidadePotencia: string
   cilindradas: string
   pesoLiquido: string
   pesoBruto: string
@@ -166,15 +173,44 @@ export function corDenatranSugerida(cor: string | null | undefined): string {
   return regras.find(([re]) => re.test(c))?.[1] ?? 'Fantasia'
 }
 
-/** "1000W", "1.000 W", "2kW" → CV com até 4 caracteres ("1.36"). Vazio quando não dá para ler. */
-export function potenciaCvSugerida(potenciaW: string | null | undefined): string {
+/** "1000W", "1.000 W", "2kW" → watts. null quando não dá para ler. */
+function lerWatts(potenciaW: string | null | undefined): number | null {
   const t = (potenciaW ?? '').toUpperCase().replace(/\s/g, '')
   const m = t.match(/^([\d.,]+)(KW|W)?/)
-  if (!m) return ''
+  if (!m) return null
   const n = Number(m[1].replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'))
-  if (!Number.isFinite(n) || n <= 0) return ''
-  const watts = m[2] === 'KW' ? n * 1000 : n
-  const cv = watts / 735.5
+  if (!Number.isFinite(n) || n <= 0) return null
+  return m[2] === 'KW' ? n * 1000 : n
+}
+
+const WATTS_POR_CV = 735.5
+
+/** Watts inteiros, até 4 caracteres como o campo pot. Vazio quando não cabe ou não dá para ler. */
+export function potenciaWSugerida(potenciaW: string | null | undefined): string {
+  const w = lerWatts(potenciaW)
+  if (w == null) return ''
+  const s = String(Math.round(w))
+  return s.length <= 4 ? s : ''
+}
+
+/** A potência do modelo na unidade escolhida. */
+export function potenciaNaUnidade(potenciaW: string | null | undefined, unidade: string): string {
+  return unidade === 'CV' ? potenciaCvSugerida(potenciaW) : unidade === 'W' ? potenciaWSugerida(potenciaW) : ''
+}
+
+/** Valor digitado numa unidade → o mesmo na outra ('' se não dá para ler). Para a tela trocar e mostrar a equivalência. */
+export function converterPotencia(valor: string, de: string, para: string): string {
+  if (de === para) return valor
+  const n = Number(valor.trim().replace(',', '.'))
+  if (!valor.trim() || !Number.isFinite(n) || n <= 0) return ''
+  return para === 'CV' ? potenciaCvSugerida(`${n}W`) : potenciaWSugerida(`${n * WATTS_POR_CV}W`)
+}
+
+/** "1000W", "1.000 W", "2kW" → CV com até 4 caracteres ("1.36"). Vazio quando não dá para ler. */
+export function potenciaCvSugerida(potenciaW: string | null | undefined): string {
+  const watts = lerWatts(potenciaW)
+  if (watts == null) return ''
+  const cv = watts / WATTS_POR_CV
   for (const casas of [2, 1, 0]) {
     const s = String(Number(cv.toFixed(casas)))
     if (s.length <= 4) return s
@@ -188,8 +224,8 @@ export function potenciaCvSugerida(potenciaW: string | null | undefined): string
  * uma venda financiada para a próxima moto.
  */
 const CAMPOS_DO_MODELO = [
-  'potenciaMotor', 'cilindradas', 'pesoLiquido', 'pesoBruto', 'tipoCombustivel',
-  'capacidadeMaximaTracao', 'distanciaEixos', 'tipoPintura', 'tipoVeiculo', 'especie', 'condicaoVin',
+  'potenciaMotor', 'unidadePotencia', 'cilindradas', 'pesoLiquido', 'pesoBruto', 'tipoCombustivel',
+  'capacidadeMaximaTracao', 'distanciaEixos', 'tipoVeiculo', 'especie', 'condicaoVin',
   'condicao', 'codigoMarcaModelo', 'lotacao',
 ] as const satisfies readonly (keyof DadosRenave)[]
 
@@ -206,6 +242,8 @@ export function sugestaoRenave(m: {
   potenciaW: string | null
   anoAtual: number
   anterior?: DadosRenave | null
+  /** tpPint da nota de entrada da moto. */
+  tpPintEntrada?: string | null
 }): DadosRenave {
   const chassi = normalizarChassi(m.chassi)
   const denatran = corDenatranSugerida(m.cor)
@@ -215,7 +253,8 @@ export function sugestaoRenave(m: {
     corCodigo: CODIGO_DENATRAN[denatran],
     corDescricao: (m.cor ?? '').trim().toUpperCase().slice(0, 40),
     corDenatran: denatran,
-    potenciaMotor: potenciaCvSugerida(m.potenciaW),
+    potenciaMotor: '',
+    unidadePotencia: '',
     cilindradas: '',
     pesoLiquido: '',
     pesoBruto: '',
@@ -236,9 +275,15 @@ export function sugestaoRenave(m: {
     lotacao: '',
     restricao: '',
   }
-  if (!m.anterior) return base
-  const herdado = Object.fromEntries(CAMPOS_DO_MODELO.map(k => [k, m.anterior![k]]))
-  return { ...base, ...herdado }
+  const s: DadosRenave = { ...base }
+  if (m.anterior) Object.assign(s, Object.fromEntries(CAMPOS_DO_MODELO.map(k => [k, m.anterior![k]])))
+  // Watts é a sugestão inicial (é o que a fábrica manda).
+  if (!s.unidadePotencia) s.unidadePotencia = 'W'
+  if (!m.anterior) s.potenciaMotor = potenciaNaUnidade(m.potenciaW, s.unidadePotencia)
+  // Pintura é da moto: vem da nota de entrada dela, não da moto anterior.
+  const pintEntrada = (m.tpPintEntrada ?? '').trim().toUpperCase()
+  if (pintEntrada.length === 1) s.tipoPintura = pintEntrada
+  return s
 }
 
 const valores = (opcoes: [string, string][]) => new Set(opcoes.map(([v]) => v))
@@ -297,7 +342,8 @@ export function validarRenave(d: DadosRenave): { ok: true; dados: DadosRenave } 
     corCodigo: txt(d.corCodigo, 4, 'Código da cor'),
     corDescricao: txt(d.corDescricao, 40, 'Descrição da cor'),
     corDenatran: opcao(d.corDenatran, OPCOES_COR_DENATRAN, 'Cor DENATRAN'),
-    potenciaMotor: txt(d.potenciaMotor.replace(',', '.'), 4, 'Potência (CV)'),
+    potenciaMotor: txt(d.potenciaMotor.replace(',', '.'), 4, 'Potência'),
+    unidadePotencia: opcao(d.unidadePotencia, OPCOES_UNIDADE_POTENCIA, 'Unidade da potência'),
     cilindradas: txt(d.cilindradas, 4, 'Cilindradas'),
     pesoLiquido: d.pesoLiquido.trim().replace(',', '.'),
     pesoBruto: d.pesoBruto.trim().replace(',', '.'),

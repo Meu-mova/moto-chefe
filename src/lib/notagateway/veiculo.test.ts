@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  chassiValidoRenave, conferirRenave, corDenatranSugerida, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
+  chassiValidoRenave, conferirRenave, converterPotencia, corDenatranSugerida, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
   sugestaoRenave, validarRenave, type DadosRenave,
 } from './veiculo'
 
@@ -13,7 +13,7 @@ const PREENCHIDO: DadosRenave = {
   corCodigo: '11',
   corDescricao: 'preta',
   corDenatran: 'Preta',
-  potenciaMotor: '1,36',
+  potenciaMotor: '1,36', unidadePotencia: 'CV',
   cilindradas: '0',
   pesoLiquido: '0,0850',
   pesoBruto: '0,2350',
@@ -171,4 +171,22 @@ test('conferirRenave: recusa ciclomotor sem dados ou com dado inválido, e passa
   assert.ok(!invalido.ok && invalido.error.startsWith('Dados do veículo (RENAVE):'))
   const ok = conferirRenave(true, PREENCHIDO)
   assert.ok(ok.ok && ok.dados)
+})
+
+test('pintura: vem da nota de entrada da moto; sem ela, a loja preenche', () => {
+  const base = { chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '1000W', anoAtual: 2026 }
+  assert.equal(sugestaoRenave({ ...base, tpPintEntrada: 'a' }).tipoPintura, 'A')
+  assert.equal(sugestaoRenave(base).tipoPintura, '')
+  assert.equal(sugestaoRenave({ ...base, anterior: { ...PREENCHIDO, tipoPintura: 'M' } }).tipoPintura, '', 'pintura não vem da moto anterior')
+})
+
+test('potência: watts é a sugestão inicial; a unidade escolhida é a que vai no XML', () => {
+  const s = sugestaoRenave({ chassi: CHASSI, cor: null, motor: null, potenciaW: '3000W', anoAtual: 2026 })
+  assert.equal(s.unidadePotencia, 'W')
+  assert.equal(s.potenciaMotor, '3000')
+  assert.equal(converterPotencia('3000', 'W', 'CV'), '4.08')
+  assert.equal(converterPotencia('1.36', 'CV', 'W'), '1000')
+  const v = validarRenave({ ...PREENCHIDO, potenciaMotor: '3000', unidadePotencia: 'W' })
+  assert.ok(v.ok && montarVeiculoNovo(v.dados).potenciaMotor === '3000')
+  assert.equal(validarRenave({ ...PREENCHIDO, unidadePotencia: '' }).ok, false)
 })

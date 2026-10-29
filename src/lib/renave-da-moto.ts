@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { lojas, motos, motosRenave, vendas } from '@/lib/db/schema'
+import { lojas, motos, motosFiscal, motosRenave, vendas } from '@/lib/db/schema'
 import { sugestaoRenave, type DadosRenave } from '@/lib/notagateway/veiculo'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 
@@ -20,6 +20,7 @@ export function renaveDaLinha(r: typeof motosRenave.$inferSelect): DadosRenave {
     corDescricao: r.corDescricao,
     corDenatran: r.corDenatran,
     potenciaMotor: r.potenciaMotor,
+    unidadePotencia: r.unidadePotencia,
     cilindradas: r.cilindradas,
     pesoLiquido: String(Number(r.pesoLiquido)),
     pesoBruto: String(Number(r.pesoBruto)),
@@ -64,7 +65,12 @@ export async function renaveParaEmissao(
     .where(and(eq(motos.modeloId, m.modeloId), eq(lojas.grupoId, m.grupoId)))
     .orderBy(desc(motosRenave.atualizadoEm))
     .limit(1)
-  return sugestaoRenave({ ...m, anterior: anterior ? renaveDaLinha(anterior.r) : null })
+  const [ficha] = await exec.select({ tpPint: motosFiscal.tpPint }).from(motosFiscal).where(eq(motosFiscal.motoId, m.motoId)).limit(1)
+  return sugestaoRenave({
+    ...m,
+    anterior: anterior ? renaveDaLinha(anterior.r) : null,
+    tpPintEntrada: ficha?.tpPint ?? null,
+  })
 }
 
 /**

@@ -45,6 +45,8 @@ export type FichaFiscal = {
   cstCofins: string
   /** `cClassTrib` do grupo IBSCBS — a classificação da reforma tributária. */
   classTribIbsCbs: string
+  /** `tpPint` do `veicProd` (J18), quando a nota traz o veículo. A NF de saída do ciclomotor repete. */
+  tpPint: string
 }
 
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
@@ -81,6 +83,7 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
       cstPis: tag(grupo(imposto, 'PIS'), 'CST'),
       cstCofins: tag(grupo(imposto, 'COFINS'), 'CST'),
       classTribIbsCbs: tag(grupo(imposto, 'IBSCBS'), 'cClassTrib'),
+      tpPint: tag(grupo(prod, 'veicProd'), 'tpPint'),
     })
   }
 

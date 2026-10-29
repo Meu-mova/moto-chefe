@@ -40,7 +40,7 @@ const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q
 
 const RENAVE: DadosRenave = {
   chassi: '9C2ABC1D2EF345678', tipoOperacao: 'VendaConcessionaria', corCodigo: '11', corDescricao: 'PRETA',
-  corDenatran: 'Preta', potenciaMotor: '1.36', cilindradas: '0', pesoLiquido: '0.085', pesoBruto: '0.235',
+  corDenatran: 'Preta', potenciaMotor: '1.36', unidadePotencia: 'CV', cilindradas: '0', pesoLiquido: '0.085', pesoBruto: '0.235',
   numeroSerie: 'EF345678', tipoCombustivel: '07', numeroMotor: 'MOTORA', capacidadeMaximaTracao: '0',
   distanciaEixos: '1300', anoModelo: '2026', anoFabricacao: '2026', tipoPintura: 'S', tipoVeiculo: '02',
   especie: 'Passageiro', condicaoVin: 'Normal', condicao: 'Acabado', codigoMarcaModelo: '777777', lotacao: '2',
@@ -126,5 +126,25 @@ test('a sugestão da primeira vez não herda o RENAVE do mesmo modelo de outra C
       select 'RV241-A2', ${modeloId}, loja_id, 'PRETA', '1', 'vendida' from motos where id = ${a.motoId} returning id`)
     const deA = await renaveParaEmissao({ ...base, motoId: outra.id, grupoId: a.grupoId }, tx)
     assert.equal(deA.codigoMarcaModelo, '777777')
+  })
+})
+
+test('a emissão sugere a pintura da nota de entrada da própria moto e a potência em watts', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const modeloId = await modeloCiclomotor(tx)
+    const a = await semearConta(tx, 'A', '00000000024106', modeloId)
+    const b = await semearConta(tx, 'B', '00000000024107', modeloId)
+    await linhas(tx, sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, tp_pint) values (${a.motoId}, '1', '87116000', 'A')`)
+    const base = { modeloId, chassi: '9C2ABC1D2EF999999', cor: 'PRETA', motor: 'M1', potenciaW: '3000', anoAtual: 2026 }
+    const deA = await renaveParaEmissao({ ...base, motoId: a.motoId, grupoId: a.grupoId }, tx)
+    assert.equal(deA.tipoPintura, 'A')
+    assert.equal(deA.unidadePotencia, 'W')
+    assert.equal(deA.potenciaMotor, '3000')
+    const deB = await renaveParaEmissao({ ...base, motoId: b.motoId, grupoId: b.grupoId }, tx)
+    assert.equal(deB.tipoPintura, '', 'a pintura da moto da A não vai para a B')
+
+    await gravarRenaveDaMoto(a.aux, a.motoId, { ...RENAVE, potenciaMotor: '3000', unidadePotencia: 'W' }, a.auxId, tx)
+    const [r] = await linhas(tx, sql`select unidade_potencia from motos_renave where moto_id = ${a.motoId}`)
+    assert.equal(r.unidade_potencia, 'W', 'a unidade escolhida fica junto do RENAVE da venda')
   })
 })
