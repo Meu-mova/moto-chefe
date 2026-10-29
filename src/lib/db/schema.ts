@@ -10,7 +10,7 @@ import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
-export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'])
+export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', 'admin_rede'])
 export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
 export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
 export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
@@ -2054,3 +2054,14 @@ export const avaliacoesGoogleToques = pgTable('avaliacoes_google_toques', {
   origem:    text('origem').$type<'nfc' | 'qr'>().notNull(),
   criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── Grupos liberados para admin_rede (#517) ─────────────────────────────────
+// Grupo de outra Conta que o admin_geral liberou. Revogar grava revogado_em; nunca apaga.
+export const gruposLiberados = pgTable('grupos_liberados', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  usuarioId:   uuid('usuario_id').notNull().references(() => usuarios.id),
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  liberadoPor: uuid('liberado_por').notNull().references(() => usuarios.id),
+  liberadoEm:  timestamp('liberado_em', { withTimezone: true }).notNull().defaultNow(),
+  revogadoEm:  timestamp('revogado_em', { withTimezone: true }),
+}, t => [uniqueIndex('grupos_liberados_vivo_key').on(t.usuarioId, t.grupoId).where(sql`revogado_em is null`)])
