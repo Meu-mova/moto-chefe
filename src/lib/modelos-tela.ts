@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contas, contaMarcas, modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
 import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { contaDoGrupoUsaBling } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -12,21 +13,25 @@ export async function carregarTelaModelos(
   quem: { adminGeral: true; contaId: null; grupoId: string } | { adminGeral: false; contaId: string; grupoId: string },
   exec: Executor = db,
 ) {
+  // Conta sem Bling não vê Cód. Bling nem Apelidos: nem busca (#476).
+  const usaBling = await contaDoGrupoUsaBling(quem.grupoId, exec)
   const [lista, codigos, apelidos, contasComMarcas] = await Promise.all([
     quem.adminGeral
-      ? exec.select().from(modelos).orderBy(modelos.marca)
-      : listarModelosDaConta(quem.contaId, exec),
-    exec.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
+      // O admin_geral vê o original; ajuste e ocultação são de cada Conta.
+      ? exec.select().from(modelos).orderBy(modelos.marca).then(l => l.map(m => ({ ...m, oculto: false, ajustado: false })))
+      // Com os ocultos: é aqui que o sócio volta a mostrá-los (#476).
+      : listarModelosDaConta(quem.contaId, exec, { incluirOcultos: true }),
+    !usaBling ? [] : exec.select({ modeloId: modeloBlingCodigos.modeloId, codigo: modeloBlingCodigos.codigo })
       .from(modeloBlingCodigos)
       .where(eq(modeloBlingCodigos.grupoId, quem.grupoId)),
-    quem.adminGeral
+    !usaBling ? [] : quem.adminGeral
       ? exec.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
         .from(modeloApelidos)
         .orderBy(modeloApelidos.apelido)
       : listarApelidosDaConta(quem.contaId, exec).then(l => l.map(a => ({ modeloId: a.modeloId, apelido: a.nome }))),
     quem.adminGeral ? listarContasComMarcas(exec) : null,
   ])
-  return { modelos: lista, codigos, apelidos, contas: contasComMarcas }
+  return { modelos: lista, codigos, apelidos, contas: contasComMarcas, usaBling }
 }
 
 async function listarContasComMarcas(exec: Executor) {

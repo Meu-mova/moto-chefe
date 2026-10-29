@@ -23,6 +23,7 @@ import { configDespesas } from '@/lib/queries/config-despesas'
 import { calcularResultadoPorLoja } from '@/lib/resultado-por-loja'
 import { despesaDaLojaFiltrada } from '@/lib/despesa-loja-filtrada'
 import { valorLiquidoExpr } from '@/lib/queries/valor-liquido'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { somaCustoMotoExpr, qtdSemCustoExpr } from '@/lib/queries/custo-moto'
 import { TriangleAlert } from 'lucide-react'
 
@@ -179,7 +180,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     db
       .select({
         marca: modelos.marca,
-        modelo: modelos.modelo,
+        modelo: nomeDoModeloNaLoja(vendas.lojaId),
         qtd: count(),
         totalLiquido: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
         totalCusto: sql<string>`${somaCustoMotoExpr()}`,
@@ -193,7 +194,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         lte(vendas.dataVenda, fimTs),
         lojaFiltroVendas,
       ))
-      .groupBy(modelos.marca, modelos.modelo),
+      .groupBy(modelos.marca, nomeDoModeloNaLoja(vendas.lojaId)),
 
     // Saídas do Importar do Banco no período (loja filtrada + as sem loja atribuída,
     // que são as despesas gerais da empresa). Essa é a base do card de despesas desde

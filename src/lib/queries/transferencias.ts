@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { transferencias, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, or, and, ilike, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -32,7 +33,7 @@ export async function listarTransferencias(filtros?: {
       chassi:             motos.chassi,
       motoStatus:         motos.status,
       cor:                motos.cor,
-      modelo:             modelos.modelo,
+      modelo:             nomeDoModeloNaLoja(transferencias.lojaOrigemId),
       modeloId:           motos.modeloId,
       lojaOrigemId:       transferencias.lojaOrigemId,
       lojaOrigemNome:     lojaOrigem.nome,
@@ -76,4 +77,18 @@ export async function listarTransferenciasPorLoja(lojaId: string) {
 
 export async function listarTodasTransferencias() {
   return listarTransferencias()
+}
+
+const STATUS_TRANSFERIVEIS = ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia'] as const
+
+type Executor = Pick<typeof db, 'select'>
+
+// Só das lojas pedidas, dentro da consulta: a lista vai inteira para o navegador.
+export async function listarMotosTransferiveis(lojaIds: string[], exec: Executor = db) {
+  if (!lojaIds.length) return []
+  return exec
+    .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: nomeDoModeloNaLoja(motos.lojaId), lojaId: motos.lojaId })
+    .from(motos)
+    .innerJoin(modelos, eq(motos.modeloId, modelos.id))
+    .where(and(inArray(motos.status, [...STATUS_TRANSFERIVEIS]), inArray(motos.lojaId, lojaIds)))
 }

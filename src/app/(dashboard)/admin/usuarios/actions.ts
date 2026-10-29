@@ -7,6 +7,7 @@ import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
+import { cargoParaGravar } from '@/lib/cargos'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
@@ -144,6 +145,7 @@ export async function criarUsuarioAction(dados: {
   gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
+  cargoId?: string | null
 }) {
   const admin = await gestorDaSessao()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
@@ -153,6 +155,8 @@ export async function criarUsuarioAction(dados: {
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
   await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+  const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
+  if (!cargo.ok) throw new Error(cargo.erro)
   const supabase = getAdminClient()
 
   const { data, error } = await supabase.auth.admin.createUser({
@@ -177,6 +181,7 @@ export async function criarUsuarioAction(dados: {
     gruposAcesso:            acesso.gruposAcesso,
     modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
     modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
+    cargoId: cargo.cargoId,
   })
   await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
 
@@ -195,6 +200,7 @@ export async function editarUsuarioAction(id: string, dados: {
   gruposAcesso: string[]
   modulosExtras: string[]
   modulosBloqueados: string[]
+  cargoId?: string | null
 }) {
   const admin = await gestorDaSessao()
   const atual = await cadastroAtual(id)
@@ -205,6 +211,8 @@ export async function editarUsuarioAction(id: string, dados: {
   const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
   const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
   await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+  const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
+  if (!cargo.ok) throw new Error(cargo.erro)
 
   // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
   // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
@@ -222,6 +230,7 @@ export async function editarUsuarioAction(id: string, dados: {
       gruposAcesso:            acesso.gruposAcesso,
       modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
       modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
+      cargoId: cargo.cargoId,
     }).where(eq(usuarios.id, id))
 
     if (dados.novaSenha?.trim()) {

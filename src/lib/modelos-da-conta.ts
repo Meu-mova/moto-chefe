@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, isNull, ne, notExists, or, sql } from 'drizzle-orm'
+import { type AnyColumn, and, asc, eq, getTableName, inArray, isNull, ne, not, notExists, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { contaMarcas, demandas, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
+import { contaMarcas, demandas, modeloAjustes, modeloApelidos, modeloBlingCodigos, modelos, motos } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
@@ -17,14 +17,103 @@ const daPlataformaOuDa = (coluna: typeof modelos.contaId | typeof modeloApelidos
 // tem de bater com `modelos.marca`.
 export const MARCAS_DA_CONTA_NOVA = ['MotoChefe']
 
-export async function listarModelosDaConta(contaId: string, exec: Executor = db) {
+// Valor visto pela Conta: o ajuste dela (#476) ou, sem ajuste, o original.
+const comAjuste = <T>(ajuste: unknown, original: unknown) => sql<T>`coalesce(${ajuste}, ${original})`
+
+export async function listarModelosDaConta(contaId: string, exec: Executor = db, { incluirOcultos = false } = {}) {
   const marcasDaConta = exec.select({ marca: contaMarcas.marca }).from(contaMarcas)
     .where(eq(contaMarcas.contaId, contaId))
   // O modelo da própria Conta aparece mesmo de marca fora da escolha: foi ela que cadastrou (#321).
   const daPlataformaNasMarcas = and(isNull(modelos.contaId), or(notExists(marcasDaConta), inArray(modelos.marca, marcasDaConta)))
-  return exec.select().from(modelos)
-    .where(or(daPlataformaNasMarcas, eq(modelos.contaId, contaId)))
-    .orderBy(asc(modelos.marca), asc(modelos.modelo))
+  const oculto = sql<boolean>`coalesce(${modeloAjustes.oculto}, false)`
+  const nome = comAjuste<string>(modeloAjustes.modelo, modelos.modelo)
+  return exec.select({
+    id: modelos.id,
+    marca: modelos.marca,
+    modelo: nome,
+    // A precificação casa pelo nome original (ver nomeDoModeloNaLoja).
+    modeloOriginal: modelos.modelo,
+    categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
+    potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
+    motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
+    velocidadeMax: comAjuste<string>(modeloAjustes.velocidadeMax, modelos.velocidadeMax),
+    precoCompraPadrao: comAjuste<string | null>(modeloAjustes.precoCompraPadrao, modelos.precoCompraPadrao),
+    imagemUrl: comAjuste<string | null>(modeloAjustes.imagemUrl, modelos.imagemUrl),
+    contaId: modelos.contaId,
+    oculto,
+    ajustado: sql<boolean>`(${modeloAjustes.modelo} is not null or ${modeloAjustes.categoria} is not null or ${modeloAjustes.potenciaW} is not null)`,
+  }).from(modelos)
+    // A Conta no join: o ajuste de outra Conta nunca entra.
+    .leftJoin(modeloAjustes, and(eq(modeloAjustes.modeloId, modelos.id), eq(modeloAjustes.contaId, contaId)))
+    .where(and(
+      or(daPlataformaNasMarcas, eq(modelos.contaId, contaId)),
+      incluirOcultos ? undefined : not(oculto),
+    ))
+    .orderBy(asc(modelos.marca), asc(nome))
+}
+
+// Nome do modelo para as consultas que mostram moto, venda, OS etc. (#476): o ajustado
+// pela Conta dona da loja do registro, ou o original. Recebe a coluna da loja da linha,
+// para nenhuma consulta precisar de parâmetro novo. Colunas qualificadas à mão: em
+// consulta sem join o Drizzle não qualifica e o nome casaria com as tabelas de dentro.
+// Não aceita coluna de alias(): getTableName devolve a tabela real e a subconsulta
+// apontaria para ela sem erro. Ficam com o original de propósito: fiscal (NF própria e
+// do Bling, export contábil), precificação (casa pelo nome), relatório da fábrica e
+// admin/acoes.
+export function nomeDoModeloNaLoja(lojaId: AnyColumn) {
+  return nomeDoModeloSql('"modelos"', `"${getTableName(lojaId.table)}"."${lojaId.name}"`)
+}
+
+// Para SQL escrito à mão, com alias: nomeDoModeloSql('mo', 'v.loja_id'). Vai cru para o
+// SQL: só literais do código, nunca entrada do usuário.
+export function nomeDoModeloSql(modelos: string, lojaId: string) {
+  return sql<string>`coalesce((
+    select ma.modelo from modelo_ajustes ma
+      join grupos g on g.conta_id = ma.conta_id
+      join lojas l on l.grupo_id = g.id
+     where ma.modelo_id = ${sql.raw(`${modelos}.id`)} and l.id = ${sql.raw(lojaId)}
+  ), ${sql.raw(`${modelos}.modelo`)})`
+}
+
+type Escritor = Pick<typeof db, 'select' | 'insert' | 'update'>
+
+// Só modelo da plataforma se ajusta; o da Conta se edita. Id de modelo de outra Conta
+// recebe a mesma frase de id inexistente.
+async function exigirDaPlataforma(modeloId: string, exec: Executor) {
+  const [modelo] = await exec.select({ modelo: modelos.modelo, categoria: modelos.categoria, potenciaW: modelos.potenciaW })
+    .from(modelos).where(and(eq(modelos.id, modeloId), isNull(modelos.contaId))).limit(1)
+  if (!modelo) throw new Error('Modelo não encontrado')
+  return modelo
+}
+
+type CamposAjustaveis = Pick<typeof modeloAjustes.$inferInsert, 'modelo' | 'categoria' | 'potenciaW'>
+
+async function gravarAjuste(contaId: string, modeloId: string, set: Partial<typeof modeloAjustes.$inferInsert>, exec: Escritor) {
+  await exigirDaPlataforma(modeloId, exec)
+  await exec.insert(modeloAjustes)
+    .values({ contaId, modeloId, ...set })
+    .onConflictDoUpdate({
+      target: [modeloAjustes.contaId, modeloAjustes.modeloId],
+      set: { ...set, atualizadoEm: new Date() },
+      setWhere: eq(modeloAjustes.contaId, contaId),
+    })
+}
+
+// Campo igual ao original grava nulo: fica da Conta só o que ela mudou, e o resto
+// acompanha as correções da plataforma.
+export async function salvarAjusteDoModelo(contaId: string, modeloId: string, campos: CamposAjustaveis, exec: Escritor = db) {
+  const original = await exigirDaPlataforma(modeloId, exec)
+  const seMudou = <K extends keyof CamposAjustaveis>(k: K) => (campos[k] === original[k] ? null : campos[k])
+  await gravarAjuste(contaId, modeloId, { modelo: seMudou('modelo'), categoria: seMudou('categoria'), potenciaW: seMudou('potenciaW') }, exec)
+}
+
+export async function ocultarModelo(contaId: string, modeloId: string, oculto: boolean, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, { oculto }, exec)
+}
+
+// Volta os valores aos da plataforma; ocultar e mostrar são à parte.
+export async function voltarAoOriginal(contaId: string, modeloId: string, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, { modelo: null, categoria: null, potenciaW: null }, exec)
 }
 
 // Apelidos que as notas usam ("DRIFT" para DRIFT CAR): os da plataforma e os da Conta.

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { lojas, modelos, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { enviarAlertaWhatsapp } from './client'
@@ -51,7 +52,7 @@ export async function notificarVendaWhatsapp(params: {
       .select({
         loja:     lojas.nome,
         marca:    modelos.marca,
-        modelo:   modelos.modelo,
+        modelo:   nomeDoModeloNaLoja(lojas.id),
         vendedor: usuarios.nome,
       })
       .from(lojas)

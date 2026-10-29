@@ -123,6 +123,7 @@ export async function dreDoMes(opts: {
       .groupBy(vendasPecas.lojaId),
 
     // Taxa de cartão de OS e peça, por loja. A de moto sai de bruto − líquido.
+    // O filtro de loja fica no SQL: sem ele a consulta lê a taxa de todas as Contas.
     execRows(sql`
       SELECT loja_id,
              COALESCE(SUM(taxa), 0)::text AS taxa
@@ -133,6 +134,7 @@ export async function dreDoMes(opts: {
             JOIN ${ordensServico} o ON o.id = c.os_id
            WHERE c.conciliado = true
              AND o.status = 'concluida'
+             AND o.loja_id = ANY(${sql.param(lojaIds)}::uuid[])
              AND o.data_conclusao >= ${inicio.toISOString()} AND o.data_conclusao < ${fim.toISOString()}
           UNION ALL
           SELECT p.loja_id,
@@ -140,6 +142,7 @@ export async function dreDoMes(opts: {
             FROM ${conciliacoesCartao} c
             JOIN ${vendasPecas} p ON p.id = c.peca_venda_id
            WHERE c.conciliado = true
+             AND p.loja_id = ANY(${sql.param(lojaIds)}::uuid[])
              AND p.data_venda >= ${inicio.toISOString()} AND p.data_venda < ${fim.toISOString()}
         ) t
        GROUP BY loja_id
@@ -264,6 +267,7 @@ export async function dreEvolucao(opts: {
       ))
       .groupBy(sql`1`),
 
+    // O filtro de loja fica no SQL: sem ele a consulta lê a taxa de todas as Contas.
     execRows(sql`
       SELECT to_char(data AT TIME ZONE 'UTC', 'YYYY-FMMM') AS mes,
              COALESCE(SUM(taxa), 0)::text AS taxa
@@ -273,6 +277,7 @@ export async function dreEvolucao(opts: {
             FROM ${conciliacoesCartao} c
             JOIN ${ordensServico} o ON o.id = c.os_id
            WHERE c.conciliado = true AND o.status = 'concluida'
+             AND o.loja_id = ANY(${sql.param(lojaIds)}::uuid[])
              AND o.data_conclusao >= ${inicio.toISOString()} AND o.data_conclusao < ${fim.toISOString()}
           UNION ALL
           SELECT p.data_venda AS data,
@@ -280,6 +285,7 @@ export async function dreEvolucao(opts: {
             FROM ${conciliacoesCartao} c
             JOIN ${vendasPecas} p ON p.id = c.peca_venda_id
            WHERE c.conciliado = true
+             AND p.loja_id = ANY(${sql.param(lojaIds)}::uuid[])
              AND p.data_venda >= ${inicio.toISOString()} AND p.data_venda < ${fim.toISOString()}
         ) t
        GROUP BY 1

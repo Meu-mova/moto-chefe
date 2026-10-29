@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { reservas, motos, modelos, lojas, grupos, usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
@@ -16,7 +17,7 @@ export async function buscarReserva(id: string) {
       lojaNome: lojas.nome,
       grupoNome: grupos.nome,
       marca: modelos.marca,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(reservas.lojaId),
       cor: motos.cor,
       chassi: motos.chassi,
       vendedorNome: usuarios.nome,

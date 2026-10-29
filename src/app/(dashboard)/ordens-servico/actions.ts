@@ -14,7 +14,7 @@ import { PAPEIS_CANCELAM_OS, motivoBloqueioCancelamento } from '@/lib/os-cancela
 import { GESTORES, podeAvancarOS } from '@/lib/os-transicao'
 import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
-import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
+import { aplicarPagamentoOS, conferirMaquininhasDaOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 import {
   TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom, motivoCupomInvalido,
@@ -214,6 +214,7 @@ async function registrarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
   const { usuario } = await verificarAcessoOS(osId, GESTORES)
 
   await validarCupomDoPagamento(usuario, osId, dados.pagamentos)
+  await conferirMaquininhasDaOS(db, osId, dados.pagamentos)
 
   const somatorio = dados.pagamentos.reduce((a, p) => a + (Number(p.valor) || 0), 0)
   if (dados.valorTotal >= 0.01 && Math.abs(somatorio - dados.valorTotal) > 0.01) {

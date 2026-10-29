@@ -202,3 +202,58 @@ test('mesmo item ligado a outra peça da Conta: o vínculo passa a apontar para 
     assert.deepEqual(vinculos, [{ peca_id: outra.id }])
   })
 })
+
+// --- Leituras da conferência (#427) ---
+
+test('conferência: a Conta A vê só as peças dela, com a sugestão do vínculo e o aviso de nota já lançada', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+
+    const c = await entrada.carregarConferencia(tx, a.usuario, a.lojaId, {
+      ...NOTA, itens: [{ codigo: CAPACETE.codigo, nomeXml: CAPACETE.nomeXml }, { codigo: 'X', nomeXml: 'SEM VINCULO' }],
+    })
+    assert.ok(c)
+    assert.deepEqual(c.pecas.map(p => p.id), [a.pecaId])
+    assert.deepEqual(c.sugestoes, [a.pecaId, null])
+    assert.equal(c.notaJaLancada?.por, 'Aux')
+  })
+})
+
+test('conferência: a Conta B não recebe sugestão, peça nem aviso de nota da Conta A', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: NOTA, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+
+    const c = await entrada.carregarConferencia(tx, b.usuario, b.lojaId, { ...NOTA, itens: [{ codigo: CAPACETE.codigo, nomeXml: CAPACETE.nomeXml }] })
+    assert.ok(c)
+    assert.deepEqual(c.pecas.map(p => p.id), [b.pecaId])
+    assert.deepEqual(c.sugestoes, [null])
+    assert.equal(c.notaJaLancada, null)
+  })
+})
+
+test('conferência: aux_adm da Conta B não abre a conferência da loja da Conta A', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    assert.equal(await entrada.carregarConferencia(tx, b.usuario, a.lojaId, { ...NOTA, itens: [] }), null)
+  })
+})
+
+test('conferência: nota que só entrou pelas motos avisa pelo número na própria Conta, e a Conta B não vê', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', 'EP427', 'autopropelido', '1000', 'hub', '32') returning id`)
+    const [m] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, status, cor, nota_fiscal_entrada, preco_compra)
+      values ('EP427CHA', ${modelo.id}, ${a.lojaId}, 'caixa', 'PRETO', ${NOTA.numero}, '1') returning id`)
+    await tx.execute(sql`insert into historico_estoque (moto_id, loja_destino_id, usuario_id, tipo, status_novo) values (${m.id}, ${a.lojaId}, ${a.usuario.id}, 'entrada', 'caixa')`)
+
+    const daA = await entrada.carregarConferencia(tx, a.usuario, a.lojaId, { ...NOTA, itens: [] })
+    assert.equal(daA?.notaJaLancada?.soPeloNumero, true)
+    const daB = await entrada.carregarConferencia(tx, b.usuario, b.lojaId, { ...NOTA, itens: [] })
+    assert.equal(daB?.notaJaLancada, null)
+  })
+})

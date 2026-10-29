@@ -1,13 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { listarTransferencias } from '@/lib/queries/transferencias'
-import { listarLojasAtivasDaConta } from '@/lib/conta'
+import { listarTransferencias, listarMotosTransferiveis } from '@/lib/queries/transferencias'
+import { listarLojasAtivasDaConta, lojasDaConta } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
-import { db } from '@/lib/db'
-import { motos, modelos } from '@/lib/db/schema'
-import { eq, inArray, and } from 'drizzle-orm'
 import { TransferenciaCard } from './components/transferencia-card'
 import { SolicitarDialog } from './components/solicitar-dialog'
 import { TransferenciasFiltros } from './components/transferencias-filtros'
@@ -53,20 +50,12 @@ export default async function TransferenciasPage({
     }),
     listarLojasDoGrupoAtivo(usuario),
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
-    db
-      .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: modelos.modelo, lojaId: motos.lojaId })
-      .from(motos)
-      .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(
-        acessoMultiGrupo
-          ? inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia'])
-          : isAdmin
-            ? and(
-                inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
-                inArray(motos.lojaId, lojaIdsGrupo),
-              )
-            : inArray(motos.status, ['caixa', 'faturada', 'montada', 'disponivel', 'reservada', 'em_garantia']),
-      ),
+    // Quem não é admin só solicita da própria loja; o admin, do grupo ativo; a
+    // exceção entre grupos, das lojas da Conta.
+    (acessoMultiGrupo
+      ? contaDoGrupoAtivo(usuario).then(c => lojasDaConta(c)).then(rs => rs.map(r => r.id))
+      : Promise.resolve(isAdmin ? lojaIdsGrupo : usuario.lojaId ? [usuario.lojaId] : [])
+    ).then(ids => listarMotosTransferiveis(ids)),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
   ])
 

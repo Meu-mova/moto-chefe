@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { ordensServico, osItens, motos, lojas, grupos, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
 import { eq, desc, and, or, ilike, inArray, sql, gte, lte } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -66,7 +67,7 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     chassi:              motos.chassi,
     cor:                 motos.cor,
     marca:               modelos.marca,
-    modelo:              modelos.modelo,
+    modelo:              nomeDoModeloNaLoja(ordensServico.lojaId),
     lojaNome:            lojas.nome,
     abertaPorNome:       usuarios.nome,
     mecanicoNome:        mecanico.nome,

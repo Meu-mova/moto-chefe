@@ -1,3 +1,4 @@
+import { maquininhasDoGrupo } from '@/lib/maquininhas'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, desc, and, isNull, isNotNull, inArray, gte, sql } from 'drizzle-orm'
@@ -114,7 +115,7 @@ export default async function ConciliacaoPage({
             {totalPendentes} pendente{totalPendentes !== 1 ? 's' : ''} · {totalConciliadas} conciliada{totalConciliadas !== 1 ? 's' : ''}
           </p>
         </div>
-        <UploadRelatorio />
+        <UploadRelatorio maquininhas={await maquininhasDoGrupo(db, grupo.id)} />
       </div>
 
       {/* Filtros */}
