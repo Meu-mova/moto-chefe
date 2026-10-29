@@ -174,7 +174,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoM
           // Emissão pelo MOVA: altura fixa, para as etapas do ciclomotor não mudarem o tamanho a cada passo.
           className={cn(
             'flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0',
-            etapa === 'propria' && 'sm:h-[90vh]',
+            etapa === 'propria' && 'sm:h-[90vh] sm:max-w-2xl',
           )}
         >
           <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">

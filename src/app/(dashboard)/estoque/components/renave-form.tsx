@@ -66,7 +66,8 @@ export function RenaveForm({ dados, origem, parte, onChange }: Props) {
           {extra.sugestoes.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </datalist>
       )}
-      {extra?.dica && <p className="text-xs text-muted-foreground">{extra.dica}</p>}
+      {/* Dica só no campo vazio: com o valor preenchido ela só ocupa espaço (o passo precisa caber sem rolar). */}
+      {extra?.dica && vazio(campo) && <p className="text-xs text-muted-foreground">{extra.dica}</p>}
     </div>
   )
 
@@ -99,9 +100,9 @@ export function RenaveForm({ dados, origem, parte, onChange }: Props) {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={cn('grid gap-3 sm:grid-cols-2', parte === 'modelo' && 'sm:grid-cols-3')}>
         {mostra('moto') && <>
-        <p className="text-sm font-medium sm:col-span-2">Desta moto</p>
+        <p className="text-sm font-medium sm:col-span-full">Desta moto</p>
         {texto('chassi', 'Chassi', { dica: '17 letras e números. Corrige só a nota, não o cadastro.' })}
         {texto('numeroMotor', 'Número do motor')}
         {texto('numeroSerie', 'Número de série', { dica: 'Até 9 caracteres.' })}
@@ -115,8 +116,8 @@ export function RenaveForm({ dados, origem, parte, onChange }: Props) {
         </>}
 
         {mostra('modelo') && <>
-        <p className="pt-2 text-sm font-medium sm:col-span-2">Do modelo</p>
-        {texto('codigoMarcaModelo', 'Código marca/modelo RENAVAM', { numerico: true, placeholder: '143402', dica: 'Até 6 dígitos, da tabela RENAVAM.' })}
+        <p className="pt-2 text-sm font-medium sm:col-span-full">Do modelo</p>
+        {texto('codigoMarcaModelo', 'Cód. marca/modelo RENAVAM', { numerico: true, placeholder: '143402', dica: 'Até 6 dígitos, da tabela RENAVAM.' })}
         {opcoes('tipoVeiculo', 'Tipo de veículo', OPCOES_TIPO_VEICULO)}
         {opcoes('especie', 'Espécie', OPCOES_ESPECIE)}
         {opcoes('tipoCombustivel', 'Combustível', OPCOES_COMBUSTIVEL)}
@@ -141,22 +142,22 @@ export function RenaveForm({ dados, origem, parte, onChange }: Props) {
               className={cn('h-10 rounded-md border border-input bg-background px-2 text-base sm:text-sm', vazio('unidadePotencia') && 'border-destructive')}
             >
               {!OPCOES_UNIDADE_POTENCIA.some(([v]) => v === dados.unidadePotencia) && <option value={dados.unidadePotencia}>Escolha…</option>}
-              {OPCOES_UNIDADE_POTENCIA.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {OPCOES_UNIDADE_POTENCIA.map(([v, l]) => <option key={v} value={v} title={l}>{v}</option>)}
             </select>
           </div>
           <p className="text-xs text-muted-foreground">{dicaPotencia(dados.potenciaMotor, dados.unidadePotencia)}</p>
         </div>
         {texto('cilindradas', 'Cilindradas', { numerico: true })}
-        {texto('pesoLiquido', 'Peso líquido (toneladas)', { numerico: true, placeholder: '0,0850', dica: '85 kg = 0,0850' })}
-        {texto('pesoBruto', 'Peso bruto (toneladas)', { numerico: true, placeholder: '0,2350' })}
-        {texto('capacidadeMaximaTracao', 'Capacidade máx. de tração (toneladas)', { numerico: true, placeholder: '0,2350', dica: 'CMT. Sem reboque, costuma ser o peso bruto.' })}
-        {texto('distanciaEixos', 'Distância entre eixos (mm)', { numerico: true, placeholder: '1300' })}
-        {texto('lotacao', 'Lotação (passageiros)', { numerico: true, placeholder: '2' })}
+        {texto('pesoLiquido', 'Peso líquido (t)', { numerico: true, placeholder: '0,0850', dica: '85 kg = 0,0850' })}
+        {texto('pesoBruto', 'Peso bruto (t)', { numerico: true, placeholder: '0,2350' })}
+        {texto('capacidadeMaximaTracao', 'Tração máx. (CMT, t)', { numerico: true, placeholder: '0,2350', dica: 'Sem reboque, costuma ser o peso bruto.' })}
+        {texto('distanciaEixos', 'Entre eixos (mm)', { numerico: true, placeholder: '1300' })}
+        {texto('lotacao', 'Lotação', { numerico: true, placeholder: '2' })}
 
         </>}
 
         {mostra('operacao') && <>
-        <p className="pt-2 text-sm font-medium sm:col-span-2">Da operação</p>
+        <p className="pt-2 text-sm font-medium sm:col-span-full">Da operação</p>
         {opcoes('tipoOperacao', 'Tipo da operação', OPCOES_TIPO_OPERACAO)}
         {opcoes('restricao', 'Restrição', OPCOES_RESTRICAO)}
         {opcoes('condicao', 'Condição do veículo', OPCOES_CONDICAO)}
