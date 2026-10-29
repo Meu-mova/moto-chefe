@@ -350,3 +350,17 @@ export function montarVeiculoNovo(d: DadosRenave): VeiculoNovo {
     restricao: d.restricao,
   }
 }
+
+/**
+ * A checagem do RENAVE antes de emitir. Fica fora da action para o "Salvar e reenviar"
+ * recusar antes de gravar a correção: senão a correção ficava gravada sem nota nenhuma.
+ */
+export function conferirRenave(
+  exigido: boolean,
+  renave: DadosRenave | null | undefined,
+): { ok: true; dados: DadosRenave | null } | { ok: false; error: string } {
+  if (!exigido) return { ok: true, dados: null }
+  if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE). Preencha antes de transmitir.' }
+  const v = validarRenave(renave)
+  return v.ok ? v : { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
+}

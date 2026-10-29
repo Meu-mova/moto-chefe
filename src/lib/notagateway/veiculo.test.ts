@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  chassiValidoRenave, corDenatranSugerida, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
+  chassiValidoRenave, conferirRenave, corDenatranSugerida, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
   sugestaoRenave, validarRenave, type DadosRenave,
 } from './veiculo'
 
@@ -149,4 +149,14 @@ test('tipo de pintura só aceita S, M ou P', () => {
   const v = validarRenave({ ...PREENCHIDO, tipoPintura: 'x' })
   assert.equal(v.ok, false)
   if (!v.ok) assert.match(v.error, /Tipo de pintura/)
+})
+
+test('conferirRenave: recusa ciclomotor sem dados ou com dado inválido, e passa o resto', () => {
+  assert.deepEqual(conferirRenave(false, null), { ok: true, dados: null })
+  const sem = conferirRenave(true, null)
+  assert.equal(sem.ok, false)
+  const invalido = conferirRenave(true, { ...PREENCHIDO, chassi: '' })
+  assert.ok(!invalido.ok && invalido.error.startsWith('Dados do veículo (RENAVE):'))
+  const ok = conferirRenave(true, PREENCHIDO)
+  assert.ok(ok.ok && ok.dados)
 })

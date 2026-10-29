@@ -22,7 +22,7 @@ import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
-import { exigeRenave, montarVeiculoNovo, validarRenave, type DadosRenave } from '@/lib/notagateway/veiculo'
+import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave } from '@/lib/notagateway/veiculo'
 import { gravarRenaveDaMoto, renaveParaEmissao, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
@@ -386,6 +386,8 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
+    const r = conferirRenave(e.renaveExigido, renave)
+    if (!r.ok) return r
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -478,12 +480,9 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     if (bloqueio) return { ok: false, error: bloqueio }
     if (e.pendencias.length) return { ok: false, error: e.pendencias.join('\n') }
     if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal. Preencha a ficha antes de transmitir.' }
-    if (e.renaveExigido) {
-      if (!renave) return { ok: false, error: 'Ciclomotor sem os dados do veículo (RENAVE). Preencha antes de transmitir.' }
-      const v = validarRenave(renave)
-      if (!v.ok) return { ok: false, error: `Dados do veículo (RENAVE):\n${v.error}` }
-      e.renave = v.dados
-    }
+    const r = conferirRenave(e.renaveExigido, renave)
+    if (!r.ok) return r
+    if (r.dados) e.renave = r.dados
     if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }
 
     if (e.cfg.ambiente === 'Producao') {
