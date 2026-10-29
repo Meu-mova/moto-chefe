@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS notas_fiscais_saida_inutilizacoes (
   nota_id         uuid NOT NULL REFERENCES notas_fiscais_saida(id),
   grupo_id        uuid NOT NULL REFERENCES grupos(id),
   id_externo      text NOT NULL UNIQUE,
-  ambiente        text NOT NULL,
+  ambiente        text NOT NULL CHECK (ambiente IN ('Producao', 'Homologacao')),
   serie           text NOT NULL,
   numero_inicial  integer NOT NULL,
   numero_final    integer NOT NULL,
