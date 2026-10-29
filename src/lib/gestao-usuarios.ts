@@ -33,7 +33,9 @@ export type CadastroGestao = AlvoGestao & {
   ativo: boolean
 }
 
-export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
+export function ehGestorDeUsuarios(gestor: { papel: string; grupoLiberado?: string | null }): boolean {
+  // Persona do admin_rede (#517): as pessoas da Conta dona são de todos os grupos dela.
+  if (gestor.grupoLiberado) return false
   return gestor.papel === 'admin_geral' || gestor.papel === 'admin_socio'
 }
 

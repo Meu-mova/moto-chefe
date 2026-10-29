@@ -33,6 +33,7 @@ export async function buscarVeiculoPorChassisAction(chassi: string): Promise<Vei
   const motosBD = (await buscarMotosPorChassi(termo, {
     contaDasMotos: usuario.papel === 'admin_geral' ? null : conta,
     contaDoComprador: conta,
+    grupoLiberado: usuario.grupoLiberado,
     limite: 8,
   })).map(m => ({ ...m, id: m.motoId }))
 

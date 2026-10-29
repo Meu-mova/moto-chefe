@@ -13,7 +13,7 @@ import type { ConfigNotaGateway } from '@/lib/notagateway/client'
  */
 
 type Executor = Pick<typeof db, 'select' | 'update' | 'insert' | 'delete'>
-export type UsuarioLogo = { id: string; papel: string; contaId: string | null }
+export type UsuarioLogo = { id: string; papel: string; contaId: string | null; grupoLiberado?: string | null }
 
 export type DependenciasLogo = {
   configNg: (grupoId: string) => Promise<ConfigNotaGateway | null>
@@ -35,7 +35,8 @@ export const caminhoLogoDanfe = (grupoId: string) => `${grupoId}/logo.png`
 function filtroDaConta(usuario: UsuarioLogo): SQL | undefined | null {
   if (usuario.papel === 'admin_geral') return undefined
   if (usuario.papel !== 'admin_socio' || !usuario.contaId) return null
-  return eq(grupos.contaId, usuario.contaId)
+  // Persona do admin_rede (#517): só o grupo liberado, nunca os outros da Conta dona.
+  return usuario.grupoLiberado ? eq(grupos.id, usuario.grupoLiberado) : eq(grupos.contaId, usuario.contaId)
 }
 
 export async function gruposParaLogo(usuario: UsuarioLogo, exec: Executor = db) {

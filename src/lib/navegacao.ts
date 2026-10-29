@@ -45,7 +45,13 @@ export type UsuarioNav = {
   modulosBloqueados?: string[] | null
   /** Módulos do cargo da Conta, só para papel 'cargo' (#449). */
   modulosDoCargo?: string[] | null
+  /** Persona do admin_rede num grupo liberado de outra Conta (#517). */
+  grupoLiberado?: string | null
 }
+
+// Telas da Conta inteira (pessoas, dado pessoal, log): a persona do admin_rede (#517) não
+// abre, porque mostrariam os outros grupos da Conta dona.
+const FORA_DA_PERSONA = ['usuarios', 'log', 'dados-funcionarios']
 
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
 export type RegrasProprias = Record<string, boolean>
@@ -166,6 +172,7 @@ function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
 function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): boolean {
   // Bloqueio individual ganha de tudo — inclusive de liberação individual.
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
+  if (usuario.grupoLiberado && FORA_DA_PERSONA.includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if (!item.soPeloPapel && (usuario.modulosExtras ?? []).includes(item.id)) return true

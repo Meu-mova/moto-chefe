@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { clientesDoEscopo, contaDaLoja, lojasDoEscopo } from '@/lib/conta'
 import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
@@ -1508,7 +1508,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
       inscricaoEstadual: clientes.inscricaoEstadual,
     })
     .from(clientes)
-    .where(and(eq(clientes.cpfCnpj, cpfLimpo), eq(clientes.contaId, contaId)))
+    .where(and(eq(clientes.cpfCnpj, cpfLimpo), clientesDoEscopo(contaId, usuario)))
     .limit(1)
 
   if (cliente) return { source: 'clientes' as const, ...cliente }
@@ -1533,7 +1533,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
     // A venda grava o documento formatado; compara só os dígitos.
     .where(and(
       sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
-      inArray(vendas.lojaId, lojasDaConta(contaId)),
+      inArray(vendas.lojaId, lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado })),
     ))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
@@ -1555,7 +1555,7 @@ async function buscarHistoricoMoto(motoId: string) {
   const [moto] = await db
     .select({ lojaId: motos.lojaId })
     .from(motos)
-    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDaConta(usuario.contaId!))))
+    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDoEscopo(usuario))))
     .limit(1)
   if (!moto) return []
 

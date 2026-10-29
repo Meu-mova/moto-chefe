@@ -25,7 +25,7 @@ export default async function EstoqueImprimirPage({ searchParams }: { searchPara
     contaDoGrupoAtivo(usuario),
   ])
   const filtros = filtrosDoShowroom(params, usuario, lojaIdsGrupo)
-  const lista = await listarMotos({ ...filtros, contaId })
+  const lista = await listarMotos({ ...filtros, contaId, grupoLiberado: usuario.grupoLiberado })
 
   const precos = await precosParaImpressao(usuario.papel, lista.map(m => m.id), filtros.lojaId)
   const { grupos, quantidade, total, semPreco, comValores } = agruparPorModelo(lista, precos)

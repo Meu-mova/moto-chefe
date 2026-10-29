@@ -2,7 +2,7 @@ import { and, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, lojas, modelos, motos, vendas, veiculosHistorico } from '@/lib/db/schema'
-import { lojasDaConta } from '@/lib/conta'
+import { lojasDaConta, lojasDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -12,7 +12,7 @@ type Executor = Pick<typeof db, 'select'>
 // Sem next/headers, para ser testado contra o banco.
 export async function buscarMotosPorChassi(
   termo: string,
-  opcoes: { contaDasMotos: string | null; contaDoComprador: string; limite: number },
+  opcoes: { contaDasMotos: string | null; contaDoComprador: string; limite: number; grupoLiberado?: string | null },
   exec: Executor = db,
 ) {
   return exec
@@ -37,7 +37,7 @@ export async function buscarMotosPorChassi(
     .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, opcoes.contaDoComprador)))
     .where(and(
       ilike(motos.chassi, `%${termo}%`),
-      opcoes.contaDasMotos ? inArray(motos.lojaId, lojasDaConta(opcoes.contaDasMotos)) : undefined,
+      opcoes.contaDasMotos ? inArray(motos.lojaId, lojasDoEscopo({ contaId: opcoes.contaDasMotos, grupoLiberado: opcoes.grupoLiberado })) : undefined,
     ))
     .limit(opcoes.limite)
 }

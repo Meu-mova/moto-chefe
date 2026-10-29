@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, vendas, ordensServico, motos, modelos } from '@/lib/db/schema'
-import { lojasDaConta } from '@/lib/conta'
+import { clientesDoEscopo, lojasDoEscopo } from '@/lib/conta'
 import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
@@ -67,7 +67,7 @@ export async function listarClientesAction(params: {
     conds.push(eq(clientes.cidade, params.cidade))
   }
 
-  conds.push(eq(clientes.contaId, await contaDoGrupoAtivo(usuario)))
+  conds.push(clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario))
   const where = and(...conds)
 
   const [rows, [{ total }]] = await Promise.all([
@@ -95,7 +95,7 @@ export async function buscarClientesAction(termo: string) {
     celular: clientes.celular,
   }).from(clientes)
     .where(and(
-      eq(clientes.contaId, await contaDoGrupoAtivo(usuario)),
+      clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario),
       or(
         ilike(clientes.nome, `%${termo}%`),
         termoCpf.length >= 3 ? ilike(clientes.cpfCnpj, `%${termoCpf}%`) : undefined,
@@ -110,7 +110,7 @@ export async function buscarClientePorIdAction(id: string) {
   if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const [cliente] = await db.select().from(clientes)
-    .where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
+    .where(and(eq(clientes.id, id), clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario)))
     .limit(1)
   return cliente ?? null
 }
@@ -121,7 +121,7 @@ export async function listarCidadesAction() {
 
   const rows = await db.selectDistinct({ cidade: clientes.cidade })
     .from(clientes)
-    .where(eq(clientes.contaId, await contaDoGrupoAtivo(usuario)))
+    .where(clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario))
     .orderBy(clientes.cidade)
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
@@ -163,7 +163,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
       ...dados,
       ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
       atualizadoEm: new Date(),
-    }).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
+    }).where(and(eq(clientes.id, id), clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario)))
       .returning({ id: clientes.id })
     if (!atualizados.length) throw new Error('Cliente não encontrado')
     revalidatePath('/clientes')
@@ -177,7 +177,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
 export async function excluirClienteAction(id: string) {
   const usuario = await getUsuarioLogado()
   if (usuario.papel !== 'admin_geral') throw new Error('Sem permissão')
-  await db.delete(clientes).where(and(eq(clientes.id, id), eq(clientes.contaId, await contaDoGrupoAtivo(usuario))))
+  await db.delete(clientes).where(and(eq(clientes.id, id), clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario)))
   revalidatePath('/clientes')
 }
 
@@ -193,7 +193,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
   if (!doCliente) return { vendas: [], os: [] }
 
   const condicaoVendas = and(
-    inArray(vendas.lojaId, lojasDaConta(contaId)),
+    inArray(vendas.lojaId, lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado })),
     cpfCnpj ? or(eq(vendas.clienteId, id), eq(vendas.clienteCpf, cpfCnpj))! : eq(vendas.clienteId, id),
   )
 
@@ -229,7 +229,7 @@ export async function buscarHistoricoClienteAction(id: string, cpfCnpj: string |
       .from(ordensServico)
       .leftJoin(motos, eq(ordensServico.motoId, motos.id))
       .leftJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(and(eq(ordensServico.clienteId, id), inArray(ordensServico.lojaId, lojasDaConta(contaId))))
+      .where(and(eq(ordensServico.clienteId, id), inArray(ordensServico.lojaId, lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado }))))
       .orderBy(desc(ordensServico.dataAbertura)),
   ])
 
