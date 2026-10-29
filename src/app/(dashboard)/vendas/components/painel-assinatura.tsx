@@ -72,6 +72,7 @@ export function PainelAssinatura(
   const [docs, setDocs] = useState<DocumentoResumo[] | null>(null)
   const [base, setBase] = useState('')
   const [liberacao, setLiberacao] = useState<LiberacaoNf | null>(null)
+  const [avisoContrato, setAvisoContrato] = useState<string | null>(null)
   const [autorizando, setAutorizando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [pending, startTransition] = useTransition()
@@ -80,12 +81,12 @@ export function PainelAssinatura(
   useEffect(() => {
     if (!aberto) return
     listarDocumentosDaVendaAction(vendaId)
-      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao) })
+      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao); setAvisoContrato(r.avisoContrato) })
   }, [aberto, vendaId])
 
   function recarregar() {
     listarDocumentosDaVendaAction(vendaId)
-      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao) })
+      .then(r => { setDocs(r.documentos); setBase(r.baseUrl); setLiberacao(r.liberacao); setAvisoContrato(r.avisoContrato) })
     router.refresh()
   }
 
@@ -199,8 +200,11 @@ export function PainelAssinatura(
         const { doc, expirado } = docDoTipo(tipo)
         const sit = situacaoDe(doc, expirado)
         const vivo = !!doc && estaVivo(doc) && !expirado
+        // Sem contrato para a categoria da moto: não há o que enviar nem imprimir (o servidor
+        // também recusa). Documento já enviado ou assinado continua com as opções dele.
+        const semContrato = tipo === 'contrato_venda' && !!avisoContrato && !vivo && sit !== 'assinado'
         // Uma ação principal por situação; o resto fica no "Mais opções".
-        const principal =
+        const principal = semContrato ? null :
           sit === 'nada' || sit === 'expirado' || sit === 'cancelado'
             ? { texto: sit === 'expirado' ? 'Enviar de novo por e-mail' : 'Enviar por e-mail ao cliente', acao: () => enviarPorEmail(tipo) }
             : null
@@ -233,6 +237,10 @@ export function PainelAssinatura(
               </div>
             )}
 
+            {semContrato && (
+              <p className="mt-3 border-l-2 border-l-warning pl-3 text-sm text-warning">{avisoContrato}</p>
+            )}
+
             <div className="mt-3 flex gap-2">
               {principal && (
                 <button type="button" onClick={principal.acao} disabled={pending} className={botaoPrincipal}>
@@ -250,7 +258,7 @@ export function PainelAssinatura(
                   <FileSearch className="size-4" /> Ver dossiê
                 </a>
               )}
-              {(sit !== 'assinado' || doc) && (
+              {!semContrato && (sit !== 'assinado' || doc) && (
                 <button type="button" onClick={() => setMenu(tipo)} className={cn(botaoSecundario, !principal && 'flex-1')} aria-label={`Mais opções: ${label}`}>
                   <MoreHorizontal className="size-5" />{!principal && 'Mais opções'}
                 </button>
