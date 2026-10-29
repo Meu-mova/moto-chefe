@@ -252,6 +252,11 @@ test('comprador pessoa jurídica: o contrato qualifica a empresa e quem a repres
   assert.ok(!html.includes('inscrito no CPF'))
 })
 
+test('contrato do MOVA de pessoa jurídica: HTML idêntico ao de antes do contrato por grupo', () => {
+  assert.equal(sha256(montarHtmlDocumento('contrato_venda', DADOS_PJ)),
+    '0decb449a38387b35cfffb615254bc26db1baf94713f799f123c2ecfd57c4d7a')
+})
+
 test('pessoa jurídica sem representante: nome e CPF saem em linha em branco, para completar à mão', () => {
   const html = montarHtmlDocumento('contrato_venda', { ...DADOS_PJ, representanteNome: null, representanteCpf: '' })
   assert.ok(html.includes(
