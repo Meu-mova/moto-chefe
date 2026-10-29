@@ -1,6 +1,6 @@
 # 0018. Conta acima do grupo: isolamento por cliente do MOVA
 
-- **Status:** Revisada por 0019
+- **Status:** Revisada por [0019](0019-admin-rede-acesso-entre-contas.md)
 - **Data da decisão:** 2026-10-17
 - **Fontes:** issue #164; call do Luis com o Cesar em 2026-10-16 ("Contrato e Operação do Mova",
   Read.ai); grilling da #164 em 2026-10-17 (decisões nos comentários da issue)
