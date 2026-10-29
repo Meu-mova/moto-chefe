@@ -13,6 +13,7 @@ import {
   type TipoDocumento, type DadosDocumento, type PagamentoVenda,
 } from '@/lib/assinatura/documento'
 import { sha256 } from '@/lib/assinatura/hash'
+import { contratoDaVenda, escolherContrato } from '@/lib/contratos-grupo'
 import { normalizarCelular, emailConvite } from '@/lib/assinatura/mensagens'
 import { emailValido, enviarEmail } from '@/lib/email'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
@@ -122,6 +123,17 @@ async function montarDados(vendaId: string): Promise<{ dados: DadosDocumento; gr
   }
 }
 
+// Contrato pela categoria da moto e pelo grupo (contratos-grupo.ts); checklist é sempre o do MOVA.
+async function htmlDoDocumento(
+  tipo: TipoDocumento,
+  vendaId: string,
+  montado: { dados: DadosDocumento; grupoId: string },
+): Promise<{ ok: true; html: string; contratoGrupoId: string | null } | { ok: false; error: string }> {
+  if (tipo !== 'contrato_venda') return { ok: true, html: montarHtmlDocumento(tipo, montado.dados), contratoGrupoId: null }
+  const r = await contratoDaVenda(vendaId, montado.grupoId, montado.dados)
+  return r.ok ? r : { ok: false, error: r.aviso }
+}
+
 export type DocumentoResumo = {
   id: string
   tipo: TipoDocumento
@@ -145,11 +157,18 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
   documentos: DocumentoResumo[]
   baseUrl: string
   liberacao: LiberacaoNf
+  /** Venda sem contrato para a categoria da moto: o painel avisa em vez de oferecer o envio. */
+  avisoContrato: string | null
 }> {
   const vazio = { liberadaEm: null, motivo: null, por: null }
-  if (!await vendaNoEscopo(vendaId)) {
-    return { baseUrl: await baseUrl(), documentos: [], liberacao: vazio }
+  const venda = await vendaNoEscopo(vendaId)
+  if (!venda) {
+    return { baseUrl: await baseUrl(), documentos: [], liberacao: vazio, avisoContrato: null }
   }
+  const [loja] = venda.lojaId
+    ? await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, venda.lojaId)).limit(1)
+    : []
+  const escolha = loja ? await escolherContrato(vendaId, loja.grupoId) : null
 
   const linhas = await db
     .select({
@@ -181,6 +200,7 @@ export async function listarDocumentosDaVendaAction(vendaId: string): Promise<{
 
   return {
     baseUrl: await baseUrl(),
+    avisoContrato: escolha && !escolha.ok ? escolha.aviso : null,
     liberacao: {
       liberadaEm: lib?.liberadaEm?.toISOString() ?? null,
       motivo: lib?.motivo ?? null,
@@ -268,6 +288,10 @@ export async function enviarDocumentoAssinaturaAction(
     }
   }
 
+  // Antes de cancelar o anterior: sem contrato para a categoria, nada muda.
+  const gerado = await htmlDoDocumento(tipo, vendaId, montado)
+  if (!gerado.ok) return gerado
+
   // Um documento vivo por (venda, tipo) — há índice único parcial no banco.
   // Cancela o anterior antes, para reenvio de um tipo não travar.
   await db.update(documentosAssinatura)
@@ -278,7 +302,7 @@ export async function enviarDocumentoAssinaturaAction(
       inArray(documentosAssinatura.status, ['pendente', 'visualizado']),
     ))
 
-  const html = montarHtmlDocumento(tipo, montado.dados)
+  const html = gerado.html
   const token = randomBytes(32).toString('base64url')
   const expiraEm = new Date(Date.now() + DIAS_VALIDADE * 86400_000)
 
@@ -294,6 +318,7 @@ export async function enviarDocumentoAssinaturaAction(
     // Dados estruturados: o checklist é remontado na assinatura com as
     // marcações do comprador, e para isso o HTML em branco não basta.
     dadosJson: montado.dados,
+    contratoGrupoId: gerado.contratoGrupoId,
     celularDestino: numero ?? 'não informado',
     emailDestino: email,
     criadoPor: usuario.id,
@@ -365,6 +390,9 @@ export async function registrarAssinaturaPapelAction(
     }
   }
 
+  const gerado = await htmlDoDocumento(tipo, vendaId, montado)
+  if (!gerado.ok) return gerado
+
   // Documento vivo do mesmo tipo perde a vez: a venda tem uma assinatura só.
   await db.update(documentosAssinatura)
     .set({ status: 'cancelado' })
@@ -374,7 +402,7 @@ export async function registrarAssinaturaPapelAction(
       inArray(documentosAssinatura.status, ['pendente', 'visualizado']),
     ))
 
-  const html = montarHtmlDocumento(tipo, montado.dados)
+  const html = gerado.html
   const token = randomBytes(32).toString('base64url')
   const agora = new Date()
 
@@ -391,6 +419,7 @@ export async function registrarAssinaturaPapelAction(
     celularDestino: montado.celular ?? 'não informado',
     emailDestino: montado.email,
     dadosJson: montado.dados,
+    contratoGrupoId: gerado.contratoGrupoId,
     criadoPor: usuario.id,
     registradoPor: usuario.id,
     assinadoEm: agora,

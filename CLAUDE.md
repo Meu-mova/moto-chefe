@@ -19,6 +19,16 @@ mais se erra:
   subiu lendo colunas que não existiam.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
+## Sem co-autoria de IA
+
+- **Nenhum commit, mensagem de squash ou PR leva autoria de IA**: sem `Co-Authored-By: Claude`,
+  `Co-authored-by: Claude`, `Claude-Session:`, `Generated with Claude Code` ou equivalente de
+  outra ferramenta. Vale para quem abre o PR (Luis, Cesar, agente) e para quem mescla.
+- Antes do merge, confira o corpo do PR e a mensagem do squash (o GitHub junta os trailers dos
+  commits). Achou a linha: apague no PR e na caixa de mensagem do squash antes de confirmar.
+- Por quê: o repo é público e a `main` é o histórico de produção. Em 29/10/2026 o #459 entrou
+  na `dev` (360844e7) com essas linhas, e commit na `dev` não se reescreve sem force-push.
+
 ## Isolamento entre Contas: regra absoluta
 
 - **Jamais uma Conta lê, sobrescreve ou se liga a dado de outra Conta**, qualquer que seja o

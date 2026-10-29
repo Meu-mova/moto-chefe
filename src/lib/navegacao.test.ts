@@ -23,9 +23,9 @@ test('admin_geral vê tudo que não depende de regra própria', () => {
 
 test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
   assert.deepEqual(ids(SOCIO), [
-    'agenda', 'atendimento', 'bancos', 'bling', 'caixa', 'calendario',
+    'agenda', 'atendimento', 'avaliacoes-google', 'bancos', 'bling', 'caixa', 'calendario',
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
-    'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
+    'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'contratos', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log', 'maquininhas',
     'marketing', 'metas', 'modelos', 'montagens', 'notas-emitidas', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
@@ -37,7 +37,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
 test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
   assert.deepEqual(ids(AUX), [
     'agenda', 'atendimento', 'caixa', 'calendario', 'canais', 'clientes',
-    'conciliacao', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas', 'meus-documentos',
+    'conciliacao', 'contratos', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas', 'meus-documentos',
     'montagens', 'notas-emitidas', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
     'radar', 'radar-fiscal', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas',

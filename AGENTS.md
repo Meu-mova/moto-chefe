@@ -49,6 +49,10 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
 - Na Vercel, só o Owner do time MOVA (Luis) publica. Commit de outro autor
   chega à `main` mas o deploy é recusado ("Deployment failed"); foi o que
   aconteceu com o `30150e3` em 2026-10-06.
+- **Sem co-autoria de IA em commit, squash ou PR**: nada de `Co-Authored-By: Claude`,
+  `Claude-Session:`, `Generated with Claude Code` ou equivalente, nem quando a ferramenta põe
+  sozinha. Desligue na configuração da ferramenta ou apague antes do push; no squash, apague
+  da mensagem antes de confirmar. Regras e o caso do #459 no `CLAUDE.md` ("Sem co-autoria de IA").
 
 ## Stack
 
