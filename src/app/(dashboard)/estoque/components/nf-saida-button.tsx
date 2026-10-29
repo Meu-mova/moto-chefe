@@ -17,11 +17,17 @@ type Props = {
   blingNfeId?: string | null
   /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
   gatilho?: (abrir: () => void) => React.ReactNode
+  /**
+   * Sem o botão, só o diálogo. A linha do Showroom passa isto quando a moto deixa de
+   * aguardar NF (a nota autorizada na produção fatura a venda e o revalidatePath troca
+   * os botões): o diálogo continua montado e mostra a nota autorizada.
+   */
+  semBotao?: boolean
 }
 
 type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado' | 'propria'
 
-export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props) {
+export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, semBotao }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
 
   const [aberto, setAberto] = useState(false)
@@ -36,6 +42,8 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   const [propria, setPropria] = useState<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }>({ disponivel: false, ambiente: null })
   const [outras, setOutras] = useState(false)
   const [pending, startTransition] = useTransition()
+  // A transmissão roda no painel; enquanto ela corre, nem Esc fecha o diálogo.
+  const [ocupado, setOcupado] = useState(false)
 
   // A trava é consultada ao abrir, não na listagem: seria uma consulta por
   // linha da tabela de estoque. A action de emissão recusa de qualquer forma —
@@ -85,7 +93,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   }
 
   function fechar() {
-    if (!pending) setAberto(false)
+    if (!pending && !ocupado) setAberto(false)
   }
 
   function criarNoBling() {
@@ -131,9 +139,11 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
     })
   }
 
+  if (semBotao && !aberto) return null
+
   return (
     <>
-      {gatilho ? gatilho(abrir) : (
+      {semBotao ? null : gatilho ? gatilho(abrir) : (
       <Button
         size="sm"
         variant="outline"
@@ -146,7 +156,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
       </Button>
       )}
 
-      <Dialog open={aberto} onOpenChange={fechar}>
+      <Dialog open={aberto} onOpenChange={fechar} disablePointerDismissal>
         <DialogContent
           showCloseButton={false}
           className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
@@ -261,6 +271,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
           {etapa === 'propria' && (
             <NfePropriaPainel
               motoId={motoId}
+              onOcupado={setOcupado}
               onVoltar={() => (blingUrl ? setEtapa('aguardando') : fechar())}
               outrasFormas={!blingUrl && (
                 <div className="border-t border-border">

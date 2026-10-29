@@ -130,19 +130,12 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                     <>
                       {moto.status === 'vendida' && moto.disponibilidade === null
                         ? (
-                          /* Vendida aguardando NF: NF Saída + Garantia */
+                          /* Vendida aguardando NF: Garantia (a NF Saída vem logo abaixo, fora do ramo) */
                           podeAlterar && podeGarantia.has(papel) && (
-                            <>
-                              <GarantiaButton
-                                motoId={moto.id}
-                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
-                              />
-                              <NfSaidaButton
-                                motoId={moto.id}
-                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
-                                blingNfeId={moto.blingNfeId}
-                              />
-                            </>
+                            <GarantiaButton
+                              motoId={moto.id}
+                              descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
+                            />
                           )
                         )
                         : (
@@ -274,6 +267,16 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                           </>
                         )
                       }
+                      {/* Fora do ramo acima, na mesma posição: a nota autorizada na produção
+                          fatura a venda e a linha muda de ramo; o diálogo aberto continua. */}
+                      {podeAlterar && podeGarantia.has(papel) && (
+                        <NfSaidaButton
+                          motoId={moto.id}
+                          descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
+                          blingNfeId={moto.blingNfeId}
+                          semBotao={!(moto.status === 'vendida' && moto.disponibilidade === null)}
+                        />
+                      )}
                     </>
                   )
                 })()}

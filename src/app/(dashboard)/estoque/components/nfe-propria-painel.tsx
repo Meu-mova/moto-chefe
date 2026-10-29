@@ -43,6 +43,8 @@ type Props = {
   onVoltar: () => void
   /** Outros caminhos (Bling, nota já emitida), mostrados abaixo da conferência. */
   outrasFormas?: React.ReactNode
+  /** Avisa quem abriu o diálogo que há envio em curso (não deixa fechar). */
+  onOcupado?: (ocupado: boolean) => void
 }
 
 type Previa = Extract<PreviaNfe, { ok: true }>
@@ -54,7 +56,7 @@ type Previa = Extract<PreviaNfe, { ok: true }>
  * painel (o botão só existe para venda sem NF). Por isso o DANFE, o checklist
  * e o certificado abrem logo que a action volta — antes do desmonte.
  */
-export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
+export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: Props) {
   const [previa, setPrevia] = useState<Previa | null>(null)
   const [erro, setErro] = useState('')
   const [resultado, setResultado] = useState<{ nota: NotaResumo; erro?: string } | null>(null)
@@ -66,6 +68,10 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [renaveOrigem, setRenaveOrigem] = useState<OrigemRenave>({})
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
+  useEffect(() => {
+    onOcupado?.(pending || transmitindo)
+    return () => onOcupado?.(false)
+  }, [pending, transmitindo, onOcupado])
   const [erroCorrecao, setErroCorrecao] = useState<string | null>(null)
 
   function carregar(abrirRecusa: boolean) {
