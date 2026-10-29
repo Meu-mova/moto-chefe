@@ -47,3 +47,12 @@ passarem a impor a regra: hoje ela é combinada, não imposta pela ferramenta.
 
 Ampliada pelo [0013](0013-prefixo-livre-e-branch-apagada-a-mao.md): prefixo de branch passa a ser
 qualquer tipo do Conventional Commits, e branch de trabalho se apaga à mão.
+
+## Adendo de 2026-10-29: release por squash
+
+`dev → main` passa a ser **squash com mensagem escrita à mão**, seguido do PR `main → dev` com
+merge commit (passo a passo no `CONTRIBUTING.md`). O #459 entrou na `dev` (360844e7) com linhas
+de co-autoria de IA juntadas pelo squash, e commit da `dev` não se reescreve sem force-push. Com
+merge commit, esse commit iria para a `main`, que é o histórico de produção num repo público. O
+squash troca o "quais mudanças subiram juntas" do merge commit por um commit limpo por release;
+a lista de mudanças continua nas notas da GitHub Release.

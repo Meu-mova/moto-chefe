@@ -136,7 +136,9 @@ forma explícita ([`infra/segredos.md`](infra/segredos.md)).
    [ADR 0003](adr/0003-ci-como-portao-vercel-como-entrega.md)). Hoje isso é combinado, não
    imposto: os rulesets do GitHub (fase 8) ainda não existem.
 2. Merge com squash na `dev`. A Vercel gera preview de cada PR.
-3. PR `dev → main` com merge commit. O push na `main` publica em produção, automático.
+3. PR `dev → main` com squash e mensagem escrita à mão, sem co-autoria de IA, seguido do PR
+   `main → dev` com merge commit (adendo de 2026-10-29 ao ADR 0002). O push na `main` publica em
+   produção, automático.
 4. Hotfix: nasce da `main`, PR para `main`, depois PR `main → dev`.
 5. Migração de banco não vai com o deploy: é aplicada à parte, pelo `scripts/migrate.ts`, primeiro
    no staging e depois na produção ([ADR 0004](adr/0004-migracoes-versionadas.md)).
