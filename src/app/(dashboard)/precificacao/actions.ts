@@ -5,6 +5,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { eq, and, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { chaveNome, modeloPrecificavel } from '@/lib/precificacao-modelos'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -68,6 +69,17 @@ export async function salvarPrecoAction(data: {
   const grupo = await checarAdmin()
   const nome = data.nome.trim().toUpperCase()
   if (!nome) throw new Error('Nome do modelo é obrigatório')
+
+  // Só modelo do catálogo da Conta (#496). O preço avulso antigo continua
+  // editável enquanto mantém o próprio nome.
+  const atual = data.precId
+    ? (await db.select({ nome: precificacao.nome }).from(precificacao)
+        .where(and(eq(precificacao.id, data.precId), eq(precificacao.grupoId, grupo.id))).limit(1))[0]
+    : undefined
+  const mantemNome = !!atual && chaveNome(atual.nome) === nome
+  if (!mantemNome && !(await modeloPrecificavel(grupo.contaId, nome))) {
+    throw new Error('Modelo não encontrado')
+  }
 
   if (data.precId) {
     await db.update(precificacao).set({

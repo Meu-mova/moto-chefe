@@ -1,18 +1,12 @@
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas, motos, modelos as modelosTable } from '@/lib/db/schema'
+import { catalogoDePrecificacao, chaveNome } from '@/lib/precificacao-modelos'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { asc, eq, and, inArray, sql } from 'drizzle-orm'
 import { PrecificacaoClient } from './components/precificacao-client'
 import { redirect } from 'next/navigation'
-
-// Chave de casamento entre o catálogo (`modelos.modelo`) e o preço
-// (`precificacao.nome`). O resto do sistema casa por igualdade exata — ver
-// buscarPrecificacao em vendas/actions e custoMotoExpr — e o catálogo está todo
-// em caixa alta e sem espaço sobrando. Aqui a comparação é tolerante só para
-// não duplicar a linha na tela se algum nome antigo tiver caixa diferente.
-const chaveNome = (s: string) => s.trim().toUpperCase()
 
 export default async function PrecificacaoPage() {
   const usuario = await getUsuarioLogado()
@@ -24,10 +18,7 @@ export default async function PrecificacaoPage() {
   const [taxasRow, precos, catalogo, estoqueDisponivel] = await Promise.all([
     db.select().from(configuracaoTaxas).where(eq(configuracaoTaxas.grupoId, grupo.id)),
     db.select().from(precificacao).where(eq(precificacao.grupoId, grupo.id)).orderBy(asc(precificacao.nome)),
-    db
-      .select({ id: modelosTable.id, modelo: modelosTable.modelo, marca: modelosTable.marca })
-      .from(modelosTable)
-      .orderBy(asc(modelosTable.modelo)),
+    catalogoDePrecificacao(grupo.contaId, lojaIdsGrupo),
     db
       .select({ nome: modelosTable.modelo, qtd: sql<number>`count(*)::int` })
       .from(motos)
@@ -41,8 +32,8 @@ export default async function PrecificacaoPage() {
   )
   const precoPorNome = new Map(precos.map(p => [chaveNome(p.nome), p]))
 
-  // A lista é o catálogo inteiro — todo modelo cadastrado em /admin/modelos
-  // aparece aqui, com ou sem preço. Quem ainda não tem preço vem com
+  // A lista é o catálogo da Conta (o de /admin/modelos, sem os ocultos), com
+  // ou sem preço. Quem ainda não tem preço vem com
   // valorMinimo null e é isso que o cliente mostra como "Sem preço".
   const doCatalogo = catalogo.map(m => {
     const p = precoPorNome.get(chaveNome(m.modelo))
@@ -55,7 +46,7 @@ export default async function PrecificacaoPage() {
       valorMinimo: p?.valorMinimo ?? null,
       custo: p?.custo ?? null,
       ativo: p?.ativo ?? false,
-      estoqueDisponivel: estoquePorNome[chaveNome(m.modelo)] ?? 0,
+      estoqueDisponivel: m.estoqueDisponivel,
     }
   })
 

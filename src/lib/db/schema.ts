@@ -428,6 +428,8 @@ export const motosFiscal = pgTable('motos_fiscal', {
   cstCofins:       text('cst_cofins'),
   classTribIbsCbs: text('class_trib_ibscbs'),
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // tpPint (veicProd) da nota de entrada; a saída repete. Migração 0157.
+  tpPint:          text('tp_pint'),
 })
 
 // ─── motos_renave (detalhamento de veículo novo da NF de saída, grupo veicProd) ─
@@ -464,6 +466,8 @@ export const motosRenave = pgTable('motos_renave', {
   preenchidoPor:          uuid('preenchido_por').references(() => usuarios.id),
   criadoEm:               timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm:           timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Unidade em que potenciaMotor foi para a nota (0157). Antes dela, era CV.
+  unidadePotencia:        text('unidade_potencia').notNull().default('CV'),
 })
 
 // ─── motos ───────────────────────────────────────────────────────────────────
@@ -1936,4 +1940,79 @@ export const mensalidadeWebhookEventos = pgTable('mensalidade_webhook_eventos', 
   recebidoEm:       timestamp('recebido_em', { withTimezone: true }).notNull().defaultNow(),
   processadoEm:     timestamp('processado_em', { withTimezone: true }),
   erro:             text('erro'),
+})
+
+// ─── Avaliações do Google (por grupo) ──────────────────────────────────────
+// Ver src/lib/avaliacoes-google/. Conteúdo do Google vive no máximo 30 dias (termos da
+// Google Maps Platform); o cron diário apaga o resto.
+
+/** Chave da Places API do grupo, cifrada (src/lib/cripto.ts). Só de escrita. */
+export const avaliacoesGoogleConfig = pgTable('avaliacoes_google_config', {
+  grupoId:       uuid('grupo_id').primaryKey().references(() => grupos.id),
+  apiKey:        text('api_key').notNull(),
+  tentativaEm:   timestamp('tentativa_em', { withTimezone: true }),
+  atualizadoEm:  timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoPor: uuid('atualizado_por'),
+})
+
+/** Ficha da loja no Google (Place ID) e a última leitura. */
+export const avaliacoesGoogleLojas = pgTable('avaliacoes_google_lojas', {
+  lojaId:            uuid('loja_id').primaryKey().references(() => lojas.id),
+  grupoId:           uuid('grupo_id').notNull().references(() => grupos.id),
+  placeId:           text('place_id'),
+  nota:              numeric('nota', { precision: 2, scale: 1 }),
+  totalAvaliacoes:   integer('total_avaliacoes'),
+  mapsUri:           text('maps_uri'),
+  sincronizadoEm:    timestamp('sincronizado_em', { withTimezone: true }),
+  erroSincronizacao: text('erro_sincronizacao'),
+  criadoEm:          timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const avaliacoesGoogle = pgTable('avaliacoes_google', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:      uuid('loja_id').notNull().references(() => lojas.id),
+  /** O `name` da review na Places API. */
+  googleId:    text('google_id').notNull(),
+  autor:       text('autor'),
+  autorUri:    text('autor_uri'),
+  nota:        integer('nota').notNull(),
+  texto:       text('texto'),
+  publicadaEm: timestamp('publicada_em', { withTimezone: true }),
+  vistaEm:     timestamp('vista_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [unique('avaliacoes_google_loja_google_key').on(t.lojaId, t.googleId)])
+
+export const avaliacoesGoogleHistorico = pgTable('avaliacoes_google_historico', {
+  lojaId:          uuid('loja_id').notNull().references(() => lojas.id),
+  grupoId:         uuid('grupo_id').notNull().references(() => grupos.id),
+  dia:             date('dia').notNull(),
+  nota:            numeric('nota', { precision: 2, scale: 1 }),
+  totalAvaliacoes: integer('total_avaliacoes'),
+}, t => [primaryKey({ columns: [t.lojaId, t.dia] })])
+
+/**
+ * Plaquinha física: de uma loja e, opcionalmente, de um vendedor. `codigo` vai no link da
+ * tag (/avaliar/<codigo>). Desativada continua levando ao Google, mas não conta toque.
+ */
+export const avaliacoesGooglePlacas = pgTable('avaliacoes_google_placas', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:    uuid('loja_id').notNull().references(() => lojas.id),
+  usuarioId: uuid('usuario_id').references(() => usuarios.id),
+  nome:      text('nome'),
+  codigo:    text('codigo').notNull().unique(),
+  ativa:     boolean('ativa').notNull().default(true),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  criadoPor: uuid('criado_por'),
+})
+
+/** Toque na placa (NFC) ou leitura do QR. usuarioId é o dono da placa na hora do toque. */
+export const avaliacoesGoogleToques = pgTable('avaliacoes_google_toques', {
+  id:        bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  lojaId:    uuid('loja_id').notNull().references(() => lojas.id),
+  placaId:   uuid('placa_id').notNull().references(() => avaliacoesGooglePlacas.id),
+  usuarioId: uuid('usuario_id').references(() => usuarios.id),
+  origem:    text('origem').$type<'nfc' | 'qr'>().notNull(),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })

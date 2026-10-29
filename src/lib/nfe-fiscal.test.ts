@@ -28,6 +28,7 @@ test('extrai a ficha fiscal da moto da fábrica (ICMS60, ST já recolhida)', () 
     cstPis: '01',
     cstCofins: '01',
     classTribIbsCbs: '000001',
+    tpPint: '',
   })
 })
 
@@ -86,4 +87,10 @@ test('normalizarCest aceita 7 dígitos, com ou sem máscara, e vazio vira nulo',
 test('normalizarCest recusa quantidade de dígitos diferente de 7', () => {
   assert.equal(normalizarCest('26001').ok, false)
   assert.equal(normalizarCest('260010012').ok, false)
+})
+
+test('lê o tpPint do veicProd da nota de entrada; sem veicProd fica vazio', () => {
+  const comVeiculo = DET_GIGA.replace('<indTot>1</indTot></prod>', '<indTot>1</indTot><veicProd><tpOp>2</tpOp><tpPint>A</tpPint><tpVeic>2</tpVeic></veicProd></prod>')
+  assert.equal(extrairFiscalDaNfe(envolver(comVeiculo))[0].tpPint, 'A')
+  assert.equal(extrairFiscalDaNfe(envolver(DET_GIGA))[0].tpPint, '')
 })

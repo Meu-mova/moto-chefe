@@ -7,7 +7,7 @@ import { MotoStatusIcon } from '@/components/moto-status-icon'
 import { VenderButton } from './vender-button'
 import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
-import { NfSaidaButton } from './nf-saida-button'
+import { NfSaidaProvider, NfSaidaGatilhoLinha } from './nf-saida-contexto'
 import { MontarButton } from './montar-button'
 import { CancelarReservaButton } from './cancelar-reserva-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
@@ -88,6 +88,8 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
   }
 
   return (
+    // O diálogo da NF fica no provider, fora das linhas (ver nf-saida-contexto).
+    <NfSaidaProvider>
     <Table>
       <TableHeader>
         <TableRow>
@@ -130,14 +132,14 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                     <>
                       {moto.status === 'vendida' && moto.disponibilidade === null
                         ? (
-                          /* Vendida aguardando NF: NF Saída + Garantia */
+                          /* Vendida aguardando NF: Garantia + NF Saída (o diálogo fica fora da tabela) */
                           podeAlterar && podeGarantia.has(papel) && (
                             <>
                               <GarantiaButton
                                 motoId={moto.id}
                                 descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                               />
-                              <NfSaidaButton
+                              <NfSaidaGatilhoLinha
                                 motoId={moto.id}
                                 descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 blingNfeId={moto.blingNfeId}
@@ -299,5 +301,6 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
         )}
       </TableBody>
     </Table>
+    </NfSaidaProvider>
   )
 }

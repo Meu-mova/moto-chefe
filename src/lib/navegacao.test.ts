@@ -23,7 +23,7 @@ test('admin_geral vê tudo que não depende de regra própria', () => {
 
 test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
   assert.deepEqual(ids(SOCIO), [
-    'agenda', 'atendimento', 'bancos', 'bling', 'caixa', 'calendario',
+    'agenda', 'atendimento', 'avaliacoes-google', 'bancos', 'bling', 'caixa', 'calendario',
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'entrada', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log', 'maquininhas',
