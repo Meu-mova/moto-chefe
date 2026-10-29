@@ -29,8 +29,28 @@ function getAdminClient() {
   )
 }
 
+// Recusa esperada ao salvar: volta à tela como { ok: false, erro }, porque na produção o
+// Next esconde a mensagem de erro lançado por Server Action (#506).
+class Recusa extends Error {}
+
+type Resultado = { ok: true } | { ok: false; erro: string }
+
+async function recusando(fn: () => Promise<void>): Promise<Resultado> {
+  try {
+    await fn()
+    return { ok: true }
+  } catch (e) {
+    if (e instanceof Recusa) return { ok: false, erro: e.message }
+    throw e
+  }
+}
+
+// Grupo inexistente e grupo de outra Conta recebem a mesma frase: não revela que o
+// grupo existe em outra Conta.
+const GRUPO_INVALIDO = 'Grupo inválido: marque só grupos da mesma Conta da loja do usuário'
+
 function exigir(recusa: string | null) {
-  if (recusa) throw new Error(recusa)
+  if (recusa) throw new Recusa(recusa)
 }
 
 /** Grupo da loja do alvo e Conta dele: é onde o admin da Conta vê a mudança. */
@@ -66,10 +86,10 @@ function validarConecta(conecta: string | null): string | null {
   try {
     u = new URL(conecta)
   } catch {
-    throw new Error('Link Conecta inválido')
+    throw new Recusa('Link Conecta inválido')
   }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-    throw new Error('Link Conecta deve começar com http:// ou https://')
+    throw new Recusa('Link Conecta deve começar com http:// ou https://')
   }
   return conecta
 }
@@ -88,7 +108,7 @@ async function validarAprovacao(papel: string, gruposAprovacao: string[], aprova
     .select({ id: grupos.id })
     .from(grupos)
     .where(inArray(grupos.id, ids))
-  if (validos.length !== ids.length) throw new Error('Grupo de aprovação inválido')
+  if (validos.length !== ids.length) throw new Recusa(GRUPO_INVALIDO)
 
   return { gruposAprovacao: ids, aprovaPagamentoSensivel }
 }
@@ -109,7 +129,7 @@ async function validarAcesso(papel: string, gruposAcesso: string[]) {
     .select({ id: grupos.id })
     .from(grupos)
     .where(inArray(grupos.id, ids))
-  if (validos.length !== ids.length) throw new Error('Grupo de acesso inválido')
+  if (validos.length !== ids.length) throw new Recusa(GRUPO_INVALIDO)
 
   return { gruposAcesso: ids }
 }
@@ -130,7 +150,7 @@ async function exigirGruposDaConta(papel: string, contaId: string | null, grupos
   // admin_geral é da plataforma, sem Conta: aprova e vê tudo de qualquer jeito.
   if (papel === 'admin_geral' || gruposMarcados.length === 0) return
   const linhas = await db.select({ contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, gruposMarcados))
-  if (linhas.some(g => g.contaId !== contaId)) throw new Error('Grupo de outra Conta: marque só grupos da mesma Conta da loja do usuário')
+  if (linhas.some(g => g.contaId !== contaId)) throw new Recusa(GRUPO_INVALIDO)
 }
 
 export async function criarUsuarioAction(dados: {
@@ -146,25 +166,26 @@ export async function criarUsuarioAction(dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId?: string | null
-}) {
+}): Promise<Resultado> {
   const admin = await gestorDaSessao()
-  // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
-  exigir(recusaDaGravacao(admin, null, await cadastroPedido(dados, true)))
-  const conecta = validarConecta(dados.conecta)
-  const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
-  const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
-  const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-  await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
-  const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
-  if (!cargo.ok) throw new Error(cargo.erro)
-  const supabase = getAdminClient()
+  return recusando(async () => {
+    // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
+    exigir(recusaDaGravacao(admin, null, await cadastroPedido(dados, true)))
+    const conecta = validarConecta(dados.conecta)
+    const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+    const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
+    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+    const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
+    if (!cargo.ok) throw new Recusa(cargo.erro)
+    const supabase = getAdminClient()
 
-  const { data, error } = await supabase.auth.admin.createUser({
-    email: dados.email,
-    password: dados.senha,
-    email_confirm: true,
-    // Senha definida pelo sócio: o usuário troca no 1º login (/trocar-senha).
-    ...(admin.papel === 'admin_socio' ? { user_metadata: { must_change_password: true } } : {}),
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: dados.email,
+      password: dados.senha,
+      email_confirm: true,
+      // Senha definida pelo sócio: o usuário troca no 1º login (/trocar-senha).
+      ...(admin.papel === 'admin_socio' ? { user_metadata: { must_change_password: true } } : {}),
   })
   if (error) throw new Error(error.message)
 
@@ -186,6 +207,7 @@ export async function criarUsuarioAction(dados: {
   await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
 
   revalidatePath('/admin/usuarios')
+  })
 }
 
 export async function editarUsuarioAction(id: string, dados: {
@@ -201,57 +223,58 @@ export async function editarUsuarioAction(id: string, dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId?: string | null
-}) {
+}): Promise<Resultado> {
   const admin = await gestorDaSessao()
-  const atual = await cadastroAtual(id)
-  if (!atual) throw new Error('Usuário não encontrado')
-  exigir(recusaDaGravacao(admin, atual, await cadastroPedido(dados, atual.ativo)))
-  const [antes] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
-  const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
-  const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
-  const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-  await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
-  const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
-  if (!cargo.ok) throw new Error(cargo.erro)
+  return recusando(async () => {
+    const atual = await cadastroAtual(id)
+    if (!atual) throw new Recusa('Usuário não encontrado')
+    exigir(recusaDaGravacao(admin, atual, await cadastroPedido(dados, atual.ativo)))
+    const [antes] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
+    const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+    const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
+    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+    const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
+    if (!cargo.ok) throw new Recusa(cargo.erro)
 
-  // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
-  // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
-  const forcarTroca = admin.papel === 'admin_socio' && id !== admin.id
-  await db.transaction(async (tx) => {
-    await tx.update(usuarios).set({
-      nome: dados.nome,
-      email: dados.email,
-      papel: dados.papel as any,
-      lojaId: dados.lojaId,
-      contaId,
-      conecta: validarConecta(dados.conecta),
-      gruposAprovacao:         aprovacao.gruposAprovacao,
-      aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
-      gruposAcesso:            acesso.gruposAcesso,
-      modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
-      modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
-      cargoId: cargo.cargoId,
-    }).where(eq(usuarios.id, id))
+    // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
+    // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
+    const forcarTroca = admin.papel === 'admin_socio' && id !== admin.id
+    await db.transaction(async (tx) => {
+      await tx.update(usuarios).set({
+        nome: dados.nome,
+        email: dados.email,
+        papel: dados.papel as any,
+        lojaId: dados.lojaId,
+        contaId,
+        conecta: validarConecta(dados.conecta),
+        gruposAprovacao:         aprovacao.gruposAprovacao,
+        aprovaPagamentoSensivel: aprovacao.aprovaPagamentoSensivel,
+        gruposAcesso:            acesso.gruposAcesso,
+        modulosExtras:     filtrarIdsValidos(dados.modulosExtras),
+        modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
+        cargoId: cargo.cargoId,
+      }).where(eq(usuarios.id, id))
 
-    if (dados.novaSenha?.trim()) {
-      await tx.execute(sql`
-        UPDATE auth.users
-        SET email = ${dados.email},
-            encrypted_password = crypt(${dados.novaSenha}, gen_salt('bf')),
-            raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || ${forcarTroca ? sql`'{"must_change_password": true}'::jsonb` : sql`'{}'::jsonb`},
-            email_confirmed_at = COALESCE(email_confirmed_at, now()),
-            updated_at = now()
-        WHERE id = ${id}::uuid
-      `)
-    } else {
-      await tx.execute(sql`
-        UPDATE auth.users
-        SET email = ${dados.email},
-            email_confirmed_at = COALESCE(email_confirmed_at, now()),
-            updated_at = now()
-        WHERE id = ${id}::uuid
-      `)
-    }
+      if (dados.novaSenha?.trim()) {
+        await tx.execute(sql`
+          UPDATE auth.users
+          SET email = ${dados.email},
+              encrypted_password = crypt(${dados.novaSenha}, gen_salt('bf')),
+              raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || ${forcarTroca ? sql`'{"must_change_password": true}'::jsonb` : sql`'{}'::jsonb`},
+              email_confirmed_at = COALESCE(email_confirmed_at, now()),
+              updated_at = now()
+          WHERE id = ${id}::uuid
+        `)
+      } else {
+        await tx.execute(sql`
+          UPDATE auth.users
+          SET email = ${dados.email},
+              email_confirmed_at = COALESCE(email_confirmed_at, now()),
+              updated_at = now()
+          WHERE id = ${id}::uuid
+        `)
+      }
   })
 
   const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
@@ -264,6 +287,7 @@ export async function editarUsuarioAction(id: string, dados: {
   }
 
   revalidatePath('/admin/usuarios')
+  })
 }
 
 export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {

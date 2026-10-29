@@ -380,7 +380,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   function handleCriar(dados: DadosForm) {
     startTransition(async () => {
       try {
-        await criarUsuarioAction(dados)
+        const r = await criarUsuarioAction(dados)
+        // Recusa: o modal fica aberto com o que foi preenchido.
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário criado com sucesso')
         setCriando(false)
       } catch (e: unknown) {
@@ -393,7 +395,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!editando) return
     startTransition(async () => {
       try {
-        await editarUsuarioAction(editando.id, {
+        const r = await editarUsuarioAction(editando.id, {
           nome:      dados.nome,
           email:     dados.email,
           novaSenha: dados.senha || undefined,
@@ -406,6 +408,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário atualizado')
         setEditando(null)
       } catch (e: unknown) {
