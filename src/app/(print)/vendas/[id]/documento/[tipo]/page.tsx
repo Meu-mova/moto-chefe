@@ -101,8 +101,7 @@ export default async function DocumentoImpressoPage({
   // Mesma escolha do envio digital: contrato do grupo pela categoria, ou o do MOVA.
   const documento = tipo === 'contrato_venda'
     ? await contratoDaVenda(id, extra.grupoId, dados)
-    : { ok: true as const, html: montarHtmlDocumento(tipo as TipoDocumento, dados), contratoGrupoId: null }
-  const contratoDoGrupo = documento.ok && !!documento.contratoGrupoId
+    : { ok: true as const, html: montarHtmlDocumento(tipo as TipoDocumento, dados) }
 
   return (
     <>
@@ -146,15 +145,12 @@ export default async function DocumentoImpressoPage({
               {rotuloDocumento(dados.clienteCpf)}: {formatarCpfCnpj(dados.clienteCpf) || '________________'}
             </div>
           </div>
-          {/* Contrato do grupo é assinado só pelo comprador, como no modelo das lojas. */}
-          {!contratoDoGrupo && (
           <div>
             <div className="linha">
               {dados.vendedoraRazaoSocial || dados.lojaNome}<br />
               Vendedora
             </div>
           </div>
-          )}
         </div>
         <p style={{ fontSize: 11, marginTop: 24 }}>
           {dados.cidadeSede || dados.lojaCidade}, ______ de ____________________ de 20____.
