@@ -166,12 +166,17 @@ const ESTILO = `
 // Texto de pessoa jurídica aprovado pelo advogado (#65, 15/10/2026). Representante
 // é opcional na venda: sem ele, a linha sai em branco para a loja completar à mão.
 function qualificacaoComprador(d: DadosDocumento): string {
+  return `<p>${qualificacaoCompradorEmLinha(d)}</p>`
+}
+
+/** O mesmo texto, sem o parágrafo em volta: é o campo {comprador_qualificacao} do contrato do grupo. */
+export function qualificacaoCompradorEmLinha(d: DadosDocumento): string {
   if (tipoPessoaDoDocumento(d.clienteCpf) === 'juridica') {
-    return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, pessoa jurídica, inscrita no CNPJ sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, com sede na ${esc(d.clienteEndereco)}, endereço eletrônico: ${esc(d.clienteEmail)}, neste ato representada por ${esc(d.representanteNome?.trim() || '______________________________')}, CPF ${esc(formatarCpfCnpj(d.representanteCpf?.trim()) || '________________')}.</p>`
+    return `Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, pessoa jurídica, inscrita no CNPJ sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, com sede na ${esc(d.clienteEndereco)}, endereço eletrônico: ${esc(d.clienteEmail)}, neste ato representada por ${esc(d.representanteNome?.trim() || '______________________________')}, CPF ${esc(formatarCpfCnpj(d.representanteCpf?.trim()) || '________________')}.`
   }
-  return `<p>Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, brasileiro(a), inscrito no CPF
+  return `Na qualidade de <b>COMPRADOR(A)</b>: ${esc(d.clienteNome)}, brasileiro(a), inscrito no CPF
     sob o nº ${esc(formatarCpfCnpj(d.clienteCpf))}, residente e domiciliado na ${esc(d.clienteEndereco)}, endereço
-    eletrônico: ${esc(d.clienteEmail)}.</p>`
+    eletrônico: ${esc(d.clienteEmail)}.`
 }
 
 // ATENÇÃO: transcrito do modelo "Compra e Venda Motochefe.docx". Os desvios em

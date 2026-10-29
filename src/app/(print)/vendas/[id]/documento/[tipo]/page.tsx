@@ -10,6 +10,7 @@ import {
   montarHtmlDocumento, dadosVendedoraCompletos, LABEL_TIPO,
   type TipoDocumento, type PagamentoVenda,
 } from '@/lib/assinatura/documento'
+import { contratoDaVenda } from '@/lib/contratos-grupo'
 import { PrintTrigger } from '../../../../vendas/[id]/checklist-entrega/print-trigger'
 
 /**
@@ -44,6 +45,7 @@ export default async function DocumentoImpressoPage({
       valor: vendas.valor,
       formaPagamento: vendas.formaPagamento,
       pagamentos: vendas.pagamentos,
+      grupoId: grupos.id,
       razaoSocial: grupos.razaoSocial,
       cnpj: grupos.cnpj,
       enderecoSede: grupos.enderecoSede,
@@ -96,6 +98,12 @@ export default async function DocumentoImpressoPage({
   // do envio digital vale aqui.
   const faltaCadastro = tipo === 'contrato_venda' && !dadosVendedoraCompletos(dados)
 
+  // Mesma escolha do envio digital: contrato do grupo pela categoria, ou o do MOVA.
+  const documento = tipo === 'contrato_venda'
+    ? await contratoDaVenda(id, extra.grupoId, dados)
+    : { ok: true as const, html: montarHtmlDocumento(tipo as TipoDocumento, dados), contratoGrupoId: null }
+  const contratoDoGrupo = documento.ok && !!documento.contratoGrupoId
+
   return (
     <>
       <PrintTrigger />
@@ -120,8 +128,11 @@ export default async function DocumentoImpressoPage({
       {/* Mesmo corpo do documento digital — o texto é fonte única. Seguro:
           montarHtmlDocumento escapa todo campo vindo do banco (ver o teste
           "dado do cliente com < ou & não quebra o HTML"). */}
-      <div dangerouslySetInnerHTML={{ __html: montarHtmlDocumento(tipo as TipoDocumento, dados) }} />
+      {documento.ok
+        ? <div dangerouslySetInnerHTML={{ __html: documento.html }} />
+        : <p className="aviso">{documento.aviso}</p>}
 
+      {documento.ok && (<>
       <div className="assina">
         <p style={{ fontSize: 11, marginBottom: 6 }}>
           {tipo === 'contrato_venda'
@@ -135,12 +146,15 @@ export default async function DocumentoImpressoPage({
               {rotuloDocumento(dados.clienteCpf)}: {formatarCpfCnpj(dados.clienteCpf) || '________________'}
             </div>
           </div>
+          {/* Contrato do grupo é assinado só pelo comprador, como no modelo das lojas. */}
+          {!contratoDoGrupo && (
           <div>
             <div className="linha">
               {dados.vendedoraRazaoSocial || dados.lojaNome}<br />
               Vendedora
             </div>
           </div>
+          )}
         </div>
         <p style={{ fontSize: 11, marginTop: 24 }}>
           {dados.cidadeSede || dados.lojaCidade}, ______ de ____________________ de 20____.
@@ -151,6 +165,7 @@ export default async function DocumentoImpressoPage({
         Depois de assinado, fotografe ou digitalize a via e registre em Vendas → detalhes da venda
         → “Registrar assinatura em papel”. É esse registro que libera a emissão da NF.
       </p>
+      </>)}
     </>
   )
 }

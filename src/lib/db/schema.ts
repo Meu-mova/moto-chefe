@@ -1420,6 +1420,20 @@ export const calendarioEventoUsuarios = pgTable('calendario_evento_usuarios', {
   pk: primaryKey({ columns: [t.eventoId, t.usuarioId] }),
 }))
 
+// ─── Contrato de compra e venda do grupo ─────────────────────────────────────
+// Texto colado pelo sócio, por categoria. Cada salvar é uma versão nova; a ativa é a maior.
+export const contratosGrupo = pgTable('contratos_grupo', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  categoria: categoriaEnum('categoria').notNull(),
+  versao:    integer('versao').notNull(),
+  texto:     text('texto').notNull(),
+  criadoPor: uuid('criado_por').references(() => usuarios.id),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  versaoUnica: unique('contratos_grupo_versao_key').on(t.grupoId, t.categoria, t.versao),
+}))
+
 // ─── Assinatura digital de documentos ────────────────────────────────────────
 // O HTML do documento é congelado em html_snapshot no envio: editar a venda
 // depois não altera o que o cliente assinou.
@@ -1458,6 +1472,8 @@ export const documentosAssinatura = pgTable('documentos_assinatura', {
   // dossiê funcionarem sem saber de qual caminho veio a assinatura.
   assinaturaModo: text('assinatura_modo').notNull().default('digital'),
   viaFisicaPath:  text('via_fisica_path'),
+  // Versão do contrato do grupo usada no documento; nulo = texto do MOVA.
+  contratoGrupoId: uuid('contrato_grupo_id').references(() => contratosGrupo.id),
   viaFisicaHash:  text('via_fisica_hash'),
   registradoPor:  uuid('registrado_por').references(() => usuarios.id),
   criadoPor:      uuid('criado_por').references(() => usuarios.id),
