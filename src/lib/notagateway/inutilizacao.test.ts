@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { elegivelParaInutilizar, situacaoInutilizacao, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -58,4 +58,15 @@ test('não elegível: descartada, autorizada, cancelada ou em andamento', () => 
   for (const status of ['Descartada', 'Denegada', 'Autorizada', 'Cancelada', 'Processando', 'Enviando']) {
     assert.equal(elegivelParaInutilizar({ ...negada, status }, null).ok, false, status)
   }
+})
+
+test('situação: pedido não enviado e sem configuração contam como negada, que libera o número', () => {
+  assert.equal(situacaoInutilizacao(STATUS_NAO_ENVIADA), 'negada')
+  assert.equal(situacaoInutilizacao(STATUS_SEM_CONFIGURACAO), 'negada')
+})
+
+test('pedido que a NG não conhece só vence depois de 15 minutos', () => {
+  const criado = new Date('2026-10-29T12:00:00Z')
+  assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:14:59Z')), false)
+  assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:15:00Z')), true)
 })

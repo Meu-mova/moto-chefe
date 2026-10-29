@@ -128,3 +128,19 @@ test('o mesmo número não se pede duas vezes; negada libera um novo pedido', as
     assert.equal((await inutilizacoes(tx, notaA)).length, 2)
   })
 })
+
+test('pedido que não chegou à NG (marcado não enviado) libera o número para outro pedido', async () => {
+  const { STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO } = await import('@/lib/notagateway/inutilizacao')
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950406)
+    for (const status of [STATUS_SEM_CONFIGURACAO, STATUS_NAO_ENVIADA]) {
+      const r = await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)
+      assert.ok(r.ok, status)
+      await m.gravarResultadoDaInutilizacao(tx, { id: r.pedido.inutilizacaoId, grupoId: a.grupoId }, { status, motivoStatus: 'x', protocolo: null })
+    }
+    assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok, true)
+    const status = (await inutilizacoes(tx, notaA)).map(l => `${l.status}:${l.situacao}`).sort()
+    assert.deepEqual(status, ['Enviando:pendente', 'NaoEnviada:negada', 'SemConfiguracao:negada'])
+  })
+})

@@ -4,7 +4,7 @@ import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { elegivelParaInutilizar, situacaoInutilizacao, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 import { STATUS_MORTOS } from './status'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -100,6 +100,7 @@ export async function inutilizacaoDoUsuario(tx: Executor, usuario: UsuarioInutil
     id: notasFiscaisSaidaInutilizacoes.id, grupoId: notasFiscaisSaidaInutilizacoes.grupoId, idExterno: notasFiscaisSaidaInutilizacoes.idExterno,
     ambiente: notasFiscaisSaidaInutilizacoes.ambiente, situacao: notasFiscaisSaidaInutilizacoes.situacao, status: notasFiscaisSaidaInutilizacoes.status,
     motivoStatus: notasFiscaisSaidaInutilizacoes.motivoStatus, protocolo: notasFiscaisSaidaInutilizacoes.protocolo,
+    criadoEm: notasFiscaisSaidaInutilizacoes.criadoEm,
   }).from(notasFiscaisSaidaInutilizacoes).innerJoin(grupos, eq(grupos.id, notasFiscaisSaidaInutilizacoes.grupoId))
     .where(and(eq(notasFiscaisSaidaInutilizacoes.id, inutilizacaoId), filtroConta)).limit(1)
   if (!linha || !(await grupoVisivel(tx, usuario, linha.grupoId))) return null
@@ -121,16 +122,16 @@ export async function inutilizarNumeroDaNota(
   if (!preparo.ok) return preparo
   const { pedido } = preparo
   const c = await configDoAmbiente(pedido.grupoId, pedido.ambiente)
-  const recusar = async (motivo: string) => {
-    await gravarResultadoDaInutilizacao(db, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status: 'InutilizacaoNegada', motivoStatus: motivo, protocolo: null })
+  const recusar = async (status: string, motivo: string) => {
+    await gravarResultadoDaInutilizacao(db, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
     return { ok: false as const, erro: motivo }
   }
-  if ('erro' in c) return recusar(c.erro)
+  if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   try {
     await pedirInutilizacao(c.cfg, pedido)
   } catch (e) {
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: segue pendente e a consulta decide.
-    if (e instanceof InutilizacaoRecusada) return recusar(`A Nota Gateway recusou o pedido: ${e.message}`)
+    if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
     throw e
   }
   await registrarAcaoSensivel({
@@ -150,7 +151,12 @@ export async function consultarInutilizacao(
   const c = await configDoAmbiente(linha.grupoId, linha.ambiente)
   if ('erro' in c) return { ok: false, erro: c.erro }
   const r = await consultarInutilizacaoNaNg(c.cfg, linha.idExterno)
-  if (!r) return { ok: true, situacao: 'pendente', motivoStatus: null, protocolo: null }
+  if (!r) {
+    if (!pedidoSemRespostaVenceu(linha.criadoEm, new Date())) return { ok: true, situacao: 'pendente', motivoStatus: null, protocolo: null }
+    const motivo = 'O pedido não chegou à Nota Gateway. Peça a inutilização de novo.'
+    await gravarResultadoDaInutilizacao(db, linha, { status: STATUS_NAO_ENVIADA, motivoStatus: motivo, protocolo: null })
+    return { ok: true, situacao: 'negada', motivoStatus: motivo, protocolo: null }
+  }
   await gravarResultadoDaInutilizacao(db, linha, r)
   return { ok: true, situacao: situacaoInutilizacao(r.status), motivoStatus: r.motivoStatus, protocolo: r.protocolo }
 }

@@ -1,5 +1,5 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
-import { ehDenegada, ehDuplicidade } from './status'
+import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR } from './status'
 
 export const JUSTIFICATIVA_MIN = 15
 export const JUSTIFICATIVA_MAX = 255
@@ -17,10 +17,23 @@ export function validarJustificativa(bruta: string): ValidacaoJustificativa {
 
 export type SituacaoInutilizacao = 'pendente' | 'autorizada' | 'negada'
 
+/** Nossos: o pedido não chegou à NG. Contam como negada para liberar o número a outro pedido. */
+export const STATUS_NAO_ENVIADA = 'NaoEnviada'
+export const STATUS_SEM_CONFIGURACAO = 'SemConfiguracao'
+
 export function situacaoInutilizacao(status: string): SituacaoInutilizacao {
   if (status === 'InutilizacaoAutorizada') return 'autorizada'
-  if (status === 'InutilizacaoNegada') return 'negada'
+  if (status === 'InutilizacaoNegada' || status === STATUS_NAO_ENVIADA || status === STATUS_SEM_CONFIGURACAO) return 'negada'
   return 'pendente'
+}
+
+/**
+ * A NG não conhece o id (5xx ou rede no envio, sem pedido criado): depois do mesmo
+ * prazo do descarte da NF, o pedido vira não enviado e o número fica livre. Antes
+ * disso, ainda pode ser só o atraso da NG.
+ */
+export function pedidoSemRespostaVenceu(criadoEm: Date, agora: Date): boolean {
+  return agora.getTime() - criadoEm.getTime() >= MINUTOS_PARA_DESCARTAR * 60_000
 }
 
 export type NotaParaInutilizar = {
