@@ -1,5 +1,3 @@
-'use client'
-import { useState } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -9,7 +7,7 @@ import { MotoStatusIcon } from '@/components/moto-status-icon'
 import { VenderButton } from './vender-button'
 import { GarantiaButton } from './garantia-button'
 import { LogisticaButton } from './logistica-button'
-import { NfSaidaButton, NfSaidaGatilho } from './nf-saida-button'
+import { NfSaidaProvider, NfSaidaGatilhoLinha } from './nf-saida-contexto'
 import { MontarButton } from './montar-button'
 import { CancelarReservaButton } from './cancelar-reserva-button'
 import { podeVendedorReservarForaDaLoja } from '@/lib/loja-galpao'
@@ -74,9 +72,6 @@ function sortHref(campo: Campo, ord: string, dir: string, baseParams: string): s
 
 export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, podeAprovarPagamentoSensivel, ord, dir, baseParams, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
-  // Fora das linhas: na produção a nota autorizada fatura a venda e o revalidatePath
-  // tira a moto vendida da lista; o diálogo aberto tem de continuar e mostrar a nota.
-  const [nf, setNf] = useState<{ motoId: string; descricao: string; blingNfeId: string | null } | null>(null)
 
   function th(campo: Campo, label: string) {
     return (
@@ -93,18 +88,8 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
   }
 
   return (
-    <>
-    {nf && (
-      <NfSaidaButton
-        key={nf.motoId}
-        motoId={nf.motoId}
-        descricao={nf.descricao}
-        blingNfeId={nf.blingNfeId}
-        gatilho={() => null}
-        abrirAoMontar
-        onFechado={() => setNf(null)}
-      />
-    )}
+    // O diálogo da NF fica no provider, fora das linhas (ver nf-saida-contexto).
+    <NfSaidaProvider>
     <Table>
       <TableHeader>
         <TableRow>
@@ -154,9 +139,10 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
                                 motoId={moto.id}
                                 descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                               />
-                              <NfSaidaGatilho
+                              <NfSaidaGatilhoLinha
+                                motoId={moto.id}
+                                descricao={`${moto.modelo} · ${moto.cor} (${moto.lojaNome})`}
                                 blingNfeId={moto.blingNfeId}
-                                onClick={() => setNf({ motoId: moto.id, descricao: `${moto.modelo} · ${moto.cor} (${moto.lojaNome})`, blingNfeId: moto.blingNfeId })}
                               />
                             </>
                           )
@@ -315,6 +301,6 @@ export function MotoTable({ motos, demandasComSinal, papel, isVendedor, vendedor
         )}
       </TableBody>
     </Table>
-    </>
+    </NfSaidaProvider>
   )
 }
