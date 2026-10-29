@@ -6,6 +6,7 @@ import {
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
+import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -345,6 +346,27 @@ export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
   emitidaPor:   uuid('emitida_por').references(() => usuarios.id),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Inutilização do número de NF rejeitada que não vai ser reenviada (#504). Negada fica como histórico.
+export const notasFiscaisSaidaInutilizacoes = pgTable('notas_fiscais_saida_inutilizacoes', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  notaId:        uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  grupoId:       uuid('grupo_id').notNull().references(() => grupos.id),
+  idExterno:     text('id_externo').notNull().unique(),
+  ambiente:      text('ambiente').notNull(),
+  serie:         text('serie').notNull(),
+  numeroInicial: integer('numero_inicial').notNull(),
+  numeroFinal:   integer('numero_final').notNull(),
+  justificativa: text('justificativa').notNull(),
+  /** pendente | autorizada | negada: nossa leitura do status da API (notagateway/inutilizacao.ts). */
+  situacao:      text('situacao').$type<SituacaoInutilizacao>().notNull().default('pendente'),
+  status:        text('status').notNull().default('Enviando'),
+  motivoStatus:  text('motivo_status'),
+  protocolo:     text('protocolo'),
+  pedidaPor:     uuid('pedida_por').references(() => usuarios.id),
+  criadoEm:      timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm:  timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
