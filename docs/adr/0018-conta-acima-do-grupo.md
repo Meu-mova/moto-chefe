@@ -1,6 +1,6 @@
 # 0018. Conta acima do grupo: isolamento por cliente do MOVA
 
-- **Status:** Aceita
+- **Status:** Revisada por 0019
 - **Data da decisão:** 2026-10-17
 - **Fontes:** issue #164; call do Luis com o Cesar em 2026-10-16 ("Contrato e Operação do Mova",
   Read.ai); grilling da #164 em 2026-10-17 (decisões nos comentários da issue)
@@ -185,16 +185,8 @@ acessa. Os papéis fixos não mudam. Decisões do Luis:
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.
 
-## Adendo (29/10/2026): papel admin_rede
+## Adendo (29/10/2026): acesso entre Contas pelo admin_rede
 
-A autorização concedida pela Conta dona (seção "Entre Contas") não atendeu o caso real: quem fecha o acordo com os sócios é o admin_geral, e o pedido chega por fora. No lugar dela:
-
-- Novo papel **`admin_rede`**, acima do `admin_socio` e abaixo do `admin_geral`.
-- Só o **admin_geral** libera grupos para ele, pelo modal de `/admin/usuarios`. A unidade é o grupo inteiro (CNPJ), de qualquer Conta. Loja solta continua descartada.
-- O `admin_rede` tem Conta própria e vê todos os grupos dela, como um `admin_socio`. Os grupos liberados de outras Contas somam por cima.
-- Num grupo liberado ele tem as permissões de `admin_socio`, inclusive aprovar. Lê e grava só os dados da Conta dona daquele grupo (clientes, modelos, maquininhas, categorias), sem misturar com os da Conta dele.
-- A Conta dona vê quem tem acesso de fora (nome, Conta de origem, data), mas não revoga. Liberar e revogar ficam com o admin_geral, valem na hora e vão para o log de ações sensíveis.
-- Grupo bloqueado por falta de pagamento derruba também o acesso de fora. O acesso não é cobrado.
-- O `admin_socio` comum continua preso à própria Conta.
-
-Fica substituída a concessão pelo `admin_socio` da Conta dona com aceite. A regra de mover grupo entre Contas é tratada à parte.
+O acesso entre Contas mudou: quem concede é o `admin_geral`, a um usuário com o papel novo
+`admin_rede`, e a Conta dona vê quem tem acesso mas não revoga. Substitui a concessão pelo
+`admin_socio` da Conta dona descrita em "Entre Contas". Ver [ADR-0019](0019-admin-rede-acesso-entre-contas.md).
