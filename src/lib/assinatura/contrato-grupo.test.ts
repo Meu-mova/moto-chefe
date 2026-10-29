@@ -171,3 +171,16 @@ test('colar uma palavra no meio da frase não quebra a linha', () => {
   const r = colarNoTexto('Preço de R$ .', 12, 12, '{valor}')
   assert.deepEqual(r, { texto: 'Preço de R$ {valor}.', cursor: 19 })
 })
+
+test('colar texto já na marcação não muda: negrito com ** não vira item de lista', () => {
+  const marcado = '# CONTRATO\n**CLÁUSULA PRIMEIRA** – texto\n* item com asterisco\n- item\n{cliente_nome}'
+  assert.equal(textoColadoParaMarcacao(marcado), '# CONTRATO\n**CLÁUSULA PRIMEIRA** – texto\n- item com asterisco\n- item\n{cliente_nome}')
+  assert.equal(textoColadoParaMarcacao('**CLÁUSULA** – texto'), '**CLÁUSULA** – texto')
+})
+
+test('colar uma palavra em caixa alta no meio da frase não vira título', () => {
+  assert.equal(textoColadoParaMarcacao('CPF'), 'CPF')
+  assert.deepEqual(colarNoTexto('Cidade de Pouso Alegre, .', 24, 24, 'MG'), { texto: 'Cidade de Pouso Alegre, MG.', cursor: 26 })
+  // Com mais de uma linha, a regra de título continua valendo.
+  assert.equal(textoColadoParaMarcacao('ANEXO I\nTexto.'), '# ANEXO I\nTexto.')
+})

@@ -191,13 +191,17 @@ function pareceTitulo(l: string): boolean {
  * linhas em branco repetidas viram uma. O sócio ajusta o que a regra errar.
  */
 export function textoColadoParaMarcacao(colado: string): string {
-  const linhas = colado.replace(/\r\n?/g, '\n').split('\n').map(l => {
+  const brutas = colado.replace(/\r\n?/g, '\n').split('\n')
+  // Palavra solta em caixa alta (CPF, MG) colada no meio da frase não é título.
+  const variasLinhas = brutas.filter(l => l.trim()).length > 1
+  const linhas = brutas.map(l => {
     const t = l.trim()
     // Travessão (–) fica de fora: no contrato ele separa título e texto da cláusula.
-    const item = /^(?:[•◦▪·●○■*]\s*|-\s+)(.*)$/u.exec(t)
+    // "*" e "-" só com espaço depois: "**negrito**" não é marcador.
+    const item = /^(?:[•◦▪·●○■]\s*|[*-]\s+)(.*)$/u.exec(t)
     if (item) return `- ${item[1].trim()}`
     if (!t || t.startsWith('#') || t.startsWith('{')) return t
-    return pareceTitulo(t) ? `# ${t}` : t
+    return variasLinhas && pareceTitulo(t) ? `# ${t}` : t
   })
   return linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
