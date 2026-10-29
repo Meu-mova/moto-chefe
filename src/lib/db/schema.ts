@@ -1946,6 +1946,7 @@ export const mensalidadeWebhookEventos = pgTable('mensalidade_webhook_eventos', 
 export const avaliacoesGoogleConfig = pgTable('avaliacoes_google_config', {
   grupoId:       uuid('grupo_id').primaryKey().references(() => grupos.id),
   apiKey:        text('api_key').notNull(),
+  tentativaEm:   timestamp('tentativa_em', { withTimezone: true }),
   atualizadoEm:  timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoPor: uuid('atualizado_por'),
 })

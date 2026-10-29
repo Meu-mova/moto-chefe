@@ -104,6 +104,10 @@ function googleFalso() {
   }
 }
 
+// Horários de toque espaçados, no mês corrente, para não cair no limite de 1 por minuto.
+const BASE_TOQUE = Date.now() - 30 * 60_000
+const minuto = (n: number) => new Date(BASE_TOQUE + n * 60_000)
+
 async function placaDaLoja(tx: Tx, lojaId: string) {
   return (await linhas<{ grupo_id: string; place_id: string | null; nota: string | null }>(
     tx, sql`select grupo_id, place_id, nota from avaliacoes_google_lojas where loja_id = ${lojaId}`,
@@ -211,11 +215,11 @@ test('toque conta para a placa, a loja e o vendedor certos, e só no painel do g
     const doBalcao = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, null)
     const daCarla = await novaPlaca(tx, c.socioB, c.grupoB, c.lojaB, c.carlaB)
 
-    assert.equal(await m.registrarToque(daAna.codigo, 'nfc', tx), `https://search.google.com/local/writereview?placeid=${PLACE_A}`)
-    await m.registrarToque(daAna.codigo, 'nfc', tx)
-    await m.registrarToque(daAna.codigo, 'qr', tx)
-    await m.registrarToque(doBalcao.codigo, 'nfc', tx)
-    await m.registrarToque(daCarla.codigo, 'qr', tx)
+    assert.equal(await m.registrarToque(daAna.codigo, 'nfc', tx, minuto(0)), `https://search.google.com/local/writereview?placeid=${PLACE_A}`)
+    await m.registrarToque(daAna.codigo, 'nfc', tx, minuto(2))
+    await m.registrarToque(daAna.codigo, 'qr', tx, minuto(4))
+    await m.registrarToque(doBalcao.codigo, 'nfc', tx, minuto(0))
+    await m.registrarToque(daCarla.codigo, 'qr', tx, minuto(0))
     assert.equal(await m.registrarToque('zzzzzzzzzz', 'nfc', tx), null)
     assert.equal(await m.registrarToque('../x', 'nfc', tx), null)
 
@@ -278,10 +282,10 @@ test('trocar o vendedor da placa não leva os toques antigos junto', async () =>
     const c = await cenario(tx)
     await grupoAConfigurado(tx, c)
     const placa = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, c.ana)
-    await m.registrarToque(placa.codigo, 'nfc', tx)
+    await m.registrarToque(placa.codigo, 'nfc', tx, minuto(0))
     assert.deepEqual(await m.editarPlaca(c.socioA, { grupoId: c.grupoA, placaId: placa.id, usuarioId: c.bruno }, tx), { ok: true })
-    await m.registrarToque(placa.codigo, 'nfc', tx)
-    await m.registrarToque(placa.codigo, 'qr', tx)
+    await m.registrarToque(placa.codigo, 'nfc', tx, minuto(2))
+    await m.registrarToque(placa.codigo, 'qr', tx, minuto(4))
 
     const painel = (await m.painelAvaliacoes(c.socioA, c.grupoA, tx))!
     assert.deepEqual(painel.porResponsavel.map(r => [r.nome, r.toques.nfc + r.toques.qr]), [['Bruno', 2], ['Ana', 1]])
@@ -353,6 +357,47 @@ test('limpeza apaga avaliação e histórico com mais de 30 dias, de todos os gr
     const [{ hist }] = await linhas<{ hist: number }>(tx, sql`select count(*)::int as hist from avaliacoes_google_historico where loja_id = ${c.lojaA}`)
     assert.equal(av, 0)
     assert.equal(hist, 1) // só a foto de hoje
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('a mesma placa conta no máximo 1 toque a cada 60 s, mas sempre leva ao Google', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await grupoAConfigurado(tx, c)
+    const placa = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, c.ana)
+    const outra = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, c.bruno)
+    const link = `https://search.google.com/local/writereview?placeid=${PLACE_A}`
+    const t0 = minuto(0).getTime()
+
+    assert.equal(await m.registrarToque(placa.codigo, 'nfc', tx, new Date(t0)), link)
+    assert.equal(await m.registrarToque(placa.codigo, 'qr', tx, new Date(t0 + 59_000)), link)
+    await m.registrarToque(outra.codigo, 'nfc', tx, new Date(t0 + 1_000))
+    await m.registrarToque(placa.codigo, 'nfc', tx, new Date(t0 + 61_000))
+
+    const toques = await linhas<{ placa_id: string; n: number }>(tx, sql`select placa_id, count(*)::int as n
+      from avaliacoes_google_toques where grupo_id = ${c.grupoA} group by placa_id`)
+    const por = Object.fromEntries(toques.map(t => [t.placa_id, t.n]))
+    assert.deepEqual(por, { [placa.id]: 2, [outra.id]: 1 })
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('"Atualizar agora" conta a tentativa: chave errada não chama o Google de novo antes de 10 min', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const t0 = new Date('2026-10-29T12:00:00Z')
+    const depois = (min: number) => new Date(t0.getTime() + min * 60_000)
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoA, tx, t0), 'sem_chave')
+
+    await m.salvarChaveGoogle(c.socioA, { grupoId: c.grupoA, chave: CHAVE }, tx)
+    await m.salvarChaveGoogle(c.socioB, { grupoId: c.grupoB, chave: 'AIzaChaveDaContaB000000000' }, tx)
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoA, tx, t0), 'ok')
+    // A leitura falhou (chave ou Place ID errados): nada em sincronizado_em, e mesmo assim espera.
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoA, tx, depois(9)), 'recente')
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoB, tx, depois(9)), 'ok')
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoA, tx, depois(11)), 'ok')
+    assert.equal(await m.reservarAtualizacaoGoogle(c.grupoA, tx, depois(12)), 'recente')
     throw new Desfazer()
   }), Desfazer)
 })

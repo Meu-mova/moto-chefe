@@ -1,13 +1,10 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { and, eq, gt } from 'drizzle-orm'
-import { db } from '@/lib/db'
-import { avaliacoesGoogleLojas } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import {
-  criarPlaca, editarPlaca, podeGerirAvaliacoes, salvarChaveGoogle, salvarPlaceIdLoja, sincronizarGrupo,
+  criarPlaca, editarPlaca, podeGerirAvaliacoes, reservarAtualizacaoGoogle, salvarChaveGoogle, salvarPlaceIdLoja, sincronizarGrupo,
 } from '@/lib/avaliacoes-google/avaliacoes'
 import { buscarLugarNoGoogle } from '@/lib/avaliacoes-google/places'
 
@@ -70,12 +67,8 @@ export async function editarPlacaAction(
 export async function atualizarAgoraAction(): Promise<Resultado> {
   const c = await contexto()
   if (!c) return SEM_ACESSO
-  const [recente] = await db.select({ lojaId: avaliacoesGoogleLojas.lojaId }).from(avaliacoesGoogleLojas)
-    .where(and(
-      eq(avaliacoesGoogleLojas.grupoId, c.grupoId),
-      gt(avaliacoesGoogleLojas.sincronizadoEm, new Date(Date.now() - 10 * 60_000)),
-    )).limit(1)
-  if (recente) return { ok: true, aviso: 'Já atualizado nos últimos 10 minutos' }
+  const reserva = await reservarAtualizacaoGoogle(c.grupoId)
+  if (reserva === 'recente') return { ok: true, aviso: 'Já houve uma atualização nos últimos 10 minutos. Tente de novo depois' }
   const r = await sincronizarGrupo(c.grupoId, { buscarLugar: buscarLugarNoGoogle })
   revalidatePath(ROTA)
   if (r.lojas === 0) return { ok: false, erro: 'Configure a chave do Google e o Place ID de ao menos uma loja' }

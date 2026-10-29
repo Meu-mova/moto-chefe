@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, lt, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   avaliacoesGoogle, avaliacoesGoogleConfig, avaliacoesGoogleHistorico, avaliacoesGoogleLojas,
@@ -370,6 +370,7 @@ export async function registrarToque(
   codigo: string,
   origem: 'nfc' | 'qr',
   exec: Executor = db,
+  agora: Date = new Date(),
 ): Promise<string | null> {
   if (!codigoPlacaValido(codigo)) return null
   const [placa] = await exec.select({
@@ -384,11 +385,42 @@ export async function registrarToque(
     .where(eq(avaliacoesGooglePlacas.codigo, codigo)).limit(1)
   if (!placa?.placeId) return null
   if (placa.ativa) {
-    await exec.insert(avaliacoesGoogleToques).values({
-      placaId: placa.id, lojaId: placa.lojaId, grupoId: placa.grupoId, usuarioId: placa.usuarioId, origem,
-    })
+    // A rota é pública: sem este limite, um script inflava o contador da placa à vontade.
+    const [recente] = await exec.select({ id: avaliacoesGoogleToques.id }).from(avaliacoesGoogleToques)
+      .where(and(
+        eq(avaliacoesGoogleToques.placaId, placa.id),
+        gt(avaliacoesGoogleToques.criadoEm, new Date(agora.getTime() - 60_000)),
+      )).limit(1)
+    if (!recente) {
+      await exec.insert(avaliacoesGoogleToques).values({
+        placaId: placa.id, lojaId: placa.lojaId, grupoId: placa.grupoId, usuarioId: placa.usuarioId, origem, criadoEm: agora,
+      })
+    }
   }
   return linkEscreverAvaliacao(placa.placeId)
+}
+
+/**
+ * Marca a tentativa de "Atualizar agora" do grupo, se a última foi há mais de 10 minutos.
+ * Conta a tentativa, não o sucesso: com chave ou Place ID errados a leitura falha e
+ * cada clique seria uma chamada paga ao Google.
+ */
+export async function reservarAtualizacaoGoogle(
+  grupoId: string,
+  exec: Executor = db,
+  agora: Date = new Date(),
+): Promise<'ok' | 'recente' | 'sem_chave'> {
+  const [reservada] = await exec.update(avaliacoesGoogleConfig)
+    .set({ tentativaEm: agora })
+    .where(and(
+      eq(avaliacoesGoogleConfig.grupoId, grupoId),
+      or(isNull(avaliacoesGoogleConfig.tentativaEm), lte(avaliacoesGoogleConfig.tentativaEm, new Date(agora.getTime() - 10 * 60_000))),
+    ))
+    .returning({ grupoId: avaliacoesGoogleConfig.grupoId })
+  if (reservada) return 'ok'
+  const [config] = await exec.select({ grupoId: avaliacoesGoogleConfig.grupoId }).from(avaliacoesGoogleConfig)
+    .where(eq(avaliacoesGoogleConfig.grupoId, grupoId)).limit(1)
+  return config ? 'recente' : 'sem_chave'
 }
 
 export type DependenciasSync = {

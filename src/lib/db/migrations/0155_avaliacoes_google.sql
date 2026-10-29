@@ -6,6 +6,9 @@
 create table avaliacoes_google_config (
   grupo_id       uuid primary key references grupos(id),
   api_key        text not null,
+  -- Última vez que alguém pediu "Atualizar agora", deu certo ou não: o limite de 10 min
+  -- conta daqui, para chave ou Place ID errados não chamarem a API paga sem parar.
+  tentativa_em   timestamptz,
   atualizado_em  timestamptz not null default now(),
   atualizado_por uuid
 );
@@ -78,3 +81,11 @@ create table avaliacoes_google_toques (
   criado_em  timestamptz not null default now()
 );
 create index avaliacoes_google_toques_grupo_idx on avaliacoes_google_toques (grupo_id, criado_em);
+
+-- RLS sem policy fecha as tabelas para o PostgREST; o app lê e grava pelo Drizzle.
+alter table avaliacoes_google_config enable row level security;
+alter table avaliacoes_google_lojas enable row level security;
+alter table avaliacoes_google enable row level security;
+alter table avaliacoes_google_historico enable row level security;
+alter table avaliacoes_google_placas enable row level security;
+alter table avaliacoes_google_toques enable row level security;
