@@ -132,3 +132,12 @@ test('cargos escondidos na v1.14.0: ninguém grava usuário com a função cargo
   assert.equal(gravar(cadastro({ papel: 'cargo' })), 'Função indisponível')
   assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo' })), 'Função indisponível')
 })
+
+test('admin_rede (#517): sócio não dá o papel nem gerencia quem o tem; a tela não oferece', () => {
+  assert.match(gravar(cadastro({ papel: 'admin_rede' })) ?? '', /Admin de Rede/)
+  assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_rede')), false)
+  const limitesSocio = limitesDaTela({ ...socioDoVale, gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(!limitesSocio.papeis.includes('admin_rede'))
+  const limitesGeral = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(limitesGeral.papeis.includes('admin_rede'))
+})

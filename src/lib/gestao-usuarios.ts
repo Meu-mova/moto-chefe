@@ -49,6 +49,8 @@ export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, 
   // admin_geral deveria estar sem loja, mas nada impõe isso: com loja num grupo do
   // sócio, ele trocaria a senha do admin_geral e entraria como tal.
   if (alvo.papel === 'admin_geral') return false
+  // admin_rede fica acima do sócio (ADR-0019): só o admin_geral mexe nele.
+  if (alvo.papel === 'admin_rede') return false
   const grupos = gruposDe(alvo)
   return grupos.length > 0 && grupos.every(g => gestor.gruposVisiveis.includes(g))
 }
@@ -68,6 +70,7 @@ export function recusaDaGravacao(
     return 'Você não pode desativar nem trocar o papel de si mesmo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
+  if (depois.papel === 'admin_rede') return 'Só o Admin Geral dá o papel Admin de Rede'
   // Sem loja nem grupo, o usuário sairia do alcance do próprio sócio que o criou.
   // Só o sócio usa grupos de acesso; os demais papéis precisam de loja.
   if (depois.grupoDaLoja === null && (depois.papel !== 'admin_socio' || depois.gruposAcesso.length === 0)) {
@@ -93,7 +96,7 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
+const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
@@ -101,7 +104,7 @@ export function limitesDaTela(gestor: Gestor) {
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
+    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral' && p !== 'admin_rede')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
