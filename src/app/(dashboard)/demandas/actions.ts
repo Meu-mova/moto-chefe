@@ -2,6 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
+import { conferirMaquininhas } from '@/lib/maquininhas'
 import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -94,6 +95,7 @@ export async function criarDemandaAction(dados: NovaDemanda): Promise<{ id: stri
   if (dados.modeloId && !(await modeloUsavelNaLoja(effectiveLojaId, dados.modeloId))) {
     throw new Error('Modelo não encontrado')
   }
+  if (dados.sinal) await conferirMaquininhas(db, effectiveLojaId, dados.sinal.pagamentos ?? [])
 
   const base = {
     modelo: dados.modelo.trim(),
@@ -153,6 +155,7 @@ export async function marcarSinalDemandaAction(demandaId: string, sinal: DadosSi
 
   validarSnapshot(sinal)
   const principal = validarSinal(sinal)
+  await conferirMaquininhas(db, demanda.lojaId, sinal.pagamentos ?? [])
 
   await db.update(demandas).set({
     sinalRecebido: true,

@@ -114,6 +114,7 @@ test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () =>
   assert.equal(l.podeExcluir, false)
   assert.equal(l.papeis.includes('admin_geral'), false)
   assert.equal(l.papeis.includes('admin_socio'), true)
+  assert.equal(l.papeis.includes('cargo'), false, 'cargos escondidos na v1.14.0 (#449)')
   assert.deepEqual(l.itensLiberaveis, ['estoque'])
   assert.deepEqual(l.gruposAprovacao, [], 'aprovação só nos grupos onde ele aprova')
   assert.equal(l.travaASiMesmo, true, 'não desativa nem troca o próprio papel')
@@ -123,4 +124,11 @@ test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () =>
   assert.equal(g.itensLiberaveis, null)
   assert.equal(g.gruposAprovacao, null)
   assert.equal(g.travaASiMesmo, false)
+})
+
+test('cargos escondidos na v1.14.0: ninguém grava usuário com a função cargo (#449)', () => {
+  const geral = { id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  assert.equal(limitesDaTela(geral).papeis.includes('cargo'), false)
+  assert.equal(gravar(cadastro({ papel: 'cargo' })), 'Função indisponível')
+  assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo' })), 'Função indisponível')
 })

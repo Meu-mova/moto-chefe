@@ -1,7 +1,7 @@
 // src/lib/estado-moto.ts
 export type Status = 'caixa' | 'montada' | 'em_garantia'
 export type Disponibilidade = 'disponivel' | 'reservada' | 'vendida' | 'aguardando_aprovacao'
-type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista'
+type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
 
 const isAdmin = (p: Papel) => p === 'admin_geral' || p === 'admin_socio'
 

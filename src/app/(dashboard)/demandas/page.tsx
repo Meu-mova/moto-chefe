@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { demandas, lojas, usuarios, modelos, motos } from '@/lib/db/schema'
 import { eq, inArray, and, desc, asc } from 'drizzle-orm'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
 import { DemandasFiltros } from './components/demandas-filtros'
@@ -86,11 +86,11 @@ export default async function DemandasPage({
     // Ignora o filtro de modelo/loja de propósito — senão a lista encolhe e trava
     // a seleção de um segundo modelo.
     db
-      .selectDistinct({ id: modelos.id, marca: modelos.marca, modelo: modelos.modelo })
+      .selectDistinct({ id: modelos.id, marca: modelos.marca, modelo: nomeDoModeloNaLoja(demandas.lojaId) })
       .from(demandas)
       .innerJoin(modelos, eq(demandas.modeloId, modelos.id))
       .where(and(eq(demandas.status, 'aberta'), inArray(demandas.lojaId, lojasPermitidas)))
-      .orderBy(asc(modelos.marca), asc(modelos.modelo)),
+      .orderBy(asc(modelos.marca), asc(nomeDoModeloNaLoja(demandas.lojaId))),
     // Cores fechadas: a lista canônica é a das motos que já entraram no sistema.
     db.selectDistinct({ cor: motos.cor }).from(motos).orderBy(asc(motos.cor)),
   ])

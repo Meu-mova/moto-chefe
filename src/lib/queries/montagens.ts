@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { motos, modelos, usuarios, lojas } from '@/lib/db/schema'
 import { and, asc, desc, eq, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm'
 
@@ -76,7 +77,7 @@ export async function montagensDetalhadas(params: {
   return db
     .select({
       chassi: motos.chassi,
-      modelo: modelos.modelo,
+      modelo: nomeDoModeloNaLoja(motos.lojaId),
       marca: modelos.marca,
       cor: motos.cor,
       loja: lojas.nome,

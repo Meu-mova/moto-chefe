@@ -27,8 +27,8 @@ export default async function EntradaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Entrada de Motos</h1>
-        <p className="text-muted-foreground text-sm">Registrar motos recebidas da fábrica</p>
+        <h1 className="text-2xl font-bold">Entrada de motos e peças</h1>
+        <p className="text-muted-foreground text-sm">Registrar motos e peças recebidas pela nota fiscal</p>
       </div>
       <EntradaForm modelos={modelosOpts} lojas={lojasOpts} apelidos={apelidosVisiveis} />
     </div>

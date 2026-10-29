@@ -1,8 +1,7 @@
 'use client'
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { Search, CheckCircle2, AlertCircle, Loader2, X, Bike, Archive, UserPlus } from 'lucide-react'
-import { buscarVeiculoPorChassisAction, buscarClientePorCpfAction, cadastrarVeiculoHistoricoAction } from '../buscar-veiculo-action'
-import { buscarClientePorIdAction } from '@/app/(dashboard)/clientes/actions'
+import { buscarVeiculoPorChassisAction, buscarClientePorCpfAction, cadastrarVeiculoHistoricoAction, buscarClienteDaOsAction } from '../buscar-veiculo-action'
 import { ClienteForm } from '@/app/(dashboard)/clientes/components/cliente-form'
 import type { VeiculoEncontrado } from '../buscar-veiculo-action'
 
@@ -313,7 +312,7 @@ export function ChassiLookup({ onVeiculoEncontrado, onClienteEncontrado, chassiI
                     </span>
                   }
                   onCreated={async (id) => {
-                    const c = await buscarClientePorIdAction(id)
+                    const c = await buscarClienteDaOsAction(id)
                     if (c) {
                       const info = { id: c.id, nome: c.nome, cpfCnpj: c.cpfCnpj, celular: c.celular, email: c.email }
                       setCliente(info)

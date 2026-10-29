@@ -25,6 +25,9 @@ mais se erra:
   dado: tela, busca, importação, upsert, contagem, mensagem de erro. Sem exceção.
 - Como aplicar: seção "Multi-grupo e permissões" do `AGENTS.md`. Em revisão de PR, conferir isso
   primeiro; achado aqui bloqueia o merge.
+- Opção que depende do cliente (maquininha, banco, categoria, modelo, integração) é dado do
+  grupo no banco, nunca lista fixa no código, que todas as Contas veriam (#460). Em revisão,
+  procurar `const`/`type`/`<option>` com opção de cliente e nome, CNPJ ou e-mail escrito no código.
 
 ## Cores: nenhuma cor hardcoded
 
