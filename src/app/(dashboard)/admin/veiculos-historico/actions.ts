@@ -71,7 +71,7 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
   const LOTE = 1000
   const todoEncontrados: string[] = []
   for (let i = 0; i < normalizados.length; i += LOTE) {
-    todoEncontrados.push(...await chassisNasMotos(normalizados.slice(i, i + LOTE), daConta))
+    todoEncontrados.push(...await chassisNasMotos(normalizados.slice(i, i + LOTE), daConta, usuario.grupoLiberado))
   }
 
   return new Set(todoEncontrados)

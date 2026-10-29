@@ -2,7 +2,7 @@ import { and, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, lojas, modelos, motos, vendas, veiculosHistorico } from '@/lib/db/schema'
-import { lojasDaConta, lojasDoEscopo } from '@/lib/conta'
+import { lojasDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -82,18 +82,18 @@ export async function gravarVeiculosHistorico(valores: VeiculoHistorico[], conta
 
 // Chassis da lista que já são motos da Conta (contaId nulo = admin_geral, qualquer Conta).
 // A importação do histórico os ignora; chassi de outra Conta não aparece aqui (#325).
-export async function chassisNasMotos(chassis: string[], contaId: string | null, exec: Executor = db): Promise<string[]> {
+export async function chassisNasMotos(chassis: string[], contaId: string | null, grupoLiberado: string | null, exec: Executor = db): Promise<string[]> {
   if (!chassis.length) return []
   const linhas = await exec.select({ chassi: motos.chassi }).from(motos)
-    .where(and(inArray(motos.chassi, chassis), contaId ? inArray(motos.lojaId, lojasDaConta(contaId)) : undefined))
+    .where(and(inArray(motos.chassi, chassis), contaId ? inArray(motos.lojaId, lojasDoEscopo({ contaId, grupoLiberado })) : undefined))
   return linhas.map(l => l.chassi).filter((c): c is string => !!c)
 }
 
 // Moto pelo chassi exato, só entre as lojas da Conta (#325): cupom e garantia importada
 // não podem se ligar a moto de outro cliente do MOVA.
-export async function motoDaContaPorChassi(chassi: string, contaId: string, exec: Executor = db) {
+export async function motoDaContaPorChassi(chassi: string, contaId: string, grupoLiberado: string | null, exec: Executor = db) {
   const [moto] = await exec.select({ id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }).from(motos)
-    .where(and(eq(motos.chassi, chassi), inArray(motos.lojaId, lojasDaConta(contaId))))
+    .where(and(eq(motos.chassi, chassi), inArray(motos.lojaId, lojasDoEscopo({ contaId, grupoLiberado }))))
     .limit(1)
   return moto ?? null
 }

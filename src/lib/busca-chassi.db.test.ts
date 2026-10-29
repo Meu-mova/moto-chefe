@@ -46,12 +46,12 @@ test('busca por chassi da Conta B não acha moto da Conta A (#325)', async () =>
     }
 
     // Conferência da importação: chassi de moto de outra Conta não aparece como "já no sistema".
-    assert.deepEqual(await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], contas[1], tx), ['BUSCA325B'])
-    assert.deepEqual((await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], null, tx)).sort(), ['BUSCA325A', 'BUSCA325B'])
+    assert.deepEqual(await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], contas[1], null, tx), ['BUSCA325B'])
+    assert.deepEqual((await chassisNasMotos(['BUSCA325A', 'BUSCA325B'], null, null, tx)).sort(), ['BUSCA325A', 'BUSCA325B'])
 
     // Chassi exato (cupom, importação de garantias): só moto da própria Conta.
-    assert.equal(await motoDaContaPorChassi('BUSCA325A', contas[1], tx), null, 'moto da A não serve para a B')
-    assert.equal((await motoDaContaPorChassi('BUSCA325B', contas[1], tx))?.chassi, 'BUSCA325B')
+    assert.equal(await motoDaContaPorChassi('BUSCA325A', contas[1], null, tx), null, 'moto da A não serve para a B')
+    assert.equal((await motoDaContaPorChassi('BUSCA325B', contas[1], null, tx))?.chassi, 'BUSCA325B')
 
     const daB = await buscarMotosPorChassi('BUSCA325', { contaDasMotos: contas[1], contaDoComprador: contas[1], limite: 10 }, tx)
     assert.deepEqual(daB.map(m => m.chassi), ['BUSCA325B'])

@@ -489,7 +489,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1167,7 +1167,7 @@ async function registrarReserva(data: DadosReserva) {
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId))) {
+  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1393,7 +1393,7 @@ async function editarVenda(vendaId: string, dados: {
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
 
-  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId))) {
+  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1725,7 +1725,7 @@ async function solicitarAprovacaoVenda(
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 

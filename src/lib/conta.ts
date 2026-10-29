@@ -40,7 +40,8 @@ export type EscopoDoUsuario = { contaId: string | null; grupoLiberado?: string |
 
 export function lojasDoEscopo(usuario: EscopoDoUsuario) {
   if (usuario.grupoLiberado) return db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, usuario.grupoLiberado))
-  return lojasDaConta(usuario.contaId ?? '00000000-0000-0000-0000-000000000000')
+  if (!usuario.contaId) return db.select({ id: lojas.id }).from(lojas).where(sql`false`)
+  return lojasDaConta(usuario.contaId)
 }
 
 // O grupo está no escopo de quem consulta: o da persona, ou qualquer um da Conta.
