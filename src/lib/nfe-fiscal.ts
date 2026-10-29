@@ -57,18 +57,18 @@ export type FichaFiscal = {
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
 export type NomeDeModelo = { nome: string; canonico: string }
 
-/**
- * Lê a ficha fiscal de cada item (`<det>`) de uma NF-e.
- *
- * Item sem NCM é descartado: sem NCM a ficha não emite nota, e gravar meia ficha
- * no modelo esconderia o fato de que ele continua sem tributação.
- */
 // No XML o ponto é sempre decimal ("1.500" é 1,50), ao contrário da planilha.
 const valorDaNota = (v: string) => {
   const n = Number(v)
   return v && Number.isFinite(n) && n > 0 ? n.toFixed(2) : ''
 }
 
+/**
+ * Lê a ficha fiscal de cada item (`<det>`) de uma NF-e.
+ *
+ * Item sem NCM é descartado: sem NCM a ficha não emite nota, e gravar meia ficha
+ * no modelo esconderia o fato de que ele continua sem tributação.
+ */
 export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
   const fichas: FichaFiscal[] = []
 
