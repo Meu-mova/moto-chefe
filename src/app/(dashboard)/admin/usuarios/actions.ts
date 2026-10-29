@@ -120,6 +120,8 @@ async function validarAcesso(papel: string, gruposAcesso: string[]) {
 async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso: string[]): Promise<string | null> {
   if (papel === 'admin_geral') return null
   const grupoId = lojaId ? await getGrupoIdDaLoja(lojaId) : gruposAcesso[0]
+  // O admin_rede precisa de Conta própria (ADR-0019): os grupos liberados somam por cima dela.
+  if (!grupoId && papel === 'admin_rede') throw new Error('Escolha a loja ou um grupo de acesso do Admin de Rede')
   if (!grupoId) return null
   const [g] = await db.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
   return g?.contaId ?? null

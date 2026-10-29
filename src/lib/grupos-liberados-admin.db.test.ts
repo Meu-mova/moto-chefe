@@ -17,10 +17,12 @@ let db: Db['db']
 let sincronizarGruposLiberados: Admin['sincronizarGruposLiberados']
 let gruposLiberadosDoUsuario: Admin['gruposLiberadosDoUsuario']
 let acessosDeFora: Admin['acessosDeFora']
+let listarUsuariosGerenciaveis: typeof import('@/lib/usuarios-gerenciaveis')['listarUsuariosGerenciaveis']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ sincronizarGruposLiberados, gruposLiberadosDoUsuario, acessosDeFora } = await import('@/lib/grupos-liberados-admin'))
+  ;({ listarUsuariosGerenciaveis } = await import('@/lib/usuarios-gerenciaveis'))
 })
 
 after(async () => {
@@ -80,6 +82,35 @@ test('acesso de fora: a Conta dona vê só as liberações vivas dos grupos dela
     assert.deepEqual((await acessosDeFora(c.terceira, tx)).map(a => a.grupoNome), ['De fora'], 'outra Conta não vê o grupo da dona')
     await sincronizarGruposLiberados(tx, c.geral, c.rede, [c.deFora])
     assert.deepEqual(await acessosDeFora(c.dona, tx), [], 'revogado some da lista')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('admin_rede em casa não lista nem gerencia usuário do grupo liberado nem de outro grupo da Conta dona', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const irmao = await linha(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('Irmão', '00000000000434', ${c.dona}) returning id`)
+    const loja = async (g: string, nome: string) => (await linha(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${nome}, 'C', 'R', ${g}) returning id`)).id
+    const [lojaCasa, lojaLiberado, lojaIrmao] = [await loja(c.casa, 'L casa'), await loja(c.liberado, 'L liberado'), await loja(irmao.id, 'L irmão')]
+    const vendedor = (lojaId: string, email: string) =>
+      linha(tx, sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), ${email}, ${email + '@teste.invalid'}, 'vendedor', ${lojaId}) returning id`)
+    const daCasa = (await vendedor(lojaCasa, 'v-casa-517')).id
+    const doLiberado = (await vendedor(lojaLiberado, 'v-liberado-517')).id
+    const doIrmao = (await vendedor(lojaIrmao, 'v-irmao-517')).id
+    await sincronizarGruposLiberados(tx, c.geral, c.rede, [c.liberado])
+
+    // O gestor de /admin/usuarios vê os grupos da própria Conta, sem os liberados (gestorDaSessao).
+    const { gruposVisiveis } = await import('@/lib/acesso-grupo')
+    const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+    const emCasa = usuarioDaRede({ papel: 'admin_rede', lojaId: lojaCasa, contaId: (await tx.execute(sql`select conta_id id from usuarios where id = ${c.rede}`) as unknown as { rows: { id: string }[] }).rows[0].id, gruposAcesso: [], gruposAprovacao: [] },
+      [{ grupoId: c.liberado, contaId: c.dona }], null)
+    const todos = [{ id: c.casa, contaId: emCasa.contaId! }, { id: c.liberado, contaId: c.dona }, { id: irmao.id, contaId: c.dona }]
+    const visiveis = gruposVisiveis({ ...emCasa, gruposLiberados: [] }, c.casa, todos)
+    assert.deepEqual(visiveis, [c.casa])
+    const lista = (await listarUsuariosGerenciaveis({ papel: emCasa.papel, gruposVisiveis: visiveis }, tx)).map(u => u.id)
+    assert.ok(lista.includes(daCasa))
+    assert.ok(!lista.includes(doLiberado), 'usuário do grupo liberado')
+    assert.ok(!lista.includes(doIrmao), 'usuário de outro grupo da Conta dona')
     throw new Desfazer()
   }), Desfazer)
 })
