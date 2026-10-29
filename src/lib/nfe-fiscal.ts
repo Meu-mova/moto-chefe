@@ -47,6 +47,11 @@ export type FichaFiscal = {
   classTribIbsCbs: string
   /** `tpPint` do `veicProd` (J18), quando a nota traz o veículo. A NF de saída do ciclomotor repete. */
   tpPint: string
+  /**
+   * `vUnCom` com 2 casas, ou '' sem ele. Só pré-preenche o preço de compra na tela (#513);
+   * não vai para `motos_fiscal`.
+   */
+  valorUnitario: string
 }
 
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
@@ -84,6 +89,7 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
       cstCofins: tag(grupo(imposto, 'COFINS'), 'CST'),
       classTribIbsCbs: tag(grupo(imposto, 'IBSCBS'), 'cClassTrib'),
       tpPint: tag(grupo(prod, 'veicProd'), 'tpPint'),
+      valorUnitario: tag(prod, 'vUnCom') ? Number(tag(prod, 'vUnCom')).toFixed(2) : '',
     })
   }
 
