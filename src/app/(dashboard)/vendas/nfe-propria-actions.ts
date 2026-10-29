@@ -181,7 +181,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const renaveExigido = exigeRenave(modelo?.categoria)
   const comOrigem = renaveExigido
     ? await renaveComOrigem({
-        motoId, grupoId, modeloId: moto.modeloId, modeloNome: modelo?.modelo ?? null, chassi: moto.chassi, cor: moto.cor, motor: moto.motor,
+        motoId, grupoId, modeloId: moto.modeloId, chassi: moto.chassi, cor: moto.cor, motor: moto.motor,
         potenciaW: modelo?.potenciaW ?? null, anoAtual: Number(hojeBrt().slice(0, 4)),
       })
     : null

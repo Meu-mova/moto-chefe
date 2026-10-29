@@ -1,6 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { lojas, motos, motosFiscal, motosRenave, vendas } from '@/lib/db/schema'
+import { lojas, modelos, motos, motosFiscal, motosRenave, vendas } from '@/lib/db/schema'
+import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { sugestaoComOrigem, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 
@@ -53,7 +54,7 @@ export async function renaveParaEmissao(m: Parameters<typeof renaveComOrigem>[0]
 
 /** Como renaveParaEmissao, com a origem de cada valor para a tela. */
 export async function renaveComOrigem(
-  m: { motoId: string; grupoId: string; modeloId: string; modeloNome?: string | null; chassi: string; cor: string | null; motor: string | null; potenciaW: string | null; anoAtual: number },
+  m: { motoId: string; grupoId: string; modeloId: string; chassi: string; cor: string | null; motor: string | null; potenciaW: string | null; anoAtual: number },
   exec: Executor = db,
 ): Promise<{ dados: DadosRenave; origem: OrigemRenave }> {
   const [row] = await exec.select().from(motosRenave)
@@ -75,8 +76,12 @@ export async function renaveComOrigem(
     .orderBy(desc(motosRenave.atualizadoEm))
     .limit(1)
   const [ficha] = await exec.select({ tpPint: motosFiscal.tpPint }).from(motosFiscal).where(eq(motosFiscal.motoId, m.motoId)).limit(1)
+  // O nome que a Conta da loja dá ao modelo (#476), não o do catálogo.
+  const [nome] = await exec.select({ modelo: nomeDoModeloNaLoja(motos.lojaId) }).from(motos)
+    .innerJoin(modelos, eq(modelos.id, motos.modeloId)).where(eq(motos.id, m.motoId)).limit(1)
   return sugestaoComOrigem({
     ...m,
+    modeloNome: nome?.modelo ?? null,
     anterior: anterior ? renaveDaLinha(anterior.r) : null,
     tpPintEntrada: ficha?.tpPint ?? null,
   })
