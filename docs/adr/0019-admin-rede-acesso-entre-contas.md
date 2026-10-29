@@ -12,7 +12,7 @@ A autorização concedida pela Conta dona (seção "Entre Contas") não atendeu 
 
 ## Decisão
 
-No lugar dela:
+No lugar da autorização concedida pela Conta dona:
 
 - Novo papel **`admin_rede`**, acima do `admin_socio` e abaixo do `admin_geral`.
 - Só o **admin_geral** libera grupos para ele, pelo modal de `/admin/usuarios`. A unidade é o grupo inteiro (CNPJ), de qualquer Conta. Loja solta continua descartada.
@@ -35,12 +35,18 @@ Fica substituída a concessão pelo `admin_socio` da Conta dona com aceite. A re
 ## Por quê
 
 Quem fecha o acordo com os sócios de uma rede é o `admin_geral`, e o pedido chega por fora do
-MOVA; a concessão pela Conta dona dependia de um passo que ninguém fazia.
+MOVA.
 
 ## Alternativas descartadas
 
 - Concessão pelo `admin_socio` da Conta dona com aceite (ADR-0018, "Entre Contas").
+- A Conta dona revoga o acesso (ADR-0018 original): liberar e revogar ficam com o `admin_geral`.
 - Liberação de loja solta em vez do grupo inteiro.
+- Clientes, opção A (só o grupo liberado em tudo, inclusive na gravação): o cliente é único por
+  Conta+CPF; vender para um CPF já cadastrado em outro grupo da Conta dona falharia ou exigiria
+  duplicar o cadastro e mudar essa regra.
+- Clientes, opção C (Conta dona inteira em tudo): o `admin_rede` passaria a buscar e ver os
+  clientes de todos os grupos da Conta dona, além do grupo liberado.
 
 ## Quando revisar
 
