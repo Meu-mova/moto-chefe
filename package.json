@@ -23,9 +23,9 @@
     "e2e:xlsx": "node --import tsx scripts/e2e-xlsx.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.135.0",
+    "@anthropic-ai/sdk": "^1.3.0",
     "@base-ui/react": "^1.9.0",
-    "@hookform/resolvers": "^5.9.2",
+    "@hookform/resolvers": "^6.0.0",
     "@radix-ui/react-label": "^2.1.17",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/ssr": "^0.12.7",
