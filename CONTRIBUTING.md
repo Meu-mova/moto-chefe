@@ -12,8 +12,9 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
 - `dev → main`: PR com **squash e mensagem escrita à mão**, sem trailer de co-autoria de IA,
   seguido do PR `main → dev` com merge commit; sempre que houver algo validado, no mínimo
   semanal. O squash mantém a `main` com um commit limpo por release, mesmo que algum commit da
-  `dev` tenha entrado com co-autoria de IA (ver `CLAUDE.md`, "Sem co-autoria de IA"). Lote pequeno e frequente evita que o release vire um pacotão. Cada
-  promoção é uma release — ver "Issues, quadro e releases".
+  `dev` tenha entrado com co-autoria de IA (ver `CLAUDE.md`, "Sem co-autoria de IA"). Lote
+  pequeno e frequente evita que o release vire um pacotão. Cada promoção é uma release — ver
+  "Issues, quadro e releases".
 - Branch de trabalho se apaga à mão depois do merge. Não ligue "apagar branch após o merge"
   no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main` (ADR 0013).
 - Hotfix: nasce de `main`, PR para `main`, depois PR `main → dev` para não perder o fix
