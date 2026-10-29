@@ -20,6 +20,9 @@ test('justificativa: recusa caractere fora do ASCII básico que não é acento',
 test('situação: lê os status finais da API; o resto está em andamento', () => {
   assert.equal(situacaoInutilizacao('InutilizacaoAutorizada'), 'autorizada')
   assert.equal(situacaoInutilizacao('InutilizacaoNegada'), 'negada')
+  // Nomes que a consulta da homologação devolveu de fato.
+  assert.equal(situacaoInutilizacao('Autorizada'), 'autorizada')
+  assert.equal(situacaoInutilizacao('Negada'), 'negada')
   assert.equal(situacaoInutilizacao('Processando'), 'pendente')
   assert.equal(situacaoInutilizacao('Enviando'), 'pendente')
 })

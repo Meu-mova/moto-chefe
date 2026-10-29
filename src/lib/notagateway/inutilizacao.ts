@@ -21,9 +21,11 @@ export type SituacaoInutilizacao = 'pendente' | 'autorizada' | 'negada'
 export const STATUS_NAO_ENVIADA = 'NaoEnviada'
 export const STATUS_SEM_CONFIGURACAO = 'SemConfiguracao'
 
+// O suporte falou em InutilizacaoAutorizada/Negada, mas a consulta da homologação devolveu
+// Autorizada/Negada (29/10/2026, #507): os dois nomes valem.
 export function situacaoInutilizacao(status: string): SituacaoInutilizacao {
-  if (status === 'InutilizacaoAutorizada') return 'autorizada'
-  if (status === 'InutilizacaoNegada' || status === STATUS_NAO_ENVIADA || status === STATUS_SEM_CONFIGURACAO) return 'negada'
+  if (status === 'Autorizada' || status === 'InutilizacaoAutorizada') return 'autorizada'
+  if (status === 'Negada' || status === 'InutilizacaoNegada' || status === STATUS_NAO_ENVIADA || status === STATUS_SEM_CONFIGURACAO) return 'negada'
   return 'pendente'
 }
 
