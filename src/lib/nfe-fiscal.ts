@@ -63,6 +63,12 @@ export type NomeDeModelo = { nome: string; canonico: string }
  * Item sem NCM é descartado: sem NCM a ficha não emite nota, e gravar meia ficha
  * no modelo esconderia o fato de que ele continua sem tributação.
  */
+// No XML o ponto é sempre decimal ("1.500" é 1,50), ao contrário da planilha.
+const valorDaNota = (v: string) => {
+  const n = Number(v)
+  return v && Number.isFinite(n) && n > 0 ? n.toFixed(2) : ''
+}
+
 export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
   const fichas: FichaFiscal[] = []
 
@@ -89,7 +95,7 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
       cstCofins: tag(grupo(imposto, 'COFINS'), 'CST'),
       classTribIbsCbs: tag(grupo(imposto, 'IBSCBS'), 'cClassTrib'),
       tpPint: tag(grupo(prod, 'veicProd'), 'tpPint'),
-      valorUnitario: tag(prod, 'vUnCom') ? Number(tag(prod, 'vUnCom')).toFixed(2) : '',
+      valorUnitario: valorDaNota(tag(prod, 'vUnCom')),
     })
   }
 

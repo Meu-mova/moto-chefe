@@ -101,4 +101,8 @@ test('valor unitário do item (vUnCom) sai com 2 casas; sem vUnCom fica vazio (#
   assert.equal(carregador.valorUnitario, '39.60')
   const [semValor] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('<vUnCom>6400.0000000000</vUnCom>', '')))
   assert.equal(semValor.valorUnitario, '')
+  const [ilegivel] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('6400.0000000000</vUnCom>', 'abc</vUnCom>')))
+  assert.equal(ilegivel.valorUnitario, '')
+  const [tresCasas] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('6400.0000000000</vUnCom>', '1.500</vUnCom>')))
+  assert.equal(tresCasas.valorUnitario, '1.50')
 })
