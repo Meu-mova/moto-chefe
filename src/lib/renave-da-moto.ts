@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { lojas, motos, motosFiscal, motosRenave, vendas } from '@/lib/db/schema'
-import { sugestaoRenave, type DadosRenave } from '@/lib/notagateway/veiculo'
+import { sugestaoComOrigem, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 
 /** Leitura e gravação do veículo (RENAVE) da moto, com o grupo e a Conta no where. */
@@ -47,16 +47,25 @@ export function renaveDaLinha(r: typeof motosRenave.$inferSelect): DadosRenave {
  * primeira vez, a sugestão com o que é do modelo herdado da última moto do mesmo
  * modelo no mesmo grupo. `grupoId` é o da loja da venda, já conferido por quem chama.
  */
-export async function renaveParaEmissao(
-  m: { motoId: string; grupoId: string; modeloId: string; chassi: string; cor: string | null; motor: string | null; potenciaW: string | null; anoAtual: number },
+export async function renaveParaEmissao(m: Parameters<typeof renaveComOrigem>[0], exec: Executor = db): Promise<DadosRenave> {
+  return (await renaveComOrigem(m, exec)).dados
+}
+
+/** Como renaveParaEmissao, com a origem de cada valor para a tela. */
+export async function renaveComOrigem(
+  m: { motoId: string; grupoId: string; modeloId: string; modeloNome?: string | null; chassi: string; cor: string | null; motor: string | null; potenciaW: string | null; anoAtual: number },
   exec: Executor = db,
-): Promise<DadosRenave> {
+): Promise<{ dados: DadosRenave; origem: OrigemRenave }> {
   const [row] = await exec.select().from(motosRenave)
     .innerJoin(motos, eq(motos.id, motosRenave.motoId))
     .innerJoin(lojas, eq(lojas.id, motos.lojaId))
     .where(and(eq(motosRenave.motoId, m.motoId), eq(lojas.grupoId, m.grupoId)))
     .limit(1)
-  if (row) return renaveDaLinha(row.motos_renave)
+  if (row) {
+    const dados = renaveDaLinha(row.motos_renave)
+    const origem = Object.fromEntries(Object.keys(dados).map(k => [k, 'do último envio desta moto'])) as OrigemRenave
+    return { dados, origem }
+  }
   const [anterior] = await exec
     .select({ r: motosRenave })
     .from(motosRenave)
@@ -66,7 +75,7 @@ export async function renaveParaEmissao(
     .orderBy(desc(motosRenave.atualizadoEm))
     .limit(1)
   const [ficha] = await exec.select({ tpPint: motosFiscal.tpPint }).from(motosFiscal).where(eq(motosFiscal.motoId, m.motoId)).limit(1)
-  return sugestaoRenave({
+  return sugestaoComOrigem({
     ...m,
     anterior: anterior ? renaveDaLinha(anterior.r) : null,
     tpPintEntrada: ficha?.tpPint ?? null,

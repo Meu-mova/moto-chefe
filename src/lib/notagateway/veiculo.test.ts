@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  chassiValidoRenave, conferirRenave, converterPotencia, corDenatranSugerida, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
+  chassiValidoRenave, conferirRenave, camposFaltando, converterPotencia, corDenatranSugerida, sugestaoComOrigem, exigeRenave, montarVeiculoNovo, potenciaCvSugerida,
   sugestaoRenave, validarRenave, type DadosRenave,
 } from './veiculo'
 
@@ -189,4 +189,22 @@ test('potência: watts é a sugestão inicial; a unidade escolhida é a que vai 
   const v = validarRenave({ ...PREENCHIDO, potenciaMotor: '3000', unidadePotencia: 'W' })
   assert.ok(v.ok && montarVeiculoNovo(v.dados).potenciaMotor === '3000')
   assert.equal(validarRenave({ ...PREENCHIDO, unidadePotencia: '' }).ok, false)
+})
+
+test('origem: diz de onde veio cada valor; o que a loja tem de escolher fica sem origem', () => {
+  const base = { chassi: CHASSI, cor: 'Branca', motor: 'mt1', potenciaW: '3000W', anoAtual: 2026, modeloNome: 'X11-12' }
+  const primeira = sugestaoComOrigem({ ...base, tpPintEntrada: 'A' })
+  assert.equal(primeira.origem.chassi, 'da moto')
+  assert.equal(primeira.origem.tipoPintura, 'da nota de entrada da moto')
+  assert.equal(primeira.origem.potenciaMotor, 'do cadastro do modelo')
+  assert.equal(primeira.origem.especie, undefined)
+
+  const herdada = sugestaoComOrigem({ ...base, anterior: PREENCHIDO })
+  assert.equal(herdada.origem.especie, 'da última X11-12')
+  assert.equal(herdada.origem.pesoBruto, 'da última X11-12')
+  assert.equal(herdada.dados.especie, PREENCHIDO.especie, 'os 6 de tabela do modelo continuam herdados')
+  assert.equal(herdada.origem.tipoOperacao, undefined, 'operação e restrição: sempre a loja')
+  assert.ok(camposFaltando(herdada.dados).includes('tipoOperacao'))
+  assert.ok(camposFaltando(herdada.dados).includes('restricao'))
+  assert.deepEqual(camposFaltando(PREENCHIDO), [])
 })

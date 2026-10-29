@@ -16,57 +16,57 @@
  */
 
 export const OPCOES_TIPO_OPERACAO: [string, string][] = [
-  ['VendaConcessionaria', '1 — Venda concessionária'],
-  ['FaturamentoDiretoConsumidorFinal', '2 — Faturamento direto para consumidor final'],
-  ['VendaDiretaGrandesConsumidores', '3 — Venda direta para grandes consumidores'],
-  ['Outros', '0 — Outros'],
+  ['VendaConcessionaria', '1 - Venda concessionária'],
+  ['FaturamentoDiretoConsumidorFinal', '2 - Faturamento direto para consumidor final'],
+  ['VendaDiretaGrandesConsumidores', '3 - Venda direta para grandes consumidores'],
+  ['Outros', '0 - Outros'],
 ]
 
 export const OPCOES_COR_DENATRAN: [string, string][] = [
-  ['Amarelo', '01 — Amarelo'], ['Azul', '02 — Azul'], ['Bege', '03 — Bege'], ['Branca', '04 — Branca'],
-  ['Cinza', '05 — Cinza'], ['Dourada', '06 — Dourada'], ['Grena', '07 — Grená'], ['Laranja', '08 — Laranja'],
-  ['Marrom', '09 — Marrom'], ['Prata', '10 — Prata'], ['Preta', '11 — Preta'], ['Rosa', '12 — Rosa'],
-  ['Roxa', '13 — Roxa'], ['Verde', '14 — Verde'], ['Vermelha', '15 — Vermelha'], ['Fantasia', '16 — Fantasia'],
+  ['Amarelo', '01 - Amarelo'], ['Azul', '02 - Azul'], ['Bege', '03 - Bege'], ['Branca', '04 - Branca'],
+  ['Cinza', '05 - Cinza'], ['Dourada', '06 - Dourada'], ['Grena', '07 - Grená'], ['Laranja', '08 - Laranja'],
+  ['Marrom', '09 - Marrom'], ['Prata', '10 - Prata'], ['Preta', '11 - Preta'], ['Rosa', '12 - Rosa'],
+  ['Roxa', '13 - Roxa'], ['Verde', '14 - Verde'], ['Vermelha', '15 - Vermelha'], ['Fantasia', '16 - Fantasia'],
 ]
 
 export const OPCOES_COMBUSTIVEL: [string, string][] = [
-  ['06', '06 — Elétrico/fonte interna'],
-  ['07', '07 — Elétrico/fonte externa'],
-  ['18', '18 — Gasolina/elétrico'],
-  ['02', '02 — Gasolina'],
-  ['01', '01 — Álcool'],
-  ['16', '16 — Álcool/gasolina (flex)'],
-  ['11', '11 — Vide campo observação'],
+  ['06', '06 - Elétrico/fonte interna'],
+  ['07', '07 - Elétrico/fonte externa'],
+  ['18', '18 - Gasolina/elétrico'],
+  ['02', '02 - Gasolina'],
+  ['01', '01 - Álcool'],
+  ['16', '16 - Álcool/gasolina (flex)'],
+  ['11', '11 - Vide campo observação'],
 ]
 
 export const OPCOES_TIPO_VEICULO: [string, string][] = [
-  ['02', '02 — Ciclomotor'],
-  ['03', '03 — Motoneta'],
-  ['04', '04 — Motocicleta'],
-  ['05', '05 — Triciclo'],
-  ['21', '21 — Quadriciclo'],
+  ['02', '02 - Ciclomotor'],
+  ['03', '03 - Motoneta'],
+  ['04', '04 - Motocicleta'],
+  ['05', '05 - Triciclo'],
+  ['21', '21 - Quadriciclo'],
 ]
 
 export const OPCOES_ESPECIE: [string, string][] = [
-  ['Passageiro', '1 — Passageiro'], ['Carga', '2 — Carga'], ['Misto', '3 — Misto'],
-  ['Corrida', '4 — Corrida'], ['Tracao', '5 — Tração'], ['Especial', '6 — Especial'],
+  ['Passageiro', '1 - Passageiro'], ['Carga', '2 - Carga'], ['Misto', '3 - Misto'],
+  ['Corrida', '4 - Corrida'], ['Tracao', '5 - Tração'], ['Especial', '6 - Especial'],
 ]
 
 // tpPint (J18 do leiaute, MOC): 1 caractere sem lista de valores na SEFAZ. A nota da
 // fábrica traz 'A', fora do S/M/P usual; então só sugere, não restringe.
 export const SUGESTOES_PINTURA: [string, string][] = [['S', 'Sólida'], ['M', 'Metálica'], ['P', 'Perolizada'], ['A', 'Como na nota da fábrica']]
 
-export const OPCOES_CONDICAO_VIN: [string, string][] = [['Normal', 'N — Normal'], ['Remarcado', 'R — Remarcado']]
+export const OPCOES_CONDICAO_VIN: [string, string][] = [['Normal', 'N - Normal'], ['Remarcado', 'R - Remarcado']]
 
-export const OPCOES_CONDICAO: [string, string][] = [['Acabado', '1 — Acabado'], ['Inacabado', '2 — Inacabado'], ['SemiAcabado', '3 — Semiacabado']]
+export const OPCOES_CONDICAO: [string, string][] = [['Acabado', '1 - Acabado'], ['Inacabado', '2 - Inacabado'], ['SemiAcabado', '3 - Semiacabado']]
 
 export const OPCOES_RESTRICAO: [string, string][] = [
-  ['NaoHa', '0 — Não há'],
-  ['AlienacaoFiduciaria', '1 — Alienação fiduciária'],
-  ['ArrendamentoMercantil', '2 — Arrendamento mercantil'],
-  ['ReservaDominio', '3 — Reserva de domínio'],
-  ['PenhorVeiculos', '4 — Penhor de veículos'],
-  ['Outras', '9 — Outras'],
+  ['NaoHa', '0 - Não há'],
+  ['AlienacaoFiduciaria', '1 - Alienação fiduciária'],
+  ['ArrendamentoMercantil', '2 - Arrendamento mercantil'],
+  ['ReservaDominio', '3 - Reserva de domínio'],
+  ['PenhorVeiculos', '4 - Penhor de veículos'],
+  ['Outras', '9 - Outras'],
 ]
 
 // pot (veicProd): o leiaute descreve o campo em CV, mas a nota da fábrica manda o valor
@@ -223,11 +223,29 @@ export function potenciaCvSugerida(potenciaW: string | null | undefined): string
  * operação e restrição são da venda: herdar levaria a alienação fiduciária de
  * uma venda financiada para a próxima moto.
  */
-const CAMPOS_DO_MODELO = [
-  'potenciaMotor', 'unidadePotencia', 'cilindradas', 'pesoLiquido', 'pesoBruto', 'tipoCombustivel',
-  'capacidadeMaximaTracao', 'distanciaEixos', 'tipoVeiculo', 'especie', 'condicaoVin',
-  'condicao', 'codigoMarcaModelo', 'lotacao',
+const MEDIDAS_DO_MODELO = [
+  'potenciaMotor', 'unidadePotencia', 'pesoLiquido', 'pesoBruto',
+  'capacidadeMaximaTracao', 'distanciaEixos', 'codigoMarcaModelo', 'lotacao',
 ] as const satisfies readonly (keyof DadosRenave)[]
+
+/**
+ * Valores de tabela que também vêm da última moto do mesmo modelo (Luis, 29/10).
+ * Separados das medidas para a decisão poder mudar só aqui: tirar daqui deixa
+ * estes campos vazios em toda venda.
+ */
+const TABELA_DO_MODELO = [
+  'cilindradas', 'tipoCombustivel', 'tipoVeiculo', 'especie', 'condicao', 'condicaoVin',
+] as const satisfies readonly (keyof DadosRenave)[]
+
+const CAMPOS_DO_MODELO = [...MEDIDAS_DO_MODELO, ...TABELA_DO_MODELO]
+
+/** De onde veio cada valor sugerido, em texto curto para a tela. Campo sem origem: a loja preenche. */
+export type OrigemRenave = Partial<Record<keyof DadosRenave, string>>
+
+/** Campos ainda vazios: a nota não sai sem eles. */
+export function camposFaltando(d: DadosRenave): (keyof DadosRenave)[] {
+  return (Object.keys(d) as (keyof DadosRenave)[]).filter(k => !String(d[k] ?? '').trim())
+}
 
 /**
  * Pré-preenche o formulário. O que é da moto sai do cadastro dela; o que é do
@@ -235,7 +253,12 @@ const CAMPOS_DO_MODELO = [
  * restrição etc.) o MOVA não supõe: cada loja tem a sua prática, então na primeira
  * moto fica em branco e a loja escolhe.
  */
-export function sugestaoRenave(m: {
+export function sugestaoRenave(m: Parameters<typeof sugestaoComOrigem>[0]): DadosRenave {
+  return sugestaoComOrigem(m).dados
+}
+
+/** A sugestão e a origem de cada valor, para a tela mostrar ao lado do campo. */
+export function sugestaoComOrigem(m: {
   chassi: string
   cor: string | null
   motor: string | null
@@ -244,7 +267,9 @@ export function sugestaoRenave(m: {
   anterior?: DadosRenave | null
   /** tpPint da nota de entrada da moto. */
   tpPintEntrada?: string | null
-}): DadosRenave {
+  /** Nome do modelo, para dizer "da última X11-12". */
+  modeloNome?: string | null
+}): { dados: DadosRenave; origem: OrigemRenave } {
   const chassi = normalizarChassi(m.chassi)
   const denatran = corDenatranSugerida(m.cor)
   const base: DadosRenave = {
@@ -283,7 +308,21 @@ export function sugestaoRenave(m: {
   // Pintura é da moto: vem da nota de entrada dela, não da moto anterior.
   const pintEntrada = (m.tpPintEntrada ?? '').trim().toUpperCase()
   if (pintEntrada.length === 1) s.tipoPintura = pintEntrada
-  return s
+
+  const origem: OrigemRenave = {}
+  const marcar = (campos: readonly (keyof DadosRenave)[], texto: string) => {
+    for (const k of campos) if (String(s[k]).trim()) origem[k] = texto
+  }
+  marcar(['chassi', 'numeroMotor', 'anoFabricacao', 'anoModelo', 'corDescricao', 'corDenatran'], 'da moto')
+  marcar(['corCodigo'], 'da cor DENATRAN')
+  marcar(['numeroSerie'], 'final do chassi')
+  if (pintEntrada.length === 1) origem.tipoPintura = 'da nota de entrada da moto'
+  if (m.anterior) marcar(CAMPOS_DO_MODELO, `da última ${(m.modeloNome ?? '').trim() || 'moto do modelo'}`)
+  else {
+    marcar(['potenciaMotor'], 'do cadastro do modelo')
+    origem.unidadePotencia = 'sugerido'
+  }
+  return { dados: s, origem }
 }
 
 const valores = (opcoes: [string, string][]) => new Set(opcoes.map(([v]) => v))

@@ -22,8 +22,8 @@ import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { isIndicadorIe } from '@/lib/documento'
-import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave } from '@/lib/notagateway/veiculo'
-import { gravarRenaveDaMoto, renaveParaEmissao, SEM_VENDA } from '@/lib/renave-da-moto'
+import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
@@ -81,6 +81,7 @@ export type PreviaNfe =
        */
       exigeRenave: boolean
       renave: DadosRenave | null
+      renaveOrigem: OrigemRenave
       resumo: {
         cliente: { nome: string; documento: string; endereco: string; email: string | null }
         produto: { descricao: string; ncm: string; cest: string; cfop: string; cst: string; origemEntrada: string; origemSaida: string }
@@ -178,16 +179,18 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   // RENAVE: só ciclomotor. Preenchido no ato do envio; aqui só se monta o que
   // abre o formulário. Chassi e motor vêm do cadastro da moto, editáveis.
   const renaveExigido = exigeRenave(modelo?.categoria)
-  const renave: DadosRenave | null = renaveExigido
-    ? await renaveParaEmissao({
-        motoId, grupoId, modeloId: moto.modeloId, chassi: moto.chassi, cor: moto.cor, motor: moto.motor,
+  const comOrigem = renaveExigido
+    ? await renaveComOrigem({
+        motoId, grupoId, modeloId: moto.modeloId, modeloNome: modelo?.modelo ?? null, chassi: moto.chassi, cor: moto.cor, motor: moto.motor,
         potenciaW: modelo?.potenciaW ?? null, anoAtual: Number(hojeBrt().slice(0, 4)),
       })
     : null
+  const renave: DadosRenave | null = comOrigem?.dados ?? null
+  const renaveOrigem: OrigemRenave = comOrigem?.origem ?? {}
 
   return {
     venda, grupoId, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
-    renaveExigido, renave,
+    renaveExigido, renave, renaveOrigem,
   }
 }
 
@@ -312,6 +315,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       sugestao: e.sugestao,
       exigeRenave: e.renaveExigido,
       renave: e.renave,
+      renaveOrigem: e.renaveOrigem,
       resumo,
       notas,
       correcao: {

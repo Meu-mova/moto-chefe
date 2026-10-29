@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import { RenaveForm } from './renave-form'
-import type { DadosRenave } from '@/lib/notagateway/veiculo'
+import { camposFaltando, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { NfeRecusa } from './nfe-recusa'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
@@ -63,6 +63,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
   const [cestEdicao, setCestEdicao] = useState<string | null>(null)
   // Ciclomotor: os dados do veículo se preenchem aqui e vão junto com a transmissão.
   const [renave, setRenave] = useState<DadosRenave | null>(null)
+  const [renaveOrigem, setRenaveOrigem] = useState<OrigemRenave>({})
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
   const [erroCorrecao, setErroCorrecao] = useState<string | null>(null)
@@ -75,6 +76,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
       setPrevia(r)
       setFicha(r.ficha ? null : r.sugestao)
       setRenave(r.exigeRenave ? r.renave : null)
+      setRenaveOrigem(r.renaveOrigem)
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
       if (recusa) setResultado({ nota: recusa })
@@ -199,6 +201,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
+  const faltamRenave = renave ? camposFaltando(renave).length : 0
 
   return (
     <div className="space-y-4">
@@ -326,7 +329,12 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
       )}
 
       {r && renave && (
-        <RenaveForm dados={renave} onChange={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))} />
+        <RenaveForm dados={renave} origem={renaveOrigem} onChange={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))} />
+      )}
+      {r && renave && faltamRenave > 0 && (
+        <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
+          {faltamRenave === 1 ? 'Falta 1 campo' : `Faltam ${faltamRenave} campos`} nos dados do veículo: preencha para transmitir.
+        </p>
       )}
 
       {erro && cestEdicao == null && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
@@ -347,7 +355,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas }: Props) {
         {!r || bloqueadaProducao ? (
           <Button variant="outline" onClick={onVoltar} disabled={pending} className="h-11 flex-1">Voltar</Button>
         ) : (
-          <Button onClick={transmitir} disabled={pending || !conferido} className="h-12 flex-1 gap-2 text-base">
+          <Button onClick={transmitir} disabled={pending || !conferido || faltamRenave > 0} className="h-12 flex-1 gap-2 text-base">
             <Send className="size-4" /> {teste ? 'Transmitir teste' : 'Emitir pelo MOVA'} · {brl(r.valor)}
           </Button>
         )}
