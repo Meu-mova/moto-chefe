@@ -72,7 +72,13 @@ export async function listarTabelaPadrao(exec: Executor = db) {
     .orderBy(asc(modelos.marca), asc(modelos.modelo))
 }
 
-type Escritor = Pick<typeof db, 'select' | 'insert'>
+type Escritor = Pick<typeof db, 'select' | 'transaction'>
+
+// Sem índice único em precificacao (grupo, nome): quem confere "já tem preço?" e depois insere
+// segura esta trava do grupo até o fim da transação, para duas gravações não criarem o mesmo modelo.
+export async function travarPrecificacaoDoGrupo(tx: Pick<typeof db, 'execute'>, grupoId: string) {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`precificacao:${grupoId}`}))`)
+}
 
 /**
  * Preço padrão nos modelos que o grupo ainda não precificou (#522). Só insere: preço que já
@@ -91,17 +97,21 @@ export async function preencherGruposComPrecoPadrao(grupoIds: string[], exec: Es
   let inseridos = 0
   for (const g of alvos) {
     if (!catalogoDaConta.has(g.contaId)) catalogoDaConta.set(g.contaId, await listarModelosDaConta(g.contaId, exec))
-    const existentes = new Set((await exec.select({ nome: precificacao.nome }).from(precificacao)
-      .where(eq(precificacao.grupoId, g.id))).map(p => chaveNome(p.nome)))
-    const novos: (typeof precificacao.$inferInsert)[] = []
-    for (const m of catalogoDaConta.get(g.contaId)!) {
-      const nome = chaveNome(m.modeloOriginal)
-      if (!precoDoModelo.has(m.id) || existentes.has(nome)) continue
-      existentes.add(nome)
-      novos.push({ grupoId: g.id, nome, valorMinimo: precoDoModelo.get(m.id)! })
-    }
-    if (novos.length) await exec.insert(precificacao).values(novos)
-    inseridos += novos.length
+    const catalogo = catalogoDaConta.get(g.contaId)!
+    inseridos += await exec.transaction(async tx => {
+      await travarPrecificacaoDoGrupo(tx, g.id)
+      const existentes = new Set((await tx.select({ nome: precificacao.nome }).from(precificacao)
+        .where(eq(precificacao.grupoId, g.id))).map(p => chaveNome(p.nome)))
+      const novos: (typeof precificacao.$inferInsert)[] = []
+      for (const m of catalogo) {
+        const nome = chaveNome(m.modeloOriginal)
+        if (!precoDoModelo.has(m.id) || existentes.has(nome)) continue
+        existentes.add(nome)
+        novos.push({ grupoId: g.id, nome, valorMinimo: precoDoModelo.get(m.id)! })
+      }
+      if (novos.length) await tx.insert(precificacao).values(novos)
+      return novos.length
+    })
   }
   return inseridos
 }

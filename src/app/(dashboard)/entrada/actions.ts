@@ -23,8 +23,9 @@ type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
 // Modelo que entrou pela 1ª vez no grupo ganha o preço padrão da MotoChefe (#522). As motos já
 // foram gravadas: falha aqui não desfaz a entrada, só deixa o preço para o próximo gatilho.
-async function precoPadraoDepoisDaEntrada(grupoId: string) {
+async function precoPadraoDepoisDaEntrada(loja: { grupoId: string } | { lojaId: string }) {
   try {
+    const grupoId = 'grupoId' in loja ? loja.grupoId : await getGrupoIdDaLoja(loja.lojaId)
     if (await preencherGruposComPrecoPadrao([grupoId])) revalidatePath('/precificacao')
   } catch (e) {
     console.error('[entrada] preço padrão não preenchido', e)
@@ -139,7 +140,7 @@ export async function registrarEntrada(formData: {
     }
   }
 
-  if (inseridos > 0) await precoPadraoDepoisDaEntrada(loja.grupoId)
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ grupoId: loja.grupoId })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -249,7 +250,7 @@ export async function registrarEntradaLote(formData: {
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
-  if (inseridos > 0) await precoPadraoDepoisDaEntrada(loja.grupoId)
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ grupoId: loja.grupoId })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -286,7 +287,7 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
     throw e
   }
 
-  if (total.motos > 0) await precoPadraoDepoisDaEntrada(await getGrupoIdDaLoja(dados.lojaId))
+  if (total.motos > 0) await precoPadraoDepoisDaEntrada({ lojaId: dados.lojaId })
   revalidatePath('/estoque')
   revalidatePath('/pecas')
   revalidatePath('/dashboard')

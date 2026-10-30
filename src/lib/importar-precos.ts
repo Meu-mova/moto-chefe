@@ -4,6 +4,7 @@ import { precificacao } from '@/lib/db/schema'
 import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { casarComModelos, lerPlanilhaDePrecos } from '@/lib/planilha-precos'
 import { chaveNome } from '@/lib/precificacao-modelos'
+import { travarPrecificacaoDoGrupo } from '@/lib/tabela-preco-padrao'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -76,6 +77,7 @@ export async function gravarImportacao(
   exec: Pick<typeof db, 'select' | 'transaction'> = db,
 ) {
   return exec.transaction(async tx => {
+    await travarPrecificacaoDoGrupo(tx, dados.grupoId)
     const previa = await previaDaImportacao(dados, tx)
     if (!previa.ok) return previa
     const aceitas = new Set(dados.trocar)
