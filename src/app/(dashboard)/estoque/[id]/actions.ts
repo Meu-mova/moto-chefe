@@ -21,6 +21,7 @@ import { revalidatePath } from 'next/cache'
 import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
+import { corrigirPrecoCompra } from '@/lib/preco-compra-moto'
 
 /**
  * A venda não cancelada desta moto, se houver. Cancelar venda apaga a linha
@@ -273,4 +274,12 @@ export async function alterarDisponibilidadeAction(motoId: string, novaDisp: str
 
   revalidatePath(`/estoque/${motoId}`)
   revalidatePath('/estoque')
+}
+
+// Correção do preço de compra (#514): permissão, Conta, moto vendida e log ficam na lib.
+export async function corrigirPrecoCompraAction(motoId: string, preco: string) {
+  const usuario = await getUsuarioLogado()
+  const r = await corrigirPrecoCompra(usuario, motoId, preco)
+  if (r.ok) revalidatePath(`/estoque/${motoId}`)
+  return r
 }

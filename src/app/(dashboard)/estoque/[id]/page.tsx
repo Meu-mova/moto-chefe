@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
 import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
+import { CorrigirPrecoCompraButton } from './components/corrigir-preco-compra-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
@@ -124,8 +125,17 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{moto.potenciaW}W</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Motor</span><span>{moto.motor}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
-            {moto.precoCompra && ['admin_geral', 'admin_socio'].includes(usuario.papel) && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Preço de Compra</span><span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+            {['admin_geral', 'admin_socio'].includes(usuario.papel) && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Preço de Compra</span>
+                <span className="flex items-center gap-1">
+                  {moto.precoCompra
+                    ? <span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    : <span className="text-muted-foreground">Sem preço</span>}
+                  {/* Vendida mantém o preço que entrou no custo da venda (#514). */}
+                  {moto.status !== 'vendida' && <CorrigirPrecoCompraButton motoId={moto.id} precoAtual={moto.precoCompra} />}
+                </span>
+              </div>
             )}
             {moto.dataMontagem && (
               <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
