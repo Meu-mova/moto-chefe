@@ -11,10 +11,10 @@ import type { ConferenciaPlanilha } from '@/lib/entrada-pecas'
 import { cnpjValido } from '@/lib/documento'
 import { ConferenciaPecas } from './conferencia-pecas'
 
-type Props = { lojaId: string; lojaNome: string; onRegistrado?: () => void }
+type Props = { lojaId: string; lojaNome: string; onRegistrado?: () => void; onOcupado?: (ocupado: boolean) => void }
 
 /** Peças e acessórios sem nota (#519): a planilha passa pela mesma conferência do XML. */
-export function PecasPorPlanilha({ lojaId, lojaNome, onRegistrado }: Props) {
+export function PecasPorPlanilha({ lojaId, lojaNome, onRegistrado, onOcupado }: Props) {
   const arquivoRef = useRef<HTMLInputElement>(null)
   const [itens, setItens] = useState<ItemPlanilhaPecas[]>([])
   const [errosLeitura, setErrosLeitura] = useState<string[]>([])
@@ -84,8 +84,10 @@ export function PecasPorPlanilha({ lojaId, lojaNome, onRegistrado }: Props) {
 
   async function registrar() {
     setLoading(true)
+    onOcupado?.(true)
     const r = await registrarEntradaPlanilhaPecas({ lojaId, fornecedorCnpj: cnpj.trim() || null, linhas: paraGravacao(linhas) })
     setLoading(false)
+    onOcupado?.(false)
     if ('error' in r) { toast.error(r.error); return }
     toast.success(r.success)
     limpar()

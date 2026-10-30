@@ -12,6 +12,8 @@ type Props = { lojas: { id: string; nome: string }[] }
 export function ImportarPlanilhaPecasDialog({ lojas }: Props) {
   const [aberto, setAberto] = useState(false)
   const [lojaId, setLojaId] = useState('')
+  // Enquanto grava, X e Esc não fecham: a pessoa veria o resultado sumir com o diálogo.
+  const [ocupado, setOcupado] = useState(false)
 
   return (
     <>
@@ -23,7 +25,7 @@ export function ImportarPlanilhaPecasDialog({ lojas }: Props) {
         <FileSpreadsheet className="size-4" /> Importar planilha
       </button>
       {/* Fechar só pelo botão: clique fora perderia a conferência inteira. */}
-      <Dialog open={aberto} onOpenChange={setAberto} disablePointerDismissal>
+      <Dialog open={aberto} onOpenChange={v => { if (!ocupado) setAberto(v) }} disablePointerDismissal>
         <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar peças e acessórios por planilha</DialogTitle>
@@ -43,6 +45,7 @@ export function ImportarPlanilhaPecasDialog({ lojas }: Props) {
             lojaId={lojaId}
             lojaNome={lojas.find(l => l.id === lojaId)?.nome ?? 'loja'}
             onRegistrado={() => setAberto(false)}
+            onOcupado={setOcupado}
           />
         </DialogContent>
       </Dialog>
