@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatarCpfCnpj as formatarDocumento } from '@/lib/documento'
 import { notFound, redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -12,12 +13,9 @@ type Props = {
   params: Promise<{ id: string }>
 }
 
-function formatarCpfCnpj(v: string | null | undefined) {
-  if (!v) return '—'
-  const n = v.replace(/\D/g, '')
-  if (n.length === 11) return n.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  if (n.length === 14) return n.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-  return v
+// Documento vazio aparece por extenso: a tela não usa travessão.
+function formatarCpfCnpj(v: string | null | undefined): string {
+  return v ? formatarDocumento(v) : 'Sem CPF/CNPJ'
 }
 
 function formatarMoeda(v: unknown) {

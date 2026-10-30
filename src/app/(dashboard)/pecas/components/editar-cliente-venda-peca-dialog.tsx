@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatarCpfCnpj, soDigitosDoc, cnpjValido } from '@/lib/documento'
+import { formatarCpfCnpj, cnpjValido, limparDocumento } from '@/lib/documento'
 import { editarClienteVendaPecaAction } from '../actions'
 
 type Props = {
@@ -34,7 +34,7 @@ export function EditarClienteVendaPecaDialog({ vendaId, numero, clienteNome, cli
   }
 
   // Espelha validarDocumento do servidor só pra desabilitar o botão.
-  const digitosDoc = soDigitosDoc(documento)
+  const digitosDoc = limparDocumento(documento)
   const clientePJOk = tipoPessoa !== 'juridica' || (cnpjValido(digitosDoc) && nome.trim().length > 0)
 
   function salvar() {

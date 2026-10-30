@@ -1,5 +1,5 @@
 'use client'
-import { cnpjValido } from '@/lib/documento'
+import { cnpjValido, limparDocumento } from '@/lib/documento'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -53,7 +53,7 @@ export function VirarOSDialog({
   }
 
   const ehEmpresa  = !cliente && form.clienteTipoPessoaExterno === 'juridica'
-  const digitosDoc = form.clienteDocumentoExterno.replace(/\D/g, '')
+  const digitosDoc = limparDocumento(form.clienteDocumentoExterno)
 
   function salvar() {
     if (!veiculo?.chassi.trim()) {

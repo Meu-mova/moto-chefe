@@ -3,6 +3,7 @@
  * tem clientes bloqueado ainda abre OS. Só da Conta; outra Conta e id inexistente dão null.
  */
 import { and, eq, sql } from 'drizzle-orm'
+import { limparDocumento } from '@/lib/documento'
 import type { db } from '@/lib/db'
 import { clientes } from '@/lib/db/schema'
 import { acessaModulo, type UsuarioNav } from '@/lib/navegacao'
@@ -21,15 +22,15 @@ export async function clienteDaOs(exec: Executor, usuario: UsuarioNav & { contaI
   return cliente ?? null
 }
 
-/** CPF/CNPJ inteiro, comparado só pelos dígitos: trecho do documento não acha ninguém. */
+/** CPF/CNPJ inteiro, comparado sem pontuação (letra do CNPJ alfanumérico conta): trecho do documento não acha ninguém. */
 export async function clientePorCpfDaOs(exec: Executor, usuario: UsuarioNav & { contaId: string }, documento: string) {
   if (!acessaModulo(usuario, 'ordens-servico')) return null
-  const digitos = documento.replace(/\D/g, '')
-  if (digitos.length !== 11 && digitos.length !== 14) return null
+  const doc = limparDocumento(documento)
+  if (doc.length !== 11 && doc.length !== 14) return null
   const [cliente] = await exec.select(colunas).from(clientes)
     .where(and(
       // Padrão como parâmetro: escrito no template, a barra de \D some antes de chegar ao SQL.
-      sql`regexp_replace(${clientes.cpfCnpj}, ${'[^0-9]'}, '', 'g') = ${digitos}`,
+      sql`upper(regexp_replace(${clientes.cpfCnpj}, ${'[^0-9a-zA-Z]'}, '', 'g')) = ${doc}`,
       eq(clientes.contaId, usuario.contaId),
     ))
     .limit(1)

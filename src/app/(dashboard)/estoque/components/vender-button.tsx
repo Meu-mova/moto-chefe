@@ -17,7 +17,7 @@ import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from 
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { lerDocumentoCliente, tipoPessoaSeCompleto, limparDocumento } from '@/lib/documento'
 import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
@@ -250,7 +250,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   function handleDocumento(mascarado: string) {
     setClienteCpf(mascarado)
     setClienteStatus(null)
-    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(soDigitosDoc(mascarado))
+    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(limparDocumento(mascarado))
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {

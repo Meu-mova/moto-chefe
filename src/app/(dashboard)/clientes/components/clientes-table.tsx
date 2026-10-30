@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { formatarCpfCnpj as formatarDocumento } from '@/lib/documento'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -40,16 +41,9 @@ interface Props {
   isAdmin: boolean
 }
 
-function formatarCpfCnpj(v: string | null): string {
-  if (!v) return '—'
-  const digits = v.replace(/\D/g, '')
-  if (digits.length === 11) {
-    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  }
-  if (digits.length === 14) {
-    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-  }
-  return v
+// Documento vazio aparece por extenso: a tela não usa travessão.
+function formatarCpfCnpj(v: string | null | undefined): string {
+  return v ? formatarDocumento(v) : 'Sem CPF/CNPJ'
 }
 
 function labelSexo(s: string): string {

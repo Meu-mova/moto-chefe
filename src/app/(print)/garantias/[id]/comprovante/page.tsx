@@ -7,7 +7,7 @@ import { alias } from 'drizzle-orm/pg-core'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { formatarCpfCnpj, soDigitosDoc } from '@/lib/documento'
+import { formatarCpfCnpj, limparDocumento } from '@/lib/documento'
 import { PrintTrigger } from './print-trigger'
 
 /** 'YYYY-MM-DD' formatado sem passar por new Date(): a data vem como texto do
@@ -82,7 +82,7 @@ export default async function ComprovanteGarantiaPage({ params }: { params: Prom
   if (g.status !== 'encerrada') notFound()
 
   // A venda guarda um campo só de documento; 14 dígitos é CNPJ, o resto é CPF.
-  const ehPJ = soDigitosDoc(g.clienteDoc).length === 14
+  const ehPJ = limparDocumento(g.clienteDoc).length === 14
   const emitidoEm = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
   return (

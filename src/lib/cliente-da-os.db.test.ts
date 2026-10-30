@@ -99,3 +99,17 @@ test('busca por CPF na OS: Conta B não acha cliente que só existe na A (#450)'
     assert.equal(await mod.clientePorCpfDaOs(tx, { papel: 'admin_socio', contaId: contaB.id }, '12345678909'), null)
   })
 })
+
+test('busca por CNPJ alfanumérico na OS: a letra conta, e Conta B não acha o da A (#534)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semear(tx, 'A')
+    const [contaB] = await linhas(tx, sql`insert into contas (nome) values ('CO534 B') returning id`)
+    // Mesmos dígitos, letras diferentes: são CNPJs diferentes.
+    await linhas(tx, sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Empresa ABC', '12ABC34501DE35', ${a.contaId})`)
+    await linhas(tx, sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Empresa XYZ', '12XYZ34501WV35', ${a.contaId})`)
+    const daA = { papel: 'admin_socio', contaId: a.contaId }
+    assert.equal((await mod.clientePorCpfDaOs(tx, daA, '12.abc.345/01de-35'))?.nome, 'Empresa ABC')
+    assert.equal((await mod.clientePorCpfDaOs(tx, daA, '12.XYZ.345/01WV-35'))?.nome, 'Empresa XYZ')
+    assert.equal(await mod.clientePorCpfDaOs(tx, { papel: 'admin_socio', contaId: contaB.id }, '12ABC34501DE35'), null)
+  })
+})

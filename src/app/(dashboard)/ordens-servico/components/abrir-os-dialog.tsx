@@ -1,5 +1,5 @@
 'use client'
-import { cnpjValido, soDigitosDoc } from '@/lib/documento'
+import { cnpjValido, limparDocumento } from '@/lib/documento'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -46,7 +46,7 @@ export function AbrirOSDialog({ mecanicos, lojas, papel, lojaIdUsuario }: Props)
   }
 
   const ehEmpresa = !cliente && form.clienteTipoPessoaExterno === 'juridica'
-  const digitosDoc = soDigitosDoc(form.clienteDocumentoExterno)
+  const digitosDoc = limparDocumento(form.clienteDocumentoExterno)
 
   function salvar() {
     if (!veiculo?.chassi.trim()) {

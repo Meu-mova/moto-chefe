@@ -2,7 +2,7 @@
 import { useMaquininhas } from '@/components/use-maquininhas'
 import { opcoesComGravada, textoSemOperadora } from '@/lib/maquininhas-opcoes'
 
-import { cnpjValido, soDigitosDoc } from '@/lib/documento'
+import { cnpjValido, limparDocumento } from '@/lib/documento'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -142,7 +142,7 @@ export function VendaPecaDialog({ pecas, lojas, lojaUsuarioId, isAdmin, podeDefi
   const totalPgtos = pgtosValidos.reduce((s, p) => s + (p.tipo === TIPO_BONIFICACAO ? 0 : parseBRL(p.valor)), 0)
   // Espelha validarDocumento do servidor só pra desabilitar o botão — a trava de
   // verdade está em registrarVendaPecaAction.
-  const digitosDoc = soDigitosDoc(documento)
+  const digitosDoc = limparDocumento(documento)
   const clientePJOk = tipoPessoa !== 'juridica' || (cnpjValido(digitosDoc) && clienteNome.trim().length > 0)
   const podeSalvar = edicao
     ? !carregando && itensValidos.length > 0 && pgtosValidos.length > 0

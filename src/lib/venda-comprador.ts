@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes, vendas } from '@/lib/db/schema'
 import { contaDaLoja } from '@/lib/conta'
-import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
+import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa, limparDocumento } from '@/lib/documento'
 import { RecusaUsuario } from '@/lib/resultado-action'
 
 // Comprador da venda: a edição da venda e a correção da NF recusada (#347)
@@ -24,10 +24,10 @@ export function conferirComprador(
   representante?: { nome?: string | null; cpf?: string | null },
   documentoGravado?: string | null,
 ): { clienteCpf: string; tipoPessoa: TipoPessoa; representanteNome: string | null; representanteCpf: string | null } {
-  const digitos = soDigitosDoc(clienteCpf)
+  const digitos = limparDocumento(clienteCpf)
   let tipoPessoa: TipoPessoa
   let documento: string
-  if (documentoGravado != null && digitos === soDigitosDoc(documentoGravado)) {
+  if (documentoGravado != null && digitos === limparDocumento(documentoGravado)) {
     tipoPessoa = tipoPessoaDoDocumento(digitos)
     documento = clienteCpf
   } else {
@@ -121,6 +121,6 @@ export async function gravarCompradorDaVenda(tx: Executor, venda: { id: string; 
   if (c.gravaIcms && icms.indicadorIe) {
     await tx.update(clientes)
       .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-      .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(venda.lojaId, tx))))
+      .where(and(eq(clientes.cpfCnpj, limparDocumento(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(venda.lojaId, tx))))
   }
 }

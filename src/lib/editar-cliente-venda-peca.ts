@@ -7,7 +7,7 @@ import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { vendasPecas, vendasPecasEdicoes } from '@/lib/db/schema'
 import { vendaPecaEditavel, type UsuarioDaVenda } from '@/lib/venda-peca-editavel'
-import { formatarCpfCnpj, isTipoPessoa, soDigitosDoc, validarDocumento, type TipoPessoa } from '@/lib/documento'
+import { formatarCpfCnpj, isTipoPessoa, validarDocumento, type TipoPessoa, limparDocumento } from '@/lib/documento'
 import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -43,7 +43,7 @@ export async function editarClienteVendaPecaTx(
 
   // Documento que não mudou não é reconferido (ADR-0015): venda gravada antes da regra
   // com documento errado ainda tem o nome corrigido.
-  const mesmoDocumento = soDigitosDoc(input.clienteDocumento) === (atual.clienteDocumento ?? '') && tipoPessoa === atual.clienteTipoPessoa
+  const mesmoDocumento = limparDocumento(input.clienteDocumento) === (atual.clienteDocumento ?? '') && tipoPessoa === atual.clienteTipoPessoa
   const doc = mesmoDocumento
     ? { ok: true as const, documento: atual.clienteDocumento }
     : validarDocumento(tipoPessoa, input.clienteDocumento)

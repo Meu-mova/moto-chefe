@@ -7,6 +7,7 @@ import { eq, ilike, or, and, desc, inArray, SQL, sql } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { limparDocumento } from '@/lib/documento'
 import { revalidatePath } from 'next/cache'
 
 export type ClienteInput = {
@@ -26,7 +27,7 @@ export type ClienteInput = {
 }
 
 function limparCpfCnpj(v?: string | null) {
-  return v?.replace(/\D/g, '') || null
+  return limparDocumento(v) || null
 }
 
 const PAGE_SIZE = 50
@@ -49,8 +50,9 @@ export async function listarClientesAction(params: {
 
   const conds: SQL[] = []
   if (params.busca) {
-    // Busca só por letras não tem dígito: sem este cuidado, o CPF virava '%%' e casava com todos.
-    const digitos = params.busca.replace(/\D/g, '')
+    // Busca só por letras não procura documento: o nome já cobre, e o CNPJ alfanumérico tem dígito.
+    const doc = limparDocumento(params.busca)
+    const digitos = /\d/.test(doc) ? doc : ''
     conds.push(or(
       ilike(clientes.nome, `%${params.busca}%`),
       ilike(clientes.celular, `%${params.busca}%`),
@@ -87,7 +89,7 @@ export async function buscarClientesAction(termo: string) {
   if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   if (termo.length < 3) return []
-  const termoCpf = termo.replace(/\D/g, '')
+  const termoCpf = /\d/.test(termo) ? limparDocumento(termo) : ''
   return db.select({
     id: clientes.id,
     nome: clientes.nome,

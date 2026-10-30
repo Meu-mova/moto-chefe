@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Search, UserCheck, UserX, Loader2 } from 'lucide-react'
 import { buscarClientePorCpfAction } from '../../vendas/actions'
-import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { lerDocumentoCliente, tipoPessoaSeCompleto, limparDocumento } from '@/lib/documento'
 import { DocumentoClienteInput, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 export type ClienteForm = {
@@ -46,7 +46,7 @@ export function ClienteCampos({ value, onChange }: { value: ClienteForm; onChang
   function handleDocumento(mascarado: string) {
     set({ clienteCpf: mascarado })
     setStatus(null)
-    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(soDigitosDoc(mascarado))
+    if (tipoPessoaSeCompleto(mascarado)) buscarClientePorCpf(limparDocumento(mascarado))
   }
 
   async function buscarClientePorCpf(cpfDigits: string) {

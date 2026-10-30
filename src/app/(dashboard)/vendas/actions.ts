@@ -25,7 +25,7 @@ import { validarOrigemVenda, normalizarDetalhe } from '@/lib/origem-venda'
 import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
-import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
+import { lerContribuinteIcms, limparDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
@@ -294,7 +294,7 @@ async function criarVendaTx(
   const icms = lerContribuinteIcms(data.clienteCpf, data.clienteIndicadorIe, data.clienteInscricaoEstadual)
 
   // Upsert cliente por CPF/CNPJ — cria se não existir, atualiza se existir
-  const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
+  const cpfLimpo = limparDocumento(data.clienteCpf)
   let clienteVinculadoId: string | null = null
   if (cpfLimpo.length >= 11) {
     const [clienteUpsert] = await tx
@@ -1488,7 +1488,7 @@ async function editarVenda(vendaId: string, dados: {
 export async function buscarClientePorCpfAction(cpf: string) {
   const usuario = await getUsuarioLogado()
   const contaId = await contaDoGrupoAtivo(usuario)
-  const cpfLimpo = cpf.replace(/\D/g, '')
+  const cpfLimpo = limparDocumento(cpf)
   if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) return null
 
   // 1. Busca na tabela de clientes
@@ -1530,9 +1530,9 @@ export async function buscarClientePorCpfAction(cpf: string) {
       inscricaoEstadual: vendas.clienteInscricaoEstadual,
     })
     .from(vendas)
-    // A venda grava o documento formatado; compara só os dígitos.
+    // A venda grava o documento formatado; compara sem pontuação, com a letra do CNPJ alfanumérico.
     .where(and(
-      sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
+      sql`upper(regexp_replace(${vendas.clienteCpf}, '[^0-9a-zA-Z]', '', 'g')) = ${cpfLimpo}`,
       inArray(vendas.lojaId, lojasDaConta(contaId)),
     ))
     .orderBy(desc(vendas.dataVenda))
