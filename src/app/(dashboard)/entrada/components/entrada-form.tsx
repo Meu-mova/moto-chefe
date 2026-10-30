@@ -49,6 +49,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
+  // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
+  const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
   // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
   // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
   // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
@@ -229,6 +231,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       }
 
       setLinhasPlanilha(novas)
+      setOrigemDasLinhas('planilha')
       toast.success(`${novas.length} moto(s) importada(s) da planilha`)
     }
     reader.readAsArrayBuffer(file)
@@ -310,6 +313,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return [...prev, ...add]
     })
     setFiscais(prev => [...prev, ...fichasNovas])
+    setOrigemDasLinhas('xml')
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
     avisos.forEach(a => toast.warning(a, { duration: Infinity, closeButton: true }))
@@ -536,7 +540,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-success/50 bg-success/10 rounded-md px-3 py-2.5 text-sm text-success hover:border-success hover:bg-success/15"
               >
                 <Upload size={16} />
-                {linhasPlanilha.length > 0
+                {linhasPlanilha.length > 0 && origemDasLinhas === 'xml'
                   ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para adicionar mais XMLs`
                   : 'Selecionar XMLs das notas (.xml) — pode escolher vários'}
               </button>
@@ -557,7 +561,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:border-ring hover:bg-muted"
               >
                 <Upload size={16} />
-                Selecionar planilha (.xlsx)
+                {linhasPlanilha.length > 0 && origemDasLinhas === 'planilha'
+                  ? `${linhasPlanilha.length} moto(s) carregada(s) da planilha`
+                  : 'Selecionar planilha (.xlsx)'}
               </button>
             </div>
           </div>
