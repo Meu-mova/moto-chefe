@@ -16,6 +16,7 @@ type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let aplicarVendaPeca: typeof import('@/lib/venda-peca')['aplicarVendaPeca']
 let editarVendaPecaTx: typeof import('@/lib/editar-venda-peca')['editarVendaPecaTx']
+let vendaPecaEditavel: typeof import('@/lib/venda-peca-editavel')['vendaPecaEditavel']
 let excluirVendaPecaTx: typeof import('@/lib/excluir-venda-peca')['excluirVendaPecaTx']
 
 before(async () => {
@@ -23,6 +24,7 @@ before(async () => {
   ;({ aplicarVendaPeca } = await import('@/lib/venda-peca'))
   ;({ editarVendaPecaTx } = await import('@/lib/editar-venda-peca'))
   ;({ excluirVendaPecaTx } = await import('@/lib/excluir-venda-peca'))
+  ;({ vendaPecaEditavel } = await import('@/lib/venda-peca-editavel'))
 })
 
 after(async () => {
@@ -125,5 +127,29 @@ test('Conta B não exclui a venda da Conta A e o caixa da A fica intacto; a vend
     const vendaB = await vender(tx, b, [{ tipo: 'dinheiro', valor: 50 }])
     assert.deepEqual(await caixaDaLoja(tx, a.lojaId), [{ venda_peca_id: vendaA.id, valor: '288.00' }])
     assert.deepEqual(await caixaDaLoja(tx, b.lojaId), [{ venda_peca_id: vendaB.id, valor: '50.00' }])
+  })
+})
+
+// A edição pela tela passa por vendaPecaEditavel antes de editarVendaPecaTx (vendaEditavel em
+// pecas/actions.ts). O teste prova a porta: para a Conta B, a venda da A é igual a um id que
+// não existe, e nada da A muda.
+test('Conta B não chega à edição da venda da Conta A: mesma resposta de id inexistente e o caixa da A fica intacto', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000054601')
+    const b = await semearConta(tx, 'B', '00000000054602')
+    const vendaA = await vender(tx, a, [{ tipo: 'pix', valor: 288 }])
+    const vendaComDinheiro = await vender(tx, a, [{ tipo: 'dinheiro', valor: 288 }])
+    const antes = await linhas(tx, sql`select id, pagamentos, valor_total::text from vendas_pecas where loja_id = ${a.lojaId} order by id`)
+    const caixaAntes = await caixaDaLoja(tx, a.lojaId)
+
+    for (const id of [vendaA.id, vendaComDinheiro.id]) {
+      assert.equal(await vendaPecaEditavel(tx, b.aux, id, true), null)
+    }
+    assert.equal(await vendaPecaEditavel(tx, b.aux, crypto.randomUUID(), true), null)
+    assert.notEqual(await vendaPecaEditavel(tx, a.aux, vendaA.id, true), null)
+
+    assert.deepEqual(await linhas(tx, sql`select id, pagamentos, valor_total::text from vendas_pecas where loja_id = ${a.lojaId} order by id`), antes)
+    assert.deepEqual(await caixaDaLoja(tx, a.lojaId), caixaAntes)
+    assert.equal((await caixaDaLoja(tx, b.lojaId)).length, 0)
   })
 })

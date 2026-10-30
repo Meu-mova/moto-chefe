@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { lancamentosCaixa } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
@@ -19,8 +19,8 @@ export async function sincronizarCaixaDaVendaPeca(
   usuarioId: string,
 ): Promise<void> {
   if (!venda.caixaAutomatico) return
-  await tx.delete(lancamentosCaixa)
-    .where(and(eq(lancamentosCaixa.vendaPecaId, venda.id), eq(lancamentosCaixa.tipo, 'entrada')))
+  // Mesmo conjunto que a exclusão apaga: só esta função grava venda_peca_id.
+  await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaPecaId, venda.id))
   // Dia da venda em Brasília, não o da edição: a entrada fica no fechamento certo.
   const data = hojeBrt(venda.dataVenda)
   for (const p of pagamentos.filter(p => p.tipo === 'dinheiro')) {
