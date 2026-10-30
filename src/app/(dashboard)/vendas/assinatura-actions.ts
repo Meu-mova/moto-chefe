@@ -16,6 +16,7 @@ import { sha256 } from '@/lib/assinatura/hash'
 import { contratoDaVenda, escolherContrato } from '@/lib/contratos-grupo'
 import { normalizarCelular, emailConvite } from '@/lib/assinatura/mensagens'
 import { emailValido, enviarEmail } from '@/lib/email'
+import { nomeRemetenteDoGrupo } from '@/lib/email-remetente-grupo'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { urlBase } from '@/lib/assinatura/url'
@@ -336,7 +337,7 @@ export async function enviarDocumentoAssinaturaAction(
 
   // Convite por e-mail: leva o cliente ao link para conferir e assinar.
   const convite = emailConvite(montado.dados.clienteNome || 'cliente', LABEL_TIPO[tipo], url, montado.dados.lojaNome || 'MotoChefe')
-  const envio = await enviarEmail({ para: email, assunto: convite.assunto, texto: convite.texto, html: convite.html })
+  const envio = await enviarEmail({ para: email, assunto: convite.assunto, texto: convite.texto, html: convite.html, nomeRemetente: await nomeRemetenteDoGrupo(montado.grupoId) })
   await registrarEvento(doc.id, 'enviado', { envio: envio.status, canal: 'email', resendId: envio.id })
 
   revalidatePath('/vendas')

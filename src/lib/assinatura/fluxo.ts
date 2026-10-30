@@ -18,6 +18,8 @@ export type DocumentoAssinavel = {
   emailDestino: string | null
   /** Nome que vai no e-mail do código ("MotoChefe", nome da loja, "MOVA"). */
   remetente: string
+  /** Nome no "De" do e-mail (o do grupo, #542). Vazio = o do EMAIL_FROM. */
+  nomeRemetenteEmail?: string | null
 }
 
 export type CodigoGravado = EstadoCodigo & { id: string }
@@ -82,7 +84,7 @@ export type Repositorio<D extends DocumentoAssinavel, R = null> = {
 }
 
 export type Infra = {
-  enviarEmail(m: { para: string; assunto: string; texto: string; html?: string }): Promise<{ status: ResultadoEmail; id: string | null }>
+  enviarEmail(m: { para: string; assunto: string; texto: string; html?: string; nomeRemetente?: string | null }): Promise<{ status: ResultadoEmail; id: string | null }>
   emailCodigo(codigo: string, remetente: string): { assunto: string; texto: string; html: string }
   upload(caminho: string, conteudo: Buffer, contentType: string): Promise<{ ok: boolean }>
   agora(): Date
@@ -141,7 +143,7 @@ export async function solicitarCodigo<D extends DocumentoAssinavel, R>(
   // que foi ele (e não um atendente) que assinou. O atendente pode ver o link,
   // nunca o código.
   const { assunto, texto, html } = infra.emailCodigo(codigo, doc.remetente)
-  const envio = await infra.enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html })
+  const envio = await infra.enviarEmail({ para: doc.emailDestino ?? '', assunto, texto, html, nomeRemetente: doc.nomeRemetenteEmail })
   await repo.registrarEventos(doc.id, ctx, [{ tipo: 'codigo_enviado', detalhe: { envio: envio.status, canal: 'email', resendId: envio.id } }])
 
   // O código NUNCA volta na resposta — nem em erro, nem em log.

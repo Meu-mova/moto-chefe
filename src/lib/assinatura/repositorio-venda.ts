@@ -11,6 +11,7 @@ import { MAX_CODIGOS } from '@/lib/assinatura/codigo'
 import { enviarEmail } from '@/lib/email'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarInfra } from '@/lib/assinatura/infra'
+import { nomeRemetenteDoGrupo } from '@/lib/email-remetente-grupo'
 import type { Repositorio, DocumentoAssinavel } from '@/lib/assinatura/fluxo'
 
 // Documentos de venda (contrato, checklist, certificado): tabelas
@@ -38,6 +39,7 @@ export const repositorioVenda: Repositorio<DocVenda, RespostasChecklist> = {
       expiraEm: linha.expiraEm,
       emailDestino: linha.emailDestino,
       remetente: (linha.dadosJson as DadosDocumento | null)?.lojaNome || 'MotoChefe',
+      nomeRemetenteEmail: await nomeRemetenteDoGrupo(linha.grupoId),
       linha,
     }
   },
@@ -142,6 +144,7 @@ export const repositorioVenda: Repositorio<DocVenda, RespostasChecklist> = {
       .where(eq(vendas.id, doc.linha.vendaId)).limit(1)
     await enviarEmail({
       para: doc.emailDestino ?? '',
+      nomeRemetente: doc.nomeRemetenteEmail,
       assunto: 'MOVA INFORMA — documento assinado',
       texto: msgAssinado(venda?.nome ?? 'cliente', LABEL_TIPO[doc.linha.tipo as TipoDocumento], `${urlBase()}/assinar/${token}`),
     })
