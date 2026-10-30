@@ -80,7 +80,7 @@ test('nota mista grava a ficha fiscal da moto com o xProd literal da nota (ADR-0
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const ficha = { codigo: 'MT-X12', descricao: 'X12 MOTO CHEFE &amp; CIA', ncm: '87116000', cest: '', cfopEntrada: '6102', unidade: 'UN',
-      origem: '1', cstIcmsEntrada: '00', cstPis: '', cstCofins: '', classTribIbsCbs: '', tpPint: 'A' }
+      origem: '1', cstIcmsEntrada: '00', cstPis: '', cstCofins: '', classTribIbsCbs: '', tpPint: 'A', valorUnitario: '' }
     const emitente = { cnpj: NOTA.fornecedorCnpj, nome: 'FORNECEDOR', nfNumero: NOTA.numero, nfChave: NOTA.chaveAcesso }
     await nota.registrarNotaComPecas(tx, {
       usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,

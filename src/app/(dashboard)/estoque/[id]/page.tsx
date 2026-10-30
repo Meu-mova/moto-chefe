@@ -18,12 +18,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
 import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
+import { CorrigirPrecoCompraButton } from './components/corrigir-preco-compra-button'
 import { HistoricoTab } from './components/historico-tab'
 import { VendaTab } from './components/venda-tab'
 import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
+import { potenciaNaTela } from '@/lib/gestao-modelos'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -121,11 +123,20 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between"><span className="text-muted-foreground">Loja</span><span>{moto.lojaNome}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Cor</span><span>{moto.cor}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Categoria</span><span>{moto.categoria}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{moto.potenciaW}W</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{potenciaNaTela(moto.potenciaW)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Motor</span><span>{moto.motor}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
-            {moto.precoCompra && ['admin_geral', 'admin_socio'].includes(usuario.papel) && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Preço de Compra</span><span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+            {['admin_geral', 'admin_socio'].includes(usuario.papel) && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Preço de Compra</span>
+                <span className="flex items-center gap-1">
+                  {moto.precoCompra
+                    ? <span className="font-medium text-success">R$ {Number(moto.precoCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    : <span className="text-muted-foreground">Sem preço</span>}
+                  {/* Vendida mantém o preço que entrou no custo da venda (#514). */}
+                  {moto.status !== 'vendida' && <CorrigirPrecoCompraButton motoId={moto.id} precoAtual={moto.precoCompra} />}
+                </span>
+              </div>
             )}
             {moto.dataMontagem && (
               <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>

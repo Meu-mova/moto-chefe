@@ -6,6 +6,9 @@ import { getGrupoAtivo } from '@/lib/grupo'
 import { eq, and, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { chaveNome, modeloPrecificavel } from '@/lib/precificacao-modelos'
+import { travarPrecificacaoDoGrupo } from '@/lib/tabela-preco-padrao'
+import { ehMatrizDePlanilha } from '@/lib/planilha-precos'
+import { gravarImportacao, previaDaImportacao } from '@/lib/importar-precos'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -88,30 +91,34 @@ export async function salvarPrecoAction(data: {
       custo: data.custo || null,
     }).where(and(eq(precificacao.id, data.precId), eq(precificacao.grupoId, grupo.id)))
   } else {
-    const [existente] = await db
-      .select({ id: precificacao.id })
-      .from(precificacao)
-      .where(and(eq(precificacao.grupoId, grupo.id), sql`upper(btrim(${precificacao.nome})) = ${nome}`))
-      .limit(1)
+    // Mesma trava do preenchimento automático: os dois conferem e inserem pelo nome (#522).
+    await db.transaction(async tx => {
+      await travarPrecificacaoDoGrupo(tx, grupo.id)
+      const [existente] = await tx
+        .select({ id: precificacao.id })
+        .from(precificacao)
+        .where(and(eq(precificacao.grupoId, grupo.id), sql`upper(btrim(${precificacao.nome})) = ${nome}`))
+        .limit(1)
 
-    if (existente) {
-      await db.update(precificacao).set({
-        nome,
-        valorMinimo: data.valorMinimo,
-        custo: data.custo || null,
-      }).where(eq(precificacao.id, existente.id))
-    } else {
-      await db.insert(precificacao).values({
-        grupoId: grupo.id,
-        nome,
-        valorMinimo: data.valorMinimo,
-        custo: data.custo || null,
-        taxaPix: '0',
-        taxasCartao: {},
-        taxasLink: {},
-        taxasFinanciamento: {},
-      })
-    }
+      if (existente) {
+        await tx.update(precificacao).set({
+          nome,
+          valorMinimo: data.valorMinimo,
+          custo: data.custo || null,
+        }).where(eq(precificacao.id, existente.id))
+      } else {
+        await tx.insert(precificacao).values({
+          grupoId: grupo.id,
+          nome,
+          valorMinimo: data.valorMinimo,
+          custo: data.custo || null,
+          taxaPix: '0',
+          taxasCartao: {},
+          taxasLink: {},
+          taxasFinanciamento: {},
+        })
+      }
+    })
   }
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
@@ -129,4 +136,25 @@ export async function excluirModeloAction(id: string) {
   await db.delete(precificacao).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
+}
+
+// Planilha de preço do sócio (#522): a prévia não grava; a gravação lê a planilha de novo
+// e recebe do navegador só os modelos cuja troca de preço foi aceita.
+export async function previaImportacaoAction(matriz: unknown) {
+  const grupo = await checarAdmin()
+  if (!ehMatrizDePlanilha(matriz)) return { ok: false as const, erro: 'Planilha ilegível' }
+  return previaDaImportacao({ grupoId: grupo.id, contaId: grupo.contaId, matriz })
+}
+
+export async function importarPrecosAction(matriz: unknown, trocar: unknown) {
+  const grupo = await checarAdmin()
+  if (!ehMatrizDePlanilha(matriz) || !Array.isArray(trocar) || !trocar.every(t => typeof t === 'string')) {
+    return { ok: false as const, erro: 'Planilha ilegível' }
+  }
+  const r = await gravarImportacao({ grupoId: grupo.id, contaId: grupo.contaId, matriz, trocar })
+  if (r.ok) {
+    revalidatePath('/precificacao')
+    revalidatePath('/simulador')
+  }
+  return r
 }

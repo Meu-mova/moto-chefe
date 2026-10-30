@@ -10,7 +10,8 @@ import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerIt
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
-import { casarModelo } from '@/lib/entrada-preco'
+import { PecasPorPlanilha } from './pecas-por-planilha'
+import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
@@ -42,6 +43,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
+  // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
+  const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
   // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
   // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
   // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
@@ -147,9 +150,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
   // --- Modelo das motos importadas ---
   // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
-  // modeloId e a pessoa escolhe na tela. O preço sempre vem vazio (#288).
-  function sugerirModelo(nomeArquivo: string) {
-    return { modeloId: casarModelo(nomeArquivo, modelos), preco: '' }
+  // modeloId e a pessoa escolhe na tela. O preço vem só do próprio arquivo (#513).
+  function sugerirModelo(nomeArquivo: string, precoDoArquivo = '') {
+    return { modeloId: casarModelo(nomeArquivo, modelos), preco: precoDoArquivo }
   }
 
   function trocarModeloDoGrupo(indices: number[], modeloId: string) {
@@ -188,7 +191,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             motor: String(r['MOTOR'] || '').trim(),
             modelo,
             nf: String(r['NF ENTRADA'] || '').trim(),
-            ...sugerirModelo(modelo),
+            ...sugerirModelo(modelo, precoDaPlanilha(r['PREÇO'] ?? r['PRECO'])),
           }
         })
 
@@ -198,6 +201,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       }
 
       setLinhasPlanilha(novas)
+      setOrigemDasLinhas('planilha')
       toast.success(`${novas.length} moto(s) importada(s) da planilha`)
     }
     reader.readAsArrayBuffer(file)
@@ -237,7 +241,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             }
           }
         }
-        for (const [chassi, ficha] of ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])) {
+        const fichaPorChassi = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])
+        for (const [chassi, ficha] of fichaPorChassi) {
           fichasNovas.push({ chassi, emitente, ficha })
         }
         // Conferência: o nº de motos lidas tem que bater com a qtd de motos da nota
@@ -256,7 +261,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             motor: m.motor,
             modelo,
             nf: nNF,
-            ...sugerirModelo(modelo),
+            // vUnCom do item desta moto na própria nota (#513).
+            ...sugerirModelo(modelo, fichaPorChassi.get(m.chassi.trim().toUpperCase())?.valorUnitario ?? ''),
           })
         }
       } catch {
@@ -277,6 +283,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return [...prev, ...add]
     })
     setFiscais(prev => [...prev, ...fichasNovas])
+    setOrigemDasLinhas('xml')
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
     avisos.forEach(a => toast.warning(a, { duration: Infinity, closeButton: true }))
@@ -457,13 +464,19 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
       {/* ===== MODO PLANILHA ===== */}
       {modo === 'planilha' && (
+        <div className="space-y-6">
         <form onSubmit={handleSubmitPlanilha} className="space-y-6">
           <div className="bg-card rounded-lg border p-4 space-y-4">
             <h3 className="font-semibold text-foreground">Importar NF-e (XML) ou Planilha</h3>
             <p className="text-xs text-muted-foreground">
               Baixe os XMLs das notas (FSist) e importe direto — o MOVA lê as Informações
               Complementares e extrai modelo, chassi, motor e cor, casando o modelo com o
-              cadastro. Ou use a planilha (colunas: NF ENTRADA, MODELO, CHASSI, MOTOR, COR).
+              cadastro. Ou use a planilha (colunas: NF ENTRADA, MODELO, CHASSI, MOTOR, COR e, se
+              quiser, PREÇO).
+            </p>
+            <p className="text-xs text-muted-foreground">
+              O preço de compra já vem do valor da nota (sem frete e IPI) ou da coluna PREÇO.
+              Confira antes de salvar.
             </p>
 
             <div>
@@ -497,7 +510,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-success/50 bg-success/10 rounded-md px-3 py-2.5 text-sm text-success hover:border-success hover:bg-success/15"
               >
                 <Upload size={16} />
-                {linhasPlanilha.length > 0
+                {linhasPlanilha.length > 0 && origemDasLinhas === 'xml'
                   ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para adicionar mais XMLs`
                   : 'Selecionar XMLs das notas (.xml) — pode escolher vários'}
               </button>
@@ -518,7 +531,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 className="w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-md px-3 py-2.5 text-sm text-muted-foreground hover:border-ring hover:bg-muted"
               >
                 <Upload size={16} />
-                Selecionar planilha (.xlsx)
+                {linhasPlanilha.length > 0 && origemDasLinhas === 'planilha'
+                  ? `${linhasPlanilha.length} moto(s) carregada(s) da planilha`
+                  : 'Selecionar planilha (.xlsx)'}
               </button>
             </div>
           </div>
@@ -684,6 +699,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           )}
         </form>
+        {/* Fora do form das motos: tem gravação própria (#519). */}
+        <PecasPorPlanilha lojaId={lojaId} lojaNome={lojas.find(l => l.id === lojaId)?.nome ?? 'loja'} />
+        </div>
       )}
 
       {/* ===== MODO MANUAL ===== */}

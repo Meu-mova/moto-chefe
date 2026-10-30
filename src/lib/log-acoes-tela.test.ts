@@ -59,3 +59,8 @@ test('admin da Conta só vê a própria; admin_geral escolhe (ou vê todas)', ()
 test('envio da logo do DANFE mostra o grupo e o tamanho', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'logo_danfe_enviada', grupoNome: 'Cuiabá', detalhe: { kb: 9 } })), 'Cuiabá · 9 KB')
 })
+
+test('correção do preço de compra mostra chassi e os dois valores (#514)', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'preco_compra_alterado', detalhe: { motoId: 'm1', chassi: 'ABC123', de: '6400.00', para: '2016.38' } }))
+  assert.equal(resumo.replace(/\u00a0/g, ' '), 'ABC123 · R$ 6.400,00 → R$ 2.016,38')
+})

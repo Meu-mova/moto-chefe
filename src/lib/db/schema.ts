@@ -814,12 +814,18 @@ export const notasEntrada = pgTable('notas_entrada', {
   contaId: uuid('conta_id').notNull().references(() => contas.id),
   grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
-  chaveAcesso: text('chave_acesso').notNull(),
-  numero: text('numero').notNull(),
-  fornecedorCnpj: text('fornecedor_cnpj').notNull(),
+  // Nulos só na entrada por planilha (#519); o check do banco garante o resto.
+  chaveAcesso: text('chave_acesso'),
+  numero: text('numero'),
+  fornecedorCnpj: text('fornecedor_cnpj'),
   criadoPor: uuid('criado_por').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-}, t => [index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso)])
+  origem: text('origem').notNull().default('nota'),
+  impressaoDigital: text('impressao_digital'),
+}, t => [
+  index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso),
+  index('notas_entrada_loja_id_impressao_digital_idx').on(t.lojaId, t.impressaoDigital),
+])
 
 // ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
 export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
@@ -1058,6 +1064,17 @@ export const precificacao = pgTable('precificacao', {
   imagemUrl: text('imagem_url'),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── tabela_preco_padrao ─────────────────────────────────────────────────────
+// Preço de venda sugerido pela MotoChefe por modelo da plataforma (#522), carregado pelo
+// admin_geral. Só o preço à vista: o cartão sai das taxas do grupo.
+export const tabelaPrecoPadrao = pgTable('tabela_preco_padrao', {
+  modeloId: uuid('modelo_id').primaryKey().references(() => modelos.id, { onDelete: 'cascade' }),
+  preco: numeric('preco', { precision: 12, scale: 2 }).notNull(),
+  competencia: text('competencia').notNull(),
+  carregadoPor: uuid('carregado_por').references(() => usuarios.id),
+  carregadoEm: timestamp('carregado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── conciliacoes_cartao ─────────────────────────────────────────────────────
@@ -2054,3 +2071,14 @@ export const avaliacoesGoogleToques = pgTable('avaliacoes_google_toques', {
   origem:    text('origem').$type<'nfc' | 'qr'>().notNull(),
   criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── Grupos liberados para admin_rede (#517) ─────────────────────────────────
+// Grupo de outra Conta que o admin_geral liberou. Revogar grava revogado_em; nunca apaga.
+export const gruposLiberados = pgTable('grupos_liberados', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  usuarioId:   uuid('usuario_id').notNull().references(() => usuarios.id),
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  liberadoPor: uuid('liberado_por').notNull().references(() => usuarios.id),
+  liberadoEm:  timestamp('liberado_em', { withTimezone: true }).notNull().defaultNow(),
+  revogadoEm:  timestamp('revogado_em', { withTimezone: true }),
+}, t => [uniqueIndex('grupos_liberados_vivo_key').on(t.usuarioId, t.grupoId).where(sql`revogado_em is null`)])
