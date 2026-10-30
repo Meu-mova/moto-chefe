@@ -25,6 +25,7 @@ import { listarDemandasComSinalAbertas } from '@/lib/queries/demandas'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
+import { potenciaNaTela } from '@/lib/gestao-modelos'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -122,7 +123,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
             <div className="flex justify-between"><span className="text-muted-foreground">Loja</span><span>{moto.lojaNome}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Cor</span><span>{moto.cor}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Categoria</span><span>{moto.categoria}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{moto.potenciaW}W</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Potência</span><span>{potenciaNaTela(moto.potenciaW)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Motor</span><span>{moto.motor}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">NF Entrada</span><span>{moto.notaFiscalEntrada}</span></div>
             {['admin_geral', 'admin_socio'].includes(usuario.papel) && (
