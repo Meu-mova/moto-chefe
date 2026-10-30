@@ -22,8 +22,9 @@
  *   recolheu o ST (CST 60) a saída sai CST 60 / CSOSN 500, mas quem decide isso
  *   é o contador, uma vez por grupo/UF, não este parser.
  *
- * O **valor** nunca vem daqui: a nota da fábrica sai com valor diferente do que
- * se paga a ela, então o preço de compra continua sendo o digitado na tela.
+ * O **valor** (`vUnCom`) só pré-preenche o preço de compra na tela (#513): a nota
+ * da fábrica sai com valor diferente do que se paga a ela. Não vai para
+ * `motos_fiscal`, e o que se grava é o que a pessoa confirmou.
  */
 
 import { mapearModelo, tagNfe as tag, grupoNfe as grupo, lerItensDaNfe, ehNcmDeMoto } from './nfe-entrada'
@@ -47,10 +48,21 @@ export type FichaFiscal = {
   classTribIbsCbs: string
   /** `tpPint` do `veicProd` (J18), quando a nota traz o veículo. A NF de saída do ciclomotor repete. */
   tpPint: string
+  /**
+   * `vUnCom` com 2 casas, ou '' sem ele. Só pré-preenche o preço de compra na tela (#513);
+   * não vai para `motos_fiscal`.
+   */
+  valorUnitario: string
 }
 
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
 export type NomeDeModelo = { nome: string; canonico: string }
+
+// No XML o ponto é sempre decimal ("1.500" é 1,50), ao contrário da planilha.
+const valorDaNota = (v: string) => {
+  const n = Number(v)
+  return v && Number.isFinite(n) && n > 0 ? n.toFixed(2) : ''
+}
 
 /**
  * Lê a ficha fiscal de cada item (`<det>`) de uma NF-e.
@@ -84,6 +96,7 @@ export function extrairFiscalDaNfe(xml: string): FichaFiscal[] {
       cstCofins: tag(grupo(imposto, 'COFINS'), 'CST'),
       classTribIbsCbs: tag(grupo(imposto, 'IBSCBS'), 'cClassTrib'),
       tpPint: tag(grupo(prod, 'veicProd'), 'tpPint'),
+      valorUnitario: valorDaNota(tag(prod, 'vUnCom')),
     })
   }
 

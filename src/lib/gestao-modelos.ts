@@ -22,3 +22,9 @@ export function contaDoModeloNovo(quem: Quem): string | null {
 export function podeAjustarModelo(quem: Quem, modelo: { contaId: string | null }): boolean {
   return quem.papel === 'admin_socio' && !!quem.contaId && modelo.contaId === null
 }
+
+// Há cadastro com a unidade junto ("1000 W"); a tela põe o W.
+export function potenciaNaTela(potencia: string): string {
+  const n = potencia.trim().replace(/\s*w$/i, '')
+  return n ? `${n}W` : ''
+}
