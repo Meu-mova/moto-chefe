@@ -31,8 +31,8 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
   return exec.select({
     id: modelos.id,
     marca: modelos.marca,
+    modelo: nome,
     // A precificação e a nota da fábrica na Entrada (#476) casam pelo nome original.
-    // A precificação casa pelo nome original (ver nomeDoModeloNaLoja).
     modeloOriginal: modelos.modelo,
     categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
     potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
