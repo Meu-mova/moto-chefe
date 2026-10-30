@@ -142,6 +142,8 @@ export const ITENS: ItemNav[] = [
   // aux_adm vê o contrato do grupo para orientar a loja; só sócio e admin_geral editam.
   { id: 'contratos',      href: '/admin/contratos', label: 'Contratos',        icon: FileSignature, categoria: 'configuracao', papeis: GESTORES },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
+  // Tabela de preço sugerido da MotoChefe (#522): da plataforma, só admin_geral carrega.
+  { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
   { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
   { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', papeis: ADMINS },
   { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
