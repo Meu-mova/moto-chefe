@@ -5,7 +5,7 @@ import { Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { carregarTabelaPadraoAction } from './actions'
 
-type Resultado = { ok: boolean; erro?: string; confirmar?: boolean; gravados?: number; anteriores?: number; avisos?: string[] }
+type Resultado = { ok: boolean; erro?: string; confirmar?: boolean; gravados?: number; anteriores?: number; preenchidos?: number; avisos?: string[] }
 
 export function CarregarTabelaClient({ mesAtual }: { mesAtual: string }) {
   const [competencia, setCompetencia] = useState(mesAtual)
@@ -47,7 +47,7 @@ export function CarregarTabelaClient({ mesAtual }: { mesAtual: string }) {
       </div>
       {resultado && (
         <div className="text-sm space-y-1">
-          {resultado.ok && <p className="text-success">Antes {resultado.anteriores} modelos, agora {resultado.gravados}.</p>}
+          {resultado.ok && <p className="text-success">Antes {resultado.anteriores} modelos, agora {resultado.gravados}. {resultado.preenchidos ?? 0} preços preenchidos nos grupos que não tinham.</p>}
           {resultado.confirmar && (
             <div className="space-y-2">
               <p className="text-warning">

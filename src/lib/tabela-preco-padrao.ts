@@ -1,6 +1,8 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { modeloApelidos, modelos, tabelaPrecoPadrao } from '@/lib/db/schema'
+import { grupos, modeloApelidos, modelos, precificacao, tabelaPrecoPadrao } from '@/lib/db/schema'
+import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { chaveNome } from '@/lib/precificacao-modelos'
 import { casarComModelos, lerPlanilhaDePrecos, type ModeloCasavel } from '@/lib/planilha-precos'
 
 type Executor = Pick<typeof db, 'select'>
@@ -68,4 +70,48 @@ export async function listarTabelaPadrao(exec: Executor = db) {
     .from(tabelaPrecoPadrao)
     .innerJoin(modelos, eq(modelos.id, tabelaPrecoPadrao.modeloId))
     .orderBy(asc(modelos.marca), asc(modelos.modelo))
+}
+
+type Escritor = Pick<typeof db, 'select' | 'insert'>
+
+/**
+ * Preço padrão nos modelos que o grupo ainda não precificou (#522). Só insere: preço que já
+ * existe, digitado, importado ou vindo daqui, nunca muda. O modelo precisa estar no catálogo
+ * visível da Conta do grupo, então a marca vem do vínculo da tabela com o modelo e das marcas
+ * da Conta, e o modelo oculto fica de fora. Devolve quantos preços entraram.
+ */
+export async function preencherGruposComPrecoPadrao(grupoIds: string[], exec: Escritor = db) {
+  if (!grupoIds.length) return 0
+  const padrao = await exec.select({ modeloId: tabelaPrecoPadrao.modeloId, preco: tabelaPrecoPadrao.preco }).from(tabelaPrecoPadrao)
+  if (!padrao.length) return 0
+  const precoDoModelo = new Map(padrao.map(p => [p.modeloId, p.preco]))
+
+  const alvos = await exec.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, grupoIds))
+  const catalogoDaConta = new Map<string, Awaited<ReturnType<typeof listarModelosDaConta>>>()
+  let inseridos = 0
+  for (const g of alvos) {
+    if (!catalogoDaConta.has(g.contaId)) catalogoDaConta.set(g.contaId, await listarModelosDaConta(g.contaId, exec))
+    const existentes = new Set((await exec.select({ nome: precificacao.nome }).from(precificacao)
+      .where(eq(precificacao.grupoId, g.id))).map(p => chaveNome(p.nome)))
+    const novos: (typeof precificacao.$inferInsert)[] = []
+    for (const m of catalogoDaConta.get(g.contaId)!) {
+      const nome = chaveNome(m.modeloOriginal)
+      if (!precoDoModelo.has(m.id) || existentes.has(nome)) continue
+      existentes.add(nome)
+      novos.push({ grupoId: g.id, nome, valorMinimo: precoDoModelo.get(m.id)! })
+    }
+    if (novos.length) await exec.insert(precificacao).values(novos)
+    inseridos += novos.length
+  }
+  return inseridos
+}
+
+export async function preencherContaComPrecoPadrao(contaId: string, exec: Escritor = db) {
+  const ids = await exec.select({ id: grupos.id }).from(grupos).where(eq(grupos.contaId, contaId))
+  return preencherGruposComPrecoPadrao(ids.map(g => g.id), exec)
+}
+
+export async function preencherTodosComPrecoPadrao(exec: Escritor = db) {
+  const ids = await exec.select({ id: grupos.id }).from(grupos)
+  return preencherGruposComPrecoPadrao(ids.map(g => g.id), exec)
 }

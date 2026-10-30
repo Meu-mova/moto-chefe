@@ -13,12 +13,23 @@ import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
+import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
   EntradaPecasRecusada, carregarConferencia, carregarConferenciaPlanilha, gravarEntradaPlanilhaPecas,
   type EntradaPlanilhaPecas,
 } from '@/lib/entrada-pecas'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
+
+// Modelo que entrou pela 1ª vez no grupo ganha o preço padrão da MotoChefe (#522). As motos já
+// foram gravadas: falha aqui não desfaz a entrada, só deixa o preço para o próximo gatilho.
+async function precoPadraoDepoisDaEntrada(grupoId: string) {
+  try {
+    if (await preencherGruposComPrecoPadrao([grupoId])) revalidatePath('/precificacao')
+  } catch (e) {
+    console.error('[entrada] preço padrão não preenchido', e)
+  }
+}
 
 // Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la:
 // admin só no grupo que vê; quem entra pela exceção nominal, no grupo da própria loja.
@@ -128,6 +139,7 @@ export async function registrarEntrada(formData: {
     }
   }
 
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada(loja.grupoId)
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -237,6 +249,7 @@ export async function registrarEntradaLote(formData: {
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada(loja.grupoId)
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -273,6 +286,7 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
     throw e
   }
 
+  if (total.motos > 0) await precoPadraoDepoisDaEntrada(await getGrupoIdDaLoja(dados.lojaId))
   revalidatePath('/estoque')
   revalidatePath('/pecas')
   revalidatePath('/dashboard')
