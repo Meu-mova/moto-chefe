@@ -29,6 +29,8 @@ type Props = {
   moto: MotoData
   lojas: Loja[]
   modelos: Modelo[]
+  /** Sem venda, marcar "Vendida" aqui não registra venda: a moto some do Showroom e das Vendas (#544). */
+  temVenda: boolean
 }
 
 const statusOpts = [
@@ -44,7 +46,7 @@ const dispOpts = [
   { value: 'vendida', label: 'Vendida' },
 ]
 
-export function EditarMotoButton({ moto, lojas, modelos }: Props) {
+export function EditarMotoButton({ moto, lojas, modelos, temVenda }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -203,6 +205,12 @@ export function EditarMotoButton({ moto, lojas, modelos }: Props) {
                 </Select>
               </div>
             </div>
+            {disponibilidade === 'vendida' && !temVenda && (
+              <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                <p className="font-medium">Isto não registra a venda</p>
+                <p>A moto sai do Showroom e das Vendas e fica no quadro &quot;Marcadas como vendida sem venda registrada&quot;, em Vendas. Para vender de verdade, use o botão Vender.</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

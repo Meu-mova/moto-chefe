@@ -12,6 +12,7 @@ import { RecusaUsuario } from '@/lib/resultado-action'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
 import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
+import { sincronizarCaixaDaVendaPeca } from '@/lib/caixa-venda-peca'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -75,6 +76,7 @@ export async function editarVendaPecaTx(tx: Tx, e: EdicaoVendaPeca) {
   await tx.update(vendasPecas)
     .set({ pagamentos: e.pagamentos, formaPagamento, valorTotal: valorTotal.toFixed(2) })
     .where(eq(vendasPecas.id, e.vendaId))
+  await sincronizarCaixaDaVendaPeca(tx, venda, e.pagamentos, e.usuarioId)
 
   const antes = {
     itens: antigos.map(i => ({ pecaId: i.pecaId, descricao: i.descricao, quantidade: Number(i.quantidade), valorUnitario: Number(i.valorUnitario) })),
