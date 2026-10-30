@@ -59,21 +59,26 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
       porChave.set(chave, (porChave.get(chave) ?? new Set()).add(m.id))
     }
   }
-  const nomeDe = new Map(modelos.map(m => [m.id, m.nomes[0]]))
 
+  const nomeDe = new Map(modelos.map(m => [m.id, m.nomes[0]]))
   const avisos: string[] = []
   const candidatos: PrecoCasado[] = []
   for (const l of linhas) {
     // "GIGA/VASCO" é o mesmo preço para os dois modelos; o que o catálogo não tem fica de fora.
     const alternativas = l.modelo.replace(/\([^)]*\)/g, '').split('/')
     const ids: string[] = []
+    const ausentes: string[] = []
     let problema: string | null = null
     for (const alt of alternativas) {
       const achados = porChave.get(chaveDeModelo(alt))
       if (achados && achados.size > 1) problema = 'mais de um modelo com esse nome'
       else if (achados) ids.push(...achados)
+      else ausentes.push(alt.trim())
     }
     if (!problema && !ids.length) problema = 'modelo não encontrado'
+    else if (!problema && ausentes.length) {
+      avisos.push(`Linha ${l.linha} (${l.modelo}): ${ausentes.join(', ')} não está no catálogo; o preço vai só para ${ids.map(id => nomeDe.get(id)).join(', ')}`)
+    }
     if (problema) avisos.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
     else candidatos.push(...ids.map(modeloId => ({ modeloId, preco: l.preco, linha: l.linha })))
   }

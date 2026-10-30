@@ -125,7 +125,7 @@ export function ImportarPrecos() {
             )}
             {previa.avisos.length > 0 && (
               <ul className="list-disc space-y-0.5 pl-5 text-xs text-warning">
-                {previa.avisos.map(a => <li key={a}>{a}, não será gravado.</li>)}
+                {previa.avisos.map(a => <li key={a}>{a}</li>)}
               </ul>
             )}
 

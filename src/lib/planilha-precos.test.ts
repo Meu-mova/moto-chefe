@@ -91,7 +91,7 @@ test('payload que não é planilha (objeto, linha que não é lista, célula obj
 test('"GIGA/VASCO (1000W)" casa só GIGA quando VASCO não existe no catálogo', () => {
   const r = casarComModelos([{ linha: 21, modelo: 'GIGA/VASCO (1000W)', preco: 10 }], [{ id: 'giga', nomes: ['GIGA'] }])
   assert.deepEqual(r.casados, [{ modeloId: 'giga', preco: 10, linha: 21 }])
-  assert.deepEqual(r.avisos, [])
+  assert.deepEqual(r.avisos, ['Linha 21 (GIGA/VASCO (1000W)): VASCO não está no catálogo; o preço vai só para GIGA'])
 })
 
 test('com "/" nenhuma alternativa no catálogo continua aviso', () => {
