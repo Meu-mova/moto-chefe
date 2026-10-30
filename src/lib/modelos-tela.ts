@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contas, contaMarcas, modelos, modeloBlingCodigos, modeloApelidos } from '@/lib/db/schema'
 import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
@@ -25,8 +25,12 @@ export async function carregarTelaModelos(
       .from(modeloBlingCodigos)
       .where(eq(modeloBlingCodigos.grupoId, quem.grupoId)),
     !usaBling ? [] : quem.adminGeral
+      // Só os da Conta do modelo: o aprendido por uma Conta num modelo da plataforma
+      // é dela, não aparece nem se edita aqui (#476).
       ? exec.select({ modeloId: modeloApelidos.modeloId, apelido: modeloApelidos.apelido })
         .from(modeloApelidos)
+        .innerJoin(modelos, eq(modelos.id, modeloApelidos.modeloId))
+        .where(sql`${modeloApelidos.contaId} is not distinct from ${modelos.contaId}`)
         .orderBy(modeloApelidos.apelido)
       : listarApelidosDaConta(quem.contaId, exec).then(l => l.map(a => ({ modeloId: a.modeloId, apelido: a.nome }))),
     quem.adminGeral ? listarContasComMarcas(exec) : null,

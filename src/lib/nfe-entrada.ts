@@ -117,6 +117,27 @@ export function mapearModelo(nomeNf: string, modelosMova: string[]): string | nu
   return melhor
 }
 
+/**
+ * Qual modelo da Conta o texto da nota quer dizer (#476): o nome exato, depois o
+ * apelido que a Conta já usou, e só então o prefixo do mapearModelo. O apelido vem
+ * antes do prefixo porque é a escolha que a pessoa fez: "GIGA C/ BAU" pode ter sido
+ * ligado a outro modelo que não o GIGA.
+ */
+export function modeloIdDaNota(
+  texto: string,
+  modelos: { id: string; modelo: string; modeloOriginal?: string }[],
+  apelidos: { nome: string; modeloId: string }[],
+): string | null {
+  const alvo = normalizarModelo(texto)
+  const peloNome = modelos.find(m => normalizarModelo(m.modelo) === alvo)
+    ?? modelos.find(m => m.modeloOriginal && normalizarModelo(m.modeloOriginal) === alvo)
+  if (peloNome) return peloNome.id
+  const peloApelido = apelidos.find(a => normalizarModelo(a.nome) === alvo)
+  if (peloApelido) return peloApelido.modeloId
+  const prefixo = mapearModelo(texto, modelos.map(m => m.modelo))
+  return modelos.find(m => m.modelo === prefixo)?.id ?? null
+}
+
 /** Valor de uma tag plana (`<NCM>…</NCM>`), aparado. Entidades ficam como vieram. */
 export const tagNfe = (xml: string, nome: string): string =>
   (xml.match(new RegExp(`<${nome}\\b[^>]*>([^<]*)</${nome}>`)) || [])[1]?.trim() ?? ''

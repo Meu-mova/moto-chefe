@@ -16,7 +16,13 @@ export type MotoEntradaLote = {
   modeloId: string
   precoCompra: string
   notaFiscal: string
+  // Nome do modelo como veio no XML; vira apelido da Conta quando a moto entra (#476).
+  textoNota?: string
 }
+
+// Só as motos vindas do XML têm texto da nota; planilha e entrada manual não lembram apelido.
+export const paresDaNota = (motos: MotoEntradaLote[]) =>
+  motos.filter(m => m.textoNota && m.modeloId).map(m => ({ texto: m.textoNota!, modeloId: m.modeloId }))
 
 export async function inserirMotoDaEntrada(
   exec: Executor,
