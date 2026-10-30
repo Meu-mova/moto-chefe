@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 // src/app/(dashboard)/estoque/page.tsx
+import Link from 'next/link'
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
@@ -15,6 +16,7 @@ import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { PrintButton } from '../relatorio-fabrica/print-button'
+import { motoVendidaSemVendaPorChassi } from '@/lib/motos-vendidas-sem-venda'
 import { filtrosDoShowroom, paramsDoShowroom, type ParamsShowroom } from '@/lib/showroom-filtros'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -67,6 +69,11 @@ export default async function EstoquePage({
   // Origem da venda: o catálogo é do grupo, e o /estoque já é escopado por grupo.
   const origens = await withTimeout(listarOrigensAtivasDoGrupo(grupo.id), 8000)
 
+  // Moto marcada como vendida sem venda não volta para a lista; a busca pelo chassi só avisa (#544).
+  const vendidaSemVenda = params.q?.trim()
+    ? await motoVendidaSemVendaPorChassi(await contaDoGrupoAtivo(usuario), lojaIdsGrupo, params.q)
+    : null
+
   const counts = {
     total:         motosList.length,
     caixa:         motosList.filter(m => m.status === 'caixa').length,
@@ -99,6 +106,12 @@ export default async function EstoquePage({
         lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
         chassiInicial={params.q ?? ''}
       />
+      {vendidaSemVenda && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <p className="font-medium">Esta moto está marcada como vendida</p>
+          <p>Ela não tem venda registrada. <Link href={`/estoque/${vendidaSemVenda}`} className="underline">Ver moto</Link></p>
+        </div>
+      )}
       <div className="bg-card rounded-lg border">
         <MotoTable
           motos={motosList}
