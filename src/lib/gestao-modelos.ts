@@ -23,22 +23,6 @@ export function podeAjustarModelo(quem: Quem, modelo: { contaId: string | null }
   return quem.papel === 'admin_socio' && !!quem.contaId && modelo.contaId === null
 }
 
-// Preço de compra padrão do formulário de modelo (#513), no formato do campo de moeda.
-export function precoCompraDoForm(valor: string): string | null {
-  const t = valor.trim()
-  if (!t) return null
-  const n = Number(t)
-  if (!Number.isFinite(n) || n <= 0) throw new Error('Preço de compra inválido')
-  return n.toFixed(2)
-}
-
-// O preço padrão é do cliente (#288): só o modelo próprio da Conta o guarda. No da
-// plataforma ele iria para todas as Contas; lá a Conta grava no ajuste dela.
-// `undefined` (campo fora do formulário) não mexe; `null` apaga.
-export function precoNoModelo(contaIdDoModelo: string | null, preco: string | null | undefined): { precoCompraPadrao?: string | null } {
-  return contaIdDoModelo === null || preco === undefined ? {} : { precoCompraPadrao: preco }
-}
-
 // Há cadastro com a unidade junto ("1000 W"); a tela põe o W.
 export function potenciaNaTela(potencia: string): string {
   const n = potencia.trim().replace(/\s*w$/i, '')

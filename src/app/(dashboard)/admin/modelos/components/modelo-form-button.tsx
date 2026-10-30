@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Pencil, SlidersHorizontal } from 'lucide-react'
 import { ModeloDialog, type ModeloEditavel } from './modelo-dialog'
 
-export function ModeloFormButton({ modelo, ajuste = false, comPreco = false }: { modelo?: ModeloEditavel; ajuste?: boolean; comPreco?: boolean }) {
+export function ModeloFormButton({ modelo, ajuste = false }: { modelo?: ModeloEditavel; ajuste?: boolean }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -21,7 +21,7 @@ export function ModeloFormButton({ modelo, ajuste = false, comPreco = false }: {
           <Plus size={16} className="mr-1.5" /> Novo Modelo
         </Button>
       )}
-      {open && <ModeloDialog modelo={modelo} ajuste={ajuste} comPreco={comPreco} onClose={() => setOpen(false)} />}
+      {open && <ModeloDialog modelo={modelo} ajuste={ajuste} onClose={() => setOpen(false)} />}
     </>
   )
 }

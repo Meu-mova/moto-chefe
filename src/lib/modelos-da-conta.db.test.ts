@@ -23,14 +23,13 @@ let salvarApelidosDoModelo: Mod['salvarApelidosDoModelo']
 let excluirModelo: Mod['excluirModelo']
 let salvarAjusteDoModelo: Mod['salvarAjusteDoModelo']
 let ocultarModelo: Mod['ocultarModelo']
-let salvarPrecoDoAjuste: Mod['salvarPrecoDoAjuste']
 let voltarAoOriginal: Mod['voltarAoOriginal']
 let nomeDoModeloNaLoja: Mod['nomeDoModeloNaLoja']
 let carregarTelaModelos: typeof import('@/lib/modelos-tela')['carregarTelaModelos']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, salvarPrecoDoAjuste, voltarAoOriginal, nomeDoModeloNaLoja } = await import('@/lib/modelos-da-conta'))
+  ;({ listarModelosDaConta, salvarMarcasDaConta, listarMarcasDaConta, listarApelidosDaConta, modelosUsaveisPelaConta, salvarApelidosDoModelo, excluirModelo, salvarAjusteDoModelo, ocultarModelo, voltarAoOriginal, nomeDoModeloNaLoja } = await import('@/lib/modelos-da-conta'))
   ;({ carregarTelaModelos } = await import('@/lib/modelos-tela'))
 })
 
@@ -343,35 +342,6 @@ test('Cód. Bling e Apelidos só para Conta com credencial do Bling em algum gru
     assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoB.id }, tx)).usaBling, false,
       'admin_geral num grupo de Conta sem Bling')
     assert.equal((await carregarTelaModelos({ adminGeral: true, contaId: null, grupoId: grupoA.id }, tx)).usaBling, true)
-    throw new Desfazer()
-  }), Desfazer)
-})
-
-test('preço de compra padrão: o ajuste vale só para a Conta que fez e não muda a plataforma (#513)', async () => {
-  await assert.rejects(db.transaction(async tx => {
-    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string; preco: string | null }[] }).rows[0]
-    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
-    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
-    const daPlataforma = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, preco_compra_padrao)
-      values ('TESTE-PC', 'R10', 'autopropelido', '1000', '', '', 8000) returning id`)
-    const proprioDaA = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, preco_compra_padrao, conta_id)
-      values ('TESTE-PC', 'DA A', 'autopropelido', '1000', '', '', 3100, ${contaA.id}) returning id`)
-
-    const precoNa = async (contaId: string, id: string) =>
-      (await listarModelosDaConta(contaId, tx, { incluirOcultos: true })).find(m => m.id === id)?.precoCompraDaConta
-    assert.equal(await precoNa(contaA.id, daPlataforma.id), null, 'o preço da plataforma não é da Conta')
-    assert.equal(await precoNa(contaA.id, proprioDaA.id), '3100.00')
-
-    await salvarPrecoDoAjuste(contaA.id, daPlataforma.id, '2016.38', tx)
-    assert.equal(await precoNa(contaA.id, daPlataforma.id), '2016.38')
-    assert.equal(await precoNa(contaB.id, daPlataforma.id), null, 'B não vê o preço da A')
-    assert.equal((await linha(sql`select preco_compra_padrao as preco from modelos where id = ${daPlataforma.id}`)).preco, '8000.00',
-      'o modelo da plataforma não muda')
-
-    await assert.rejects(salvarPrecoDoAjuste(contaB.id, proprioDaA.id, '1.00', tx), /Modelo não encontrado/,
-      'modelo de outra Conta recebe a frase de id inexistente')
-    await salvarPrecoDoAjuste(contaA.id, daPlataforma.id, null, tx)
-    assert.equal(await precoNa(contaA.id, daPlataforma.id), null, 'apagar o preço volta ao vazio, não ao da plataforma')
     throw new Desfazer()
   }), Desfazer)
 })
