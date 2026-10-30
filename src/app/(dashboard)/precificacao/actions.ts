@@ -6,6 +6,7 @@ import { getGrupoAtivo } from '@/lib/grupo'
 import { eq, and, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { chaveNome, modeloPrecificavel } from '@/lib/precificacao-modelos'
+import { travarPrecificacaoDoGrupo } from '@/lib/tabela-preco-padrao'
 import { ehMatrizDePlanilha } from '@/lib/planilha-precos'
 import { gravarImportacao, previaDaImportacao } from '@/lib/importar-precos'
 
@@ -90,30 +91,34 @@ export async function salvarPrecoAction(data: {
       custo: data.custo || null,
     }).where(and(eq(precificacao.id, data.precId), eq(precificacao.grupoId, grupo.id)))
   } else {
-    const [existente] = await db
-      .select({ id: precificacao.id })
-      .from(precificacao)
-      .where(and(eq(precificacao.grupoId, grupo.id), sql`upper(btrim(${precificacao.nome})) = ${nome}`))
-      .limit(1)
+    // Mesma trava do preenchimento automático: os dois conferem e inserem pelo nome (#522).
+    await db.transaction(async tx => {
+      await travarPrecificacaoDoGrupo(tx, grupo.id)
+      const [existente] = await tx
+        .select({ id: precificacao.id })
+        .from(precificacao)
+        .where(and(eq(precificacao.grupoId, grupo.id), sql`upper(btrim(${precificacao.nome})) = ${nome}`))
+        .limit(1)
 
-    if (existente) {
-      await db.update(precificacao).set({
-        nome,
-        valorMinimo: data.valorMinimo,
-        custo: data.custo || null,
-      }).where(eq(precificacao.id, existente.id))
-    } else {
-      await db.insert(precificacao).values({
-        grupoId: grupo.id,
-        nome,
-        valorMinimo: data.valorMinimo,
-        custo: data.custo || null,
-        taxaPix: '0',
-        taxasCartao: {},
-        taxasLink: {},
-        taxasFinanciamento: {},
-      })
-    }
+      if (existente) {
+        await tx.update(precificacao).set({
+          nome,
+          valorMinimo: data.valorMinimo,
+          custo: data.custo || null,
+        }).where(eq(precificacao.id, existente.id))
+      } else {
+        await tx.insert(precificacao).values({
+          grupoId: grupo.id,
+          nome,
+          valorMinimo: data.valorMinimo,
+          custo: data.custo || null,
+          taxaPix: '0',
+          taxasCartao: {},
+          taxasLink: {},
+          taxasFinanciamento: {},
+        })
+      }
+    })
   }
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
