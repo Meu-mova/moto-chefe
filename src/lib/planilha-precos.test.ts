@@ -87,3 +87,30 @@ test('payload que não é planilha (objeto, linha que não é lista, célula obj
   assert.equal(ehMatrizDePlanilha([['MODELO'], 'X12']), false)
   assert.equal(ehMatrizDePlanilha([['MODELO', { x: 1 }]]), false)
 })
+
+test('"GIGA/VASCO (1000W)" casa só GIGA quando VASCO não existe no catálogo', () => {
+  const r = casarComModelos([{ linha: 21, modelo: 'GIGA/VASCO (1000W)', preco: 10 }], [{ id: 'giga', nomes: ['GIGA'] }])
+  assert.deepEqual(r.casados, [{ modeloId: 'giga', preco: 10, linha: 21 }])
+  assert.deepEqual(r.avisos, [])
+})
+
+test('com "/" nenhuma alternativa no catálogo continua aviso', () => {
+  const r = casarComModelos([{ linha: 21, modelo: 'GIGA/VASCO (1000W)', preco: 10 }], [{ id: 'x12', nomes: ['X12'] }])
+  assert.deepEqual(r.casados, [])
+  assert.deepEqual(r.avisos, ['Linha 21 (GIGA/VASCO (1000W)): modelo não encontrado'])
+})
+
+test('nomes da tabela de outubro casam com o catálogo: S8 - MINI, JET MAX, RETRÔ', () => {
+  const r = casarComModelos([
+    { linha: 9, modelo: 'S8 - MINI (1000W)', preco: 1 },
+    { linha: 25, modelo: 'JET MAX (1000W)', preco: 2 },
+    { linha: 35, modelo: 'RETRÔ (VTB5/500W)', preco: 3 },
+  ], [
+    { id: 's8', nomes: ['S8-MINI'] },
+    { id: 'jm', nomes: ['JETMAX'] },
+    { id: 'jet', nomes: ['JET'] },
+    { id: 'retro', nomes: ['RETRO'] },
+  ])
+  assert.deepEqual(r.casados.map(c => c.modeloId), ['s8', 'jm', 'retro'])
+  assert.deepEqual(r.avisos, [])
+})
