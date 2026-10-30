@@ -1066,6 +1066,17 @@ export const precificacao = pgTable('precificacao', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// ─── tabela_preco_padrao ─────────────────────────────────────────────────────
+// Preço de venda sugerido pela MotoChefe por modelo da plataforma (#522), carregado pelo
+// admin_geral. Só o preço à vista: o cartão sai das taxas do grupo.
+export const tabelaPrecoPadrao = pgTable('tabela_preco_padrao', {
+  modeloId: uuid('modelo_id').primaryKey().references(() => modelos.id, { onDelete: 'cascade' }),
+  preco: numeric('preco', { precision: 12, scale: 2 }).notNull(),
+  competencia: text('competencia').notNull(),
+  carregadoPor: uuid('carregado_por').references(() => usuarios.id),
+  carregadoEm: timestamp('carregado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // ─── conciliacoes_cartao ─────────────────────────────────────────────────────
 export const conciliacoesCartao = pgTable('conciliacoes_cartao', {
   id: uuid('id').primaryKey().defaultRandom(),
