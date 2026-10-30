@@ -814,12 +814,18 @@ export const notasEntrada = pgTable('notas_entrada', {
   contaId: uuid('conta_id').notNull().references(() => contas.id),
   grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
-  chaveAcesso: text('chave_acesso').notNull(),
-  numero: text('numero').notNull(),
-  fornecedorCnpj: text('fornecedor_cnpj').notNull(),
+  // Nulos só na entrada por planilha (#519); o check do banco garante o resto.
+  chaveAcesso: text('chave_acesso'),
+  numero: text('numero'),
+  fornecedorCnpj: text('fornecedor_cnpj'),
   criadoPor: uuid('criado_por').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-}, t => [index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso)])
+  origem: text('origem').notNull().default('nota'),
+  impressaoDigital: text('impressao_digital'),
+}, t => [
+  index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso),
+  index('notas_entrada_loja_id_impressao_digital_idx').on(t.lojaId, t.impressaoDigital),
+])
 
 // ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
 export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
