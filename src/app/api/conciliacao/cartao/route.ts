@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico, grupos, lojas } from '@/lib/db/schema'
 import { eq, and, between, inArray, sql } from 'drizzle-orm'
 import { chaveDedup, type PayloadConciliacao } from '@/lib/conciliacao-cartao'
-import { somenteDigitos } from '@/lib/grupo-cnpj'
+import { chaveDoCnpj } from '@/lib/grupo-cnpj'
 
 const TOLERANCE = 0.05 // R$ 0,05 de tolerância no valor
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const [grupo] = await db
     .select({ id: grupos.id })
     .from(grupos)
-    .where(sql`regexp_replace(${grupos.cnpj}, '[^0-9]', '', 'g') = ${somenteDigitos(grupoCnpj)}`)
+    .where(sql`upper(regexp_replace(${grupos.cnpj}, '[^0-9a-zA-Z]', '', 'g')) = ${chaveDoCnpj(grupoCnpj)}`)
     .limit(1)
 
   if (!grupo) {

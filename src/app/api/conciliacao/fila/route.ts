@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, execRows } from '@/lib/db'
 import { importacoesCartao, grupos } from '@/lib/db/schema'
 import { eq, and, inArray, sql } from 'drizzle-orm'
-import { somenteDigitos } from '@/lib/grupo-cnpj'
+import { chaveDoCnpj } from '@/lib/grupo-cnpj'
 
 function autorizado(req: NextRequest): boolean {
   return req.headers.get('x-cron-secret') === process.env.CRON_SECRET
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const [grupo] = await db
     .select({ id: grupos.id })
     .from(grupos)
-    .where(sql`regexp_replace(${grupos.cnpj}, '[^0-9]', '', 'g') = ${somenteDigitos(grupoCnpj)}`)
+    .where(sql`upper(regexp_replace(${grupos.cnpj}, '[^0-9a-zA-Z]', '', 'g')) = ${chaveDoCnpj(grupoCnpj)}`)
     .limit(1)
   if (!grupo) return NextResponse.json({ error: 'Grupo não encontrado' }, { status: 400 })
 
