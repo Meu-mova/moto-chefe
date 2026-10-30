@@ -23,6 +23,8 @@ let getEstoquePorLoja: Dash['getEstoquePorLoja']
 let listarMotos: Motos['listarMotos']
 let lojaId = ''
 let contaId = ''
+let lojaB = ''
+let contaB = ''
 
 const linha = async (q: ReturnType<typeof sql>) => (await execRows(q))[0] as { id: string }
 
@@ -47,9 +49,19 @@ before(async () => {
     await db.execute(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade, preco_compra, somente_garantia)
       values (${chassi}, ${modelo.id}, ${loja.id}, 'CINZA', '1', ${status}, ${disponibilidade}, ${preco}, ${somenteGarantia})`)
   }
+  // Conta B, para a impressão (#512).
+  contaB = (await linha(sql`insert into contas (nome) values ('Showroom 512 B') returning id`)).id
+  const grupoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Showroom 512 B', '00000000051200', ${contaB}) returning id`)
+  lojaB = (await linha(sql`insert into lojas (nome, cidade, endereco, grupo_id) values ('Loja Showroom 512 B', 'C', 'R', ${grupoB.id}) returning id`)).id
+  await db.execute(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade, preco_compra)
+    values ('SHOW512B', ${modelo.id}, ${lojaB}, 'CINZA', '1', 'montada', 'disponivel', 500)`)
 })
 
 after(async () => {
+  await db.execute(sql`delete from motos where loja_id = ${lojaB}`)
+  await db.execute(sql`delete from lojas where id = ${lojaB}`)
+  await db.execute(sql`delete from grupos where conta_id = ${contaB}`)
+  await db.execute(sql`delete from contas where id = ${contaB}`)
   await db.execute(sql`delete from motos where loja_id = ${lojaId}`)
   await db.execute(sql`delete from modelos where modelo = 'S310'`)
   await db.execute(sql`delete from lojas where id = ${lojaId}`)
@@ -67,4 +79,27 @@ test('showroom: dashboard e tela contam as mesmas 2 motos (montada e vendida com
   assert.equal(kpis.valorEstoque, 3000)
 
   assert.deepEqual(await getEstoquePorLoja([lojaId]), [{ loja: 'Loja Showroom 310', total: 2 }])
+})
+
+test('impressão do Showroom: a Conta B não imprime motos da Conta A, nem pedindo a loja da A na URL (#512)', async () => {
+  const { filtrosDoShowroom } = await import('@/lib/showroom-filtros')
+  const lojasDoGrupoB = [lojaB]
+  for (const quem of [{ papel: 'admin_socio', lojaId: null }, { papel: 'vendedor', lojaId: lojaB }]) {
+    const filtros = filtrosDoShowroom({ loja: lojaId }, quem, lojasDoGrupoB)
+    const impressas = await listarMotos({ ...filtros, contaId: contaB })
+    assert.deepEqual(impressas.map(m => m.chassi), ['SHOW512B'], `${quem.papel}: loja da A ignorada`)
+  }
+  assert.deepEqual(await listarMotos({ excluirVendidas: true, lojaId: [lojaId], contaId: contaB }), [],
+    'a Conta na consulta barra a loja da A mesmo se ela chegasse ao filtro')
+})
+
+test('impressão do Showroom: preço só para sócio e admin_geral, e só das lojas filtradas (#512)', async () => {
+  const { precosParaImpressao } = await import('@/lib/queries/showroom-precos')
+  const ids = (await listarMotos({ excluirVendidas: true, lojaId: [lojaId, lojaB] })).map(m => m.id)
+  for (const papel of ['vendedor', 'aux_adm', 'mecanico']) {
+    assert.equal(await precosParaImpressao(papel, ids, [lojaId, lojaB]), null, papel)
+  }
+  const doSocioB = await precosParaImpressao('admin_socio', ids, [lojaB])
+  assert.deepEqual([...doSocioB!.keys()], ['SHOW512B'], 'id de moto da A não traz preço para a B')
+  assert.equal(Number(doSocioB!.get('SHOW512B')), 500)
 })
