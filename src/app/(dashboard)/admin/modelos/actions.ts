@@ -42,6 +42,11 @@ async function contaQueAjusta() {
   return quem.contaId
 }
 
+// Ausente: o diálogo não mostrou o campo, e o preço fica como está. Vazio apaga.
+function precoDoForm(formData: FormData) {
+  return formData.has('preco_compra') ? precoCompraDoForm(String(formData.get('preco_compra'))) : undefined
+}
+
 function camposDoForm(formData: FormData) {
   const texto = (campo: string) => String(formData.get(campo) ?? '').trim()
   const categoria = texto('categoria') as typeof modelos.categoria.enumValues[number]
@@ -59,7 +64,7 @@ export async function criarModeloAction(formData: FormData): Promise<{ aviso: st
   const aviso = await avisoDeNomeRepetido(contaId, campos.modelo, null)
   await db.insert(modelos).values({
     ...campos,
-    ...precoNoModelo(contaId, precoCompraDoForm(String(formData.get('preco_compra') ?? ''))),
+    ...precoNoModelo(contaId, precoDoForm(formData)),
     // Motor e velocidade máx. não são do modelo (motor vem por moto no XML;
     // velocidade não é usada). Colunas NOT NULL, então gravam vazio.
     motor: '',
@@ -76,7 +81,7 @@ export async function editarModeloAction(id: string, formData: FormData): Promis
   // `motor` e `velocidadeMax` ficam de fora do set de propósito — preservam o
   // valor dos modelos antigos que ainda os têm preenchidos.
   await db.update(modelos)
-    .set({ ...campos, ...precoNoModelo(modelo.contaId, precoCompraDoForm(String(formData.get('preco_compra') ?? ''))) })
+    .set({ ...campos, ...precoNoModelo(modelo.contaId, precoDoForm(formData)) })
     .where(eq(modelos.id, id))
   revalidatePath('/admin/modelos')
   return { aviso: await avisoDeNomeRepetido(modelo.contaId, campos.modelo, id) }
@@ -148,9 +153,11 @@ export async function salvarMarcasDaContaAction(contaId: string, marcas: string[
 export async function ajustarModeloAction(id: string, formData: FormData): Promise<{ aviso: string | null }> {
   const contaId = await contaQueAjusta()
   const { modelo, categoria, potenciaW } = camposDoForm(formData)
-  const preco = precoCompraDoForm(String(formData.get('preco_compra') ?? ''))
-  await salvarAjusteDoModelo(contaId, id, { modelo, categoria, potenciaW })
-  await salvarPrecoDoAjuste(contaId, id, preco)
+  const preco = precoDoForm(formData)
+  await db.transaction(async tx => {
+    await salvarAjusteDoModelo(contaId, id, { modelo, categoria, potenciaW }, tx)
+    if (preco !== undefined) await salvarPrecoDoAjuste(contaId, id, preco, tx)
+  })
   revalidatePath('/admin/modelos')
   return { aviso: await avisoDeNomeRepetido(contaId, modelo, id) }
 }

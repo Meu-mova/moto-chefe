@@ -50,6 +50,8 @@ test('preço padrão só se grava no modelo próprio da Conta, nunca no da plata
   assert.deepEqual(precoNoModelo(contaA, '2016.38'), { precoCompraPadrao: '2016.38' })
   assert.deepEqual(precoNoModelo(contaA, null), { precoCompraPadrao: null })
   assert.deepEqual(precoNoModelo(null, '2016.38'), {})
+  // Campo ausente no formulário não mexe no preço; vazio é que apaga.
+  assert.deepEqual(precoNoModelo(contaA, undefined), {})
 })
 
 test('potência na tela com um W só, venha o cadastro com ou sem W', () => {

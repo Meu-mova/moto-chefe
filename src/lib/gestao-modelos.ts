@@ -34,8 +34,9 @@ export function precoCompraDoForm(valor: string): string | null {
 
 // O preço padrão é do cliente (#288): só o modelo próprio da Conta o guarda. No da
 // plataforma ele iria para todas as Contas; lá a Conta grava no ajuste dela.
-export function precoNoModelo(contaIdDoModelo: string | null, preco: string | null): { precoCompraPadrao?: string | null } {
-  return contaIdDoModelo === null ? {} : { precoCompraPadrao: preco }
+// `undefined` (campo fora do formulário) não mexe; `null` apaga.
+export function precoNoModelo(contaIdDoModelo: string | null, preco: string | null | undefined): { precoCompraPadrao?: string | null } {
+  return contaIdDoModelo === null || preco === undefined ? {} : { precoCompraPadrao: preco }
 }
 
 // Há cadastro com a unidade junto ("1000 W"); a tela põe o W.
