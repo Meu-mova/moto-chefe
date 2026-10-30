@@ -6,6 +6,8 @@ import { getGrupoAtivo } from '@/lib/grupo'
 import { eq, and, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { chaveNome, modeloPrecificavel } from '@/lib/precificacao-modelos'
+import { ehMatrizDePlanilha } from '@/lib/planilha-precos'
+import { gravarImportacao, previaDaImportacao } from '@/lib/importar-precos'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -129,4 +131,25 @@ export async function excluirModeloAction(id: string) {
   await db.delete(precificacao).where(and(eq(precificacao.id, id), eq(precificacao.grupoId, grupo.id)))
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
+}
+
+// Planilha de preço do sócio (#522): a prévia não grava; a gravação lê a planilha de novo
+// e recebe do navegador só os modelos cuja troca de preço foi aceita.
+export async function previaImportacaoAction(matriz: unknown) {
+  const grupo = await checarAdmin()
+  if (!ehMatrizDePlanilha(matriz)) return { ok: false as const, erro: 'Planilha ilegível' }
+  return previaDaImportacao({ grupoId: grupo.id, contaId: grupo.contaId, matriz })
+}
+
+export async function importarPrecosAction(matriz: unknown, trocar: unknown) {
+  const grupo = await checarAdmin()
+  if (!ehMatrizDePlanilha(matriz) || !Array.isArray(trocar) || !trocar.every(t => typeof t === 'string')) {
+    return { ok: false as const, erro: 'Planilha ilegível' }
+  }
+  const r = await gravarImportacao({ grupoId: grupo.id, contaId: grupo.contaId, matriz, trocar })
+  if (r.ok) {
+    revalidatePath('/precificacao')
+    revalidatePath('/simulador')
+  }
+  return r
 }

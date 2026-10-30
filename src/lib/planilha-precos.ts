@@ -59,22 +59,39 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
       porChave.set(chave, (porChave.get(chave) ?? new Set()).add(m.id))
     }
   }
-  const nomeDe = new Map(modelos.map(m => [m.id, m.nomes[0]]))
 
+  const nomeDe = new Map(modelos.map(m => [m.id, m.nomes[0]]))
+  // avisos: tudo em frase, para a carga do admin_geral. Os outros separam o mesmo para a
+  // prévia do sócio: nome fora do catálogo, alternativa do "/" que ficou de fora, e linha que
+  // não grava por ambiguidade ou repetição.
   const avisos: string[] = []
+  const naoEncontrados: string[] = []
+  const parciais: string[] = []
+  const foraDaImportacao: string[] = []
   const candidatos: PrecoCasado[] = []
+  const pendentes: { l: LinhaDePreco; alternativas: string[]; ausentes: string[]; ids: string[] }[] = []
   for (const l of linhas) {
-    // "GIGA/VASCO" é o mesmo preço para os dois modelos.
+    // "GIGA/VASCO" é o mesmo preço para os dois modelos; o que o catálogo não tem fica de fora.
     const alternativas = l.modelo.replace(/\([^)]*\)/g, '').split('/')
     const ids: string[] = []
+    const ausentes: string[] = []
     let problema: string | null = null
     for (const alt of alternativas) {
       const achados = porChave.get(chaveDeModelo(alt))
-      if (!achados) problema ??= 'modelo não encontrado'
-      else if (achados.size > 1) problema = 'mais de um modelo com esse nome'
-      else ids.push(...achados)
+      if (achados && achados.size > 1) problema = 'mais de um modelo com esse nome'
+      else if (achados) ids.push(...achados)
+      else ausentes.push(alt.trim())
     }
-    if (problema) avisos.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
+    if (!problema && !ids.length) {
+      avisos.push(`Linha ${l.linha} (${l.modelo}): modelo não encontrado`)
+      naoEncontrados.push(alternativas.map(a => a.trim()).join('/'))
+      continue
+    }
+    if (!problema && ausentes.length) pendentes.push({ l, alternativas, ausentes, ids })
+    if (problema) {
+      avisos.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
+      foraDaImportacao.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
+    }
     else candidatos.push(...ids.map(modeloId => ({ modeloId, preco: l.preco, linha: l.linha })))
   }
 
@@ -82,8 +99,21 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
   const linhasPorModelo = new Map<string, number[]>()
   for (const c of candidatos) linhasPorModelo.set(c.modeloId, [...(linhasPorModelo.get(c.modeloId) ?? []), c.linha])
   for (const [id, ls] of linhasPorModelo) {
-    if (ls.length > 1) avisos.push(`Linhas ${ls.slice(0, -1).join(', ')} e ${ls.at(-1)}: o mesmo modelo (${nomeDe.get(id)}) aparece mais de uma vez`)
+    if (ls.length <= 1) continue
+    const repetido = `Linhas ${ls.slice(0, -1).join(', ')} e ${ls.at(-1)}: o mesmo modelo (${nomeDe.get(id)}) aparece mais de uma vez`
+    avisos.push(repetido)
+    foraDaImportacao.push(repetido)
   }
   const casados = candidatos.filter(c => linhasPorModelo.get(c.modeloId)!.length === 1)
-  return { casados, avisos }
+
+  // A alternativa pulada só se avisa depois dos repetidos: se o modelo que casou caiu como
+  // repetido, a linha não grava e "vai só para GIGA" seria falso.
+  for (const p of pendentes) {
+    const ficam = p.ids.filter(id => linhasPorModelo.get(id)!.length === 1)
+    if (!ficam.length) continue
+    const parcial = `${p.ausentes.join(', ')} não está no catálogo; o preço de ${p.alternativas.map(a => a.trim()).join('/')} vai só para ${ficam.map(id => nomeDe.get(id)).join(', ')}`
+    avisos.push(`Linha ${p.l.linha} (${p.l.modelo}): ${parcial}`)
+    parciais.push(parcial)
+  }
+  return { casados, avisos, naoEncontrados, parciais, foraDaImportacao }
 }

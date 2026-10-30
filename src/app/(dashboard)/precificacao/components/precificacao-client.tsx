@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TaxasForm } from './taxas-form'
 import { ModeloDialog } from './modelo-dialog'
+import { ImportarPrecos } from './importar-precos'
 import { toggleAtivoAction, excluirModeloAction } from '../actions'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp, AlertTriangle, Tag } from 'lucide-react'
 
@@ -109,7 +110,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
 
       {/* Lista de modelos */}
       <div className="bg-card rounded-xl border shadow-sm">
-        <div className="px-6 py-4 border-b flex items-center justify-between">
+        <div className="px-6 py-4 border-b flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">Modelos</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -119,9 +120,12 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
               )}
             </p>
           </div>
-          <Button onClick={() => { setModeloEdicao(null); setDialogAberto(true) }} className="gap-1.5">
-            <Plus size={16} /> Novo Modelo
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportarPrecos />
+            <Button onClick={() => { setModeloEdicao(null); setDialogAberto(true) }} className="gap-1.5">
+              <Plus size={16} /> Novo Modelo
+            </Button>
+          </div>
         </div>
 
         {modelos.length === 0 ? (
