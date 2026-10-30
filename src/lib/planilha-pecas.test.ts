@@ -20,7 +20,7 @@ test('lê vírgula decimal, R$, milhar e número do Excel', () => {
 test('cabeçalho sem acento, em minúsculas e fora de ordem; colunas opcionais ausentes', () => {
   const r = lerPlanilhaPecas([['quantidade', 'descricao'], [3, 'Luva']])
   assert.deepEqual(r.erros, [])
-  assert.deepEqual(r.itens, [{ linha: 2, codigo: '', descricao: 'Luva', quantidade: 3, custoUnitario: 0, precoVenda: null }])
+  assert.deepEqual(r.itens, [{ linha: 2, codigo: '', descricao: 'Luva', quantidade: 3, custoUnitario: null, precoVenda: null }])
 })
 
 test('pula linhas vazias, inclusive antes do cabeçalho', () => {
@@ -54,4 +54,22 @@ test('cada erro aponta a linha da planilha', () => {
     'Linha 6: custo unitário inválido',
     'Linha 6: preço de venda inválido',
   ])
+})
+
+test('item da planilha vira linha da conferência; o preço de venda já vem na peça nova', async () => {
+  const { linhaDaPlanilha } = await import('@/lib/planilha-pecas')
+  const { paraGravacao, problemaDaLinha } = await import('@/lib/conferencia-pecas')
+  const item = { linha: 2, codigo: 'L1', descricao: 'Luva', quantidade: 2, custoUnitario: 10, precoVenda: 25 }
+  const nova = linhaDaPlanilha(item, null)
+  assert.equal(problemaDaLinha(nova), null)
+  assert.deepEqual(paraGravacao([nova]), [{ codigo: 'L1', nomeXml: 'Luva', quantidade: 2, custoUnitario: 10, nova: { nome: 'Luva', valor: 25 } }])
+  assert.deepEqual(paraGravacao([linhaDaPlanilha(item, 'p1')]), [{ codigo: 'L1', nomeXml: 'Luva', quantidade: 2, custoUnitario: 10, pecaId: 'p1' }])
+  assert.match(problemaDaLinha(linhaDaPlanilha({ ...item, precoVenda: null }, null)) ?? '', /preço de venda/)
+})
+
+test('o modelo para baixar é lido pelo próprio leitor sem erro', async () => {
+  const { MODELO_PLANILHA_PECAS } = await import('@/lib/planilha-pecas')
+  const r = lerPlanilhaPecas(MODELO_PLANILHA_PECAS)
+  assert.deepEqual(r.erros, [])
+  assert.equal(r.itens.length, 1)
 })
