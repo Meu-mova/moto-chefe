@@ -1,6 +1,6 @@
 'use client'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { VenderButton } from '../../components/vender-button'
 import { GarantiaButton } from '../../components/garantia-button'
 import { LogisticaButton } from '../../components/logistica-button'
@@ -88,6 +88,8 @@ const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
   const abrirVenda = useSearchParams().get('vender') === '1'
+  // Guardado no primeiro render: o replace abaixo tira o ?vender=1 da URL logo em seguida.
+  const [vendaBarradaPorCaixa] = useState(() => abrirVenda && moto.status === 'caixa')
   const router = useRouter()
   const pathname = usePathname()
   // O VenderButton já leu o pedido ao montar; sem limpar, recarregar a página reabriria a venda.
@@ -272,7 +274,13 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Ações</CardTitle></CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {vendaBarradaPorCaixa && (
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+            <p className="font-medium">A moto voltou ao estoque, mas ainda está em caixa</p>
+            <p>Moto em caixa não pode ser vendida. Use o botão Montar e depois o Vender.</p>
+          </div>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           {acoes}
         </div>
