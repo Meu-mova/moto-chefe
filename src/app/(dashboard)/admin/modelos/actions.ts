@@ -7,8 +7,8 @@ import { contaDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { contaDoGrupoUsaBling } from '@/lib/conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
-import { avisoDeNomeRepetido, excluirModelo, ocultarModelo, salvarAjusteDoModelo, salvarApelidosDoModelo, salvarMarcasDaConta, voltarAoOriginal } from '@/lib/modelos-da-conta'
-import { contaDoModeloNovo, podeAjustarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
+import { avisoDeNomeRepetido, excluirModelo, ocultarModelo, salvarAjusteDoModelo, salvarApelidosDoModelo, salvarMarcasDaConta, salvarPrecoDoAjuste, voltarAoOriginal } from '@/lib/modelos-da-conta'
+import { contaDoModeloNovo, podeAjustarModelo, podeEditarModelo, precoCompraDoForm, precoNoModelo } from '@/lib/gestao-modelos'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -59,6 +59,7 @@ export async function criarModeloAction(formData: FormData): Promise<{ aviso: st
   const aviso = await avisoDeNomeRepetido(contaId, campos.modelo, null)
   await db.insert(modelos).values({
     ...campos,
+    ...precoNoModelo(contaId, precoCompraDoForm(String(formData.get('preco_compra') ?? ''))),
     // Motor e velocidade máx. não são do modelo (motor vem por moto no XML;
     // velocidade não é usada). Colunas NOT NULL, então gravam vazio.
     motor: '',
@@ -74,7 +75,9 @@ export async function editarModeloAction(id: string, formData: FormData): Promis
   const campos = camposDoForm(formData)
   // `motor` e `velocidadeMax` ficam de fora do set de propósito — preservam o
   // valor dos modelos antigos que ainda os têm preenchidos.
-  await db.update(modelos).set(campos).where(eq(modelos.id, id))
+  await db.update(modelos)
+    .set({ ...campos, ...precoNoModelo(modelo.contaId, precoCompraDoForm(String(formData.get('preco_compra') ?? ''))) })
+    .where(eq(modelos.id, id))
   revalidatePath('/admin/modelos')
   return { aviso: await avisoDeNomeRepetido(modelo.contaId, campos.modelo, id) }
 }
@@ -145,7 +148,9 @@ export async function salvarMarcasDaContaAction(contaId: string, marcas: string[
 export async function ajustarModeloAction(id: string, formData: FormData): Promise<{ aviso: string | null }> {
   const contaId = await contaQueAjusta()
   const { modelo, categoria, potenciaW } = camposDoForm(formData)
+  const preco = precoCompraDoForm(String(formData.get('preco_compra') ?? ''))
   await salvarAjusteDoModelo(contaId, id, { modelo, categoria, potenciaW })
+  await salvarPrecoDoAjuste(contaId, id, preco)
   revalidatePath('/admin/modelos')
   return { aviso: await avisoDeNomeRepetido(contaId, modelo, id) }
 }

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { ajustarModeloAction, criarModeloAction, editarModeloAction } from '../actions'
 
 const CATEGORIAS = ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'] as const
@@ -15,14 +16,18 @@ export type ModeloEditavel = {
   modelo: string
   categoria: string
   potenciaW: string
+  /** Preço de compra padrão da Conta (#513): ajuste dela ou modelo próprio. */
+  precoCompra?: string | null
 }
 
 // Ajuste: o sócio muda o modelo da plataforma só para a própria Conta (#476); marca não se ajusta.
-export function ModeloDialog({ modelo, ajuste = false, onClose }: { modelo?: ModeloEditavel | null; ajuste?: boolean; onClose: () => void }) {
+// comPreco: só onde o preço é da Conta (ajuste, modelo próprio, modelo novo do sócio).
+export function ModeloDialog({ modelo, ajuste = false, comPreco = false, onClose }: { modelo?: ModeloEditavel | null; ajuste?: boolean; comPreco?: boolean; onClose: () => void }) {
   const [marca, setMarca] = useState(modelo?.marca ?? '')
   const [nome, setNome] = useState(modelo?.modelo ?? '')
   const [categoria, setCategoria] = useState(modelo?.categoria ?? 'autopropelido')
   const [potencia, setPotencia] = useState(modelo?.potenciaW ?? '')
+  const [precoCompra, setPrecoCompra] = useState(modelo?.precoCompra ?? '')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,6 +43,7 @@ export function ModeloDialog({ modelo, ajuste = false, onClose }: { modelo?: Mod
       fd.set('modelo', nome.trim())
       fd.set('categoria', categoria)
       fd.set('potencia_w', potencia.trim())
+      if (comPreco) fd.set('preco_compra', precoCompra)
       const { aviso } = modelo
         ? await (ajuste ? ajustarModeloAction : editarModeloAction)(modelo.id, fd)
         : await criarModeloAction(fd)
@@ -85,6 +91,15 @@ export function ModeloDialog({ modelo, ajuste = false, onClose }: { modelo?: Mod
             <Label>Potência (W) *</Label>
             <Input value={potencia} onChange={e => setPotencia(e.target.value)} placeholder="Ex: 1000" inputMode="numeric" />
           </div>
+          {comPreco && (
+            <div className="space-y-1.5">
+              <Label>Preço de compra padrão (R$)</Label>
+              <CurrencyInput value={precoCompra} onChange={setPrecoCompra} placeholder="0,00" />
+              <p className="text-xs text-muted-foreground">
+                Já vem preenchido na entrada de motos quando a nota ou a planilha não trazem o preço.
+              </p>
+            </div>
+          )}
           {ajuste && (
             <p className="text-xs text-muted-foreground">
               Vale só para a sua Conta. As outras continuam vendo o modelo como a MotoChefe cadastrou.

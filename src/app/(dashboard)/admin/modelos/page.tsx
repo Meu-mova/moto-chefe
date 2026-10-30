@@ -10,7 +10,7 @@ import { ApelidosCell } from './components/apelidos-cell'
 import { MarcasDaConta } from './components/marcas-da-conta'
 import { ExcluirModeloButton } from './components/excluir-modelo-button'
 import { AjusteModeloAcoes } from './components/ajuste-modelo-acoes'
-import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
+import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo, potenciaNaTela } from '@/lib/gestao-modelos'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
@@ -25,6 +25,9 @@ export default async function ModelosPage() {
     ? { adminGeral: true, contaId: null, grupoId: grupo.id }
     : { adminGeral: false, contaId, grupoId: grupo.id })
   const nomeDaConta = new Map((contas ?? []).map(c => [c.id, c.nome]))
+  // O admin_geral recebe a linha crua: o preço do modelo da plataforma não é de Conta nenhuma.
+  const precoDaConta = (m: (typeof todos)[number]): string | null =>
+    'precoCompraDaConta' in m ? m.precoCompraDaConta as string | null : m.contaId ? m.precoCompraPadrao : null
   const marcas = [...new Set(todos.map(m => m.marca))].sort()
   const codigoPorModelo = new Map(codigos.map(c => [c.modeloId, c.codigo]))
   const apelidosPorModelo = new Map<string, string[]>()
@@ -44,7 +47,7 @@ export default async function ModelosPage() {
               escreve o modelo — “DRIFT” para DRIFT CAR — e é o que liga a moto à ficha fiscal.</> : adminGeral ? <>Você edita os modelos de todas as Contas. A Conta do grupo <strong>{grupo.nome}</strong> não usa o Bling, por isso não aparecem Cód. Bling nem Apelidos na NF.</> : <>Modelos da plataforma (das marcas da sua Conta) e os que a sua Conta cadastrou. Você edita e exclui só os da sua Conta; exclusão só enquanto nenhuma moto ou demanda usa o modelo. Os da plataforma você ajusta ou oculta só para a sua Conta.</>}
             </p>
           </div>
-          {podeCadastrar && <ModeloFormButton />}
+          {podeCadastrar && <ModeloFormButton comPreco={!adminGeral} />}
         </div>
         <div className="bg-card rounded-lg border">
           <Table>
@@ -72,7 +75,7 @@ export default async function ModelosPage() {
                   <TableCell>
                     <Badge variant="outline">{m.categoria}</Badge>
                   </TableCell>
-                  <TableCell>{m.potenciaW}W</TableCell>
+                  <TableCell>{potenciaNaTela(m.potenciaW)}</TableCell>
                   {adminGeral && <TableCell className="text-muted-foreground">{m.contaId ? nomeDaConta.get(m.contaId) ?? '—' : 'Plataforma'}</TableCell>}
                   {adminGeral && usaBling && (
                     <TableCell>
@@ -90,18 +93,18 @@ export default async function ModelosPage() {
                   <TableCell>
                     {podeAjustarModelo(quem, m) && (
                       <div className="flex">
-                        <ModeloFormButton ajuste modelo={{
+                        <ModeloFormButton ajuste comPreco modelo={{
                           id: m.id, marca: m.marca, modelo: m.modelo,
-                          categoria: m.categoria, potenciaW: m.potenciaW,
+                          categoria: m.categoria, potenciaW: m.potenciaW, precoCompra: precoDaConta(m),
                         }} />
                         <AjusteModeloAcoes id={m.id} nome={m.modelo} oculto={m.oculto} ajustado={m.ajustado} />
                       </div>
                     )}
                     {podeEditarModelo(quem, m) && (
                       <div className="flex">
-                        <ModeloFormButton modelo={{
+                        <ModeloFormButton comPreco={m.contaId !== null} modelo={{
                           id: m.id, marca: m.marca, modelo: m.modelo,
-                          categoria: m.categoria, potenciaW: m.potenciaW,
+                          categoria: m.categoria, potenciaW: m.potenciaW, precoCompra: precoDaConta(m),
                         }} />
                         <ExcluirModeloButton id={m.id} nome={m.modelo} />
                       </div>

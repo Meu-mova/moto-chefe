@@ -38,6 +38,8 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
     motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
     velocidadeMax: comAjuste<string>(modeloAjustes.velocidadeMax, modelos.velocidadeMax),
     precoCompraPadrao: comAjuste<string | null>(modeloAjustes.precoCompraPadrao, modelos.precoCompraPadrao),
+    // Só o que é da Conta (#513): o ajuste dela ou o modelo próprio, nunca o da plataforma.
+    precoCompraDaConta: sql<string | null>`coalesce(${modeloAjustes.precoCompraPadrao}, case when ${modelos.contaId} = ${contaId} then ${modelos.precoCompraPadrao} end)`,
     imagemUrl: comAjuste<string | null>(modeloAjustes.imagemUrl, modelos.imagemUrl),
     contaId: modelos.contaId,
     oculto,
@@ -109,6 +111,11 @@ export async function salvarAjusteDoModelo(contaId: string, modeloId: string, ca
 
 export async function ocultarModelo(contaId: string, modeloId: string, oculto: boolean, exec: Escritor = db) {
   await gravarAjuste(contaId, modeloId, { oculto }, exec)
+}
+
+// Preço de compra padrão da Conta num modelo da plataforma (#513); nulo apaga.
+export async function salvarPrecoDoAjuste(contaId: string, modeloId: string, preco: string | null, exec: Escritor = db) {
+  await gravarAjuste(contaId, modeloId, { precoCompraPadrao: preco }, exec)
 }
 
 // Volta os valores aos da plataforma; ocultar e mostrar são à parte.
