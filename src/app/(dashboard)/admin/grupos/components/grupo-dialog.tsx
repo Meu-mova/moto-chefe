@@ -25,6 +25,7 @@ type Grupo = {
   enderecoSede: string | null
   cidadeSede: string | null
   comarcaForo: string | null
+  emailRemetenteNome: string | null
 }
 
 type Props = {
@@ -54,6 +55,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   const [enderecoSede, setEnderecoSede] = useState(inicial?.enderecoSede ?? '')
   const [cidadeSede, setCidadeSede] = useState(inicial?.cidadeSede ?? '')
   const [comarcaForo, setComarcaForo] = useState(inicial?.comarcaForo ?? '')
+  const [emailRemetenteNome, setEmailRemetenteNome] = useState(inicial?.emailRemetenteNome ?? '')
 
   const contratoIncompleto = !razaoSocial.trim() || !enderecoSede.trim() || !cidadeSede.trim() || !comarcaForo.trim()
 
@@ -67,7 +69,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
       const dados = {
         nome, cnpj, ativo, blingClientId, blingClientSecret,
         mcpaiEndpointUrl, mcpaiRemover,
-        razaoSocial, enderecoSede, cidadeSede, comarcaForo,
+        razaoSocial, enderecoSede, cidadeSede, comarcaForo, emailRemetenteNome,
       }
       if (modo === 'criar') {
         await criarGrupoAction(dados)
@@ -144,6 +146,18 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
                 placeholder="Pouso Alegre, Minas Gerais"
                 className="h-9 text-sm"
               />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Nome do remetente do e-mail</Label>
+              <Input
+                value={emailRemetenteNome}
+                onChange={e => setEmailRemetenteNome(e.target.value)}
+                placeholder="MOVA"
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Nome que o cliente vê como remetente do e-mail do contrato. Em branco, sai MOVA.
+              </p>
             </div>
             {contratoIncompleto && (
               <p className="rounded border border-warning/40 bg-warning/10 px-2 py-1.5 text-[11px] text-warning sm:col-span-2">

@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { emailValido } from '@/lib/email-valido'
+import { montarRemetente } from '@/lib/email-remetente'
 
 // Reexportado: quem já importa daqui continua funcionando.
 export { emailValido }
@@ -24,6 +25,8 @@ export async function enviarEmail(params: {
   texto: string
   html?: string
   anexos?: { nome: string; conteudo: Uint8Array }[]
+  /** Nome exibido no "De" (o do grupo, #542). Vazio = o nome do EMAIL_FROM. */
+  nomeRemetente?: string | null
 }): Promise<EnvioEmail> {
   const para = params.para?.trim()
   if (!emailValido(para)) return { status: 'sem_email', id: null }
@@ -38,7 +41,7 @@ export async function enviarEmail(params: {
   try {
     const resend = new Resend(key)
     const { data, error } = await resend.emails.send({
-      from,
+      from: montarRemetente(from, params.nomeRemetente),
       to: para,
       subject: params.assunto,
       text: params.texto,

@@ -61,6 +61,8 @@ type GrupoInput = {
   enderecoSede?: string
   cidadeSede?: string
   comarcaForo?: string
+  // Nome no "De" dos e-mails de assinatura da venda (#542). Vazio = "MOVA".
+  emailRemetenteNome?: string
 }
 
 /**
@@ -99,6 +101,7 @@ export async function criarGrupoAction(dados: GrupoInput) {
       enderecoSede: dados.enderecoSede?.trim() || null,
       cidadeSede: dados.cidadeSede?.trim() || null,
       comarcaForo: dados.comarcaForo?.trim() || null,
+      emailRemetenteNome: dados.emailRemetenteNome?.trim() || null,
     }).returning({ id: grupos.id })
     // Grupo novo já nasce com o preço sugerido da MotoChefe nos modelos da Conta (#522).
     await preencherGruposComPrecoPadrao([grupo.id], tx)
@@ -128,6 +131,7 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
     enderecoSede: dados.enderecoSede?.trim() || null,
     cidadeSede: dados.cidadeSede?.trim() || null,
     comarcaForo: dados.comarcaForo?.trim() || null,
+    emailRemetenteNome: dados.emailRemetenteNome?.trim() || null,
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')

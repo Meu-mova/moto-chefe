@@ -90,6 +90,8 @@ export const grupos = pgTable('grupos', {
   primeiroAcessoEm:   timestamp('primeiro_acesso_em', { withTimezone: true }),
   // Destino do "Enviar ao contador" em Notas Emitidas (#402); cada CNPJ tem o seu.
   emailContador:      text('email_contador'),
+  // Nome no "De" dos e-mails de assinatura da venda (#542). Nulo = nome do EMAIL_FROM.
+  emailRemetenteNome: text('email_remetente_nome'),
   contaId:            uuid('conta_id').notNull().references(() => contas.id),
 })
 
