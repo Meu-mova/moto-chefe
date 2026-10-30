@@ -126,3 +126,13 @@ test('para a prévia, separa nomes fora do catálogo, alternativa pulada e linha
   assert.deepEqual(r.parciais, ['VASCO não está no catálogo; o preço de GIGA/VASCO vai só para GIGA'])
   assert.deepEqual(r.foraDaImportacao, ['Linha 5 (DUPLO): mais de um modelo com esse nome'])
 })
+
+test('linha com "/" cujo modelo cai como repetido não avisa que o preço vai para ele', () => {
+  const r = casarComModelos([
+    { linha: 2, modelo: 'GIGA', preco: 1 },
+    { linha: 3, modelo: 'GIGA/VASCO', preco: 2 },
+  ], [{ id: 'giga', nomes: ['GIGA'] }])
+  assert.deepEqual(r.casados, [])
+  assert.deepEqual(r.parciais, [])
+  assert.deepEqual(r.foraDaImportacao, ['Linhas 2 e 3: o mesmo modelo (GIGA) aparece mais de uma vez'])
+})

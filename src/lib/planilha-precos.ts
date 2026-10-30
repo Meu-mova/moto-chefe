@@ -69,6 +69,7 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
   const parciais: string[] = []
   const foraDaImportacao: string[] = []
   const candidatos: PrecoCasado[] = []
+  const pendentes: { l: LinhaDePreco; alternativas: string[]; ausentes: string[]; ids: string[] }[] = []
   for (const l of linhas) {
     // "GIGA/VASCO" é o mesmo preço para os dois modelos; o que o catálogo não tem fica de fora.
     const alternativas = l.modelo.replace(/\([^)]*\)/g, '').split('/')
@@ -86,11 +87,7 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
       naoEncontrados.push(alternativas.map(a => a.trim()).join('/'))
       continue
     }
-    if (!problema && ausentes.length) {
-      const parcial = `${ausentes.join(', ')} não está no catálogo; o preço de ${alternativas.map(a => a.trim()).join('/')} vai só para ${ids.map(id => nomeDe.get(id)).join(', ')}`
-      avisos.push(`Linha ${l.linha} (${l.modelo}): ${parcial}`)
-      parciais.push(parcial)
-    }
+    if (!problema && ausentes.length) pendentes.push({ l, alternativas, ausentes, ids })
     if (problema) {
       avisos.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
       foraDaImportacao.push(`Linha ${l.linha} (${l.modelo}): ${problema}`)
@@ -108,5 +105,15 @@ export function casarComModelos(linhas: LinhaDePreco[], modelos: ModeloCasavel[]
     foraDaImportacao.push(repetido)
   }
   const casados = candidatos.filter(c => linhasPorModelo.get(c.modeloId)!.length === 1)
+
+  // A alternativa pulada só se avisa depois dos repetidos: se o modelo que casou caiu como
+  // repetido, a linha não grava e "vai só para GIGA" seria falso.
+  for (const p of pendentes) {
+    const ficam = p.ids.filter(id => linhasPorModelo.get(id)!.length === 1)
+    if (!ficam.length) continue
+    const parcial = `${p.ausentes.join(', ')} não está no catálogo; o preço de ${p.alternativas.map(a => a.trim()).join('/')} vai só para ${ficam.map(id => nomeDe.get(id)).join(', ')}`
+    avisos.push(`Linha ${p.l.linha} (${p.l.modelo}): ${parcial}`)
+    parciais.push(parcial)
+  }
   return { casados, avisos, naoEncontrados, parciais, foraDaImportacao }
 }
