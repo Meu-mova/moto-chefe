@@ -1,4 +1,5 @@
 'use client'
+import { useSearchParams } from 'next/navigation'
 import { VenderButton } from '../../components/vender-button'
 import { GarantiaButton } from '../../components/garantia-button'
 import { LogisticaButton } from '../../components/logistica-button'
@@ -85,6 +86,7 @@ const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 
 export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
+  const abrirVenda = useSearchParams().get('vender') === '1'
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
   const podeVenderAqui = podeAlterar || ((isVendedor ?? papel === 'vendedor') && podeVendedorReservarForaDaLoja(moto.lojaId))
@@ -135,6 +137,7 @@ export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome,
             taxasVenda={taxasVenda}
             podeAprovarPagamentoSensivel={podeAprovarPagamentoSensivel}
             demandasCompativeis={demandasCompativeis}
+            abrirAoMontar={abrirVenda}
           />
         )
       }

@@ -93,6 +93,8 @@ type Props = {
   demandasCompativeis?: DemandaVinculavel[]
   /** Origens ativas do grupo da loja da moto. Obrigatória para fechar venda. */
   origens: OrigemParaEscolher[]
+  /** Abre a venda ao montar: vindo do "Registrar venda" do quadro de vendidas sem venda (#544). */
+  abrirAoMontar?: boolean
 }
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada é lançada direto e a
@@ -101,7 +103,7 @@ type Props = {
 // @/lib/conciliacao-status.
 const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 
-export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens }: Props) {
+export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens, abrirAoMontar }: Props) {
   const maquininhas = useMaquininhas({ moto: motoId })
   const [open, setOpen] = useState(false)
   const [tipo, setTipo] = useState<'venda' | 'reserva'>(soReserva ? 'reserva' : 'venda')
@@ -245,6 +247,11 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       }
     }
   }
+
+  useEffect(() => {
+    if (abrirAoMontar) abrir('venda')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Máscaras ──
   function handleDocumento(mascarado: string) {

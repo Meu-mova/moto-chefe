@@ -2,6 +2,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { buscarMoto } from '@/lib/queries/motos'
+import { motoTemVenda } from '@/lib/motos-vendidas-sem-venda'
 import { getUsuarioLogado, temPapel } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
@@ -111,6 +112,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
                 }}
                 lojas={lojasOpts}
                 modelos={modelosOpts}
+                temVenda={await motoTemVenda(moto.id)}
               />
             )}
           </CardHeader>
