@@ -1,4 +1,5 @@
 'use server'
+import { preencherContaComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import { db } from '@/lib/db'
 import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -139,7 +140,10 @@ export async function salvarApelidosAction(modeloId: string, texto: string) {
 export async function salvarMarcasDaContaAction(contaId: string, marcas: string[]) {
   await assertAdmin()
   await salvarMarcasDaConta(contaId, marcas)
+  // Marca liberada traz modelos novos para a Conta: os sem preço ganham o sugerido (#522).
+  await preencherContaComPrecoPadrao(contaId)
   revalidatePath('/admin/modelos')
+  revalidatePath('/precificacao')
 }
 
 export async function ajustarModeloAction(id: string, formData: FormData): Promise<{ aviso: string | null }> {
@@ -151,8 +155,12 @@ export async function ajustarModeloAction(id: string, formData: FormData): Promi
 }
 
 export async function ocultarModeloAction(id: string, oculto: boolean) {
-  await ocultarModelo(await contaQueAjusta(), id, oculto)
+  const contaId = await contaQueAjusta()
+  await ocultarModelo(contaId, id, oculto)
+  // Modelo que volta a aparecer e ainda não tem preço ganha o sugerido (#522).
+  if (!oculto) await preencherContaComPrecoPadrao(contaId)
   revalidatePath('/admin/modelos')
+  revalidatePath('/precificacao')
 }
 
 export async function voltarAoOriginalAction(id: string) {
