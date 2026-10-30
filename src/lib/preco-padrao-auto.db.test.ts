@@ -114,3 +114,21 @@ test('preço padrão: preencher um grupo (Entrada, grupo novo) não mexe no outr
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('preço padrão: Conta sem nenhuma marca marcada não recebe; ao marcar a marca do modelo, recebe', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    await cenario(tx)
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaC = await linha(sql`insert into contas (nome) values ('Auto 522 C') returning id`)
+    const grupoC = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Auto 522 C', '00000000052214', ${contaC.id}) returning id`)
+
+    // Sem conta_marcas a Conta vê o catálogo inteiro (#287), mas não recebe a tabela padrão.
+    assert.equal(await preencherConta(contaC.id, tx), 0)
+    assert.deepEqual(await precos(tx, grupoC.id), {})
+
+    await tx.execute(sql`insert into conta_marcas (conta_id, marca) values (${contaC.id}, 'Fabrica522')`)
+    await preencherConta(contaC.id, tx)
+    assert.deepEqual(await precos(tx, grupoC.id), { BOBAUTO522: '12000.00', GIGAAUTO522: '10000.00' })
+    throw new Desfazer()
+  }), Desfazer)
+})

@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, modeloApelidos, modelos, precificacao, tabelaPrecoPadrao } from '@/lib/db/schema'
-import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { listarMarcasDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { chaveNome } from '@/lib/precificacao-modelos'
 import { casarComModelos, lerPlanilhaDePrecos, type ModeloCasavel } from '@/lib/planilha-precos'
 
@@ -83,8 +83,8 @@ export async function travarPrecificacaoDoGrupo(tx: Pick<typeof db, 'execute'>, 
 /**
  * Preço padrão nos modelos que o grupo ainda não precificou (#522). Só insere: preço que já
  * existe, digitado, importado ou vindo daqui, nunca muda. O modelo precisa estar no catálogo
- * visível da Conta do grupo, então a marca vem do vínculo da tabela com o modelo e das marcas
- * da Conta, e o modelo oculto fica de fora. Devolve quantos preços entraram.
+ * visível da Conta do grupo e ser de uma marca marcada para ela (conta_marcas); o modelo
+ * oculto fica de fora. Devolve quantos preços entraram.
  */
 export async function preencherGruposComPrecoPadrao(grupoIds: string[], exec: Escritor = db) {
   if (!grupoIds.length) return 0
@@ -96,7 +96,12 @@ export async function preencherGruposComPrecoPadrao(grupoIds: string[], exec: Es
   const catalogoDaConta = new Map<string, Awaited<ReturnType<typeof listarModelosDaConta>>>()
   let inseridos = 0
   for (const g of alvos) {
-    if (!catalogoDaConta.has(g.contaId)) catalogoDaConta.set(g.contaId, await listarModelosDaConta(g.contaId, exec))
+    if (!catalogoDaConta.has(g.contaId)) {
+      // Só as marcas marcadas para a Conta: sem nenhuma ela vê o catálogo inteiro (#287), mas
+      // a tabela padrão só entra onde o admin_geral marcou a marca do modelo (decisão do Luis).
+      const marcas = new Set(await listarMarcasDaConta(g.contaId, exec))
+      catalogoDaConta.set(g.contaId, (await listarModelosDaConta(g.contaId, exec)).filter(m => marcas.has(m.marca)))
+    }
     const catalogo = catalogoDaConta.get(g.contaId)!
     inseridos += await exec.transaction(async tx => {
       await travarPrecificacaoDoGrupo(tx, g.id)
