@@ -8,8 +8,9 @@ import {
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { CurrencyInput } from '@/components/ui/currency-input'
 
-const real = (v: number | string) =>
-  Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+// Sem custo (planilha com a coluna vazia) mostra um traço, não R$ 0,00.
+const real = (v: number | string | null) =>
+  v === null ? '-' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const DESTINOS: { valor: Destino; titulo: string; frase: string }[] = [
   { valor: 'catalogo', titulo: 'Peça do catálogo', frase: 'Soma no estoque de uma peça que já existe.' },

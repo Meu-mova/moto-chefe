@@ -20,7 +20,7 @@ test('lê vírgula decimal, R$, milhar e número do Excel', () => {
 test('cabeçalho sem acento, em minúsculas e fora de ordem; colunas opcionais ausentes', () => {
   const r = lerPlanilhaPecas([['quantidade', 'descricao'], [3, 'Luva']])
   assert.deepEqual(r.erros, [])
-  assert.deepEqual(r.itens, [{ linha: 2, codigo: '', descricao: 'Luva', quantidade: 3, custoUnitario: 0, precoVenda: null }])
+  assert.deepEqual(r.itens, [{ linha: 2, codigo: '', descricao: 'Luva', quantidade: 3, custoUnitario: null, precoVenda: null }])
 })
 
 test('pula linhas vazias, inclusive antes do cabeçalho', () => {

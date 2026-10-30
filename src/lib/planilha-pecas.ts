@@ -10,7 +10,8 @@ export type ItemPlanilhaPecas = {
   codigo: string
   descricao: string
   quantidade: number
-  custoUnitario: number
+  /** Vazio na planilha: a peça existente mantém o custo e a nova fica sem custo. */
+  custoUnitario: number | null
   /** Obrigatório só para item novo; quem confere é a gravação, como no XML. */
   precoVenda: number | null
 }
@@ -69,7 +70,7 @@ export function lerPlanilhaPecas(rows: unknown[][]): { itens: ItemPlanilhaPecas[
       codigo: String(cel(iCodigo) ?? '').trim(),
       descricao,
       quantidade: quantidade!,
-      custoUnitario: custo ?? 0,
+      custoUnitario: custo,
       precoVenda: preco,
     })
   })

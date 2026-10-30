@@ -33,7 +33,9 @@ export function PecasPorPlanilha({ lojaId, lojaNome }: Props) {
 
   // Recarrega ao trocar a loja ou o CNPJ: as sugestões e o aviso de repetida mudam com eles.
   useEffect(() => {
-    if (!itens.length || !lojaId) { setConferencia(null); return }
+    // Sem a conferência da loja nova, o botão fica travado até ela chegar.
+    setConferencia(null)
+    if (!itens.length || !lojaId) return
     let vale = true
     carregarConferenciaPlanilhaPecas(lojaId, { fornecedorCnpj: cnpjFornecedor, itens: itensDaConferencia(itens) }).then(r => {
       if (!vale) return
