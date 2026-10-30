@@ -70,11 +70,9 @@ test('importar preços: a prévia da Conta A não casa modelo nem apelido da B, 
       ['MUDA522', '100.00', '150.00', 'muda'],
       ['VAZIO522', null, '300.00', 'novo'],
     ])
-    assert.equal(p.iguais, 1)
-    assert.deepEqual(p.avisos, [
-      'Linha 5 (SODAB522): modelo não encontrado',
-      'Linha 6 (APELIDOB522): modelo não encontrado',
-    ])
+    assert.deepEqual(p.iguais, ['IGUAL522'])
+    assert.deepEqual(p.foraDoCatalogo, ['SODAB522', 'APELIDOB522'])
+    assert.deepEqual(p.foraDaImportacao, [])
     throw new Desfazer()
   }), Desfazer)
 })

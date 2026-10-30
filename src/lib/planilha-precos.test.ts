@@ -91,7 +91,7 @@ test('payload que não é planilha (objeto, linha que não é lista, célula obj
 test('"GIGA/VASCO (1000W)" casa só GIGA quando VASCO não existe no catálogo', () => {
   const r = casarComModelos([{ linha: 21, modelo: 'GIGA/VASCO (1000W)', preco: 10 }], [{ id: 'giga', nomes: ['GIGA'] }])
   assert.deepEqual(r.casados, [{ modeloId: 'giga', preco: 10, linha: 21 }])
-  assert.deepEqual(r.avisos, ['Linha 21 (GIGA/VASCO (1000W)): VASCO não está no catálogo; o preço vai só para GIGA'])
+  assert.deepEqual(r.avisos, ['Linha 21 (GIGA/VASCO (1000W)): VASCO não está no catálogo; o preço de GIGA/VASCO vai só para GIGA'])
 })
 
 test('com "/" nenhuma alternativa no catálogo continua aviso', () => {
@@ -113,4 +113,16 @@ test('nomes da tabela de outubro casam com o catálogo: S8 - MINI, JET MAX, RETR
   ])
   assert.deepEqual(r.casados.map(c => c.modeloId), ['s8', 'jm', 'retro'])
   assert.deepEqual(r.avisos, [])
+})
+
+test('para a prévia, separa nomes fora do catálogo, alternativa pulada e linha que não grava', () => {
+  const r = casarComModelos([
+    { linha: 2, modelo: 'R10', preco: 1 },
+    { linha: 3, modelo: 'JOY BASIC (600W)', preco: 1 },
+    { linha: 4, modelo: 'GIGA/VASCO (1000W)', preco: 1 },
+    { linha: 5, modelo: 'DUPLO', preco: 1 },
+  ], [{ id: 'giga', nomes: ['GIGA'] }, { id: 'a', nomes: ['DUPLO'] }, { id: 'b', nomes: ['DUPLO'] }])
+  assert.deepEqual(r.naoEncontrados, ['R10', 'JOY BASIC'])
+  assert.deepEqual(r.parciais, ['VASCO não está no catálogo; o preço de GIGA/VASCO vai só para GIGA'])
+  assert.deepEqual(r.foraDaImportacao, ['Linha 5 (DUPLO): mais de um modelo com esse nome'])
 })

@@ -10,13 +10,34 @@ import { importarPrecosAction, previaImportacaoAction } from '../actions'
 
 const brl = (v: string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-type Previa = { arquivo: string; matriz: unknown[][]; linhas: LinhaDaPrevia[]; iguais: number; avisos: string[] }
+type Previa = {
+  arquivo: string
+  matriz: unknown[][]
+  linhas: LinhaDaPrevia[]
+  iguais: string[]
+  foraDoCatalogo: string[]
+  parciais: string[]
+  foraDaImportacao: string[]
+}
+
+// Lista recolhida do rodapé da prévia: só a contagem até o sócio pedir para ver.
+function ListaRecolhida({ titulo, nomes }: { titulo: string; nomes: string[] }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">{titulo}</p>
+      <ul className="columns-1 gap-6 text-xs sm:columns-2">
+        {nomes.map((n, i) => <li key={`${i}-${n}`} className="break-inside-avoid py-0.5">{n}</li>)}
+      </ul>
+    </div>
+  )
+}
 
 export function ImportarPrecos() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [previa, setPrevia] = useState<Previa | null>(null)
   const [trocar, setTrocar] = useState<Set<string>>(new Set())
   const [pending, start] = useTransition()
+  const [aberta, setAberta] = useState<'iguais' | 'fora' | null>(null)
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -34,7 +55,11 @@ export function ImportarPrecos() {
       const r = await previaImportacaoAction(matriz)
       if (!r.ok) { toast.error(r.erro); return }
       setTrocar(new Set(r.linhas.filter(l => l.tipo === 'muda').map(l => l.modeloId)))
-      setPrevia({ arquivo: file.name, matriz, linhas: r.linhas, iguais: r.iguais, avisos: r.avisos })
+      setAberta(null)
+      setPrevia({
+        arquivo: file.name, matriz, linhas: r.linhas, iguais: r.iguais,
+        foraDoCatalogo: r.foraDoCatalogo, parciais: r.parciais, foraDaImportacao: r.foraDaImportacao,
+      })
     })
   }
 
@@ -118,16 +143,43 @@ export function ImportarPrecos() {
               </div>
             )}
 
-            {previa.iguais > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {previa.iguais} modelo{previa.iguais !== 1 ? 's' : ''} já com o mesmo preço fica{previa.iguais !== 1 ? 'm' : ''} como está.
-              </p>
+            {previa.parciais.map(p => (
+              <p key={p} className="rounded-md bg-info/10 px-3 py-2 text-xs text-info">{p}.</p>
+            ))}
+
+            {previa.foraDaImportacao.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-warning">Ficam fora da importação:</p>
+                <ul className="list-disc space-y-0.5 pl-5 text-xs text-warning">
+                  {previa.foraDaImportacao.map(a => <li key={a}>{a}</li>)}
+                </ul>
+              </div>
             )}
-            {previa.avisos.length > 0 && (
-              <ul className="list-disc space-y-0.5 pl-5 text-xs text-warning">
-                {previa.avisos.map(a => <li key={a}>{a}</li>)}
-              </ul>
+
+            {(previa.iguais.length > 0 || previa.foraDoCatalogo.length > 0) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {previa.iguais.length > 0 && (
+                  <span>
+                    {previa.iguais.length} com o mesmo preço{' '}
+                    <button type="button" className="font-semibold text-primary-text hover:underline"
+                      onClick={() => setAberta(a => (a === 'iguais' ? null : 'iguais'))}>
+                      {aberta === 'iguais' ? 'esconder' : 'ver'}
+                    </button>
+                  </span>
+                )}
+                {previa.foraDoCatalogo.length > 0 && (
+                  <span>
+                    {previa.foraDoCatalogo.length} fora do seu catálogo, não serão atualizados{' '}
+                    <button type="button" className="font-semibold text-primary-text hover:underline"
+                      onClick={() => setAberta(a => (a === 'fora' ? null : 'fora'))}>
+                      {aberta === 'fora' ? 'esconder' : 'ver todos'}
+                    </button>
+                  </span>
+                )}
+              </div>
             )}
+            {aberta === 'iguais' && <ListaRecolhida titulo="Mesmo preço, ficam como estão" nomes={previa.iguais} />}
+            {aberta === 'fora' && <ListaRecolhida titulo="Fora do seu catálogo" nomes={previa.foraDoCatalogo} />}
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setPrevia(null)} disabled={pending}>Cancelar</Button>

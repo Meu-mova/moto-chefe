@@ -36,17 +36,17 @@ export async function previaDaImportacao(dados: Dados, exec: Executor = db) {
     id: m.id,
     nomes: [m.modelo, m.modeloOriginal, ...apelidos.filter(a => a.modeloId === m.id).map(a => a.nome)],
   }))
-  const { casados, avisos } = casarComModelos(lida.linhas, casaveis)
+  const casamento = casarComModelos(lida.linhas, casaveis)
 
   const nomeOriginal = new Map(catalogo.map(m => [m.id, m.modeloOriginal]))
   const precoPorNome = new Map(precos.map(p => [chaveNome(p.nome), p]))
   const linhas: (LinhaDaPrevia & { precId: string | null })[] = []
-  let iguais = 0
-  for (const c of casados) {
+  const iguais: string[] = []
+  for (const c of casamento.casados) {
     const nome = chaveNome(nomeOriginal.get(c.modeloId)!)
     const atual = precoPorNome.get(nome)
     const precoNovo = c.preco.toFixed(2)
-    if (atual && Number(atual.valorMinimo) === Number(precoNovo)) { iguais++; continue }
+    if (atual && Number(atual.valorMinimo) === Number(precoNovo)) { iguais.push(nome); continue }
     linhas.push({
       modeloId: c.modeloId,
       nome,
@@ -56,7 +56,15 @@ export async function previaDaImportacao(dados: Dados, exec: Executor = db) {
       tipo: atual ? 'muda' : 'novo',
     })
   }
-  return { ok: true as const, linhas, iguais, avisos: [...lida.erros, ...avisos] }
+  return {
+    ok: true as const,
+    linhas,
+    iguais,
+    foraDoCatalogo: casamento.naoEncontrados,
+    parciais: casamento.parciais,
+    // Linha que não grava por preço ilegível, nome ambíguo ou modelo repetido.
+    foraDaImportacao: [...lida.erros, ...casamento.foraDaImportacao],
+  }
 }
 
 /**
