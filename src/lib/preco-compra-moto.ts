@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
@@ -6,6 +6,8 @@ import { lojasDaConta } from '@/lib/conta'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 
 type Escritor = Pick<typeof db, 'select' | 'update' | 'insert' | 'delete' | 'transaction'>
+
+const VENDIDA = { ok: false as const, erro: 'Moto vendida: o preço de compra não pode mais ser corrigido' }
 
 type Usuario = Parameters<typeof podeAbrirRegistroDaLoja>[0] & { id: string }
 
@@ -29,7 +31,7 @@ export async function corrigirPrecoCompra(
     .select({ id: motos.id, chassi: motos.chassi, lojaId: motos.lojaId, status: motos.status, precoCompra: motos.precoCompra })
     .from(motos).where(and(eq(motos.id, motoId), daConta)).limit(1)
   if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId, exec))) return { ok: false, erro: 'Moto não encontrada' }
-  if (moto.status === 'vendida') return { ok: false, erro: 'Moto vendida: o preço de compra não pode mais ser corrigido' }
+  if (moto.status === 'vendida') return VENDIDA
 
   const n = Number(precoDigitado)
   if (!precoDigitado.trim() || !Number.isFinite(n) || n <= 0) return { ok: false, erro: 'Preço de compra inválido' }
@@ -37,12 +39,18 @@ export async function corrigirPrecoCompra(
   const de = moto.precoCompra === null ? null : Number(moto.precoCompra).toFixed(2)
   if (de === para) return { ok: true }
 
-  await exec.transaction(async tx => {
-    await tx.update(motos).set({ precoCompra: para }).where(eq(motos.id, moto.id))
+  // A condição vai no próprio update: uma venda concluída depois da leitura acima não
+  // pode ter o custo mudado.
+  const corrigiu = await exec.transaction(async tx => {
+    const [linha] = await tx.update(motos).set({ precoCompra: para })
+      .where(and(eq(motos.id, moto.id), ne(motos.status, 'vendida')))
+      .returning({ id: motos.id })
+    if (!linha) return false
     await registrarAcaoSensivel({
       tipo: 'preco_compra_alterado', usuarioId: usuario.id, lojaId: moto.lojaId,
       detalhe: { motoId: moto.id, chassi: moto.chassi, de, para },
     }, tx)
+    return true
   })
-  return { ok: true }
+  return corrigiu ? { ok: true } : VENDIDA
 }
