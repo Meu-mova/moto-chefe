@@ -76,19 +76,20 @@ test('nota com motos e peças grava as duas na loja de destino', async () => {
   })
 })
 
-test('nota mista grava a ficha fiscal da moto com o xProd literal da nota (ADR-0008)', async () => {
+test('nota mista grava a ficha fiscal da moto com o xProd literal da nota (ADR-0008) e o tpPint', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const ficha = { codigo: 'MT-X12', descricao: 'X12 MOTO CHEFE &amp; CIA', ncm: '87116000', cest: '', cfopEntrada: '6102', unidade: 'UN',
-      origem: '1', cstIcmsEntrada: '00', cstPis: '', cstCofins: '', classTribIbsCbs: '' }
+      origem: '1', cstIcmsEntrada: '00', cstPis: '', cstCofins: '', classTribIbsCbs: '', tpPint: 'A', valorUnitario: '' }
     const emitente = { cnpj: NOTA.fornecedorCnpj, nome: 'FORNECEDOR', nfNumero: NOTA.numero, nfChave: NOTA.chaveAcesso }
     await nota.registrarNotaComPecas(tx, {
       usuario: a.usuario, lojaId: a.lojaId, nota: NOTA,
       motos: [moto(a.modeloId, 'EN429FICHA')], fiscais: [{ chassi: 'en429ficha', emitente, ficha }],
       pecas: [capacete(a.pecaId)],
     })
-    const [f] = await linhas(tx, sql`select f.x_prod from motos_fiscal f join motos m on m.id = f.moto_id where m.chassi = 'EN429FICHA'`)
+    const [f] = await linhas(tx, sql`select f.x_prod, f.tp_pint from motos_fiscal f join motos m on m.id = f.moto_id where m.chassi = 'EN429FICHA'`)
     assert.equal(f.x_prod, 'X12 MOTO CHEFE &amp; CIA')
+    assert.equal(f.tp_pint, 'A')
   })
 })
 

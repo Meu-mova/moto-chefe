@@ -216,3 +216,41 @@ export async function xmlCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string
   if (r.status >= 400) throw new Error(`Falha ao baixar o XML da carta de correção: ${mensagensDeErro(r.json, r.texto)}`)
   return r.texto
 }
+
+export class InutilizacaoRecusada extends Error {}
+
+/**
+ * Pede a inutilização da faixa (#504). Como na emissão, o 200 só confirma o
+ * pedido: o resultado da SEFAZ chega pela consulta. Quem chama garante que o
+ * ambiente do grupo é o da nota.
+ */
+export async function pedirInutilizacao(
+  cfg: ConfigNotaGateway,
+  p: { idExterno: string; serie: string; numeroInicial: number; numeroFinal: number; justificativa: string },
+): Promise<void> {
+  const r = await chamar(cfg, 'POST', `/empresas/${cfg.empresaId}/nf-e/inutilizacao`, {
+    id: p.idExterno,
+    ambienteEmissao: cfg.ambiente,
+    serie: p.serie,
+    numeroInicial: p.numeroInicial,
+    numeroFinal: p.numeroFinal,
+    justificativa: p.justificativa,
+  })
+  if (r.status >= 400 && r.status < 500) throw new InutilizacaoRecusada(mensagensDeErro(r.json, r.texto))
+  if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
+}
+
+export type InutilizacaoConsultada = { status: string; motivoStatus: string | null; protocolo: string | null }
+
+/** null = a API ainda não conhece esse id. */
+export async function consultarInutilizacaoNaNg(cfg: ConfigNotaGateway, idExterno: string): Promise<InutilizacaoConsultada | null> {
+  const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/inutilizacao/${encodeURIComponent(idExterno)}`)
+  if (r.status === 404) return null
+  if (r.status >= 400) throw new Error(`Falha ao consultar a inutilização: ${mensagensDeErro(r.json, r.texto)}`)
+  const c = r.json as Record<string, any>
+  return {
+    status: String(c?.status ?? 'Processando'),
+    motivoStatus: c?.motivoStatus ?? null,
+    protocolo: c?.protocoloAutorizacao ?? null,
+  }
+}

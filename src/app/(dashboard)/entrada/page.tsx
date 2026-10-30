@@ -22,7 +22,7 @@ export default async function EntradaPage() {
   const visiveis = new Set(modelosCadastrados.map(m => m.id))
   const apelidosVisiveis = apelidos.filter(a => visiveis.has(a.modeloId)).map(({ nome, canonico, modeloId }) => ({ nome, canonico, modeloId }))
 
-  const modelosOpts = modelosCadastrados.map(({ id, modelo, marca, nomeOriginal }) => ({ id, modelo, marca, nomeOriginal }))
+  const modelosOpts = modelosCadastrados.map(({ id, modelo, marca, modeloOriginal }) => ({ id, modelo, marca, modeloOriginal }))
 
   return (
     <div className="space-y-6">

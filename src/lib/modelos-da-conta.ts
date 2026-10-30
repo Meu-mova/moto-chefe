@@ -32,8 +32,8 @@ export async function listarModelosDaConta(contaId: string, exec: Executor = db,
     id: modelos.id,
     marca: modelos.marca,
     modelo: nome,
-    // A nota da fábrica traz o nome original, mesmo que a Conta tenha ajustado (#476).
-    nomeOriginal: modelos.modelo,
+    // A precificação casa pelo nome original (ver nomeDoModeloNaLoja).
+    modeloOriginal: modelos.modelo,
     categoria: comAjuste<typeof modelos.categoria._.data>(modeloAjustes.categoria, modelos.categoria),
     potenciaW: comAjuste<string>(modeloAjustes.potenciaW, modelos.potenciaW),
     motor: comAjuste<string>(modeloAjustes.motor, modelos.motor),
@@ -154,7 +154,7 @@ export async function lembrarApelidosDaEntrada(
   const novos: (typeof modeloApelidos.$inferInsert)[] = []
   for (const [texto, modeloId] of escolhas) {
     if (!nomePorId.has(modeloId)) continue
-    const dono = doCadastro.find(m => normalizarModelo(m.modelo) === texto || normalizarModelo(m.nomeOriginal) === texto)?.id
+    const dono = doCadastro.find(m => normalizarModelo(m.modelo) === texto || normalizarModelo(m.modeloOriginal) === texto)?.id
       ?? apelidos.find(a => normalizarModelo(a.nome) === texto)?.modeloId
     if (dono && dono !== modeloId) {
       avisos.push(`"${texto}" já é do ${nomePorId.get(dono) ?? 'outro modelo'}; a próxima nota continua indo para ele, e não para o ${nomePorId.get(modeloId)}.`)

@@ -13,7 +13,10 @@ import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, paresDaNota, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
-import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
+import {
+  EntradaPecasRecusada, carregarConferencia, carregarConferenciaPlanilha, gravarEntradaPlanilhaPecas,
+  type EntradaPlanilhaPecas,
+} from '@/lib/entrada-pecas'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -295,4 +298,30 @@ export async function carregarConferenciaPecas(
   if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
+}
+
+/** Conferência da planilha de peças (#519), com o aviso de planilha já lançada na loja. */
+export async function carregarConferenciaPlanilhaPecas(
+  lojaId: string,
+  planilha: Parameters<typeof carregarConferenciaPlanilha>[3],
+) {
+  const usuario = await getUsuarioLogado()
+  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
+  const conferencia = await carregarConferenciaPlanilha(db, usuario, lojaId, planilha)
+  return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
+}
+
+/** Planilha de peças (#519): tudo ou nada, como a nota com peças. */
+export async function registrarEntradaPlanilhaPecas(dados: Omit<EntradaPlanilhaPecas, 'usuario'>) {
+  const usuario = await getUsuarioLogado()
+  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
+  try {
+    await db.transaction(tx => gravarEntradaPlanilhaPecas(tx, { ...dados, usuario }))
+  } catch (e) {
+    if (e instanceof EntradaPecasRecusada) return { error: `Nada foi gravado. ${e.message}` }
+    throw e
+  }
+  revalidatePath('/pecas')
+  revalidatePath('/entrada')
+  return { success: `Planilha lançada: ${dados.linhas.length} item(ns) de peça.` }
 }

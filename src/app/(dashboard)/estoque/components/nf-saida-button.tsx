@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink, FileCheck, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -17,11 +17,34 @@ type Props = {
   blingNfeId?: string | null
   /** Troca o botão padrão por outro (ex.: os botões do painel da venda). */
   gatilho?: (abrir: () => void) => React.ReactNode
+  /**
+   * Abre assim que monta e avisa quando fecha. O Showroom usa isto para manter o
+   * diálogo fora da linha: na produção a nota autorizada fatura a venda, o
+   * revalidatePath tira a moto vendida da lista, e o diálogo precisa continuar.
+   */
+  abrirAoMontar?: boolean
+  onFechado?: () => void
+}
+
+/** O botão da linha que abre a NF de saída. */
+export function NfSaidaGatilho({ blingNfeId, onClick }: { blingNfeId?: string | null; onClick: () => void }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onClick}
+      className="h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10"
+      title="Emitir NF de saída"
+    >
+      <FileCheck size={14} />
+      {blingNfeId ? 'Confirmar NF' : 'NF Saída'}
+    </Button>
+  )
 }
 
 type Etapa = 'verificando' | 'inicial' | 'aguardando' | 'manual' | 'bloqueado' | 'propria'
 
-export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props) {
+export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoMontar, onFechado }: Props) {
   const urlExistente = blingNfeId ? `https://www.bling.com.br/notas.fiscais.php#edit/${blingNfeId}` : ''
 
   const [aberto, setAberto] = useState(false)
@@ -36,6 +59,8 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   const [propria, setPropria] = useState<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }>({ disponivel: false, ambiente: null })
   const [outras, setOutras] = useState(false)
   const [pending, startTransition] = useTransition()
+  // A transmissão roda no painel; enquanto ela corre, nem Esc fecha o diálogo.
+  const [ocupado, setOcupado] = useState(false)
 
   // A trava é consultada ao abrir, não na listagem: seria uma consulta por
   // linha da tabela de estoque. A action de emissão recusa de qualquer forma —
@@ -85,7 +110,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
   }
 
   function fechar() {
-    if (!pending) setAberto(false)
+    if (!pending && !ocupado) setAberto(false)
   }
 
   function criarNoBling() {
@@ -131,25 +156,26 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
     })
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (abrirAoMontar) abrir() }, [])
+  const abriu = useRef(false)
+  useEffect(() => {
+    if (aberto) abriu.current = true
+    else if (abriu.current) onFechado?.()
+  }, [aberto, onFechado])
+
   return (
     <>
-      {gatilho ? gatilho(abrir) : (
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={abrir}
-        className="h-8 gap-1.5 text-xs border-info/50 text-info hover:bg-info/10"
-        title="Emitir NF de saída"
-      >
-        <FileCheck size={14} />
-        {blingNfeId ? 'Confirmar NF' : 'NF Saída'}
-      </Button>
-      )}
+      {gatilho ? gatilho(abrir) : <NfSaidaGatilho blingNfeId={blingNfeId} onClick={abrir} />}
 
-      <Dialog open={aberto} onOpenChange={fechar}>
+      <Dialog open={aberto} onOpenChange={fechar} disablePointerDismissal>
         <DialogContent
           showCloseButton={false}
-          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
+          // Emissão pelo MOVA: altura fixa, para as etapas do ciclomotor não mudarem o tamanho a cada passo.
+          className={cn(
+            'flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0',
+            etapa === 'propria' && 'sm:h-[90vh] sm:max-w-2xl',
+          )}
         >
           <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
             <button type="button" onClick={fechar} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
@@ -261,6 +287,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho }: Props)
           {etapa === 'propria' && (
             <NfePropriaPainel
               motoId={motoId}
+              onOcupado={setOcupado}
               onVoltar={() => (blingUrl ? setEtapa('aguardando') : fechar())}
               outrasFormas={!blingUrl && (
                 <div className="border-t border-border">

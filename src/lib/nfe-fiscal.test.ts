@@ -28,6 +28,8 @@ test('extrai a ficha fiscal da moto da fábrica (ICMS60, ST já recolhida)', () 
     cstPis: '01',
     cstCofins: '01',
     classTribIbsCbs: '000001',
+    tpPint: '',
+    valorUnitario: '6400.00',
   })
 })
 
@@ -86,4 +88,21 @@ test('normalizarCest aceita 7 dígitos, com ou sem máscara, e vazio vira nulo',
 test('normalizarCest recusa quantidade de dígitos diferente de 7', () => {
   assert.equal(normalizarCest('26001').ok, false)
   assert.equal(normalizarCest('260010012').ok, false)
+})
+
+test('lê o tpPint do veicProd da nota de entrada; sem veicProd fica vazio', () => {
+  const comVeiculo = DET_GIGA.replace('<indTot>1</indTot></prod>', '<indTot>1</indTot><veicProd><tpOp>2</tpOp><tpPint>A</tpPint><tpVeic>2</tpVeic></veicProd></prod>')
+  assert.equal(extrairFiscalDaNfe(envolver(comVeiculo))[0].tpPint, 'A')
+  assert.equal(extrairFiscalDaNfe(envolver(DET_GIGA))[0].tpPint, '')
+})
+
+test('valor unitário do item (vUnCom) sai com 2 casas; sem vUnCom fica vazio (#513)', () => {
+  const [carregador] = extrairFiscalDaNfe(envolver(DET_CARREGADOR))
+  assert.equal(carregador.valorUnitario, '39.60')
+  const [semValor] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('<vUnCom>6400.0000000000</vUnCom>', '')))
+  assert.equal(semValor.valorUnitario, '')
+  const [ilegivel] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('6400.0000000000</vUnCom>', 'abc</vUnCom>')))
+  assert.equal(ilegivel.valorUnitario, '')
+  const [tresCasas] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('6400.0000000000</vUnCom>', '1.500</vUnCom>')))
+  assert.equal(tresCasas.valorUnitario, '1.50')
 })
