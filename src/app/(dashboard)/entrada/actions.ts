@@ -14,7 +14,6 @@ import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
-import { precosPadraoDaLoja } from '@/lib/preco-compra-padrao'
 
 type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -290,11 +289,4 @@ export async function carregarConferenciaPecas(
   if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
-}
-
-// Preço de compra padrão de cada modelo na Conta da loja de destino (#513).
-export async function carregarPrecosPadrao(lojaId: string) {
-  const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
-  return precosPadraoDaLoja(usuario, lojaId)
 }

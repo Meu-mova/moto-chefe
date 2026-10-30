@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { registrarEntrada, registrarEntradaLote, registrarEntradaNota, carregarConferenciaPecas, carregarPrecosPadrao } from '../actions'
+import { registrarEntrada, registrarEntradaLote, registrarEntradaNota, carregarConferenciaPecas } from '../actions'
 import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
@@ -10,7 +10,7 @@ import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerIt
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
-import { casarModelo, precoDaPlanilha, precoSugerido } from '@/lib/entrada-preco'
+import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
@@ -30,10 +30,6 @@ type MotoLinhaPlanilha = {
   nf: string
   modeloId: string
   preco: string
-  // Preço lido do arquivo (vUnCom ou coluna PREÇO) e se a pessoa já digitou outro: o
-  // padrão do modelo só preenche linha que ninguém mexeu (#513).
-  precoDoArquivo: string
-  precoDigitado: boolean
 }
 
 export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
@@ -42,10 +38,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [notaFiscal, setNotaFiscal] = useState('')
   const [modeloId, setModeloId] = useState('')
   const [precoCompra, setPrecoCompra] = useState('')
-  const [precoManualDigitado, setPrecoManualDigitado] = useState(false)
   const [lojaId, setLojaId] = useState('')
-  // Preço de compra padrão por modelo, da Conta da loja de destino (#513).
-  const [padroes, setPadroes] = useState<Record<string, string>>({})
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
@@ -90,26 +83,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     })
     return () => { vale = false }
   }, [notaPecas, lojaId])
-
-  useEffect(() => {
-    if (!lojaId) { setPadroes({}); return }
-    let vale = true
-    carregarPrecosPadrao(lojaId).then(r => {
-      if (!vale) return
-      if ('error' in r) { toast.error(r.error); setPadroes({}); return }
-      setPadroes(r.precos)
-    })
-    return () => { vale = false }
-  }, [lojaId])
-
-  // Trocar loja ou modelo refaz a sugestão só onde a pessoa não digitou.
-  useEffect(() => {
-    setLinhasPlanilha(prev => prev.map(l => l.precoDigitado ? l : { ...l, preco: precoSugerido(l.precoDoArquivo, l.modeloId, padroes) }))
-  }, [padroes])
-
-  useEffect(() => {
-    if (!precoManualDigitado) setPrecoCompra(precoSugerido('', modeloId, padroes))
-  }, [modeloId, padroes, precoManualDigitado])
 
   // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
   const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
@@ -176,22 +149,18 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
   // --- Modelo das motos importadas ---
   // Casa o nome que veio do arquivo com o cadastro; o que não casar entra sem
-  // modeloId e a pessoa escolhe na tela. O preço vem do arquivo ou do padrão da Conta (#513).
+  // modeloId e a pessoa escolhe na tela. O preço vem só do próprio arquivo (#513).
   function sugerirModelo(nomeArquivo: string, precoDoArquivo = '') {
-    const modeloId = casarModelo(nomeArquivo, modelos)
-    return { modeloId, preco: precoSugerido(precoDoArquivo, modeloId, padroes), precoDoArquivo, precoDigitado: false }
+    return { modeloId: casarModelo(nomeArquivo, modelos), preco: precoDoArquivo }
   }
 
   function trocarModeloDoGrupo(indices: number[], modeloId: string) {
     const alvo = new Set(indices)
-    setLinhasPlanilha(prev => prev.map((l, i) => {
-      if (!alvo.has(i)) return l
-      return l.precoDigitado ? { ...l, modeloId } : { ...l, modeloId, preco: precoSugerido(l.precoDoArquivo, modeloId, padroes) }
-    }))
+    setLinhasPlanilha(prev => prev.map((l, i) => (alvo.has(i) ? { ...l, modeloId } : l)))
   }
 
   function updatePreco(idx: number, preco: string) {
-    setLinhasPlanilha(prev => prev.map((l, i) => i === idx ? { ...l, preco, precoDigitado: true } : l))
+    setLinhasPlanilha(prev => prev.map((l, i) => i === idx ? { ...l, preco } : l))
   }
 
   // --- Planilha XLSX handler ---
@@ -349,7 +318,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         toast.success(result.success)
         setNotaFiscal('')
         setPrecoCompra('')
-        setPrecoManualDigitado(false)
         setModeloId('')
         setLojaId('')
         setLinhas([{ chassi: '', cor: '', motor: '' }])
@@ -505,8 +473,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               quiser, PREÇO).
             </p>
             <p className="text-xs text-muted-foreground">
-              O preço de compra já vem do valor da nota (sem frete e IPI), da coluna PREÇO ou do
-              preço padrão do modelo. Confira antes de salvar.
+              O preço de compra já vem do valor da nota (sem frete e IPI) ou da coluna PREÇO.
+              Confira antes de salvar.
             </p>
 
             <div>
@@ -780,7 +748,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 <label className="block text-sm text-muted-foreground mb-1">Preço de Compra (R$) *</label>
                 <CurrencyInput
                   value={precoCompra}
-                  onChange={v => { setPrecoCompra(v); setPrecoManualDigitado(true) }}
+                  onChange={setPrecoCompra}
                   placeholder="0,00"
                   required
                 />

@@ -2,10 +2,9 @@
  * Casamento do nome que veio do XML de NF-e ou da planilha com o cadastro de modelos, e o
  * preço de compra que a tela já traz preenchido (#513), sempre editável.
  *
- * De onde vem o preço, nesta ordem: o do próprio arquivo (vUnCom do item da nota, coluna
- * PREÇO da planilha) e, sem ele, o padrão do modelo na Conta da loja de destino
- * (`precosPadraoDaLoja`). Nunca o padrão da plataforma nem o último preço usado: seriam o
- * preço combinado por outra Conta (#288).
+ * O preço vem só do próprio arquivo: vUnCom do item da nota ou coluna PREÇO da planilha.
+ * Nunca do cadastro de modelos nem do último preço usado: seriam o preço combinado por
+ * outra Conta (#288).
  */
 
 export type ModeloSugestao = { id: string; modelo: string }
@@ -32,9 +31,4 @@ export function precoDaPlanilha(valor: unknown): string {
     n = t ? Number(t) : NaN
   } else return ''
   return Number.isFinite(n) && n > 0 ? n.toFixed(2) : ''
-}
-
-/** Preço que a linha abre preenchido: o do arquivo, senão o padrão do modelo na Conta. */
-export function precoSugerido(doArquivo: string, modeloId: string, padroes: Record<string, string>): string {
-  return doArquivo || (modeloId && padroes[modeloId]) || ''
 }

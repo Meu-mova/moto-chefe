@@ -22,8 +22,9 @@
  *   recolheu o ST (CST 60) a saída sai CST 60 / CSOSN 500, mas quem decide isso
  *   é o contador, uma vez por grupo/UF, não este parser.
  *
- * O **valor** nunca vem daqui: a nota da fábrica sai com valor diferente do que
- * se paga a ela, então o preço de compra continua sendo o digitado na tela.
+ * O **valor** (`vUnCom`) só pré-preenche o preço de compra na tela (#513): a nota
+ * da fábrica sai com valor diferente do que se paga a ela. Não vai para
+ * `motos_fiscal`, e o que se grava é o que a pessoa confirmou.
  */
 
 import { mapearModelo, tagNfe as tag, grupoNfe as grupo, lerItensDaNfe, ehNcmDeMoto } from './nfe-entrada'
