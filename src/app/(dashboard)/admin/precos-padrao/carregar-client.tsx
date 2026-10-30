@@ -5,11 +5,12 @@ import { Loader2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { carregarTabelaPadraoAction } from './actions'
 
-type Resultado = { ok: boolean; erro?: string; gravados?: number; avisos?: string[] }
+type Resultado = { ok: boolean; erro?: string; confirmar?: boolean; gravados?: number; anteriores?: number; avisos?: string[] }
 
 export function CarregarTabelaClient({ mesAtual }: { mesAtual: string }) {
   const [competencia, setCompetencia] = useState(mesAtual)
   const [resultado, setResultado] = useState<Resultado | null>(null)
+  const [matriz, setMatriz] = useState<unknown[][] | null>(null)
   const [pending, start] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -20,8 +21,9 @@ export function CarregarTabelaClient({ mesAtual }: { mesAtual: string }) {
     setResultado(null)
     try {
       const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' })
-      const matriz = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
-      start(async () => setResultado(await carregarTabelaPadraoAction(matriz, competencia)))
+      const lida = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
+      setMatriz(lida)
+      start(async () => setResultado(await carregarTabelaPadraoAction(lida, competencia)))
     } catch {
       setResultado({ ok: false, erro: 'Não deu para ler o arquivo. Use .xlsx ou .csv.' })
     }
@@ -45,9 +47,19 @@ export function CarregarTabelaClient({ mesAtual }: { mesAtual: string }) {
       </div>
       {resultado && (
         <div className="text-sm space-y-1">
-          {resultado.ok
-            ? <p className="text-success">{resultado.gravados} modelos com preço na tabela.</p>
-            : <p className="text-destructive">{resultado.erro}</p>}
+          {resultado.ok && <p className="text-success">Antes {resultado.anteriores} modelos, agora {resultado.gravados}.</p>}
+          {resultado.confirmar && (
+            <div className="space-y-2">
+              <p className="text-warning">
+                Antes {resultado.anteriores} modelos, agora {resultado.gravados}. A tabela atual vai ser trocada por esta, bem menor. Confira as linhas abaixo.
+              </p>
+              <Button variant="outline" disabled={pending || !matriz}
+                onClick={() => start(async () => setResultado(await carregarTabelaPadraoAction(matriz, competencia, true)))}>
+                Trocar mesmo assim
+              </Button>
+            </div>
+          )}
+          {!resultado.ok && !resultado.confirmar && <p className="text-destructive">{resultado.erro}</p>}
           {!!resultado.avisos?.length && (
             <ul className="list-disc pl-5 text-warning">
               {resultado.avisos.map(a => <li key={a}>{a}</li>)}

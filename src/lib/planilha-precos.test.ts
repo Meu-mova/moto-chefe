@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { casarComModelos, chaveDeModelo, lerPlanilhaDePrecos } from './planilha-precos'
+import { casarComModelos, chaveDeModelo, ehMatrizDePlanilha, lerPlanilhaDePrecos } from './planilha-precos'
 
 test('lê MODELO + PREÇO, com R$, vírgula decimal e número do Excel', () => {
   const r = lerPlanilhaDePrecos([
@@ -79,4 +79,11 @@ test('sem casamento, ambíguo ou modelo repetido vira aviso e não grava', () =>
     'Linha 3 (DUPLO): mais de um modelo com esse nome',
     'Linhas 4 e 5: o mesmo modelo (X12) aparece mais de uma vez',
   ])
+})
+
+test('payload que não é planilha (objeto, linha que não é lista, célula objeto) é recusado', () => {
+  assert.equal(ehMatrizDePlanilha([['MODELO', 'PIX'], ['X12', 1, null]]), true)
+  assert.equal(ehMatrizDePlanilha({ 0: [] }), false)
+  assert.equal(ehMatrizDePlanilha([['MODELO'], 'X12']), false)
+  assert.equal(ehMatrizDePlanilha([['MODELO', { x: 1 }]]), false)
 })

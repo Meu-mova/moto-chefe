@@ -78,7 +78,16 @@ test('tabela padrão: a carga nova troca a tabela inteira; planilha sem colunas 
     assert.equal(ruim.ok, false)
     assert.equal((await listarTabelaPadrao(tx)).length, 2)
 
-    await carregarTabelaPadrao({ matriz: [['MODELO', 'PREÇO'], ['GIGA522', 3]], competencia: '2026-11', usuarioId: null }, tx)
+    const matriz = [['MODELO', 'PREÇO'], ['GIGA522', 3], ['SUMIU522', 4]]
+    // 1 de 2 modelos: queda grande pede confirmação e não troca nada.
+    const semConfirmar = await carregarTabelaPadrao({ matriz, competencia: '2026-11', usuarioId: null }, tx)
+    assert.deepEqual(semConfirmar, {
+      ok: false, confirmar: true, anteriores: 2, gravados: 1, avisos: ['Linha 3 (SUMIU522): modelo não encontrado'],
+    })
+    assert.equal((await listarTabelaPadrao(tx)).length, 2)
+
+    const nova = await carregarTabelaPadrao({ matriz, competencia: '2026-11', usuarioId: null, confirmarQueda: true }, tx)
+    assert.deepEqual(nova.ok && [nova.anteriores, nova.gravados], [2, 1])
     const depois = await listarTabelaPadrao(tx)
     assert.deepEqual(depois.map(l => [l.modeloId, l.preco, l.competencia]), [[giga.id, '3.00', '2026-11']])
     assert.ok(!depois.some(l => l.modeloId === bob.id))

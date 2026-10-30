@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { modeloApelidos, modelos, tabelaPrecoPadrao } from '@/lib/db/schema'
 import { casarComModelos, lerPlanilhaDePrecos, type ModeloCasavel } from '@/lib/planilha-precos'
@@ -26,7 +26,7 @@ export async function modelosDaPlataformaParaPreco(exec: Executor = db): Promise
  * Planilha sem as colunas não apaga nada.
  */
 export async function carregarTabelaPadrao(
-  dados: { matriz: unknown[][]; competencia: string; usuarioId: string | null },
+  dados: { matriz: unknown[][]; competencia: string; usuarioId: string | null; confirmarQueda?: boolean },
   exec: Pick<typeof db, 'select' | 'transaction'> = db,
 ) {
   if (!/^\d{4}-\d{2}$/.test(dados.competencia)) return { ok: false as const, erro: 'Informe o mês da tabela' }
@@ -36,7 +36,14 @@ export async function carregarTabelaPadrao(
   const { casados, avisos } = casarComModelos(lida.linhas, await modelosDaPlataformaParaPreco(exec))
   if (!casados.length) return { ok: false as const, erro: 'Nenhuma linha casou com um modelo da plataforma', avisos: [...lida.erros, ...avisos] }
 
-  await exec.transaction(async tx => {
+  const todosAvisos = [...lida.erros, ...avisos]
+  return exec.transaction(async tx => {
+    const [{ anteriores }] = await tx.select({ anteriores: sql<number>`count(*)::int` }).from(tabelaPrecoPadrao)
+    // Planilha que casou bem menos modelos que a tabela atual pede confirmação: sem ela, uma
+    // planilha cortada trocaria a tabela inteira por poucos modelos sem ninguém notar.
+    if (!dados.confirmarQueda && casados.length < anteriores * 0.8) {
+      return { ok: false as const, confirmar: true as const, anteriores, gravados: casados.length, avisos: todosAvisos }
+    }
     await tx.delete(tabelaPrecoPadrao)
     await tx.insert(tabelaPrecoPadrao).values(casados.map(c => ({
       modeloId: c.modeloId,
@@ -44,8 +51,8 @@ export async function carregarTabelaPadrao(
       competencia: dados.competencia,
       carregadoPor: dados.usuarioId,
     })))
+    return { ok: true as const, anteriores, gravados: casados.length, avisos: todosAvisos }
   })
-  return { ok: true as const, gravados: casados.length, avisos: [...lida.erros, ...avisos] }
 }
 
 export async function listarTabelaPadrao(exec: Executor = db) {

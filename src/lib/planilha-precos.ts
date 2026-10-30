@@ -18,6 +18,12 @@ function lerPreco(v: unknown): number | null {
   return n > 0 ? n : null
 }
 
+// O payload vem do navegador: só linhas de texto ou número passam.
+export function ehMatrizDePlanilha(v: unknown): v is unknown[][] {
+  return Array.isArray(v) && v.length <= 5000 && v.every(l =>
+    Array.isArray(l) && l.length <= 50 && l.every(c => c === null || ['string', 'number'].includes(typeof c)))
+}
+
 export function lerPlanilhaDePrecos(matriz: unknown[][]): { linhas: LinhaDePreco[]; erros: string[] } {
   const topo = (matriz[0] ?? []).map(cabecalho)
   const colModelo = topo.indexOf('MODELO')
