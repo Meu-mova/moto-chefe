@@ -47,9 +47,13 @@ export async function voltarMotoAoEstoque(contaId: string, motoId: string, usuar
     .limit(1)
   if (!moto) return false
   const statusNovo = moto.status === 'vendida' ? 'montada' as const : null
-  await exec.update(motos)
+  // As mesmas condições no update: se uma venda entrou ou o status mudou depois do select,
+  // nada volta e a tela recebe a recusa, sem histórico.
+  const voltou = await exec.update(motos)
     .set({ disponibilidade: 'disponivel', ...(statusNovo ? { status: statusNovo } : {}) })
-    .where(and(eq(motos.id, motoId), marcadaVendida(), semVenda()))
+    .where(and(eq(motos.id, motoId), eq(motos.status, moto.status), marcadaVendida(), semVenda(), daConta(contaId)))
+    .returning({ id: motos.id })
+  if (voltou.length === 0) return false
   await exec.insert(historicoEstoque).values({
     motoId,
     usuarioId,

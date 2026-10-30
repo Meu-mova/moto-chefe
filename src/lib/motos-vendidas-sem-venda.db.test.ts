@@ -102,3 +102,29 @@ test('voltar ao estoque: status caixa fica caixa, status vendida vira montada; a
     assert.equal(hist[0].n, 2, 'cada volta deixa rastro no histórico')
   })
 })
+
+test('voltar ao estoque: venda que entra entre a leitura e a gravação recusa sem mexer na moto nem gravar histórico', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000054401')
+    const id = await a.moto('VSVA0000000000001', 'caixa', 'vendida')
+    // A venda é enfileirada na mesma conexão logo antes do update: chega ao banco entre os dois.
+    // O query do Drizzle só sai no then; chamá-lo aqui é o que põe a venda na fila primeiro.
+    let venda: Promise<unknown> | null = null
+    const exec = {
+      select: tx.select.bind(tx),
+      insert: tx.insert.bind(tx),
+      update: ((t: Parameters<Tx['update']>[0]) => {
+        venda = tx.execute(sql`with p as (insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
+            select id, loja_id, ${a.socioId}, 'efetivado' from motos where id = ${id} returning id, moto_id, loja_id)
+          insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
+          select p.id, p.moto_id, p.loja_id, ${a.socioId}, ${a.socioId}, 'Cliente', '52998224725', 1000, 'pix' from p`).then(r => r)
+        return tx.update(t)
+      }) as Tx['update'],
+    }
+    assert.equal(await m.voltarMotoAoEstoque(a.contaId, id, a.socioId, exec), false)
+    await venda
+    assert.deepEqual(await estado(tx, id), { status: 'caixa', disponibilidade: 'vendida' })
+    const hist = await linhas(tx, sql`select count(*)::int as n from historico_estoque where moto_id = ${id}`)
+    assert.equal(hist[0].n, 0)
+  })
+})

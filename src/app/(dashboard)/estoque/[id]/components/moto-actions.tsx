@@ -1,5 +1,6 @@
 'use client'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
 import { VenderButton } from '../../components/vender-button'
 import { GarantiaButton } from '../../components/garantia-button'
 import { LogisticaButton } from '../../components/logistica-button'
@@ -87,6 +88,10 @@ const ADMINS        = new Set(['admin_geral', 'admin_socio'])
 export function MotoActions({ moto, papel, isVendedor, vendedorId, vendedorNome, usuarios, mecanicos, lojas, lojaUsuarioId, precoMinimoPix, taxasVenda, podeAprovarPagamentoSensivel, demandasCompativeis, origens }: Props) {
   const isAdmin = ADMINS.has(papel)
   const abrirVenda = useSearchParams().get('vender') === '1'
+  const router = useRouter()
+  const pathname = usePathname()
+  // O VenderButton já leu o pedido ao montar; sem limpar, recarregar a página reabriria a venda.
+  useEffect(() => { if (abrirVenda) router.replace(pathname, { scroll: false }) }, [abrirVenda, router, pathname])
   const podeAlterar = isAdmin || moto.lojaId === lojaUsuarioId
   // isVendedor cobre quem vende sem ter 'vendedor' como papel principal.
   const podeVenderAqui = podeAlterar || ((isVendedor ?? papel === 'vendedor') && podeVendedorReservarForaDaLoja(moto.lojaId))
