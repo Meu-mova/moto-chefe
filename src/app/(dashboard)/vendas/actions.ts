@@ -38,6 +38,7 @@ import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
 import { motoDoUsuario } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
+import { voltarMotoAoEstoque } from '@/lib/motos-vendidas-sem-venda'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
@@ -1934,3 +1935,22 @@ async function recusarVenda(aprovacaoId: string, observacao?: string) {
   revalidatePath(`/estoque/${aprovacao.motoId}`)
 }
 
+
+/**
+ * Moto marcada como vendida no Editar moto sem venda registrada (#544): volta ao estoque.
+ * Só sócio e admin geral, como o Editar moto que a marcou. Moto de outra Conta e moto
+ * inexistente recebem a mesma frase.
+ */
+export async function voltarMotoVendidaSemVendaAoEstoqueAction(motoId: string) {
+  return acao(async () => {
+    const usuario = await getUsuarioLogado()
+    if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão para voltar a moto ao estoque')
+    const contaId = await contaDoGrupoAtivo(usuario)
+    if (!(await voltarMotoAoEstoque(contaId, motoId, usuario.id))) {
+      throw new RecusaUsuario('Moto não encontrada entre as marcadas como vendida sem venda')
+    }
+    revalidatePath('/vendas')
+    revalidatePath('/estoque')
+    revalidatePath(`/estoque/${motoId}`)
+  })
+}
