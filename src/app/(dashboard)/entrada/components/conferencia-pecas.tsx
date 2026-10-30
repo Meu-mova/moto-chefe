@@ -23,9 +23,13 @@ type Props = {
   pecas: Conferencia['pecas']
   sugestoes: Conferencia['sugestoes']
   lojaNome: string
+  /** De onde vêm as linhas; muda só os rótulos. */
+  origem?: 'nota' | 'planilha'
 }
 
-export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome }: Props) {
+export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome, origem = 'nota' }: Props) {
+  const de = origem === 'nota' ? 'da nota' : 'da planilha'
+  const custo = origem === 'nota' ? 'Custo na nota' : 'Custo unitário'
   const [sel, setSel] = useState(0)
   const atual = linhas[sel]
   const nomePeca = (id: string) => pecas.find(p => p.id === id)?.nome
@@ -39,12 +43,12 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
       <div className="bg-card rounded-lg border p-4">
-        <h3 className="font-semibold text-foreground mb-3">Peças e acessórios da nota ({linhas.length})</h3>
+        <h3 className="font-semibold text-foreground mb-3">Peças e acessórios {de} ({linhas.length})</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted-foreground border-b">
-              <th className="py-2 px-2 font-medium">Item da nota</th>
-              <th className="py-2 pr-2 font-medium whitespace-nowrap">Custo na nota</th>
+              <th className="py-2 px-2 font-medium">Item {de}</th>
+              <th className="py-2 pr-2 font-medium whitespace-nowrap">{custo}</th>
               <th className="py-2 pr-2 font-medium">Qtd</th>
               <th className="py-2 font-medium">Vai para</th>
             </tr>
@@ -100,7 +104,7 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
               <p className="font-semibold text-foreground leading-snug">{atual.item.nomeLegivel}</p>
               <div className="grid grid-cols-2 gap-4 mt-3">
                 <div>
-                  <span className="block text-xs text-muted-foreground">Custo na nota</span>
+                  <span className="block text-xs text-muted-foreground">{custo}</span>
                   <span className="text-lg font-semibold">{real(atual.item.custoUnitario)}</span>
                 </div>
                 <label className="block">
@@ -155,7 +159,7 @@ export function ConferenciaPecas({ linhas, onChange, pecas, sugestoes, lojaNome 
                         {atual.pecaId && (
                           <p className="text-xs text-muted-foreground">
                             Preço de venda atual: {real(pecas.find(p => p.id === atual.pecaId)?.valor ?? 0)}
-                            {sugestoes[sel] === atual.pecaId ? '. Sugerida pelo fornecedor.' : ''}
+                            {sugestoes[sel] === atual.pecaId ? (origem === 'nota' ? '. Sugerida pelo fornecedor.' : '. Sugerida pelo nome ou pelo fornecedor.') : ''}
                           </p>
                         )}
                       </div>

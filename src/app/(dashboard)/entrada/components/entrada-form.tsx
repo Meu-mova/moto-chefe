@@ -10,6 +10,7 @@ import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerIt
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
+import { PecasPorPlanilha } from './pecas-por-planilha'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
@@ -463,6 +464,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
       {/* ===== MODO PLANILHA ===== */}
       {modo === 'planilha' && (
+        <div className="space-y-6">
         <form onSubmit={handleSubmitPlanilha} className="space-y-6">
           <div className="bg-card rounded-lg border p-4 space-y-4">
             <h3 className="font-semibold text-foreground">Importar NF-e (XML) ou Planilha</h3>
@@ -697,6 +699,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           )}
         </form>
+        {/* Fora do form das motos: tem gravação própria (#519). */}
+        <PecasPorPlanilha lojaId={lojaId} lojaNome={lojas.find(l => l.id === lojaId)?.nome ?? 'loja'} />
+        </div>
       )}
 
       {/* ===== MODO MANUAL ===== */}

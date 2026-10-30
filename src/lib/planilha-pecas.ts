@@ -2,6 +2,7 @@
  * Planilha de peças e acessórios da Entrada (#519). Função pura: recebe as linhas como
  * o xlsx devolve (`sheet_to_json` com `header: 1`) e serve à tela e ao servidor.
  */
+import { linhaInicial, type LinhaConferencia } from '@/lib/conferencia-pecas'
 
 export type ItemPlanilhaPecas = {
   /** Linha na planilha, contando o cabeçalho, para a mensagem de erro bater com o Excel. */
@@ -15,6 +16,12 @@ export type ItemPlanilhaPecas = {
 }
 
 export const COLUNAS_PLANILHA_PECAS = ['CÓDIGO', 'DESCRIÇÃO', 'QUANTIDADE', 'CUSTO UNITÁRIO', 'PREÇO DE VENDA'] as const
+
+/** Planilha para baixar na tela: o cabeçalho e uma linha de exemplo genérica. */
+export const MODELO_PLANILHA_PECAS: (string | number)[][] = [
+  [...COLUNAS_PLANILHA_PECAS],
+  ['123', 'Retrovisor esquerdo', 2, 15.5, 39.9],
+]
 
 const normalizar = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toUpperCase().replace(/\s+/g, ' ').trim()
@@ -67,4 +74,22 @@ export function lerPlanilhaPecas(rows: unknown[][]): { itens: ItemPlanilhaPecas[
     })
   })
   return { itens, erros }
+}
+
+/**
+ * Linha da mesma conferência do XML. A descrição faz o papel do nome da nota (chave do
+ * vínculo) e o preço de venda da planilha já entra na peça nova.
+ */
+export function linhaDaPlanilha(item: ItemPlanilhaPecas, sugestao: string | null): LinhaConferencia {
+  const linha = linhaInicial({
+    codigo: item.codigo,
+    nomeXml: item.descricao,
+    nomeLegivel: item.descricao,
+    unidade: '',
+    quantidade: item.quantidade,
+    quantidadeInteira: true,
+    custoUnitario: item.custoUnitario,
+    ncm: '',
+  }, sugestao)
+  return { ...linha, preco: item.precoVenda ? String(item.precoVenda) : '' }
 }
