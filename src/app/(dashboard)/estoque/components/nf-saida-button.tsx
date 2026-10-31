@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { criarRascunhoBlingAction, confirmarNFSaidaAction, atualizarRascunhoBlingAction } from '../../vendas/actions'
 import { verificarBloqueioNfAction, liberarNfSemContratoAction } from '../../vendas/assinatura-actions'
 import { nfePropriaDisponivelAction } from '../../vendas/nfe-propria-actions'
+import { SEM_EMISSAO, type DisponibilidadeNf } from '@/lib/notagateway/disponibilidade'
 import { NfePropriaPainel } from './nfe-propria-painel'
 
 type Props = {
@@ -56,7 +57,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoM
   const [vendaId, setVendaId] = useState<string | null>(null)
   const [podeLiberar, setPodeLiberar] = useState(false)
   const [motivo, setMotivo] = useState('')
-  const [propria, setPropria] = useState<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }>({ disponivel: false, ambiente: null })
+  const [propria, setPropria] = useState<DisponibilidadeNf>(SEM_EMISSAO)
   const [outras, setOutras] = useState(false)
   const [pending, startTransition] = useTransition()
   // A transmissão roda no painel; enquanto ela corre, nem Esc fecha o diálogo.
@@ -225,6 +226,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoM
           {etapa === 'inicial' && (
             <div className="space-y-2 pb-4">
               <p className="mb-3 font-medium">Como registrar esta nota?</p>
+              {propria.aviso && <p className="border-l-2 border-l-warning pl-3 text-sm">{propria.aviso}</p>}
               {propria.disponivel && (
                 <Opcao titulo={`Emitir pelo MOVA${propria.ambiente === 'Homologacao' ? ' (teste)' : ''}`} descricao="Confere a nota aqui e transmite direto para a SEFAZ" onClick={() => { setErro(''); setEtapa('propria') }} disabled={pending} />
               )}

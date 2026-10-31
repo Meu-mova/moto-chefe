@@ -23,6 +23,7 @@ import { diaEHoraBrt, hojeBrt } from '@/lib/data-venda'
 import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
+import { disponibilidadeDoGrupo, SEM_EMISSAO, type DisponibilidadeNf } from '@/lib/notagateway/disponibilidade'
 import { formatarCpfCnpj, isIndicadorIe } from '@/lib/documento'
 import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
@@ -865,19 +866,21 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
 }
 
 /** Para o diálogo de NF decidir se mostra a opção — sem montar a nota. */
-export async function nfePropriaDisponivelAction(motoId: string): Promise<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }> {
+export async function nfePropriaDisponivelAction(motoId: string): Promise<DisponibilidadeNf> {
   try {
-    const usuario = await exigirPapel()
+    const usuario = await getUsuarioLogado()
+    // Papel sem NF de saída nem vê o botão: não há o que avisar.
+    if (!podeOperarNfSaida(usuario.papel)) return SEM_EMISSAO
     const [v] = await db.select({ lojaId: vendas.lojaId }).from(vendas)
       .where(eq(vendas.motoId, motoId)).orderBy(desc(vendas.dataVenda)).limit(1)
-    if (!v) return { disponivel: false, ambiente: null }
+    if (!v) return SEM_EMISSAO
+    // Permissão no grupo da loja; configuração e nome pelo grupo que emite (#552).
     const emissor = await grupoEmissorDaVenda(motoId, v.lojaId)
-    if (!emissor || !(await podeUsuarioVerGrupo(usuario, emissor.grupoDaLojaId))) return { disponivel: false, ambiente: null }
-    const cfg = await configNotaGateway(emissor.grupoId)
-    if (cfg) return { disponivel: true, ambiente: cfg.ambiente }
+    if (!emissor || !(await podeUsuarioVerGrupo(usuario, emissor.grupoDaLojaId))) return SEM_EMISSAO
+    const r = await disponibilidadeDoGrupo(emissor.nome, () => configNotaGateway(emissor.grupoId), podeConfigurarFiscal(usuario.papel))
     // Grupo de entrada sem configuração: a opção aparece e a prévia explica o que falta.
-    return { disponivel: emissor.outroCnpj, ambiente: null }
+    return !r.disponivel && !r.aviso && emissor.outroCnpj ? { ...r, disponivel: true } : r
   } catch {
-    return { disponivel: false, ambiente: null }
+    return { ...SEM_EMISSAO, aviso: 'Não deu para conferir a emissão pelo MOVA agora. Feche e abra de novo.' }
   }
 }
