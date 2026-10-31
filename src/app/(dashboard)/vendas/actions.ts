@@ -11,7 +11,7 @@ import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'driz
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja, podeEditarVendaDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { clientesDoEscopo, contaDaLoja, lojasDoEscopo } from '@/lib/conta'
 import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
@@ -1381,15 +1381,13 @@ async function editarVenda(vendaId: string, dados: {
 }) {
   const usuario = await getUsuarioLogado()
 
-  const ADMINS_EDIT = ['admin_geral', 'admin_socio', 'aux_adm']
-  if (!ADMINS_EDIT.includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
+  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
 
   // Busca venda atual para validações de acesso e sincronização
   const vendaAtual = await vendaDoUsuario(usuario, eq(vendas.id, vendaId))
   if (!vendaAtual) throw new RecusaUsuario('Venda não encontrada')
 
-  // Quem tem loja só edita venda dela; quem não tem, só no grupo que vê.
-  if (usuario.lojaId ? vendaAtual.lojaId !== usuario.lojaId : !(await podeAbrirRegistroDaLoja(usuario, vendaAtual.lojaId))) {
+  if (!(await podeEditarVendaDaLoja(usuario, vendaAtual.lojaId))) {
     throw new RecusaUsuario('Sem permissão para editar vendas de outra loja')
   }
   await conferirMaquininhas(db, vendaAtual.lojaId, dados.pagamentos, operadorasGravadas(vendaAtual.pagamentos))

@@ -72,7 +72,7 @@ const DEPOIS_DA_ANIMACAO_MS = 300
 const textoDaTela = () => document.body.textContent ?? ''
 const botaoDaNf = () => [...document.querySelectorAll('button')].find(b => b.textContent === '4512')
 
-async function montarTabela(papel: string) {
+async function montarTabela(papel: string, lojasEditaveis: ReadonlySet<string> = new Set(['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) ? ['loja-1'] : [])) {
   const React = (await import('react')).default
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -81,7 +81,7 @@ async function montarTabela(papel: string) {
   document.body.appendChild(container)
   const root = createRoot(container)
   const desenhar = (vendas: VendaComDetalhes[]) => act(async () => {
-    root.render(React.createElement(VendasTable, { vendas, papel, vendedores: [], origens: [] }))
+    root.render(React.createElement(VendasTable, { vendas, papel, lojasEditaveis, vendedores: [], origens: [] }))
   })
   // No desktop a NF fica no painel da venda: abre clicando na linha da tabela.
   const abrirVenda = () => act(async () => {
