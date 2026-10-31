@@ -11,7 +11,7 @@ export type MudancaLiberacao = { liberados: string[]; revogados: string[] }
 
 export type ResultadoLiberacao = { ok: true } & MudancaLiberacao | { ok: false; erro: string }
 
-/** Grupos liberados vivos do usuário, para o modal de /admin/usuarios. */
+/** Grupos liberados (não revogados) do usuário: o modal de /admin/usuarios e a conferência ao gravar. */
 export async function gruposLiberadosDoUsuario(usuarioId: string, exec: Pick<typeof db, 'select'> = db): Promise<string[]> {
   const linhas = await exec.select({ grupoId: gruposLiberados.grupoId }).from(gruposLiberados)
     .where(and(eq(gruposLiberados.usuarioId, usuarioId), isNull(gruposLiberados.revogadoEm)))
@@ -47,8 +47,31 @@ export async function sincronizarGruposLiberados(
   if (revogados.length) {
     await exec.update(gruposLiberados).set({ revogadoEm: sql`now()` as unknown as Date })
       .where(and(eq(gruposLiberados.usuarioId, alvoId), inArray(gruposLiberados.grupoId, revogados), isNull(gruposLiberados.revogadoEm)))
+    // A aprovação no grupo de fora cai junto: não sobra permissão de uma liberação revogada.
+    await exec.update(usuarios)
+      .set({ gruposAprovacao: sql`array(select g from unnest(${usuarios.gruposAprovacao}) g where not (g = any(${sql.param(revogados)}::uuid[])))` as unknown as string[] })
+      .where(eq(usuarios.id, alvoId))
   }
   return { ok: true, liberados, revogados }
+}
+
+/**
+ * Grupos de aprovação fora do alcance do usuário: de outra Conta e, para o admin_rede, também
+ * não liberados para ele. Vazio = pode gravar. Os da própria Conta sempre valem. Para gravar
+ * basta a liberação não revogada: grupo inativo ou bloqueado por mensalidade barra no uso
+ * (a persona some), não no cadastro, senão nenhuma edição do admin_rede passaria até pagar.
+ */
+export async function aprovacoesForaDoAlcance(
+  exec: Pick<typeof db, 'select'>,
+  alvo: { id: string | null; papel: string; contaId: string | null },
+  gruposAprovacao: string[],
+): Promise<string[]> {
+  if (alvo.papel === 'admin_geral' || !gruposAprovacao.length) return []
+  const linhas = await exec.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, gruposAprovacao))
+  const deFora = gruposAprovacao.filter(id => linhas.find(l => l.id === id)?.contaId !== alvo.contaId)
+  if (!deFora.length || alvo.papel !== 'admin_rede' || !alvo.id) return deFora
+  const liberados = (await gruposLiberadosDoUsuario(alvo.id, exec))
+  return deFora.filter(id => !liberados.includes(id))
 }
 
 export type AcessoDeFora = { usuarioNome: string; contaOrigem: string | null; grupoNome: string; liberadoEm: Date }

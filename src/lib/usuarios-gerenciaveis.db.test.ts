@@ -87,8 +87,10 @@ test('sócio da Conta B não edita nem cria usuário na Conta A; o da A edita o 
 
     const atual = await cadastroAtual(vendedorA.id, tx)
     assert.ok(atual, 'cadastro gravado é lido com o grupo da loja')
-    assert.match(recusaDaGravacao(socio(grupoB.id), atual, await pedido(lojaA.id)) ?? '', /alcance/, 'sócio da B não edita o vendedor da A')
-    assert.match(recusaDaGravacao(socio(grupoB.id), null, await pedido(lojaA.id)) ?? '', /grupos/, 'sócio da B não cria usuário na loja da A')
+    assert.match(recusaDaGravacao(socio(grupoB.id), atual, await pedido(lojaA.id)) ?? '', /não encontrado/, 'sócio da B não edita o vendedor da A')
+    assert.equal(recusaDaGravacao(socio(grupoB.id), null, await pedido(lojaA.id)), 'Loja não encontrada', 'sócio da B não cria usuário na loja da A')
+    assert.equal(recusaDaGravacao(socio(grupoB.id), null, await pedido('00000000-0000-0000-0000-000000000000')), 'Loja não encontrada',
+      'loja inexistente: mesma frase da loja da A')
     assert.equal(recusaDaGravacao(socio(grupoA.id), atual, await pedido(lojaA.id)), null, 'sócio da A edita o vendedor da A')
     throw new Desfazer()
   }), Desfazer)

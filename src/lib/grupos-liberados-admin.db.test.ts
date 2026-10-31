@@ -114,3 +114,28 @@ test('admin_rede em casa não lista nem gerencia usuário do grupo liberado nem 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('aprovação do admin_rede: vale no grupo liberado, não em grupo de outra Conta não liberado; revogar tira a aprovação', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { aprovacoesForaDoAlcance } = await import('@/lib/grupos-liberados-admin')
+    await sincronizarGruposLiberados(tx, c.geral, c.rede, [c.liberado])
+    const contaRede = (await tx.execute(sql`select conta_id from usuarios where id = ${c.rede}`) as unknown as { rows: { conta_id: string }[] }).rows[0].conta_id
+    const alvo = { id: c.rede, papel: 'admin_rede', contaId: contaRede }
+    assert.deepEqual(await aprovacoesForaDoAlcance(tx, alvo, [c.casa, c.liberado]), [], 'casa e liberado valem')
+    assert.deepEqual(await aprovacoesForaDoAlcance(tx, alvo, [c.deFora]), [c.deFora], 'outra Conta, não liberado')
+    assert.deepEqual(await aprovacoesForaDoAlcance(tx, { ...alvo, papel: 'admin_socio' }, [c.liberado]), [c.liberado], 'sócio não aprova fora da Conta')
+
+    // Grupo liberado bloqueado (aqui, inativo): ainda pode gravar; o bloqueio vale no uso.
+    await tx.execute(sql`update grupos set ativo = false where id = ${c.liberado}`)
+    assert.deepEqual(await aprovacoesForaDoAlcance(tx, alvo, [c.liberado]), [], 'liberado mas bloqueado continua gravável')
+    await tx.execute(sql`update grupos set ativo = true where id = ${c.liberado}`)
+
+    await tx.execute(sql`update usuarios set grupos_aprovacao = ${sql.param([c.casa, c.liberado])}::uuid[] where id = ${c.rede}`)
+    await sincronizarGruposLiberados(tx, c.geral, c.rede, [])
+    const aprov = (await tx.execute(sql`select grupos_aprovacao from usuarios where id = ${c.rede}`) as unknown as { rows: { grupos_aprovacao: string[] }[] }).rows[0].grupos_aprovacao
+    assert.deepEqual(aprov, [c.casa], 'revogar tira a aprovação no grupo de fora e mantém a da casa')
+    assert.deepEqual(await aprovacoesForaDoAlcance(tx, alvo, [c.liberado]), [c.liberado], 'e não dá mais para marcar')
+    throw new Desfazer()
+  }), Desfazer)
+})
