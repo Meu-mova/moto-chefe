@@ -861,7 +861,7 @@ export async function nfePropriaDisponivelAction(motoId: string): Promise<Dispon
     const grupoId = await getGrupoIdDaLoja(v.lojaId)
     if (!(await podeUsuarioVerGrupo(usuario, grupoId))) return SEM_EMISSAO
     const [g] = await db.select({ nome: grupos.nome }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
-    return await disponibilidadeDoGrupo(g?.nome ?? 'este grupo', () => configNotaGateway(grupoId))
+    return await disponibilidadeDoGrupo(g?.nome ?? 'este grupo', () => configNotaGateway(grupoId), podeConfigurarFiscal(usuario.papel))
   } catch {
     return { ...SEM_EMISSAO, aviso: 'Não deu para conferir a emissão pelo MOVA agora. Feche e abra de novo.' }
   }

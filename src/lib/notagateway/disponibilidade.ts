@@ -17,12 +17,15 @@ export const SEM_EMISSAO: DisponibilidadeNf = { disponivel: false, ambiente: nul
 export async function disponibilidadeDoGrupo(
   nomeGrupo: string,
   lerConfig: () => Promise<ConfigNotaGateway | null>,
+  /** Só quem configura a nota fiscal tem o item no menu; os outros pedem a quem tem. */
+  podeConfigurar: boolean,
 ): Promise<DisponibilidadeNf> {
   let cfg: ConfigNotaGateway | null
   try {
     cfg = await lerConfig()
   } catch {
-    return { ...SEM_EMISSAO, aviso: `Credencial da Nota Gateway de ${nomeGrupo} com problema. Salve de novo em Configuração → Notas Fiscais.` }
+    const passo = podeConfigurar ? 'Salve de novo em Configuração → Notas Fiscais.' : 'Peça a um administrador para salvar de novo em Configuração → Notas Fiscais.'
+    return { ...SEM_EMISSAO, aviso: `Credencial da Nota Gateway de ${nomeGrupo} com problema. ${passo}` }
   }
   return cfg ? { disponivel: true, ambiente: cfg.ambiente, aviso: null } : SEM_EMISSAO
 }
