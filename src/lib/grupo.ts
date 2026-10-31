@@ -161,10 +161,15 @@ export async function listarGruposAtivos(): Promise<Grupo[]> {
 // vez de checar um id específico. Páginas que precisam do universo inteiro de
 // grupos (ex.: /admin/usuarios editando a lista de outra pessoa) continuam
 // usando listarGruposAtivos() direto — de propósito, não é o mesmo caso de uso.
+//
+// Grupos liberados de outras Contas ao admin_rede (#517) só entram com `comLiberados`, que é
+// o caso do seletor. As demais telas (usuários, mensalidade, configurações) ficam no escopo
+// da requisição: a própria Conta, ou só o grupo liberado na persona.
 export async function listarGruposVisiveis(
   usuario: UsuarioComConta,
+  opts?: { comLiberados?: boolean },
 ): Promise<Grupo[]> {
-  usuario = identidadeDeOrigem(usuario)
+  usuario = opts?.comLiberados ? identidadeDeOrigem(usuario) : { ...usuario, gruposLiberados: [] }
   const [todos, grupoDaPropriaLoja] = await Promise.all([
     listarGruposAtivos(),
     grupoIdDaPropriaLoja(usuario.lojaId),
@@ -277,3 +282,6 @@ export const grupoAtivoDaRequisicao = cache(getGrupoAtivo)
 
 /** Os grupos que o usuário enxerga, uma vez por requisição (layout e barra de grupo). */
 export const gruposVisiveisDaRequisicao = cache(listarGruposVisiveis)
+
+/** Os grupos do seletor de empresa, com os liberados de outras Contas (#517). */
+export const gruposDoSeletorDaRequisicao = cache((usuario: UsuarioComConta) => listarGruposVisiveis(usuario, { comLiberados: true }))

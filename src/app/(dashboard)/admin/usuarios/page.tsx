@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
 import { listarCargos } from '@/lib/cargos'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { modulosQuePodeDar } from '@/lib/navegacao'
+import { acessosDeFora, gruposLiberaveis, liberacoesPorUsuario } from '@/lib/grupos-liberados-admin'
 
 export default async function UsuariosPage() {
   const usuario = await getUsuarioLogado()
@@ -29,6 +30,13 @@ export default async function UsuariosPage() {
   ])
   // admin_geral recebe os de todas as Contas: o select mostra os da Conta do usuário editado.
   const cargos = await listarCargos(db, { papel: gestor.papel, contaId: contaAtiva })
+  // Grupos de outras Contas: o admin_geral libera ao admin_rede; a Conta dona só vê quem tem (ADR-0019).
+  // Na persona do admin_rede, não: a lista traz os outros grupos da Conta dona.
+  const [liberaveis, liberadosPorUsuario, deFora] = await Promise.all([
+    ehGeral ? gruposLiberaveis() : null,
+    ehGeral ? liberacoesPorUsuario() : {},
+    ehGeral || usuario.grupoLiberado ? [] : acessosDeFora(contaAtiva),
+  ])
   const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
   return (
@@ -46,7 +54,27 @@ export default async function UsuariosPage() {
           cargos={cargos.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos, contaId: c.contaId }))}
           contaAtiva={contaAtiva}
           podeDarAoCargo={modulosQuePodeDar(usuario, {})}
+          liberaveis={liberaveis}
+          liberadosPorUsuario={liberadosPorUsuario}
         />
+        {deFora.length > 0 && (
+          <section className="space-y-2 pt-4">
+            <div>
+              <h2 className="text-lg font-semibold">Acesso de fora</h2>
+              <p className="text-muted-foreground text-sm">
+                Pessoas de outras Contas com acesso a grupos desta Conta, liberadas pelo Admin Geral do MOVA.
+              </p>
+            </div>
+            <ul className="bg-card divide-y rounded-lg border text-sm">
+              {deFora.map((a, i) => (
+                <li key={i} className="flex flex-wrap justify-between gap-2 px-4 py-2">
+                  <span><strong>{a.usuarioNome}</strong> ({a.contaOrigem ?? 'sem Conta'}) em {a.grupoNome}</span>
+                  <span className="text-muted-foreground">desde {a.liberadoEm.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </SuperAdminGuard>
   )

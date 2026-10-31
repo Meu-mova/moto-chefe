@@ -96,7 +96,7 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
+const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
@@ -104,7 +104,7 @@ export function limitesDaTela(gestor: Gestor) {
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
+    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral' && p !== 'admin_rede')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,

@@ -51,3 +51,11 @@ test('liberação de grupo da própria Conta não vira persona', () => {
   assert.equal(u.grupoLiberado, null)
   assert.equal(u.contaId, PROPRIA)
 })
+
+test('telas fora do seletor (usuários, mensalidade) não contam o grupo liberado', () => {
+  const todos = [grupo('grupo-casa', PROPRIA), grupo(LIBERADO.grupoId, DONA), grupo('outro-da-dona', DONA)]
+  const emCasa = usuarioDaRede(usuario('admin_rede'), [LIBERADO], null)
+  assert.deepEqual(gruposVisiveis({ ...emCasa, gruposLiberados: [] }, 'grupo-casa', todos), ['grupo-casa'])
+  const persona = usuarioDaRede(usuario('admin_rede'), [LIBERADO], LIBERADO.grupoId)
+  assert.deepEqual(gruposVisiveis({ ...persona, gruposLiberados: [] }, null, todos), [LIBERADO.grupoId])
+})

@@ -1,13 +1,14 @@
 'use server'
 import { db } from '@/lib/db'
-import { usuarios, grupos } from '@/lib/db/schema'
-import { eq, sql, inArray } from 'drizzle-orm'
+import { usuarios, grupos, gruposLiberados } from '@/lib/db/schema'
+import { eq, sql, inArray, or } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { cargoParaGravar } from '@/lib/cargos'
+import { sincronizarGruposLiberados } from '@/lib/grupos-liberados-admin'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
@@ -78,7 +79,7 @@ function validarConecta(conecta: string | null): string | null {
 // vendedor seria permissão fantasma, que não faz nada mas confunde a auditoria.
 // Também não aceita id de grupo inexistente/inativo vindo do cliente.
 async function validarAprovacao(papel: string, gruposAprovacao: string[], aprovaPagamentoSensivel: boolean) {
-  if (!['admin_geral', 'admin_socio'].includes(papel)) {
+  if (!['admin_geral', 'admin_rede', 'admin_socio'].includes(papel)) {
     return { gruposAprovacao: [] as string[], aprovaPagamentoSensivel: false }
   }
   const ids = [...new Set(gruposAprovacao)]
@@ -100,7 +101,7 @@ async function validarAprovacao(papel: string, gruposAprovacao: string[], aprova
 // trocam de grupo (vendedor, mecânico, aux_adm, motorista), a lista não faz
 // nada — zera para não guardar lixo no cadastro.
 async function validarAcesso(papel: string, gruposAcesso: string[]) {
-  if (papel !== 'admin_socio') return { gruposAcesso: [] as string[] }
+  if (papel !== 'admin_socio' && papel !== 'admin_rede') return { gruposAcesso: [] as string[] }
 
   const ids = [...new Set(gruposAcesso)]
   if (ids.length === 0) return { gruposAcesso: [] }
@@ -119,6 +120,8 @@ async function validarAcesso(papel: string, gruposAcesso: string[]) {
 async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso: string[]): Promise<string | null> {
   if (papel === 'admin_geral') return null
   const grupoId = lojaId ? await getGrupoIdDaLoja(lojaId) : gruposAcesso[0]
+  // O admin_rede precisa de Conta própria (ADR-0019): os grupos liberados somam por cima dela.
+  if (!grupoId && papel === 'admin_rede') throw new Error('Escolha a loja ou um grupo de acesso do Admin de Rede')
   if (!grupoId) return null
   const [g] = await db.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
   return g?.contaId ?? null
@@ -146,7 +149,7 @@ export async function criarUsuarioAction(dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId?: string | null
-}) {
+}): Promise<string> {
   const admin = await gestorDaSessao()
   // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
   exigir(recusaDaGravacao(admin, null, await cadastroPedido(dados, true)))
@@ -186,6 +189,7 @@ export async function criarUsuarioAction(dados: {
   await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
 
   revalidatePath('/admin/usuarios')
+  return data.user.id
 }
 
 export async function editarUsuarioAction(id: string, dados: {
@@ -280,6 +284,10 @@ export async function alternarAtivoUsuarioAction(id: string, ativo: boolean) {
 export async function excluirUsuarioAction(id: string) {
   const admin = await gestorDaSessao()
   if (!podeExcluir(admin)) throw new Error('Só o Admin Geral exclui usuário; desative em vez de excluir')
+  // O histórico de liberações (#517) aponta para quem recebeu e para quem liberou.
+  const [liberacao] = await db.select({ id: gruposLiberados.id }).from(gruposLiberados)
+    .where(or(eq(gruposLiberados.usuarioId, id), eq(gruposLiberados.liberadoPor, id))).limit(1)
+  if (liberacao) throw new Error('Usuário com histórico de grupos liberados: desative em vez de excluir')
   const supabase = getAdminClient()
 
   const [alvo] = await db.delete(usuarios).where(eq(usuarios.id, id)).returning(colunasAlvo)
@@ -288,5 +296,22 @@ export async function excluirUsuarioAction(id: string) {
   if (error) throw new Error(error.message)
   if (alvo) await registrarPermissao(admin.id, alvo, { acao: 'excluido' })
 
+  revalidatePath('/admin/usuarios')
+}
+
+// Grupos de outras Contas para o admin_rede (#517, ADR-0019): só o admin_geral, e cada
+// liberação ou revogação vai para o log no grupo liberado, que é onde a Conta dona vê.
+export async function salvarGruposLiberadosAction(id: string, grupoIds: string[]) {
+  const admin = await gestorDaSessao()
+  const r = await db.transaction(tx => sincronizarGruposLiberados(tx, admin, id, grupoIds))
+  if (!r.ok) throw new Error(r.erro)
+  const [alvo] = await db.select(colunasAlvo).from(usuarios).where(eq(usuarios.id, id)).limit(1)
+  const registros = [...r.liberados.map(g => ['grupo_liberado', g] as const), ...r.revogados.map(g => ['grupo_revogado', g] as const)]
+  for (const [acao, grupoId] of registros) {
+    await registrarAcaoSensivelSemFalhar({
+      tipo: 'permissao_alterada', usuarioId: admin.id, grupoId,
+      detalhe: { acao, alvoId: id, alvoNome: alvo?.nome, contaOrigemId: alvo?.contaId },
+    })
+  }
   revalidatePath('/admin/usuarios')
 }
