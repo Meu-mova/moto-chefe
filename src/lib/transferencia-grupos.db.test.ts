@@ -93,15 +93,29 @@ test('Conta inexistente: mesma resposta de sempre, sem log', async () => {
   })
 })
 
-test('destino de transferência: chave desligada só no próprio grupo; ligada, qualquer grupo da mesma Conta, nunca de outra', async () => {
+test('destino de transferência: chave desligada nega; ligada, qualquer grupo da Conta da moto, nunca de outra', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A')
     const b = await semearConta(tx, 'B')
-    assert.equal(await mod.destinoEntreGruposPermitido(a.contaId, a.g2.lojaId, tx), false)
+    assert.equal(await mod.destinoEntreGruposPermitido(a.g1.lojaId, a.g2.lojaId, tx), false)
     const geral = await usuario(tx, 'admin_geral', null)
     await mod.alterarTransferenciaEntreGrupos(geral, a.contaId, true, tx)
-    assert.equal(await mod.destinoEntreGruposPermitido(a.contaId, a.g2.lojaId, tx), true)
-    assert.equal(await mod.destinoEntreGruposPermitido(a.contaId, b.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoEntreGruposPermitido(a.g1.lojaId, a.g2.lojaId, tx), true)
+    assert.equal(await mod.destinoEntreGruposPermitido(a.g1.lojaId, b.g1.lojaId, tx), false)
+  })
+})
+
+test('sócio da Conta A com grupo liberado da B (#520): moto da B não vai para loja da A, com qualquer chave ligada', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A')
+    const b = await semearConta(tx, 'B')
+    const geral = await usuario(tx, 'admin_geral', null)
+    // A chave que conta é a da Conta da moto; nem a da Conta do sócio nem a da B abrem a passagem entre Contas.
+    await mod.alterarTransferenciaEntreGrupos(geral, a.contaId, true, tx)
+    assert.equal(await mod.destinoEntreGruposPermitido(b.g1.lojaId, a.g1.lojaId, tx), false)
+    await mod.alterarTransferenciaEntreGrupos(geral, b.contaId, true, tx)
+    assert.equal(await mod.destinoEntreGruposPermitido(b.g1.lojaId, a.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoEntreGruposPermitido(b.g1.lojaId, b.g2.lojaId, tx), true)
   })
 })
 

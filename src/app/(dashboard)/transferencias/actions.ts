@@ -46,7 +46,7 @@ export async function solicitarTransferenciaAction(
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
   const destinoOk = await podeAbrirRegistroDaLoja(usuario, lojaDestinoId)
-    || (usuario.papel === 'admin_socio' && await destinoEntreGruposPermitido(usuario.contaId, lojaDestinoId))
+    || (usuario.papel === 'admin_socio' && await destinoEntreGruposPermitido(moto.lojaId, lojaDestinoId))
   if (!destinoOk) {
     throw new Error('Loja de destino fora do seu grupo')
   }

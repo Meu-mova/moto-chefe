@@ -202,10 +202,11 @@ export async function listarLojaIdsDoGrupoAtivo(
 }
 
 // ─── Transferência entre grupos ──────────────────────────────────────────────
-// Chave da Conta do grupo ativo, ligada só pelo admin_geral (#552). Substituiu a
-// exceção por e-mail. Quem chama ainda restringe aos admins.
-export async function podeTransferirEntreGrupos(usuario: UsuarioComConta): Promise<boolean> {
-  return transferenciaEntreGruposLigada(await contaDoGrupoAtivo(usuario))
+// Chave da Conta do usuário, a mesma cujas lojas a tela lista (listarLojasAtivasDaConta),
+// ligada só pelo admin_geral (#552). Só decide o que a tela mostra: a action confere
+// a Conta da moto. Quem chama ainda restringe aos admins.
+export async function podeTransferirEntreGrupos(usuario: { contaId: string | null }): Promise<boolean> {
+  return transferenciaEntreGruposLigada(usuario.contaId)
 }
 
 // ─── Aprovação de pagamento sensível (financiamento/transferência) ────────────

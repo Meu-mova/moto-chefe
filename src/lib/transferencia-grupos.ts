@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db'
 import { contas, grupos, lojas } from '@/lib/db/schema'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
@@ -16,13 +17,21 @@ export async function transferenciaEntreGruposLigada(contaId: string | null | un
   return c?.ligada ?? false
 }
 
-/** Loja de destino de outro grupo: só com a chave ligada e só se a loja for da mesma Conta. */
-export async function destinoEntreGruposPermitido(contaId: string | null | undefined, lojaDestinoId: string, exec: Leitor = db): Promise<boolean> {
-  if (!contaId || !(await transferenciaEntreGruposLigada(contaId, exec))) return false
-  const [l] = await exec.select({ id: lojas.id }).from(lojas)
+/**
+ * Loja de destino de outro grupo: só se for da mesma Conta da loja da MOTO e com a chave
+ * dessa Conta ligada. Nunca a Conta do usuário: sócio com grupo liberado de outra Conta
+ * (#520) levaria a moto de uma Conta para a outra.
+ */
+export async function destinoEntreGruposPermitido(motoLojaId: string, lojaDestinoId: string, exec: Leitor = db): Promise<boolean> {
+  const lojaMoto = alias(lojas, 'loja_moto')
+  const grupoMoto = alias(grupos, 'grupo_moto')
+  const [ok] = await exec.select({ id: lojas.id }).from(lojas)
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-    .where(and(eq(lojas.id, lojaDestinoId), eq(grupos.contaId, contaId))).limit(1)
-  return !!l
+    .innerJoin(grupoMoto, eq(grupoMoto.contaId, grupos.contaId))
+    .innerJoin(lojaMoto, and(eq(lojaMoto.grupoId, grupoMoto.id), eq(lojaMoto.id, motoLojaId)))
+    .innerJoin(contas, and(eq(contas.id, grupos.contaId), eq(contas.transferenciaEntreGrupos, true)))
+    .where(eq(lojas.id, lojaDestinoId)).limit(1)
+  return !!ok
 }
 
 export async function alterarTransferenciaEntreGrupos(
