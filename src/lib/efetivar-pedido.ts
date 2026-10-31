@@ -47,13 +47,29 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
   if (moto.status === 'vendida') throw new RecusaUsuario('Moto já foi vendida')
 
+  // Contato e endereço saem do cadastro, não do navegador: a NF exige o endereço (#577).
+  // Campo vazio no cadastro fica vazio na venda; a prévia da NF avisa o que faltar.
+  let doCadastro = {}
   if (d.clienteId) {
     // Cliente de outra Conta não existe para esta venda (ADR-0018); na persona, nem o de
     // outro grupo da Conta dona (ADR-0019).
     const contaId = await contaDaLoja(pedido.lojaId, tx)
-    const [cliente] = await tx.select({ id: clientes.id }).from(clientes)
+    const [cliente] = await tx.select({
+      clienteCelular: clientes.celular,
+      clienteEmail: clientes.email,
+      clienteCep: clientes.cep,
+      clienteLogradouro: clientes.endereco,
+      clienteNumero: clientes.numero,
+      clienteComplemento: clientes.complemento,
+      clienteBairro: clientes.bairro,
+      clienteCidade: clientes.cidade,
+      clienteEstado: clientes.uf,
+      clienteIndicadorIe: clientes.indicadorIe,
+      clienteInscricaoEstadual: clientes.inscricaoEstadual,
+    }).from(clientes)
       .where(and(eq(clientes.id, d.clienteId), clientesDoEscopo(contaId, { contaId, grupoLiberado: d.grupoLiberado }))).limit(1)
     if (!cliente) throw new RecusaUsuario('Cliente não encontrado')
+    doCadastro = cliente
   }
 
   const [reservaAtiva] = await tx
@@ -71,6 +87,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     vendedorId: pedido.vendedorId,
     efetivadoPor: d.efetivadoPor,
     clienteId: d.clienteId,
+    ...doCadastro,
     clienteNome: d.clienteNome,
     clienteCpf: d.clienteCpf,
     valor,
