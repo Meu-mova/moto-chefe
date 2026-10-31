@@ -1,4 +1,5 @@
 @AGENTS.md
+@docs/agents/review.md
 
 ## Issues, quadro e releases
 
