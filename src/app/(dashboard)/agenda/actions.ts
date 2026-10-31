@@ -41,7 +41,7 @@ async function criarAgendamento(input: CriarAgendamentoInput) {
   const lojaId  = isAdmin ? input.lojaId : usuario.lojaId
   if (!lojaId) throw new RecusaUsuario('Loja não identificada')
   if (!(await podeAgirNaLoja(usuario, lojaId))) throw new RecusaUsuario('Sem permissão para esta loja')
-  await conferirVinculosDaConta(lojaId, { mecanicoId: input.mecanicoId })
+  await conferirVinculosDaConta(lojaId, { mecanicoId: input.mecanicoId }, usuario.grupoLiberado)
 
   const [ag] = await db.insert(agendamentos).values({
     lojaId,
@@ -134,7 +134,7 @@ async function agendamentoVirarOS(agendamentoId: string, input: VirarOSInput = {
     throw new RecusaUsuario('Informe a razão social da empresa')
   }
   const mecanicoId = input.mecanicoId !== undefined ? (input.mecanicoId || null) : (ag.mecanicoId || null)
-  await conferirVinculosDaConta(ag.lojaId, { motoId: input.motoId, clienteId, mecanicoId })
+  await conferirVinculosDaConta(ag.lojaId, { motoId: input.motoId, clienteId, mecanicoId }, usuario.grupoLiberado)
 
   const [os] = await db.insert(ordensServico).values({
     lojaId:       ag.lojaId,

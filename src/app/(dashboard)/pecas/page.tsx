@@ -1,4 +1,5 @@
-import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
+import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
@@ -40,7 +41,7 @@ export default async function PecasPage({
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const podeVender = podeVenderPeca(usuario.papel)
   // Mesma regra da Entrada: o servidor das actions também confere.
-  const podeImportar = podeRegistrarEntradaMotos(usuario)
+  const podeImportar = acessaModulo(usuario, 'entrada')
 
   const params = await searchParams
   // Período sempre preenchido: os cards somam a lista devolvida, e sem recorte a

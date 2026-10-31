@@ -4,7 +4,9 @@ import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
+import { cookies } from 'next/headers'
 import { modulosDoCargoDoUsuario } from '@/lib/cargos'
+import { gruposLiberadosVivos, usuarioDaRede } from '@/lib/grupos-liberados'
 
 // getUsuarioLogado roda PRIMEIRO em toda página (layout e página). Se a query de
 // usuário fica esperando uma conexão do pool (instância do Fluid com conexões
@@ -68,7 +70,12 @@ export const getUsuarioLogado = cache(async () => {
 
   // Lido a cada requisição: editar o cargo vale na hora para todos os usuários dele.
   const modulosDoCargo = await withTimeout(modulosDoCargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
-  return { ...usuario, modulosDoCargo }
+  // Lido a cada requisição: liberar ou revogar um grupo para o admin_rede vale na hora (#517).
+  const liberados = usuario.papel === 'admin_rede'
+    ? await withTimeout(gruposLiberadosVivos(usuario.id), 8000, 'grupos liberados do usuário no banco')
+    : []
+  const grupoAtivoId = liberados.length ? (await cookies()).get('grupoAtivo')?.value ?? null : null
+  return { ...usuarioDaRede(usuario, liberados, grupoAtivoId), modulosDoCargo }
 })
 
 export function isAdmin(papel: string) {
@@ -91,17 +98,6 @@ export function temPapel(
   return usuario.papel === papel || (usuario.papeisExtras ?? []).includes(papel)
 }
 
-// ─── Exceção pontual: entrada/importação de motos ─────────────────────────────
-// Liberado nominalmente para o adm da loja de Pouso Alegre, por decisão
-// explícita — NÃO é uma permissão do papel aux_adm, os demais aux_adm continuam
-// de fora. Mesmo padrão de podeTransferirEntreGrupos em @/lib/grupo.
-const EMAIL_ENTRADA_MOTOS = 'pedro.henrique@motochefesuldeminas.com.br'
-
-export function podeRegistrarEntradaMotos(usuario: { papel: string; email: string }) {
-  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) return true
-  return usuario.email === EMAIL_ENTRADA_MOTOS
-}
-
 // ─── Exceção pontual: categorizar saída do banco (/despesas) ──────────────────
 // Decisão do Cesar (12/08/2026): lançar, editar e cancelar a categorização das
 // saídas do Open Finance é só dele e do Mateus. Os demais sócios (Luiz Paulo,
@@ -109,7 +105,7 @@ export function podeRegistrarEntradaMotos(usuario: { papel: string; email: strin
 // 06/10/2026, também a pedido do Cesar.
 //
 // É nominal porque o Mateus é admin_socio igual aos outros: não existe papel que
-// separe os dois grupos. Mesmo padrão de podeRegistrarEntradaMotos acima.
+// separe os dois grupos.
 const EMAILS_CATEGORIZA_DESPESA_BANCO = [
   'mateus@motochefesuldeminas.com.br',
   'joao.brito@motochefesuldeminas.com.br',

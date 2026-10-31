@@ -11,7 +11,7 @@ import {
   socioAprovaNoGrupo,
   type UsuarioAprovador,
 } from '@/lib/aprovacao-permissao'
-import { grupoEstaNaConta } from '@/lib/conta'
+import { grupoNoEscopo } from '@/lib/conta'
 import { escolherGrupoPadrao, gruposVisiveis, podeVerGrupo, type UsuarioAcessoGrupo } from '@/lib/acesso-grupo'
 
 // Usuário com o campo de acesso OBRIGATÓRIO (mesmo que null) — diferente de
@@ -26,8 +26,15 @@ type UsuarioComAcessoObrigatorio = { papel: string; gruposAcesso: string[] | nul
 // Conta obrigatória no tipo (mesmo que null): sem ela a regra recusa todo grupo, e
 // esquecer o campo viraria "usuário sem acesso" calado em vez de erro de compilação.
 type UsuarioComConta = { papel: string; lojaId: string | null; contaId: string | null } & Partial<UsuarioAcessoGrupo>
+  & { origem?: { lojaId: string | null; contaId: string | null; gruposAcesso: string[]; gruposLiberados: { grupoId: string }[] } }
 
-type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null }
+// Seletor e troca de grupo decidem pela identidade da própria Conta: na persona do
+// admin_rede (#517) o usuário da requisição só vê o grupo liberado.
+function identidadeDeOrigem<U extends UsuarioComConta>(usuario: U): U {
+  return usuario.origem ? { ...usuario, ...usuario.origem } : usuario
+}
+
+type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null; grupoLiberado?: string | null }
 
 export type Grupo = typeof grupos.$inferSelect
 
@@ -57,6 +64,7 @@ export async function podeUsuarioVerGrupo(
   usuario: UsuarioComConta,
   grupoId: string,
 ): Promise<boolean> {
+  usuario = identidadeDeOrigem(usuario)
   const [grupoDaPropriaLoja, [grupo]] = await Promise.all([
     grupoIdDaPropriaLoja(usuario.lojaId),
     db.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1),
@@ -153,9 +161,15 @@ export async function listarGruposAtivos(): Promise<Grupo[]> {
 // vez de checar um id específico. Páginas que precisam do universo inteiro de
 // grupos (ex.: /admin/usuarios editando a lista de outra pessoa) continuam
 // usando listarGruposAtivos() direto — de propósito, não é o mesmo caso de uso.
+//
+// Grupos liberados de outras Contas ao admin_rede (#517) só entram com `comLiberados`, que é
+// o caso do seletor. As demais telas (usuários, mensalidade, configurações) ficam no escopo
+// da requisição: a própria Conta, ou só o grupo liberado na persona.
 export async function listarGruposVisiveis(
   usuario: UsuarioComConta,
+  opts?: { comLiberados?: boolean },
 ): Promise<Grupo[]> {
+  usuario = opts?.comLiberados ? identidadeDeOrigem(usuario) : { ...usuario, gruposLiberados: [] }
   const [todos, grupoDaPropriaLoja] = await Promise.all([
     listarGruposAtivos(),
     grupoIdDaPropriaLoja(usuario.lojaId),
@@ -168,11 +182,11 @@ export async function listarGruposVisiveis(
 export async function listarLojasDoGrupoAtivo(
   usuario: { papel: string; lojaId: string | null } & UsuarioComAcessoObrigatorio,
   opts?: { somenteAtivas?: boolean },
-): Promise<{ id: string; nome: string }[]> {
+): Promise<{ id: string; nome: string; grupoId: string }[]> {
   const grupo = await getGrupoAtivo(usuario)
   const somenteAtivas = opts?.somenteAtivas ?? true
   return db
-    .select({ id: lojas.id, nome: lojas.nome })
+    .select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId })
     .from(lojas)
     .where(somenteAtivas ? and(eq(lojas.grupoId, grupo.id), eq(lojas.ativa, true)) : eq(lojas.grupoId, grupo.id))
     .orderBy(lojas.nome)
@@ -230,7 +244,7 @@ export async function podeAprovarPagamentoSensivelNoGrupoAtivo(
 // Fora o admin_geral, aprovar (pela exceção nominal, pelos grupos de aprovação ou como
 // sócio) só vale em grupo da própria Conta (ADR-0018).
 async function aprovaNaContaDoGrupo(usuario: UsuarioAprovadorComConta, grupoId: string): Promise<boolean> {
-  return usuario.papel === 'admin_geral' || grupoEstaNaConta(grupoId, usuario.contaId)
+  return usuario.papel === 'admin_geral' || grupoNoEscopo(grupoId, usuario)
 }
 
 // ─── Aprovação de venda abaixo do valor mínimo ────────────────────────────────
@@ -268,3 +282,6 @@ export const grupoAtivoDaRequisicao = cache(getGrupoAtivo)
 
 /** Os grupos que o usuário enxerga, uma vez por requisição (layout e barra de grupo). */
 export const gruposVisiveisDaRequisicao = cache(listarGruposVisiveis)
+
+/** Os grupos do seletor de empresa, com os liberados de outras Contas (#517). */
+export const gruposDoSeletorDaRequisicao = cache((usuario: UsuarioComConta) => listarGruposVisiveis(usuario, { comLiberados: true }))

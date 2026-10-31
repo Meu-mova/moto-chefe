@@ -1,9 +1,10 @@
 'use server'
-import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
+import { contasParaNovoGrupo, criarGrupo } from '@/lib/grupo-novo'
 import { db } from '@/lib/db'
-import { contaMarcas, contas, grupos } from '@/lib/db/schema'
-import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
-import { eq } from 'drizzle-orm'
+import { contas, grupos } from '@/lib/db/schema'
+import { asc, eq, isNull, sql } from 'drizzle-orm'
+import { moverGrupo, previaMoverGrupo } from '@/lib/mover-grupo'
+import { origemDaRequisicaoAtual } from '@/lib/log-acoes'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { cifrar, decifrar } from '@/lib/cripto'
@@ -23,9 +24,11 @@ async function assertAdmin() {
  */
 export async function listarGruposAction() {
   await assertAdmin()
-  const linhas = await db.select().from(grupos).orderBy(grupos.nome)
-  return linhas.map(({ mcpaiEndpointUrl, ...g }) => ({
+  const linhas = await db.select({ g: grupos, contaNome: contas.nome }).from(grupos)
+    .innerJoin(contas, eq(contas.id, grupos.contaId)).orderBy(grupos.nome)
+  return linhas.map(({ g: { mcpaiEndpointUrl, ...g }, contaNome }) => ({
     ...g,
+    contaNome,
     mcpaiConfigurado: !!mcpaiEndpointUrl,
     mcpaiResumo: mcpaiEndpointUrl ? resumoDaChave(mcpaiEndpointUrl) : null,
   }))
@@ -78,17 +81,14 @@ function cifrarChaveMcp(dados: GrupoInput): string | null | undefined {
   return cifrar(url)
 }
 
-export async function criarGrupoAction(dados: GrupoInput) {
+export async function criarGrupoAction(dados: GrupoInput & { contaId?: string | null }) {
   await assertAdmin()
   if (!dados.nome.trim()) throw new Error('Nome obrigatório')
   if (!dados.cnpj.trim()) throw new Error('CNPJ obrigatório')
 
-  // Grupo novo nasce numa Conta nova (ADR-0018); escolher uma Conta existente vem depois (#263).
+  // Conta nova (padrão) ou uma existente escolhida pelo admin_geral (#199, ADR-0018).
   await db.transaction(async tx => {
-    const [conta] = await tx.insert(contas).values({ nome: dados.nome.trim() }).returning({ id: contas.id })
-    await tx.insert(contaMarcas).values(MARCAS_DA_CONTA_NOVA.map(marca => ({ contaId: conta.id, marca })))
-    const [grupo] = await tx.insert(grupos).values({
-      contaId: conta.id,
+    await criarGrupo(tx, {
       nome: dados.nome.trim(),
       cnpj: dados.cnpj.trim(),
       ativo: dados.ativo,
@@ -99,12 +99,15 @@ export async function criarGrupoAction(dados: GrupoInput) {
       enderecoSede: dados.enderecoSede?.trim() || null,
       cidadeSede: dados.cidadeSede?.trim() || null,
       comarcaForo: dados.comarcaForo?.trim() || null,
-    }).returning({ id: grupos.id })
-    // Grupo novo já nasce com o preço sugerido da MotoChefe nos modelos da Conta (#522).
-    await preencherGruposComPrecoPadrao([grupo.id], tx)
+    }, dados.contaId || null)
   })
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
+}
+
+export async function listarContasAction() {
+  await assertAdmin()
+  return contasParaNovoGrupo()
 }
 
 export async function editarGrupoAction(id: string, dados: GrupoInput) {
@@ -131,4 +134,35 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
+}
+
+// ─── Mover grupo para outra Conta (#554) ─────────────────────────────────────
+
+/** Contas ativas para onde um grupo pode ir, com os grupos de cada uma para reconhecer. */
+export async function contasDestinoAction() {
+  await assertAdmin()
+  return db.select({
+    id: contas.id,
+    nome: contas.nome,
+    grupos: sql<string[]>`coalesce(array_agg(${grupos.nome} order by ${grupos.nome}) filter (where ${grupos.id} is not null), '{}')`,
+  }).from(contas).leftJoin(grupos, eq(grupos.contaId, contas.id))
+    .where(isNull(contas.desativadaEm)).groupBy(contas.id).orderBy(asc(contas.nome))
+}
+
+/** Só leitura: o que iria junto e o que bloqueia. */
+export async function previaMoverGrupoAction(grupoId: string, contaDestinoId: string) {
+  await assertAdmin()
+  return previaMoverGrupo(db, grupoId, contaDestinoId)
+}
+
+export async function moverGrupoAction(grupoId: string, contaDestinoId: string) {
+  const u = await getUsuarioLogado()
+  if (u.papel !== 'admin_geral') return { ok: false as const, erro: 'Acesso restrito ao Admin Geral', previa: null }
+  const origem = await origemDaRequisicaoAtual()
+  const r = await db.transaction(tx => moverGrupo(tx, u, grupoId, contaDestinoId, origem))
+  if (r.ok) {
+    revalidatePath('/admin/grupos')
+    revalidatePath('/', 'layout')
+  }
+  return r
 }

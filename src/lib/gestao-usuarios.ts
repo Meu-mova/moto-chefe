@@ -8,6 +8,7 @@
 // par com mais grupos e entraria por ele.
 
 import { CARGO_INDISPONIVEL, CARGOS_VISIVEIS } from '@/lib/cargos-opcoes'
+import { ITENS, liberavelPara } from '@/lib/navegacao'
 
 export type Gestor = {
   id: string
@@ -31,8 +32,12 @@ export type CadastroGestao = AlvoGestao & {
   modulosBloqueados: string[]
   aprovaPagamentoSensivel: boolean
   ativo: boolean
+  /** O formulário informou uma loja; grupoDaLoja null aí é loja que não existe. */
+  lojaPedida?: boolean
 }
 
+// Na persona do admin_rede (#517) também: ele vê só o grupo liberado, e podeGerenciar
+// já deixa de fora quem tem qualquer outro grupo da Conta dona.
 export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
   return gestor.papel === 'admin_geral' || gestor.papel === 'admin_socio'
 }
@@ -47,6 +52,8 @@ export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, 
   // admin_geral deveria estar sem loja, mas nada impõe isso: com loja num grupo do
   // sócio, ele trocaria a senha do admin_geral e entraria como tal.
   if (alvo.papel === 'admin_geral') return false
+  // admin_rede fica acima do sócio (ADR-0019): só o admin_geral mexe nele.
+  if (alvo.papel === 'admin_rede') return false
   const grupos = gruposDe(alvo)
   return grupos.length > 0 && grupos.every(g => gestor.gruposVisiveis.includes(g))
 }
@@ -58,14 +65,23 @@ export function recusaDaGravacao(
   depois: CadastroGestao,
 ): string | null {
   if (!CARGOS_VISIVEIS && depois.papel === 'cargo') return CARGO_INDISPONIVEL
+  // Tela liberável só para certos papéis (Entrada: só aux_adm, #488): vale até para o admin_geral.
+  const naoLiberavel = depois.modulosExtras.map(id => ITENS.find(i => i.id === id)).find(i => i && !liberavelPara(i, depois.papel))
+  if (naoLiberavel) return `${naoLiberavel.label} não pode ser liberada para esta função`
   if (gestor.papel === 'admin_geral') return null
   if (gestor.papel !== 'admin_socio') return 'Sem permissão para gerenciar usuários'
-  if (antes && !podeGerenciar(gestor, antes)) return 'Usuário fora do seu alcance'
+  // Mesma frase de id inexistente: a recusa não revela que o usuário existe fora do alcance.
+  if (antes && !podeGerenciar(gestor, antes)) return 'Usuário não encontrado'
   // Para a Conta não ficar sem sócio.
   if (antes?.id === gestor.id && (depois.papel !== antes.papel || !depois.ativo)) {
     return 'Você não pode desativar nem trocar o papel de si mesmo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
+  if (depois.papel === 'admin_rede') return 'Só o Admin Geral dá o papel Admin de Rede'
+  // Loja inexistente e loja de grupo que o sócio não vê recebem a mesma frase.
+  if (depois.lojaPedida && (depois.grupoDaLoja === null || !gestor.gruposVisiveis.includes(depois.grupoDaLoja))) {
+    return 'Loja não encontrada'
+  }
   // Sem loja nem grupo, o usuário sairia do alcance do próprio sócio que o criou.
   // Só o sócio usa grupos de acesso; os demais papéis precisam de loja.
   if (depois.grupoDaLoja === null && (depois.papel !== 'admin_socio' || depois.gruposAcesso.length === 0)) {
@@ -91,7 +107,7 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
+const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
@@ -99,7 +115,7 @@ export function limitesDaTela(gestor: Gestor) {
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
+    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral' && p !== 'admin_rede')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
@@ -110,6 +126,9 @@ export function limitesDaTela(gestor: Gestor) {
 }
 
 export type LimitesDaTela = ReturnType<typeof limitesDaTela>
+
+/** Excluir recusado porque algo aponta para o usuário (venda, estoque, OS, liberação...). */
+export const COM_HISTORICO = 'Este usuário tem histórico no sistema. Desative em vez de excluir.'
 
 // Excluir apaga o login e esbarra no histórico (vendas, OS) que aponta para o usuário.
 export function podeExcluir(gestor: { papel: string }): boolean {

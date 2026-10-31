@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarTransferencias, listarMotosTransferiveis } from '@/lib/queries/transferencias'
-import { listarLojasAtivasDaConta, lojasDaConta } from '@/lib/conta'
+import { listarLojasAtivasDaConta, lojasDoEscopo } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { TransferenciaCard } from './components/transferencia-card'
@@ -53,7 +53,7 @@ export default async function TransferenciasPage({
     // Quem não é admin só solicita da própria loja; o admin, do grupo ativo; a
     // exceção entre grupos, das lojas da Conta.
     (acessoMultiGrupo
-      ? contaDoGrupoAtivo(usuario).then(c => lojasDaConta(c)).then(rs => rs.map(r => r.id))
+      ? contaDoGrupoAtivo(usuario).then(contaId => lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado })).then(rs => rs.map(r => r.id))
       : Promise.resolve(isAdmin ? lojaIdsGrupo : usuario.lojaId ? [usuario.lojaId] : [])
     ).then(ids => listarMotosTransferiveis(ids)),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),

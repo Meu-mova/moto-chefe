@@ -111,7 +111,7 @@ async function abrirOS(input: AbrirOSInput) {
   if (!input.clienteId && tipoPessoa === 'juridica' && !input.clienteNomeExterno?.trim()) {
     throw new RecusaUsuario('Informe a razão social da empresa')
   }
-  await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, mecanicoId: input.mecanicoId })
+  await conferirVinculosDaConta(lojaId, { motoId: input.motoId, clienteId: input.clienteId, mecanicoId: input.mecanicoId }, usuario.grupoLiberado)
 
   await db.insert(ordensServico).values({
     lojaId,
@@ -187,8 +187,8 @@ async function atualizarOS(osId: string, dados: {
   clienteNomeExterno?: string | null
   clienteFoneExterno?: string | null
 }) {
-  const { os } = await verificarAcessoOS(osId, EDITORES)
-  await conferirVinculosDaConta(os.lojaId, { mecanicoId: dados.mecanicoId })
+  const { usuario, os } = await verificarAcessoOS(osId, EDITORES)
+  await conferirVinculosDaConta(os.lojaId, { mecanicoId: dados.mecanicoId }, usuario.grupoLiberado)
   await db.update(ordensServico).set({
     mecanicoId:         dados.mecanicoId !== undefined ? (dados.mecanicoId || null) : undefined,
     descricao:          dados.descricao  !== undefined ? dados.descricao            : undefined,

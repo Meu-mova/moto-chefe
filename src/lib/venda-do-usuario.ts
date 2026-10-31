@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { grupos, lojas, vendas } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
-import { lojasDaConta } from '@/lib/conta'
+import { lojasDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -19,7 +19,7 @@ export async function vendaDoUsuario(
   exec: Executor = db,
 ) {
   const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(vendas.lojaId, lojasDaConta(usuario.contaId)) : null
+    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) return null
   const [venda] = await exec.select().from(vendas)
     .where(and(filtro, daConta))
@@ -40,7 +40,7 @@ export async function vendaDoUsuarioParaNf(
   exec: Executor = db,
 ) {
   const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(vendas.lojaId, lojasDaConta(usuario.contaId)) : null
+    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) return null
   const [linha] = await exec.select({ venda: vendas, grupoId: lojas.grupoId, contaId: grupos.contaId })
     .from(vendas)

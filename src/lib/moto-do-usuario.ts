@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
 import { podeVenderMotoDaLoja } from '@/lib/acesso-registro'
-import { lojasDaConta } from '@/lib/conta'
+import { lojasDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -18,7 +18,7 @@ export async function motoDoUsuario(
   exec: Executor = db,
 ) {
   const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(motos.lojaId, lojasDaConta(usuario.contaId)) : null
+    : usuario.contaId ? inArray(motos.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) return null
   const [moto] = await exec.select().from(motos).where(and(eq(motos.id, motoId), daConta)).limit(1)
   if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId, exec))) return null

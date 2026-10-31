@@ -10,7 +10,7 @@ import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
-export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'])
+export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', 'admin_rede'])
 export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
 export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
 export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
@@ -41,6 +41,8 @@ export const contas = pgTable('contas', {
   id:       uuid('id').primaryKey().defaultRandom(),
   nome:     text('nome').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Preenchida quando o único grupo dela foi movido para outra Conta (#554).
+  desativadaEm: timestamp('desativada_em', { withTimezone: true }),
 })
 
 // ─── cargos ──────────────────────────────────────────────────────────────────

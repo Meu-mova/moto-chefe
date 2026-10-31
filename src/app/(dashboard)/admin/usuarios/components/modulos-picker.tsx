@@ -1,5 +1,5 @@
 'use client'
-import { CATEGORIAS, ITENS } from '@/lib/navegacao'
+import { CATEGORIAS, ITENS, liberavelPara } from '@/lib/navegacao'
 import { estado as estadoModulo, alternar as alternarModulo } from '@/lib/modulos-picker-estado'
 
 type Props = {
@@ -35,7 +35,7 @@ export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloquea
         <div key={slug}>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{nome}</p>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral && !i.soPeloPapel)
+            {ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral && !i.soPeloPapel && (liberavelPara(i, papel) || estado(i.id) !== 'sem'))
               .filter(i => liberaveis === null || liberaveis.includes(i.id) || estado(i.id) !== 'sem').map(i => {
               const e = estado(i.id)
               return (

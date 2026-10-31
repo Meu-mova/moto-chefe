@@ -5,7 +5,7 @@ import {
   avaliacoesGooglePlacas, avaliacoesGoogleToques, grupos, lojas, usuarios,
 } from '@/lib/db/schema'
 import { cifrar, decifrar } from '@/lib/cripto'
-import { grupoEstaNaConta } from '@/lib/conta'
+import { grupoNoEscopo } from '@/lib/conta'
 import { hojeBrt, inicioDoDiaBrt, mesBrt } from '@/lib/data-venda'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
@@ -20,7 +20,7 @@ import {
  */
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
-type Usuario = { id?: string; papel: string; contaId: string | null }
+type Usuario = { id?: string; papel: string; contaId: string | null; grupoLiberado?: string | null }
 type Resultado = { ok: true } | { ok: false; erro: string }
 
 /** Conteúdo do Google não fica mais que isso (termos da Google Maps Platform). */
@@ -34,7 +34,7 @@ async function grupoDoUsuario(usuario: Usuario, grupoId: string, exec: Executor)
     const [g] = await exec.select({ id: grupos.id }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
     return !!g
   }
-  return grupoEstaNaConta(grupoId, usuario.contaId, exec)
+  return grupoNoEscopo(grupoId, usuario, exec)
 }
 
 async function lojaDoGrupo(lojaId: string, grupoId: string, exec: Executor): Promise<boolean> {

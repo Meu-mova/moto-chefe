@@ -11,7 +11,7 @@ export const TIPOS_LOG = [
   'login', 'troca_grupo', 'acesso_dia',
   'venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada',
   'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador',
-  'logo_danfe_enviada', 'preco_compra_alterado',
+  'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta',
 ] as const
 export type TipoLog = (typeof TIPOS_LOG)[number]
 
@@ -78,7 +78,7 @@ export type AcaoSensivel = {
   detalhe: Record<string, unknown>
 }
 
-async function origemDaRequisicaoAtual(): Promise<Origem> {
+export async function origemDaRequisicaoAtual(): Promise<Origem> {
   try {
     return origemDaRequisicao(await headers())
   } catch {

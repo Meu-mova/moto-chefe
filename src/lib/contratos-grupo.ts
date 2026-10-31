@@ -3,13 +3,13 @@ import { db } from '@/lib/db'
 import {
   categoriaEnum, contratosGrupo, grupos, lojas, modeloAjustes, modelos, motos, usuarios, vendas,
 } from '@/lib/db/schema'
-import { grupoEstaNaConta } from '@/lib/conta'
+import { grupoNoEscopo } from '@/lib/conta'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { montarHtmlDocumento, envolverDocumento, type DadosDocumento } from '@/lib/assinatura/documento'
 import { renderizarContratoGrupo, validarTextoContrato } from '@/lib/assinatura/contrato-grupo'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
-type Usuario = { id?: string; papel: string; contaId: string | null }
+type Usuario = { id?: string; papel: string; contaId: string | null; grupoLiberado?: string | null }
 
 export type Categoria = (typeof categoriaEnum.enumValues)[number]
 export const CATEGORIAS: readonly Categoria[] = categoriaEnum.enumValues
@@ -24,7 +24,7 @@ async function grupoVisivel(usuario: Usuario, grupoId: string, exec: Executor): 
     const [g] = await exec.select({ id: grupos.id }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
     return !!g
   }
-  return grupoEstaNaConta(grupoId, usuario.contaId, exec)
+  return grupoNoEscopo(grupoId, usuario, exec)
 }
 
 export type VersaoContrato = {
