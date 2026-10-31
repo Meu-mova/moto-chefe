@@ -9,6 +9,8 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { cifrar, decifrar } from '@/lib/cripto'
 import { resumirEndpoint } from '@/lib/mcpai-credencial'
+import { alterarTransferenciaEntreGrupos } from '@/lib/transferencia-grupos'
+import { count } from 'drizzle-orm'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -134,6 +136,23 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
+}
+
+/** Contas com mais de um grupo e a chave de transferência entre grupos (#552). */
+export async function listarContasTransferenciaAction() {
+  await assertAdmin()
+  const linhas = await db.select({ id: contas.id, nome: contas.nome, ligada: contas.transferenciaEntreGrupos, grupos: count(grupos.id) })
+    .from(contas).innerJoin(grupos, eq(grupos.contaId, contas.id))
+    .groupBy(contas.id, contas.nome, contas.transferenciaEntreGrupos)
+    .orderBy(contas.nome)
+  return linhas.filter(c => c.grupos > 1)
+}
+
+export async function alterarTransferenciaEntreGruposAction(contaId: string, ligada: boolean) {
+  const usuario = await getUsuarioLogado()
+  const r = await alterarTransferenciaEntreGrupos(usuario, contaId, ligada)
+  if (r.ok) revalidatePath('/admin/grupos')
+  return r
 }
 
 // ─── Mover grupo para outra Conta (#554) ─────────────────────────────────────
