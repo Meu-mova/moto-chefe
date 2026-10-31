@@ -86,7 +86,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const recolhida = (await cookies()).get(COOKIE_SIDEBAR_RECOLHIDA)?.value === '1'
   const itensIds = itensDoUsuario(usuario).map(i => i.id)
-  const usuarioMenu = { nome: usuario.nome, email: usuario.email, papel: usuario.papel }
+  // Só o rótulo do rodapé: o papel gravado (admin_rede), não o que governa as permissões.
+  const usuarioMenu = { nome: usuario.nome, email: usuario.email, papel: usuario.papelReal }
 
   return (
     <Providers>
