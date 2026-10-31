@@ -17,6 +17,12 @@ mais se erra:
   checkout exato da `origin/dev` e aplique tudo o que aparecer. Na v1.4.0 (16/10/2026) só a
   `0120` foi aplicada; a `0118` e a `0119`, já na `dev`, ficaram de fora e a tela de adesões
   subiu lendo colunas que não existiam.
+- **Depois que a release sobe, confira cada issue citada nos PRs dela** (`Refs #N` no corpo e
+  nos commits) antes de fechar: compare o checklist e o pedido da issue com o que os PRs
+  entregaram. Entregou tudo: feche como "completed" com "Saiu na vX.Y.Z". Entregou só parte:
+  deixe aberta e comente o que saiu na vX.Y.Z, o que falta e que por isso não foi fechada; no
+  Project, volte-a para "Em andamento". Na v1.18.0 a #552 entrou só com o PR A (#559), sem a
+  emissão; fechar pelo `Refs` daria a NF pelo grupo de entrada como pronta.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
 ## Sem co-autoria de IA
