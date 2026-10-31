@@ -2,6 +2,7 @@ import { getGrupoAtivo, grupoAtivoDaRequisicao, gruposDoSeletorDaRequisicao, lis
 import { GroupSwitcher } from './group-switcher'
 import { nomesDasContas } from '@/lib/conta'
 import { blocosDoSeletor } from '@/lib/blocos-seletor'
+import { gruposParaOSeletor } from '@/lib/dados-seletor'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
@@ -36,10 +37,12 @@ export async function GroupSelector({ usuario }: Props) {
   // Fail-open como o resto da barra: sem os nomes, a Conta dona só não aparece ao lado.
   const contas = await nomesDasContas(gruposList.map(g => g.contaId)).catch(() => new Map<string, string>())
   const contaDeOrigem = usuario.papel === 'admin_geral' ? null : (usuario.origem ?? usuario).contaId
-  const blocos = blocosDoSeletor(
-    gruposList.map(g => ({ id: g.id, nome: g.nome, cor: g.cor, contaId: g.contaId, contaNome: contas.get(g.contaId) ?? '' })),
-    contaDeOrigem,
-  )
+  // Só os grupos que ele já vê: cidade e CNPJ vão ao navegador apenas deles (busca no cliente).
+  // Fail-open: sem as cidades, o seletor abre com nome, Conta e CNPJ.
+  const dados = await gruposParaOSeletor(gruposList, contas).catch(() => gruposList.map(g => ({
+    id: g.id, nome: g.nome, cor: g.cor, contaId: g.contaId, contaNome: contas.get(g.contaId) ?? '', cidade: g.cidadeSede, cnpj: g.cnpj,
+  })))
+  const blocos = blocosDoSeletor(dados, contaDeOrigem)
 
   return <GroupSwitcher blocos={blocos} ativoId={grupoAtivo.id} />
 }

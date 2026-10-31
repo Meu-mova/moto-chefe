@@ -1,17 +1,61 @@
-// Seletor de empresa em blocos por Conta (#517, ADR-0019): os grupos da própria Conta
-// primeiro; os liberados de outras Contas depois, com a Conta dona ao lado. Regra pura.
+// Seletor de empresa em blocos por Conta (#517, ADR-0019). Regra pura: recebe só os grupos
+// que o usuário já pode ver (listarGruposVisiveis) e decide títulos, busca e iniciais.
 
-export type GrupoDoSeletor = { id: string; nome: string; cor: string | null; contaId: string; contaNome: string }
+export type GrupoDoSeletor = {
+  id: string; nome: string; cor: string | null; contaId: string; contaNome: string
+  cidade: string | null; cnpj: string
+}
 
 export type BlocoDoSeletor = { titulo: string | null; grupos: (GrupoDoSeletor & { mostrarConta: boolean })[] }
 
-/** Sem grupo de outra Conta (ou sem Conta de origem, como o admin_geral): um bloco só, sem título. */
+/**
+ * admin_geral (sem Conta de origem): um bloco por Conta. Quem tem grupo de outra Conta
+ * (admin_rede): "Sua conta" e "Acesso concedido". Os demais: um bloco só, sem título.
+ */
 export function blocosDoSeletor(grupos: GrupoDoSeletor[], contaDeOrigem: string | null): BlocoDoSeletor[] {
+  if (!contaDeOrigem) {
+    const porConta = new Map<string, GrupoDoSeletor[]>()
+    for (const g of grupos) porConta.set(g.contaId, [...(porConta.get(g.contaId) ?? []), g])
+    return [...porConta.values()]
+      .sort((a, b) => a[0].contaNome.localeCompare(b[0].contaNome, 'pt-BR'))
+      // Conta de um grupo só com o mesmo nome dele: o título só repetiria a linha.
+      .map(gs => ({
+        titulo: gs.length === 1 && mesmoNome(gs[0].contaNome, gs[0].nome) ? null : gs[0].contaNome || null,
+        grupos: gs.map(g => ({ ...g, mostrarConta: false })),
+      }))
+  }
   const minha = grupos.filter(g => g.contaId === contaDeOrigem)
   const outras = grupos.filter(g => g.contaId !== contaDeOrigem)
-  if (!contaDeOrigem || !outras.length) return [{ titulo: null, grupos: grupos.map(g => ({ ...g, mostrarConta: false })) }]
+  if (!outras.length) return [{ titulo: null, grupos: grupos.map(g => ({ ...g, mostrarConta: false })) }]
   return [
-    { titulo: 'Minha Conta', grupos: minha.map(g => ({ ...g, mostrarConta: false })) },
-    { titulo: 'Outras Contas', grupos: outras.map(g => ({ ...g, mostrarConta: true })) },
+    { titulo: 'Sua conta', grupos: minha.map(g => ({ ...g, mostrarConta: false })) },
+    { titulo: 'Acesso concedido', grupos: outras.map(g => ({ ...g, mostrarConta: true })) },
   ]
+}
+
+const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export const mesmoNome = (a: string, b: string) => semAcento(a.trim()) === semAcento(b.trim())
+
+/** Busca por nome, Conta, cidade ou parte do CNPJ (só os dígitos). Bloco que fica vazio sai. */
+export function filtrarBlocos(blocos: BlocoDoSeletor[], busca: string): BlocoDoSeletor[] {
+  const q = semAcento(busca.trim())
+  if (!q) return blocos
+  const digitos = busca.replace(/\D/g, '')
+  return blocos
+    .map(b => ({
+      ...b,
+      grupos: b.grupos.filter(g =>
+        semAcento([g.nome, g.contaNome, g.cidade ?? '', b.titulo ?? ''].join(' ')).includes(q)
+        || (digitos.length >= 3 && g.cnpj.replace(/\D/g, '').includes(digitos))),
+    }))
+    .filter(b => b.grupos.length)
+}
+
+// Primeira e última palavra ("Grupo Teste BH" vira GB); número curto no fim entra (CF2).
+export function iniciaisDoGrupo(nome: string): string {
+  const p = nome.replace(/-/g, ' ').split(/\s+/).filter(Boolean)
+  const fim = p.length > 1 && /^\d+$/.test(p[p.length - 1]) ? p.pop()! : ''
+  const n = fim.length <= 2 ? fim : ''
+  const base = p.length > 1 ? p[0][0] + p[p.length - 1][0] : (p[0] ?? '').slice(0, n ? 1 : 2)
+  return base.toUpperCase() + n
 }
