@@ -113,7 +113,7 @@ export const ITENS: ItemNav[] = [
 
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
-  // Só sócio e admin geral: decisão do Luis, nem liberada por pessoa nem por cargo (#488).
+  // Sócio e admin geral pelo papel; liberável por pessoa só para aux_adm, nunca por cargo (#488, decisão do Luis).
   { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: ADMINS, liberavelPara: ['aux_adm'] },
   { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES, oculto: true },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
