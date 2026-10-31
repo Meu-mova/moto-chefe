@@ -19,7 +19,6 @@ import type { DescontoDaVenda } from '@/lib/queries/descontos'
 import { PAPEIS_QUE_CANCELAM_VENDA } from '@/lib/cancelar-venda'
 
 const podeGarantia = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
-const podeEditar   = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
 const ADMINS       = new Set(['admin_geral', 'admin_socio'])
 
 // Só o que é específico de venda de moto fica aqui: o fallback para
@@ -48,7 +47,8 @@ function calcStatus(
 type Props = {
   vendas: VendaComDetalhes[]
   papel: string
-  lojaIdUsuario?: string | null
+  /** Lojas cujas vendas o usuário edita, pela regra do servidor (podeEditarVendaDaLoja). */
+  lojasEditaveis: ReadonlySet<string>
   vendedores: { id: string; nome: string }[]
   /** Origens ativas do grupo, para corrigir a origem na edição. */
   origens: OrigemParaEscolher[]
@@ -63,8 +63,8 @@ const botaoGrade = 'flex h-16 w-full flex-col items-center justify-center gap-1 
  * larga no topo e as outras numa grade igual, com o cancelar em vermelho no fim. Permissões
  * iguais às da antiga coluna de ações da tabela.
  */
-function AcoesVenda({ v, papel, lojaIdUsuario, vendedores, origens, descontos }: Omit<Props, 'vendas'> & { v: VendaComDetalhes }) {
-  const podeEditarVenda = podeEditar.has(papel) && (!lojaIdUsuario || v.lojaId === lojaIdUsuario)
+function AcoesVenda({ v, papel, lojasEditaveis, vendedores, origens, descontos }: Omit<Props, 'vendas'> & { v: VendaComDetalhes }) {
+  const podeEditarVenda = lojasEditaveis.has(v.lojaId)
   const podeEmitirNf    = !v.notaFiscalSaida && podeOperarNfSaida(papel)
   const blocos = 1 + (podeEditarVenda ? 1 : 0) + (podeGarantia.has(papel) ? 1 : 0) + (PAPEIS_QUE_CANCELAM_VENDA.has(papel) ? 1 : 0)
   return (

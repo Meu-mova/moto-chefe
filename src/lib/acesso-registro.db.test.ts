@@ -143,3 +143,45 @@ test('grupo de outra Conta não abre, nem marcado em grupos_acesso', async () =>
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('editar venda: sócio e admin_rede em qualquer loja que operam, aux_adm só na dele, nunca outra Conta (#576)', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  const { podeEditarVendaDaLoja } = await import('@/lib/acesso-registro')
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
+    const grupoA = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Grupo A', '00000000000191', ${contaA.id}) returning id`)
+    const liberadoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Liberado B', '00000000000272', ${contaB.id}) returning id`)
+    const outroB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Outro B', '00000000000353', ${contaB.id}) returning id`)
+    const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A', 'Rua 1', 'X', ${grupoA.id}) returning id`)
+    const lojaA2 = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A2', 'Rua 2', 'X', ${grupoA.id}) returning id`)
+    const lojaLiberada = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja Liberada', 'Rua 3', 'Y', ${liberadoB.id}) returning id`)
+    const lojaOutroB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja Outro B', 'Rua 4', 'Y', ${outroB.id}) returning id`)
+
+    const socioA = { papel: 'admin_socio', lojaId: lojaA.id, gruposAcesso: [], contaId: contaA.id }
+    const auxA = { papel: 'aux_adm', lojaId: lojaA.id, gruposAcesso: [], contaId: contaA.id }
+    const vendedorA = { papel: 'vendedor', lojaId: lojaA.id, gruposAcesso: [], contaId: contaA.id }
+    const socioB = { papel: 'admin_socio', lojaId: lojaOutroB.id, gruposAcesso: [], contaId: contaB.id }
+    const rede = { papel: 'admin_rede', lojaId: lojaA.id, gruposAcesso: [], gruposAprovacao: [], contaId: contaA.id }
+    const liberados = [{ grupoId: liberadoB.id, contaId: contaB.id }]
+    const redeEmCasa = usuarioDaRede(rede, liberados, grupoA.id)
+    const redeNoLiberado = usuarioDaRede(rede, liberados, liberadoB.id)
+    const redeSemLiberacao = usuarioDaRede(rede, [], liberadoB.id)
+
+    assert.equal(await podeEditarVendaDaLoja(socioA, lojaA2.id, tx), true, 'sócio com loja edita venda de outra loja do grupo')
+    assert.equal(await podeEditarVendaDaLoja(auxA, lojaA.id, tx), true, 'aux edita venda da própria loja')
+    assert.equal(await podeEditarVendaDaLoja(auxA, lojaA2.id, tx), false, 'aux não edita venda de outra loja')
+    assert.equal(await podeEditarVendaDaLoja(vendedorA, lojaA.id, tx), false, 'vendedor não edita venda')
+    assert.equal(await podeEditarVendaDaLoja(socioB, lojaA.id, tx), false, 'Conta B não edita venda da Conta A')
+    assert.equal(await podeEditarVendaDaLoja(socioA, lojaOutroB.id, tx), false, 'Conta A não edita venda da Conta B')
+
+    assert.equal(await podeEditarVendaDaLoja(redeEmCasa, lojaA2.id, tx), true, 'admin_rede edita venda de outra loja da própria Conta')
+    assert.equal(await podeEditarVendaDaLoja(redeEmCasa, lojaLiberada.id, tx), false, 'admin_rede não edita o liberado sem o grupo ativo nele')
+    assert.equal(await podeEditarVendaDaLoja(redeNoLiberado, lojaLiberada.id, tx), true, 'admin_rede edita venda do grupo liberado com ele ativo')
+    assert.equal(await podeEditarVendaDaLoja(redeNoLiberado, lojaOutroB.id, tx), false, 'admin_rede não edita grupo da outra Conta que não foi liberado')
+    assert.equal(await podeEditarVendaDaLoja(redeNoLiberado, lojaA.id, tx), false, 'na persona do liberado, não edita a própria Conta')
+    assert.equal(await podeEditarVendaDaLoja(redeSemLiberacao, lojaLiberada.id, tx), false, 'sem liberação, admin_rede não edita venda de outra Conta')
+    throw new Desfazer()
+  }), Desfazer)
+})
