@@ -11,7 +11,7 @@ export type MudancaLiberacao = { liberados: string[]; revogados: string[] }
 
 export type ResultadoLiberacao = { ok: true } & MudancaLiberacao | { ok: false; erro: string }
 
-/** Grupos liberados vivos do usuário, para o modal de /admin/usuarios. */
+/** Grupos liberados (não revogados) do usuário: o modal de /admin/usuarios e a conferência ao gravar. */
 export async function gruposLiberadosDoUsuario(usuarioId: string, exec: Pick<typeof db, 'select'> = db): Promise<string[]> {
   const linhas = await exec.select({ grupoId: gruposLiberados.grupoId }).from(gruposLiberados)
     .where(and(eq(gruposLiberados.usuarioId, usuarioId), isNull(gruposLiberados.revogadoEm)))
