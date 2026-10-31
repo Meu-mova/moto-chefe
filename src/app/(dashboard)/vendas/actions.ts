@@ -219,6 +219,7 @@ async function efetivarVenda(
     valor: valorNum,
     formaPagamento,
     origem,
+    grupoLiberado: usuario.grupoLiberado,
   }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
