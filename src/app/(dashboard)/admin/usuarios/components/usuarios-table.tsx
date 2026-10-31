@@ -139,6 +139,9 @@ function FormUsuario({
   const [email,   setEmail]   = useState(inicial?.email   ?? '')
   const [senha,   setSenha]   = useState('')
   const [papel,   setPapel]   = useState(inicial?.papel   ?? '')
+  // Sem loja o servidor só aceita admin_geral e sócio com grupos de acesso (recusaDaGravacao).
+  const rotuloSemLoja = limites.papeis.includes('admin_geral') ? 'Sem loja (Admin Geral)'
+    : papel === 'admin_socio' ? 'Sem loja (vê pelos grupos de acesso)' : null
   const [lojaId,  setLojaId]  = useState(inicial?.lojaId  ?? '')
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
   const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
@@ -245,12 +248,12 @@ function FormUsuario({
             <Label>Loja</Label>
             <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Sem loja (Admin Geral)">
+                <SelectValue placeholder={rotuloSemLoja ?? 'Escolha a loja'}>
                   {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
+                {rotuloSemLoja && <SelectItem value="">— {rotuloSemLoja} —</SelectItem>}
                 {lojas.map(l => (
                   <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
                 ))}

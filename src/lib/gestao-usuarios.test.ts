@@ -82,6 +82,7 @@ test('sócio alcança e cria outro sócio sem loja, só com grupo que ele vê', 
   assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE], gruposAprovacao: [] }), true)
   assert.equal(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE] })), null)
   assert.match(gravar(cadastro({ grupoDaLoja: null })) ?? '', /loja/)
+  assert.match(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null })) ?? '', /loja/, 'sócio sem loja e sem grupo')
 })
 
 test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', () => {
