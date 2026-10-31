@@ -210,7 +210,8 @@ test('usuários na persona: gerencia só quem é do grupo liberado (decisão do 
     const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
     assert.equal(ehGestorDeUsuarios(persona), true)
 
-    // Como o gestorDaSessao monta: grupos que a persona vê e onde ela aprova.
+    // Gestor montado à mão, nos moldes do gestorDaSessao (que depende de next/headers): prova a
+    // regra de alcance, não a montagem real da sessão.
     const todos = [c.liberado, c.irmao, c.casa, c.deFora].map(g => ({ id: g.grupo, contaId: g === c.casa ? c.rede : g === c.deFora ? 'outra' : c.dona }))
     const visiveis = gruposVisiveis(persona, null, todos)
     assert.deepEqual(visiveis, [c.liberado.grupo])
