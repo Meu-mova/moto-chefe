@@ -190,3 +190,20 @@ Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso rec
 O acesso entre Contas mudou: quem concede é o `admin_geral`, a um usuário com o papel novo
 `admin_rede`, e a Conta dona vê quem tem acesso mas não revoga. Substitui a concessão pelo
 `admin_socio` da Conta dona descrita em "Entre Contas". Ver [ADR-0019](0019-admin-rede-acesso-entre-contas.md).
+
+## Adendo de 2026-10-31: grupo na Conta certa (#199, #554)
+
+Uma rede de lojas teve cada CNPJ criado numa Conta própria, porque grupo novo sempre nascia numa
+Conta nova. Decisões do Luis:
+
+- **Conta é a rede.** Não existe entidade "rede" nem "filial": cada CNPJ é um grupo, e os grupos da
+  mesma rede ficam na mesma Conta. Loja da mesma Conta compartilha usuários, clientes e modelos;
+  ver grupo de outra Conta é pelo `admin_rede` (adendo de 29/10), sem juntar dados.
+- **Grupo novo (#199):** em `/admin/grupos`, o `admin_geral` escolhe "Conta nova" (padrão) ou uma
+  Conta existente.
+- **Grupo existente (#554):** o `admin_geral` move o grupo para outra Conta. Vão junto usuários,
+  clientes, modelos próprios e apelidos, histórico de veículos; a Conta de destino passa a ver as
+  marcas das duas. Vendas, estoque, NF e a configuração da Nota Gateway são do grupo e não mudam.
+  A Conta de origem precisa ter só esse grupo e é desativada, não apagada. CPF/CNPJ de cliente ou
+  apelido de modelo repetido na Conta de destino: nada é gravado e os casos são listados.
+- Descartado: apagar e recriar os grupos (perderia a configuração já feita pelo cliente).

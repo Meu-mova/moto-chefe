@@ -1,11 +1,11 @@
 import { SuperAdminGuard } from '../components/admin-guard'
-import { listarGruposAction } from './actions'
+import { listarContasAction, listarGruposAction } from './actions'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { NovoGrupoButton, EditarGrupoButton } from './components/grupo-dialog'
 
 export default async function GruposPage() {
-  const lista = await listarGruposAction()
+  const [lista, contas] = await Promise.all([listarGruposAction(), listarContasAction()])
 
   return (
     <SuperAdminGuard href="/admin/grupos">
@@ -15,7 +15,7 @@ export default async function GruposPage() {
             <h1 className="text-2xl font-bold">Grupos</h1>
             <p className="text-muted-foreground text-sm">Empresas (CNPJs) operadas no sistema</p>
           </div>
-          <NovoGrupoButton />
+          <NovoGrupoButton contas={contas} />
         </div>
         <div className="bg-card rounded-lg border">
           <Table>
@@ -23,6 +23,7 @@ export default async function GruposPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>CNPJ</TableHead>
+                <TableHead>Conta</TableHead>
                 <TableHead>Contrato</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
@@ -33,6 +34,7 @@ export default async function GruposPage() {
                 <TableRow key={g.id}>
                   <TableCell className="font-medium">{g.nome}</TableCell>
                   <TableCell>{g.cnpj}</TableCell>
+                  <TableCell className="text-muted-foreground">{g.contaNome}</TableCell>
                   <TableCell>
                     {g.razaoSocial && g.enderecoSede && g.cidadeSede && g.comarcaForo
                       ? <Badge className="bg-success/15 text-success hover:bg-success/15">Configurado</Badge>
