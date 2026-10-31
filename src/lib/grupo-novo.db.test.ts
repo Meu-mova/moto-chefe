@@ -13,11 +13,12 @@ process.env.DATABASE_URL = url
 
 let db: typeof import('@/lib/db')['db']
 let criarGrupo: typeof import('@/lib/grupo-novo')['criarGrupo']
+let contasParaNovoGrupo: typeof import('@/lib/grupo-novo')['contasParaNovoGrupo']
 let gruposVisiveis: typeof import('@/lib/acesso-grupo')['gruposVisiveis']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ criarGrupo } = await import('@/lib/grupo-novo'))
+  ;({ criarGrupo, contasParaNovoGrupo } = await import('@/lib/grupo-novo'))
   ;({ gruposVisiveis } = await import('@/lib/acesso-grupo'))
 })
 
@@ -47,6 +48,17 @@ test('grupo na Conta existente: nasce nela, sem Conta nova nem marcas novas, e a
     const novo = { id: r.grupoId, contaId: String(a.id) }
     assert.deepEqual(gruposVisiveis({ papel: 'admin_socio', contaId: String(b.id), gruposAcesso: [r.grupoId] }, null, [novo]), [], 'sócio da B não vê, nem marcado')
     assert.deepEqual(gruposVisiveis({ papel: 'admin_socio', contaId: String(a.id), gruposAcesso: [r.grupoId] }, null, [novo]), [r.grupoId])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('Conta desativada (grupo movido, #554) não aparece para receber grupo novo', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const viva = await linha(tx, sql`insert into contas (nome) values ('Viva 199') returning id`)
+    const morta = await linha(tx, sql`insert into contas (nome, desativada_em) values ('Desativada 199', now()) returning id`)
+    const ids = (await contasParaNovoGrupo(tx)).map(c => c.id)
+    assert.ok(ids.includes(String(viva.id)))
+    assert.ok(!ids.includes(String(morta.id)))
     throw new Desfazer()
   }), Desfazer)
 })

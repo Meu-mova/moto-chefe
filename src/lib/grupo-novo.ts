@@ -1,7 +1,7 @@
 // ─── Grupo novo na Conta certa (#199, adendo de 2026-10-31 ao ADR-0018) ────────
 // O admin_geral escolhe "Conta nova" (padrão) ou uma Conta existente; na existente,
 // o grupo nasce nela, sem criar Conta nem marcas.
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contaMarcas, contas, grupos } from '@/lib/db/schema'
 import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
@@ -29,11 +29,12 @@ export async function criarGrupo(tx: Escritor, dados: DadosGrupo, contaId: strin
   return { grupoId: grupo.id, contaId: conta }
 }
 
-/** Contas para o campo "Conta" do novo grupo, com os grupos de cada uma para reconhecer. */
+/** Contas ativas para o campo "Conta" do novo grupo (a desativada perdeu o grupo para outra, #554). */
 export async function contasParaNovoGrupo(exec: Pick<typeof db, 'select'> = db) {
   return exec.select({
     id: contas.id,
     nome: contas.nome,
     grupos: sql<string[]>`coalesce(array_agg(${grupos.nome} order by ${grupos.nome}) filter (where ${grupos.id} is not null), '{}')`,
-  }).from(contas).leftJoin(grupos, eq(grupos.contaId, contas.id)).groupBy(contas.id).orderBy(asc(contas.nome))
+  }).from(contas).leftJoin(grupos, eq(grupos.contaId, contas.id)).where(isNull(contas.desativadaEm))
+    .groupBy(contas.id).orderBy(asc(contas.nome))
 }
