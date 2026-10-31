@@ -7,7 +7,7 @@ import { clientes } from '@/lib/db/schema'
 type Executor = Pick<typeof db, 'insert'>
 type Escopo = { contaId: string; grupoLiberado?: string | null }
 
-export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível usar este CPF/CNPJ neste grupo'
+export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'
 
 // Só a trava de CPF por Conta vira "já cadastrado": o texto do erro do Drizzle traz a
 // query inteira, então procurar "cpf_cnpj" nele pegava qualquer falha do insert.

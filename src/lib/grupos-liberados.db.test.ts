@@ -275,7 +275,7 @@ test('cadastro de cliente na persona: CPF do grupo liberado e de outro grupo da 
     const doIrmao = await erro(escopo, '00000000000272')
     assert.ok(doIrmao, 'recusa')
     assert.equal(doIrmao, doLiberado, 'mesma frase: não revela que o CPF existe em outro grupo')
-    assert.doesNotMatch(doIrmao!, /cadastrad/i)
+    assert.doesNotMatch(doIrmao!, /já cadastrad|grupo/i)
     assert.equal(await erro({ contaId: c.dona, grupoLiberado: null }, '00000000000272'), 'CPF/CNPJ já cadastrado', 'fora da persona, como antes')
     assert.equal(await erro(escopo, '52998224725'), null, 'CPF novo entra')
     throw new Desfazer()
