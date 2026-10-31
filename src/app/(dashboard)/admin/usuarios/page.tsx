@@ -49,7 +49,7 @@ export default async function UsuariosPage() {
         <UsuariosTable
           usuarios={todos}
           lojas={lojasOpts}
-          grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
+          grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome, contaId: g.contaId }))}
           limites={limitesDaTela(gestor)}
           cargos={cargos.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos, contaId: c.contaId }))}
           contaAtiva={contaAtiva}

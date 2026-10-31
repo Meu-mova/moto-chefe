@@ -77,10 +77,10 @@ export async function cadastroPedido(
 export async function lojasDosGruposVisiveis(gruposVisiveis: string[], exec: Exec = db) {
   if (gruposVisiveis.length === 0) return []
   const linhas = await exec
-    .select({ id: lojas.id, nome: lojas.nome, grupo: grupos.nome })
+    .select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId, grupo: grupos.nome })
     .from(lojas).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
     .where(and(inArray(lojas.grupoId, gruposVisiveis), eq(lojas.ativa, true)))
     .orderBy(asc(grupos.nome), asc(lojas.nome))
   const variosGrupos = new Set(linhas.map(l => l.grupo)).size > 1
-  return linhas.map(l => ({ id: l.id, nome: variosGrupos ? `${l.nome} (${l.grupo})` : l.nome }))
+  return linhas.map(l => ({ id: l.id, grupoId: l.grupoId, nome: variosGrupos ? `${l.nome} (${l.grupo})` : l.nome }))
 }

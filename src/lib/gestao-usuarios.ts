@@ -123,6 +123,9 @@ export function limitesDaTela(gestor: Gestor) {
 
 export type LimitesDaTela = ReturnType<typeof limitesDaTela>
 
+/** Excluir recusado porque algo aponta para o usuário (venda, estoque, OS, liberação...). */
+export const COM_HISTORICO = 'Este usuário tem histórico no sistema. Desative em vez de excluir.'
+
 // Excluir apaga o login e esbarra no histórico (vendas, OS) que aponta para o usuário.
 export function podeExcluir(gestor: { papel: string }): boolean {
   return gestor.papel === 'admin_geral'

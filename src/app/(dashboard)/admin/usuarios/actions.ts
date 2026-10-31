@@ -5,10 +5,10 @@ import { eq, sql, inArray, or } from 'drizzle-orm'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
-import { podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
+import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { cargoParaGravar } from '@/lib/cargos'
-import { sincronizarGruposLiberados } from '@/lib/grupos-liberados-admin'
+import { aprovacoesForaDoAlcance, sincronizarGruposLiberados } from '@/lib/grupos-liberados-admin'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
@@ -180,7 +180,9 @@ export async function criarUsuarioAction(dados: {
     const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
     const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
     const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-    await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+    await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
+    // Usuário novo ainda não tem grupo liberado: aprovação só na própria Conta.
+    if ((await aprovacoesForaDoAlcance(db, { id: null, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
     const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
     if (!cargo.ok) throw new Recusa(cargo.erro)
     const supabase = getAdminClient()
@@ -241,7 +243,9 @@ export async function editarUsuarioAction(id: string, dados: {
     const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
     const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
     const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
-    await exigirGruposDaConta(dados.papel, contaId, [...acesso.gruposAcesso, ...aprovacao.gruposAprovacao])
+    await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
+    // admin_rede aprova também nos grupos liberados (vivos) para ele (ADR-0019).
+    if ((await aprovacoesForaDoAlcance(db, { id, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
     const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
     if (!cargo.ok) throw new Recusa(cargo.erro)
 
@@ -310,8 +314,6 @@ export async function alternarAtivoUsuarioAction(id: string, ativo: boolean): Pr
     revalidatePath('/admin/usuarios')
   })
 }
-
-export const COM_HISTORICO = 'Este usuário tem histórico no sistema. Desative em vez de excluir.'
 
 // Qualquer registro que aponte para o usuário (venda, estoque, OS...) barra o delete com 23503.
 function temReferencia(e: unknown): boolean {

@@ -16,14 +16,15 @@ import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
+import { contaDoFormulario, gruposDaConta } from '@/lib/grupos-do-formulario'
 
 // O picker esconde os itens de regra própria: o resumo conta só o que ele mostra.
 const IDS_MODULOS = ITENS.filter(i => !i.regraPropria).map(i => i.id)
 
-type Loja = { id: string; nome: string }
-type Grupo = { id: string; nome: string }
+type Loja = { id: string; nome: string; grupoId: string }
+type Grupo = { id: string; nome: string; contaId: string }
 /** Grupo que o admin_geral pode liberar ao admin_rede, com a Conta dona ao lado. */
-export type GrupoLiberavel = Grupo & { contaId: string; contaNome: string }
+export type GrupoLiberavel = Grupo & { contaNome: string }
 type Usuario = {
   id: string
   nome: string
@@ -158,6 +159,17 @@ function FormUsuario({
   // já tem diferença salva abre aberto, para o ajuste não ficar escondido.
   const [verModulos, setVerModulos] = useState(() => diferenca.liberados + diferenca.bloqueados > 0)
 
+  // Aprovação e acesso só com grupos da Conta da loja escolhida; outra Conta é pelo bloco do admin_rede.
+  const contaDoUsuario = contaDoFormulario(lojaId, lojas, grupos, gruposAcesso, inicial)
+  const gruposDaContaDoUsuario = gruposDaConta(grupos, contaDoUsuario)
+  function escolherLoja(v: string) {
+    setLojaId(v)
+    // Trocou de Conta: marcações de grupo da outra Conta saem, senão o servidor recusaria.
+    const doNovo = new Set(gruposDaConta(grupos, contaDoFormulario(v, lojas, grupos, gruposAcesso, inicial)).map(g => g.id))
+    setGruposAprov(a => a.filter(g => doNovo.has(g)))
+    setGruposAcesso(a => a.filter(g => doNovo.has(g)))
+  }
+
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
   // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
@@ -167,8 +179,15 @@ function FormUsuario({
   const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
 
   function toggleLiberado(id: string) {
-    setGruposLiberados(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
+    const saindo = gruposLiberados.includes(id)
+    setGruposLiberados(atual => saindo ? atual.filter(g => g !== id) : [...atual, id])
+    // Sem a liberação, a aprovação naquele grupo também sai (o servidor faz o mesmo ao revogar).
+    if (saindo) setGruposAprov(a => a.filter(g => g !== id))
   }
+  // admin_rede aprova também nos grupos liberados para ele (ADR-0019): entram na lista de aprovação.
+  const gruposParaAprovar = papel === 'admin_rede'
+    ? [...gruposDaContaDoUsuario, ...(liberaveis ?? []).filter(g => gruposLiberados.includes(g.id))]
+    : gruposDaContaDoUsuario
 
   function toggleGrupo(id: string) {
     setGruposAprov(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
@@ -247,7 +266,7 @@ function FormUsuario({
           )}
           <div className="space-y-1.5">
             <Label>Loja</Label>
-            <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
+            <Select value={lojaId ?? ''} onValueChange={v => escolherLoja(v ?? '')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={rotuloSemLoja ?? 'Escolha a loja'}>
                   {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : (rotuloSemLoja ?? 'Escolha a loja')}
@@ -313,7 +332,7 @@ function FormUsuario({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
+                {gruposParaAprovar.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
                   <label key={g.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -329,7 +348,7 @@ function FormUsuario({
                     </span>
                   </label>
                 ))}
-                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+                {gruposDaContaDoUsuario.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
               </div>
               <label className="flex items-center gap-2 border-t pt-2 text-sm">
                 <input
@@ -359,7 +378,7 @@ function FormUsuario({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.map(g => (
+                {gruposDaContaDoUsuario.map(g => (
                   <label key={g.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -375,7 +394,7 @@ function FormUsuario({
                     </span>
                   </label>
                 ))}
-                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+                {gruposDaContaDoUsuario.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
               </div>
             </div>
           )}
@@ -433,13 +452,19 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   function handleCriar(dados: DadosForm) {
     startTransition(async () => {
       try {
-        const r = await criarUsuarioAction(dados)
+        // Usuário novo ainda não tem grupo liberado: a aprovação neles vai depois de liberar.
+        const daConta = dados.gruposAprovacao.filter(g => !dados.gruposLiberados.includes(g))
+        const r = await criarUsuarioAction({ ...dados, gruposAprovacao: daConta })
         // Recusa: o modal fica aberto com o que foi preenchido.
         if (!r.ok) { toast.error(r.erro); return }
         if (liberaveis && dados.gruposLiberados.length) {
           const l = await salvarGruposLiberadosAction(r.id, dados.gruposLiberados)
-          // O usuário já foi criado: fecha o modal e avisa que os grupos de fora não foram gravados.
+          // O usuário já foi criado: fecha o modal e avisa o que não foi gravado.
           if (!l.ok) { toast.error(`Usuário criado, mas os grupos de outras Contas não: ${l.erro}`); setCriando(false); return }
+          if (daConta.length !== dados.gruposAprovacao.length) {
+            const e = await editarUsuarioAction(r.id, { ...dados, novaSenha: undefined, cargoId: dados.cargoId || null })
+            if (!e.ok) { toast.error(`Usuário criado, mas a aprovação nos grupos de fora não: ${e.erro}`); setCriando(false); return }
+          }
         }
         toast.success('Usuário criado com sucesso')
         setCriando(false)
@@ -453,6 +478,11 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!editando) return
     startTransition(async () => {
       try {
+        // Liberações primeiro: o servidor só aceita aprovação em grupo de fora que já esteja liberado.
+        if (liberaveis) {
+          const l = await salvarGruposLiberadosAction(editando.id, dados.gruposLiberados)
+          if (!l.ok) { toast.error(l.erro); return }
+        }
         const r = await editarUsuarioAction(editando.id, {
           nome:      dados.nome,
           email:     dados.email,
@@ -467,10 +497,6 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           modulosBloqueados:       dados.modulosBloqueados,
         })
         if (!r.ok) { toast.error(r.erro); return }
-        if (liberaveis) {
-          const l = await salvarGruposLiberadosAction(editando.id, dados.gruposLiberados)
-          if (!l.ok) { toast.error(l.erro); return }
-        }
         toast.success('Usuário atualizado')
         setEditando(null)
       } catch (e: unknown) {
