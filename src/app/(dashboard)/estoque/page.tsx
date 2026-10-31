@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 // src/app/(dashboard)/estoque/page.tsx
+import Link from 'next/link'
 import { db } from '@/lib/db'
 import { motos } from '@/lib/db/schema'
 import { StatusCards } from './components/status-cards'
@@ -14,13 +15,11 @@ import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntre
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
+import { PrintButton } from '../relatorio-fabrica/print-button'
+import { motoVendidaSemVendaPorChassi } from '@/lib/motos-vendidas-sem-venda'
+import { filtrosDoShowroom, paramsDoShowroom, type ParamsShowroom } from '@/lib/showroom-filtros'
 
 const ADMINS = ['admin_geral', 'admin_socio']
-
-function parseParam(v?: string): string[] {
-  if (!v) return []
-  return v.split(',').filter(Boolean)
-}
 
 // Falha rápido em vez de pendurar até o timeout de 300s da Vercel quando o banco
 // está sem conexão livre. O throw cai no error boundary de (dashboard)/error.tsx,
@@ -35,7 +34,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; disponibilidade?: string; loja?: string; modelo?: string; cor?: string; ord?: string; dir?: string; q?: string; transf?: string }>
+  searchParams: Promise<ParamsShowroom>
 }) {
   const params = await searchParams
   const usuario = await getUsuarioLogado()
@@ -43,44 +42,16 @@ export default async function EstoquePage({
 
   const isAdmin = ADMINS.includes(usuario.papel)
 
-  // Vendidas nunca aparecem no estoque — sempre excluídas
-  const dispValues = parseParam(params.disponibilidade)
-
   const lojaIdsGrupo = await withTimeout(listarLojaIdsDoGrupoAtivo(usuario), 20000)
   const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
 
-  // params.loja é validado contra as lojas do grupo ativo (nunca vaza loja de
-  // outro grupo/CNPJ). Se a seleção for válida, vale tanto pra admin quanto
-  // pra não-admin — vendedor/mecânico/aux_adm podem consultar o estoque de
-  // outra loja da MESMA rede (filtro "Loja" já é exibido pra todo mundo).
-  // Sem seleção válida: admin cai pro grupo inteiro, não-admin cai pra própria loja.
-  const lojaParam = parseParam(params.loja)
-  const lojaValues = (() => {
-    const validos = lojaParam.filter(id => lojaIdsGrupo.includes(id))
-    if (validos.length > 0) return validos
-    return isAdmin ? lojaIdsGrupo : (usuario.lojaId ? [usuario.lojaId] : [])
-  })()
-
-  const validOrds = ['modelo', 'cor', 'loja', 'status', 'disponibilidade'] as const
-  type Ord = typeof validOrds[number]
-  const ord = validOrds.includes(params.ord as Ord) ? (params.ord as Ord) : 'modelo'
-  const dir = params.dir === 'desc' ? 'desc' : 'asc'
+  const filtros = filtrosDoShowroom(params, usuario, lojaIdsGrupo)
+  const { lojaId: lojaValues, ord, dir } = filtros
 
   const grupo = await withTimeout(getGrupoAtivo(usuario), 8000)
   const [motosList, lojasOpts, lojasTransferencia, modelosOpts, coresOpts, usuariosOpts, mecanicosOpts] = await withTimeout(Promise.all([
-    listarMotos({
-      status:          parseParam(params.status),
-      disponibilidade: dispValues.length ? dispValues : undefined,
-      excluirVendidas: true,
-      chassiBusca:     params.q,
-      lojaId:          lojaValues,
-      modeloId:        parseParam(params.modelo),
-      cor:             parseParam(params.cor),
-      apenasTransferencia: params.transf === '1',
-      ord,
-      dir,
-    }),
+    listarMotos(filtros),
     listarLojasDoGrupoAtivo(usuario),
     // Lojas oferecidas como destino no botão "Transferir" — igual a /transferencias,
     // o usuário com a exceção multi-grupo vê lojas de todos os grupos aqui; o filtro
@@ -98,6 +69,11 @@ export default async function EstoquePage({
   // Origem da venda: o catálogo é do grupo, e o /estoque já é escopado por grupo.
   const origens = await withTimeout(listarOrigensAtivasDoGrupo(grupo.id), 8000)
 
+  // Moto marcada como vendida sem venda não volta para a lista; a busca pelo chassi só avisa (#544).
+  const vendidaSemVenda = params.q?.trim()
+    ? await motoVendidaSemVendaPorChassi(await contaDoGrupoAtivo(usuario), lojaIdsGrupo, params.q)
+    : null
+
   const counts = {
     total:         motosList.length,
     caixa:         motosList.filter(m => m.status === 'caixa').length,
@@ -110,6 +86,7 @@ export default async function EstoquePage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start justify-between gap-3">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
         <p className="text-muted-foreground text-sm">
@@ -117,6 +94,9 @@ export default async function EstoquePage({
             ? `Motos da loja ${lojasOpts.find(l => l.id === usuario.lojaId)?.nome ?? ''}`
             : 'Todas as motos do grupo'}
         </p>
+      </div>
+        {/* Imprime o que está filtrado: os mesmos parâmetros da URL (#512). */}
+        <PrintButton href={`/estoque/imprimir?${new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][])}`} rotulo="Imprimir" />
       </div>
       <StatusCards counts={counts} />
       <EstoqueFiltros
@@ -126,6 +106,12 @@ export default async function EstoquePage({
         lojaIdDefault={!isAdmin ? (usuario.lojaId ?? null) : null}
         chassiInicial={params.q ?? ''}
       />
+      {vendidaSemVenda && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <p className="font-medium">Esta moto está marcada como vendida</p>
+          <p>Ela não tem venda registrada. <Link href={`/estoque/${vendidaSemVenda}`} className="underline">Ver moto</Link></p>
+        </div>
+      )}
       <div className="bg-card rounded-lg border">
         <MotoTable
           motos={motosList}
@@ -142,16 +128,7 @@ export default async function EstoquePage({
           origens={origens}
           ord={ord}
           dir={dir}
-          baseParams={(() => {
-            const p = new URLSearchParams()
-            if (params.q)               p.set('q', params.q)
-            if (params.status)          p.set('status', params.status)
-            if (params.disponibilidade) p.set('disponibilidade', params.disponibilidade)
-            if (params.loja)            p.set('loja', params.loja)
-            if (params.modelo)          p.set('modelo', params.modelo)
-            if (params.cor)             p.set('cor', params.cor)
-            return p.toString()
-          })()}
+          baseParams={paramsDoShowroom(params)}
         />
       </div>
     </div>

@@ -52,4 +52,5 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0015](0015-documento-invalido-do-comprador-bloqueia.md) | CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda (exceção ao 0011) | Aceita |
 | [0016](0016-identidade-visual-e-tema-claro-escuro.md) | Identidade visual do MOVA, cores com nome e tema claro/escuro | Aceita |
 | [0017](0017-documento-da-plataforma-fora-das-tabelas-por-grupo.md) | Documento da plataforma fica fora das tabelas por grupo | Aceita |
-| [0018](0018-conta-acima-do-grupo.md) | Conta acima do grupo: isolamento por cliente do MOVA | Aceita |
+| [0018](0018-conta-acima-do-grupo.md) | Conta acima do grupo: isolamento por cliente do MOVA | Revisada por 0019 |
+| [0019](0019-admin-rede-acesso-entre-contas.md) | admin_rede: acesso a grupos de outras Contas liberado pelo admin_geral | Aceita |

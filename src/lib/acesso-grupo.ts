@@ -21,6 +21,8 @@ export type UsuarioAcessoGrupo = {
   // Conta de origem (ADR-0018). Grupo de outra Conta nunca aparece, nem marcado em
   // grupos_acesso; sem Conta, nenhum grupo (só admin_geral vive sem Conta).
   contaId: string | null
+  // Grupos de outras Contas liberados pelo admin_geral para o admin_rede (#517).
+  gruposLiberados?: readonly { grupoId: string }[]
 }
 
 export type GrupoComConta = { id: string; contaId: string }
@@ -63,6 +65,7 @@ export function podeVerGrupo(
   grupo: GrupoComConta,
 ): boolean {
   if (ehAdminGeral(usuario)) return true
+  if ((usuario.gruposLiberados ?? []).some(l => l.grupoId === grupo.id)) return true
   if (!usuario.contaId || grupo.contaId !== usuario.contaId) return false
   if (grupoDaPropriaLoja && grupo.id === grupoDaPropriaLoja) return true
   return (usuario.gruposAcesso ?? []).includes(grupo.id)

@@ -6,10 +6,11 @@ import {
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
+import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
-export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'])
+export const papelEnum = pgEnum('papel', ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', 'admin_rede'])
 export const reservaStatusEnum = pgEnum('reserva_status', ['ativa', 'convertida', 'cancelada'])
 export const categoriaEnum = pgEnum('categoria', ['autopropelido', 'ciclomotor', 'triciclo', 'bike', 'brinquedo', 'patinete'])
 export const motoStatusEnum = pgEnum('moto_status', ['faturada', 'montada', 'disponivel', 'reservada', 'em_garantia', 'vendida', 'caixa'])
@@ -345,6 +346,27 @@ export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
   emitidaPor:   uuid('emitida_por').references(() => usuarios.id),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// Inutilização do número de NF rejeitada que não vai ser reenviada (#504). Negada fica como histórico.
+export const notasFiscaisSaidaInutilizacoes = pgTable('notas_fiscais_saida_inutilizacoes', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  notaId:        uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  grupoId:       uuid('grupo_id').notNull().references(() => grupos.id),
+  idExterno:     text('id_externo').notNull().unique(),
+  ambiente:      text('ambiente').notNull(),
+  serie:         text('serie').notNull(),
+  numeroInicial: integer('numero_inicial').notNull(),
+  numeroFinal:   integer('numero_final').notNull(),
+  justificativa: text('justificativa').notNull(),
+  /** pendente | autorizada | negada: nossa leitura do status da API (notagateway/inutilizacao.ts). */
+  situacao:      text('situacao').$type<SituacaoInutilizacao>().notNull().default('pendente'),
+  status:        text('status').notNull().default('Enviando'),
+  motivoStatus:  text('motivo_status'),
+  protocolo:     text('protocolo'),
+  pedidaPor:     uuid('pedida_por').references(() => usuarios.id),
+  criadoEm:      timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm:  timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // Acervo das NF-e de saída do Bling no Storage (bucket nfe-bling, migração
@@ -792,12 +814,18 @@ export const notasEntrada = pgTable('notas_entrada', {
   contaId: uuid('conta_id').notNull().references(() => contas.id),
   grupoId: uuid('grupo_id').notNull().references(() => grupos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
-  chaveAcesso: text('chave_acesso').notNull(),
-  numero: text('numero').notNull(),
-  fornecedorCnpj: text('fornecedor_cnpj').notNull(),
+  // Nulos só na entrada por planilha (#519); o check do banco garante o resto.
+  chaveAcesso: text('chave_acesso'),
+  numero: text('numero'),
+  fornecedorCnpj: text('fornecedor_cnpj'),
   criadoPor: uuid('criado_por').notNull().references(() => usuarios.id),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-}, t => [index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso)])
+  origem: text('origem').notNull().default('nota'),
+  impressaoDigital: text('impressao_digital'),
+}, t => [
+  index('notas_entrada_grupo_id_chave_acesso_idx').on(t.grupoId, t.chaveAcesso),
+  index('notas_entrada_loja_id_impressao_digital_idx').on(t.lojaId, t.impressaoDigital),
+])
 
 // ─── pecas_estoque_loja (saldo da peça em cada loja, #195; sem linha = zero) ──
 export const pecasEstoqueLoja = pgTable('pecas_estoque_loja', {
@@ -827,6 +855,8 @@ export const vendasPecas = pgTable('vendas_pecas', {
   valorTotal: numeric('valor_total', { precision: 12, scale: 2 }).notNull(),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  /** Venda que lança o dinheiro no caixa sozinha (#546). As anteriores ficam false: a loja lançou à mão. */
+  caixaAutomatico: boolean('caixa_automatico').notNull().default(false),
 })
 
 // ─── vendas_pecas_itens ────────────────────────────────────────────────────────
@@ -906,6 +936,7 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   aprovadoPorId: uuid('aprovado_por_id').references(() => usuarios.id),
   aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  vendaPecaId: uuid('venda_peca_id').references(() => vendasPecas.id),
 })
 
 // ─── categorias_caixa ────────────────────────────────────────────────────────
@@ -1036,6 +1067,17 @@ export const precificacao = pgTable('precificacao', {
   imagemUrl: text('imagem_url'),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── tabela_preco_padrao ─────────────────────────────────────────────────────
+// Preço de venda sugerido pela MotoChefe por modelo da plataforma (#522), carregado pelo
+// admin_geral. Só o preço à vista: o cartão sai das taxas do grupo.
+export const tabelaPrecoPadrao = pgTable('tabela_preco_padrao', {
+  modeloId: uuid('modelo_id').primaryKey().references(() => modelos.id, { onDelete: 'cascade' }),
+  preco: numeric('preco', { precision: 12, scale: 2 }).notNull(),
+  competencia: text('competencia').notNull(),
+  carregadoPor: uuid('carregado_por').references(() => usuarios.id),
+  carregadoEm: timestamp('carregado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── conciliacoes_cartao ─────────────────────────────────────────────────────
@@ -1420,6 +1462,20 @@ export const calendarioEventoUsuarios = pgTable('calendario_evento_usuarios', {
   pk: primaryKey({ columns: [t.eventoId, t.usuarioId] }),
 }))
 
+// ─── Contrato de compra e venda do grupo ─────────────────────────────────────
+// Texto colado pelo sócio, por categoria. Cada salvar é uma versão nova; a ativa é a maior.
+export const contratosGrupo = pgTable('contratos_grupo', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  grupoId:   uuid('grupo_id').notNull().references(() => grupos.id),
+  categoria: categoriaEnum('categoria').notNull(),
+  versao:    integer('versao').notNull(),
+  texto:     text('texto').notNull(),
+  criadoPor: uuid('criado_por').references(() => usuarios.id),
+  criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  versaoUnica: unique('contratos_grupo_versao_key').on(t.grupoId, t.categoria, t.versao),
+}))
+
 // ─── Assinatura digital de documentos ────────────────────────────────────────
 // O HTML do documento é congelado em html_snapshot no envio: editar a venda
 // depois não altera o que o cliente assinou.
@@ -1458,6 +1514,8 @@ export const documentosAssinatura = pgTable('documentos_assinatura', {
   // dossiê funcionarem sem saber de qual caminho veio a assinatura.
   assinaturaModo: text('assinatura_modo').notNull().default('digital'),
   viaFisicaPath:  text('via_fisica_path'),
+  // Versão do contrato do grupo usada no documento; nulo = texto do MOVA.
+  contratoGrupoId: uuid('contrato_grupo_id').references(() => contratosGrupo.id),
   viaFisicaHash:  text('via_fisica_hash'),
   registradoPor:  uuid('registrado_por').references(() => usuarios.id),
   criadoPor:      uuid('criado_por').references(() => usuarios.id),
@@ -2016,3 +2074,14 @@ export const avaliacoesGoogleToques = pgTable('avaliacoes_google_toques', {
   origem:    text('origem').$type<'nfc' | 'qr'>().notNull(),
   criadoEm:  timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── Grupos liberados para admin_rede (#517) ─────────────────────────────────
+// Grupo de outra Conta que o admin_geral liberou. Revogar grava revogado_em; nunca apaga.
+export const gruposLiberados = pgTable('grupos_liberados', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  usuarioId:   uuid('usuario_id').notNull().references(() => usuarios.id),
+  grupoId:     uuid('grupo_id').notNull().references(() => grupos.id),
+  liberadoPor: uuid('liberado_por').notNull().references(() => usuarios.id),
+  liberadoEm:  timestamp('liberado_em', { withTimezone: true }).notNull().defaultNow(),
+  revogadoEm:  timestamp('revogado_em', { withTimezone: true }),
+}, t => [uniqueIndex('grupos_liberados_vivo_key').on(t.usuarioId, t.grupoId).where(sql`revogado_em is null`)])

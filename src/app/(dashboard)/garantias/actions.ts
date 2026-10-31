@@ -52,7 +52,7 @@ export async function abrirGarantiaAction(params: {
     .where(eq(motos.id, params.motoId))
     .limit(1)
   if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
-  await conferirVinculosDaConta(moto.lojaId, { osId: params.osId })
+  await conferirVinculosDaConta(moto.lojaId, { osId: params.osId }, usuario.grupoLiberado)
 
   // Prazo fixo de 30 dias a partir da data de abertura
   const fim = new Date(params.dataInicio)
@@ -208,7 +208,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         // linhas podia deixá-lo de fora e a garantia cair na moto errada.
         const alvo = chassi.replace(/\s+/g, '').toUpperCase()
         const colunas = { id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }
-        const exata = await motoDaContaPorChassi(chassi, contaId)
+        const exata = await motoDaContaPorChassi(chassi, contaId, usuario.grupoLiberado)
         const exatas = exata ? [exata] : []
         const podeBuscarPeloFinal = /^[A-Z0-9]+$/.test(alvo) && alvo.length >= MIN_DIGITOS_SUFIXO_CHASSI && lojaIdsDoGrupo.length > 0
         // Duas já bastam para ser ambíguo; o limite só evita trazer o estoque inteiro.

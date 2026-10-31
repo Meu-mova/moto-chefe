@@ -6,6 +6,7 @@ import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
 import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 import { conferirMaquininhas } from '@/lib/maquininhas'
+import { sincronizarCaixaDaVendaPeca } from '@/lib/caixa-venda-peca'
 
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
@@ -70,7 +71,8 @@ export async function aplicarVendaPeca(
     formaPagamento,
     pagamentos: input.pagamentos,
     valorTotal: valorTotal.toFixed(2),
-  }).returning({ id: vendasPecas.id })
+    caixaAutomatico: true,
+  }).returning({ id: vendasPecas.id, numero: vendasPecas.numero, dataVenda: vendasPecas.dataVenda })
 
   for (const item of input.itens) {
     const peca = pecaById.get(item.pecaId)!
@@ -88,6 +90,8 @@ export async function aplicarVendaPeca(
     })
     await moverSaldo(tx, item.pecaId, input.lojaId, -item.quantidade)
   }
+
+  await sincronizarCaixaDaVendaPeca(tx, { ...venda, lojaId: input.lojaId, caixaAutomatico: true }, input.pagamentos, vendedorId)
 
   return { id: venda.id }
 }

@@ -1,4 +1,5 @@
 'use server'
+import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import { db } from '@/lib/db'
 import { contaMarcas, contas, grupos } from '@/lib/db/schema'
 import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
@@ -86,7 +87,7 @@ export async function criarGrupoAction(dados: GrupoInput) {
   await db.transaction(async tx => {
     const [conta] = await tx.insert(contas).values({ nome: dados.nome.trim() }).returning({ id: contas.id })
     await tx.insert(contaMarcas).values(MARCAS_DA_CONTA_NOVA.map(marca => ({ contaId: conta.id, marca })))
-    await tx.insert(grupos).values({
+    const [grupo] = await tx.insert(grupos).values({
       contaId: conta.id,
       nome: dados.nome.trim(),
       cnpj: dados.cnpj.trim(),
@@ -98,7 +99,9 @@ export async function criarGrupoAction(dados: GrupoInput) {
       enderecoSede: dados.enderecoSede?.trim() || null,
       cidadeSede: dados.cidadeSede?.trim() || null,
       comarcaForo: dados.comarcaForo?.trim() || null,
-    })
+    }).returning({ id: grupos.id })
+    // Grupo novo já nasce com o preço sugerido da MotoChefe nos modelos da Conta (#522).
+    await preencherGruposComPrecoPadrao([grupo.id], tx)
   })
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')

@@ -28,7 +28,7 @@ test('tela de usuários sem o botão Cargos (#449)', async () => {
   await act(async () => {
     createRoot(container).render(React.createElement(UsuariosTable, {
       usuarios: [], lojas: [], grupos: [], limites,
-      cargos: [{ id: 'c1', nome: 'Recepção', modulos: ['clientes'], contaId: 'A' }], contaAtiva: 'A', podeDarAoCargo: ['clientes'],
+      cargos: [{ id: 'c1', nome: 'Recepção', modulos: ['clientes'], contaId: 'A' }], contaAtiva: 'A', podeDarAoCargo: ['clientes'], liberaveis: null, liberadosPorUsuario: {},
     }))
   })
   const botoes = [...container.querySelectorAll('button')].map(b => b.textContent?.trim())

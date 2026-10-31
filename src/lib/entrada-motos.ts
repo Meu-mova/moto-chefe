@@ -72,8 +72,8 @@ export async function inserirMotoDaEntrada(
  * literal como veio.
  *
  * Só os campos FISCAIS vêm do XML. O valor não: a nota da fábrica sai com valor
- * diferente do que se paga a ela, então o preço de compra continua sendo o
- * digitado na tela. Não troque isso por `vUnCom` do XML.
+ * diferente do que se paga a ela, então o `vUnCom` só pré-preenche o preço de
+ * compra na tela (#513), e o que se grava é o que a pessoa confirmou ali.
  *
  * `onConflictDoNothing` porque a ficha é um snapshot da entrada: reimportar a
  * mesma nota não reescreve o que já está gravado, e uma correção feita depois

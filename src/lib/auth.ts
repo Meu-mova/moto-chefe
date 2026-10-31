@@ -4,7 +4,9 @@ import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
+import { cookies } from 'next/headers'
 import { modulosDoCargoDoUsuario } from '@/lib/cargos'
+import { gruposLiberadosVivos, usuarioDaRede } from '@/lib/grupos-liberados'
 
 // getUsuarioLogado roda PRIMEIRO em toda página (layout e página). Se a query de
 // usuário fica esperando uma conexão do pool (instância do Fluid com conexões
@@ -68,7 +70,12 @@ export const getUsuarioLogado = cache(async () => {
 
   // Lido a cada requisição: editar o cargo vale na hora para todos os usuários dele.
   const modulosDoCargo = await withTimeout(modulosDoCargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
-  return { ...usuario, modulosDoCargo }
+  // Lido a cada requisição: liberar ou revogar um grupo para o admin_rede vale na hora (#517).
+  const liberados = usuario.papel === 'admin_rede'
+    ? await withTimeout(gruposLiberadosVivos(usuario.id), 8000, 'grupos liberados do usuário no banco')
+    : []
+  const grupoAtivoId = liberados.length ? (await cookies()).get('grupoAtivo')?.value ?? null : null
+  return { ...usuarioDaRede(usuario, liberados, grupoAtivoId), modulosDoCargo }
 })
 
 export function isAdmin(papel: string) {

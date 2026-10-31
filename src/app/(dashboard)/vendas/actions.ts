@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { podeAbrirRegistroDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja, lojasDaConta } from '@/lib/conta'
+import { clientesDoEscopo, contaDaLoja, lojasDoEscopo } from '@/lib/conta'
 import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
 import { contaDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { aplicarPagamentoOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
@@ -38,6 +38,7 @@ import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
 import { motoDoUsuario } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
+import { voltarMotoAoEstoque } from '@/lib/motos-vendidas-sem-venda'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
@@ -219,6 +220,7 @@ async function efetivarVenda(
     valor: valorNum,
     formaPagamento,
     origem,
+    grupoLiberado: usuario.grupoLiberado,
   }))
   revalidatePath('/vendas')
   revalidatePath('/estoque')
@@ -265,9 +267,11 @@ async function criarVendaTx(
     dataVendaFinal: Date
     /** Já validada pela action com garantirOrigemValida. */
     origem: { origemId: string; origemDetalhe: string | null }
+    /** Persona do admin_rede (#517): o cadastro de cliente de outro grupo da Conta dona fica intocado. */
+    grupoLiberado: string | null
   }
 ): Promise<{ vendaId: string }> {
-  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem } = params
+  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem, grupoLiberado } = params
   // Aqui, e não só na action: a aprovação guardada chega direto (#460).
   await conferirMaquininhas(tx, moto.lojaId, data.pagamentos)
   const valorNum = parseFloat(data.valorTotal)
@@ -297,10 +301,11 @@ async function criarVendaTx(
   const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
   let clienteVinculadoId: string | null = null
   if (cpfLimpo.length >= 11) {
+    const contaId = await contaDaLoja(moto.lojaId, tx)
     const [clienteUpsert] = await tx
       .insert(clientes)
       .values({
-        contaId:     await contaDaLoja(moto.lojaId, tx),
+        contaId,
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
         tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
@@ -338,6 +343,9 @@ async function criarVendaTx(
           } : {}),
           atualizadoEm: sql`now()`,
         },
+        // Na persona, CPF de cliente de outro grupo da Conta dona: não atualiza nem devolve o
+        // id, e a venda sai sem ligar ao cadastro (decisão do Luis, 31/10).
+        setWhere: clientesDoEscopo(contaId, { contaId, grupoLiberado }),
       })
       .returning({ id: clientes.id })
     clienteVinculadoId = clienteUpsert?.id ?? null
@@ -489,7 +497,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -498,7 +506,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
 
   await db.transaction(async (tx) => {
-    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
+    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
   })
 
   revalidatePath('/vendas')
@@ -1167,7 +1175,7 @@ async function registrarReserva(data: DadosReserva) {
 
   const podeEscolherVendedorReserva = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorIdReserva = (podeEscolherVendedorReserva && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId))) {
+  if (vendedorIdReserva !== usuario.id && !(await vendedorDaConta(vendedorIdReserva, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1393,7 +1401,7 @@ async function editarVenda(vendaId: string, dados: {
     ? await garantirOrigemValida(vendaAtual.lojaId, dados.origemId, dados.origemDetalhe)
     : null
 
-  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId))) {
+  if (dados.vendedorId && !(await vendedorDaConta(dados.vendedorId, vendaAtual.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1440,7 +1448,7 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
-    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, {
+    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.
       dados: {
@@ -1508,7 +1516,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
       inscricaoEstadual: clientes.inscricaoEstadual,
     })
     .from(clientes)
-    .where(and(eq(clientes.cpfCnpj, cpfLimpo), eq(clientes.contaId, contaId)))
+    .where(and(eq(clientes.cpfCnpj, cpfLimpo), clientesDoEscopo(contaId, usuario)))
     .limit(1)
 
   if (cliente) return { source: 'clientes' as const, ...cliente }
@@ -1533,7 +1541,7 @@ export async function buscarClientePorCpfAction(cpf: string) {
     // A venda grava o documento formatado; compara só os dígitos.
     .where(and(
       sql`regexp_replace(${vendas.clienteCpf}, '[^0-9]', '', 'g') = ${cpfLimpo}`,
-      inArray(vendas.lojaId, lojasDaConta(contaId)),
+      inArray(vendas.lojaId, lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado })),
     ))
     .orderBy(desc(vendas.dataVenda))
     .limit(1)
@@ -1555,7 +1563,7 @@ async function buscarHistoricoMoto(motoId: string) {
   const [moto] = await db
     .select({ lojaId: motos.lojaId })
     .from(motos)
-    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDaConta(usuario.contaId!))))
+    .where(and(eq(motos.id, motoId), usuario.papel === 'admin_geral' ? undefined : inArray(motos.lojaId, lojasDoEscopo(usuario))))
     .limit(1)
   if (!moto) return []
 
@@ -1725,7 +1733,7 @@ async function solicitarAprovacaoVenda(
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
-  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId))) {
+  if (vendedorId !== usuario.id && !(await vendedorDaConta(vendedorId, moto.lojaId, usuario.grupoLiberado))) {
     throw new RecusaUsuario('Vendedor não encontrado')
   }
 
@@ -1852,7 +1860,7 @@ async function aprovarVenda(aprovacaoId: string) {
       .returning({ id: aprovacoesVenda.id })
     if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
-    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
+    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
   })
 
   revalidatePath('/vendas')
@@ -1934,3 +1942,22 @@ async function recusarVenda(aprovacaoId: string, observacao?: string) {
   revalidatePath(`/estoque/${aprovacao.motoId}`)
 }
 
+
+/**
+ * Moto marcada como vendida no Editar moto sem venda registrada (#544): volta ao estoque.
+ * Só sócio e admin geral, como o Editar moto que a marcou. Moto de outra Conta e moto
+ * inexistente recebem a mesma frase.
+ */
+export async function voltarMotoVendidaSemVendaAoEstoqueAction(motoId: string) {
+  return acao(async () => {
+    const usuario = await getUsuarioLogado()
+    if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão para voltar a moto ao estoque')
+    const contaId = await contaDoGrupoAtivo(usuario)
+    if (!(await voltarMotoAoEstoque(contaId, motoId, usuario.id))) {
+      throw new RecusaUsuario('Moto não encontrada entre as marcadas como vendida sem venda')
+    }
+    revalidatePath('/vendas')
+    revalidatePath('/estoque')
+    revalidatePath(`/estoque/${motoId}`)
+  })
+}

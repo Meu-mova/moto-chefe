@@ -70,9 +70,9 @@ test('tipo fora da lista é recusado pelo banco', async () => {
   }), Desfazer)
 })
 
-test('banco aceita todo tipo da lista do código, inclusive logo_danfe_enviada', async () => {
+test('banco aceita todo tipo da lista do código, inclusive preco_compra_alterado', async () => {
   const { TIPOS_LOG } = await import('@/lib/log-acoes')
-  assert.ok(TIPOS_LOG.includes('logo_danfe_enviada'))
+  assert.ok((TIPOS_LOG as readonly string[]).includes('preco_compra_alterado'))
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)
     for (const tipo of TIPOS_LOG) {

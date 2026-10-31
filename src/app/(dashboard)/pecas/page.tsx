@@ -1,4 +1,5 @@
 import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
@@ -20,6 +21,7 @@ import { VendasPecasFiltros } from './components/vendas-pecas-filtros'
 import { PedidosFabricaTab } from './components/pedidos-fabrica-tab'
 import { CatalogoTable } from './components/catalogo-table'
 import { LojaEstoqueSelect } from './components/loja-estoque-select'
+import { ImportarPlanilhaPecasDialog } from './components/importar-planilha-pecas-dialog'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -38,6 +40,8 @@ export default async function PecasPage({
   const isGestor = podeGerirPecas(usuario.papel)
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const podeVender = podeVenderPeca(usuario.papel)
+  // Mesma regra da Entrada: o servidor das actions também confere.
+  const podeImportar = acessaModulo(usuario, 'entrada')
 
   const params = await searchParams
   // Período sempre preenchido: os cards somam a lista devolvida, e sem recorte a
@@ -132,9 +136,10 @@ export default async function PecasPage({
         )}
 
         <TabsContent value="catalogo" className="mt-4 space-y-4">
-          {(isAdmin || isGestor) && (
+          {(isAdmin || isGestor || podeImportar) && (
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
               {isAdmin && <LojaEstoqueSelect lojas={lojasOpts} lojaId={lojaEstoqueId} />}
+              {podeImportar && <ImportarPlanilhaPecasDialog lojas={lojasOpts} />}
               {isGestor && <PecaForm lojaEstoque={lojaEstoque} triggerClassName="flex w-full cursor-pointer lg:inline-flex lg:w-auto" trigger={
                 <span className={`${buttonVariants({ variant: 'default' })} h-10 w-full gap-1.5 lg:h-9 lg:w-auto`}>
                   <Plus className="size-4" /> Nova peça

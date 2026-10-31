@@ -5,6 +5,7 @@ import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
+import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
@@ -12,7 +13,22 @@ import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
-import { EntradaPecasRecusada, carregarConferencia } from '@/lib/entrada-pecas'
+import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
+import {
+  EntradaPecasRecusada, carregarConferencia, carregarConferenciaPlanilha, gravarEntradaPlanilhaPecas,
+  type EntradaPlanilhaPecas,
+} from '@/lib/entrada-pecas'
+
+// Modelo que entrou pela 1ª vez no grupo ganha o preço padrão da MotoChefe (#522). As motos já
+// foram gravadas: falha aqui não desfaz a entrada, só deixa o preço para o próximo gatilho.
+async function precoPadraoDepoisDaEntrada(loja: { grupoId: string } | { lojaId: string }) {
+  try {
+    const grupoId = 'grupoId' in loja ? loja.grupoId : await getGrupoIdDaLoja(loja.lojaId)
+    if (await preencherGruposComPrecoPadrao([grupoId])) revalidatePath('/precificacao')
+  } catch (e) {
+    console.error('[entrada] preço padrão não preenchido', e)
+  }
+}
 
 type MotoEntrada = {
   chassi: string
@@ -99,6 +115,7 @@ export async function registrarEntrada(formData: {
     }
   }
 
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ lojaId: loja.id })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -208,6 +225,7 @@ export async function registrarEntradaLote(formData: {
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ lojaId: loja.id })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -244,6 +262,7 @@ export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>)
     throw e
   }
 
+  if (total.motos > 0) await precoPadraoDepoisDaEntrada({ lojaId: dados.lojaId })
   revalidatePath('/estoque')
   revalidatePath('/pecas')
   revalidatePath('/dashboard')
@@ -263,4 +282,30 @@ export async function carregarConferenciaPecas(
   if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
+}
+
+/** Conferência da planilha de peças (#519), com o aviso de planilha já lançada na loja. */
+export async function carregarConferenciaPlanilhaPecas(
+  lojaId: string,
+  planilha: Parameters<typeof carregarConferenciaPlanilha>[3],
+) {
+  const usuario = await getUsuarioLogado()
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' as const }
+  const conferencia = await carregarConferenciaPlanilha(db, usuario, lojaId, planilha)
+  return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
+}
+
+/** Planilha de peças (#519): tudo ou nada, como a nota com peças. */
+export async function registrarEntradaPlanilhaPecas(dados: Omit<EntradaPlanilhaPecas, 'usuario'>) {
+  const usuario = await getUsuarioLogado()
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' }
+  try {
+    await db.transaction(tx => gravarEntradaPlanilhaPecas(tx, { ...dados, usuario }))
+  } catch (e) {
+    if (e instanceof EntradaPecasRecusada) return { error: `Nada foi gravado. ${e.message}` }
+    throw e
+  }
+  revalidatePath('/pecas')
+  revalidatePath('/entrada')
+  return { success: `Planilha lançada: ${dados.linhas.length} item(ns) de peça.` }
 }

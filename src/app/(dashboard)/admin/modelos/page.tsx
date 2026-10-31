@@ -10,7 +10,7 @@ import { ApelidosCell } from './components/apelidos-cell'
 import { MarcasDaConta } from './components/marcas-da-conta'
 import { ExcluirModeloButton } from './components/excluir-modelo-button'
 import { AjusteModeloAcoes } from './components/ajuste-modelo-acoes'
-import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo } from '@/lib/gestao-modelos'
+import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo, potenciaNaTela } from '@/lib/gestao-modelos'
 
 export default async function ModelosPage() {
   const usuario = await getUsuarioLogado()
@@ -72,7 +72,7 @@ export default async function ModelosPage() {
                   <TableCell>
                     <Badge variant="outline">{m.categoria}</Badge>
                   </TableCell>
-                  <TableCell>{m.potenciaW}W</TableCell>
+                  <TableCell>{potenciaNaTela(m.potenciaW)}</TableCell>
                   {adminGeral && <TableCell className="text-muted-foreground">{m.contaId ? nomeDaConta.get(m.contaId) ?? '—' : 'Plataforma'}</TableCell>}
                   {adminGeral && usaBling && (
                     <TableCell>

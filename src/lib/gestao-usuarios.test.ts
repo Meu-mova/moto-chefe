@@ -43,7 +43,7 @@ test('sócio libera só telas que ele mesmo tem', () => {
 
 test('sócio não edita quem hoje é de grupo que ele não vê, nem trazendo para o grupo dele', () => {
   const vendedorDeBh = { id: 'v-bh', ...cadastro({ grupoDaLoja: BH }) }
-  assert.match(gravar(cadastro(), vendedorDeBh) ?? '', /alcance/)
+  assert.match(gravar(cadastro(), vendedorDeBh) ?? '', /não encontrado/)
 })
 
 test('sócio não desativa nem rebaixa a si mesmo, mas edita o resto do próprio cadastro', () => {
@@ -82,6 +82,7 @@ test('sócio alcança e cria outro sócio sem loja, só com grupo que ele vê', 
   assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE], gruposAprovacao: [] }), true)
   assert.equal(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE] })), null)
   assert.match(gravar(cadastro({ grupoDaLoja: null })) ?? '', /loja/)
+  assert.match(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null })) ?? '', /loja/, 'sócio sem loja e sem grupo')
 })
 
 test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', () => {
@@ -92,7 +93,7 @@ test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', ()
 
 test('sócio não alcança um admin_geral, mesmo com loja de grupo que ele vê', () => {
   assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_geral')), false)
-  assert.equal(gravar(cadastro(), { ...cadastro({ papel: 'admin_geral' }), id: 'geral' }), 'Usuário fora do seu alcance')
+  assert.equal(gravar(cadastro(), { ...cadastro({ papel: 'admin_geral' }), id: 'geral' }), 'Usuário não encontrado')
 })
 
 test('sócio bloqueia qualquer tela, mas só desbloqueia a que ele mesmo tem', () => {
@@ -131,4 +132,25 @@ test('cargos escondidos na v1.14.0: ninguém grava usuário com a função cargo
   assert.equal(limitesDaTela(geral).papeis.includes('cargo'), false)
   assert.equal(gravar(cadastro({ papel: 'cargo' })), 'Função indisponível')
   assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo' })), 'Função indisponível')
+})
+
+// #506: a recusa agora aparece na tela; não pode revelar que o registro existe em outra Conta.
+test('usuário de outra Conta recebe a mesma frase que usuário inexistente', () => {
+  assert.equal(gravar(cadastro(), { ...cadastro({ grupoDaLoja: BH }), id: 'de-outra-conta' }), 'Usuário não encontrado')
+})
+
+test('loja de outra Conta recebe a mesma frase que loja inexistente', () => {
+  assert.equal(gravar(cadastro({ lojaPedida: true, grupoDaLoja: BH })), 'Loja não encontrada')
+  assert.equal(gravar(cadastro({ lojaPedida: true, grupoDaLoja: null })), 'Loja não encontrada')
+  assert.equal(gravar(cadastro({ lojaPedida: true, grupoDaLoja: null, papel: 'admin_socio', gruposAcesso: [VALE] })), 'Loja não encontrada')
+  assert.equal(gravar(cadastro({ lojaPedida: false, grupoDaLoja: null })), 'Escolha a loja do usuário')
+})
+
+test('admin_rede (#517): sócio não dá o papel nem gerencia quem o tem; a tela não oferece', () => {
+  assert.match(gravar(cadastro({ papel: 'admin_rede' })) ?? '', /Admin de Rede/)
+  assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_rede')), false)
+  const limitesSocio = limitesDaTela({ ...socioDoVale, gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(!limitesSocio.papeis.includes('admin_rede'))
+  const limitesGeral = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(limitesGeral.papeis.includes('admin_rede'))
 })

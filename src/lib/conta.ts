@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { grupos, lojas } from '@/lib/db/schema'
+import { agendamentos, clientes, contas, grupos, lojas, ordensServico, vendas, vendasPecas } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -28,10 +28,44 @@ export async function listarLojasAtivasDaConta(
   return consulta.where(and(eq(lojas.ativa, true), eq(grupos.contaId, usuario.contaId))).orderBy(asc(lojas.nome))
 }
 
+// Nome das Contas, para o seletor mostrar a Conta dona ao lado do grupo liberado (#517).
+export async function nomesDasContas(ids: string[], exec: Executor = db): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const linhas = await exec.select({ id: contas.id, nome: contas.nome }).from(contas).where(inArray(contas.id, [...new Set(ids)]))
+  return new Map(linhas.map(l => [l.id, l.nome]))
+}
+
 // Lojas da Conta como subconsulta, para filtrar registros com inArray(x.lojaId, ...).
 export function lojasDaConta(contaId: string) {
   return db.select({ id: lojas.id }).from(lojas)
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId))
+}
+
+// Escopo de lojas de quem consulta: as da Conta, ou só as do grupo liberado na persona do
+// admin_rede (#517), que nunca vê outro grupo da Conta dona.
+export type EscopoDoUsuario = { contaId: string | null; grupoLiberado?: string | null }
+
+export function lojasDoEscopo(usuario: EscopoDoUsuario) {
+  if (usuario.grupoLiberado) return db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, usuario.grupoLiberado))
+  if (!usuario.contaId) return db.select({ id: lojas.id }).from(lojas).where(sql`false`)
+  return lojasDaConta(usuario.contaId)
+}
+
+// O grupo está no escopo de quem consulta: o da persona, ou qualquer um da Conta.
+export async function grupoNoEscopo(grupoId: string, usuario: EscopoDoUsuario, exec: Executor = db): Promise<boolean> {
+  if (usuario.grupoLiberado) return grupoId === usuario.grupoLiberado
+  return grupoEstaNaConta(grupoId, usuario.contaId, exec)
+}
+
+// Clientes que quem consulta ou grava vê: os da Conta. Na persona do admin_rede (#517), só os
+// que têm venda, venda de peças, OS ou agendamento nas lojas do grupo liberado (decisão do Luis).
+export function clientesDoEscopo(contaId: string, usuario: EscopoDoUsuario): SQL {
+  const daConta = eq(clientes.contaId, contaId)
+  if (!usuario.grupoLiberado) return daConta
+  const doGrupo = lojasDoEscopo(usuario)
+  const movimentou = [vendas, vendasPecas, ordensServico, agendamentos].map(t =>
+    inArray(clientes.id, db.select({ id: t.clienteId }).from(t).where(and(isNotNull(t.clienteId), inArray(t.lojaId, doGrupo)))))
+  return and(daConta, or(...movimentou))!
 }
 
 // Conta da loja de um registro (venda, OS): é a dona do cliente que ele cria ou atualiza.
