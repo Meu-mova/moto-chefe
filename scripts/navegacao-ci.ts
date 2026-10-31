@@ -169,6 +169,32 @@ async function percorrer(contexto: BrowserContext, pagina: Page, tema: Tema): Pr
   return falhas
 }
 
+// Trocar de empresa recarrega a página inteira: estado de componente cliente da empresa
+// anterior (de outra Conta) não pode sobreviver à troca (#517).
+async function trocarEmpresa(pagina: Page): Promise<number> {
+  await pagina.goto(`${base}/dashboard`)
+  await esperarCarregar(pagina)
+  const trocar = pagina.getByRole('button', { name: /Trocar/ }).first()
+  // O usuário do CI (geral@) vê vários grupos: sem o seletor, algo quebrou.
+  if (!(await trocar.isVisible().catch(() => false))) { console.log('Troca de empresa FALHOU: seletor não apareceu.'); return 1 }
+  const nome = () => pagina.locator('p.text-lg').first().textContent()
+  const antes = await nome()
+  await pagina.evaluate(() => { (window as unknown as { __semRecarga?: boolean }).__semRecarga = true })
+  await trocar.click()
+  await pagina.getByRole('combobox', { name: 'Buscar empresa' }).waitFor()
+  const outra = pagina.locator('[role=option][aria-selected=false]').first()
+  await Promise.all([pagina.waitForEvent('load', { timeout: LIMITE_CARREGAR }), outra.click()])
+  await esperarCarregar(pagina)
+  const recarregou = await pagina.evaluate(() => !(window as unknown as { __semRecarga?: boolean }).__semRecarga)
+  const depois = await nome()
+  if (!recarregou || depois === antes) {
+    console.log(`Troca de empresa FALHOU: recarregou=${recarregou}, antes="${antes}", depois="${depois}"`)
+    return 1
+  }
+  console.log(`Troca de empresa ok: ${antes} para ${depois}.`)
+  return 0
+}
+
 async function main() {
   mkdirSync(pastaPrints, { recursive: true })
   const navegador = await chromium.launch()
@@ -188,6 +214,7 @@ async function main() {
       if (visita && r.status() >= 500 && u.origin === origem) visita.respostas5xx.push(`${r.request().method()} ${u.pathname} ${r.status()}`)
     })
     await entrar(pagina)
+    falhas += await trocarEmpresa(pagina)
     for (const tema of TEMAS) {
       const doTema = await percorrer(contexto, pagina, tema)
       if (tema === 'escuro' && !escuroFalha) {
