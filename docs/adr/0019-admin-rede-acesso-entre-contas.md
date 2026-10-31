@@ -34,7 +34,7 @@ Fica substituída a concessão pelo `admin_socio` da Conta dona com aceite. A re
   para um CPF já cadastrado em outro grupo da Conta dona, a venda grava com os dados do comprador
   nela mesma, mas o cadastro do outro grupo não é atualizado, nem ligado à venda, nem mostrado.
 - Cadastrar ou editar cliente com um CPF que a Conta dona já tem recebe a mesma frase neutra
-  ("Não foi possível usar este CPF/CNPJ neste grupo"), esteja o cliente no grupo liberado ou em
+  ("Não foi possível cadastrar este cliente. Fale com o administrador."), esteja o cliente no grupo liberado ou em
   outro grupo dela: "já cadastrado" revelaria que ele existe em outro grupo. Fora da persona, a
   frase continua "CPF/CNPJ já cadastrado".
 
