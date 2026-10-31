@@ -18,7 +18,7 @@ const ROTULOS: [keyof PreviaMover['vaiJunto'], string][] = [
 ]
 
 const CONFLITOS: [keyof PreviaMover['conflitos'], string][] = [
-  ['apelidos', 'Apelido de modelo'], ['chassis', 'Chassi no histórico'], ['vinculosPeca', 'Vínculo de peça'], ['ajustesModelo', 'Ajuste de modelo'],
+  ['apelidos', 'Apelido de modelo'], ['chassis', 'Chassi no histórico'], ['vinculosPeca', 'Vínculo de peça'], ['ajustesModelo', 'Ajuste de modelo'], ['cargos', 'Cargo'],
 ]
 
 export function MoverGrupoButton({ grupo }: { grupo: { id: string; nome: string; contaId: string } }) {
@@ -41,6 +41,7 @@ export function MoverGrupoButton({ grupo }: { grupo: { id: string; nome: string;
     carregar(async () => setPrevia(await previaMoverGrupoAction(grupo.id, id)))
   }
 
+  const contaEscolhida = contas.find(c => c.id === destino)
   const bloqueado = !previa || !!previa.recusa || Object.values(previa.conflitos).some(l => l.length > 0)
 
   function confirmar() {
@@ -81,9 +82,17 @@ export function MoverGrupoButton({ grupo }: { grupo: { id: string; nome: string;
               >
                 <option value="">Escolha a Conta</option>
                 {contas.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome}{c.grupos.length ? ` (${c.grupos.join(', ')})` : ''}</option>
+                  <option key={c.id} value={c.id}>{c.nome} ({c.grupos.length} {c.grupos.length === 1 ? 'grupo' : 'grupos'})</option>
                 ))}
               </select>
+              {/* Os grupos da Conta escolhida ficam embaixo, e não na opção: com muitos, a opção ficava ilegível. */}
+              {contaEscolhida && contaEscolhida.grupos.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {contaEscolhida.grupos.map(nome => (
+                    <span key={nome} className="rounded-sm border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{nome}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {carregando && destino && <p className="text-muted-foreground">Conferindo...</p>}

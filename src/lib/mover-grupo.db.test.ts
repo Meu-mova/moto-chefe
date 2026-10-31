@@ -130,11 +130,13 @@ test('conflito: CPF ou apelido repetido na destino lista os casos e não grava n
     await tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Já na destino', '52998224725', ${c.d})`)
     const outro = await linha(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('D', 'D554', 'autopropelido', '1', 'h', '1', ${c.d}) returning id`)
     await tx.execute(sql`insert into modelo_apelidos (apelido, modelo_id, conta_id) values ('XIS', ${outro.id}, ${c.d})`)
+    await tx.execute(sql`insert into cargos (conta_id, nome) values (${c.d}, 'caixa ')`)
     const [antesO, antesD] = [await fotografia(tx, c.o), await fotografia(tx, c.d)]
 
     const previa = await previaMoverGrupo(tx, c.go.id, c.d)
     assert.deepEqual(previa?.conflitos.clientes.map(x => [x.cpfCnpj, x.nomeOrigem, x.nomeDestino]), [['52998224725', 'Cliente', 'Já na destino']])
     assert.deepEqual(previa?.conflitos.apelidos, ['XIS'])
+    assert.deepEqual(previa?.conflitos.cargos, ['Caixa'], 'mesmo nome de cargo, mesmo com caixa e espaço diferentes')
 
     const r = await moverGrupo(tx, c.geral, c.go.id, c.d)
     assert.equal(r.ok, false)

@@ -19,6 +19,7 @@ export type ConflitosMover = {
   chassis: string[]
   vinculosPeca: string[]
   ajustesModelo: string[]
+  cargos: string[]
 }
 
 export type PreviaMover = {
@@ -78,6 +79,10 @@ export async function previaMoverGrupo(exec: Leitor, grupoId: string, destinoId:
     ajustesModelo: (await rows<{ x: string }>(sql`
       select m.marca || ' ' || m.modelo x from modelo_ajustes o join modelo_ajustes d on d.modelo_id = o.modelo_id and d.conta_id = ${d.id}
       join modelos m on m.id = o.modelo_id where o.conta_id = ${o} order by 1`)).map(r => r.x),
+    // Mesma chave do índice único cargos_conta_nome_idx (0151): "Gerente" e "gerente " colidem.
+    cargos: (await rows<{ x: string }>(sql`
+      select o.nome x from cargos o join cargos d on d.conta_id = ${d.id} and cargo_nome_chave(d.nome) = cargo_nome_chave(o.nome)
+      where o.conta_id = ${o} order by 1`)).map(r => r.x),
   }
 
   const n = (t: string) => contar(exec, sql`select count(*)::int n from ${sql.raw(t)} where conta_id = ${o}`)
