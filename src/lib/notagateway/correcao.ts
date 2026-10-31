@@ -5,6 +5,7 @@ import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { normalizarCest } from '@/lib/nfe-fiscal'
 import { codigoRecusa, ehDenegada } from '@/lib/notagateway/status'
 import { escolherTentativa } from '@/lib/notagateway/tentativa'
+import { grupoEmissorDaVenda } from '@/lib/notagateway/grupo-emissor'
 import { conferirCompradorDaVenda, gravarCompradorDaVenda, type CompradorVenda } from '@/lib/venda-comprador'
 
 /**
@@ -37,9 +38,11 @@ export async function gravarCorrecaoDaNf(
   // Mesma regra da edição da venda; venda de outra Conta responde como inexistente.
   const pode = venda && (usuario.lojaId ? venda.lojaId === usuario.lojaId : await podeAbrirRegistroDaLoja(usuario, venda.lojaId, tx))
   if (!venda || !pode) throw new Error('Venda não encontrada')
+  // Mesmo grupo da montagem da nota: o que comprou a moto, quando é o caso (#552).
+  const grupoId = (await grupoEmissorDaVenda(venda.motoId, venda.lojaId, tx))?.grupoId ?? venda.grupoId
 
   const [ultima] = await tx.select({ status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus }).from(notasFiscaisSaida)
-    .where(and(eq(notasFiscaisSaida.vendaId, venda.id), eq(notasFiscaisSaida.grupoId, venda.grupoId), eq(notasFiscaisSaida.ambiente, ambiente)))
+    .where(and(eq(notasFiscaisSaida.vendaId, venda.id), eq(notasFiscaisSaida.grupoId, grupoId), eq(notasFiscaisSaida.ambiente, ambiente)))
     .orderBy(desc(notasFiscaisSaida.criadoEm)).limit(1)
   const codigo = ultima ? codigoRecusa(ultima.motivoStatus) : null
   if (ultima && ehDenegada(ultima) && (codigo === 302 || codigo === 303)) {
@@ -53,7 +56,7 @@ export async function gravarCorrecaoDaNf(
     return
   }
 
-  const tentativa = await escolherTentativa(tx, { vendaId: venda.id, grupoId: venda.grupoId, numeroVenda: venda.numero, ambiente })
+  const tentativa = await escolherTentativa(tx, { vendaId: venda.id, grupoId, numeroVenda: venda.numero, ambiente })
   if (!tentativa.notaId || correcao.ieComprador) throw new Error('A última nota desta venda não está recusada: não há o que corrigir')
 
   let ficha: { ncm: string; cest: string | null } | null = null
