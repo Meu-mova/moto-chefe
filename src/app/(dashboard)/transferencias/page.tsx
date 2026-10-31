@@ -29,7 +29,7 @@ export default async function TransferenciasPage({
   // Todos os papéis enxergam a movimentação entre todas as lojas do grupo ativo —
   // permissão pra aceitar/recusar continua restrita à loja de destino (ver actions.ts).
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
+  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
 
   // Valida origem/destino informados na URL contra o grupo ativo — um id
   // fora do grupo (estranho ou de outro tenant) é descartado, nunca vaza como filtro.

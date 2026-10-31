@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
 import { grupos, lojas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { transferenciaEntreGruposLigada } from '@/lib/transferencia-grupos'
 import {
   EMAIL_ACESSO_MULTI_GRUPO,
   aprovaBaixoValorEmQualquerGrupo,
@@ -200,11 +201,11 @@ export async function listarLojaIdsDoGrupoAtivo(
   return rows.map(r => r.id)
 }
 
-// ─── Exceção pontual: transferência entre grupos ──────────────────────────────
-// Liberado apenas para este usuário, por decisão explícita — não é uma role
-// genérica. Ver docs/superpowers/specs/2026-07-01-transferencia-entre-grupos-design.md
-export function podeTransferirEntreGrupos(usuario: { email: string }): boolean {
-  return usuario.email === EMAIL_ACESSO_MULTI_GRUPO
+// ─── Transferência entre grupos ──────────────────────────────────────────────
+// Chave da Conta do grupo ativo, ligada só pelo admin_geral (#552). Substituiu a
+// exceção por e-mail. Quem chama ainda restringe aos admins.
+export async function podeTransferirEntreGrupos(usuario: UsuarioComConta): Promise<boolean> {
+  return transferenciaEntreGruposLigada(await contaDoGrupoAtivo(usuario))
 }
 
 // ─── Aprovação de pagamento sensível (financiamento/transferência) ────────────

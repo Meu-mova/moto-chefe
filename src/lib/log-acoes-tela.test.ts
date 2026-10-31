@@ -64,3 +64,8 @@ test('correção do preço de compra mostra chassi e os dois valores (#514)', ()
   const resumo = resumoDoEvento(ev({ tipo: 'preco_compra_alterado', detalhe: { motoId: 'm1', chassi: 'ABC123', de: '6400.00', para: '2016.38' } }))
   assert.equal(resumo.replace(/\u00a0/g, ' '), 'ABC123 · R$ 6.400,00 → R$ 2.016,38')
 })
+
+test('transferência entre grupos: Conta e se ligou ou desligou (#552)', () => {
+  assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: false, para: true } })), 'Conta X · ligou')
+  assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: true, para: false } })), 'Conta X · desligou')
+})
