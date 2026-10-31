@@ -45,6 +45,7 @@ export function GrupoDialog({ modo, inicial, contas = [], open, onOpenChange }: 
   const [nome, setNome] = useState(inicial?.nome ?? '')
   // Vazio = Conta nova com o nome do grupo (padrão).
   const [contaId, setContaId] = useState('')
+  const contaEscolhida = contas.find(c => c.id === contaId)
   const [cnpj, setCnpj] = useState(inicial?.cnpj ?? '')
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true)
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
@@ -123,9 +124,17 @@ export function GrupoDialog({ modo, inicial, contas = [], open, onOpenChange }: 
                 >
                   <option value="">Conta nova</option>
                   {contas.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome}{c.grupos.length ? ` (${c.grupos.join(', ')})` : ''}</option>
+                    <option key={c.id} value={c.id}>{c.nome} ({c.grupos.length} {c.grupos.length === 1 ? 'grupo' : 'grupos'})</option>
                   ))}
                 </select>
+                {/* Os grupos da Conta escolhida ficam embaixo, e não na opção: com muitos, a opção ficava ilegível. */}
+                {contaEscolhida && contaEscolhida.grupos.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {contaEscolhida.grupos.map(g => (
+                      <span key={g} className="rounded-sm border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{g}</span>
+                    ))}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {contaId ? 'O grupo entra nesta Conta e compartilha usuários, clientes e modelos com os grupos dela.' : 'Cria uma Conta só para este grupo.'}
                 </p>
