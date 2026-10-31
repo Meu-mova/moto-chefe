@@ -55,6 +55,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values (${venda.id}, ${grupo.id}, ${'NS404-' + nome}, 'Homologacao', 'Autorizada', '1', '1', '{}'::jsonb) returning id`)
   return {
     notaId: nota.id as string,
+    contaId: conta.id as string,
     grupoId: grupo.id as string,
     vendaId: venda.id as string,
     aux: { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
@@ -95,6 +96,19 @@ test('grupo inativo: sócio e aux da Conta seguem achando venda e nota nas rotas
     for (const usuario of [b.aux, b.socio]) {
       assert.equal(await vendaDoUsuarioParaNf(usuario, eq(vendas.id, a.vendaId), tx), null)
       assert.equal(await vendaDoUsuarioParaNf(usuario, eq(vendas.id, crypto.randomUUID()), tx), null)
+    }
+  })
+})
+
+test('nota que saiu pelo grupo de entrada (#552): quem pode na loja da venda acha; a Conta B não', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000055201')
+    const b = await semearConta(tx, 'B', '00000000055202')
+    const [entrada] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('NS404 A entrada', '00000000055203', ${a.contaId}) returning id`)
+    await linhas(tx, sql`update notas_fiscais_saida set grupo_id = ${entrada.id} where id = ${a.notaId}`)
+    assert.equal((await notaSaidaDoUsuario(a.aux, a.notaId, tx))?.id, a.notaId)
+    for (const usuario of [b.aux, b.socio]) {
+      assert.equal(await notaSaidaDoUsuario(usuario, a.notaId, tx), null)
     }
   })
 })

@@ -1,4 +1,4 @@
-import { SuperAdminGuard as AdminGuard } from '../components/admin-guard'
+import { SuperAdminGuard as AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -7,6 +7,7 @@ import { eq, and, inArray } from 'drizzle-orm'
 import { ReatribuirLojaForm } from './components/reatribuir-loja-form'
 
 export default async function AcoesAdminPage() {
+  await exigirAcessoPagina('/admin/acoes')
   const usuario = await getUsuarioLogado()
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 

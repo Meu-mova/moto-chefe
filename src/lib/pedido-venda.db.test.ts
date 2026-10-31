@@ -107,6 +107,25 @@ describe('efetivarPedidoTx (#181)', () => {
     })
   })
 
+  test('cliente do cadastro leva endereço e contato para a venda; o que falta fica vazio (#577)', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      await tx.execute(sql`update clientes set celular = '35999990000', email = 'c@x.com', cep = '37500000', endereco = 'Rua A',
+        numero = '10', bairro = 'Centro', cidade = 'Itajubá', uf = 'MG' where id = ${s.clienteId}`)
+      const { vendaId } = await efetivarPedidoTx(tx, {
+        pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
+      })
+      const [v] = ((await tx.execute(sql`select cliente_celular, cliente_email, cliente_cep, cliente_logradouro, cliente_numero,
+        cliente_complemento, cliente_bairro, cliente_cidade, cliente_estado from vendas where id = ${vendaId}`)) as unknown as { rows: any[] }).rows
+      assert.deepEqual(v, {
+        cliente_celular: '35999990000', cliente_email: 'c@x.com', cliente_cep: '37500000', cliente_logradouro: 'Rua A',
+        cliente_numero: '10', cliente_complemento: null, cliente_bairro: 'Centro', cliente_cidade: 'Itajubá', cliente_estado: 'MG',
+      })
+    })
+  })
+
   test('cliente de outra Conta é recusado e o pedido continua pendente', async () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)

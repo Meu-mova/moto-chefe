@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { db } from '@/lib/db'
 import { notagatewayConfig, regrasFiscaisSaida, certificadosDigitais, motos, motosFiscal, lojas } from '@/lib/db/schema'
 import { eq, sql, and, isNull } from 'drizzle-orm'
@@ -36,6 +36,7 @@ async function linhasDaLogo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>
  * credencial, o seu certificado e a regra que o contador dele definir.
  */
 export default async function NotasFiscaisPage() {
+  await exigirAcessoPagina('/admin/notas-fiscais')
   const usuario = await getUsuarioLogado()
   const [todosGrupos, configs, regras, certificados, prontidao, logos] = await Promise.all([
     // Só os grupos que o usuário vê: o sócio não enxerga nem mexe na configuração fiscal de outro CNPJ.

@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { buscarSaldosBancarios } from '@/lib/mcpai'
@@ -62,6 +62,7 @@ async function BancosConteudo({ grupo }: { grupo: { nome: string; cnpj: string }
 }
 
 export default async function BancosPage() {
+  await exigirAcessoPagina('/admin/bancos')
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 
