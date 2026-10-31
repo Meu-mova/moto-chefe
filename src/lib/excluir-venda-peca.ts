@@ -5,7 +5,7 @@
  */
 import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
+import { aprovacoesVenda, conciliacoesCartao, lancamentosCaixa, pixRecebimentosMcp, vendasPecas, vendasPecasItens } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { vendaPecaEditavel, type UsuarioDaVenda } from '@/lib/venda-peca-editavel'
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
@@ -46,6 +46,8 @@ export async function excluirVendaPecaTx(tx: Tx, usuario: UsuarioDaVenda & { id:
     .set({ tipoCorrespondencia: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null })
     .where(eq(pixRecebimentosMcp.pecaVendaId, vendaId))
 
+  // A FK seguraria o DELETE; sem a venda, o dinheiro dela também sai do caixa (#546).
+  await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaPecaId, vendaId))
   await tx.delete(vendasPecasItens).where(eq(vendasPecasItens.vendaPecaId, vendaId))
   await tx.delete(vendasPecas).where(eq(vendasPecas.id, vendaId))
   return { numero: venda.numero }

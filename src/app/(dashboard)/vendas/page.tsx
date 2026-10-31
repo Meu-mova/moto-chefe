@@ -16,6 +16,8 @@ import { CriarPedidoDialog } from './components/criar-pedido-dialog'
 import { VendasFiltros } from './components/vendas-filtros'
 import { VendasTable } from './components/vendas-table'
 import { AprovacoesPendentesPanel } from './components/aprovacoes-pendentes-panel'
+import { VendidasSemVendaPanel } from './components/vendidas-sem-venda-panel'
+import { listarMotosVendidasSemVenda } from '@/lib/motos-vendidas-sem-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { valorConciliadoManual } from '@/lib/conciliacao-status'
 import { descontosDasVendas } from '@/lib/queries/descontos'
@@ -146,6 +148,8 @@ export default async function VendasPage({
   // Mesma lógica do podeAprovarValorMinimo acima: a lista já vem filtrada pelo
   // grupo ativo, então uma checagem no grupo ativo vale pra todas as linhas.
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
+  // Só quem pode desfazer vê o quadro: o Editar moto que marca a venda é só de sócio e admin (#544).
+  const vendidasSemVenda = isAdmin ? await listarMotosVendidasSemVenda(await contaDoGrupoAtivo(usuario), lojaIdsGrupo) : []
 
   const pendentes   = pedidos.filter(p => p.status === 'pendente')
   const concStats   = podeConciliacao ? calcConcStats(vendasList) : null
@@ -176,6 +180,8 @@ export default async function VendasPage({
         </div>
         <CriarPedidoDialog motos={motosDisponiveis} papel={usuario.papel} />
       </div>
+
+      <VendidasSemVendaPanel motos={vendidasSemVenda} />
 
       <AprovacoesPendentesPanel
         aprovacoes={aprovacoesPendentes}
