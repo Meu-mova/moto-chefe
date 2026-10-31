@@ -1,7 +1,7 @@
 // ─── Grupo novo na Conta certa (#199, adendo de 2026-10-31 ao ADR-0018) ────────
 // O admin_geral escolhe "Conta nova" (padrão) ou uma Conta existente; na existente,
 // o grupo nasce nela, sem criar Conta nem marcas.
-import { asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contaMarcas, contas, grupos } from '@/lib/db/schema'
 import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
@@ -16,7 +16,8 @@ export async function criarGrupo(tx: Escritor, dados: DadosGrupo, contaId: strin
   if (conta) {
     // Id que nem é UUID daria erro do Postgres; a resposta é a mesma de Conta inexistente.
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conta)) throw new Error('Conta não encontrada')
-    const [existe] = await tx.select({ id: contas.id }).from(contas).where(eq(contas.id, conta)).limit(1)
+    // Conta desativada (perdeu o grupo para outra, #554) não recebe grupo: mesma resposta de inexistente.
+    const [existe] = await tx.select({ id: contas.id }).from(contas).where(and(eq(contas.id, conta), isNull(contas.desativadaEm))).limit(1)
     if (!existe) throw new Error('Conta não encontrada')
   } else {
     const [nova] = await tx.insert(contas).values({ nome: dados.nome }).returning({ id: contas.id })

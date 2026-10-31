@@ -59,6 +59,9 @@ test('Conta desativada (grupo movido, #554) não aparece para receber grupo novo
     const ids = (await contasParaNovoGrupo(tx)).map(c => c.id)
     assert.ok(ids.includes(String(viva.id)))
     assert.ok(!ids.includes(String(morta.id)))
+    // Postado direto, sem passar pela lista: recusado do mesmo jeito.
+    await assert.rejects(tx.transaction(sp => criarGrupo(sp, dados('Na desativada', '00000000000515'), String(morta.id))), /Conta não encontrada/)
+    assert.equal(Number((await linha(tx, sql`select count(*)::int n from grupos where conta_id = ${morta.id}`)).n), 0)
     throw new Desfazer()
   }), Desfazer)
 })
