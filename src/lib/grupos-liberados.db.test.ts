@@ -200,3 +200,38 @@ test('aprovar: na persona só no grupo liberado; fora dela, nunca no grupo liber
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('usuários na persona: gerencia só quem é do grupo liberado (decisão do Luis, 31/10)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { ehGestorDeUsuarios, recusaDaGravacao } = await import('@/lib/gestao-usuarios')
+    const { listarUsuariosGerenciaveis } = await import('@/lib/usuarios-gerenciaveis')
+    const { gruposVisiveis } = await import('@/lib/acesso-grupo')
+    const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
+    assert.equal(ehGestorDeUsuarios(persona), true)
+
+    // Como o gestorDaSessao monta: grupos que a persona vê e onde ela aprova.
+    const todos = [c.liberado, c.irmao, c.casa, c.deFora].map(g => ({ id: g.grupo, contaId: g === c.casa ? c.rede : g === c.deFora ? 'outra' : c.dona }))
+    const visiveis = gruposVisiveis(persona, null, todos)
+    assert.deepEqual(visiveis, [c.liberado.grupo])
+    const gestor = { id: c.usuarioId, papel: persona.papel, gruposVisiveis: visiveis, gruposAprovacao: persona.gruposAprovacao, itensLiberaveis: [], aprovaPagamentoSensivel: false }
+
+    const misto = await linha(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, grupos_acesso)
+      values (gen_random_uuid(), 'Misto', 'misto-517@teste.invalid', 'vendedor', ${c.liberado.loja}, ${sql.param([c.irmao.grupo])}::uuid[]) returning id`)
+    const lista = (await listarUsuariosGerenciaveis(gestor, tx)).map(u => u.id)
+    assert.ok(lista.includes(c.liberado.mecanico), 'funcionário do grupo liberado')
+    assert.ok(!lista.includes(c.irmao.mecanico), 'outro grupo da Conta dona')
+    assert.ok(!lista.includes(misto.id), 'quem também tem grupo não liberado')
+    assert.ok(!lista.includes(c.casa.mecanico), 'a própria Conta fica fora da persona')
+    assert.ok(!lista.includes(c.deFora.mecanico), 'outra Conta')
+    assert.ok(!lista.includes(c.socioDona), 'sócio da Conta dona')
+
+    const novo = (grupoDaLoja: string) => ({ papel: 'vendedor', grupoDaLoja, gruposAcesso: [], gruposAprovacao: [], modulosExtras: [], modulosBloqueados: [], aprovaPagamentoSensivel: false, ativo: true })
+    assert.equal(recusaDaGravacao(gestor, null, novo(c.liberado.grupo)), null, 'cria no grupo liberado')
+    assert.ok(recusaDaGravacao(gestor, null, novo(c.irmao.grupo)), 'não cria em outro grupo da Conta dona')
+    assert.ok(recusaDaGravacao(gestor, null, novo(c.casa.grupo)), 'não cria na própria Conta pela persona')
+    assert.ok(recusaDaGravacao(gestor, { ...novo(c.irmao.grupo), id: c.irmao.mecanico }, novo(c.liberado.grupo)), 'não edita quem é de fora')
+    assert.ok(recusaDaGravacao(gestor, null, { ...novo(c.liberado.grupo), gruposAcesso: [c.irmao.grupo] }), 'não dá acesso a grupo não liberado')
+    throw new Desfazer()
+  }), Desfazer)
+})
