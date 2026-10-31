@@ -80,8 +80,10 @@ export function GroupSwitcher({ blocos, ativoId }: { blocos: BlocoDoSeletor[]; a
     function tecla(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); abrir(); return }
       // Alt 1 a 8 só no computador: no celular não há teclado físico.
-      if (e.altKey && /^[1-8]$/.test(e.key) && window.matchMedia('(min-width: 640px)').matches) {
-        const id = atalhos[Number(e.key) - 1]
+      // e.code, não e.key: no macOS, Alt+1 vira "¡" em e.key.
+      const digito = /^Digit([1-8])$/.exec(e.code)?.[1]
+      if (e.altKey && digito && window.matchMedia('(min-width: 640px)').matches) {
+        const id = atalhos[Number(digito) - 1]
         const g = grupos.find(x => x.id === id)
         if (g) { e.preventDefault(); trocar(g) }
       }
