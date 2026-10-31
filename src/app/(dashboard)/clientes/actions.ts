@@ -8,6 +8,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
+import { cadastrarCliente, cpfRepetido, mensagemCpfRepetido } from '@/lib/cliente-cadastro'
 
 export type ClienteInput = {
   nome: string
@@ -126,30 +127,15 @@ export async function listarCidadesAction() {
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
 
-// Só a trava de CPF por Conta vira "já cadastrado": o texto do erro do Drizzle traz a
-// query inteira, então procurar "cpf_cnpj" nele pegava qualquer falha do insert.
-function cpfRepetido(e: unknown): boolean {
-  return (e as { cause?: { constraint?: string } })?.cause?.constraint === 'clientes_conta_cpf_cnpj_key'
-}
-
 export async function criarClienteAction(dados: ClienteInput): Promise<string> {
   const usuario = await getUsuarioLogado()
   if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
 
   const cpfCnpj = limparCpfCnpj(dados.cpfCnpj)
 
-  try {
-    const [novo] = await db.insert(clientes).values({
-      ...dados,
-      cpfCnpj,
-      contaId: await contaDoGrupoAtivo(usuario),
-    }).returning({ id: clientes.id })
-    revalidatePath('/clientes')
-    return novo.id
-  } catch (e: unknown) {
-    if (cpfRepetido(e)) throw new Error('CPF/CNPJ já cadastrado')
-    throw e
-  }
+  const id = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
+  revalidatePath('/clientes')
+  return id
 }
 
 export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>) {
@@ -169,7 +155,7 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
     revalidatePath('/clientes')
     revalidatePath(`/clientes/${id}`)
   } catch (e: unknown) {
-    if (cpfRepetido(e)) throw new Error('CPF/CNPJ já cadastrado')
+    if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(usuario))
     throw e
   }
 }

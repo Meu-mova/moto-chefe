@@ -7,7 +7,7 @@ const ficha = (codigo: string, descricao: string, extra: Partial<FichaFiscal> = 
   codigo, descricao,
   ncm: '87116000', cest: '2600101', cfopEntrada: '6403', unidade: 'UN',
   origem: '1', cstIcmsEntrada: '10', cstPis: '01', cstCofins: '01',
-  classTribIbsCbs: '000001', tpPint: '',
+  classTribIbsCbs: '000001', tpPint: '', valorUnitario: '',
   ...extra,
 })
 

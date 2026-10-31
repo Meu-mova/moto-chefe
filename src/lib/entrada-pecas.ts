@@ -19,7 +19,8 @@ export type LinhaEntradaPeca = {
   codigo: string
   nomeXml: string
   quantidade: number
-  custoUnitario: number
+  /** `null` só na planilha sem custo: não sobrescreve o custo que a peça já tem. */
+  custoUnitario: number | null
 } & ({ pecaId: string } | { nova: { nome: string; valor: number } })
 
 export type EntradaPecas = {
@@ -75,9 +76,11 @@ async function gravarLinhas(
       ? linha.pecaId
       : (await inserirPeca(exec, contaId, linha.nova)).id
 
-    await exec.update(pecasCatalogo)
-      .set({ custo: String(linha.custoUnitario), atualizadoEm: new Date() })
-      .where(and(eq(pecasCatalogo.id, pecaId), eq(pecasCatalogo.contaId, contaId)))
+    if (linha.custoUnitario !== null) {
+      await exec.update(pecasCatalogo)
+        .set({ custo: String(linha.custoUnitario), atualizadoEm: new Date() })
+        .where(and(eq(pecasCatalogo.id, pecaId), eq(pecasCatalogo.contaId, contaId)))
+    }
     await moverSaldo(exec, pecaId, lojaId, linha.quantidade)
     if (fornecedorCnpj === null) continue
     await exec.insert(pecasVinculoFornecedor).values({

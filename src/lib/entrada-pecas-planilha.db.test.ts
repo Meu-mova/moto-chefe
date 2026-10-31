@@ -164,3 +164,22 @@ test('o banco não aceita nota sem chave nem planilha sem impressão digital', a
     await inserir('planilha', null, 'x')
   })
 })
+
+test('planilha sem custo não altera o custo da peça existente, e a peça nova fica sem custo', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    await tx.execute(sql`update pecas_catalogo set custo = '55.00' where id = ${a.pecaId}`)
+    await entrada.gravarEntradaPlanilhaPecas(tx, {
+      lojaId: a.lojaId, usuario: a.usuario, fornecedorCnpj: null,
+      linhas: [
+        { ...ITEM, custoUnitario: null, pecaId: a.pecaId },
+        { ...LUVA, custoUnitario: null, nova: { nome: 'Luva sem custo EP519', valor: 25 } },
+      ],
+    })
+    const [existente] = await linhas(tx, sql`select custo from pecas_catalogo where id = ${a.pecaId}`)
+    assert.equal(Number(existente.custo), 55)
+    const [nova] = await linhas(tx, sql`select custo from pecas_catalogo where nome = 'Luva sem custo EP519'`)
+    assert.equal(nova.custo, null)
+    assert.equal(await saldos.saldoNaLoja(tx, a.pecaId, a.lojaId), 3)
+  })
+})

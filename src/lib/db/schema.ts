@@ -855,6 +855,8 @@ export const vendasPecas = pgTable('vendas_pecas', {
   valorTotal: numeric('valor_total', { precision: 12, scale: 2 }).notNull(),
   dataVenda: timestamp('data_venda', { withTimezone: true }).notNull().defaultNow(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  /** Venda que lança o dinheiro no caixa sozinha (#546). As anteriores ficam false: a loja lançou à mão. */
+  caixaAutomatico: boolean('caixa_automatico').notNull().default(false),
 })
 
 // ─── vendas_pecas_itens ────────────────────────────────────────────────────────
@@ -934,6 +936,7 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
   aprovadoPorId: uuid('aprovado_por_id').references(() => usuarios.id),
   aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  vendaPecaId: uuid('venda_peca_id').references(() => vendasPecas.id),
 })
 
 // ─── categorias_caixa ────────────────────────────────────────────────────────
@@ -1064,6 +1067,17 @@ export const precificacao = pgTable('precificacao', {
   imagemUrl: text('imagem_url'),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ─── tabela_preco_padrao ─────────────────────────────────────────────────────
+// Preço de venda sugerido pela MotoChefe por modelo da plataforma (#522), carregado pelo
+// admin_geral. Só o preço à vista: o cartão sai das taxas do grupo.
+export const tabelaPrecoPadrao = pgTable('tabela_preco_padrao', {
+  modeloId: uuid('modelo_id').primaryKey().references(() => modelos.id, { onDelete: 'cascade' }),
+  preco: numeric('preco', { precision: 12, scale: 2 }).notNull(),
+  competencia: text('competencia').notNull(),
+  carregadoPor: uuid('carregado_por').references(() => usuarios.id),
+  carregadoEm: timestamp('carregado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ─── conciliacoes_cartao ─────────────────────────────────────────────────────
