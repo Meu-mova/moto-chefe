@@ -36,6 +36,11 @@ export type ItemNav = {
    * nas actions (Usuários, #322). Liberar daria só um link que redireciona.
    */
   soPeloPapel?: true
+  /**
+   * Liberação individual (modulosExtras) só vale para estes papéis; os de `papeis` continuam
+   * pelo papel e cargo não recebe. Entrada (#488): liberável só para aux_adm (decisão do Luis).
+   */
+  liberavelPara?: Papel[]
 }
 
 export type UsuarioNav = {
@@ -109,7 +114,7 @@ export const ITENS: ItemNav[] = [
   // ── Estoque & Fábrica
   { id: 'showroom',       href: '/estoque',        label: 'Showroom',          icon: Package,       categoria: 'estoque',      papeis: COMERCIAL, destaque: true },
   // Só sócio e admin geral: decisão do Luis, nem liberada por pessoa nem por cargo (#488).
-  { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: ADMINS, soPeloPapel: true },
+  { id: 'entrada',        href: '/entrada',        label: 'Entrada',           icon: PackagePlus,   categoria: 'estoque',      papeis: ADMINS, liberavelPara: ['aux_adm'] },
   { id: 'radar-fiscal',   href: '/radar-fiscal',   label: 'Notas Recebidas',   icon: Radar,         categoria: 'estoque',      papeis: GESTORES, oculto: true },
   { id: 'transferencias', href: '/transferencias', label: 'Transferências',    icon: ArrowLeftRight, categoria: 'estoque',     papeis: COMERCIAL },
   { id: 'precificacao',   href: '/precificacao',   label: 'Precificação',      icon: Tag,           categoria: 'estoque',      papeis: ADMINS },
@@ -172,14 +177,19 @@ function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
   return usuario.papel === papel || (usuario.papeisExtras ?? []).includes(papel)
 }
 
+/** A liberação individual deste item vale para o papel? (Sem restrição, vale para todos.) */
+export function liberavelPara(item: Pick<ItemNav, 'liberavelPara'>, papel: string): boolean {
+  return !item.liberavelPara || item.liberavelPara.includes(papel as Papel)
+}
+
 function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): boolean {
   // Bloqueio individual ganha de tudo — inclusive de liberação individual.
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
   if (usuario.grupoLiberado && FORA_DA_PERSONA.includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
-  if (!item.soPeloPapel && (usuario.modulosExtras ?? []).includes(item.id)) return true
-  if (!item.soPeloPapel && usuario.papel === 'cargo' && (usuario.modulosDoCargo ?? []).includes(item.id)) return true
+  if (!item.soPeloPapel && liberavelPara(item, usuario.papel) && (usuario.modulosExtras ?? []).includes(item.id)) return true
+  if (!item.soPeloPapel && !item.liberavelPara && usuario.papel === 'cargo' && (usuario.modulosDoCargo ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }
 

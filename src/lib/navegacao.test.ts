@@ -111,20 +111,18 @@ test('bloqueio ganha de liberação quando os dois marcam o mesmo item', () => {
   assert.ok(!ids(confuso).includes('marketing'))
 })
 
-test('Entrada: só sócio e admin geral, nem liberada por pessoa nem por cargo (#488)', () => {
+test('Entrada (#488, decisão do Luis): sócio e geral pelo papel; aux_adm só liberado por pessoa; cargo e outras funções nunca', () => {
   assert.ok(acessaModulo(ADMIN_GERAL, 'entrada'))
   assert.ok(acessaModulo({ papel: 'admin_socio' }, 'entrada'))
-  assert.ok(!acessaModulo({ papel: 'aux_adm' }, 'entrada'))
-  assert.ok(!acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'))
-  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'))
+  assert.ok(!acessaModulo({ papel: 'aux_adm' }, 'entrada'), 'aux_adm sem liberação')
+  assert.ok(acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'), 'aux_adm liberado')
+  assert.ok(ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'), 'e aparece no menu')
+  assert.ok(!acessaModulo({ papel: 'vendedor', modulosExtras: ['entrada'] }, 'entrada'), 'vendedor, nem liberado')
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'), 'cargo, nem pelo cargo')
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosExtras: ['entrada'] }, 'entrada'), 'cargo, nem liberado')
   assert.ok(!acessaModulo({ papel: 'admin_socio', modulosBloqueados: ['entrada'] }, 'entrada'))
-  assert.ok(!acessaModulo({ papel: 'vendedor' }, 'entrada'))
-  assert.ok(!ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'))
-})
-
-test('Entrada fora do que se libera por pessoa e por cargo (#488)', () => {
   assert.ok(!MODULOS_DE_CARGO.includes('entrada'))
-  assert.ok(ITENS.find(i => i.id === 'entrada')?.soPeloPapel)
+  assert.deepEqual(ITENS.find(i => i.id === 'entrada')?.liberavelPara, ['aux_adm'])
 })
 
 test('item oculto some do menu de todos os papéis, e o admin_geral ainda abre a rota', () => {
