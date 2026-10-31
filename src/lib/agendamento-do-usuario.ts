@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { agendamentos } from '@/lib/db/schema'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
-import { lojasDaConta } from '@/lib/conta'
+import { lojasDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -17,7 +17,7 @@ export async function agendamentoDoUsuario(
   exec: Executor = db,
 ) {
   const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(agendamentos.lojaId, lojasDaConta(usuario.contaId)) : null
+    : usuario.contaId ? inArray(agendamentos.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) return null
   const [ag] = await exec
     .select({

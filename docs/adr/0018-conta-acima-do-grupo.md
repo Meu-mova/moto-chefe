@@ -1,6 +1,6 @@
 # 0018. Conta acima do grupo: isolamento por cliente do MOVA
 
-- **Status:** Aceita
+- **Status:** Revisada por [0019](0019-admin-rede-acesso-entre-contas.md)
 - **Data da decisão:** 2026-10-17
 - **Fontes:** issue #164; call do Luis com o Cesar em 2026-10-16 ("Contrato e Operação do Mova",
   Read.ai); grilling da #164 em 2026-10-17 (decisões nos comentários da issue)
@@ -184,3 +184,9 @@ acessa. Os papéis fixos não mudam. Decisões do Luis:
 ## Quando revisar
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.
+
+## Adendo (29/10/2026): acesso entre Contas pelo admin_rede
+
+O acesso entre Contas mudou: quem concede é o `admin_geral`, a um usuário com o papel novo
+`admin_rede`, e a Conta dona vê quem tem acesso mas não revoga. Substitui a concessão pelo
+`admin_socio` da Conta dona descrita em "Entre Contas". Ver [ADR-0019](0019-admin-rede-acesso-entre-contas.md).

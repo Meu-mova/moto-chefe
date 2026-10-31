@@ -33,6 +33,7 @@ export async function buscarVeiculoGarantiaAction(chassi: string): Promise<Veicu
   const resultados = await buscarMotosPorChassi(termo, {
     contaDasMotos: usuario.papel === 'admin_geral' ? null : conta,
     contaDoComprador: conta,
+    grupoLiberado: usuario.grupoLiberado,
     limite: 10,
   })
   return resultados.map(m => ({

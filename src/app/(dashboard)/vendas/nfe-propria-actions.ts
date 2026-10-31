@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
-import { lojasDaConta } from '@/lib/conta'
+import { lojasDoEscopo } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
@@ -609,7 +609,7 @@ async function exigirGrupo(usuario: Usuario, grupoId: string) {
 async function exigirGrupoDaMoto(motoId: string, usuario: Usuario) {
   // Moto de outra Conta responde como inexistente (#404).
   const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(motos.lojaId, lojasDaConta(usuario.contaId)) : null
+    : usuario.contaId ? inArray(motos.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) throw new Error('Moto não encontrada')
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos)
     .where(and(eq(motos.id, motoId), daConta))

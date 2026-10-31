@@ -15,6 +15,7 @@ export type UsuarioMenu = { nome: string; email: string; papel: string }
 const PAPEL_LABEL: Record<string, string> = {
   admin_geral: 'Admin Geral',
   admin_socio: 'Admin Sócio',
+  admin_rede: 'Admin de Rede',
   aux_adm: 'Aux. Administrativo',
   vendedor: 'Vendedor',
   mecanico: 'Mecânico',

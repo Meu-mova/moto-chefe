@@ -109,7 +109,7 @@ export async function emitirCupomAction(input: EmitirCupomInput) {
   let motoId: string | null = null
   if (chassi) {
     // Só moto da Conta (#325): nem liga o cupom a moto de outro cliente, nem revela que ela existe.
-    const moto = await motoDaContaPorChassi(chassi, grupo.contaId)
+    const moto = await motoDaContaPorChassi(chassi, grupo.contaId, usuario.grupoLiberado)
     if (!moto) throw new Error('Chassi não encontrado no estoque')
     motoId = moto.id
   }

@@ -23,7 +23,7 @@ export default async function RadarPage({
   // Cada Conta acha só as próprias motos (#320); o admin_geral, da plataforma, acha todas.
   const contaId = usuario.papel === 'admin_geral' ? undefined : await contaDoGrupoAtivo(usuario)
   const motos = busca
-    ? await listarMotos({ chassiBusca: busca, contaId })
+    ? await listarMotos({ chassiBusca: busca, contaId, grupoLiberado: usuario.grupoLiberado })
     : []
 
   return (
