@@ -281,3 +281,42 @@ test('cadastro de cliente na persona: CPF do grupo liberado e de outro grupo da 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('persona acima do sócio: edita e desativa o admin_socio do grupo liberado; não alcança sócio com grupo de fora, admin_geral nem admin_rede (decisão do Luis)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { recusaDaGravacao, podeGerenciar } = await import('@/lib/gestao-usuarios')
+    const { listarUsuariosGerenciaveis, cadastroAtual } = await import('@/lib/usuarios-gerenciaveis')
+    const { gruposVisiveis } = await import('@/lib/acesso-grupo')
+    const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
+    const todos = [c.liberado, c.irmao, c.casa, c.deFora].map(g => ({ id: g.grupo, contaId: g === c.casa ? c.rede : g === c.deFora ? 'outra' : c.dona }))
+    // Gestor montado à mão, nos moldes do gestorDaSessao (que depende de next/headers).
+    const gestor = { id: c.usuarioId, papel: persona.papel, gruposVisiveis: gruposVisiveis(persona, null, todos), gruposAprovacao: persona.gruposAprovacao, itensLiberaveis: [], aprovaPagamentoSensivel: false }
+
+    const novo = async (papel: string, email: string, lojaId: string | null, acesso: string[] = []) =>
+      (await linha(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id, grupos_acesso)
+        values (gen_random_uuid(), ${email}, ${email + '@teste.invalid'}, ${papel}, ${lojaId}, ${c.dona}, ${sql.param(acesso)}::uuid[]) returning id`)).id
+    const socio = await novo('admin_socio', 'socio-liberado-517', c.liberado.loja)
+    const socioMisto = await novo('admin_socio', 'socio-misto-517', c.liberado.loja, [c.irmao.grupo])
+    const geral = await novo('admin_geral', 'geral-no-liberado-517', c.liberado.loja)
+    const outraRede = await novo('admin_rede', 'rede-no-liberado-517', c.liberado.loja)
+
+    const lista = (await listarUsuariosGerenciaveis(gestor, tx)).map(u => u.id)
+    assert.ok(lista.includes(socio), 'sócio do grupo liberado')
+    for (const [id, quem] of [[socioMisto, 'sócio com grupo de fora'], [geral, 'admin_geral'], [outraRede, 'admin_rede']] as const) {
+      assert.ok(!lista.includes(id), quem)
+    }
+
+    const antes = (await cadastroAtual(socio, tx))!
+    assert.equal(recusaDaGravacao(gestor, antes, { ...antes, ativo: false }), null, 'desativa o sócio')
+    assert.equal(recusaDaGravacao(gestor, antes, { ...antes, papel: 'aux_adm' }), null, 'troca o papel do sócio')
+    assert.equal(recusaDaGravacao(gestor, antes, antes), null, 'edita (inclusive a senha, que vai junto da edição)')
+    assert.ok(recusaDaGravacao(gestor, antes, { ...antes, papel: 'admin_rede' }), 'não promove a admin_rede')
+    for (const id of [socioMisto, geral, outraRede]) {
+      const cad = (await cadastroAtual(id, tx))!
+      assert.equal(podeGerenciar(gestor, cad), false)
+      assert.ok(recusaDaGravacao(gestor, cad, { ...cad, ativo: false }), 'não desativa quem está fora do alcance')
+    }
+    throw new Desfazer()
+  }), Desfazer)
+})
