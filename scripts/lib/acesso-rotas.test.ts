@@ -12,6 +12,9 @@ test('o esperado segue a regra do papel', () => {
   assert.equal(esperado('admin_geral', '/admin/grupos'), 'abre')
   assert.equal(esperado('admin_socio', '/admin/grupos'), 'volta')
   assert.equal(esperado('vendedor', '/admin/kommo'), 'volta')
+  // Bling e Kommo: só admin_geral, igual às actions (#579).
+  assert.equal(esperado('admin_socio', '/admin/bling'), 'volta')
+  assert.equal(esperado('admin_socio', '/admin/kommo'), 'volta')
   assert.equal(esperado('vendedor', '/dashboard'), 'abre')
 })
 

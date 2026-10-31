@@ -151,7 +151,7 @@ export const ITENS: ItemNav[] = [
   { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
   { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS },
-  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS, oculto: true },
+  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: SUPER, soAdminGeral: true, oculto: true },
   // aux_adm vê o contrato do grupo para orientar a loja; só sócio e admin_geral editam.
   { id: 'contratos',      href: '/admin/contratos', label: 'Contratos',        icon: FileSignature, categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: GESTORES },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
@@ -161,7 +161,7 @@ export const ITENS: ItemNav[] = [
   { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
   { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', secao: 'Cadastros', papeis: GESTORES, oculto: true },
   { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', secao: 'Cadastros', papeis: GESTORES },
-  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS, oculto: true },
+  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', secao: 'Cadastros', papeis: SUPER, soAdminGeral: true, oculto: true },
 
   // ── Plataforma: administração do MOVA como produto, só admin_geral.
   { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
