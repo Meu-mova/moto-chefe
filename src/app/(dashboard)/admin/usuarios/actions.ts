@@ -8,7 +8,7 @@ import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { cargoParaGravar } from '@/lib/cargos'
-import { aprovacoesForaDoAlcance, sincronizarGruposLiberados } from '@/lib/grupos-liberados-admin'
+import { aprovacoesForaDoAlcance, sincronizarGruposLiberados, type MudancaLiberacao } from '@/lib/grupos-liberados-admin'
 import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
@@ -233,6 +233,8 @@ export async function editarUsuarioAction(id: string, dados: {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId?: string | null
+  /** Grupos de outras Contas (admin_rede, só o admin_geral): gravados junto, na mesma transação. */
+  gruposLiberados?: string[]
 }): Promise<Resultado> {
   const admin = await gestorDaSessao()
   return recusando(async () => {
@@ -244,14 +246,15 @@ export async function editarUsuarioAction(id: string, dados: {
     const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
     const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
-    // admin_rede aprova também nos grupos liberados (vivos) para ele (ADR-0019).
-    if ((await aprovacoesForaDoAlcance(db, { id, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
     const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
     if (!cargo.ok) throw new Recusa(cargo.erro)
 
     // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
     // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
     const forcarTroca = admin.papel === 'admin_socio' && id !== admin.id
+    let liberacao: MudancaLiberacao | null = null
+    // Cadastro, liberações e conferência da aprovação numa transação: recusa em qualquer um
+    // desfaz tudo, sem liberação gravada pela metade.
     await db.transaction(async (tx) => {
       await tx.update(usuarios).set({
         nome: dados.nome,
@@ -287,7 +290,16 @@ export async function editarUsuarioAction(id: string, dados: {
           WHERE id = ${id}::uuid
         `)
       }
+
+      if (dados.gruposLiberados) {
+        const r = await sincronizarGruposLiberados(tx, admin, id, dados.gruposLiberados)
+        if (!r.ok) throw new Recusa(r.erro)
+        liberacao = r
+      }
+      // admin_rede aprova também nos grupos liberados (não revogados) para ele (ADR-0019).
+      if ((await aprovacoesForaDoAlcance(tx, { id, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
     })
+    if (liberacao) await registrarLiberacoes(admin.id, id, liberacao)
 
     const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
     const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
@@ -349,18 +361,14 @@ export async function excluirUsuarioAction(id: string): Promise<Resultado> {
 
 // Grupos de outras Contas para o admin_rede (#517, ADR-0019): só o admin_geral, e cada
 // liberação ou revogação vai para o log no grupo liberado, que é onde a Conta dona vê.
-export async function salvarGruposLiberadosAction(id: string, grupoIds: string[]): Promise<Resultado> {
-  const admin = await gestorDaSessao()
-  const r = await db.transaction(tx => sincronizarGruposLiberados(tx, admin, id, grupoIds))
-  if (!r.ok) return r
+async function registrarLiberacoes(adminId: string, id: string, r: MudancaLiberacao) {
   const [alvo] = await db.select(colunasAlvo).from(usuarios).where(eq(usuarios.id, id)).limit(1)
   const registros = [...r.liberados.map(g => ['grupo_liberado', g] as const), ...r.revogados.map(g => ['grupo_revogado', g] as const)]
   for (const [acao, grupoId] of registros) {
     await registrarAcaoSensivelSemFalhar({
-      tipo: 'permissao_alterada', usuarioId: admin.id, grupoId,
+      tipo: 'permissao_alterada', usuarioId: adminId, grupoId,
       detalhe: { acao, alvoId: id, alvoNome: alvo?.nome, contaOrigemId: alvo?.contaId },
     })
   }
-  revalidatePath('/admin/usuarios')
-  return { ok: true }
 }
+

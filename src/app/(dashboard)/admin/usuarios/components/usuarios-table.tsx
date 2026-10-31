@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction, salvarGruposLiberadosAction } from '../actions'
+import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type Cargo } from './cargos-dialog'
 import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
@@ -458,13 +458,10 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         // Recusa: o modal fica aberto com o que foi preenchido.
         if (!r.ok) { toast.error(r.erro); return }
         if (liberaveis && dados.gruposLiberados.length) {
-          const l = await salvarGruposLiberadosAction(r.id, dados.gruposLiberados)
+          // Liberações e a aprovação nos grupos de fora numa edição só (uma transação).
+          const e = await editarUsuarioAction(r.id, { ...dados, novaSenha: undefined, cargoId: dados.cargoId || null, gruposLiberados: dados.gruposLiberados })
           // O usuário já foi criado: fecha o modal e avisa o que não foi gravado.
-          if (!l.ok) { toast.error(`Usuário criado, mas os grupos de outras Contas não: ${l.erro}`); setCriando(false); return }
-          if (daConta.length !== dados.gruposAprovacao.length) {
-            const e = await editarUsuarioAction(r.id, { ...dados, novaSenha: undefined, cargoId: dados.cargoId || null })
-            if (!e.ok) { toast.error(`Usuário criado, mas a aprovação nos grupos de fora não: ${e.erro}`); setCriando(false); return }
-          }
+          if (!e.ok) { toast.error(`Usuário criado, mas os grupos de outras Contas não: ${e.erro}`); setCriando(false); return }
         }
         toast.success('Usuário criado com sucesso')
         setCriando(false)
@@ -478,12 +475,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!editando) return
     startTransition(async () => {
       try {
-        // Liberações primeiro: o servidor só aceita aprovação em grupo de fora que já esteja liberado.
-        if (liberaveis) {
-          const l = await salvarGruposLiberadosAction(editando.id, dados.gruposLiberados)
-          if (!l.ok) { toast.error(l.erro); return }
-        }
+        // Liberações vão junto na mesma action (uma transação): recusa desfaz tudo.
         const r = await editarUsuarioAction(editando.id, {
+          ...(liberaveis ? { gruposLiberados: dados.gruposLiberados } : {}),
           nome:      dados.nome,
           email:     dados.email,
           novaSenha: dados.senha || undefined,

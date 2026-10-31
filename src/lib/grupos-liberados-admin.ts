@@ -3,7 +3,6 @@
 // grupos_acesso). Vale na hora: getUsuarioLogado relê as liberações a cada requisição.
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { gruposLiberadosVivos } from '@/lib/grupos-liberados'
 import { contas, grupos, gruposLiberados, usuarios } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -58,7 +57,9 @@ export async function sincronizarGruposLiberados(
 
 /**
  * Grupos de aprovação fora do alcance do usuário: de outra Conta e, para o admin_rede, também
- * não liberados (vivos) para ele. Vazio = pode gravar. Os da própria Conta sempre valem.
+ * não liberados para ele. Vazio = pode gravar. Os da própria Conta sempre valem. Para gravar
+ * basta a liberação não revogada: grupo inativo ou bloqueado por mensalidade barra no uso
+ * (a persona some), não no cadastro, senão nenhuma edição do admin_rede passaria até pagar.
  */
 export async function aprovacoesForaDoAlcance(
   exec: Pick<typeof db, 'select'>,
@@ -69,8 +70,8 @@ export async function aprovacoesForaDoAlcance(
   const linhas = await exec.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(inArray(grupos.id, gruposAprovacao))
   const deFora = gruposAprovacao.filter(id => linhas.find(l => l.id === id)?.contaId !== alvo.contaId)
   if (!deFora.length || alvo.papel !== 'admin_rede' || !alvo.id) return deFora
-  const vivos = (await gruposLiberadosVivos(alvo.id, new Date(), exec)).map(l => l.grupoId)
-  return deFora.filter(id => !vivos.includes(id))
+  const liberados = (await gruposLiberadosDoUsuario(alvo.id, exec))
+  return deFora.filter(id => !liberados.includes(id))
 }
 
 export type AcessoDeFora = { usuarioNome: string; contaOrigem: string | null; grupoNome: string; liberadoEm: Date }
