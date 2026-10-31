@@ -7,6 +7,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
 import { faltasParaEmitir, grupoEmissorDaVenda } from '@/lib/notagateway/grupo-emissor'
+import { configDaNotaExistente } from '@/lib/notagateway/emissor-da-nota'
 import { lojasDoEscopo } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
@@ -207,6 +208,8 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
 }
 
 type Emissao = Awaited<ReturnType<typeof montarEmissao>>
+
+const cfgDaNota = (grupoId: string, e: Pick<Emissao, 'grupoId' | 'cfg'>) => configDaNotaExistente(grupoId, e, configNotaGateway)
 
 function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosVendaMoto {
   const v = e.venda
@@ -511,7 +514,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
         notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
       )).limit(1)
       if (viva) {
-        const n = await acompanhar(e.cfg, viva.idExterno, 3)
+        const n = await acompanhar(await cfgDaNota(viva.grupoId, e), viva.idExterno, 3)
         if (n) await aplicarRetorno(viva.id, n, viva.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(viva.id) }
       }
@@ -523,7 +526,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
         eq(notasFiscaisSaida.status, 'Descartada'),
       ))
       for (const d of descartadas) {
-        const n = await consultarNfe(e.cfg, d.idExterno)
+        const n = await consultarNfe(await cfgDaNota(d.grupoId, e), d.idExterno)
         if (!n) continue
         await aplicarRetorno(d.id, n, d.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(d.id) }
