@@ -224,6 +224,12 @@ leitura e gravação:
 - O **nome fiscal do produto na NF de saída é SEMPRE o literal da nota de
   entrada** (`motos_fiscal.x_prod`) — decisão firme do Cesar; não "padronize".
 - Origem na saída: entrada 1 sai 2; 0, 2 e 4 saem iguais (regra do contador).
+- **A NF de saída da moto sai SEMPRE pelo CNPJ que a comprou** (`motos.grupo_entrada_id`),
+  não pelo da loja que vende. Regra inquebrável, confirmada pelo Cesar e pela rede (#552).
+  A transferência do MOVA é só física, sem nota, e não muda o dono fiscal da moto. Por isso
+  ninguém escolhe o CNPJ da NF, nem na transferência nem na venda. Mudar o dono exige NF de
+  transferência entre os CNPJs, e esse fluxo ainda não existe. Em produção já saiu uma moto
+  comprada por um CNPJ e vendida com NF de outro (transferência entre grupos de julho a outubro de 2026).
 - Segredo de integração guardado no banco é cifrado com `src/lib/cripto.ts`
   (AES-256-GCM). Credencial nova: cifre igual.
 - **Token e `empresaId` da Nota Gateway nunca aparecem em log, saída de terminal,
