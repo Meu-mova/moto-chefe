@@ -95,3 +95,32 @@ test('sócio da Conta B não edita nem cria usuário na Conta A; o da A edita o 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('tela de usuários (#557): o que vai ao navegador do sócio da Conta A não tem usuário nem Conta da B; filtrar não alcança fora da lista', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const contaA = await linha(sql`insert into contas (nome) values ('Conta A 557') returning id`)
+    const contaB = await linha(sql`insert into contas (nome) values ('Conta B 557') returning id`)
+    const grupoA = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('A557', '00000000000191', ${contaA.id}) returning id`)
+    const grupoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('B557', '00000000000272', ${contaB.id}) returning id`)
+    const lojaA = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja A557', 'R', 'X', ${grupoA.id}) returning id`)
+    const lojaB = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values ('Loja B557', 'R', 'X', ${grupoB.id}) returning id`)
+    const usuario = (email: string, lojaId: string, contaId: string) =>
+      linha(sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id) values (gen_random_uuid(), ${email}, ${email}, 'vendedor', ${lojaId}, ${contaId}) returning id`)
+    await usuario('a557@t', lojaA.id, contaA.id)
+    await usuario('b557@t', lojaB.id, contaB.id)
+    const { nomesDasContas } = await import('@/lib/conta')
+    const { filtrarUsuarios } = await import('@/lib/usuarios-filtro')
+
+    // Mesmo caminho da página: lista recortada e nomes só das Contas dela.
+    const lista = await listarUsuariosGerenciaveis({ papel: 'admin_socio', gruposVisiveis: [grupoA.id] }, tx)
+    const contas = await nomesDasContas(lista.map(u => u.contaId).filter((c): c is string => !!c), tx)
+    assert.deepEqual(lista.map(u => u.email), ['a557@t'])
+    assert.deepEqual([...contas.values()], ['Conta A 557'])
+    assert.ok(!JSON.stringify(lista).includes('b557@t') && !JSON.stringify([...contas.values()]).includes('Conta B'), 'nada da Conta B')
+    // Busca pelo e-mail ou pela Conta da B, a partir do navegador da A: nada aparece.
+    assert.deepEqual(filtrarUsuarios(lista, { busca: 'b557', papel: '', contaId: '', situacao: 'todos' }), [])
+    assert.deepEqual(filtrarUsuarios(lista, { busca: '', papel: '', contaId: contaB.id, situacao: 'todos' }), [])
+    throw new Desfazer()
+  }), Desfazer)
+})
