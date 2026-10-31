@@ -228,8 +228,9 @@ leitura e gravação:
   não pelo da loja que vende. Regra inquebrável, confirmada pelo Cesar e pela rede (#552).
   A transferência do MOVA é só física, sem nota, e não muda o dono fiscal da moto. Por isso
   ninguém escolhe o CNPJ da NF, nem na transferência nem na venda. Mudar o dono exige NF de
-  transferência entre os CNPJs, e esse fluxo ainda não existe. Em produção já saiu uma moto
-  comprada por um CNPJ e vendida com NF de outro (transferência entre grupos de julho a outubro de 2026).
+  transferência entre os CNPJs, e esse fluxo ainda não existe. Em produção, uma moto comprada
+  por um CNPJ foi transferida para outro grupo em 16/09/2026 e vendida em 13/10/2026 com NF
+  autorizada pelo CNPJ da loja que vendeu.
 - Segredo de integração guardado no banco é cifrado com `src/lib/cripto.ts`
   (AES-256-GCM). Credencial nova: cifre igual.
 - **Token e `empresaId` da Nota Gateway nunca aparecem em log, saída de terminal,
