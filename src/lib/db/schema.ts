@@ -41,6 +41,8 @@ export const contas = pgTable('contas', {
   id:       uuid('id').primaryKey().defaultRandom(),
   nome:     text('nome').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Preenchida quando o único grupo dela foi movido para outra Conta (#554).
+  desativadaEm: timestamp('desativada_em', { withTimezone: true }),
 })
 
 // ─── cargos ──────────────────────────────────────────────────────────────────
