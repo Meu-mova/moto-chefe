@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, reservas, vendas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
-import { contaDaLoja } from '@/lib/conta'
+import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -18,6 +18,8 @@ export type DadosEfetivarPedido = {
   valor: number
   formaPagamento: string
   origem: { origemId: string; origemDetalhe: string | null }
+  /** Persona do admin_rede (#517): só cliente do grupo liberado. */
+  grupoLiberado: string | null
 }
 
 /**
@@ -46,9 +48,11 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   if (moto.status === 'vendida') throw new RecusaUsuario('Moto já foi vendida')
 
   if (d.clienteId) {
-    // Cliente de outra Conta não existe para esta venda (ADR-0018).
+    // Cliente de outra Conta não existe para esta venda (ADR-0018); na persona, nem o de
+    // outro grupo da Conta dona (ADR-0019).
+    const contaId = await contaDaLoja(pedido.lojaId, tx)
     const [cliente] = await tx.select({ id: clientes.id }).from(clientes)
-      .where(and(eq(clientes.id, d.clienteId), eq(clientes.contaId, await contaDaLoja(pedido.lojaId, tx)))).limit(1)
+      .where(and(eq(clientes.id, d.clienteId), clientesDoEscopo(contaId, { contaId, grupoLiberado: d.grupoLiberado }))).limit(1)
     if (!cliente) throw new RecusaUsuario('Cliente não encontrado')
   }
 
