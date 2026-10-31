@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { asc } from 'drizzle-orm'
@@ -9,6 +9,7 @@ import { BeneficiariosTable } from './components/beneficiarios-table'
 import { listarBeneficiariosAction } from '@/app/(dashboard)/despesas/actions'
 
 export default async function CategoriasCaixaPage() {
+  await exigirAcessoPagina('/admin/categorias-caixa')
   const [categorias, categoriasDespesaLista, beneficiarios] = await Promise.all([
     db
       .select()

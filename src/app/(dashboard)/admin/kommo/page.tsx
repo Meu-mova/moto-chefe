@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getKommoStatusAction } from './actions'
 import { KommoConnectButton } from './components/kommo-connect-button'
 import { KommoCredenciaisForm } from './components/kommo-credenciais-form'
@@ -18,6 +18,7 @@ const ERROS: Record<string, string> = {
 }
 
 export default async function KommoPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
+  await exigirAcessoPagina('/admin/kommo')
   const params = await searchParams
   const status = await getKommoStatusAction()
 

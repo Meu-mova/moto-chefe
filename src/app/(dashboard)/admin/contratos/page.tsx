@@ -1,5 +1,5 @@
 import { FileSignature } from 'lucide-react'
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { categoriasDoGrupo, listarContratosDoGrupo, podeEditarContratos } from '@/lib/contratos-grupo'
@@ -10,6 +10,7 @@ import { ContratosClient } from './components/contratos-client'
  * grupo; o MOVA preenche os campos pela venda. aux_adm vê; sócio e admin_geral editam.
  */
 export default async function ContratosPage() {
+  await exigirAcessoPagina('/admin/contratos')
   const usuario = await getUsuarioLogado()
   const grupo = await grupoAtivoDaRequisicao(usuario)
   const versoes = await listarContratosDoGrupo(usuario, grupo.id)

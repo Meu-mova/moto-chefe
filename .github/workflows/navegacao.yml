@@ -50,7 +50,7 @@ jobs:
           arquivos=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[].number' |
             while read -r pr; do gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$pr/files" --jq '.[].filename'; done)
           # Mesma regra do tocaTelas (scripts/lib/navegacao-ci.ts), mais o próprio teste.
-          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/.*|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|\.github/workflows/navegacao\.yml)$'; then
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/.*|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
             echo "rodar=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhum PR deste commit mexe em src/app, src/components ou no próprio teste; pulando."
@@ -116,3 +116,38 @@ jobs:
           path: prints/
           retention-days: 7
           if-no-files-found: ignore
+
+  # #579: cada papel do seed abre pela URL cada rota da tabela de navegação. Sem permissão
+  # volta ao /dashboard sem tela de erro; com permissão a tela abre. Rota nova entra sozinha.
+  acesso:
+    name: acesso rota x papel
+    needs: filtro
+    if: needs.filtro.outputs.rodar == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: navegacao-staging-c
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.filtro.outputs.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: matriz rota x papel
+        env:
+          NAVEGACAO_URL: ${{ needs.filtro.outputs.url }}
+          SMOKE_SENHA: ${{ secrets.SMOKE_SENHA }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          echo "Alvo: $NAVEGACAO_URL"
+          node --import tsx scripts/e2e-acesso-rotas.ts

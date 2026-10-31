@@ -1,5 +1,5 @@
 import QRCode from 'qrcode'
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { painelAvaliacoes } from '@/lib/avaliacoes-google/avaliacoes'
@@ -12,6 +12,7 @@ import { AvaliacoesClient, type LinkPlaca } from './components/avaliacoes-client
  * vendedor) que levam o cliente a avaliar. Só os sócios (o item do menu é soPeloPapel).
  */
 export default async function AvaliacoesGooglePage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+  await exigirAcessoPagina('/admin/avaliacoes-google')
   const { mes } = await searchParams
   const usuario = await getUsuarioLogado()
   const grupo = await grupoAtivoDaRequisicao(usuario)

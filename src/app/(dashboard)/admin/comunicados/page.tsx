@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { listarComunicadosAction } from './actions'
 import { ComunicadoForm } from './components/comunicado-form'
 import { ComunicadosTable } from './components/comunicados-table'
@@ -6,6 +6,7 @@ import { ImportarCsv } from './components/importar-csv'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function ComunicadosPage() {
+  await exigirAcessoPagina('/admin/comunicados')
   const lista = await listarComunicadosAction()
 
   return (

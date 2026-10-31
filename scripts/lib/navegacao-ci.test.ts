@@ -39,3 +39,8 @@ test('elemento maior que a tela conta só a parte que cabe nela', () => {
 test('nomePrint: tema, largura, passo com 2 dígitos e rota sem barra', () => {
   assert.equal(nomePrint('escuro', 390, 3, '/relatorios/coletiva', 'esqueleto'), 'escuro-390-03-relatorios_coletiva-esqueleto.png')
 })
+
+test('a matriz rota x papel (#579) roda quando muda o próprio teste', () => {
+  assert.equal(tocaTelas(['scripts/lib/acesso-rotas.ts']), true)
+  assert.equal(tocaTelas(['scripts/e2e-acesso-rotas.ts']), true)
+})
