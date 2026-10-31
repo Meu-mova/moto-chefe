@@ -20,8 +20,10 @@ mais se erra:
 - **Depois que a release sobe, confira cada issue citada nos PRs dela** (`Refs #N` no corpo e
   nos commits) antes de fechar: compare o checklist e o pedido da issue com o que os PRs
   entregaram. Entregou tudo: feche como "completed" com "Saiu na vX.Y.Z". Entregou só parte:
-  deixe aberta e comente o que saiu na vX.Y.Z, o que falta e que por isso não foi fechada; no
-  Project, volte-a para "Em andamento". Na v1.18.0 a #552 entrou só com o PR A (#559), sem a
+  deixe aberta e comente o que saiu na vX.Y.Z, o que falta e que por isso não foi fechada.
+  Em seguida, confira no Project cada issue e PR da release: fechada fica em "Em produção" com
+  **Release** `vX.Y.Z`; parcial volta para "Em andamento"; nenhuma fica em "No Status" nem sem
+  Módulo, Prioridade e Issue Type. O quadro não se mexe sozinho (workflows desligados). Na v1.18.0 a #552 entrou só com o PR A (#559), sem a
   emissão; fechar pelo `Refs` daria a NF pelo grupo de entrada como pronta.
 - Não ligue "apagar branch após o merge" no repo: sem proteção de branch, isso apaga a `dev`.
 
