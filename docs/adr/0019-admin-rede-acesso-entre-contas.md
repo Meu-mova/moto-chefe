@@ -18,6 +18,7 @@ No lugar da autorização concedida pela Conta dona:
 - Só o **admin_geral** libera grupos para ele, pelo modal de `/admin/usuarios`. A unidade é o grupo inteiro (CNPJ), de qualquer Conta. Loja solta continua descartada.
 - Na própria Conta, o `admin_rede` segue a regra do `admin_socio`: vê o grupo da própria loja e os grupos marcados para ele (`grupos_acesso`), sem ver todos automaticamente. Os grupos liberados de outras Contas somam por cima.
 - Num grupo liberado ele tem as permissões de `admin_socio`, inclusive aprovar. Lê e grava só os dados da Conta dona daquele grupo (clientes, modelos, maquininhas, categorias), sem misturar com os da Conta dele.
+- Num grupo liberado ele cadastra e edita os usuários (funcionários) daquele grupo em `/admin/usuarios`, com as mesmas funções do `admin_socio` (decisão do Luis, 31/10/2026). Quem tem qualquer outro grupo da Conta dona fica fora do alcance dele, e ele não dá acesso a grupo não liberado. O log e os dados pessoais de funcionários continuam fora, porque são da Conta inteira.
 - A Conta dona vê quem tem acesso de fora (nome, Conta de origem, data), mas não revoga. Liberar e revogar ficam com o admin_geral, valem na hora e vão para o log de ações sensíveis.
 - Grupo bloqueado por falta de pagamento derruba também o acesso de fora. O acesso não é cobrado.
 - O `admin_socio` comum continua preso à própria Conta.
