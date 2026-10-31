@@ -60,7 +60,7 @@ async function semear(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], o
   const reserva = opts.comReserva
     ? await linha(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao) values (${moto.id}, ${loja.id}, ${vendedor.id}, 500, 'pix', current_date) returning id`)
     : null
-  return { tx, linha, modeloId: modelo.id as string, vendedorId: vendedor.id as string, lojaId: loja.id as string, auxId: aux.id as string, motoId: moto.id as string, origemId: origem.id as string, clienteId: cliente.id as string, pedidoId: pedido.id as string, reservaId: reserva?.id as string | undefined }
+  return { tx, linha, grupoId: grupo.id as string, modeloId: modelo.id as string, vendedorId: vendedor.id as string, lojaId: loja.id as string, auxId: aux.id as string, motoId: moto.id as string, origemId: origem.id as string, clienteId: cliente.id as string, pedidoId: pedido.id as string, reservaId: reserva?.id as string | undefined }
 }
 
 describe('efetivarPedidoTx (#181)', () => {
@@ -70,7 +70,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const { vendaId } = await efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
         clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
-        origem: { origemId: s.origemId, origemDetalhe: null },
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       const [r] = ((await tx.execute(sql`
         select v.cliente_id, v.cliente_nome, v.cliente_cpf, v.valor, p.status as pedido, m.status as moto, m.disponibilidade,
@@ -94,7 +94,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const { vendaId } = await efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: null,
         clienteNome: 'Sem Cadastro', clienteCpf: '529.982.247-25', valor: 9000, formaPagamento: 'dinheiro',
-        origem: { origemId: s.origemId, origemDetalhe: null },
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       const [r] = ((await tx.execute(sql`
         select v.reserva_id, v.cliente_id, rs.status as reserva,
@@ -115,10 +115,31 @@ describe('efetivarPedidoTx (#181)', () => {
       await assert.rejects(efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: deFora.id,
         clienteNome: 'Comprador de fora', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
-        origem: { origemId: s.origemId, origemDetalhe: null },
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       }), /Cliente não encontrado/)
       const [p] = ((await tx.execute(sql`select status from pedidos_venda where id = ${s.pedidoId}`)) as unknown as { rows: any[] }).rows
       assert.equal(p.status, 'pendente')
+    })
+  })
+
+  test('persona do admin_rede (#517): cliente de outro grupo da Conta dona é recusado; do grupo liberado passa', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const dados = {
+        pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: s.grupoId,
+      }
+      // Sem movimento nas lojas do grupo liberado, o cliente é de outro grupo da Conta dona.
+      await assert.rejects(efetivarPedidoTx(tx, dados), /Cliente não encontrado/)
+      const [p] = ((await tx.execute(sql`select status from pedidos_venda where id = ${s.pedidoId}`)) as unknown as { rows: any[] }).rows
+      assert.equal(p.status, 'pendente')
+
+      await tx.execute(sql`insert into agendamentos (loja_id, cliente_id, cliente_nome, cliente_fone, tipo_servico, data_hora_inicio)
+        values (${s.lojaId}, ${s.clienteId}, 'Cliente Teste', '35999990000', 'Freios', '2026-11-03T13:00:00Z')`)
+      const { vendaId } = await efetivarPedidoTx(tx, dados)
+      const [v] = ((await tx.execute(sql`select cliente_id from vendas where id = ${vendaId}`)) as unknown as { rows: any[] }).rows
+      assert.equal(v.cliente_id, s.clienteId)
     })
   })
 
@@ -128,7 +149,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const dados = {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: null,
         clienteNome: 'X', clienteCpf: '529.982.247-25', valor: 1, formaPagamento: 'pix',
-        origem: { origemId: s.origemId, origemDetalhe: null },
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       }
       await efetivarPedidoTx(tx, dados)
       await assert.rejects(efetivarPedidoTx(tx, dados), /não está mais pendente/)
@@ -257,7 +278,7 @@ describe('ciclo do pedido (#181)', () => {
       await efetivarPedidoTx(tx, {
         pedidoId, lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
         clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 1000, formaPagamento: 'pix',
-        origem: { origemId: s.origemId, origemDetalhe: null },
+        origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: null, status: 'vendida', pedido: 'efetivado' })
     })
