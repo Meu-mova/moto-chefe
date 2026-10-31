@@ -49,9 +49,9 @@ export type UsuarioNav = {
   grupoLiberado?: string | null
 }
 
-// Telas da Conta inteira (pessoas, dado pessoal, log): a persona do admin_rede (#517) não
+// Telas da Conta inteira (dado pessoal, log): a persona do admin_rede (#517) não
 // abre, porque mostrariam os outros grupos da Conta dona.
-const FORA_DA_PERSONA = ['usuarios', 'log', 'dados-funcionarios']
+const FORA_DA_PERSONA = ['log', 'dados-funcionarios']
 
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
 export type RegrasProprias = Record<string, boolean>
