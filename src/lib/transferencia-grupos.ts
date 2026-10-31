@@ -1,0 +1,85 @@
+import { and, eq } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
+import { db } from '@/lib/db'
+import { contas, grupos, lojas } from '@/lib/db/schema'
+import { registrarAcaoSensivel } from '@/lib/log-acoes'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+
+type Escritor = Pick<typeof db, 'select' | 'update' | 'insert' | 'delete' | 'transaction'>
+type Leitor = Pick<typeof db, 'select'>
+
+/**
+ * Chave da Conta (#552): com ela, a moto anda entre os grupos da mesma Conta e a NF
+ * de saída sai pelo grupo que comprou a moto. Substitui a exceção por e-mail.
+ */
+export async function transferenciaEntreGruposLigada(contaId: string | null | undefined, exec: Leitor = db): Promise<boolean> {
+  if (!contaId) return false
+  const [c] = await exec.select({ ligada: contas.transferenciaEntreGrupos }).from(contas).where(eq(contas.id, contaId)).limit(1)
+  return c?.ligada ?? false
+}
+
+/**
+ * Loja de destino de outro grupo: só se for da mesma Conta da loja da MOTO e com a chave
+ * dessa Conta ligada. Nunca a Conta do usuário: sócio com grupo liberado de outra Conta
+ * (#520) levaria a moto de uma Conta para a outra.
+ */
+export async function destinoEntreGruposPermitido(motoLojaId: string, lojaDestinoId: string, exec: Leitor = db): Promise<boolean> {
+  const lojaMoto = alias(lojas, 'loja_moto')
+  const grupoMoto = alias(grupos, 'grupo_moto')
+  const [ok] = await exec.select({ id: lojas.id }).from(lojas)
+    .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .innerJoin(grupoMoto, eq(grupoMoto.contaId, grupos.contaId))
+    .innerJoin(lojaMoto, and(eq(lojaMoto.grupoId, grupoMoto.id), eq(lojaMoto.id, motoLojaId)))
+    .innerJoin(contas, and(eq(contas.id, grupos.contaId), eq(contas.transferenciaEntreGrupos, true)))
+    .where(eq(lojas.id, lojaDestinoId)).limit(1)
+  return !!ok
+}
+
+/** As duas lojas são de grupos da mesma Conta. */
+async function mesmaConta(lojaA: string, lojaB: string, exec: Leitor): Promise<boolean> {
+  const lojaB2 = alias(lojas, 'loja_b')
+  const grupoB = alias(grupos, 'grupo_b')
+  const [ok] = await exec.select({ id: lojas.id }).from(lojas)
+    .innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .innerJoin(grupoB, eq(grupoB.contaId, grupos.contaId))
+    .innerJoin(lojaB2, and(eq(lojaB2.grupoId, grupoB.id), eq(lojaB2.id, lojaB)))
+    .where(eq(lojas.id, lojaA)).limit(1)
+  return !!ok
+}
+
+/**
+ * Decisão inteira do destino da transferência. Em TODO caso a loja de destino é da
+ * mesma Conta da loja da moto: nem o admin_geral nem sócio com grupo liberado de outra
+ * Conta (#520) atravessam Conta. Dentro dela: loja que o usuário pode abrir, ou, para o
+ * sócio com a chave da Conta da moto ligada, qualquer grupo dela (#552).
+ */
+export async function destinoDeTransferenciaPermitido(
+  usuario: Parameters<typeof podeAbrirRegistroDaLoja>[0],
+  motoLojaId: string,
+  lojaDestinoId: string,
+  exec: Leitor = db,
+): Promise<boolean> {
+  if (!(await mesmaConta(motoLojaId, lojaDestinoId, exec))) return false
+  if (await podeAbrirRegistroDaLoja(usuario, lojaDestinoId, exec as Parameters<typeof podeAbrirRegistroDaLoja>[2])) return true
+  return usuario.papel === 'admin_socio' && destinoEntreGruposPermitido(motoLojaId, lojaDestinoId, exec)
+}
+
+export async function alterarTransferenciaEntreGrupos(
+  usuario: { id: string; papel: string },
+  contaId: string,
+  ligada: boolean,
+  exec: Escritor = db,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  if (usuario.papel !== 'admin_geral') return { ok: false, erro: 'Sem permissão' }
+  return exec.transaction(async tx => {
+    const [c] = await tx.select({ de: contas.transferenciaEntreGrupos, nome: contas.nome }).from(contas).where(eq(contas.id, contaId)).limit(1)
+    if (!c) return { ok: false as const, erro: 'Conta não encontrada' }
+    if (c.de === ligada) return { ok: true as const }
+    await tx.update(contas).set({ transferenciaEntreGrupos: ligada }).where(eq(contas.id, contaId))
+    await registrarAcaoSensivel({
+      tipo: 'transferencia_grupos_alterada', usuarioId: usuario.id, contaId,
+      detalhe: { contaId, contaNome: c.nome, de: c.de, para: ligada },
+    }, tx)
+    return { ok: true as const }
+  })
+}

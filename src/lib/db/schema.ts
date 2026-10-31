@@ -43,6 +43,9 @@ export const contas = pgTable('contas', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   // Preenchida quando o único grupo dela foi movido para outra Conta (#554).
   desativadaEm: timestamp('desativada_em', { withTimezone: true }),
+  // Transferência de moto entre grupos da mesma Conta, com a NF de saída pelo grupo
+  // que comprou a moto (#552). Só o admin_geral liga.
+  transferenciaEntreGrupos: boolean('transferencia_entre_grupos').notNull().default(false),
 })
 
 // ─── cargos ──────────────────────────────────────────────────────────────────
@@ -500,6 +503,10 @@ export const motos = pgTable('motos', {
   chassi: text('chassi').notNull().unique(),
   modeloId: uuid('modelo_id').notNull().references(() => modelos.id),
   lojaId: uuid('loja_id').notNull().references(() => lojas.id),
+  // Grupo que comprou a moto (NF de entrada). Trigger do banco preenche pelo grupo da
+  // loja no insert (migração 0168); a NF de saída sai por ele com a chave da Conta (#552).
+  // O `.default` só torna o campo opcional no insert do Drizzle: quem preenche é o trigger.
+  grupoEntradaId: uuid('grupo_entrada_id').notNull().default(sql`null`).references(() => grupos.id),
   status: motoStatusEnum('status').notNull().default('caixa'),
   disponibilidade: disponibilidadeEnum('disponibilidade'),
   cor: text('cor').notNull(),

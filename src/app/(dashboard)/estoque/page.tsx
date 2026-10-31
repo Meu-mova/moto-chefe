@@ -43,7 +43,7 @@ export default async function EstoquePage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const lojaIdsGrupo = await withTimeout(listarLojaIdsDoGrupoAtivo(usuario), 20000)
-  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
+  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
 
   const filtros = filtrosDoShowroom(params, usuario, lojaIdsGrupo)

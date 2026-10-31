@@ -1,12 +1,13 @@
 import { SuperAdminGuard } from '../components/admin-guard'
-import { listarContasAction, listarGruposAction } from './actions'
+import { listarContasAction, listarContasTransferenciaAction, listarGruposAction } from './actions'
+import { TransferenciaContas } from './components/transferencia-contas'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { NovoGrupoButton, EditarGrupoButton } from './components/grupo-dialog'
 import { MoverGrupoButton } from './components/mover-grupo-dialog'
 
 export default async function GruposPage() {
-  const [lista, contas] = await Promise.all([listarGruposAction(), listarContasAction()])
+  const [lista, contas, contasTransferencia] = await Promise.all([listarGruposAction(), listarContasAction(), listarContasTransferenciaAction()])
 
   return (
     <SuperAdminGuard href="/admin/grupos">
@@ -50,6 +51,7 @@ export default async function GruposPage() {
             </TableBody>
           </Table>
         </div>
+        <TransferenciaContas contas={contasTransferencia} />
       </div>
     </SuperAdminGuard>
   )
