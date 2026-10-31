@@ -49,6 +49,20 @@ export async function podeAgirNaLoja(
   return usuario.lojaId === lojaId
 }
 
+// Editar venda: sócio (e a persona do admin_rede) em qualquer loja do grupo que vê, como
+// abrir o registro; aux_adm preso à própria loja. Tela e action usam esta mesma regra (#576).
+const PAPEIS_EDITAM_VENDA = new Set(['admin_geral', 'admin_socio', 'aux_adm'])
+
+export async function podeEditarVendaDaLoja(
+  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null; grupoLiberado?: string | null },
+  lojaId: string,
+  exec: Executor = db,
+): Promise<boolean> {
+  if (!PAPEIS_EDITAM_VENDA.has(usuario.papel)) return false
+  if (usuario.papel === 'aux_adm' && usuario.lojaId) return usuario.lojaId === lojaId
+  return podeAbrirRegistroDaLoja(usuario, lojaId, exec)
+}
+
 // Reservar, vender ou pedir venda de uma moto: como podeAgirNaLoja, mais a exceção
 // do Galpão Matriz para quem vende (CONTEXT.md), dentro do grupo dele. É a regra que
 // a tela já aplica; aqui ela vale também para quem chama a action direto.

@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { getGrupoIdDaLoja, podeUsuarioVerGrupo } from '@/lib/grupo'
+import { faltasParaEmitir, grupoEmissorDaVenda } from '@/lib/notagateway/grupo-emissor'
+import { configDaNotaExistente } from '@/lib/notagateway/emissor-da-nota'
 import { lojasDoEscopo } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
@@ -21,7 +23,8 @@ import { diaEHoraBrt, hojeBrt } from '@/lib/data-venda'
 import { espera } from '@/lib/espera'
 import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
-import { isIndicadorIe } from '@/lib/documento'
+import { disponibilidadeDoGrupo, SEM_EMISSAO, type DisponibilidadeNf } from '@/lib/notagateway/disponibilidade'
+import { formatarCpfCnpj, isIndicadorIe } from '@/lib/documento'
 import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
@@ -96,7 +99,11 @@ export type PreviaNfe =
       correcao: Required<Pick<CorrecaoNf, 'comprador' | 'moto'>>
       /** Só Admin Geral e Sócio gravam a configuração fiscal do grupo. */
       podeConfigurarFiscal: boolean
+      /** A NF sai por outro CNPJ da Conta, o que comprou a moto (#552). */
+      avisoEmissor: string | null
     }
+
+const avisoEmissor = (e: { nome: string; cnpj: string }) => `A NF desta moto sai pelo CNPJ de ${e.nome} (${formatarCpfCnpj(e.cnpj)})`
 
 const numOuNulo = (v: string | null) => (v == null ? null : v)
 
@@ -105,8 +112,15 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.motoId, motoId))
   if (!venda) throw new Error(SEM_VENDA)
 
-  const grupoId = await getGrupoIdDaLoja(venda.lojaId)
-  await exigirGrupo(usuario, grupoId)
+  const emissor = await grupoEmissorDaVenda(motoId, venda.lojaId)
+  if (!emissor) throw new Error(SEM_VENDA)
+  // A permissão é na loja da venda; o grupo que emite é o que comprou a moto (#552).
+  await exigirGrupo(usuario, emissor.grupoDaLojaId)
+  const grupoId = emissor.grupoId
+  if (emissor.outroCnpj) {
+    const faltas = await faltasParaEmitir(grupoId)
+    if (faltas.length) throw new Error(`${avisoEmissor(emissor)}, que ainda não está pronto para emitir: ${faltas.join(' e ')}. Veja Admin → Notas fiscais`)
+  }
   const cfg = await configNotaGateway(grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo. Veja Admin → Notas fiscais')
 
@@ -189,12 +203,14 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const renaveOrigem: OrigemRenave = comOrigem?.origem ?? {}
 
   return {
-    venda, grupoId, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
+    venda, grupoId, emissor, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
     renaveExigido, renave, renaveOrigem,
   }
 }
 
 type Emissao = Awaited<ReturnType<typeof montarEmissao>>
+
+const cfgDaNota = (grupoId: string, e: Pick<Emissao, 'grupoId' | 'cfg'>) => configDaNotaExistente(grupoId, e, configNotaGateway)
 
 function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosVendaMoto {
   const v = e.venda
@@ -329,6 +345,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
         moto: { ncm: e.ficha?.ncm ?? '', cest: e.ficha?.cest ?? '' },
       },
       podeConfigurarFiscal: podeConfigurarFiscal(usuario.papel),
+      avisoEmissor: e.emissor.outroCnpj ? avisoEmissor(e.emissor) : null,
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -498,7 +515,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
         notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
       )).limit(1)
       if (viva) {
-        const n = await acompanhar(e.cfg, viva.idExterno, 3)
+        const n = await acompanhar(await cfgDaNota(viva.grupoId, e), viva.idExterno, 3)
         if (n) await aplicarRetorno(viva.id, n, viva.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(viva.id) }
       }
@@ -510,7 +527,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
         eq(notasFiscaisSaida.status, 'Descartada'),
       ))
       for (const d of descartadas) {
-        const n = await consultarNfe(e.cfg, d.idExterno)
+        const n = await consultarNfe(await cfgDaNota(d.grupoId, e), d.idExterno)
         if (!n) continue
         await aplicarRetorno(d.id, n, d.ambiente, e.venda.id, motoId)
         return { ok: true, nota: await resumoDaNota(d.id) }
@@ -849,17 +866,21 @@ export async function descartarTentativaAction(notaId: string): Promise<Resultad
 }
 
 /** Para o diálogo de NF decidir se mostra a opção — sem montar a nota. */
-export async function nfePropriaDisponivelAction(motoId: string): Promise<{ disponivel: boolean; ambiente: 'Homologacao' | 'Producao' | null }> {
+export async function nfePropriaDisponivelAction(motoId: string): Promise<DisponibilidadeNf> {
   try {
-    const usuario = await exigirPapel()
+    const usuario = await getUsuarioLogado()
+    // Papel sem NF de saída nem vê o botão: não há o que avisar.
+    if (!podeOperarNfSaida(usuario.papel)) return SEM_EMISSAO
     const [v] = await db.select({ lojaId: vendas.lojaId }).from(vendas)
       .where(eq(vendas.motoId, motoId)).orderBy(desc(vendas.dataVenda)).limit(1)
-    if (!v) return { disponivel: false, ambiente: null }
-    const grupoId = await getGrupoIdDaLoja(v.lojaId)
-    if (!(await podeUsuarioVerGrupo(usuario, grupoId))) return { disponivel: false, ambiente: null }
-    const cfg = await configNotaGateway(grupoId)
-    return cfg ? { disponivel: true, ambiente: cfg.ambiente } : { disponivel: false, ambiente: null }
+    if (!v) return SEM_EMISSAO
+    // Permissão no grupo da loja; configuração e nome pelo grupo que emite (#552).
+    const emissor = await grupoEmissorDaVenda(motoId, v.lojaId)
+    if (!emissor || !(await podeUsuarioVerGrupo(usuario, emissor.grupoDaLojaId))) return SEM_EMISSAO
+    const r = await disponibilidadeDoGrupo(emissor.nome, () => configNotaGateway(emissor.grupoId), podeConfigurarFiscal(usuario.papel))
+    // Grupo de entrada sem configuração: a opção aparece e a prévia explica o que falta.
+    return !r.disponivel && !r.aviso && emissor.outroCnpj ? { ...r, disponivel: true } : r
   } catch {
-    return { disponivel: false, ambiente: null }
+    return { ...SEM_EMISSAO, aviso: 'Não deu para conferir a emissão pelo MOVA agora. Feche e abra de novo.' }
   }
 }

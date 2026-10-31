@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Kpi } from '@/components/kpi'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
+import { podeEditarVendaDaLoja } from '@/lib/acesso-registro'
 import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
@@ -158,6 +159,9 @@ export default async function VendasPage({
   // Desconto é dado do administrativo: a listagem é da loja inteira, então dar a
   // coluna ao vendedor mostraria o desconto dos colegas dele.
   const podeVerDescontos = podeConciliacao
+  // Mesma regra da action de editar, uma vez por loja das vendas listadas.
+  const lojasDasVendas = [...new Set(vendasList.map(v => v.lojaId))]
+  const lojasEditaveis = new Set((await Promise.all(lojasDasVendas.map(async id => (await podeEditarVendaDaLoja(usuario, id)) ? id : null))).filter((id): id is string => id !== null))
   const descontos = podeVerDescontos
     ? await descontosDasVendas(vendasList.map(v => v.id))
     : undefined
@@ -257,7 +261,7 @@ export default async function VendasPage({
           dataFimInicial={params.ate ?? ''}
           podeConciliacao={podeConciliacao}
         />
-        <VendasTable vendas={vendasList} papel={usuario.papel} lojaIdUsuario={usuario.lojaId} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
+        <VendasTable vendas={vendasList} papel={usuario.papel} lojasEditaveis={lojasEditaveis} vendedores={vendedoresOpts} origens={origens} descontos={descontos} />
         {resumoDesconto && resumoDesconto.estimados > 0 && (
           <p className="text-[11px] text-muted-foreground">
             * {resumoDesconto.estimados} desconto{resumoDesconto.estimados === 1 ? '' : 's'} reconstruído{resumoDesconto.estimados === 1 ? '' : 's'} com a
