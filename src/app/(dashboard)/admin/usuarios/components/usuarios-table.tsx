@@ -140,8 +140,9 @@ function FormUsuario({
   const [senha,   setSenha]   = useState('')
   const [papel,   setPapel]   = useState(inicial?.papel   ?? '')
   // Sem loja o servidor só aceita admin_geral e sócio com grupos de acesso (recusaDaGravacao).
-  const rotuloSemLoja = limites.papeis.includes('admin_geral') ? 'Sem loja (Admin Geral)'
-    : papel === 'admin_socio' ? 'Sem loja (vê pelos grupos de acesso)' : null
+  const rotuloSemLoja = papel === 'admin_socio' || papel === 'admin_rede' ? 'Sem loja (vê pelos grupos de acesso)'
+    : !limites.papeis.includes('admin_geral') ? null
+    : papel === 'admin_geral' ? 'Sem loja (Admin Geral)' : 'Sem loja'
   const [lojaId,  setLojaId]  = useState(inicial?.lojaId  ?? '')
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
   const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
@@ -249,11 +250,11 @@ function FormUsuario({
             <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={rotuloSemLoja ?? 'Escolha a loja'}>
-                  {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
+                  {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : (rotuloSemLoja ?? 'Escolha a loja')}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {rotuloSemLoja && <SelectItem value="">— {rotuloSemLoja} —</SelectItem>}
+                {rotuloSemLoja && <SelectItem value="">{rotuloSemLoja}</SelectItem>}
                 {lojas.map(l => (
                   <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
                 ))}
