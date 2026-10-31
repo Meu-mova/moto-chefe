@@ -49,7 +49,7 @@ export async function gravarCorrecaoDaNf(
     }
     const ie = conferirCompradorDaVenda({ clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf, ...correcao.ieComprador }, venda.clienteCpf)
     if (ie.comprador.tipoPessoa !== 'juridica') throw new Error('O cliente é pessoa física: Inscrição Estadual não se aplica. Corrija o documento em Editar venda.')
-    await gravarCompradorDaVenda(tx, venda, ie)
+    await gravarCompradorDaVenda(tx, venda, usuario.grupoLiberado ?? null, ie)
     return
   }
 
@@ -67,7 +67,7 @@ export async function gravarCorrecaoDaNf(
   // Documento inválido barra antes de gravar qualquer coisa (ADR-0015).
   const comprador = correcao.comprador ? conferirCompradorDaVenda(correcao.comprador, venda.clienteCpf) : null
 
-  if (comprador) await gravarCompradorDaVenda(tx, venda, comprador)
+  if (comprador) await gravarCompradorDaVenda(tx, venda, usuario.grupoLiberado ?? null, comprador)
   if (ficha) {
     const atualizadas = await tx.update(motosFiscal).set(ficha)
       .where(eq(motosFiscal.motoId, venda.motoId)).returning({ id: motosFiscal.motoId })

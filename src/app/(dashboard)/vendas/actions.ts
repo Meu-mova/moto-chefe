@@ -265,9 +265,11 @@ async function criarVendaTx(
     dataVendaFinal: Date
     /** Já validada pela action com garantirOrigemValida. */
     origem: { origemId: string; origemDetalhe: string | null }
+    /** Persona do admin_rede (#517): o cadastro de cliente de outro grupo da Conta dona fica intocado. */
+    grupoLiberado: string | null
   }
 ): Promise<{ vendaId: string }> {
-  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem } = params
+  const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem, grupoLiberado } = params
   // Aqui, e não só na action: a aprovação guardada chega direto (#460).
   await conferirMaquininhas(tx, moto.lojaId, data.pagamentos)
   const valorNum = parseFloat(data.valorTotal)
@@ -297,10 +299,11 @@ async function criarVendaTx(
   const cpfLimpo = data.clienteCpf.replace(/\D/g, '')
   let clienteVinculadoId: string | null = null
   if (cpfLimpo.length >= 11) {
+    const contaId = await contaDaLoja(moto.lojaId, tx)
     const [clienteUpsert] = await tx
       .insert(clientes)
       .values({
-        contaId:     await contaDaLoja(moto.lojaId, tx),
+        contaId,
         nome:        data.clienteNome.trim(),
         cpfCnpj:     cpfLimpo,
         tipoPessoa:  tipoPessoaDoDocumento(cpfLimpo),
@@ -338,6 +341,9 @@ async function criarVendaTx(
           } : {}),
           atualizadoEm: sql`now()`,
         },
+        // Na persona, CPF de cliente de outro grupo da Conta dona: não atualiza nem devolve o
+        // id, e a venda sai sem ligar ao cadastro (decisão do Luis, 31/10).
+        setWhere: clientesDoEscopo(contaId, { contaId, grupoLiberado }),
       })
       .returning({ id: clientes.id })
     clienteVinculadoId = clienteUpsert?.id ?? null
@@ -498,7 +504,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
 
   await db.transaction(async (tx) => {
-    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
+    await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
   })
 
   revalidatePath('/vendas')
@@ -1440,7 +1446,7 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
-    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, {
+    await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.
       dados: {
@@ -1852,7 +1858,7 @@ async function aprovarVenda(aprovacaoId: string) {
       .returning({ id: aprovacoesVenda.id })
     if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
 
-    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem })
+    await criarVendaTx(tx, { moto, data, vendedorId: aprovacao.vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
   })
 
   revalidatePath('/vendas')

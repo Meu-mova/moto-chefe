@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes, vendas } from '@/lib/db/schema'
-import { contaDaLoja } from '@/lib/conta'
+import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, soDigitosDoc, tipoPessoaDoDocumento, type TipoPessoa } from '@/lib/documento'
 import { RecusaUsuario } from '@/lib/resultado-action'
 
@@ -96,7 +96,14 @@ type Executor = Pick<typeof db, 'select' | 'update'>
  * pelo documento DENTRO da Conta da loja da venda: outra Conta com o mesmo CPF
  * ou CNPJ não é tocada.
  */
-export async function gravarCompradorDaVenda(tx: Executor, venda: { id: string; lojaId: string }, c: CompradorConferido) {
+// Na persona do admin_rede (#517), só cliente do grupo liberado: o de outro grupo da Conta
+// dona fica intocado.
+async function clientesDaVenda(lojaId: string, grupoLiberado: string | null, tx: Executor) {
+  const contaId = await contaDaLoja(lojaId, tx)
+  return clientesDoEscopo(contaId, { contaId, grupoLiberado })
+}
+
+export async function gravarCompradorDaVenda(tx: Executor, venda: { id: string; lojaId: string }, grupoLiberado: string | null, c: CompradorConferido) {
   const { dados, comprador, icms } = c
   const campo = (k: keyof CompradorVenda) => (dados[k] === undefined ? {} : { [k]: dados[k] || null })
   await tx.update(vendas)
@@ -121,6 +128,6 @@ export async function gravarCompradorDaVenda(tx: Executor, venda: { id: string; 
   if (c.gravaIcms && icms.indicadorIe) {
     await tx.update(clientes)
       .set({ indicadorIe: icms.indicadorIe, inscricaoEstadual: icms.inscricaoEstadual, atualizadoEm: sql`now()` })
-      .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), eq(clientes.contaId, await contaDaLoja(venda.lojaId, tx))))
+      .where(and(eq(clientes.cpfCnpj, soDigitosDoc(comprador.clienteCpf)), await clientesDaVenda(venda.lojaId, grupoLiberado, tx)))
   }
 }
