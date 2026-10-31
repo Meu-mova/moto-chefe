@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Building2, ChevronsUpDown, Check, ArrowRightLeft, Search } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -21,7 +20,6 @@ function lerRecentes(): string[] {
 
 export function GroupSwitcher({ blocos, ativoId }: { blocos: BlocoDoSeletor[]; ativoId: string }) {
   const grupos = blocos.flatMap(b => b.grupos)
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
   const [foco, setFoco] = useState(0)
@@ -67,9 +65,9 @@ export function GroupSwitcher({ blocos, ativoId }: { blocos: BlocoDoSeletor[]; a
       try {
         await trocarGrupoAtivoAction(g.id)
         localStorage.setItem(CHAVE_RECENTES, JSON.stringify([g.id, ...lerRecentes().filter(id => id !== g.id)].slice(0, 5)))
-        setOpen(false)
-        toast.success(`Agora você está em ${g.nome}`)
-        router.refresh()
+        // Recarga completa, não router.refresh(): componente com estado próprio (ex.: o card de
+        // pedidos na fábrica) seguiria mostrando dado da empresa anterior, de outra Conta.
+        window.location.reload()
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao trocar de empresa')
       }
