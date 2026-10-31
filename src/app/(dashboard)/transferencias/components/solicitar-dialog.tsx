@@ -70,7 +70,12 @@ export function SolicitarDialog({ lojas, motos, lojaUsuarioId, papel }: Props) {
               <Label>Moto</Label>
               <Select value={motoId} onValueChange={v => { setMotoId(v ?? ''); setLojaDestinoId('') }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecionar moto" />
+                  <SelectValue placeholder="Selecionar moto">
+                    {(v: string | null) => {
+                      const m = v ? motosPermitidas.find(x => x.id === v) : null
+                      return m ? `${m.marca} ${m.modelo} — ${m.chassi}` : 'Selecionar moto'
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {motosPermitidas.map(m => (
@@ -85,7 +90,9 @@ export function SolicitarDialog({ lojas, motos, lojaUsuarioId, papel }: Props) {
               <Label>Loja Destino</Label>
               <Select value={lojaDestinoId} onValueChange={v => setLojaDestinoId(v ?? '')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecionar destino" />
+                  <SelectValue placeholder="Selecionar destino">
+                    {(v: string | null) => (v ? lojasDestino.find(l => l.id === v)?.nome : null) ?? 'Selecionar destino'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {lojasDestino.map(l => (

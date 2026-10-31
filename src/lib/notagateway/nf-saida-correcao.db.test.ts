@@ -244,3 +244,18 @@ test('persona do admin_rede (#517): a IE só vai para cliente do grupo liberado;
     assert.equal(await ie(), '0054321', 'cliente que movimentou no grupo liberado recebe a IE')
   })
 })
+
+test('nota recusada que saiu pelo grupo de entrada (#552): a correção acha a nota e grava', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000055211')
+    const [entrada] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('CO347 A entrada', '00000000055212', ${a.contaId}) returning id`)
+    await linhas(tx, sql`update contas set transferencia_entre_grupos = true where id = ${a.contaId}`)
+    const venda = await semearVenda(tx, a, 'CO552E', 'Negada')
+    await linhas(tx, sql`update motos set grupo_entrada_id = ${entrada.id} where id = ${venda.motoId}`)
+    await linhas(tx, sql`update notas_fiscais_saida set grupo_id = ${entrada.id} where venda_id = ${venda.id}`)
+    await gravarCorrecaoDaNf(tx, a.usuario, venda.motoId, 'Producao', {
+      comprador: { clienteNome: 'Cliente', clienteCpf: '111.444.777-35', clienteCidade: 'Cidade Certa' },
+    })
+    assert.equal((await vendaDb(tx, venda.id)).cliente_cidade, 'Cidade Certa')
+  })
+})

@@ -252,6 +252,10 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
         </div>
       )}
 
+      {previa.avisoEmissor && (
+        <p className="border-l-2 border-l-warning pl-3 text-sm font-medium">{previa.avisoEmissor}, que comprou a moto.</p>
+      )}
+
       {bloqueadaProducao && (
         <p className="border-l-2 border-l-border pl-3 text-sm">Esta venda já tem a NF <b>{previa.jaFaturada}</b>.</p>
       )}
