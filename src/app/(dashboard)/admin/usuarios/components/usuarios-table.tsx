@@ -442,7 +442,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
       try {
         const r = await alternarAtivoUsuarioAction(u.id, !u.ativo)
         if (!r.ok) { toast.error(r.erro); return }
-        toast.success(u.ativo ? 'Usuário desativado — sai dos relatórios de vendedor' : 'Usuário reativado')
+        // O painel mostra o usuário guardado no estado: sem isto, o segundo clique repetia a ação.
+        setEditando(e => (e && e.id === u.id ? { ...e, ativo: !u.ativo } : e))
+        toast.success(u.ativo ? 'Usuário desativado. Ele sai dos relatórios de vendedor.' : 'Usuário reativado')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao alterar')
       }
@@ -458,6 +460,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário excluído')
         setExcluindo(null)
+        setEditando(null)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao excluir')
       }
