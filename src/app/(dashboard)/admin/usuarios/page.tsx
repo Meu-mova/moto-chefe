@@ -11,6 +11,7 @@ import { listarCargos } from '@/lib/cargos'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { modulosQuePodeDar } from '@/lib/navegacao'
 import { acessosDeFora, gruposLiberaveis, liberacoesPorUsuario } from '@/lib/grupos-liberados-admin'
+import { nomesDasContas } from '@/lib/conta'
 
 export default async function UsuariosPage() {
   const usuario = await getUsuarioLogado()
@@ -37,6 +38,8 @@ export default async function UsuariosPage() {
     ehGeral ? liberacoesPorUsuario() : {},
     ehGeral || usuario.grupoLiberado ? [] : acessosDeFora(contaAtiva),
   ])
+  // Só as Contas dos usuários já recortados para este gestor: nada de outra Conta.
+  const contasNomes = Object.fromEntries(await nomesDasContas(todos.map(u => u.contaId).filter((c): c is string => !!c)))
   const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
   return (
@@ -44,18 +47,19 @@ export default async function UsuariosPage() {
       <div className="space-y-2">
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-muted-foreground text-sm">Gerencie os acessos ao sistema</p>
+          <p className="text-muted-foreground text-sm">Quem acessa o MOVA e o que cada um pode fazer.</p>
         </div>
         <UsuariosTable
           usuarios={todos}
           lojas={lojasOpts}
-          grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome }))}
+          grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome, contaId: g.contaId }))}
           limites={limitesDaTela(gestor)}
           cargos={cargos.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos, contaId: c.contaId }))}
           contaAtiva={contaAtiva}
           podeDarAoCargo={modulosQuePodeDar(usuario, {})}
           liberaveis={liberaveis}
           liberadosPorUsuario={liberadosPorUsuario}
+          contasNomes={contasNomes}
         />
         {deFora.length > 0 && (
           <section className="space-y-2 pt-4">

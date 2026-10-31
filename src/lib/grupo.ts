@@ -183,11 +183,11 @@ export async function listarGruposVisiveis(
 export async function listarLojasDoGrupoAtivo(
   usuario: { papel: string; lojaId: string | null } & UsuarioComAcessoObrigatorio,
   opts?: { somenteAtivas?: boolean },
-): Promise<{ id: string; nome: string }[]> {
+): Promise<{ id: string; nome: string; grupoId: string }[]> {
   const grupo = await getGrupoAtivo(usuario)
   const somenteAtivas = opts?.somenteAtivas ?? true
   return db
-    .select({ id: lojas.id, nome: lojas.nome })
+    .select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId })
     .from(lojas)
     .where(somenteAtivas ? and(eq(lojas.grupoId, grupo.id), eq(lojas.ativa, true)) : eq(lojas.grupoId, grupo.id))
     .orderBy(lojas.nome)

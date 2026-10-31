@@ -41,6 +41,8 @@ export const contas = pgTable('contas', {
   id:       uuid('id').primaryKey().defaultRandom(),
   nome:     text('nome').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Preenchida quando o único grupo dela foi movido para outra Conta (#554).
+  desativadaEm: timestamp('desativada_em', { withTimezone: true }),
   // Transferência de moto entre grupos da mesma Conta, com a NF de saída pelo grupo
   // que comprou a moto (#552). Só o admin_geral liga.
   transferenciaEntreGrupos: boolean('transferencia_entre_grupos').notNull().default(false),

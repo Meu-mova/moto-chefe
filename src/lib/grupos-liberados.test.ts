@@ -26,8 +26,9 @@ test('admin_rede fora do grupo liberado: opera como admin_socio da própria Cont
   assert.deepEqual(gruposVisiveis(u, 'grupo-casa', todos), ['grupo-casa', LIBERADO.grupoId])
 })
 
-test('admin_rede no grupo liberado: Conta dona, só aquele grupo, aprova só nele', () => {
-  const u = usuarioDaRede(usuario('admin_rede'), [LIBERADO], LIBERADO.grupoId)
+test('admin_rede no grupo liberado: Conta dona, só aquele grupo, aprova só nele se marcado', () => {
+  assert.deepEqual(usuarioDaRede(usuario('admin_rede'), [LIBERADO], LIBERADO.grupoId).gruposAprovacao, [], 'sem aprovação marcada, não aprova')
+  const u = usuarioDaRede({ ...usuario('admin_rede'), gruposAprovacao: [LIBERADO.grupoId] }, [LIBERADO], LIBERADO.grupoId)
   assert.equal(u.papel, 'admin_socio')
   assert.equal(u.contaId, DONA)
   assert.equal(u.lojaId, null)

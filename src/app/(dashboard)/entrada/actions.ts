@@ -3,23 +3,21 @@
 import { db } from '@/lib/db'
 import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { getUsuarioLogado, podeRegistrarEntradaMotos } from '@/lib/auth'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { getUsuarioLogado } from '@/lib/auth'
+import { acessaModulo } from '@/lib/navegacao'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
   EntradaPecasRecusada, carregarConferencia, carregarConferenciaPlanilha, gravarEntradaPlanilhaPecas,
   type EntradaPlanilhaPecas,
 } from '@/lib/entrada-pecas'
-
-type Usuario = Awaited<ReturnType<typeof getUsuarioLogado>>
 
 // Modelo que entrou pela 1ª vez no grupo ganha o preço padrão da MotoChefe (#522). As motos já
 // foram gravadas: falha aqui não desfaz a entrada, só deixa o preço para o próximo gatilho.
@@ -30,29 +28,6 @@ async function precoPadraoDepoisDaEntrada(loja: { grupoId: string } | { lojaId: 
   } catch (e) {
     console.error('[entrada] preço padrão não preenchido', e)
   }
-}
-
-// Resolve a loja de destino garantindo que ela existe e que o usuário pode usá-la:
-// admin só no grupo que vê; quem entra pela exceção nominal, no grupo da própria loja.
-// Assim um lojaId forjado no payload não joga moto no estoque de outro grupo.
-async function resolverLojaDestino(usuario: Usuario, lojaId: string) {
-  const [loja] = await db
-    .select({ id: lojas.id, grupoId: lojas.grupoId })
-    .from(lojas)
-    .where(eq(lojas.id, lojaId))
-    .limit(1)
-
-  if (!loja) return { error: 'Loja não encontrada' as const }
-
-  if (['admin_geral', 'admin_socio'].includes(usuario.papel)) {
-    if (!(await podeAbrirRegistroDaLoja(usuario, loja.id))) return { error: 'Loja fora do seu grupo' as const }
-  } else {
-    if (!usuario.lojaId) return { error: 'Usuário sem loja associada' as const }
-    const grupoUsuario = await getGrupoIdDaLoja(usuario.lojaId)
-    if (grupoUsuario !== loja.grupoId) return { error: 'Loja fora do seu grupo' as const }
-  }
-
-  return { loja }
 }
 
 type MotoEntrada = {
@@ -69,7 +44,7 @@ export async function registrarEntrada(formData: {
   motos: MotoEntrada[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) {
+  if (!acessaModulo(usuario, 'entrada')) {
     return { error: 'Sem permissão' }
   }
 
@@ -79,7 +54,7 @@ export async function registrarEntrada(formData: {
 
   const precoCompra = formData.precoCompra.replace(',', '.')
 
-  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  const destino = await lojaDestinoDaEntrada(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
   if (!(await modeloUsavelNaLoja(loja.id, formData.modeloId))) return { error: 'Modelo não encontrado' }
@@ -140,7 +115,7 @@ export async function registrarEntrada(formData: {
     }
   }
 
-  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ grupoId: loja.grupoId })
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ lojaId: loja.id })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -165,7 +140,7 @@ export async function registrarEntradaLote(formData: {
   fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
 }) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) {
+  if (!acessaModulo(usuario, 'entrada')) {
     return { error: 'Sem permissão' }
   }
 
@@ -177,7 +152,7 @@ export async function registrarEntradaLote(formData: {
     return { error: 'Importe as motos da planilha' }
   }
 
-  const destino = await resolverLojaDestino(usuario, formData.lojaId)
+  const destino = await lojaDestinoDaEntrada(usuario, formData.lojaId)
   if ('error' in destino) return { error: destino.error }
   const { loja } = destino
 
@@ -250,7 +225,7 @@ export async function registrarEntradaLote(formData: {
       .filter((f): f is typeof f & { motoId: string } => !!f.motoId),
   )
 
-  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ grupoId: loja.grupoId })
+  if (inseridos > 0) await precoPadraoDepoisDaEntrada({ lojaId: loja.id })
   revalidatePath('/estoque')
   revalidatePath('/dashboard')
   revalidatePath('/entrada')
@@ -276,7 +251,7 @@ export async function registrarEntradaLote(formData: {
  */
 export async function registrarEntradaNota(dados: Omit<NotaComPecas, 'usuario'>) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' }
 
   let total: { motos: number; pecas: number }
   try {
@@ -304,7 +279,7 @@ export async function carregarConferenciaPecas(
   nota: Parameters<typeof carregarConferencia>[3],
 ) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferencia(db, usuario, lojaId, nota)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
 }
@@ -315,7 +290,7 @@ export async function carregarConferenciaPlanilhaPecas(
   planilha: Parameters<typeof carregarConferenciaPlanilha>[3],
 ) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' as const }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' as const }
   const conferencia = await carregarConferenciaPlanilha(db, usuario, lojaId, planilha)
   return conferencia ? { conferencia } : { error: 'Loja de destino não encontrada' as const }
 }
@@ -323,7 +298,7 @@ export async function carregarConferenciaPlanilhaPecas(
 /** Planilha de peças (#519): tudo ou nada, como a nota com peças. */
 export async function registrarEntradaPlanilhaPecas(dados: Omit<EntradaPlanilhaPecas, 'usuario'>) {
   const usuario = await getUsuarioLogado()
-  if (!podeRegistrarEntradaMotos(usuario)) return { error: 'Sem permissão' }
+  if (!acessaModulo(usuario, 'entrada')) return { error: 'Sem permissão' }
   try {
     await db.transaction(tx => gravarEntradaPlanilhaPecas(tx, { ...dados, usuario }))
   } catch (e) {

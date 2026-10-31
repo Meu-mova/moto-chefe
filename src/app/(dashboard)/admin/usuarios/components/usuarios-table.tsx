@@ -1,29 +1,31 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { BadgeCheck, Pencil, Trash2, UserPlus, Eye, EyeOff, Power, PowerOff } from 'lucide-react'
+import { BadgeCheck, Trash2, UserPlus, Eye, EyeOff, Power, PowerOff, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction, salvarGruposLiberadosAction } from '../actions'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type Cargo } from './cargos-dialog'
 import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
+import { contaDoFormulario, gruposDaConta } from '@/lib/grupos-do-formulario'
+import { filtrarUsuarios, type FiltrosUsuarios } from '@/lib/usuarios-filtro'
 
 // O picker esconde os itens de regra própria: o resumo conta só o que ele mostra.
 const IDS_MODULOS = ITENS.filter(i => !i.regraPropria).map(i => i.id)
 
-type Loja = { id: string; nome: string }
-type Grupo = { id: string; nome: string }
+type Loja = { id: string; nome: string; grupoId: string }
+type Grupo = { id: string; nome: string; contaId: string }
 /** Grupo que o admin_geral pode liberar ao admin_rede, com a Conta dona ao lado. */
-export type GrupoLiberavel = Grupo & { contaId: string; contaNome: string }
+export type GrupoLiberavel = Grupo & { contaNome: string }
 type Usuario = {
   id: string
   nome: string
@@ -121,7 +123,10 @@ function FormUsuario({
   contaAtiva,
   liberaveis,
   liberadosIniciais,
+  acoesExtras,
 }: {
+  /** Desativar e excluir, no rodapé do painel de edição. */
+  acoesExtras?: React.ReactNode
   /** null: quem edita não é admin_geral e não libera grupos de outras Contas. */
   liberaveis: GrupoLiberavel[] | null
   liberadosIniciais: string[]
@@ -154,9 +159,17 @@ function FormUsuario({
   const [gruposLiberados, setGruposLiberados] = useState<string[]>(liberadosIniciais)
   const cargos = cargosDoAlvo(todosCargos, inicial?.contaId ?? null, contaAtiva)
   const diferenca = diferencaDaFuncao(papel, inicial?.papeisExtras ?? [], modulosExtras, modulosBloqueados, IDS_MODULOS)
-  // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define. Quem
-  // já tem diferença salva abre aberto, para o ajuste não ficar escondido.
-  const [verModulos, setVerModulos] = useState(() => diferenca.liberados + diferenca.bloqueados > 0)
+
+  // Aprovação e acesso só com grupos da Conta da loja escolhida; outra Conta é pelo bloco do admin_rede.
+  const contaDoUsuario = contaDoFormulario(lojaId, lojas, grupos, gruposAcesso, inicial)
+  const gruposDaContaDoUsuario = gruposDaConta(grupos, contaDoUsuario)
+  function escolherLoja(v: string) {
+    setLojaId(v)
+    // Trocou de Conta: marcações de grupo da outra Conta saem, senão o servidor recusaria.
+    const doNovo = new Set(gruposDaConta(grupos, contaDoFormulario(v, lojas, grupos, gruposAcesso, inicial)).map(g => g.id))
+    setGruposAprov(a => a.filter(g => doNovo.has(g)))
+    setGruposAcesso(a => a.filter(g => doNovo.has(g)))
+  }
 
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
@@ -167,8 +180,15 @@ function FormUsuario({
   const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
 
   function toggleLiberado(id: string) {
-    setGruposLiberados(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
+    const saindo = gruposLiberados.includes(id)
+    setGruposLiberados(atual => saindo ? atual.filter(g => g !== id) : [...atual, id])
+    // Sem a liberação, a aprovação naquele grupo também sai (o servidor faz o mesmo ao revogar).
+    if (saindo) setGruposAprov(a => a.filter(g => g !== id))
   }
+  // admin_rede aprova também nos grupos liberados para ele (ADR-0019): entram na lista de aprovação.
+  const gruposParaAprovar = papel === 'admin_rede'
+    ? [...gruposDaContaDoUsuario, ...(liberaveis ?? []).filter(g => gruposLiberados.includes(g.id))]
+    : gruposDaContaDoUsuario
 
   function toggleGrupo(id: string) {
     setGruposAprov(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
@@ -201,11 +221,27 @@ function FormUsuario({
     })
   }
 
+  const caixa = (marcado: boolean, onChange: () => void, rotulo: React.ReactNode, travado = false) => (
+    <label className="flex items-center gap-2 py-1 text-sm">
+      <input type="checkbox" className="size-4 accent-primary" checked={marcado} disabled={travado} onChange={onChange} />
+      <span className={travado ? 'text-muted-foreground' : ''}>{rotulo}</span>
+    </label>
+  )
+  const rotuloDaLoja = (g: Grupo, texto: string) => (
+    <>{g.nome}{g.id === inicial?.grupoDaLojaId && <span className="text-muted-foreground"> {texto}</span>}</>
+  )
+
   return (
-    // Rolagem só no meio: o diálogo não pode passar da altura da tela (#235).
-    <div className="flex min-h-0 flex-1 flex-col">
+    // Abas no lugar da página longa (#557); o estado fica aqui, então trocar de aba não perde nada.
+    <Tabs defaultValue="dados" className="flex min-h-0 flex-1 flex-col gap-0">
+      <TabsList variant="line" className="w-full justify-start gap-4 border-b px-4 sm:px-6">
+        <TabsTrigger value="dados">Dados</TabsTrigger>
+        <TabsTrigger value="acesso">Acesso</TabsTrigger>
+        {mostrarAprovacao && <TabsTrigger value="aprovacao">Aprovação</TabsTrigger>}
+        <TabsTrigger value="modulos">Módulos</TabsTrigger>
+      </TabsList>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TabsContent value="dados" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Nome completo</Label>
             <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: João da Silva" />
@@ -215,15 +251,15 @@ function FormUsuario({
             <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@email.com" />
           </div>
           <div className="space-y-1.5">
-            <Label>{isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha'}</Label>
-            <SenhaInput value={senha} onChange={setSenha} placeholder={isEdit ? 'Nova senha' : 'Mínimo 6 caracteres'} />
+            <Label>{isEdit ? 'Nova senha' : 'Senha'}</Label>
+            <SenhaInput value={senha} onChange={setSenha} placeholder={isEdit ? 'Em branco mantém a atual' : 'Mínimo 6 caracteres'} />
           </div>
           <div className="space-y-1.5">
             <Label>Função</Label>
             <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
-                  {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : undefined}
+                  {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : 'Selecione a função'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -245,9 +281,16 @@ function FormUsuario({
               </select>
             </div>
           )}
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Conecta <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+            <Input value={conecta} onChange={e => setConecta(e.target.value)} placeholder="https://checkout.aride.com.br/?org=...&seller=..." />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="acesso" className="space-y-5">
           <div className="space-y-1.5">
             <Label>Loja</Label>
-            <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
+            <Select value={lojaId ?? ''} onValueChange={v => escolherLoja(v ?? '')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={rotuloSemLoja ?? 'Escolha a loja'}>
                   {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : (rotuloSemLoja ?? 'Escolha a loja')}
@@ -255,172 +298,87 @@ function FormUsuario({
               </SelectTrigger>
               <SelectContent>
                 {rotuloSemLoja && <SelectItem value="">{rotuloSemLoja}</SelectItem>}
-                {lojas.map(l => (
-                  <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
-                ))}
+                {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Conecta <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-            <Input
-              value={conecta}
-              onChange={e => setConecta(e.target.value)}
-              placeholder="https://checkout.aride.com.br/?org=…&seller=…"
-            />
-          </div>
-
-          <div className="space-y-3 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="space-y-1">
-                <Label>Acesso a módulos</Label>
-                <p className="text-xs text-muted-foreground">
-                  {diferenca.liberados || diferenca.bloqueados
-                    ? [
-                        diferenca.liberados ? `${diferenca.liberados} liberado(s) a mais` : '',
-                        diferenca.bloqueados ? `${diferenca.bloqueados} bloqueado(s)` : '',
-                      ].filter(Boolean).join(' · ') + ' em relação à função'
-                    : 'Usa os módulos da função.'}
-                </p>
-              </div>
-              <Button type="button" variant="outline" size="sm" aria-expanded={verModulos} onClick={() => setVerModulos(v => !v)}>
-                {verModulos ? 'Ocultar módulos' : 'Personalizar'}
-              </Button>
-            </div>
-            {verModulos && (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  O que está marcado como &quot;do papel&quot; vem da função. Aqui você só ajusta a diferença: libera algo a mais ou bloqueia algo que a função dá.
-                </p>
-                <ModulosPicker
-                  liberaveis={limites.itensLiberaveis}
-                  papel={papel}
-                  papeisExtras={inicial?.papeisExtras ?? []}
-                  extras={modulosExtras}
-                  bloqueados={modulosBloqueados}
-                  onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
-                />
-              </>
-            )}
-          </div>
-
-          {mostrarAprovacao && (
-            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
-              <div>
-                <Label>Aprovação de venda</Label>
-                <p className="text-xs text-muted-foreground">
-                  O grupo da loja deste usuário já é aprovado por ele. Marque aqui os grupos <strong>a mais</strong>.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
-                  <label key={g.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="rounded border-input"
-                      checked={gruposAprov.includes(g.id)}
-                      onChange={() => toggleGrupo(g.id)}
-                    />
-                    <span>
-                      {g.nome}
-                      {g.id === inicial?.grupoDaLojaId && (
-                        <span className="text-muted-foreground"> — grupo da loja (já aprova)</span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
-              </div>
-              <label className="flex items-center gap-2 border-t pt-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="rounded border-input"
-                  checked={aprovaSensivel}
-                  disabled={!limites.aprovaPagamentoSensivel && !inicial?.aprovaPagamentoSensivel}
-                  onChange={e => setAprovaSensivel(e.target.checked)}
-                />
-                <span>
-                  Aprova transferência bancária
-                  <span className="block text-xs text-muted-foreground">
-                    Vale nos mesmos grupos acima. Sem isto, ele só aprova venda abaixo do preço.
-                  </span>
-                </span>
-              </label>
-            </div>
-          )}
-
           {mostrarAcessoGrupos && (
-            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
-              <div>
-                <Label>Empresas que este usuário enxerga</Label>
-                <p className="text-xs text-muted-foreground">
-                  Diferente da aprovação de venda acima: isto controla quais empresas aparecem no seletor de empresa
-                  (trocar de grupo) e os dados que ele pode ver. O grupo da loja dele já vem incluso e não precisa ser marcado aqui.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {grupos.map(g => (
-                  <label key={g.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="rounded border-input"
-                      checked={gruposAcesso.includes(g.id)}
-                      onChange={() => toggleGrupoAcesso(g.id)}
-                    />
-                    <span>
-                      {g.nome}
-                      {g.id === inicial?.grupoDaLojaId && (
-                        <span className="text-muted-foreground"> — grupo da loja (já enxerga)</span>
-                      )}
-                    </span>
-                  </label>
+            <div className="space-y-1">
+              <Label>Empresas que enxerga</Label>
+              <p className="text-xs text-muted-foreground">Aparecem no seletor de empresa. O grupo da loja já vem incluso.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                {gruposDaContaDoUsuario.map(g => (
+                  <div key={g.id}>{caixa(gruposAcesso.includes(g.id) || g.id === inicial?.grupoDaLojaId, () => toggleGrupoAcesso(g.id), rotuloDaLoja(g, 'grupo da loja'), g.id === inicial?.grupoDaLojaId)}</div>
                 ))}
-                {grupos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+                {gruposDaContaDoUsuario.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
               </div>
             </div>
           )}
-
           {mostrarLiberados && (
-            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
-              <div>
-                <Label>Grupos de outras Contas</Label>
-                <p className="text-xs text-muted-foreground">
-                  Liberar ou tirar vale na hora. Em cada grupo marcado ele age como sócio, só com os dados da Conta dona.
-                  A Conta dona vê quem tem acesso, mas não tira.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>Grupos de outras Contas</Label>
+              <p className="text-xs text-muted-foreground">Em cada grupo marcado ele age como sócio, só com os dados da Conta dona.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2">
                 {outrasContas.map(g => (
-                  <label key={g.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="rounded border-input"
-                      checked={gruposLiberados.includes(g.id)}
-                      onChange={() => toggleLiberado(g.id)}
-                    />
-                    <span>
-                      {g.nome}
-                      <span className="text-muted-foreground"> ({g.contaNome})</span>
-                    </span>
-                  </label>
+                  <div key={g.id}>{caixa(gruposLiberados.includes(g.id), () => toggleLiberado(g.id), <>{g.nome} <span className="text-muted-foreground">{g.contaNome}</span></>)}</div>
                 ))}
                 {outrasContas.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo de outra Conta.</p>}
               </div>
             </div>
           )}
-        </div>
+        </TabsContent>
+
+        {mostrarAprovacao && (
+          <TabsContent value="aprovacao" className="space-y-3">
+            <div className="space-y-1">
+              <Label>Aprova venda em</Label>
+              <p className="text-xs text-muted-foreground">O grupo da loja já é aprovado por ele. Marque os grupos a mais.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                {gruposParaAprovar.filter(g => limites.gruposAprovacao === null || limites.gruposAprovacao.includes(g.id) || (inicial?.gruposAprovacao ?? []).includes(g.id)).map(g => (
+                  <div key={g.id}>{caixa(gruposAprov.includes(g.id), () => toggleGrupo(g.id), rotuloDaLoja(g, 'grupo da loja'))}</div>
+                ))}
+                {gruposParaAprovar.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo ativo.</p>}
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              {caixa(aprovaSensivel, () => setAprovaSensivel(v => !v),
+                <>Aprova transferência bancária <span className="block text-xs text-muted-foreground">Nos mesmos grupos. Sem isto, ele só aprova venda abaixo do preço.</span></>,
+                !limites.aprovaPagamentoSensivel && !inicial?.aprovaPagamentoSensivel)}
+            </div>
+          </TabsContent>
+        )}
+
+        <TabsContent value="modulos" className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {diferenca.liberados || diferenca.bloqueados
+              ? [diferenca.liberados ? `${diferenca.liberados} liberado(s) a mais` : '', diferenca.bloqueados ? `${diferenca.bloqueados} bloqueado(s)` : ''].filter(Boolean).join(', ') + ' em relação à função.'
+              : 'Usa os módulos da função. Ajuste aqui só a diferença: liberar algo a mais ou bloquear algo que a função dá.'}
+          </p>
+          <ModulosPicker
+            liberaveis={limites.itensLiberaveis}
+            papel={papel}
+            papeisExtras={inicial?.papeisExtras ?? []}
+            extras={modulosExtras}
+            bloqueados={modulosBloqueados}
+            onChange={v => { setModulosExtras(v.extras); setModulosBloqueados(v.bloqueados) }}
+          />
+        </TabsContent>
       </div>
-      <DialogFooter className="mx-0 mb-0 rounded-b-xl px-4 sm:px-6">
+      <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-4 py-3 sm:px-6">
+        {acoesExtras}
+        <span className="flex-1" />
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button onClick={handleSubmit}>{isEdit ? 'Salvar alterações' : 'Criar usuário'}</Button>
-      </DialogFooter>
-    </div>
+        <Button onClick={handleSubmit}>{isEdit ? 'Salvar' : 'Criar usuário'}</Button>
+      </div>
+    </Tabs>
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo, liberaveis, liberadosPorUsuario }: {
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo, liberaveis, liberadosPorUsuario, contasNomes = {} }: {
   usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; contaAtiva: string; podeDarAoCargo: string[]
   liberaveis: GrupoLiberavel[] | null; liberadosPorUsuario: Record<string, string[]>
+  /** Nomes das Contas dos usuários da lista (só delas). */
+  contasNomes?: Record<string, string>
 }) {
   const [vendoCargos, setVendoCargos] = useState(false)
   const [criando,    setCriando]    = useState(false)
@@ -428,13 +386,21 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   const [excluindo,  setExcluindo]  = useState<Usuario | null>(null)
   const [pending, startTransition]  = useTransition()
 
-  const nomeGrupo = (id: string) => grupos.find(g => g.id === id)?.nome ?? id
 
   function handleCriar(dados: DadosForm) {
     startTransition(async () => {
       try {
-        const id = await criarUsuarioAction(dados)
-        if (liberaveis && dados.gruposLiberados.length) await salvarGruposLiberadosAction(id, dados.gruposLiberados)
+        // Usuário novo ainda não tem grupo liberado: a aprovação neles vai depois de liberar.
+        const daConta = dados.gruposAprovacao.filter(g => !dados.gruposLiberados.includes(g))
+        const r = await criarUsuarioAction({ ...dados, gruposAprovacao: daConta })
+        // Recusa: o modal fica aberto com o que foi preenchido.
+        if (!r.ok) { toast.error(r.erro); return }
+        if (liberaveis && dados.gruposLiberados.length) {
+          // Liberações e a aprovação nos grupos de fora numa edição só (uma transação).
+          const e = await editarUsuarioAction(r.id, { ...dados, novaSenha: undefined, cargoId: dados.cargoId || null, gruposLiberados: dados.gruposLiberados })
+          // O usuário já foi criado: fecha o modal e avisa o que não foi gravado.
+          if (!e.ok) { toast.error(`Usuário criado, mas os grupos de outras Contas não: ${e.erro}`); setCriando(false); return }
+        }
         toast.success('Usuário criado com sucesso')
         setCriando(false)
       } catch (e: unknown) {
@@ -447,7 +413,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!editando) return
     startTransition(async () => {
       try {
-        await editarUsuarioAction(editando.id, {
+        // Liberações vão junto na mesma action (uma transação): recusa desfaz tudo.
+        const r = await editarUsuarioAction(editando.id, {
+          ...(liberaveis ? { gruposLiberados: dados.gruposLiberados } : {}),
           nome:      dados.nome,
           email:     dados.email,
           novaSenha: dados.senha || undefined,
@@ -460,7 +428,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
         })
-        if (liberaveis) await salvarGruposLiberadosAction(editando.id, dados.gruposLiberados)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário atualizado')
         setEditando(null)
       } catch (e: unknown) {
@@ -472,8 +440,11 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   function handleToggleAtivo(u: Usuario) {
     startTransition(async () => {
       try {
-        await alternarAtivoUsuarioAction(u.id, !u.ativo)
-        toast.success(u.ativo ? 'Usuário desativado — sai dos relatórios de vendedor' : 'Usuário reativado')
+        const r = await alternarAtivoUsuarioAction(u.id, !u.ativo)
+        if (!r.ok) { toast.error(r.erro); return }
+        // O painel mostra o usuário guardado no estado: sem isto, o segundo clique repetia a ação.
+        setEditando(e => (e && e.id === u.id ? { ...e, ativo: !u.ativo } : e))
+        toast.success(u.ativo ? 'Usuário desativado. Ele sai dos relatórios de vendedor.' : 'Usuário reativado')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao alterar')
       }
@@ -484,194 +455,172 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!excluindo) return
     startTransition(async () => {
       try {
-        await excluirUsuarioAction(excluindo.id)
+        const r = await excluirUsuarioAction(excluindo.id)
+        // Recusa (ex.: usuário com histórico): a confirmação fica aberta com a frase.
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário excluído')
         setExcluindo(null)
+        setEditando(null)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao excluir')
       }
     })
   }
 
+  const [filtros, setFiltros] = useState<FiltrosUsuarios>({ busca: '', papel: '', contaId: '', situacao: 'ativos' })
+  const lista = filtrarUsuarios(usuarios, filtros)
+  const contasDaLista = [...new Set(usuarios.map(u => u.contaId).filter((c): c is string => !!c))]
+  const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)
+  const ondeAprova = (u: Usuario) => {
+    if (!PAPEIS_APROVADORES.includes(u.papel)) return 'Não aprova'
+    // O grupo da loja já aprova por padrão e às vezes também está marcado: conta uma vez só.
+    const n = new Set([...u.gruposAprovacao, ...(u.grupoDaLojaId ? [u.grupoDaLojaId] : [])]).size
+    return `${n} ${n === 1 ? 'grupo' : 'grupos'}${u.aprovaPagamentoSensivel ? ', transferência' : ''}`
+  }
+  const iniciais = (nome: string) => { const p = nome.trim().split(/\s+/); return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase() }
+  const Situacao = ({ ativo }: { ativo: boolean }) => (
+    <span className={`inline-flex items-center gap-1.5 text-sm ${ativo ? '' : 'text-muted-foreground'}`}>
+      <span className={`size-1.5 rounded-full ${ativo ? 'bg-success' : 'bg-input'}`} />{ativo ? 'Ativo' : 'Inativo'}
+    </span>
+  )
+  const Ini = ({ nome }: { nome: string }) => (
+    <span className="grid size-7 shrink-0 place-items-center rounded-sm border bg-muted text-[11px] font-semibold text-muted-foreground">{iniciais(nome)}</span>
+  )
+  const painel = criando || !!editando
+
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">{usuarios.length} usuário{usuarios.length !== 1 ? 's' : ''} cadastrado{usuarios.length !== 1 ? 's' : ''}</p>
-        <div className="flex gap-2">
-          {CARGOS_VISIVEIS && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2">
-            <BadgeCheck size={16} /> Cargos
-          </Button>}
-          <Button onClick={() => setCriando(true)} className="gap-2">
-            <UserPlus size={16} /> Novo usuário
-          </Button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <label className="flex h-8 w-full items-center gap-2 rounded-md border border-input bg-card px-2 text-muted-foreground sm:w-72">
+          <Search size={15} className="shrink-0" />
+          <input value={filtros.busca} onChange={e => setFiltros(f => ({ ...f, busca: e.target.value }))} placeholder="Buscar por nome, e-mail ou loja"
+            aria-label="Buscar usuário" className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
+        </label>
+        {/* selects nativos: o Select do design system mostraria o id no lugar do nome */}
+        <select aria-label="Função" value={filtros.papel} onChange={e => setFiltros(f => ({ ...f, papel: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">
+          <option value="">Todas as funções</option>
+          {PAPEIS.filter(p => usuarios.some(u => u.papel === p.value)).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        {contasDaLista.length > 1 && (
+          <select aria-label="Conta" value={filtros.contaId} onChange={e => setFiltros(f => ({ ...f, contaId: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">
+            <option value="">Todas as Contas</option>
+            {contasDaLista.map(c => <option key={c} value={c}>{contasNomes[c] ?? 'Conta'}</option>)}
+          </select>
+        )}
+        <div className="flex gap-1" role="group" aria-label="Situação">
+          {(['ativos', 'inativos', 'todos'] as const).map(s => (
+            <button key={s} type="button" aria-pressed={filtros.situacao === s} onClick={() => setFiltros(f => ({ ...f, situacao: s }))}
+              className="h-8 rounded-md border px-2.5 text-sm text-muted-foreground aria-pressed:border-foreground aria-pressed:font-medium aria-pressed:text-foreground">
+              {s === 'ativos' ? 'Ativos' : s === 'inativos' ? 'Inativos' : 'Todos'}
+            </button>
+          ))}
         </div>
+        <span className="hidden flex-1 sm:block" />
+        {CARGOS_VISIVEIS && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2"><BadgeCheck size={16} /> Cargos</Button>}
+        <Button onClick={() => setCriando(true)} className="gap-2"><UserPlus size={16} /> Novo usuário</Button>
       </div>
 
-      <div className="bg-card rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Função</TableHead>
-              <TableHead>Loja</TableHead>
-              <TableHead>Aprova</TableHead>
-              <TableHead>Acesso</TableHead>
-              <TableHead className="text-right w-24">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {usuarios.map(u => (
-              <TableRow key={u.id} className={u.ativo ? '' : 'opacity-55'}>
-                <TableCell className="font-medium">
-                  {u.nome}
-                  {!u.ativo && <span className="ml-2 inline-flex px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] font-medium align-middle">Inativo</span>}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium ${PAPEL_CORES[u.papel] ?? 'bg-muted text-foreground'}`}>
-                    {u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{u.lojaNome ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell>
-                  {PAPEIS_APROVADORES.includes(u.papel) && (u.gruposAprovacao.length > 0 || u.aprovaPagamentoSensivel) ? (
-                    <div className="flex flex-wrap gap-1">
-                      {u.gruposAprovacao.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">
-                          + {nomeGrupo(gid)}
-                        </span>
-                      ))}
-                      {u.aprovaPagamentoSensivel && (
-                        <span className="inline-flex px-1.5 py-0.5 rounded border border-success/30 bg-success/10 text-success text-[11px]">
-                          transferência
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {u.papel === 'admin_geral' ? (
-                    <span className="inline-flex px-1.5 py-0.5 rounded border border-info/30 bg-info/10 text-info text-[11px]">todas</span>
-                  ) : u.gruposAcesso.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {u.gruposAcesso.map(gid => (
-                        <span key={gid} className="inline-flex px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground text-[11px]">
-                          {nomeGrupo(gid)}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center gap-1 justify-end">
-                    {!(u.id === limites.meuId && limites.travaASiMesmo) && <Button
-                      variant="ghost" size="icon"
-                      className={`h-8 w-8 ${u.ativo ? 'text-muted-foreground hover:text-foreground' : 'text-success hover:text-success'} hover:bg-muted`}
-                      onClick={() => handleToggleAtivo(u)}
-                      title={u.ativo ? 'Desativar (sai dos relatórios)' : 'Reativar'}
-                      disabled={pending}
-                    >
-                      {u.ativo ? <PowerOff size={15} /> : <Power size={15} />}
-                    </Button>}
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-8 w-8 text-warning hover:text-warning hover:bg-warning/10"
-                      onClick={() => setEditando(u)}
-                    >
-                      <Pencil size={15} />
-                    </Button>
-                    {limites.podeExcluir && (
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => setExcluindo(u)}
-                    >
-                      <Trash2 size={15} />
-                    </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+      {/* Computador e tablet: tabela; clicar na linha abre o painel. */}
+      <div className="hidden overflow-hidden rounded-md border bg-card md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-xs text-muted-foreground">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium">Usuário</th>
+              <th className="px-3 py-2 font-medium">Função</th>
+              <th className="px-3 py-2 font-medium">Loja</th>
+              {contasDaLista.length > 1 && <th className="px-3 py-2 font-medium">Conta</th>}
+              <th className="px-3 py-2 font-medium">Aprova em</th>
+              <th className="px-3 py-2 font-medium">Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map(u => (
+              <tr key={u.id} onClick={() => setEditando(u)} className="cursor-pointer border-t hover:bg-muted/60">
+                <td className="px-3 py-2">
+                  <button type="button" onClick={() => setEditando(u)} className="flex items-center gap-2.5 text-left">
+                    <Ini nome={u.nome} />
+                    <span className="min-w-0"><span className="block font-medium">{u.nome}</span><span className="block text-xs text-muted-foreground">{u.email}</span></span>
+                  </button>
+                </td>
+                <td className="px-3 py-2"><span className="whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-xs text-muted-foreground">{nomePapel(u)}</span></td>
+                <td className="px-3 py-2">{u.lojaNome ?? <span className="text-muted-foreground">Sem loja</span>}</td>
+                {contasDaLista.length > 1 && <td className="px-3 py-2 text-muted-foreground">{u.contaId ? contasNomes[u.contaId] : 'Plataforma'}</td>}
+                <td className="px-3 py-2 text-muted-foreground tabular-nums">{ondeAprova(u)}</td>
+                <td className="px-3 py-2"><Situacao ativo={u.ativo} /></td>
+              </tr>
             ))}
-            {usuarios.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  Nenhum usuário cadastrado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">{lista.length} de {usuarios.length} usuários</p>
       </div>
+
+      {/* Celular: cartões. */}
+      <div className="divide-y rounded-md border bg-card md:hidden">
+        {lista.map(u => (
+          <button key={u.id} type="button" onClick={() => setEditando(u)} className="flex w-full items-start gap-2.5 px-3 py-3 text-left">
+            <Ini nome={u.nome} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">{u.nome}</span>
+              <span className="block truncate text-xs text-muted-foreground">{u.email}</span>
+              <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="rounded-sm border px-1.5 py-0.5">{nomePapel(u)}</span>{u.lojaNome ?? 'Sem loja'}
+              </span>
+            </span>
+            <Situacao ativo={u.ativo} />
+          </button>
+        ))}
+      </div>
+      {lista.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário com esses filtros.</p>}
 
       {CARGOS_VISIVEIS && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />}
 
-      {/* Dialog Criar */}
-      <Dialog open={criando} onOpenChange={setCriando}>
-        <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
-          <DialogHeader className="border-b py-4 pr-12 pl-4 sm:pl-6">
-            <DialogTitle>Novo usuário</DialogTitle>
-          </DialogHeader>
-          <FormUsuario
-            lojas={lojas}
-            grupos={grupos}
-            limites={limites}
-            cargos={cargos}
-            contaAtiva={contaAtiva}
-            liberaveis={liberaveis}
-            liberadosIniciais={[]}
-            onSubmit={handleCriar}
-            onCancel={() => setCriando(false)}
-            isEdit={false}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Editar */}
-      <Dialog open={!!editando} onOpenChange={open => { if (!open) setEditando(null) }}>
-        <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100%-1rem)] flex-col gap-0 p-0 sm:max-w-3xl">
-          <DialogHeader className="border-b py-4 pr-12 pl-4 sm:pl-6">
-            <DialogTitle>Editar usuário</DialogTitle>
-            <p className="text-sm text-muted-foreground">{editando?.nome}</p>
-          </DialogHeader>
-          {editando && (
-            <FormUsuario
-              inicial={editando}
-              lojas={lojas}
-              grupos={grupos}
-              limites={limites}
-              cargos={cargos}
-              contaAtiva={contaAtiva}
-              liberaveis={liberaveis}
-              liberadosIniciais={liberadosPorUsuario[editando.id] ?? []}
-              onSubmit={handleEditar}
-              onCancel={() => setEditando(null)}
-              isEdit
-            />
+      {/* Painel lateral de criar e editar; no celular ocupa a tela. */}
+      <Sheet open={painel} onOpenChange={o => { if (!o && !pending) { setCriando(false); setEditando(null) } }}>
+        <SheetContent side="right" className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
+          <SheetHeader className="border-b pr-12">
+            {editando ? (
+              <div className="flex items-center gap-2.5">
+                <Ini nome={editando.nome} />
+                <div className="min-w-0">
+                  <SheetTitle className="truncate">{editando.nome}</SheetTitle>
+                  <p className="text-xs text-muted-foreground">{nomePapel(editando)}{editando.lojaNome ? ` na ${editando.lojaNome}` : ''}</p>
+                </div>
+              </div>
+            ) : <SheetTitle>Novo usuário</SheetTitle>}
+          </SheetHeader>
+          {criando && (
+            <FormUsuario lojas={lojas} grupos={grupos} limites={limites} cargos={cargos} contaAtiva={contaAtiva}
+              liberaveis={liberaveis} liberadosIniciais={[]} onSubmit={handleCriar} onCancel={() => setCriando(false)} isEdit={false} />
           )}
-        </DialogContent>
-      </Dialog>
+          {editando && (
+            <FormUsuario key={editando.id} inicial={editando} lojas={lojas} grupos={grupos} limites={limites} cargos={cargos} contaAtiva={contaAtiva}
+              liberaveis={liberaveis} liberadosIniciais={liberadosPorUsuario[editando.id] ?? []} onSubmit={handleEditar} onCancel={() => setEditando(null)} isEdit
+              acoesExtras={<>
+                {!(editando.id === limites.meuId && limites.travaASiMesmo) && (
+                  <Button variant="outline" onClick={() => handleToggleAtivo(editando)} disabled={pending} className="gap-1.5">
+                    {editando.ativo ? <PowerOff size={15} /> : <Power size={15} />}{editando.ativo ? 'Desativar' : 'Reativar'}
+                  </Button>
+                )}
+                {limites.podeExcluir && (
+                  <Button variant="outline" onClick={() => setExcluindo(editando)} disabled={pending} className="gap-1.5 text-destructive">
+                    <Trash2 size={15} /> Excluir
+                  </Button>
+                )}
+              </>} />
+          )}
+        </SheetContent>
+      </Sheet>
 
-      {/* Dialog Excluir */}
+      {/* Confirmação de excluir */}
       <Dialog open={!!excluindo} onOpenChange={open => { if (!open) setExcluindo(null) }}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Excluir usuário</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Excluir usuário</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Tem certeza que deseja excluir <strong>{excluindo?.nome}</strong>?
-            Esta ação é irreversível e removerá o acesso ao sistema.
+            Excluir <strong>{excluindo?.nome}</strong> remove o acesso ao sistema e não tem volta. Quem tem histórico só pode ser desativado.
           </p>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setExcluindo(null)} disabled={pending}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleExcluir} disabled={pending}>
-              {pending ? 'Excluindo…' : 'Excluir'}
-            </Button>
+            <Button variant="destructive" onClick={handleExcluir} disabled={pending}>{pending ? 'Excluindo...' : 'Excluir'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

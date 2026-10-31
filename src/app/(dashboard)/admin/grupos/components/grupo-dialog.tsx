@@ -27,18 +27,25 @@ type Grupo = {
   comarcaForo: string | null
 }
 
+export type ContaOpcao = { id: string; nome: string; grupos: string[] }
+
 type Props = {
   modo: 'criar' | 'editar'
   inicial?: Grupo
+  /** Só na criação: Contas existentes para o grupo nascer dentro (#199). */
+  contas?: ContaOpcao[]
   open?: boolean
   onOpenChange?: (v: boolean) => void
 }
 
-export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
+export function GrupoDialog({ modo, inicial, contas = [], open, onOpenChange }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const [nome, setNome] = useState(inicial?.nome ?? '')
+  // Vazio = Conta nova com o nome do grupo (padrão).
+  const [contaId, setContaId] = useState('')
+  const contaEscolhida = contas.find(c => c.id === contaId)
   const [cnpj, setCnpj] = useState(inicial?.cnpj ?? '')
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true)
   const [blingClientId, setBlingClientId] = useState(inicial?.blingClientId ?? '')
@@ -70,7 +77,7 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
         razaoSocial, enderecoSede, cidadeSede, comarcaForo,
       }
       if (modo === 'criar') {
-        await criarGrupoAction(dados)
+        await criarGrupoAction({ ...dados, contaId: contaId || null })
         toast.success('Grupo criado!')
       } else {
         await editarGrupoAction(inicial!.id, dados)
@@ -104,6 +111,35 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
               <Label className="text-xs">CNPJ *</Label>
               <Input value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" className="h-9 text-sm" />
             </div>
+
+            {modo === 'criar' && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="grupo-conta" className="text-xs">Conta</Label>
+                {/* <select> nativo: o do design system mostraria o id da Conta no lugar do nome. */}
+                <select
+                  id="grupo-conta"
+                  value={contaId}
+                  onChange={e => setContaId(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">Conta nova</option>
+                  {contas.map(c => (
+                    <option key={c.id} value={c.id}>{c.nome} ({c.grupos.length} {c.grupos.length === 1 ? 'grupo' : 'grupos'})</option>
+                  ))}
+                </select>
+                {/* Os grupos da Conta escolhida ficam embaixo, e não na opção: com muitos, a opção ficava ilegível. */}
+                {contaEscolhida && contaEscolhida.grupos.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {contaEscolhida.grupos.map(g => (
+                      <span key={g} className="rounded-sm border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{g}</span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {contaId ? 'O grupo entra nesta Conta e compartilha usuários, clientes e modelos com os grupos dela.' : 'Cria uma Conta só para este grupo.'}
+                </p>
+              </div>
+            )}
 
             <p className="border-t pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:col-span-2">Dados para contrato</p>
             <div className="space-y-1.5 sm:col-span-2">
@@ -232,14 +268,14 @@ export function GrupoDialog({ modo, inicial, open, onOpenChange }: Props) {
   )
 }
 
-export function NovoGrupoButton() {
+export function NovoGrupoButton({ contas }: { contas: ContaOpcao[] }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <Button onClick={() => setOpen(true)} size="sm" className="gap-1.5">
         <Plus size={15} /> Novo Grupo
       </Button>
-      <GrupoDialog modo="criar" open={open} onOpenChange={setOpen} />
+      <GrupoDialog modo="criar" contas={contas} open={open} onOpenChange={setOpen} />
     </>
   )
 }

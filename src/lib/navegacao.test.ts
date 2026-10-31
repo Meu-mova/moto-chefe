@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { ITENS, MODULOS_DE_CARGO, acessaModulo, itensDoMenu, itensVisiveis, modulosQuePodeDar, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
 import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
-const SEM_REGRA_PROPRIA = { entrada: false }
+const SEM_REGRA_PROPRIA = {}
 
 function ids(usuario: UsuarioNav, regras = SEM_REGRA_PROPRIA) {
   return itensVisiveis(usuario, regras).map(i => i.id).sort()
@@ -26,7 +26,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'agenda', 'atendimento', 'avaliacoes-google', 'bancos', 'bling', 'caixa', 'calendario',
     'calendario-categorias', 'canais', 'categorias-caixa', 'clientes',
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'contratos', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
-    'demandas', 'despesas', 'dre', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log', 'maquininhas',
+    'demandas', 'despesas', 'dre', 'entrada', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log', 'maquininhas',
     'marketing', 'metas', 'modelos', 'montagens', 'notas-emitidas', 'notas-fiscais', 'ordens-servico',
     'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
@@ -111,9 +111,18 @@ test('bloqueio ganha de liberação quando os dois marcam o mesmo item', () => {
   assert.ok(!ids(confuso).includes('marketing'))
 })
 
-test('item de regra própria não é decidido pela tabela', () => {
-  assert.ok(!ids(ADMIN_GERAL).includes('entrada'))
-  assert.ok(ids(ADMIN_GERAL, { entrada: true }).includes('entrada'))
+test('Entrada (#488, decisão do Luis): sócio e geral pelo papel; aux_adm só liberado por pessoa; cargo e outras funções nunca', () => {
+  assert.ok(acessaModulo(ADMIN_GERAL, 'entrada'))
+  assert.ok(acessaModulo({ papel: 'admin_socio' }, 'entrada'))
+  assert.ok(!acessaModulo({ papel: 'aux_adm' }, 'entrada'), 'aux_adm sem liberação')
+  assert.ok(acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'), 'aux_adm liberado')
+  assert.ok(ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'), 'e aparece no menu')
+  assert.ok(!acessaModulo({ papel: 'vendedor', modulosExtras: ['entrada'] }, 'entrada'), 'vendedor, nem liberado')
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'), 'cargo, nem pelo cargo')
+  assert.ok(!acessaModulo({ papel: 'cargo', modulosExtras: ['entrada'] }, 'entrada'), 'cargo, nem liberado')
+  assert.ok(!acessaModulo({ papel: 'admin_socio', modulosBloqueados: ['entrada'] }, 'entrada'))
+  assert.ok(!MODULOS_DE_CARGO.includes('entrada'))
+  assert.deepEqual(ITENS.find(i => i.id === 'entrada')?.liberavelPara, ['aux_adm'])
 })
 
 test('item oculto some do menu de todos os papéis, e o admin_geral ainda abre a rota', () => {
@@ -185,7 +194,7 @@ test('cargo vê só os módulos marcados mais os que todos veem (#449)', () => {
 })
 
 test('cargo não abre tela só pelo papel nem só do admin_geral, mesmo marcada (#449)', () => {
-  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['usuarios', 'lojas', 'entrada'] }
+  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['usuarios', 'lojas'] }
   assert.deepEqual(ids(cargo), ['calendario', 'dashboard', 'meus-documentos'])
 })
 
@@ -216,6 +225,6 @@ test('acessaModulo segue a mesma regra do menu, por id (#450)', () => {
   assert.ok(!acessaModulo({ papel: 'admin_geral' }, 'nao-existe'))
 })
 
-test('clientes é o primeiro módulo liberado para cargo (#450)', () => {
+test('módulos liberados para cargo: clientes (#450)', () => {
   assert.deepEqual(MODULOS_DE_CARGO, ['clientes'])
 })

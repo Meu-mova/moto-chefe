@@ -70,7 +70,8 @@ export function usuarioDaRede<U extends UsuarioBase>(usuario: U, liberados: Grup
     contaId: ativo.contaId,
     lojaId: null,
     gruposAcesso: [ativo.grupoId],
-    gruposAprovacao: [ativo.grupoId],
+    // Aprova no grupo liberado só se o admin_geral marcou a aprovação nele (decisão do Luis).
+    gruposAprovacao: usuario.gruposAprovacao.includes(ativo.grupoId) ? [ativo.grupoId] : [],
     gruposLiberados: [],
     grupoLiberado: ativo.grupoId,
   }
