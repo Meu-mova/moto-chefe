@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
 import { carregarTelaModelos } from '@/lib/modelos-tela'
@@ -13,6 +13,7 @@ import { AjusteModeloAcoes } from './components/ajuste-modelo-acoes'
 import { podeAjustarModelo, podeCadastrarModelo, podeEditarModelo, potenciaNaTela } from '@/lib/gestao-modelos'
 
 export default async function ModelosPage() {
+  await exigirAcessoPagina('/admin/modelos')
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 

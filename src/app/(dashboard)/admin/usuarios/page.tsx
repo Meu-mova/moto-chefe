@@ -1,4 +1,4 @@
-import { SuperAdminGuard } from '../components/admin-guard'
+import { SuperAdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojasDoGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
@@ -14,6 +14,7 @@ import { acessosDeFora, gruposLiberaveis, liberacoesPorUsuario } from '@/lib/gru
 import { nomesDasContas } from '@/lib/conta'
 
 export default async function UsuariosPage() {
+  await exigirAcessoPagina('/admin/usuarios')
   const usuario = await getUsuarioLogado()
   // Item liberado por tela a quem não é sócio nem admin_geral não abre: as actions recusariam tudo.
   if (!ehGestorDeUsuarios(usuario)) redirect('/dashboard')

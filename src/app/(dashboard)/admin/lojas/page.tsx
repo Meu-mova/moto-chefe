@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarGruposAtivos } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -11,6 +11,7 @@ import { NovaLojaDialog } from './components/nova-loja-dialog'
 import { EditarLojaDialog } from './components/editar-loja-dialog'
 
 export default async function LojasPage() {
+  await exigirAcessoPagina('/admin/lojas')
   const usuario = await getUsuarioLogado()
   const isSuperAdmin = usuario.papel === 'admin_geral'
 

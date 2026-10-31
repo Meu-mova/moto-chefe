@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getBlingStatusAction } from './actions'
 import { BlingConnectButton } from './components/bling-connect-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export default async function BlingPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
+  await exigirAcessoPagina('/admin/bling')
   const params = await searchParams
   const status = await getBlingStatusAction()
 

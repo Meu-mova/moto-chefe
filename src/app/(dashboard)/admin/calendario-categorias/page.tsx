@@ -1,4 +1,4 @@
-import { AdminGuard } from '../components/admin-guard'
+import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -7,6 +7,7 @@ import { and, eq, asc } from 'drizzle-orm'
 import { CategoriasCalendarioTable } from './components/categorias-table'
 
 export default async function CalendarioCategoriasPage() {
+  await exigirAcessoPagina('/admin/calendario-categorias')
   const usuario = await getUsuarioLogado()
   const grupo = await getGrupoAtivo(usuario)
 
