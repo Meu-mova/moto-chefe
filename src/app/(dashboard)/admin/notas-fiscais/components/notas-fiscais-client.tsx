@@ -142,7 +142,7 @@ function CartaoGrupo({ linha, podeEditarCredencial, aberto, onToggle }: { linha:
               titulo="Certificado A1"
               detalhe={linha.certificado
                 ? (certVencido ? `venceu em ${fmtData(linha.certificado.validoAte)}` : `válido até ${fmtData(linha.certificado.validoAte)}`)
-                : 'não cadastrado. Envie em Radar Fiscal.'}
+                : 'não cadastrado. Envie em Configuração > Certificados.'}
             />
             <Situacao
               ok={!!linha.credencial?.temEmpresa}

@@ -28,7 +28,7 @@ test('admin_socio vê tudo menos o que é exclusivo do admin_geral', () => {
     'cartoes', 'coletiva', 'comunicados', 'compras', 'conciliacao', 'contas-pagar', 'contratos', 'cupons', 'dados-funcionarios', 'dashboard', 'meus-documentos',
     'demandas', 'despesas', 'dre', 'entrada', 'fechamento', 'financeiro', 'folha', 'garantias', 'individual', 'kommo', 'log', 'maquininhas',
     'marketing', 'metas', 'modelos', 'montagens', 'notas-emitidas', 'notas-fiscais', 'ordens-servico',
-    'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar', 'radar-fiscal',
+    'origens', 'pecas', 'pecas-fabrica', 'pix', 'precificacao', 'radar',
     'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'usuarios', 'vendas', 'veiculos-historico',
   ].sort())
@@ -39,7 +39,7 @@ test('aux_adm não vê financeiro de resultado nem cadastro de sistema', () => {
     'agenda', 'atendimento', 'caixa', 'calendario', 'canais', 'clientes',
     'conciliacao', 'contratos', 'cupons', 'dashboard', 'demandas', 'garantias', 'marketing', 'metas', 'meus-documentos',
     'montagens', 'notas-emitidas', 'ordens-servico', 'origens', 'pecas', 'pecas-fabrica', 'pix',
-    'radar', 'radar-fiscal', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
+    'radar', 'relatorio-fabrica', 'servicos', 'showroom', 'simulador',
     'transferencias', 'vendas',
   ].sort())
 })
@@ -227,4 +227,23 @@ test('acessaModulo segue a mesma regra do menu, por id (#450)', () => {
 
 test('módulos liberados para cargo: clientes (#450)', () => {
   assert.deepEqual(MODULOS_DE_CARGO, ['clientes'])
+})
+
+test('itens da mesma seção ficam juntos na categoria, senão o subtítulo se repete no menu', () => {
+  const vistas = new Set<string>()
+  let anterior: string | undefined
+  for (const i of ITENS) {
+    const chave = i.secao ? `${i.categoria}/${i.secao}` : undefined
+    if (chave && chave !== anterior) {
+      assert.ok(!vistas.has(chave), `seção repetida: ${chave} (${i.id})`)
+      vistas.add(chave)
+    }
+    anterior = chave
+  }
+})
+
+test('Plataforma: papel só admin_geral', () => {
+  const itens = ITENS.filter(i => i.categoria === 'plataforma')
+  assert.ok(itens.length > 0)
+  for (const i of itens) assert.deepStrictEqual(i.papeis, ['admin_geral'], i.id)
 })

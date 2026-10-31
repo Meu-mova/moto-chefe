@@ -47,7 +47,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const tipoAprovacaoPendente = (moto.aprovacaoPendenteTipo ?? 'valor_minimo') as 'valor_minimo' | 'pagamento_sensivel'
   const podeAprovarAprovacao = tipoAprovacaoPendente === 'pagamento_sensivel' ? podeAprovarSensivel : podeAprovarValorMinimo
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const acessoMultiGrupo = isAdmin && podeTransferirEntreGrupos(usuario)
+  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
 
   const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     listarUsuariosDoGrupo(grupoIdDaMoto, { papeis: ['mecanico'] }),
