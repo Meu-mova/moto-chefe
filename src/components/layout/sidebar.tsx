@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Link as LinkIcon, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CATEGORIAS, ITENS, type ItemNav } from '@/lib/navegacao'
@@ -87,10 +87,15 @@ function ListaNav({ itens, conecta, onNavegar }: { itens: ItemNav[]; conecta: st
           {/* Itens do grupo recuados sob o ícone da categoria, com uma guia à esquerda. */}
           {abertos[g.slug] && (
             <div className="ml-5 space-y-0.5 border-l border-sidebar-border pl-2">
-              {g.itens.map(({ id, href, label, icon: Icon }) => (
-                <Link key={id} href={href} onClick={onNavegar} className={linkCls(ativo(pathname, href))}>
-                  <Icon className="size-4 shrink-0" /> <span className="truncate">{label}</span>
-                </Link>
+              {g.itens.map(({ id, href, label, icon: Icon, secao }, i) => (
+                <Fragment key={id}>
+                  {secao && secao !== g.itens[i - 1]?.secao && (
+                    <p className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{secao}</p>
+                  )}
+                  <Link href={href} onClick={onNavegar} className={linkCls(ativo(pathname, href))}>
+                    <Icon className="size-4 shrink-0" /> <span className="truncate">{label}</span>
+                  </Link>
+                </Fragment>
               ))}
             </div>
           )}

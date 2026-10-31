@@ -5,11 +5,11 @@ import {
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
-  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star} from 'lucide-react'
+  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star, Network} from 'lucide-react'
 
 // 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum.
 export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
-export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao'
+export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao' | 'plataforma'
 
 export type ItemNav = {
   /** Chave gravada em usuarios.modulos_extras/bloqueados. Estável: não muda se o href mudar. */
@@ -19,6 +19,8 @@ export type ItemNav = {
   icon: LucideIcon
   /** null = só aparece solto no sidebar, sem hub (Dashboard). */
   categoria: Slug | null
+  /** Subtítulo dentro da categoria; itens da mesma seção ficam juntos em ITENS. */
+  secao?: string
   papeis: Papel[]
   /** Também solto no topo do sidebar, além de aparecer no hub da categoria. */
   destaque?: true
@@ -71,6 +73,7 @@ export const CATEGORIAS: { slug: Slug; nome: string; icon: LucideIcon }[] = [
   { slug: 'financeiro',   nome: 'Financeiro',        icon: Wallet },
   { slug: 'gestao',       nome: 'Gestão',            icon: Target },
   { slug: 'configuracao', nome: 'Configuração',      icon: Settings2 },
+  { slug: 'plataforma',   nome: 'Plataforma',        icon: Network },
 ]
 
 const SUPER:     Papel[] = ['admin_geral']
@@ -143,31 +146,33 @@ export const ITENS: ItemNav[] = [
   { id: 'veiculos-historico', href: '/admin/veiculos-historico', label: 'Histórico de Veículos', icon: FileText, categoria: 'gestao', papeis: ADMINS, oculto: true },
   { id: 'acoes',          href: '/admin/acoes',    label: 'Ações',             icon: Database,      categoria: 'gestao',       papeis: SUPER, oculto: true },
 
-  // ── Configuração
-  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
-  { id: 'adesoes',        href: '/admin/adesoes',  label: 'Adesões',           icon: FileSignature, categoria: 'configuracao', papeis: SUPER },
-  { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER },
-  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
-  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', papeis: ADMINS, soPeloPapel: true },
-  { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', papeis: ADMINS },
-  { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', papeis: ADMINS },
+  // ── Configuração: a ordem aqui é a ordem no menu, e cada `secao` vira um subtítulo.
+  { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS, soPeloPapel: true },
+  { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
+  { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
+  { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS },
+  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS, oculto: true },
   // aux_adm vê o contrato do grupo para orientar a loja; só sócio e admin_geral editam.
-  { id: 'contratos',      href: '/admin/contratos', label: 'Contratos',        icon: FileSignature, categoria: 'configuracao', papeis: GESTORES },
-  { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
+  { id: 'contratos',      href: '/admin/contratos', label: 'Contratos',        icon: FileSignature, categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: GESTORES },
+  { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
+  { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
+  { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
+  { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
+  { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS },
+  { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', secao: 'Cadastros', papeis: GESTORES, oculto: true },
+  { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', secao: 'Cadastros', papeis: GESTORES },
+  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', secao: 'Cadastros', papeis: ADMINS, oculto: true },
+
+  // ── Plataforma: administração do MOVA como produto, só admin_geral.
+  { id: 'grupos',         href: '/admin/grupos',   label: 'Grupos',            icon: Layers,        categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  { id: 'lojas',          href: '/admin/lojas',    label: 'Lojas',             icon: Building2,     categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  { id: 'adesoes',        href: '/admin/adesoes',  label: 'Adesões',           icon: FileSignature, categoria: 'plataforma', papeis: SUPER },
+  { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER },
   // Tabela de preço sugerido da MotoChefe (#522): da plataforma, só admin_geral carrega.
-  { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
-  { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
-  { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', papeis: ADMINS },
-  { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
-  { id: 'calendario-categorias', href: '/admin/calendario-categorias', label: 'Categorias de Calendário', icon: CalendarRange, categoria: 'configuracao', papeis: ADMINS },
-  { id: 'canais',         href: '/admin/canais',   label: 'Canais',            icon: Megaphone,     categoria: 'configuracao', papeis: GESTORES, oculto: true },
-  { id: 'origens',        href: '/admin/origens',  label: 'Origens',           icon: Tag,           categoria: 'configuracao', papeis: GESTORES },
-  { id: 'kommo',          href: '/admin/kommo',    label: 'Kommo',             icon: Headset,       categoria: 'configuracao', papeis: ADMINS, oculto: true },
-  { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', papeis: ADMINS },
-  { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', papeis: ADMINS, oculto: true },
+  { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
   // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
   // item de configuração comum — só admin_geral (SUPER) mexe nisso.
-  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
+  { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
 ]
 
 // Cópia deliberada de temPapel em @/lib/auth:68 — este arquivo não pode
