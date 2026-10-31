@@ -3,6 +3,7 @@ import { listarGruposAction } from './actions'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { NovoGrupoButton, EditarGrupoButton } from './components/grupo-dialog'
+import { MoverGrupoButton } from './components/mover-grupo-dialog'
 
 export default async function GruposPage() {
   const lista = await listarGruposAction()
@@ -41,7 +42,7 @@ export default async function GruposPage() {
                   <TableCell>
                     <Badge variant={g.ativo ? 'default' : 'secondary'}>{g.ativo ? 'Ativo' : 'Inativo'}</Badge>
                   </TableCell>
-                  <TableCell><EditarGrupoButton grupo={g} /></TableCell>
+                  <TableCell className="whitespace-nowrap"><EditarGrupoButton grupo={g} /><MoverGrupoButton grupo={{ id: g.id, nome: g.nome, contaId: g.contaId }} /></TableCell>
                 </TableRow>
               ))}
             </TableBody>

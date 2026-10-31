@@ -3,7 +3,9 @@ import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import { db } from '@/lib/db'
 import { contaMarcas, contas, grupos } from '@/lib/db/schema'
 import { MARCAS_DA_CONTA_NOVA } from '@/lib/modelos-da-conta'
-import { eq } from 'drizzle-orm'
+import { asc, eq, isNull, sql } from 'drizzle-orm'
+import { moverGrupo, previaMoverGrupo } from '@/lib/mover-grupo'
+import { origemDaRequisicaoAtual } from '@/lib/log-acoes'
 import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { cifrar, decifrar } from '@/lib/cripto'
@@ -131,4 +133,35 @@ export async function editarGrupoAction(id: string, dados: GrupoInput) {
   }).where(eq(grupos.id, id))
   revalidatePath('/admin/grupos')
   revalidatePath('/', 'layout')
+}
+
+// ─── Mover grupo para outra Conta (#554) ─────────────────────────────────────
+
+/** Contas ativas para onde um grupo pode ir, com os grupos de cada uma para reconhecer. */
+export async function contasDestinoAction() {
+  await assertAdmin()
+  return db.select({
+    id: contas.id,
+    nome: contas.nome,
+    grupos: sql<string[]>`coalesce(array_agg(${grupos.nome} order by ${grupos.nome}) filter (where ${grupos.id} is not null), '{}')`,
+  }).from(contas).leftJoin(grupos, eq(grupos.contaId, contas.id))
+    .where(isNull(contas.desativadaEm)).groupBy(contas.id).orderBy(asc(contas.nome))
+}
+
+/** Só leitura: o que iria junto e o que bloqueia. */
+export async function previaMoverGrupoAction(grupoId: string, contaDestinoId: string) {
+  await assertAdmin()
+  return previaMoverGrupo(db, grupoId, contaDestinoId)
+}
+
+export async function moverGrupoAction(grupoId: string, contaDestinoId: string) {
+  const u = await getUsuarioLogado()
+  if (u.papel !== 'admin_geral') return { ok: false as const, erro: 'Acesso restrito ao Admin Geral', previa: null }
+  const origem = await origemDaRequisicaoAtual()
+  const r = await db.transaction(tx => moverGrupo(tx, u, grupoId, contaDestinoId, origem))
+  if (r.ok) {
+    revalidatePath('/admin/grupos')
+    revalidatePath('/', 'layout')
+  }
+  return r
 }

@@ -113,6 +113,17 @@ test('move: tudo da origem vai para a destino, a origem fica desativada e vazia,
   }), Desfazer)
 })
 
+test('move sem marca nova e sem nada além dos usuários (caso da rede real)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await tx.execute(sql`delete from conta_marcas where conta_id = ${c.o}`)
+    const r = await moverGrupo(tx, c.geral, c.go.id, c.d)
+    assert.equal(r.ok, true, r.ok ? '' : r.erro)
+    assert.equal((await linha(tx, sql`select conta_id from grupos where id = ${c.go.id}`)).conta_id, c.d)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
 test('conflito: CPF ou apelido repetido na destino lista os casos e não grava nada', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenario(tx)

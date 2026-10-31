@@ -140,7 +140,9 @@ export async function moverGrupo(
     .where(and(eq(gruposLiberados.grupoId, grupoId), isNull(gruposLiberados.revogadoEm),
       inArray(gruposLiberados.usuarioId, tx.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.contaId, d)))))
 
-  await tx.insert(contaMarcas).values(previa.vaiJunto.marcasNovas.map(marca => ({ contaId: d, marca }))).onConflictDoNothing()
+  if (previa.vaiJunto.marcasNovas.length) {
+    await tx.insert(contaMarcas).values(previa.vaiJunto.marcasNovas.map(marca => ({ contaId: d, marca }))).onConflictDoNothing()
+  }
   for (const t of [usuarios, clientes, modelos, modeloApelidos, modeloAjustes, veiculosHistorico, notasEntrada, cargos]) {
     await tx.update(t).set({ contaId: d }).where(eq(t.contaId, o))
   }

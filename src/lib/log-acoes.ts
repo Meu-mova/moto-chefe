@@ -78,7 +78,7 @@ export type AcaoSensivel = {
   detalhe: Record<string, unknown>
 }
 
-async function origemDaRequisicaoAtual(): Promise<Origem> {
+export async function origemDaRequisicaoAtual(): Promise<Origem> {
   try {
     return origemDaRequisicao(await headers())
   } catch {
