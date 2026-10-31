@@ -258,3 +258,26 @@ test('venda na persona com CPF de outro grupo da Conta dona: não toca nem liga 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('cadastro de cliente na persona: CPF do grupo liberado e de outro grupo da Conta dona dão a mesma resposta', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { cadastrarCliente } = await import('@/lib/cliente-cadastro')
+    const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
+    const erro = async (escopo: { contaId: string; grupoLiberado: string | null }, cpf: string) => {
+      try {
+        await tx.transaction(sp => cadastrarCliente(sp, escopo, { nome: 'X', tipoPessoa: 'fisica', sexo: 'nao_identificado', cpfCnpj: cpf }))
+        return null
+      } catch (e) { return e instanceof Error ? e.message : String(e) }
+    }
+    const escopo = { contaId: c.dona, grupoLiberado: persona.grupoLiberado }
+    const doLiberado = await erro(escopo, '00000000000191')
+    const doIrmao = await erro(escopo, '00000000000272')
+    assert.ok(doIrmao, 'recusa')
+    assert.equal(doIrmao, doLiberado, 'mesma frase: não revela que o CPF existe em outro grupo')
+    assert.doesNotMatch(doIrmao!, /cadastrad/i)
+    assert.equal(await erro({ contaId: c.dona, grupoLiberado: null }, '00000000000272'), 'CPF/CNPJ já cadastrado', 'fora da persona, como antes')
+    assert.equal(await erro(escopo, '52998224725'), null, 'CPF novo entra')
+    throw new Desfazer()
+  }), Desfazer)
+})
