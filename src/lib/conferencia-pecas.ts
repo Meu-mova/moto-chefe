@@ -7,8 +7,11 @@ import type { LinhaEntradaPeca } from '@/lib/entrada-pecas'
 
 export type Destino = 'catalogo' | 'nova' | 'ignorar'
 
+/** Item do XML ou da planilha; só a planilha pode vir sem custo. */
+export type ItemConferencia = Omit<ItemPecaNfe, 'custoUnitario'> & { custoUnitario: number | null }
+
 export type LinhaConferencia = {
-  item: ItemPecaNfe
+  item: ItemConferencia
   /** Como a pessoa digitou, com vírgula. */
   quantidade: string
   destino: Destino
@@ -25,7 +28,7 @@ const numero = (s: string) => {
   return Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t)
 }
 
-export function linhaInicial(item: ItemPecaNfe, sugestao: string | null): LinhaConferencia {
+export function linhaInicial(item: ItemConferencia, sugestao: string | null): LinhaConferencia {
   return {
     item,
     quantidade: String(item.quantidade).replace('.', ','),
