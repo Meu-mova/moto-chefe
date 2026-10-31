@@ -40,7 +40,7 @@ export async function GroupSelector({ usuario }: Props) {
   // Só os grupos que ele já vê: cidade e CNPJ vão ao navegador apenas deles (busca no cliente).
   // Fail-open: sem as cidades, o seletor abre com nome, Conta e CNPJ.
   const dados = await gruposParaOSeletor(gruposList, contas).catch(() => gruposList.map(g => ({
-    id: g.id, nome: g.nome, cor: g.cor, contaId: g.contaId, contaNome: contas.get(g.contaId) ?? '', cidade: g.cidadeSede, cnpj: g.cnpj,
+    id: g.id, nome: g.nome, cor: g.cor, contaId: g.contaId, contaNome: contas.get(g.contaId) ?? '', cidade: g.cidadeSede, cnpj: g.cnpj, lojas: [],
   })))
   const blocos = blocosDoSeletor(dados, contaDeOrigem)
 

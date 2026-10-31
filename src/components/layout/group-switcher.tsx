@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { corDoGrupo } from '@/lib/grupo-cores'
 import { BotaoTema } from '@/components/theme-provider'
 import { trocarGrupoAtivoAction } from './group-selector-actions'
-import { filtrarBlocos, iniciaisDoGrupo, mesmoNome, type BlocoDoSeletor } from '@/lib/blocos-seletor'
+import { contem, filtrarBlocos, iniciaisDoGrupo, mesmoNome, type BlocoDoSeletor } from '@/lib/blocos-seletor'
 
 const CHAVE_RECENTES = 'mova:grupos-recentes'
 // Abaixo disso a lista inteira cabe na tela e "Usados por último" só repetiria linhas.
@@ -153,7 +153,9 @@ export function GroupSwitcher({ blocos, ativoId }: { blocos: BlocoDoSeletor[]; a
                   const i = indice++
                   const atalho = atalhos.indexOf(g.id)
                   const isAtivo = g.id === ativoId
-                  const meta = [g.mostrarConta && !mesmoNome(g.contaNome, g.nome) && g.contaNome, g.cidade].filter(Boolean).join(', ')
+                  // Achou pela loja: mostra qual, senão a pessoa não entende por que o grupo apareceu.
+                  const loja = busca.trim() && !mesmoNome(g.nome, busca) ? g.lojas.find(l => contem(l, busca)) : undefined
+                  const meta = [g.mostrarConta && !mesmoNome(g.contaNome, g.nome) && g.contaNome, loja ? `Loja ${loja}` : g.cidade].filter(Boolean).join(', ')
                   return (
                     <button
                       key={`${g.id}-${i}`}

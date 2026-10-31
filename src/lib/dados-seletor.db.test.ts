@@ -48,6 +48,7 @@ test('seletor do sócio da Conta A: só os grupos dele chegam ao navegador, nada
     const dados = await gruposParaOSeletor([a1, a2, b1].filter(g => ids.includes(g.id)), new Map([[a.id, 'Conta A'], [b.id, 'Conta B']]), tx)
     assert.deepEqual(dados.map(d => d.id).sort(), [a1.id, a2.id].sort())
     assert.deepEqual(dados.map(d => d.cidade).sort(), ['Cidade A1', 'Cidade A2'])
+    assert.deepEqual(dados.flatMap(d => d.lojas).sort(), ['Loja A1', 'Loja A2'], 'só lojas dos grupos que ele vê')
     assert.ok(!JSON.stringify(dados).includes('B1') && !JSON.stringify(dados).includes('Conta B'), 'nada da Conta B no que vai ao navegador')
     throw new Desfazer()
   }), Desfazer)

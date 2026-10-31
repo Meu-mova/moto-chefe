@@ -4,6 +4,8 @@
 export type GrupoDoSeletor = {
   id: string; nome: string; cor: string | null; contaId: string; contaNome: string
   cidade: string | null; cnpj: string
+  /** Lojas do grupo: a pessoa pensa na loja ("Varginha"), não no grupo. */
+  lojas: string[]
 }
 
 export type BlocoDoSeletor = { titulo: string | null; grupos: (GrupoDoSeletor & { mostrarConta: boolean })[] }
@@ -18,11 +20,9 @@ export function blocosDoSeletor(grupos: GrupoDoSeletor[], contaDeOrigem: string 
     for (const g of grupos) porConta.set(g.contaId, [...(porConta.get(g.contaId) ?? []), g])
     return [...porConta.values()]
       .sort((a, b) => a[0].contaNome.localeCompare(b[0].contaNome, 'pt-BR'))
-      // Conta de um grupo só com o mesmo nome dele: o título só repetiria a linha.
-      .map(gs => ({
-        titulo: gs.length === 1 && mesmoNome(gs[0].contaNome, gs[0].nome) ? null : gs[0].contaNome || null,
-        grupos: gs.map(g => ({ ...g, mostrarConta: false })),
-      }))
+      // Toda Conta leva título, mesmo com o nome igual ao do grupo: sem ele, a linha parece
+      // ser da Conta de cima.
+      .map(gs => ({ titulo: gs[0].contaNome || null, grupos: gs.map(g => ({ ...g, mostrarConta: false })) }))
   }
   const minha = grupos.filter(g => g.contaId === contaDeOrigem)
   const outras = grupos.filter(g => g.contaId !== contaDeOrigem)
@@ -33,10 +33,11 @@ export function blocosDoSeletor(grupos: GrupoDoSeletor[], contaDeOrigem: string 
   ]
 }
 
-const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const semAcento = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 export const mesmoNome = (a: string, b: string) => semAcento(a.trim()) === semAcento(b.trim())
+export const contem = (texto: string, busca: string) => semAcento(texto).includes(semAcento(busca.trim()))
 
-/** Busca por nome, Conta, cidade ou parte do CNPJ (só os dígitos). Bloco que fica vazio sai. */
+/** Busca por nome, Conta, cidade, loja ou parte do CNPJ (só os dígitos). Bloco que fica vazio sai. */
 export function filtrarBlocos(blocos: BlocoDoSeletor[], busca: string): BlocoDoSeletor[] {
   const q = semAcento(busca.trim())
   if (!q) return blocos
@@ -45,7 +46,7 @@ export function filtrarBlocos(blocos: BlocoDoSeletor[], busca: string): BlocoDoS
     .map(b => ({
       ...b,
       grupos: b.grupos.filter(g =>
-        semAcento([g.nome, g.contaNome, g.cidade ?? '', b.titulo ?? ''].join(' ')).includes(q)
+        semAcento([g.nome, g.contaNome, g.cidade ?? '', b.titulo ?? '', ...g.lojas].join(' ')).includes(q)
         || (digitos.length >= 3 && g.cnpj.replace(/\D/g, '').includes(digitos))),
     }))
     .filter(b => b.grupos.length)

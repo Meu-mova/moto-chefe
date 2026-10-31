@@ -175,7 +175,8 @@ async function trocarEmpresa(pagina: Page): Promise<number> {
   await pagina.goto(`${base}/dashboard`)
   await esperarCarregar(pagina)
   const trocar = pagina.getByRole('button', { name: /Trocar/ }).first()
-  if (!(await trocar.isVisible().catch(() => false))) { console.log('Troca de empresa: sem seletor, pulada.'); return 0 }
+  // O usuário do CI (geral@) vê vários grupos: sem o seletor, algo quebrou.
+  if (!(await trocar.isVisible().catch(() => false))) { console.log('Troca de empresa FALHOU: seletor não apareceu.'); return 1 }
   const nome = () => pagina.locator('p.text-lg').first().textContent()
   const antes = await nome()
   await pagina.evaluate(() => { (window as unknown as { __semRecarga?: boolean }).__semRecarga = true })
