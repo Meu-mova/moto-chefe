@@ -59,6 +59,7 @@ test('Conta nova (padrão): cria a Conta com as marcas; Conta inexistente é rec
 
     const antes = Number((await linha(tx, sql`select count(*)::int n from grupos`)).n)
     await assert.rejects(tx.transaction(sp => criarGrupo(sp, dados('Fantasma', '00000000000353'), '00000000-0000-0000-0000-000000000000')), /Conta não encontrada/)
+    await assert.rejects(tx.transaction(sp => criarGrupo(sp, dados('Fantasma', '00000000000353'), 'nao-e-uuid')), /Conta não encontrada/)
     assert.equal(Number((await linha(tx, sql`select count(*)::int n from grupos`)).n), antes)
     throw new Desfazer()
   }), Desfazer)

@@ -14,6 +14,8 @@ type DadosGrupo = Omit<typeof grupos.$inferInsert, 'id' | 'contaId'>
 export async function criarGrupo(tx: Escritor, dados: DadosGrupo, contaId: string | null): Promise<{ grupoId: string; contaId: string }> {
   let conta = contaId
   if (conta) {
+    // Id que nem é UUID daria erro do Postgres; a resposta é a mesma de Conta inexistente.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conta)) throw new Error('Conta não encontrada')
     const [existe] = await tx.select({ id: contas.id }).from(contas).where(eq(contas.id, conta)).limit(1)
     if (!existe) throw new Error('Conta não encontrada')
   } else {
