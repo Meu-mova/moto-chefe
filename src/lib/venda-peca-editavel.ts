@@ -10,7 +10,7 @@ import { grupos, lojas, vendasPecas } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select'>
 
-export type UsuarioDaVenda = { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null }
+export type UsuarioDaVenda = { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null; grupoLiberado?: string | null }
 
 function vendaVisivel(usuario: UsuarioDaVenda): SQL {
   if (usuario.papel === 'admin_geral') return sql`true`

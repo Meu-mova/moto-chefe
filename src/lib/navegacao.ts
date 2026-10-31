@@ -45,7 +45,13 @@ export type UsuarioNav = {
   modulosBloqueados?: string[] | null
   /** Módulos do cargo da Conta, só para papel 'cargo' (#449). */
   modulosDoCargo?: string[] | null
+  /** Persona do admin_rede num grupo liberado de outra Conta (#517). */
+  grupoLiberado?: string | null
 }
+
+// Telas da Conta inteira (dado pessoal, log): a persona do admin_rede (#517) não
+// abre, porque mostrariam os outros grupos da Conta dona.
+const FORA_DA_PERSONA = ['log', 'dados-funcionarios']
 
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
 export type RegrasProprias = Record<string, boolean>
@@ -142,6 +148,8 @@ export const ITENS: ItemNav[] = [
   // aux_adm vê o contrato do grupo para orientar a loja; só sócio e admin_geral editam.
   { id: 'contratos',      href: '/admin/contratos', label: 'Contratos',        icon: FileSignature, categoria: 'configuracao', papeis: GESTORES },
   { id: 'modelos',        href: '/admin/modelos',  label: 'Modelos',           icon: Bike,          categoria: 'configuracao', papeis: ADMINS },
+  // Tabela de preço sugerido da MotoChefe (#522): da plataforma, só admin_geral carrega.
+  { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'configuracao', papeis: SUPER, soAdminGeral: true },
   { id: 'categorias-caixa', href: '/admin/categorias-caixa', label: 'Categorias de Caixa', icon: Tags, categoria: 'configuracao', papeis: ADMINS },
   { id: 'maquininhas',    href: '/admin/maquininhas', label: 'Maquininhas',  icon: CreditCard,    categoria: 'configuracao', papeis: ADMINS },
   { id: 'bancos',         href: '/admin/bancos',   label: 'Bancos',            icon: Landmark,      categoria: 'configuracao', papeis: ADMINS },
@@ -166,6 +174,7 @@ function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
 function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): boolean {
   // Bloqueio individual ganha de tudo — inclusive de liberação individual.
   if ((usuario.modulosBloqueados ?? []).includes(item.id)) return false
+  if (usuario.grupoLiberado && FORA_DA_PERSONA.includes(item.id)) return false
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if (!item.soPeloPapel && (usuario.modulosExtras ?? []).includes(item.id)) return true

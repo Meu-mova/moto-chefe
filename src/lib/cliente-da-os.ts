@@ -5,24 +5,25 @@
 import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes } from '@/lib/db/schema'
+import { clientesDoEscopo, type EscopoDoUsuario } from '@/lib/conta'
 import { acessaModulo, type UsuarioNav } from '@/lib/navegacao'
 
 type Executor = Pick<typeof db, 'select'>
 
 const colunas = { id: clientes.id, nome: clientes.nome, cpfCnpj: clientes.cpfCnpj, celular: clientes.celular, email: clientes.email }
 
-export async function clienteDaOs(exec: Executor, usuario: UsuarioNav & { contaId: string }, id: string) {
+export async function clienteDaOs(exec: Executor, usuario: UsuarioNav & { contaId: string } & EscopoDoUsuario, id: string) {
   if (!acessaModulo(usuario, 'ordens-servico')) return null
   const [cliente] = await exec
     .select(colunas)
     .from(clientes)
-    .where(and(eq(clientes.id, id), eq(clientes.contaId, usuario.contaId)))
+    .where(and(eq(clientes.id, id), clientesDoEscopo(usuario.contaId, usuario)))
     .limit(1)
   return cliente ?? null
 }
 
 /** CPF/CNPJ inteiro, comparado só pelos dígitos: trecho do documento não acha ninguém. */
-export async function clientePorCpfDaOs(exec: Executor, usuario: UsuarioNav & { contaId: string }, documento: string) {
+export async function clientePorCpfDaOs(exec: Executor, usuario: UsuarioNav & { contaId: string } & EscopoDoUsuario, documento: string) {
   if (!acessaModulo(usuario, 'ordens-servico')) return null
   const digitos = documento.replace(/\D/g, '')
   if (digitos.length !== 11 && digitos.length !== 14) return null
@@ -30,7 +31,7 @@ export async function clientePorCpfDaOs(exec: Executor, usuario: UsuarioNav & { 
     .where(and(
       // Padrão como parâmetro: escrito no template, a barra de \D some antes de chegar ao SQL.
       sql`regexp_replace(${clientes.cpfCnpj}, ${'[^0-9]'}, '', 'g') = ${digitos}`,
-      eq(clientes.contaId, usuario.contaId),
+      clientesDoEscopo(usuario.contaId, usuario),
     ))
     .limit(1)
   return cliente ?? null

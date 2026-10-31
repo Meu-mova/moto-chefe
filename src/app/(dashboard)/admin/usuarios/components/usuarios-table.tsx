@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
+import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction, salvarGruposLiberadosAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type Cargo } from './cargos-dialog'
 import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
@@ -22,6 +22,8 @@ const IDS_MODULOS = ITENS.filter(i => !i.regraPropria).map(i => i.id)
 
 type Loja = { id: string; nome: string }
 type Grupo = { id: string; nome: string }
+/** Grupo que o admin_geral pode liberar ao admin_rede, com a Conta dona ao lado. */
+export type GrupoLiberavel = Grupo & { contaId: string; contaNome: string }
 type Usuario = {
   id: string
   nome: string
@@ -55,13 +57,15 @@ type DadosForm = {
   modulosExtras: string[]
   modulosBloqueados: string[]
   cargoId: string | null
+  gruposLiberados: string[]
 }
 
 // Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
-const PAPEIS_APROVADORES = ['admin_geral', 'admin_socio']
+const PAPEIS_APROVADORES = ['admin_geral', 'admin_rede', 'admin_socio']
 
 const PAPEIS: { value: string; label: string }[] = [
   { value: 'admin_geral',  label: 'Admin Geral' },
+  { value: 'admin_rede',   label: 'Admin de Rede' },
   { value: 'admin_socio',  label: 'Admin Sócio' },
   { value: 'aux_adm',      label: 'Aux. Administrativo' },
   { value: 'vendedor',     label: 'Vendedor' },
@@ -74,6 +78,7 @@ type Limites = LimitesDaTela
 
 const PAPEL_CORES: Record<string, string> = {
   admin_geral: 'bg-info/15 text-info border-info/30',
+  admin_rede:  'bg-info/15 text-info border-info/30',
   admin_socio: 'bg-info/15 text-info border-info/30',
   aux_adm:     'bg-warning/15 text-warning border-warning/30',
   vendedor:    'bg-success/15 text-success border-success/30',
@@ -114,7 +119,12 @@ function FormUsuario({
   limites,
   cargos: todosCargos,
   contaAtiva,
+  liberaveis,
+  liberadosIniciais,
 }: {
+  /** null: quem edita não é admin_geral e não libera grupos de outras Contas. */
+  liberaveis: GrupoLiberavel[] | null
+  liberadosIniciais: string[]
   inicial?: Partial<Usuario>
   cargos: Cargo[]
   contaAtiva: string
@@ -129,6 +139,10 @@ function FormUsuario({
   const [email,   setEmail]   = useState(inicial?.email   ?? '')
   const [senha,   setSenha]   = useState('')
   const [papel,   setPapel]   = useState(inicial?.papel   ?? '')
+  // Sem loja o servidor só aceita admin_geral e sócio com grupos de acesso (recusaDaGravacao).
+  const rotuloSemLoja = papel === 'admin_socio' || papel === 'admin_rede' ? 'Sem loja (vê pelos grupos de acesso)'
+    : !limites.papeis.includes('admin_geral') ? null
+    : papel === 'admin_geral' ? 'Sem loja (Admin Geral)' : 'Sem loja'
   const [lojaId,  setLojaId]  = useState(inicial?.lojaId  ?? '')
   const [conecta, setConecta] = useState(inicial?.conecta ?? '')
   const [gruposAprov, setGruposAprov] = useState<string[]>(inicial?.gruposAprovacao ?? [])
@@ -137,6 +151,7 @@ function FormUsuario({
   const [modulosExtras, setModulosExtras] = useState<string[]>(inicial?.modulosExtras ?? [])
   const [modulosBloqueados, setModulosBloqueados] = useState<string[]>(inicial?.modulosBloqueados ?? [])
   const [cargoId, setCargoId] = useState(inicial?.cargoId ?? '')
+  const [gruposLiberados, setGruposLiberados] = useState<string[]>(liberadosIniciais)
   const cargos = cargosDoAlvo(todosCargos, inicial?.contaId ?? null, contaAtiva)
   const diferenca = diferencaDaFuncao(papel, inicial?.papeisExtras ?? [], modulosExtras, modulosBloqueados, IDS_MODULOS)
   // Recolhido: a lista tem ~60 itens e quase sempre fica como a função define. Quem
@@ -146,7 +161,14 @@ function FormUsuario({
   const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
   // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
-  const mostrarAcessoGrupos = papel === 'admin_socio'
+  const mostrarAcessoGrupos = papel === 'admin_socio' || papel === 'admin_rede'
+  // Grupos da Conta do próprio usuário vão pelos grupos de acesso acima (ADR-0019).
+  const outrasContas = (liberaveis ?? []).filter(g => g.contaId !== inicial?.contaId)
+  const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
+
+  function toggleLiberado(id: string) {
+    setGruposLiberados(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
+  }
 
   function toggleGrupo(id: string) {
     setGruposAprov(atual => atual.includes(id) ? atual.filter(g => g !== id) : [...atual, id])
@@ -175,6 +197,7 @@ function FormUsuario({
       modulosExtras,
       modulosBloqueados,
       cargoId: papel === 'cargo' ? cargoId : null,
+      gruposLiberados: mostrarLiberados ? gruposLiberados : [],
     })
   }
 
@@ -226,12 +249,12 @@ function FormUsuario({
             <Label>Loja</Label>
             <Select value={lojaId ?? ''} onValueChange={v => setLojaId(v ?? '')}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Sem loja (Admin Geral)">
-                  {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : undefined}
+                <SelectValue placeholder={rotuloSemLoja ?? 'Escolha a loja'}>
+                  {(v: string | null) => v ? (lojas.find(l => l.id === v)?.nome ?? v) : (rotuloSemLoja ?? 'Escolha a loja')}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Sem loja (Admin Geral) —</SelectItem>
+                {rotuloSemLoja && <SelectItem value="">{rotuloSemLoja}</SelectItem>}
                 {lojas.map(l => (
                   <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
                 ))}
@@ -356,6 +379,35 @@ function FormUsuario({
               </div>
             </div>
           )}
+
+          {mostrarLiberados && (
+            <div className="space-y-2 rounded-lg border bg-muted/50 p-3 sm:col-span-2">
+              <div>
+                <Label>Grupos de outras Contas</Label>
+                <p className="text-xs text-muted-foreground">
+                  Liberar ou tirar vale na hora. Em cada grupo marcado ele age como sócio, só com os dados da Conta dona.
+                  A Conta dona vê quem tem acesso, mas não tira.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {outrasContas.map(g => (
+                  <label key={g.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded border-input"
+                      checked={gruposLiberados.includes(g.id)}
+                      onChange={() => toggleLiberado(g.id)}
+                    />
+                    <span>
+                      {g.nome}
+                      <span className="text-muted-foreground"> ({g.contaNome})</span>
+                    </span>
+                  </label>
+                ))}
+                {outrasContas.length === 0 && <p className="text-sm text-muted-foreground">Nenhum grupo de outra Conta.</p>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <DialogFooter className="mx-0 mb-0 rounded-b-xl px-4 sm:px-6">
@@ -366,8 +418,9 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo }: {
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo, liberaveis, liberadosPorUsuario }: {
   usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; contaAtiva: string; podeDarAoCargo: string[]
+  liberaveis: GrupoLiberavel[] | null; liberadosPorUsuario: Record<string, string[]>
 }) {
   const [vendoCargos, setVendoCargos] = useState(false)
   const [criando,    setCriando]    = useState(false)
@@ -383,6 +436,11 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         const r = await criarUsuarioAction(dados)
         // Recusa: o modal fica aberto com o que foi preenchido.
         if (!r.ok) { toast.error(r.erro); return }
+        if (liberaveis && dados.gruposLiberados.length) {
+          const l = await salvarGruposLiberadosAction(r.id, dados.gruposLiberados)
+          // O usuário já foi criado: fecha o modal e avisa que os grupos de fora não foram gravados.
+          if (!l.ok) { toast.error(`Usuário criado, mas os grupos de outras Contas não: ${l.erro}`); setCriando(false); return }
+        }
         toast.success('Usuário criado com sucesso')
         setCriando(false)
       } catch (e: unknown) {
@@ -409,6 +467,10 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           modulosBloqueados:       dados.modulosBloqueados,
         })
         if (!r.ok) { toast.error(r.erro); return }
+        if (liberaveis) {
+          const l = await salvarGruposLiberadosAction(editando.id, dados.gruposLiberados)
+          if (!l.ok) { toast.error(l.erro); return }
+        }
         toast.success('Usuário atualizado')
         setEditando(null)
       } catch (e: unknown) {
@@ -420,7 +482,8 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   function handleToggleAtivo(u: Usuario) {
     startTransition(async () => {
       try {
-        await alternarAtivoUsuarioAction(u.id, !u.ativo)
+        const r = await alternarAtivoUsuarioAction(u.id, !u.ativo)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(u.ativo ? 'Usuário desativado — sai dos relatórios de vendedor' : 'Usuário reativado')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao alterar')
@@ -432,7 +495,9 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     if (!excluindo) return
     startTransition(async () => {
       try {
-        await excluirUsuarioAction(excluindo.id)
+        const r = await excluirUsuarioAction(excluindo.id)
+        // Recusa (ex.: usuário com histórico): a confirmação fica aberta com a frase.
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário excluído')
         setExcluindo(null)
       } catch (e: unknown) {
@@ -571,6 +636,8 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
             limites={limites}
             cargos={cargos}
             contaAtiva={contaAtiva}
+            liberaveis={liberaveis}
+            liberadosIniciais={[]}
             onSubmit={handleCriar}
             onCancel={() => setCriando(false)}
             isEdit={false}
@@ -593,6 +660,8 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
               limites={limites}
               cargos={cargos}
               contaAtiva={contaAtiva}
+              liberaveis={liberaveis}
+              liberadosIniciais={liberadosPorUsuario[editando.id] ?? []}
               onSubmit={handleEditar}
               onCancel={() => setEditando(null)}
               isEdit

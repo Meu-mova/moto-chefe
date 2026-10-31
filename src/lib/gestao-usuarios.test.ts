@@ -82,6 +82,7 @@ test('sócio alcança e cria outro sócio sem loja, só com grupo que ele vê', 
   assert.equal(podeGerenciar(socioDoVale, { papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE], gruposAprovacao: [] }), true)
   assert.equal(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null, gruposAcesso: [VALE] })), null)
   assert.match(gravar(cadastro({ grupoDaLoja: null })) ?? '', /loja/)
+  assert.match(gravar(cadastro({ papel: 'admin_socio', grupoDaLoja: null })) ?? '', /loja/, 'sócio sem loja e sem grupo')
 })
 
 test('sócio só dá aprovação de pagamento sensível se ele mesmo aprova', () => {
@@ -143,4 +144,13 @@ test('loja de outra Conta recebe a mesma frase que loja inexistente', () => {
   assert.equal(gravar(cadastro({ lojaPedida: true, grupoDaLoja: null })), 'Loja não encontrada')
   assert.equal(gravar(cadastro({ lojaPedida: true, grupoDaLoja: null, papel: 'admin_socio', gruposAcesso: [VALE] })), 'Loja não encontrada')
   assert.equal(gravar(cadastro({ lojaPedida: false, grupoDaLoja: null })), 'Escolha a loja do usuário')
+})
+
+test('admin_rede (#517): sócio não dá o papel nem gerencia quem o tem; a tela não oferece', () => {
+  assert.match(gravar(cadastro({ papel: 'admin_rede' })) ?? '', /Admin de Rede/)
+  assert.equal(podeGerenciar(socioDoVale, alvo(VALE, 'admin_rede')), false)
+  const limitesSocio = limitesDaTela({ ...socioDoVale, gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(!limitesSocio.papeis.includes('admin_rede'))
+  const limitesGeral = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
+  assert.ok(limitesGeral.papeis.includes('admin_rede'))
 })

@@ -12,7 +12,7 @@ type Executor = Pick<typeof db, 'select'>
  * encontrada" nos dois casos (#404).
  */
 export async function notaSaidaDoUsuario(
-  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null },
+  usuario: { papel: string; lojaId: string | null; gruposAcesso?: readonly string[] | null; contaId: string | null; grupoLiberado?: string | null },
   notaId: string,
   exec: Executor = db,
 ) {

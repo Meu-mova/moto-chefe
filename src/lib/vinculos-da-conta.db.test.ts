@@ -53,28 +53,28 @@ async function comDuasContas(caso: (ids: Record<'A' | 'B', Ids>, tx: Parameters<
 
 test('vínculos da própria Conta passam, e vazios são ignorados (#328)', () => comDuasContas(async (ids, tx) => {
   const b = ids.B
-  await conferirVinculosDaConta(b.loja, { novaLojaId: b.loja, motoId: b.moto, clienteId: b.cliente, osId: b.os, mecanicoId: b.mecanico }, tx)
-  await conferirVinculosDaConta(b.loja, { mecanicoId: b.socio }, tx)
-  await conferirVinculosDaConta(b.loja, { motoId: null, clienteId: undefined, osId: null, mecanicoId: null }, tx)
+  await conferirVinculosDaConta(b.loja, { novaLojaId: b.loja, motoId: b.moto, clienteId: b.cliente, osId: b.os, mecanicoId: b.mecanico }, null, tx)
+  await conferirVinculosDaConta(b.loja, { mecanicoId: b.socio }, null, tx)
+  await conferirVinculosDaConta(b.loja, { motoId: null, clienteId: undefined, osId: null, mecanicoId: null }, null, tx)
 }))
 
 test('loja da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { novaLojaId: ids.A.loja }, tx), /Loja não encontrada/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { novaLojaId: ids.A.loja }, null, tx), /Loja não encontrada/)
 }))
 
 test('moto da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { motoId: ids.A.moto }, tx), /Moto não encontrada/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { motoId: ids.A.moto }, null, tx), /Moto não encontrada/)
 }))
 
 test('cliente da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { clienteId: ids.A.cliente }, tx), /Cliente não encontrado/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { clienteId: ids.A.cliente }, null, tx), /Cliente não encontrado/)
 }))
 
 test('OS da Conta A não serve para a Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { osId: ids.A.os }, tx), /OS não encontrada/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { osId: ids.A.os }, null, tx), /OS não encontrada/)
 }))
 
 test('funcionário e sócio da Conta A não servem de mecânico na Conta B (#328)', () => comDuasContas(async (ids, tx) => {
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { mecanicoId: ids.A.mecanico }, tx), /Mecânico não encontrado/)
-  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { mecanicoId: ids.A.socio }, tx), /Mecânico não encontrado/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { mecanicoId: ids.A.mecanico }, null, tx), /Mecânico não encontrado/)
+  await assert.rejects(conferirVinculosDaConta(ids.B.loja, { mecanicoId: ids.A.socio }, null, tx), /Mecânico não encontrado/)
 }))
