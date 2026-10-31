@@ -8,6 +8,7 @@
 // par com mais grupos e entraria por ele.
 
 import { CARGO_INDISPONIVEL, CARGOS_VISIVEIS } from '@/lib/cargos-opcoes'
+import { ITENS, liberavelPara } from '@/lib/navegacao'
 
 export type Gestor = {
   id: string
@@ -64,6 +65,9 @@ export function recusaDaGravacao(
   depois: CadastroGestao,
 ): string | null {
   if (!CARGOS_VISIVEIS && depois.papel === 'cargo') return CARGO_INDISPONIVEL
+  // Tela liberável só para certos papéis (Entrada: só aux_adm, #488): vale até para o admin_geral.
+  const naoLiberavel = depois.modulosExtras.map(id => ITENS.find(i => i.id === id)).find(i => i && !liberavelPara(i, depois.papel))
+  if (naoLiberavel) return `${naoLiberavel.label} não pode ser liberada para esta função`
   if (gestor.papel === 'admin_geral') return null
   if (gestor.papel !== 'admin_socio') return 'Sem permissão para gerenciar usuários'
   // Mesma frase de id inexistente: a recusa não revela que o usuário existe fora do alcance.

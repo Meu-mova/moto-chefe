@@ -154,3 +154,14 @@ test('admin_rede (#517): sócio não dá o papel nem gerencia quem o tem; a tela
   const limitesGeral = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
   assert.ok(limitesGeral.papeis.includes('admin_rede'))
 })
+
+test('Entrada (#488): o sócio libera para aux_adm do grupo dele; para outra função é recusado, mesmo pelo admin_geral', () => {
+  const socio = { ...socioDoVale, gruposAprovacao: [VALE], itensLiberaveis: ['entrada'], aprovaPagamentoSensivel: false }
+  assert.equal(recusaDaGravacao(socio, null, cadastro({ papel: 'aux_adm', modulosExtras: ['entrada'] })), null)
+  assert.match(recusaDaGravacao(socio, null, cadastro({ papel: 'vendedor', modulosExtras: ['entrada'] })) ?? '', /Entrada não pode ser liberada/)
+  const geral = { id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  assert.match(recusaDaGravacao(geral, null, cadastro({ papel: 'vendedor', modulosExtras: ['entrada'] })) ?? '', /Entrada não pode ser liberada/)
+  const semEntrada = { ...socio, itensLiberaveis: [] }
+  assert.match(recusaDaGravacao(semEntrada, null, cadastro({ papel: 'aux_adm', modulosExtras: ['entrada'] })) ?? '', /telas que você mesmo tem/, 'só libera o que ele tem')
+  assert.match(recusaDaGravacao(socio, null, cadastro({ papel: 'aux_adm', grupoDaLoja: BH, modulosExtras: ['entrada'] })) ?? '', /lojas e grupos que você mesmo vê|Loja/, 'só em grupo dele')
+})

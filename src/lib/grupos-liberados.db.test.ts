@@ -322,3 +322,22 @@ test('persona acima do sócio: edita e desativa o admin_socio do grupo liberado;
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('Entrada (#488): na persona, o admin_rede libera para aux_adm do grupo liberado, não de outro grupo da Conta dona', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { recusaDaGravacao } = await import('@/lib/gestao-usuarios')
+    const { gruposVisiveis } = await import('@/lib/acesso-grupo')
+    const { itensVisiveis } = await import('@/lib/navegacao')
+    const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
+    const todos = [c.liberado, c.irmao, c.casa, c.deFora].map(g => ({ id: g.grupo, contaId: g === c.casa ? c.rede : g === c.deFora ? 'outra' : c.dona }))
+    // Gestor montado à mão, nos moldes do gestorDaSessao (que depende de next/headers).
+    const gestor = { id: c.usuarioId, papel: persona.papel, gruposVisiveis: gruposVisiveis(persona, null, todos), gruposAprovacao: persona.gruposAprovacao,
+      itensLiberaveis: itensVisiveis(persona, {}).map(i => i.id), aprovaPagamentoSensivel: false }
+    assert.ok(gestor.itensLiberaveis.includes('entrada'), 'na persona ele tem a Entrada pelo papel de sócio')
+    const aux = (grupo: string) => ({ papel: 'aux_adm', grupoDaLoja: grupo, gruposAcesso: [], gruposAprovacao: [], modulosExtras: ['entrada'], modulosBloqueados: [], aprovaPagamentoSensivel: false, ativo: true })
+    assert.equal(recusaDaGravacao(gestor, null, aux(c.liberado.grupo)), null, 'aux_adm do grupo liberado')
+    assert.ok(recusaDaGravacao(gestor, null, aux(c.irmao.grupo)), 'aux_adm de outro grupo da Conta dona')
+    throw new Desfazer()
+  }), Desfazer)
+})
