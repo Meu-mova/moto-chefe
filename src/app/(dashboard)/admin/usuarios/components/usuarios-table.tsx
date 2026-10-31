@@ -468,8 +468,12 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   const lista = filtrarUsuarios(usuarios, filtros)
   const contasDaLista = [...new Set(usuarios.map(u => u.contaId).filter((c): c is string => !!c))]
   const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)
-  const ondeAprova = (u: Usuario) => !PAPEIS_APROVADORES.includes(u.papel) ? 'Não aprova'
-    : `${u.gruposAprovacao.length + (u.grupoDaLojaId ? 1 : 0)} ${u.gruposAprovacao.length + (u.grupoDaLojaId ? 1 : 0) === 1 ? 'grupo' : 'grupos'}${u.aprovaPagamentoSensivel ? ', transferência' : ''}`
+  const ondeAprova = (u: Usuario) => {
+    if (!PAPEIS_APROVADORES.includes(u.papel)) return 'Não aprova'
+    // O grupo da loja já aprova por padrão e às vezes também está marcado: conta uma vez só.
+    const n = new Set([...u.gruposAprovacao, ...(u.grupoDaLojaId ? [u.grupoDaLojaId] : [])]).size
+    return `${n} ${n === 1 ? 'grupo' : 'grupos'}${u.aprovaPagamentoSensivel ? ', transferência' : ''}`
+  }
   const iniciais = (nome: string) => { const p = nome.trim().split(/\s+/); return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase() }
   const Situacao = ({ ativo }: { ativo: boolean }) => (
     <span className={`inline-flex items-center gap-1.5 text-sm ${ativo ? '' : 'text-muted-foreground'}`}>
