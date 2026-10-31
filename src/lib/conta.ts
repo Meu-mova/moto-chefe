@@ -57,9 +57,8 @@ export async function grupoNoEscopo(grupoId: string, usuario: EscopoDoUsuario, e
   return grupoEstaNaConta(grupoId, usuario.contaId, exec)
 }
 
-// Clientes que quem consulta vê: os da Conta. Na persona do admin_rede (#517), só os que têm
-// venda, venda de peças, OS ou agendamento nas lojas do grupo liberado. Provisório e
-// isolado aqui: o Luis ainda decide entre isto e a Conta dona inteira.
+// Clientes que quem consulta ou grava vê: os da Conta. Na persona do admin_rede (#517), só os
+// que têm venda, venda de peças, OS ou agendamento nas lojas do grupo liberado (decisão do Luis).
 export function clientesDoEscopo(contaId: string, usuario: EscopoDoUsuario): SQL {
   const daConta = eq(clientes.contaId, contaId)
   if (!usuario.grupoLiberado) return daConta

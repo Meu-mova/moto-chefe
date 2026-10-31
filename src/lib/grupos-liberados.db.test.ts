@@ -236,3 +236,25 @@ test('usuários na persona: gerencia só quem é do grupo liberado (decisão do 
     throw new Desfazer()
   }), Desfazer)
 })
+
+test('venda na persona com CPF de outro grupo da Conta dona: não toca nem liga o cadastro de fora (decisão do Luis, 31/10)', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    const { clientes } = await import('@/lib/db/schema')
+    const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
+    // Mesmo upsert da venda (criarVendaTx): prova a regra do setWhere, não a action inteira.
+    const upsert = (cpf: string, escopo: { contaId: string; grupoLiberado: string | null }) =>
+      tx.insert(clientes).values({ nome: 'Novo nome', cpfCnpj: cpf, contaId: c.dona })
+        .onConflictDoUpdate({ target: [clientes.contaId, clientes.cpfCnpj], set: { nome: sql`excluded.nome` }, setWhere: clientesDoEscopo(c.dona, escopo) })
+        .returning({ id: clientes.id })
+    const nome = async (id: string) => (await tx.execute(sql`select nome as id from clientes where id = ${id}`) as unknown as { rows: { id: string }[] }).rows[0].id
+
+    assert.deepEqual(await upsert('00000000000272', persona), [], 'cadastro do grupo irmão não volta para ligar à venda')
+    assert.equal(await nome(c.irmao.cliente), 'Cliente', 'nem é sobrescrito')
+    assert.deepEqual(await upsert('00000000000191', persona), [{ id: c.liberado.cliente }], 'cliente do grupo liberado se atualiza')
+    assert.equal(await nome(c.liberado.cliente), 'Novo nome')
+    assert.equal((await upsert('11144477735', persona)).length, 1, 'CPF novo vira cadastro')
+    assert.deepEqual(await upsert('00000000000272', { contaId: c.dona, grupoLiberado: null }), [{ id: c.irmao.cliente }], 'fora da persona, a Conta inteira como antes')
+    throw new Desfazer()
+  }), Desfazer)
+})
