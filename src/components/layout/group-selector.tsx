@@ -1,9 +1,12 @@
 import { getGrupoAtivo, grupoAtivoDaRequisicao, gruposDoSeletorDaRequisicao, listarGruposVisiveis } from '@/lib/grupo'
 import { GroupSwitcher } from './group-switcher'
+import { nomesDasContas } from '@/lib/conta'
+import { blocosDoSeletor } from '@/lib/blocos-seletor'
+import { gruposParaOSeletor } from '@/lib/dados-seletor'
 
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
-type Props = { usuario: { papel: string; lojaId: string | null; contaId: string | null } }
+type Props = { usuario: Parameters<typeof gruposDoSeletorDaRequisicao>[0] }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -31,10 +34,15 @@ export async function GroupSelector({ usuario }: Props) {
   // Usuário com um grupo só (a maioria) nem precisa ver o seletor.
   if (gruposList.length <= 1) return null
 
-  return (
-    <GroupSwitcher
-      grupos={gruposList.map(g => ({ id: g.id, nome: g.nome, cor: g.cor }))}
-      ativoId={grupoAtivo.id}
-    />
-  )
+  // Fail-open como o resto da barra: sem os nomes, a Conta dona só não aparece ao lado.
+  const contas = await nomesDasContas(gruposList.map(g => g.contaId)).catch(() => new Map<string, string>())
+  const contaDeOrigem = usuario.papel === 'admin_geral' ? null : (usuario.origem ?? usuario).contaId
+  // Só os grupos que ele já vê: cidade e CNPJ vão ao navegador apenas deles (busca no cliente).
+  // Fail-open: sem as cidades, o seletor abre com nome, Conta e CNPJ.
+  const dados = await gruposParaOSeletor(gruposList, contas).catch(() => gruposList.map(g => ({
+    id: g.id, nome: g.nome, cor: g.cor, contaId: g.contaId, contaNome: contas.get(g.contaId) ?? '', cidade: g.cidadeSede, cnpj: g.cnpj, lojas: [],
+  })))
+  const blocos = blocosDoSeletor(dados, contaDeOrigem)
+
+  return <GroupSwitcher blocos={blocos} ativoId={grupoAtivo.id} />
 }

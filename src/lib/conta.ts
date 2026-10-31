@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { agendamentos, clientes, grupos, lojas, ordensServico, vendas, vendasPecas } from '@/lib/db/schema'
+import { agendamentos, clientes, contas, grupos, lojas, ordensServico, vendas, vendasPecas } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -26,6 +26,13 @@ export async function listarLojasAtivasDaConta(
   if (usuario.papel === 'admin_geral') return consulta.where(eq(lojas.ativa, true)).orderBy(asc(lojas.nome))
   if (!usuario.contaId) return []
   return consulta.where(and(eq(lojas.ativa, true), eq(grupos.contaId, usuario.contaId))).orderBy(asc(lojas.nome))
+}
+
+// Nome das Contas, para o seletor mostrar a Conta dona ao lado do grupo liberado (#517).
+export async function nomesDasContas(ids: string[], exec: Executor = db): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const linhas = await exec.select({ id: contas.id, nome: contas.nome }).from(contas).where(inArray(contas.id, [...new Set(ids)]))
+  return new Map(linhas.map(l => [l.id, l.nome]))
 }
 
 // Lojas da Conta como subconsulta, para filtrar registros com inArray(x.lojaId, ...).
