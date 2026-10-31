@@ -119,6 +119,33 @@ test('sócio da Conta A com grupo liberado da B (#520): moto da B não vai para 
   })
 })
 
+test('decisão inteira do destino: nunca entre Contas, nos dois sentidos, nem para o admin_geral', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A')
+    const b = await semearConta(tx, 'B')
+    const geral = { papel: 'admin_geral', lojaId: null, contaId: null }
+    await mod.alterarTransferenciaEntreGrupos(await usuario(tx, 'admin_geral', null), a.contaId, true, tx)
+    await mod.alterarTransferenciaEntreGrupos(await usuario(tx, 'admin_geral', null), b.contaId, true, tx)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(geral, a.g1.lojaId, b.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(geral, b.g1.lojaId, a.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(geral, a.g1.lojaId, a.g2.lojaId, tx), true)
+
+    // Sócio da A que vê o grupo da B (grupo liberado, #520, ou acesso marcado).
+    const socio = { papel: 'admin_socio', lojaId: a.g1.lojaId, contaId: a.contaId, gruposAcesso: [b.g1.grupoId] }
+    assert.equal(await mod.destinoDeTransferenciaPermitido(socio, a.g1.lojaId, b.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(socio, b.g1.lojaId, a.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(socio, a.g1.lojaId, a.g2.lojaId, tx), true)
+  })
+})
+
+test('decisão inteira do destino: chave desligada, sócio só nos grupos que vê', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A')
+    const socio = { papel: 'admin_socio', lojaId: a.g1.lojaId, contaId: a.contaId }
+    assert.equal(await mod.destinoDeTransferenciaPermitido(socio, a.g1.lojaId, a.g2.lojaId, tx), false)
+  })
+})
+
 test('moto nova guarda o grupo da loja onde entrou, e não muda ao trocar de loja', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A')

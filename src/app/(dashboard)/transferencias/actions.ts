@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, transferencias } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
-import { destinoEntreGruposPermitido } from '@/lib/transferencia-grupos'
+import { destinoDeTransferenciaPermitido } from '@/lib/transferencia-grupos'
 import { eq } from 'drizzle-orm'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -45,8 +45,7 @@ export async function solicitarTransferenciaAction(
   // destino, de grupo que ele vê, ou, com a chave da Conta ligada, de qualquer grupo dela (#552).
   const [moto] = await db.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
-  const destinoOk = await podeAbrirRegistroDaLoja(usuario, lojaDestinoId)
-    || (usuario.papel === 'admin_socio' && await destinoEntreGruposPermitido(moto.lojaId, lojaDestinoId))
+  const destinoOk = await destinoDeTransferenciaPermitido(usuario, moto.lojaId, lojaDestinoId)
   if (!destinoOk) {
     throw new Error('Loja de destino fora do seu grupo')
   }
