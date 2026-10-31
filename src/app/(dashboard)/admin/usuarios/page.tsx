@@ -31,10 +31,11 @@ export default async function UsuariosPage() {
   // admin_geral recebe os de todas as Contas: o select mostra os da Conta do usuário editado.
   const cargos = await listarCargos(db, { papel: gestor.papel, contaId: contaAtiva })
   // Grupos de outras Contas: o admin_geral libera ao admin_rede; a Conta dona só vê quem tem (ADR-0019).
+  // Na persona do admin_rede, não: a lista traz os outros grupos da Conta dona.
   const [liberaveis, liberadosPorUsuario, deFora] = await Promise.all([
     ehGeral ? gruposLiberaveis() : null,
     ehGeral ? liberacoesPorUsuario() : {},
-    ehGeral ? [] : acessosDeFora(contaAtiva),
+    ehGeral || usuario.grupoLiberado ? [] : acessosDeFora(contaAtiva),
   ])
   const gruposOpts = ehGeral ? gruposAtivos : gruposAtivos.filter(g => gestor.gruposVisiveis.includes(g.id))
 
