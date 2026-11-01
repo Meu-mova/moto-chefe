@@ -21,6 +21,17 @@ export type EmpresaReceita = {
 const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
 const digitos = (v: unknown) => texto(v).replace(/\D/g, '')
 
+// MEI também é optante do Simples: confere o MEI primeiro. Quem nunca optou vem com
+// opcao_pelo_simples null; aí vale a forma de tributação do ano mais recente.
+function regimeDaReceita(r: Record<string, unknown>): RegimeAdesao | null {
+  if (r.opcao_pelo_mei === true) return 'mei'
+  if (r.opcao_pelo_simples === true) return 'simples'
+  if (r.opcao_pelo_simples === false) return 'normal'
+  const anos = Array.isArray(r.regime_tributario) ? r.regime_tributario as { ano?: unknown; forma_de_tributacao?: unknown }[] : []
+  const ultimo = anos.filter(a => typeof a?.ano === 'number').sort((a, b) => Number(b.ano) - Number(a.ano))[0]
+  return /LUCRO (REAL|PRESUMIDO)/i.test(texto(ultimo?.forma_de_tributacao)) ? 'normal' : null
+}
+
 /**
  * Lê só os campos que a adesão usa. O `qsa` (sócios) é dado pessoal e fica de fora de
  * propósito: nunca entra no retorno.
@@ -33,8 +44,7 @@ export function mapearEmpresaReceita(r: Record<string, unknown>): EmpresaReceita
     razaoSocial: texto(r.razao_social),
     nomeFantasia: texto(r.nome_fantasia),
     situacao: texto(r.descricao_situacao_cadastral),
-    // MEI também é optante do Simples: confere o MEI primeiro.
-    regime: r.opcao_pelo_mei === true ? 'mei' : r.opcao_pelo_simples === true ? 'simples' : r.opcao_pelo_simples === false ? 'normal' : null,
+    regime: regimeDaReceita(r),
     telefone: digitos(r.ddd_telefone_1),
     // CEP que vem como número perde o zero da frente.
     cep: cep.length === 7 ? `0${cep}` : cep,
@@ -52,7 +62,8 @@ export async function consultarEmpresaReceita(cnpj: string, buscar: typeof fetch
   if (!/^\d{14}$/.test(cnpj)) return null
   try {
     const res = await buscar(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
-      signal: AbortSignal.timeout(5000), cache: 'no-store', headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(5000), cache: 'no-store', // Sem User-Agent próprio a BrasilAPI responde 403 ao fetch do Node (teste no navegador, 01/11/2026).
+      headers: { accept: 'application/json', 'user-agent': 'MOVA/1.0 (+https://www.meumova.com)' },
     })
     if (!res.ok) {
       console.warn('consultarEmpresaReceita: BrasilAPI respondeu', res.status)

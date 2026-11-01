@@ -143,13 +143,13 @@ export function PassoImpostos({ f, mudar, regimeDaReceita }: Props & { regimeDaR
       <fieldset className="space-y-2">
         <legend className="mb-1.5 text-sm font-medium">5. A loja já emite nota de venda por outro sistema?</legend>
         <div className="flex flex-wrap gap-2">
-          <label className={opcaoClass(!f.jaEmite)}>
-            <input type="radio" name="jaemite" checked={!f.jaEmite} onChange={() => mudar({ jaEmite: false })} />
-            Não, vai começar pelo MOVA
-          </label>
           <label className={opcaoClass(f.jaEmite)}>
             <input type="radio" name="jaemite" checked={f.jaEmite} onChange={() => mudar({ jaEmite: true })} />
-            Sim
+            Sim, já emite
+          </label>
+          <label className={opcaoClass(!f.jaEmite)}>
+            <input type="radio" name="jaemite" checked={!f.jaEmite} onChange={() => mudar({ jaEmite: false })} />
+            Não, ainda não emite
           </label>
         </div>
         {f.jaEmite && (
