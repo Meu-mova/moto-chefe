@@ -52,7 +52,7 @@ jobs:
           arquivos=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[].number' |
             while read -r pr; do gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$pr/files" --jq '.[].filename'; done)
           # Mesma regra do tocaTelas (scripts/lib/navegacao-ci.ts), mais o próprio teste.
-          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/.*|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/(app|components)/.*|scripts/navegacao-ci\.ts|scripts/lib/navegacao-ci\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|scripts/ci/esperar-vez\.sh|\.github/workflows/navegacao\.yml)$'; then
             echo "rodar=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhum PR deste commit mexe em src/app, src/components ou no próprio teste; pulando."
@@ -61,7 +61,7 @@ jobs:
           # Matriz rota x papel (#594): só quando o PR mexe em rota, permissão ou navegação.
           # Rota: page/layout de src/app; permissão: navegacao*.ts (usuarioPodeAcessar), o
           # AdminGuard, auth, grupo ativo, acesso por grupo, grupos liberados, middleware e src/lib/permissoes*.
-          if printf '%s\n' "$arquivos" | grep -qE '^(src/app/.*/(page|layout)\.tsx|src/app/\(dashboard\)/admin/components/admin-guard\.tsx|src/lib/(navegacao|navegacao-servidor|auth|acesso-grupo|grupo|grupos-liberados)\.ts|src/lib/permissoes[^/]*|src/middleware\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/app/.*/(page|layout)\.tsx|src/app/\(dashboard\)/admin/components/admin-guard\.tsx|src/lib/(navegacao|navegacao-servidor|auth|acesso-grupo|grupo|grupos-liberados)\.ts|src/lib/permissoes[^/]*|src/middleware\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|scripts/ci/esperar-vez\.sh|\.github/workflows/navegacao\.yml)$'; then
             echo "rodar_acesso=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhum PR deste commit mexe em rota, permissão ou navegação; pulando a matriz rota x papel."
@@ -73,25 +73,33 @@ jobs:
     needs: filtro
     if: needs.filtro.outputs.rodar == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Dois jobs, cada um numa vaga da fila própria: no máximo 2 sessões nossas no staging (com o
-    # smoke, 3). Uma vaga por job: o GitHub guarda só 1 pendente por grupo, e dois jobs do mesmo
-    # run na mesma vaga podiam cancelar um ao outro. Por isso 390 e 1280 vão em sequência num job.
-    # Não é a fila do smoke pelo mesmo motivo: um run cancelaria o pendente do outro.
+    timeout-minutes: 80
+    # Dois jobs, cada um numa vaga: 390 e 1280 vão em sequência num job para caber em 2 vagas.
     strategy:
       fail-fast: false
       matrix:
         include:
           - { larguras: '390 1280', vaga: a }
           - { larguras: '768', vaga: b }
+    permissions:
+      contents: read
+      actions: read
+    # #594: cada vaga em fila própria pelo passo "esperar a vez" (no máximo 2 sessões nossas no
+    # staging; com o smoke, 3), sem o pending único do concurrency, que cancelava o PR do lado.
     concurrency:
-      group: navegacao-staging-${{ matrix.vaga }}
-      cancel-in-progress: false
+      group: navegacao-${{ matrix.vaga }}-${{ github.event_name == 'deployment_status' && github.event.deployment.ref || github.run_id }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.filtro.outputs.ref }}
           persist-credentials: false
+
+      - name: esperar a vez
+        timeout-minutes: 65
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci/esperar-vez.sh "navegação ${{ matrix.larguras }}px"
 
       - uses: actions/setup-node@v7
         with:
@@ -142,44 +150,21 @@ jobs:
     # #594: o grupo único do repo guardava só 1 pendente e cancelava o PR do lado. Agora o grupo
     # é por branch do preview (commit novo do mesmo PR cancela o antigo) e, fora do preview, por
     # execução. Uma matriz por vez no staging continua valendo (carga, como no smoke.yml): quem
-    # garante é o passo "esperar a vez", em fila por run_id, sem cancelar ninguém.
+    # garante é o passo "esperar a vez" (scripts/ci/esperar-vez.sh), em fila por run_id.
     concurrency:
       group: navegacao-acesso-${{ github.event_name == 'deployment_status' && github.event.deployment.ref || github.run_id }}
       cancel-in-progress: true
     steps:
-      - name: esperar a vez
-        timeout-minutes: 65
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          limite=$(( $(date +%s) + 60 * 60 ))
-          while :; do
-            frente=""
-            for run in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/navegacao.yml/runs?per_page=100" \
-                --jq "[.workflow_runs[] | select(.status != \"completed\" and .id < $GITHUB_RUN_ID) | .id] | sort | .[]"); do
-              # Sem job da matriz: pula só se o filtro já concluiu (matriz pulada); run na fila sem job
-              # nenhum conta como na frente. Job criado e não concluído: está na frente.
-              pendente=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '
-                ([.jobs[] | select(.name == "acesso rota x papel")] | if length == 0 then "sem-job" else (.[0].status) end)')
-              if [ "$pendente" != "completed" ]; then
-                filtro=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '[.jobs[] | select(.name == "mexe em tela?")][0].status // "queued"')
-                if [ "$pendente" = "sem-job" ] && [ "$filtro" = "completed" ]; then continue; fi
-                frente=$run; break
-              fi
-            done
-            if [ -z "$frente" ]; then echo "Vez desta execução; seguindo."; break; fi
-            if [ "$(date +%s)" -ge "$limite" ]; then
-              echo "::error::Esperou 60 min pela matriz da execução $frente sem terminar. Rode de novo quando ela acabar."
-              exit 1
-            fi
-            echo "$(date -u +%H:%M:%S) Esperando a matriz da execução na frente: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$frente"
-            sleep 30
-          done
-
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.filtro.outputs.ref }}
           persist-credentials: false
+
+      - name: esperar a vez
+        timeout-minutes: 65
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci/esperar-vez.sh "acesso rota x papel"
 
       - uses: actions/setup-node@v7
         with:
