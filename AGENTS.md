@@ -67,6 +67,12 @@ Toda mudança nasce de issue e de um plano aprovado antes do código. Além diss
 - Sem nenhum desses: a issue com checklist basta (bug, ajuste de tela, feature de 1 PR).
 - Decisão tomada em conversa fora da spec (o que fica de fora, limite escolhido) vai como
   comentário na issue antes de delegar; senão some com o histórico do agente.
+- **Procure antes de escrever.** Antes de criar função, tipo, constante ou helper, busque no
+  `src/` (`git grep`) se já existe algo que faz o mesmo e reuse. Achou cópia que você ia
+  repetir: extraia para `src/lib` e troque as cópias no mesmo PR, se for pequeno; senão abra
+  issue. Lista de valores (regime, status) nasce num lugar só e o resto deriva dela. No #590,
+  o IP do pedido chegou à 5ª cópia (`x-forwarded-for`) e `soDigitos` foi reescrito com outro
+  nome.
 
 ## Stack
 
