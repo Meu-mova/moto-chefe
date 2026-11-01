@@ -9,7 +9,10 @@ import { FundoOndas } from '@/components/auth/fundo-ondas'
 import { CampoSenha } from '@/components/auth/campo-senha'
 import { mascaraCelular } from '@/lib/mascaras'
 import { ERRO_STORE_LOGIN, PAPEIS_ADESAO, storeLoginValido } from '@/lib/adesao'
-import { registrarAdesaoAction } from './actions'
+import { faltaNaEmpresa, faltaNosImpostos, type DadosFiscais } from '@/lib/adesao-fiscal'
+import { ENDERECO_SEDE_VAZIO } from '@/lib/endereco-sede'
+import { consultarEmpresaAction, registrarAdesaoAction } from './actions'
+import { PassoEmpresa, PassoImpostos, type Consulta } from './passos-fiscais'
 
 type Usuario = { nome: string; email: string; papel: string }
 type Dados = {
@@ -17,16 +20,24 @@ type Dados = {
   cnpj: File | null; cert: File | null; certSenha: string
   usuarios: Usuario[]
   storeLogin: string; storeSenha: string
+  fiscal: DadosFiscais
 }
 const NOVO_USUARIO: Usuario = { nome: '', email: '', papel: '' }
 const VAZIO: Dados = {
   loja: '', responsavel: '', celular: '', cnpj: null, cert: null, certSenha: '',
   usuarios: [NOVO_USUARIO], storeLogin: '', storeSenha: '',
+  fiscal: {
+    razaoSocial: '', nomeFantasia: '', telefone: '', endereco: ENDERECO_SEDE_VAZIO, codigoIbge: '', situacao: '',
+    regime: '', inscricaoEstadual: '', ieIsenta: false, inscricaoMunicipal: '', emailNotas: '',
+    jaEmite: false, nfSerie: '', nfUltimoNumero: '',
+  },
 }
 
 const PASSOS = [
   { nome: 'Loja', titulo: 'Qual é a sua loja?' },
   { nome: 'Documentos', titulo: 'Documentos para emitir nota' },
+  { nome: 'Sua empresa', titulo: 'Confira os dados da sua empresa' },
+  { nome: 'Impostos e notas', titulo: 'Impostos e notas' },
   { nome: 'Usuários', titulo: 'Quem vai usar o MOVA?' },
   { nome: 'Loja online', titulo: 'Acesso ao motochefe.store' },
 ]
@@ -47,11 +58,13 @@ function faltaNoPasso(passo: number, d: Dados): string | null {
     if (!d.cert) return 'Anexe o certificado digital'
     if (!d.certSenha) return 'Informe a senha do certificado'
   }
-  if (passo === 2 && d.usuarios.some(u => !u.nome.trim() || !u.email.trim() || !u.papel)) {
+  if (passo === 2) return faltaNaEmpresa(d.fiscal)
+  if (passo === 3) return faltaNosImpostos(d.fiscal)
+  if (passo === 4 && d.usuarios.some(u => !u.nome.trim() || !u.email.trim() || !u.papel)) {
     return 'Preencha nome, e-mail e função de cada usuário'
   }
-  if (passo === 3 && !storeLoginValido(d.storeLogin)) return ERRO_STORE_LOGIN
-  if (passo === 3 && !d.storeSenha) return 'Informe a senha do motochefe.store'
+  if (passo === 5 && !storeLoginValido(d.storeLogin)) return ERRO_STORE_LOGIN
+  if (passo === 5 && !d.storeSenha) return 'Informe a senha do motochefe.store'
   return null
 }
 
@@ -104,16 +117,58 @@ export function FormAdesao() {
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [ok, setOk] = useState(false)
+  const [consulta, setConsulta] = useState<Consulta | null>(null)
+  // Certificado e senha da última consulta: voltar e avançar sem trocar nada não consulta de novo.
+  const [consultado, setConsultado] = useState<{ cert: File; senha: string } | null>(null)
 
   const set = <K extends keyof Dados>(k: K, v: Dados[K]) => setD(x => ({ ...x, [k]: v }))
   const setUser = (i: number, k: keyof Usuario, v: string) =>
     setD(x => ({ ...x, usuarios: x.usuarios.map((u, j) => (j === i ? { ...u, [k]: v } : u)) }))
 
   function ir(novo: number) { setErro(''); setPasso(novo) }
+  const mudarFiscal = (patch: Partial<DadosFiscais>) => setD(x => ({ ...x, fiscal: { ...x.fiscal, ...patch } }))
+
+  async function consultarEmpresa(): Promise<boolean> {
+    if (consultado?.cert === d.cert && consultado.senha === d.certSenha) return true
+    const f = new FormData()
+    f.set('cert', d.cert!); f.set('certSenha', d.certSenha)
+    f.set('site', (document.getElementById('site') as HTMLInputElement | null)?.value ?? '')
+    const res = await consultarEmpresaAction(f)
+    if (!res.ok) { setErro(res.erro); return false }
+    const e = res.empresa
+    setConsultado({ cert: d.cert!, senha: d.certSenha })
+    setConsulta({ cnpj: res.cnpj, achou: !!e, situacao: e?.situacao ?? '', avisoRazao: res.avisoRazao, regimeDaReceita: !!e?.regime })
+    // Dados da Receita só preenchem; o que a pessoa já digitou fica.
+    if (e) setD(x => {
+      const f0 = x.fiscal
+      const ou = (atual: string, novo: string) => atual || novo
+      return {
+        ...x,
+        fiscal: {
+          ...f0,
+          razaoSocial: e.razaoSocial || f0.razaoSocial, nomeFantasia: ou(f0.nomeFantasia, e.nomeFantasia), telefone: ou(f0.telefone, e.telefone),
+          situacao: e.situacao, codigoIbge: e.codigoIbge, regime: f0.regime || e.regime || '',
+          endereco: {
+            cep: ou(f0.endereco.cep, e.cep), logradouro: ou(f0.endereco.logradouro, e.logradouro), numero: ou(f0.endereco.numero, e.numero),
+            complemento: ou(f0.endereco.complemento, e.complemento), bairro: ou(f0.endereco.bairro, e.bairro),
+            cidade: ou(f0.endereco.cidade, e.cidade), uf: ou(f0.endereco.uf, e.uf),
+          },
+        },
+      }
+    })
+    return true
+  }
 
   async function avancar() {
     const falta = faltaNoPasso(passo, d)
     if (falta) return setErro(falta)
+    if (passo === 1) {
+      setErro('')
+      setEnviando(true)
+      const pode = await consultarEmpresa()
+      setEnviando(false)
+      if (!pode) return
+    }
     if (passo < PASSOS.length - 1) return ir(passo + 1)
 
     setErro('')
@@ -122,6 +177,7 @@ export function FormAdesao() {
     f.set('loja', d.loja); f.set('responsavel', d.responsavel); f.set('celular', d.celular)
     f.set('certSenha', d.certSenha); f.set('storeLogin', d.storeLogin); f.set('storeSenha', d.storeSenha)
     f.set('usuarios', JSON.stringify(d.usuarios))
+    f.set('fiscal', JSON.stringify(d.fiscal))
     f.set('cnpj', d.cnpj!); f.set('cert', d.cert!)
     f.set('site', (document.getElementById('site') as HTMLInputElement | null)?.value ?? '')
     const res = await registrarAdesaoAction(f)
@@ -183,7 +239,10 @@ export function FormAdesao() {
                   </div>
                 )}
 
-                {passo === 2 && (
+                {passo === 2 && consulta && <PassoEmpresa f={d.fiscal} mudar={mudarFiscal} consulta={consulta} />}
+                {passo === 3 && <PassoImpostos f={d.fiscal} mudar={mudarFiscal} regimeDaReceita={!!consulta?.regimeDaReceita} />}
+
+                {passo === 4 && (
                   <div className="space-y-3">
                     {d.usuarios.map((u, i) => (
                       <div key={i} className="space-y-3 rounded-lg border border-border bg-muted/50 p-3.5">
@@ -211,7 +270,7 @@ export function FormAdesao() {
                   </div>
                 )}
 
-                {passo === 3 && (<>
+                {passo === 5 && (<>
                   <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                     <Campo id="sl" label="E-mail de acesso ao motochefe.store"><Input id="sl" type="email" inputMode="email" className="h-10" autoComplete="off" value={d.storeLogin} onChange={e => set('storeLogin', e.target.value)} /></Campo>
                     <Campo id="ss" label="Senha"><CampoSenha id="ss" autoComplete="off" value={d.storeSenha} onChange={e => set('storeSenha', e.target.value)} /></Campo>
@@ -219,6 +278,7 @@ export function FormAdesao() {
                   <dl className="space-y-1 rounded-lg bg-primary-soft p-3.5 text-sm">
                     <dt className="text-xs font-semibold uppercase tracking-wide text-primary-text">Resumo</dt>
                     <dd>{d.loja} · {d.responsavel}</dd>
+                    <dd>{d.fiscal.razaoSocial}</dd>
                     <dd className="text-muted-foreground">{d.usuarios.length} usuário(s) · CNPJ e certificado anexados</dd>
                   </dl>
                 </>)}
@@ -232,7 +292,7 @@ export function FormAdesao() {
                   {passo > 0 && <button type="button" onClick={() => ir(passo - 1)} disabled={enviando} className={btnSecundario}>Voltar</button>}
                   <button type="button" onClick={avancar} disabled={enviando} className={btnPrimario}>
                     {enviando && <Loader2 className="size-4 animate-spin" />}
-                    {enviando ? 'Enviando…' : passo === PASSOS.length - 1 ? 'Enviar' : 'Continuar'}
+                    {enviando ? (passo === 1 ? 'Conferindo…' : 'Enviando…') : passo === PASSOS.length - 1 ? 'Enviar' : 'Continuar'}
                   </button>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import {
   foreignKey, index,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
-import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { RegimeAdesao, StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
@@ -1914,7 +1914,29 @@ export const adesoesMova = pgTable('adesoes_mova', {
   sedeUf: text('sede_uf'),
   certificadoAplicadoEm: timestamp('certificado_aplicado_em', { withTimezone: true }),
   portalAplicadoEm: timestamp('portal_aplicado_em', { withTimezone: true }),
+  // Dados fiscais para o cadastro da empresa na Nota Gateway (#588, 0169).
+  nomeFantasia: text('nome_fantasia'),
+  telefone: text('telefone'),
+  sedeCodigoIbge: text('sede_codigo_ibge'),
+  situacaoCadastral: text('situacao_cadastral'),
+  regime: text('regime').$type<RegimeAdesao>(),
+  inscricaoEstadual: text('inscricao_estadual'),
+  ieIsenta: boolean('ie_isenta').notNull().default(false),
+  inscricaoMunicipal: text('inscricao_municipal'),
+  emailNotas: text('email_notas'),
+  nfSerieAnterior: text('nf_serie_anterior'),
+  nfUltimoNumero: text('nf_ultimo_numero'),
 })
+
+// ─── tentativas_acao ─────────────────────────────────────────────────────────
+// Limite de tentativas das ações públicas por hash do IP (#588, 0169). Regras em
+// @/lib/limite-tentativas.
+export const tentativasAcao = pgTable('tentativas_acao', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  acao: text('acao').notNull(),
+  ipHash: text('ip_hash').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [index('tentativas_acao_chave_idx').on(t.acao, t.ipHash, t.criadoEm)])
 
 // ─── contratos_adesao ────────────────────────────────────────────────────────
 // Contrato de adesão ao MOVA assinado pelo lojista (#165, migração 0121). Mesma

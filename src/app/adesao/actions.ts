@@ -1,20 +1,71 @@
 'use server'
 import { randomUUID } from 'node:crypto'
+import { headers } from 'next/headers'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { adesoesMova } from '@/lib/db/schema'
 import { cifrar } from '@/lib/cripto'
 import { enviarEmail } from '@/lib/email'
 import { adesaoSchema, validarArquivoCnpj, validarArquivoCert, emailNovaAdesao } from '@/lib/adesao'
+import { colunasFiscais } from '@/lib/adesao-fiscal'
+import { consultarEmpresaReceita, type EmpresaReceita } from '@/lib/brasilapi-cnpj'
+import { ERRO_MUITAS_TENTATIVAS, permitirTentativa } from '@/lib/limite-tentativas'
+import { lerDadosDoPfx } from '@/lib/sefaz/certificado'
 
 // Para onde vai o aviso de nova adesão; mesma env que já existia para os leads.
 const EMAIL_EQUIPE = process.env.LEADS_EMAIL_TO || 'contato@meumova.com'
 
 export type ResultadoAdesao = { ok: true } | { ok: false; erro: string }
 
+// node-forge não separa senha errada de arquivo estragado; a frase também não diz qual dos dois.
+const ERRO_CERTIFICADO = 'Não deu para abrir o certificado. Confira o arquivo e a senha.'
+
+// O primeiro da lista é o cliente; o resto são proxies (mesma leitura de /assinar).
+async function ipDoPedido(): Promise<string> {
+  const h = await headers()
+  return (h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? '').split(',')[0].trim()
+}
+
+/** Abre o A1 no servidor e devolve o CNPJ; null para senha errada ou arquivo inválido. */
+async function cnpjDoCertificado(cert: FormDataEntryValue | null, senha: string): Promise<{ cnpj: string; titular: string } | null> {
+  if (!(cert instanceof File)) return null
+  const bytes = new Uint8Array(await cert.arrayBuffer())
+  if (!validarArquivoCert(cert.name, bytes).ok) return null
+  try {
+    const { cnpj, titular } = lerDadosDoPfx(Buffer.from(bytes), senha)
+    return { cnpj, titular }
+  } catch {
+    return null
+  }
+}
+
+export type ResultadoConsultaEmpresa =
+  | { ok: true; cnpj: string; empresa: EmpresaReceita | null; avisoRazao: string | null }
+  | { ok: false; erro: string }
+
+/**
+ * Passo "Sua empresa" (#588): o CNPJ sai do A1, nunca do que a pessoa digita, e a Receita
+ * (BrasilAPI) pré-preenche. Receita fora do ar devolve empresa null e a tela segue em branco.
+ */
+export async function consultarEmpresaAction(form: FormData): Promise<ResultadoConsultaEmpresa> {
+  if (form.get('site')) return { ok: true, cnpj: '', empresa: null, avisoRazao: null }
+  if (!(await permitirTentativa('consultar_empresa', await ipDoPedido()))) return { ok: false, erro: ERRO_MUITAS_TENTATIVAS }
+
+  const lido = await cnpjDoCertificado(form.get('cert'), String(form.get('certSenha') ?? ''))
+  if (!lido) return { ok: false, erro: ERRO_CERTIFICADO }
+
+  const empresa = await consultarEmpresaReceita(lido.cnpj)
+  const normal = (v: string) => v.toUpperCase().replace(/\s+/g, ' ').trim()
+  const avisoRazao = empresa?.razaoSocial && normal(empresa.razaoSocial) !== normal(lido.titular)
+    ? `Seu certificado está com outro nome (${lido.titular}). Usamos o da Receita, que é o atual.`
+    : null
+  return { ok: true, cnpj: lido.cnpj, empresa, avisoRazao }
+}
+
 export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAdesao> {
   // Isca para robô: campo escondido que gente não preenche. Responde ok sem gravar nada.
   if (form.get('site')) return { ok: true }
+  if (!(await permitirTentativa('registrar_adesao', await ipDoPedido()))) return { ok: false, erro: ERRO_MUITAS_TENTATIVAS }
 
   let usuarios: unknown
   try { usuarios = JSON.parse(String(form.get('usuarios') ?? '[]')) } catch { usuarios = [] }
@@ -35,6 +86,12 @@ export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAd
   if (!vCnpj.ok) return { ok: false, erro: vCnpj.erro }
   const vCert = validarArquivoCert(cert.name, certBytes)
   if (!vCert.ok) return { ok: false, erro: vCert.erro }
+  const doCert = await cnpjDoCertificado(cert, dados.certSenha)
+  if (!doCert) return { ok: false, erro: ERRO_CERTIFICADO }
+  let entradaFiscal: unknown
+  try { entradaFiscal = JSON.parse(String(form.get('fiscal') ?? '{}')) } catch { entradaFiscal = {} }
+  const fiscal = colunasFiscais(entradaFiscal, doCert.cnpj)
+  if (!fiscal.ok) return { ok: false, erro: fiscal.erro }
 
   const id = randomUUID()
   const caminho = `${id}/cnpj.${vCnpj.extensao}`
@@ -58,6 +115,7 @@ export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAd
       storeLogin: dados.storeLogin,
       storeSenha: cifrar(dados.storeSenha),
       usuarios: dados.usuarios,
+      ...fiscal.colunas,
     })
   } catch (e) {
     console.error('registrarAdesaoAction: insert falhou', e instanceof Error ? e.message : e)
