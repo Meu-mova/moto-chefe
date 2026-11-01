@@ -65,7 +65,6 @@ export async function consultarEmpresaAction(form: FormData): Promise<ResultadoC
 export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAdesao> {
   // Isca para robô: campo escondido que gente não preenche. Responde ok sem gravar nada.
   if (form.get('site')) return { ok: true }
-  if (!(await permitirTentativa('registrar_adesao', await ipDoPedido()))) return { ok: false, erro: ERRO_MUITAS_TENTATIVAS }
 
   let usuarios: unknown
   try { usuarios = JSON.parse(String(form.get('usuarios') ?? '[]')) } catch { usuarios = [] }
@@ -86,6 +85,9 @@ export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAd
   if (!vCnpj.ok) return { ok: false, erro: vCnpj.erro }
   const vCert = validarArquivoCert(cert.name, certBytes)
   if (!vCert.ok) return { ok: false, erro: vCert.erro }
+  // Conta depois do formato (erro de digitação não trava a pessoa) e antes de abrir o A1,
+  // que é o que serviria para testar senhas.
+  if (!(await permitirTentativa('registrar_adesao', await ipDoPedido()))) return { ok: false, erro: ERRO_MUITAS_TENTATIVAS }
   const doCert = await cnpjDoCertificado(cert, dados.certSenha)
   if (!doCert) return { ok: false, erro: ERRO_CERTIFICADO }
   let entradaFiscal: unknown
