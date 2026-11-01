@@ -141,7 +141,9 @@ export async function inutilizarNumeroDaNota(
   } catch (e) {
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: segue pendente e a consulta decide.
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
-    throw e
+    // Só aqui o pedido já está gravado: a mensagem do cliente da NG não leva token nem empresaId.
+    console.error('[inutilizacao] envio sem resposta da Nota Gateway:', (e as Error).message)
+    return { ok: false, erro: 'A Nota Gateway não respondeu. O pedido ficou pendente; confira o resultado mais tarde.' }
   }
   await registrarAcaoSensivel({
     tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
