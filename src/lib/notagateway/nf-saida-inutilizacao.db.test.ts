@@ -311,7 +311,7 @@ test('Notas emitidas: a situação da inutilização na lista segue a decisão d
     await semearNota(tx, a.grupoId, 950461, { status: 'Autorizada', numero: '991' })
     const situacoes = async (grupoId: string, contaId: string) => {
       const notas = await listarNotasEmitidas({ grupoId, contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
-      return anexarSituacaoDeInutilizacao(notas, { grupoId, ambiente: 'Homologacao' }, tx)
+      return anexarSituacaoDeInutilizacao(notas, { grupoId, contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
     }
     const listaDaA = () => situacoes(a.grupoId, a.socio.contaId)
     const daA = async () => (await listaDaA()).find(n => n.id === notaA)!
@@ -375,10 +375,32 @@ test('grupo em outro ambiente da NG: a lista não mostra o botão e o pedido rec
     assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, homolog, JUSTIFICATIVA), { ok: false, erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
     assert.equal((await inutilizacoes(tx, homolog)).length, 0)
     const lista = await listarNotasEmitidas({ grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
-    const [situacao] = await anexarSituacaoDeInutilizacao(lista, { grupoId: a.grupoId, ambiente: 'Homologacao' }, tx)
+    const [situacao] = await anexarSituacaoDeInutilizacao(lista, { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
     assert.deepEqual(situacao.inutilizacao, { tipo: 'nenhuma', erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
     // A recusada de produção do mesmo grupo segue elegível.
     const producao = await semearNota(tx, a.grupoId, 950471, { status: 'Negada', motivo: '225 - Falha no schema', numero: '993', ambiente: 'Producao' })
     assert.ok((await m.prepararInutilizacao(tx, a.socio, producao, JUSTIFICATIVA)).ok)
+  })
+})
+
+test('a situação na lista fica presa ao filtro da lista: nota de outro grupo ou ambiente não vai ao loader (C9)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { anexarSituacaoDeInutilizacao, listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas')
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950490, '996')
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok)
+    const filtroA = { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao' as const, de: '2000-01-01', ate: hojeBrt() }
+    const listaA = await listarNotasEmitidas(filtroA, tx)
+    assert.equal(listaA.length, 1)
+
+    const foraDoEscopo = { tipo: 'nenhuma', erro: 'Nota de outro grupo ou ambiente.' }
+    // Chamador errado: as notas da A com o filtro da B. Nada da A é lido nem mostrado.
+    assert.deepEqual((await anexarSituacaoDeInutilizacao(listaA, { ...filtroA, grupoId: b.grupoId, contaId: b.socio.contaId }, tx)).map(n => n.inutilizacao), [foraDoEscopo])
+    // Mesmo grupo, filtro em outro ambiente: idem.
+    assert.deepEqual((await anexarSituacaoDeInutilizacao(listaA, { ...filtroA, ambiente: 'Producao' }, tx)).map(n => n.inutilizacao), [foraDoEscopo])
+    // Com o próprio filtro: a situação de verdade.
+    assert.equal((await anexarSituacaoDeInutilizacao(listaA, filtroA, tx))[0].inutilizacao.tipo, 'pendente')
   })
 })

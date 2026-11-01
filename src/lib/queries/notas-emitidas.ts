@@ -4,12 +4,13 @@ import { fimDoDiaBrt, inicioDoDiaBrt } from '@/lib/data-venda'
 import { grupos, motos, notasFiscaisSaida, vendas } from '@/lib/db/schema'
 import { classificarNota, notasDoLote, type CategoriaNota, type Situacao } from '@/lib/notas-emitidas'
 import { decidirInutilizacao, type DecisaoInutilizacao } from '@/lib/notagateway/inutilizacao'
-import { contextoDeInutilizacao, type EscopoInutilizacao } from '@/lib/notagateway/inutilizar'
+import { contextoDeInutilizacao } from '@/lib/notagateway/inutilizar'
 
 type Executor = Pick<typeof db, 'select'>
 
 export type NotaEmitida = {
   id: string
+  grupoId: string
   numero: string | null
   serie: string | null
   status: string
@@ -30,7 +31,7 @@ export type NotaEmitida = {
 /** Teto da lista: a tela não pagina ainda, e um grupo emite poucas centenas de notas por ano. */
 export const LIMITE_DA_LISTA = 500
 
-type FiltroNotas = { grupoId: string; contaId: string | null; ambiente: 'Producao' | 'Homologacao'; de: string; ate: string }
+export type FiltroNotas = { grupoId: string; contaId: string | null; ambiente: 'Producao' | 'Homologacao'; de: string; ate: string }
 
 // Pede o join com grupos: a Conta é conferida pelo grupo da nota.
 function doFiltro(filtro: FiltroNotas) {
@@ -56,6 +57,7 @@ export async function listarNotasEmitidas(
   const consulta = exec
     .select({
       id: notasFiscaisSaida.id,
+      grupoId: notasFiscaisSaida.grupoId,
       numero: notasFiscaisSaida.numero,
       serie: notasFiscaisSaida.serie,
       status: notasFiscaisSaida.status,
@@ -84,19 +86,24 @@ export async function listarNotasEmitidas(
 
 export type NotaEmitidaComInutilizacao = NotaEmitida & { inutilizacao: DecisaoInutilizacao }
 
+const FORA_DO_FILTRO: DecisaoInutilizacao = { tipo: 'nenhuma', erro: 'Nota de outro grupo ou ambiente.' }
+
 /**
- * Situação da inutilização de cada nota da tela (#597), pela mesma decisão do pedido: só as
- * recusadas vão ao loader, numa ida ao banco para todas; as demais decidem sem consulta. O
- * escopo é o grupo e o ambiente do filtro, que listarNotasEmitidas já prendeu à Conta.
+ * Situação da inutilização de cada nota da tela (#597), pela mesma decisão do pedido, com o
+ * MESMO filtro da lista: nota fora do grupo e do ambiente do filtro não vai ao loader e não
+ * mostra nada. Só as recusadas vão ao loader, numa ida ao banco para todas; as demais decidem
+ * sem consulta, porque a elegibilidade (status) vem antes da credencial do grupo.
  */
 export async function anexarSituacaoDeInutilizacao(
-  notas: NotaEmitida[], escopo: EscopoInutilizacao, exec: Executor = db,
+  notas: NotaEmitida[], filtro: FiltroNotas, exec: Executor = db,
 ): Promise<NotaEmitidaComInutilizacao[]> {
-  const contexto = await contextoDeInutilizacao(exec, escopo, notas.filter(n => n.categoria === 'recusada'))
-  // Quem não é recusada não vai ao loader: a elegibilidade decide antes de olhar a credencial do grupo.
+  const noFiltro = (n: NotaEmitida) => n.grupoId === filtro.grupoId && n.ambiente === filtro.ambiente
+  const escopo = { grupoId: filtro.grupoId, ambiente: filtro.ambiente }
+  const contexto = await contextoDeInutilizacao(exec, escopo, notas.filter(n => noFiltro(n) && n.categoria === 'recusada'))
+  const semContexto = (n: NotaEmitida) => ({ nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null })
   return notas.map(n => ({
     ...n,
-    inutilizacao: decidirInutilizacao(contexto.get(n.id) ?? { nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null }),
+    inutilizacao: noFiltro(n) ? decidirInutilizacao(contexto.get(n.id) ?? semContexto(n)) : FORA_DO_FILTRO,
   }))
 }
 
