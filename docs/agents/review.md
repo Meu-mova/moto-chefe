@@ -42,6 +42,10 @@ aqui fica a lista curta de conferência.
   pegou. Use a cópia local da produção (`prod-local/copiar-prod.py`); fora da produção o MOVA só
   chama a Nota Gateway em homologação. Credencial real só o Luis cola, na tela, só na cópia; ao
   fim rode `copiar-prod.py` de novo para apagar.
+- **API pública externa chamada do servidor manda User-Agent próprio e é testada com chamada real**
+  (#588: o teste com resposta fixa passou e a BrasilAPI recusava o `fetch` do Node sem User-Agent
+  com 403). Conferir: o `fetch` tem `User-Agent` do MOVA, e o PR registra uma chamada real feita
+  (navegador ou script) além do teste com mock.
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
 
 ## Release
