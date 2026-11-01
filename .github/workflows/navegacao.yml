@@ -27,6 +27,7 @@ jobs:
       pull-requests: read
     outputs:
       rodar: ${{ steps.f.outputs.rodar }}
+      rodar_acesso: ${{ steps.f.outputs.rodar_acesso }}
       url: ${{ steps.f.outputs.url }}
       ref: ${{ steps.f.outputs.ref }}
     steps:
@@ -43,6 +44,7 @@ jobs:
             # contra o site da dev (dev.meumova.com), não contra um preview dessa ref.
             if [ "$EVENTO" = "schedule" ]; then echo "ref=dev" >> "$GITHUB_OUTPUT"; else echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"; fi
             echo "rodar=true" >> "$GITHUB_OUTPUT"
+            echo "rodar_acesso=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "url=$URL_PREVIEW" >> "$GITHUB_OUTPUT"
@@ -55,6 +57,15 @@ jobs:
           else
             echo "Nenhum PR deste commit mexe em src/app, src/components ou no próprio teste; pulando."
             echo "rodar=false" >> "$GITHUB_OUTPUT"
+          fi
+          # Matriz rota x papel (#594): só quando o PR mexe em rota, permissão ou navegação.
+          # Rota: page/layout de src/app; permissão: navegacao*.ts (usuarioPodeAcessar), o
+          # AdminGuard, auth, acesso por grupo, grupos liberados, middleware e src/lib/permissoes*.
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/app/.*/(page|layout)\.tsx|src/app/\(dashboard\)/admin/components/admin-guard\.tsx|src/lib/(navegacao|navegacao-servidor|auth|acesso-grupo|grupos-liberados)\.ts|src/lib/permissoes[^/]*|src/middleware\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
+            echo "rodar_acesso=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nenhum PR deste commit mexe em rota, permissão ou navegação; pulando a matriz rota x papel."
+            echo "rodar_acesso=false" >> "$GITHUB_OUTPUT"
           fi
 
   navegacao:
@@ -122,13 +133,48 @@ jobs:
   acesso:
     name: acesso rota x papel
     needs: filtro
-    if: needs.filtro.outputs.rodar == 'true'
+    if: needs.filtro.outputs.rodar_acesso == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    # #594: o grupo único do repo guardava só 1 pendente e cancelava o PR do lado. Agora o grupo
+    # é por branch do preview (commit novo do mesmo PR cancela o antigo) e, fora do preview, por
+    # execução. Uma matriz por vez no staging continua valendo (carga, como no smoke.yml): quem
+    # garante é o passo "esperar a vez", em fila por run_id, sem cancelar ninguém.
     concurrency:
-      group: navegacao-staging-c
-      cancel-in-progress: false
+      group: navegacao-acesso-${{ github.event_name == 'deployment_status' && github.event.deployment.ref || github.run_id }}
+      cancel-in-progress: true
     steps:
+      - name: esperar a vez
+        timeout-minutes: 65
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          limite=$(( $(date +%s) + 60 * 60 ))
+          while :; do
+            frente=""
+            for run in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/navegacao.yml/runs?per_page=100" \
+                --jq "[.workflow_runs[] | select(.status != \"completed\" and .id < $GITHUB_RUN_ID) | .id] | sort | .[]"); do
+              # Job da matriz ainda não criado (filtro rodando) ou não concluído: está na frente.
+              pendente=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '
+                ([.jobs[] | select(.name == "acesso rota x papel")] | if length == 0 then "sem-job" else (.[0].status) end)')
+              if [ "$pendente" != "completed" ]; then
+                filtro=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '[.jobs[] | select(.name == "mexe em tela?")][0].status // "completed"')
+                if [ "$pendente" = "sem-job" ] && [ "$filtro" = "completed" ]; then continue; fi
+                frente=$run; break
+              fi
+            done
+            if [ -z "$frente" ]; then echo "Vez desta execução; seguindo."; break; fi
+            if [ "$(date +%s)" -ge "$limite" ]; then
+              echo "::error::Esperou 60 min pela matriz da execução $frente sem terminar. Rode de novo quando ela acabar."
+              exit 1
+            fi
+            echo "$(date -u +%H:%M:%S) Esperando a matriz da execução na frente: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$frente"
+            sleep 30
+          done
+
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.filtro.outputs.ref }}
