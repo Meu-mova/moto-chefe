@@ -155,10 +155,10 @@ export function PassoImpostos({ f, mudar, regimeDaReceita }: Props & { regimeDaR
         {f.jaEmite && (
           <div className="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
             <Campo id="serie" label="Série da nota">
-              <Input id="serie" className="h-10" inputMode="numeric" value={f.nfSerie} onChange={e => mudar({ nfSerie: soDigitos(e.target.value) })} />
+              <Input id="serie" className="h-10" inputMode="numeric" maxLength={3} value={f.nfSerie} onChange={e => mudar({ nfSerie: soDigitos(e.target.value) })} />
             </Campo>
             <Campo id="ultima" label="Número da última nota emitida">
-              <Input id="ultima" className="h-10" inputMode="numeric" value={f.nfUltimoNumero} onChange={e => mudar({ nfUltimoNumero: soDigitos(e.target.value) })} />
+              <Input id="ultima" className="h-10" inputMode="numeric" maxLength={9} value={f.nfUltimoNumero} onChange={e => mudar({ nfUltimoNumero: soDigitos(e.target.value) })} />
             </Campo>
             <p className="text-xs text-muted-foreground md:col-span-2">
               Os dois estão no DANFE (a folha impressa da nota), no alto, ao lado de &quot;Nº&quot; e &quot;Série&quot;. O MOVA continua a partir do número seguinte, para não repetir.

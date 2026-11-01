@@ -10,6 +10,20 @@ import { erroEnderecoSede, faltamNoEnderecoSede, limparEnderecoSede, montarEnder
 /** IE, IM, série e número da nota: a NG e a SEFAZ querem só dígitos. */
 export const soDigitos = (v: string) => v.replace(/\D/g, '')
 
+/**
+ * Série e última nota de quem já emite: os dois obrigatórios, só dígitos. Série da NF-e vai
+ * de 0 a 999 e o número tem até 9 dígitos (leiaute da SEFAZ). Vale na adesão e na correção
+ * do admin, para o cliente não gravar o que o admin não consegue corrigir igual.
+ */
+export function erroNumeracao(serie: string, ultima: string): string | null {
+  const s = soDigitos(serie)
+  const u = soDigitos(ultima)
+  if (!s || !u) return 'Informe a série e o número da última nota'
+  if (s.length > 3) return 'Série tem no máximo 3 dígitos'
+  if (u.length > 9) return 'Número da nota tem no máximo 9 dígitos'
+  return null
+}
+
 export type DadosFiscais = {
   razaoSocial: string; nomeFantasia: string; telefone: string
   endereco: EnderecoSede; codigoIbge: string; situacao: string
@@ -34,7 +48,7 @@ export function faltaNosImpostos(d: DadosFiscais): string | null {
   if (!d.regime) return 'Escolha o regime de impostos'
   if (!d.ieIsenta && !soDigitos(d.inscricaoEstadual)) return 'Informe a inscrição estadual ou marque que a loja é isenta'
   if (!emailValido(d.emailNotas.trim())) return 'Informe o e-mail que recebe as notas'
-  if (d.jaEmite && (!soDigitos(d.nfSerie) || !soDigitos(d.nfUltimoNumero))) return 'Informe a série e o número da última nota'
+  if (d.jaEmite) return erroNumeracao(d.nfSerie, d.nfUltimoNumero)
   return null
 }
 
