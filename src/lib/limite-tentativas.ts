@@ -13,10 +13,11 @@ export type AcaoLimitada = keyof typeof LIMITES
 export const ERRO_MUITAS_TENTATIVAS = 'Muitas tentativas. Tente de novo em alguns minutos.'
 
 // HMAC e não sha256 puro: IPv4 são só 4 bilhões de valores, e o hash sem chave se desfaz por força bruta.
+// Chave própria, não derivada da CERT_MASTER_KEY: se vazar, não abre nenhum A1.
 function hashDoIp(ip: string): string {
-  const chave = process.env.CERT_MASTER_KEY
-  if (!chave) throw new Error('CERT_MASTER_KEY não definida')
-  return createHmac('sha256', `tentativas-acao:${chave}`).update(ip).digest('hex')
+  const chave = Buffer.from(process.env.TENTATIVAS_HMAC_KEY ?? '', 'base64')
+  if (chave.length !== 32) throw new Error('TENTATIVAS_HMAC_KEY ausente ou inválida (base64 de 32 bytes)')
+  return createHmac('sha256', chave).update(ip).digest('hex')
 }
 
 /** Conta a tentativa e diz se ainda está dentro do limite. Estourou: não grava nem age. */

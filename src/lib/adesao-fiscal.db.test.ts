@@ -11,6 +11,7 @@ if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) {
 }
 process.env.DATABASE_URL = url
 process.env.CERT_MASTER_KEY = 'b'.repeat(64)
+process.env.TENTATIVAS_HMAC_KEY = Buffer.alloc(32, 7).toString('base64')
 
 type Db = typeof import('@/lib/db')
 type Limite = typeof import('@/lib/limite-tentativas')
@@ -90,6 +91,18 @@ test('registrar adesão: 3 por hora; tentativa de mais de 1 hora atrás não con
     await tx.execute(sql`update tentativas_acao set criado_em = now() - interval '61 minutes'`)
     assert.equal(await permitirTentativa('registrar_adesao', '198.51.100.1', tx), true)
   })
+})
+
+test('sem TENTATIVAS_HMAC_KEY válida, falha com erro claro e sem gravar', async () => {
+  const antes = process.env.TENTATIVAS_HMAC_KEY
+  try {
+    process.env.TENTATIVAS_HMAC_KEY = 'curta'
+    await assert.rejects(permitirTentativa('consultar_empresa', '192.0.2.9'), /TENTATIVAS_HMAC_KEY ausente ou inválida/)
+    delete process.env.TENTATIVAS_HMAC_KEY
+    await assert.rejects(permitirTentativa('consultar_empresa', '192.0.2.9'), /TENTATIVAS_HMAC_KEY/)
+  } finally {
+    process.env.TENTATIVAS_HMAC_KEY = antes
+  }
 })
 
 test('limpeza do cron apaga só o que passou de 1 dia', async () => {
