@@ -189,6 +189,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
                     <span className="lg:hidden">
                       {n.inutilizacao?.situacao === 'pendente' && <span className="mt-1 block text-xs font-medium text-warning">Inutilização pendente</span>}
                       {podeInutilizar && n.podeInutilizar && <span className="mt-1 block"><InutilizarNumeroButton nota={n} ambiente={filtro.ambiente} /></span>}
+                      {podeInutilizar && n.numeroJaUsado && <span className="mt-1 block text-xs text-muted-foreground">Número já usado em outra nota deste grupo: não há o que inutilizar.</span>}
                     </span>
                   </td>
                   <td className="hidden py-2 pr-3 align-top text-muted-foreground lg:table-cell">{n.serie ?? '-'}</td>
@@ -202,6 +203,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
                     {n.inutilizacao?.situacao === 'pendente' && <span className="mt-1 block text-xs font-medium text-warning">Inutilização pendente</span>}
                     {n.inutilizacao?.situacao === 'negada' && <span className="mt-1 block text-xs text-destructive">Inutilização negada: {n.inutilizacao.motivoStatus ?? 'sem motivo'}</span>}
                     {podeInutilizar && n.podeInutilizar && <span className="mt-1 block"><InutilizarNumeroButton nota={n} ambiente={filtro.ambiente} /></span>}
+                    {podeInutilizar && n.numeroJaUsado && <span className="mt-1 block text-xs text-muted-foreground">Número já usado em outra nota deste grupo: não há o que inutilizar.</span>}
                   </td>
                   <td className="py-2 pr-3 text-right align-top tabular-nums text-muted-foreground">{data(n.criadoEm)}</td>
                   <td className="py-2 text-right align-top">

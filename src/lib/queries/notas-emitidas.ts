@@ -27,6 +27,8 @@ export type NotaEmitida = {
   inutilizacao: { situacao: SituacaoInutilizacao; motivoStatus: string | null; protocolo: string | null } | null
   /** Recusada elegível e sem pedido pendente ou autorizado: a mesma regra do servidor (#597). */
   podeInutilizar: boolean
+  /** Recusada cujo número outra nota do grupo já usou na SEFAZ: a linha explica por que não há botão. */
+  numeroJaUsado: boolean
 }
 
 /** Teto da lista: a tela não pagina ainda, e um grupo emite poucas centenas de notas por ano. */
@@ -103,13 +105,17 @@ export async function listarNotasEmitidas(
     .orderBy(desc(notasFiscaisSaida.criadoEm))
   const linhas = await (limite === null ? consulta : consulta.limit(limite))
 
-  return linhas.map(({ vendaIdDaNota, outraVivaNumero, outraVivaExiste, mesmoNumero, ...l }) => ({
-    ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status),
-    podeInutilizar: (!l.inutilizacao || l.inutilizacao.situacao === 'negada') && elegivelParaInutilizar(
-      { status: l.status, motivoStatus: l.motivoStatus, numero: l.numero, serie: l.serie, vendaId: vendaIdDaNota },
-      outraVivaExiste ? { numero: outraVivaNumero } : null,
-    ).ok && !numeroUsadoEmOutraNota(Number(l.numero), mesmoNumero ?? []),
-  }))
+  return linhas.map(({ vendaIdDaNota, outraVivaNumero, outraVivaExiste, mesmoNumero, ...l }) => {
+    const numeroJaUsado = numeroUsadoEmOutraNota(Number(l.numero), mesmoNumero ?? [])
+    return {
+      ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status),
+      numeroJaUsado,
+      podeInutilizar: !numeroJaUsado && (!l.inutilizacao || l.inutilizacao.situacao === 'negada') && elegivelParaInutilizar(
+        { status: l.status, motivoStatus: l.motivoStatus, numero: l.numero, serie: l.serie, vendaId: vendaIdDaNota },
+        outraVivaExiste ? { numero: outraVivaNumero } : null,
+      ).ok,
+    }
+  })
 }
 
 /** Notas do download (#402): a lista da tela sem o teto, presa à Conta na consulta, com a seleção aplicada por cima. */
