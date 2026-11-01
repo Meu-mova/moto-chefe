@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { decidirInutilizacao, elegivelParaInutilizar, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { decidirInutilizacao, elegivelParaInutilizar, ERRO_AMBIENTE_MUDOU, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -85,7 +85,8 @@ test('quem pede a inutilização: admin_geral, admin_socio e admin_rede (decisõ
   }
 })
 
-const ctxBase: ContextoInutilizacao = { nota: { id: 'n1', ...negada }, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [] }
+const notaBase = { id: 'n1', ambiente: 'Homologacao', ...negada }
+const ctxBase: ContextoInutilizacao = { nota: notaBase, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: 'Homologacao' }
 const outra = (p: Partial<ContextoInutilizacao['outrasNotas'][number]> = {}) =>
   ({ id: 'n2', numero: '974', serie: '1', status: 'Autorizada', motivoStatus: null, ...p })
 const pedido = (p: Partial<ContextoInutilizacao['pedidos'][number]> = {}) =>
@@ -127,11 +128,11 @@ test('decide: outra nota do grupo que ocupa o número recusa (C4); recusada, des
 
 test('decide: nota não elegível não mostra nada, e o servidor recebe o motivo', () => {
   const casos: [RegExp, Partial<ContextoInutilizacao>][] = [
-    [/continua ativa/, { nota: { id: 'n1', ...negada, vendaId: 'v1' } }],
-    [/rejeitada pela SEFAZ/, { nota: { id: 'n1', ...negada, status: 'Autorizada' } }],
-    [/não tem número/, { nota: { id: 'n1', ...negada, numero: null } }],
-    [/já foi usado na SEFAZ/, { nota: { id: 'n1', ...negada, motivoStatus: '539 - Duplicidade de NF-e' } }],
-    [/já foi usado na SEFAZ/, { nota: { id: 'n1', ...negada, motivoStatus: '301 - Uso Denegado' } }],
+    [/continua ativa/, { nota: { ...notaBase, vendaId: 'v1' } }],
+    [/rejeitada pela SEFAZ/, { nota: { ...notaBase, status: 'Autorizada' } }],
+    [/não tem número/, { nota: { ...notaBase, numero: null } }],
+    [/já foi usado na SEFAZ/, { nota: { ...notaBase, motivoStatus: '539 - Duplicidade de NF-e' } }],
+    [/já foi usado na SEFAZ/, { nota: { ...notaBase, motivoStatus: '301 - Uso Denegado' } }],
   ]
   for (const [motivo, parte] of casos) {
     const d = decidirInutilizacao({ ...ctxBase, ...parte })
@@ -143,5 +144,12 @@ test('decide: nota não elegível não mostra nada, e o servidor recebe o motivo
 test('decide: "0974" série "001" é o mesmo número e série que "974" série "1" (C4)', () => {
   assert.equal(decidirInutilizacao({ ...ctxBase, outrasNotas: [outra({ numero: '0974', serie: '001' })] }).tipo, 'numero_usado')
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [pedido({ serie: '001' })] }).tipo, 'pendente')
-  assert.deepEqual(decidirInutilizacao({ ...ctxBase, nota: { id: 'n1', ...negada, numero: '0974', serie: '001' } }), { tipo: 'pode', serie: '1', numero: 974, ultimaNegada: null })
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, nota: { ...notaBase, numero: '0974', serie: '001' } }), { tipo: 'pode', serie: '1', numero: 974, ultimaNegada: null })
+})
+
+test('decide: o grupo precisa estar no ambiente da nota; sem credencial da NG, nada (C1)', () => {
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao' }), { tipo: 'nenhuma', erro: ERRO_AMBIENTE_MUDOU })
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: null }), { tipo: 'nenhuma', erro: ERRO_SEM_CONFIGURACAO })
+  // O pedido em andamento continua aparecendo, mesmo com o grupo em outro ambiente.
+  assert.equal(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao', pedidos: [pedido()] }).tipo, 'pendente')
 })

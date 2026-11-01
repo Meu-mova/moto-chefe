@@ -59,7 +59,7 @@ Cada item tem fonte escrita. Doc e item divergem? Vale o que foi testado; na dú
 ## Onde isso vive no MOVA
 
 - `src/lib/notagateway/client.ts`: `pedirInutilizacao` (POST; 5xx vira `NotaGatewayIndisponivel`, só com o status) e `consultarInutilizacaoNaNg` (GET).
-- `src/lib/notagateway/inutilizacao.ts`: regras puras (justificativa, nota elegível, pedido sem resposta, quem pode pedir, e `decidirInutilizacao`: a decisão única que a lista mostra e o pedido aceita).
+- `src/lib/notagateway/inutilizacao.ts`: regras puras (justificativa, nota elegível, pedido sem resposta, quem pode pedir, e `decidirInutilizacao`: a decisão única que a lista mostra e o pedido aceita, inclusive se o grupo está no ambiente da nota).
 - `src/lib/notagateway/inutilizar.ts`: `contextoDeInutilizacao` (o que a decisão precisa, com o grupo no `where`), pedido e consulta, gravação e log com o resultado de cada pedido.
 - `src/lib/notagateway/status.ts`: `ehDenegada`, `ehDuplicidade`, `STATUS_MORTOS` e `numeroLivre`, que decidem se a nota pode ter o número inutilizado e se outra nota ainda o ocupa.
 - `src/lib/queries/notas-emitidas.ts`: `anexarSituacaoDeInutilizacao`, a situação por nota na tela Notas emitidas.

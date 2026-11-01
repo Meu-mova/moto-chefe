@@ -1,13 +1,14 @@
 import { and, count, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
+import { grupos, lojas, notagatewayConfig, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
 import { ambienteLiberado } from './ambiente'
 import {
-  type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao,
+  type ContextoInutilizacao, decidirInutilizacao, ERRO_AMBIENTE_MUDOU, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
+  podePedirInutilizacao, situacaoInutilizacao,
   STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa,
 } from './inutilizacao'
 import { STATUS_MORTOS } from './status'
@@ -52,8 +53,8 @@ type NotaDaDecisao = ContextoInutilizacao['nota']
 /**
  * Contexto da decisão (decidirInutilizacao) para notas do mesmo grupo e ambiente, numa
  * ida só ao banco: o pedido passa uma nota, a lista passa as recusadas visíveis. O grupo
- * vai no where das três consultas. O `ltrim` do SQL só pré-filtra candidatos; a comparação
- * que vale é a da regra pura, com semZerosAEsquerda.
+ * vai no where das quatro consultas. O `ltrim` do SQL só pré-filtra candidatos; a comparação
+ * que vale é a da regra pura, com semZerosAEsquerda. Da credencial da NG só sai o ambiente.
  */
 export async function contextoDeInutilizacao(
   tx: Pick<typeof db, 'select'>, escopo: EscopoInutilizacao, notas: NotaDaDecisao[],
@@ -78,11 +79,15 @@ export async function contextoDeInutilizacao(
     inArray(notasFiscaisSaidaInutilizacoes.numeroInicial, inteiros),
   ))
 
+  const [config] = await tx.select({ ambiente: notagatewayConfig.ambiente }).from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, escopo.grupoId)).limit(1)
+  const ambienteDoGrupo = config?.ambiente ?? null
+
   return new Map(notas.map(n => [n.id, {
     nota: n,
     outraNotaVivaDaVenda: vivasDasVendas.find(v => v.vendaId === n.vendaId && v.id !== n.id) ?? null,
     outrasNotas: comMesmoNumero,
     pedidos,
+    ambienteDoGrupo,
   }]))
 }
 
@@ -148,8 +153,8 @@ export async function configDoAmbiente(
   grupoId: string, ambiente: string, exec: Pick<typeof db, 'select'> = db,
 ): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
   const cfg = await configNotaGateway(grupoId, exec)
-  if (!cfg) return { erro: 'Nota Gateway não configurada para esta empresa.' }
-  if (cfg.ambiente !== ambiente) return { erro: 'O ambiente da empresa mudou desde a emissão desta nota.' }
+  if (!cfg) return { erro: ERRO_SEM_CONFIGURACAO }
+  if (cfg.ambiente !== ambiente) return { erro: ERRO_AMBIENTE_MUDOU }
   return { cfg }
 }
 

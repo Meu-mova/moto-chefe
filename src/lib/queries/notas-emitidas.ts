@@ -93,9 +93,10 @@ export async function anexarSituacaoDeInutilizacao(
   notas: NotaEmitida[], escopo: EscopoInutilizacao, exec: Executor = db,
 ): Promise<NotaEmitidaComInutilizacao[]> {
   const contexto = await contextoDeInutilizacao(exec, escopo, notas.filter(n => n.categoria === 'recusada'))
+  // Quem não é recusada não vai ao loader: a elegibilidade decide antes de olhar a credencial do grupo.
   return notas.map(n => ({
     ...n,
-    inutilizacao: decidirInutilizacao(contexto.get(n.id) ?? { nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [] }),
+    inutilizacao: decidirInutilizacao(contexto.get(n.id) ?? { nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null }),
   }))
 }
 

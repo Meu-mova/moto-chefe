@@ -84,16 +84,20 @@ export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: str
  * lista: a regra mora aqui, e o SQL só traz candidatos do mesmo grupo e ambiente.
  */
 export type ContextoInutilizacao = {
-  nota: NotaParaInutilizar & { id: string }
+  nota: NotaParaInutilizar & { id: string; ambiente: string }
   /** Outra nota viva da mesma venda (reenvio que saiu com número novo). */
   outraNotaVivaDaVenda: { numero: string | null } | null
   /** Notas com o mesmo número, em qualquer série; a própria pode vir junto. */
   outrasNotas: NotaDoNumero[]
   /** Pedidos de inutilização do mesmo número, de qualquer nota e série. */
   pedidos: PedidoDoNumero[]
+  /** Ambiente da credencial da NG do grupo (notagateway_config, sem decifrar); null = sem credencial. */
+  ambienteDoGrupo: string | null
 }
 
 export const ERRO_JA_PEDIDA = 'Este número já tem um pedido de inutilização.'
+export const ERRO_SEM_CONFIGURACAO = 'Nota Gateway não configurada para esta empresa.'
+export const ERRO_AMBIENTE_MUDOU = 'O ambiente da empresa mudou desde a emissão desta nota.'
 
 export type DecisaoInutilizacao =
   | { tipo: 'pode'; serie: string; numero: number; ultimaNegada: string | null }
@@ -111,7 +115,8 @@ const maisRecentePrimeiro = (a: PedidoDoNumero, b: PedidoDoNumero) => new Date(b
 /**
  * O que a linha mostra e o que o servidor aceita, pela mesma regra (#597): a nota tem de
  * ser elegível; um pedido não negado do número, desta ou de outra nota, esconde o botão
- * (C5); outra nota que ocupa o número (numeroLivre) também (C4); a última negada aparece
+ * (C5); o grupo tem de estar no ambiente da nota (a credencial vai ao ambiente dela);
+ * outra nota que ocupa o número (numeroLivre) também esconde (C4); a última negada aparece
  * com o motivo e deixa pedir de novo.
  */
 export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutilizacao {
@@ -121,6 +126,8 @@ export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutiliza
   const vivo = pedidos.find(p => p.situacao !== 'negada')
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
   if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
+  if (ctx.ambienteDoGrupo === null) return { tipo: 'nenhuma', erro: ERRO_SEM_CONFIGURACAO }
+  if (ctx.ambienteDoGrupo !== ctx.nota.ambiente) return { tipo: 'nenhuma', erro: ERRO_AMBIENTE_MUDOU }
   const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
   if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo (autorizada, cancelada, denegada ou em andamento). Não há o que inutilizar.` }
   const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]

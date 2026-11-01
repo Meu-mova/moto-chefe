@@ -184,6 +184,7 @@ test('número em nota que o ocupa no mesmo grupo e série recusa antes do envio;
 
     // Grupo irmão da mesma Conta: o recorte é por grupo, não por Conta.
     const [irmao] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('IN504 A2', '00000000050403', ${a.socio.contaId}) returning id`)
+    await configurarNg(tx, irmao.id, 'Homologacao')
     const notaIrmao = await semearNotaNegada(tx, irmao.id, 950415, '976')
     assert.ok((await m.prepararInutilizacao(tx, { ...a.socio, gruposAcesso: [irmao.id] }, notaIrmao, JUSTIFICATIVA)).ok, 'a autorizada do grupo A não trava o grupo irmão')
   })
@@ -279,7 +280,7 @@ test('envio: todo pedido vai ao log com o resultado; 4xx nega, 5xx ou rede deixa
 
 test('produção fora do deploy de produção, ou grupo sem configuração: recusa antes do envio, número livre, log recusado (C6)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearConta(tx, 'A', '00000000050401')
+    const a = await semearConta(tx, 'A', '00000000050401', 'Producao')
     const nuncaEnvia: Deps['enviar'] = async () => { throw new Error('o teste não devia chegar ao envio') }
     const producao = await semearNota(tx, a.grupoId, 950450, { status: 'Negada', motivo: '225 - Falha no schema', numero: '984', ambiente: 'Producao' })
     const cfgProducao = { cfg: { token: 't', empresaId: 'e', ambiente: 'Producao' as const } }
@@ -291,10 +292,12 @@ test('produção fora do deploy de produção, ou grupo sem configuração: recu
     assert.deepEqual((await logDe(tx, l1.id)).map(l => l.detalhe.resultado), ['recusado'])
     assert.ok((await m.prepararInutilizacao(tx, a.socio, producao, JUSTIFICATIVA)).ok, 'o número ficou livre para outro pedido')
 
-    const semConfig = await semearNotaNegada(tx, a.grupoId, 950451, '985')
-    const r2 = await m.inutilizarNumeroDaNota(a.socio, semConfig, JUSTIFICATIVA, { exec: tx, config: async () => ({ erro: 'Nota Gateway não configurada para esta empresa.' }), enviar: nuncaEnvia, vercelEnv: undefined })
+    // Grupo sem credencial da NG: a decisão recusa antes de gravar, sem chegar à configuração.
+    const c = await semearConta(tx, 'C', '00000000050404', null)
+    const semConfig = await semearNotaNegada(tx, c.grupoId, 950451, '985')
+    const r2 = await m.inutilizarNumeroDaNota(c.socio, semConfig, JUSTIFICATIVA, { exec: tx, config: async () => { throw new Error('não devia ler a configuração') }, enviar: nuncaEnvia, vercelEnv: undefined })
     assert.deepEqual(r2, { ok: false, erro: 'Nota Gateway não configurada para esta empresa.' })
-    assert.equal((await inutilizacoes(tx, semConfig))[0].situacao, 'negada')
+    assert.equal((await inutilizacoes(tx, semConfig)).length, 0, 'nada gravado')
   })
 })
 
@@ -360,5 +363,22 @@ test('configDoAmbiente lê a credencial do grupo: sem configuração, ambiente d
     await tx.execute(sql`update notagateway_config set token = ${cifrar('tok-cifrado')}, empresa_id = 'emp-1', ambiente = 'Producao' where grupo_id = ${a.grupoId}`)
     assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Homologacao', tx), { erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
     assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Producao', tx), { cfg: { token: 'tok-cifrado', empresaId: 'emp-1', ambiente: 'Producao' } })
+  })
+})
+
+test('grupo em outro ambiente da NG: a lista não mostra o botão e o pedido recusa, pela mesma regra (C1)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { anexarSituacaoDeInutilizacao, listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas')
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const a = await semearConta(tx, 'A', '00000000050401', 'Producao')
+    const homolog = await semearNotaNegada(tx, a.grupoId, 950470, '992')
+    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, homolog, JUSTIFICATIVA), { ok: false, erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    assert.equal((await inutilizacoes(tx, homolog)).length, 0)
+    const lista = await listarNotasEmitidas({ grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
+    const [situacao] = await anexarSituacaoDeInutilizacao(lista, { grupoId: a.grupoId, ambiente: 'Homologacao' }, tx)
+    assert.deepEqual(situacao.inutilizacao, { tipo: 'nenhuma', erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    // A recusada de produção do mesmo grupo segue elegível.
+    const producao = await semearNota(tx, a.grupoId, 950471, { status: 'Negada', motivo: '225 - Falha no schema', numero: '993', ambiente: 'Producao' })
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, producao, JUSTIFICATIVA)).ok)
   })
 })
