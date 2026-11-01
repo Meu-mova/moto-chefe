@@ -180,6 +180,14 @@ export async function inutilizarNumeroDaNota(
       numeroVenda: pedido.numeroVenda, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
     },
   }, exec)
+  // Depois do envio o pedido já existe na NG: erro no log vira só console.error, não desfaz a resposta.
+  const registrarSemFalhar = async (resultado: ResultadoDoEnvio) => {
+    try {
+      await registrar(resultado)
+    } catch (e) {
+      console.error('[inutilizacao] falha ao registrar o pedido no log:', e instanceof Error ? e.message : e)
+    }
+  }
   const recusar = async (status: string, motivo: string) => {
     await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
     await registrar('recusado', motivo)
@@ -198,10 +206,10 @@ export async function inutilizarNumeroDaNota(
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
     console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : 'rede'})`)
-    await registrar('sem_resposta')
+    await registrarSemFalhar('sem_resposta')
     return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
   }
-  await registrar('enviado')
+  await registrarSemFalhar('enviado')
   return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
 }
 

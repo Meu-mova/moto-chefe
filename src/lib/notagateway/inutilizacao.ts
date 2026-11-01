@@ -102,7 +102,7 @@ export type DecisaoInutilizacao =
 type SerieENumero = { serie: string | null; numero: string | number | null }
 
 function mesmaSerieENumero(a: SerieENumero, b: SerieENumero): boolean {
-  return semZerosAEsquerda(String(a.numero ?? '')) === semZerosAEsquerda(String(b.numero ?? ''))
+  return semZerosAEsquerda(a.numero?.toString()) === semZerosAEsquerda(b.numero?.toString())
     && semZerosAEsquerda(a.serie) === semZerosAEsquerda(b.serie)
 }
 

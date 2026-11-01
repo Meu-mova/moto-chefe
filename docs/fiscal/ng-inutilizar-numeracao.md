@@ -51,14 +51,15 @@ Cada item tem fonte escrita. Doc e item divergem? Vale o que foi testado; na dú
 - **A NG soma +1 na numeração a cada envio de nota, mesmo com erro, e não há API para listar números usados.** O número a inutilizar sai do histórico do MOVA (`notas_fiscais_saida`). Fonte: suporte da NG, na [#504](https://github.com/Meu-mova/moto-chefe/issues/504).
 - **Nomes do status**: o suporte informou `InutilizacaoAutorizada` (com `protocoloAutorizacao`) e `InutilizacaoNegada` (motivo em `motivoStatus`), mas a consulta em homologação devolveu `Autorizada` e `Negada`. O MOVA aceita os dois nomes. Fonte: [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925) e [PR #507](https://github.com/Meu-mova/moto-chefe/pull/507).
 - **Só o número de nota `Negada` que não vai ser reenviada se inutiliza**: a nota rejeitada deixa o número gasto e sem nota; a que ainda vai ser corrigida e reenviada não se inutiliza, porque o reenvio com o mesmo `id` mantém o número. Fonte: [#504](https://github.com/Meu-mova/moto-chefe/issues/504) ("O que é") e suporte da NG no [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6502646869); no código, `elegivelParaInutilizar` recusa o que não for `Negada`.
-- **Número de nota `Autorizada` ou `Cancelada` não se inutiliza**: a SEFAZ recusa número já usado. Fonte: teste em homologação, no [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925); no código, `elegivelParaInutilizar` (`src/lib/notagateway/inutilizacao.ts`) só aceita `Negada`, e recusa as duas.
+- **Número de nota `Autorizada` ou `Cancelada` não se inutiliza**: a SEFAZ recusa número já usado. Fonte: teste em homologação, no [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925); no código, `elegivelParaInutilizar` (`src/lib/notagateway/inutilizacao.ts`) só aceita `Negada`, e recusa as duas. Desde a #597, `numeroLivre` (`status.ts`) diz se OUTRA nota do grupo ainda ocupa o número: só a recusada não denegada e a descartada deixam o número livre; o MOVA recusa antes de enviar, em vez de esperar a rejeição 241.
 - **Faixa já usada é recusada** (código 241 no teste em homologação). Fonte: o mesmo [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925).
 - **Na produção é irreversível**; homologação funciona igual. Fonte: suporte da NG, na [#504](https://github.com/Meu-mova/moto-chefe/issues/504).
 - **Nota denegada não se inutiliza**: "Quando uma nota é denegada, seu número não pode ser mais utilizado, cancelado ou inutilizado, pois o registro dessa nota já está na SEFAZ." Fonte: [KB da NG, rejeição 301](https://atendimento.notagateway.com.br/kb/pt-br/article/227470/rejeicao-ao-emitir-sefaz-301-uso-denegado-irregularidade-fiscal-).
 
 ## Onde isso vive no MOVA
 
-- `src/lib/notagateway/client.ts`: `pedirInutilizacao` (POST) e `consultarInutilizacaoNaNg` (GET).
-- `src/lib/notagateway/inutilizacao.ts`: regras puras (justificativa, nota elegível, pedido sem resposta).
-- `src/lib/notagateway/inutilizar.ts`: pedido e consulta com o grupo no `where`, gravação e log.
-- `src/lib/notagateway/status.ts`: `ehDenegada`, `ehDuplicidade` e `STATUS_MORTOS`, que decidem se a nota pode ter o número inutilizado.
+- `src/lib/notagateway/client.ts`: `pedirInutilizacao` (POST; 5xx vira `NotaGatewayIndisponivel`, só com o status) e `consultarInutilizacaoNaNg` (GET).
+- `src/lib/notagateway/inutilizacao.ts`: regras puras (justificativa, nota elegível, pedido sem resposta, quem pode pedir, e `decidirInutilizacao`: a decisão única que a lista mostra e o pedido aceita).
+- `src/lib/notagateway/inutilizar.ts`: `contextoDeInutilizacao` (o que a decisão precisa, com o grupo no `where`), pedido e consulta, gravação e log com o resultado de cada pedido.
+- `src/lib/notagateway/status.ts`: `ehDenegada`, `ehDuplicidade`, `STATUS_MORTOS` e `numeroLivre`, que decidem se a nota pode ter o número inutilizado e se outra nota ainda o ocupa.
+- `src/lib/queries/notas-emitidas.ts`: `anexarSituacaoDeInutilizacao`, a situação por nota na tela Notas emitidas.
