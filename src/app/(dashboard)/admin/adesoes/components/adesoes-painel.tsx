@@ -151,7 +151,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-type Aba = 'contrato' | 'grupo' | 'acessos'
+type Aba = 'contrato' | 'grupo' | 'acessos' | 'ng'
 
 const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
 
@@ -268,7 +268,8 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
       <Tabs value={aba} onValueChange={v => setAba(v as Aba)} className="flex min-h-0 flex-1 flex-col gap-0">
         {/* overflow-y-hidden tira a barra vertical que o sublinhado da aba (5px abaixo) criava; o pb devolve esse espaço. */}
         <div className="overflow-x-auto overflow-y-hidden border-b px-4 pb-[5px]">
-          <TabsList variant="line">
+          {/* Com a aba Nota Gateway (#588) as quatro não cabem no painel estreito: quebram em vez de rolar. */}
+          <TabsList variant="line" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
             <TabsTrigger value="contrato">
               Contrato
               {!travada && situacao !== 'assinado' && faltam.length > 0 && <Badge variant="outline" className="border-warning text-warning">{faltam.length}</Badge>}

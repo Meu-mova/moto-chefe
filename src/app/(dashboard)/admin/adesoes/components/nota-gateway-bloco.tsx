@@ -76,7 +76,8 @@ export function NotaGatewayBloco({ adesaoId, dados }: { adesaoId: string; dados:
       )}
 
       <Tabs defaultValue="localizacao">
-        <TabsList variant="line" className="flex-wrap">
+        {/* Na largura do painel as abas quebram em duas linhas: altura livre, senão a segunda linha cobre o conteúdo. */}
+        <TabsList variant="line" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
           <TabsTrigger value="localizacao">1 · Localização</TabsTrigger>
           <TabsTrigger value="identificacao">2 · Identificação</TabsTrigger>
           <TabsTrigger value="municipais">3 · Dados municipais</TabsTrigger>
