@@ -202,7 +202,7 @@ test('lista de notas emitidas: a recusada elegível pode ser inutilizada até o 
   })
 })
 
-test('envio: recusa 4xx da NG marca negada; erro sem resposta deixa pendente e registra quem pediu', async () => {
+test('envio: todo pedido fica em log_acoes com o resultado; recusa 4xx marca negada, sem resposta deixa pendente', async () => {
   await emTransacaoDesfeita(async tx => {
     const { InutilizacaoRecusada } = await import('@/lib/notagateway/client')
     const a = await semearConta(tx, 'A', '00000000050401')
@@ -213,13 +213,24 @@ test('envio: recusa 4xx da NG marca negada; erro sem resposta deixa pendente e r
     const r1 = await m.inutilizarNumeroDaNota(a.socio, recusada, JUSTIFICATIVA, deps(async () => { throw new InutilizacaoRecusada('serie invalida') }))
     assert.equal(r1.ok, false)
     assert.equal((await inutilizacoes(tx, recusada))[0].situacao, 'negada')
+    const logDe = async (inutilizacaoId: string) => linhas(tx, sql`select usuario_id, detalhe from log_acoes where detalhe->>'inutilizacaoId' = ${inutilizacaoId}`)
+    const [logRecusa] = await logDe((await inutilizacoes(tx, recusada))[0].id)
+    assert.equal(logRecusa.usuario_id, a.socio.id)
+    assert.equal(logRecusa.detalhe.resultado, 'recusado')
+    assert.equal(logRecusa.detalhe.notaId, recusada)
+    assert.deepEqual([logRecusa.detalhe.numero, logRecusa.detalhe.serie, logRecusa.detalhe.ambiente], [974, '1', 'Homologacao'])
+    assert.match(logRecusa.detalhe.motivo, /serie invalida/)
 
     const semResposta = await semearNotaNegada(tx, a.grupoId, 950431, '975')
     const r2 = await m.inutilizarNumeroDaNota(a.socio, semResposta, JUSTIFICATIVA, deps(async () => { throw new Error('fetch failed') }))
     assert.deepEqual(r2, { ok: false, erro: 'A Nota Gateway não respondeu. O pedido ficou pendente; confira o resultado mais tarde.' })
     const [linha] = await inutilizacoes(tx, semResposta)
     assert.equal(linha.situacao, 'pendente')
-    const log = await linhas(tx, sql`select detalhe->>'etapa' as etapa from log_acoes where detalhe->>'inutilizacaoId' = ${linha.id}`)
-    assert.deepEqual(log.map(l => l.etapa), ['inutilizacao_sem_resposta'])
+    const log = await logDe(linha.id)
+    assert.deepEqual(log.map(l => [l.usuario_id, l.detalhe.resultado, l.detalhe.numero]), [[a.socio.id, 'sem_resposta', 975]])
+
+    const enviada = await semearNotaNegada(tx, a.grupoId, 950432, '977')
+    assert.ok((await m.inutilizarNumeroDaNota(a.socio, enviada, JUSTIFICATIVA, deps(async () => {}))).ok)
+    assert.deepEqual((await logDe((await inutilizacoes(tx, enviada))[0].id)).map(l => l.detalhe.resultado), ['enviado'])
   })
 })

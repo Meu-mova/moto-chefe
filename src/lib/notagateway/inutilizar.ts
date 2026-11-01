@@ -142,20 +142,26 @@ export async function inutilizarNumeroDaNota(
   if (!preparo.ok) return preparo
   const { pedido } = preparo
   const c = await deps.config(pedido.grupoId, pedido.ambiente)
+  // Todo pedido fica em log_acoes, com o resultado: irreversível na produção (#600). Sem token nem empresaId.
+  const registrar = (resultado: 'enviado' | 'sem_resposta' | 'recusado', motivo?: string) => registrarAcaoSensivel({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
+    detalhe: {
+      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}),
+      notaId, inutilizacaoId: pedido.inutilizacaoId, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
+    },
+  }, exec)
   const recusar = async (status: string, motivo: string) => {
     await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+    await registrar('recusado', motivo)
     return { ok: false as const, erro: motivo }
   }
+
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG recusa produção fora do deploy de produção antes do fetch: tratado aqui,
   // senão cairia no ramo "sem resposta" e o número ficaria preso como pendente.
   if (!ambienteLiberado(c.cfg.ambiente, process.env.VERCEL_ENV)) {
     return recusar(STATUS_SEM_CONFIGURACAO, 'Fora da produção, a Nota Gateway só roda em homologação.')
   }
-  const registrar = (etapa: string) => registrarAcaoSensivel({
-    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
-    detalhe: { origem: 'mova', etapa, notaId, inutilizacaoId: pedido.inutilizacaoId, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial },
-  }, exec)
   try {
     await deps.enviar(c.cfg, pedido)
   } catch (e) {
@@ -163,10 +169,10 @@ export async function inutilizarNumeroDaNota(
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
     // O pedido pode ter chegado à NG: fica registrado quem pediu. A mensagem do cliente não leva token nem empresaId.
     console.error('[inutilizacao] envio sem resposta da Nota Gateway:', (e as Error).message)
-    await registrar('inutilizacao_sem_resposta')
+    await registrar('sem_resposta')
     return { ok: false, erro: 'A Nota Gateway não respondeu. O pedido ficou pendente; confira o resultado mais tarde.' }
   }
-  await registrar('inutilizacao')
+  await registrar('enviado')
   return { ok: true, inutilizacaoId: pedido.inutilizacaoId }
 }
 
