@@ -105,7 +105,7 @@ export default async function NotasEmitidasPage({
         )}
         {/* key: trocar de filtro limpa a seleção e volta à primeira página. */}
         <NotasTabela key={`${situacao}|${ambiente}|${periodo.de}|${periodo.ate}`} notas={visiveis} totalComDocumento={comDocumento}
-          filtro={{ situacao, ambiente, ...periodo }} />
+          filtro={{ situacao, ambiente, ...periodo }} podeInutilizar={usuario.papel === 'admin_geral' || usuario.papel === 'admin_socio'} />
       </Secao>
     </div>
   )

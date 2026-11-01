@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { fimDoDiaBrt, inicioDoDiaBrt } from '@/lib/data-venda'
 import { grupos, motos, notasFiscaisSaida, vendas } from '@/lib/db/schema'
 import { classificarNota, notasDoLote, type CategoriaNota, type Situacao } from '@/lib/notas-emitidas'
+import { elegivelParaInutilizar, numeroUsadoEmOutraNota, type SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import { STATUS_MORTOS } from '@/lib/notagateway/status'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -21,6 +23,12 @@ export type NotaEmitida = {
   clienteNome: string | null
   chassi: string | null
   dataVenda: string | null
+  /** Último pedido de inutilização do número desta nota (#504). */
+  inutilizacao: { situacao: SituacaoInutilizacao; motivoStatus: string | null; protocolo: string | null } | null
+  /** Recusada elegível e sem pedido pendente ou autorizado: a mesma regra do servidor (#597). */
+  podeInutilizar: boolean
+  /** Recusada cujo número outra nota do grupo já usou na SEFAZ: a linha explica por que não há botão. */
+  numeroJaUsado: boolean
 }
 
 /** Teto da lista: a tela não pagina ainda, e um grupo emite poucas centenas de notas por ano. */
@@ -64,6 +72,29 @@ export async function listarNotasEmitidas(
       clienteNome: vendas.clienteNome,
       chassi: motos.chassi,
       dataVenda: vendas.dataVenda,
+      vendaIdDaNota: notasFiscaisSaida.vendaId,
+      // Subconsultas correlacionadas: nomes qualificados à mão (armadilha do Drizzle no AGENTS.md).
+      outraVivaNumero: sql<string | null>`(select o.numero from notas_fiscais_saida o
+        where o.venda_id = "notas_fiscais_saida"."venda_id" and o.grupo_id = "notas_fiscais_saida"."grupo_id"
+          and o.ambiente = "notas_fiscais_saida"."ambiente" and o.id <> "notas_fiscais_saida"."id"
+          and o.status <> all(${sql.param(STATUS_MORTOS)}::text[]) limit 1)`,
+      outraVivaExiste: sql<boolean>`exists (select 1 from notas_fiscais_saida o
+        where o.venda_id = "notas_fiscais_saida"."venda_id" and o.grupo_id = "notas_fiscais_saida"."grupo_id"
+          and o.ambiente = "notas_fiscais_saida"."ambiente" and o.id <> "notas_fiscais_saida"."id"
+          and o.status <> all(${sql.param(STATUS_MORTOS)}::text[]))`,
+      // Outras notas com o mesmo número: a regra do servidor decide em JS, a mesma do pedido.
+      mesmoNumero: sql<{ numero: string | null; status: string; motivoStatus: string | null }[] | null>`(select json_agg(json_build_object(
+          'numero', o.numero, 'status', o.status, 'motivoStatus', o.motivo_status))
+        from notas_fiscais_saida o
+        where o.grupo_id = "notas_fiscais_saida"."grupo_id" and o.ambiente = "notas_fiscais_saida"."ambiente"
+          and o.id <> "notas_fiscais_saida"."id" and "notas_fiscais_saida"."status" = 'Negada'
+          and ltrim(o.serie, '0') = ltrim("notas_fiscais_saida"."serie", '0')
+          and ltrim(o.numero, '0') = ltrim("notas_fiscais_saida"."numero", '0'))`,
+      inutilizacao: sql<{ situacao: SituacaoInutilizacao; motivoStatus: string | null; protocolo: string | null } | null>`(select json_build_object(
+          'situacao', i.situacao, 'motivoStatus', i.motivo_status, 'protocolo', i.protocolo)
+        from notas_fiscais_saida_inutilizacoes i
+        where i.nota_id = "notas_fiscais_saida"."id" and i.grupo_id = "notas_fiscais_saida"."grupo_id"
+        order by i.criado_em desc limit 1)`,
     })
     .from(notasFiscaisSaida)
     .innerJoin(grupos, eq(grupos.id, notasFiscaisSaida.grupoId))
@@ -74,7 +105,17 @@ export async function listarNotasEmitidas(
     .orderBy(desc(notasFiscaisSaida.criadoEm))
   const linhas = await (limite === null ? consulta : consulta.limit(limite))
 
-  return linhas.map(l => ({ ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status) }))
+  return linhas.map(({ vendaIdDaNota, outraVivaNumero, outraVivaExiste, mesmoNumero, ...l }) => {
+    const numeroJaUsado = numeroUsadoEmOutraNota(Number(l.numero), mesmoNumero ?? [])
+    return {
+      ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status),
+      numeroJaUsado,
+      podeInutilizar: !numeroJaUsado && (!l.inutilizacao || l.inutilizacao.situacao === 'negada') && elegivelParaInutilizar(
+        { status: l.status, motivoStatus: l.motivoStatus, numero: l.numero, serie: l.serie, vendaId: vendaIdDaNota },
+        outraVivaExiste ? { numero: outraVivaNumero } : null,
+      ).ok,
+    }
+  })
 }
 
 /** Notas do download (#402): a lista da tela sem o teto, presa à Conta na consulta, com a seleção aplicada por cima. */

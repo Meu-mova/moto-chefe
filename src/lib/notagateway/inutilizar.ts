@@ -4,8 +4,9 @@ import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, numeroUsadoEmOutraNota, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 import { STATUS_MORTOS } from './status'
+import { ambienteLiberado } from './ambiente'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
 
@@ -61,6 +62,15 @@ export async function prepararInutilizacao(
     : []
   const elegivel = elegivelParaInutilizar(nota, outraViva ?? null)
   if (!elegivel.ok) return elegivel
+  // ltrim: número e série são texto e podem vir com zero à esquerda.
+  const mesmoNumero = await tx.select({ numero: notasFiscaisSaida.numero, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus })
+    .from(notasFiscaisSaida).where(and(
+      eq(notasFiscaisSaida.grupoId, nota.grupoId), eq(notasFiscaisSaida.ambiente, nota.ambiente), sql`ltrim(${notasFiscaisSaida.serie}, '0') = ltrim(${elegivel.serie}, '0')`,
+      ne(notasFiscaisSaida.id, nota.id), sql`ltrim(${notasFiscaisSaida.numero}, '0') = ${String(elegivel.numero)}`,
+    ))
+  if (numeroUsadoEmOutraNota(elegivel.numero, mesmoNumero)) {
+    return { ok: false, erro: `O número ${elegivel.numero} está em outra nota deste grupo que já usou o número na SEFAZ. Não há o que inutilizar.` }
+  }
   const j = validarJustificativa(justificativaBruta)
   if (!j.ok) return { ok: false, erro: j.erro }
 
@@ -114,30 +124,55 @@ async function configDoAmbiente(grupoId: string, ambiente: string): Promise<{ cf
   return { cfg }
 }
 
+/** O que a função pede de fora: o teste troca a NG e o banco da transação. */
+export type DependenciasInutilizacao = {
+  exec: Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
+  config: (grupoId: string, ambiente: string) => Promise<{ cfg: ConfigNotaGateway } | { erro: string }>
+  enviar: typeof pedirInutilizacao
+}
+
+const DEPENDENCIAS: DependenciasInutilizacao = { exec: db, config: configDoAmbiente, enviar: pedirInutilizacao }
+
 /** Pede a inutilização à NG. O resultado chega depois, por consultarInutilizacao. */
 export async function inutilizarNumeroDaNota(
-  usuario: UsuarioInutilizacao, notaId: string, justificativa: string,
+  usuario: UsuarioInutilizacao, notaId: string, justificativa: string, deps: DependenciasInutilizacao = DEPENDENCIAS,
 ): Promise<Resultado<{ inutilizacaoId: string }>> {
-  const preparo = await prepararInutilizacao(db, usuario, notaId, justificativa)
+  const { exec } = deps
+  const preparo = await prepararInutilizacao(exec, usuario, notaId, justificativa)
   if (!preparo.ok) return preparo
   const { pedido } = preparo
-  const c = await configDoAmbiente(pedido.grupoId, pedido.ambiente)
+  const c = await deps.config(pedido.grupoId, pedido.ambiente)
+  // Todo pedido fica em log_acoes, com o resultado: irreversível na produção (#600). Sem token nem empresaId.
+  const registrar = (resultado: 'enviado' | 'sem_resposta' | 'recusado', motivo?: string) => registrarAcaoSensivel({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
+    detalhe: {
+      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}),
+      notaId, inutilizacaoId: pedido.inutilizacaoId, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
+    },
+  }, exec)
   const recusar = async (status: string, motivo: string) => {
-    await gravarResultadoDaInutilizacao(db, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+    await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+    await registrar('recusado', motivo)
     return { ok: false as const, erro: motivo }
   }
+
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
+  // O cliente da NG recusa produção fora do deploy de produção antes do fetch: tratado aqui,
+  // senão cairia no ramo "sem resposta" e o número ficaria preso como pendente.
+  if (!ambienteLiberado(c.cfg.ambiente, process.env.VERCEL_ENV)) {
+    return recusar(STATUS_SEM_CONFIGURACAO, 'Fora da produção, a Nota Gateway só roda em homologação.')
+  }
   try {
-    await pedirInutilizacao(c.cfg, pedido)
+    await deps.enviar(c.cfg, pedido)
   } catch (e) {
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: segue pendente e a consulta decide.
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
-    throw e
+    // O pedido pode ter chegado à NG: fica registrado quem pediu. A mensagem do cliente não leva token nem empresaId.
+    console.error('[inutilizacao] envio sem resposta da Nota Gateway:', (e as Error).message)
+    await registrar('sem_resposta')
+    return { ok: false, erro: 'A Nota Gateway não respondeu. O pedido ficou pendente; confira o resultado mais tarde.' }
   }
-  await registrarAcaoSensivel({
-    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
-    detalhe: { origem: 'mova', etapa: 'inutilizacao', notaId, inutilizacaoId: pedido.inutilizacaoId, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial },
-  })
+  await registrar('enviado')
   return { ok: true, inutilizacaoId: pedido.inutilizacaoId }
 }
 

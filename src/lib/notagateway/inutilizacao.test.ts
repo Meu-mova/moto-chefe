@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, numeroUsadoEmOutraNota, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -72,4 +72,25 @@ test('pedido que a NG não conhece só vence depois de 15 minutos', () => {
   const criado = new Date('2026-10-29T12:00:00Z')
   assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:14:59Z')), false)
   assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:15:00Z')), true)
+})
+
+test('número usado: autorizada, cancelada, denegada ou em andamento com o mesmo número recusa', () => {
+  for (const status of ['Autorizada', 'CancelamentoNegado', 'Cancelada', 'Denegada', 'Processando']) {
+    assert.equal(numeroUsadoEmOutraNota(974, [{ numero: '974', status, motivoStatus: null }]), true, status)
+  }
+})
+
+test('número usado: compara como inteiro, "0974" e "974" são o mesmo', () => {
+  assert.equal(numeroUsadoEmOutraNota(974, [{ numero: '0974', status: 'Autorizada', motivoStatus: null }]), true)
+})
+
+test('número livre: outra recusada ou descartada com o mesmo número, ou autorizada com outro número', () => {
+  assert.equal(numeroUsadoEmOutraNota(974, [
+    { numero: '974', status: 'Negada', motivoStatus: '225 - Falha no Schema' }, { numero: '974', status: 'Descartada', motivoStatus: null },
+    { numero: '975', status: 'Autorizada', motivoStatus: null }, { numero: null, status: 'Autorizada', motivoStatus: null },
+  ]), false)
+})
+
+test('número usado: recusada por denegação gastou o número', () => {
+  assert.equal(numeroUsadoEmOutraNota(974, [{ numero: '974', status: 'Negada', motivoStatus: '302 - Uso Denegado' }]), true)
 })

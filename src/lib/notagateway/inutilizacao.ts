@@ -66,3 +66,12 @@ export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDa
   if (nota.vendaId && !substituida) return { ok: false, erro: 'A venda desta nota continua ativa: corrija e reenvie a nota em vez de inutilizar o número.' }
   return { ok: true, serie: nota.serie.trim(), numero }
 }
+
+/**
+ * O número já está em outra nota do mesmo grupo, ambiente e série que gastou o número na
+ * SEFAZ ou ainda pode gastar (autorizada, cancelada, denegada ou em andamento). Sem esta
+ * checagem, só a SEFAZ recusava, com a rejeição 241. Recusada e descartada não gastam.
+ */
+export function numeroUsadoEmOutraNota(numero: number, outras: { numero: string | null; status: string; motivoStatus: string | null }[]): boolean {
+  return outras.some(o => Number(o.numero) === numero && o.status !== 'Descartada' && (o.status !== 'Negada' || ehDenegada(o)))
+}

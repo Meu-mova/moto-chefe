@@ -14,6 +14,7 @@ process.env.DATABASE_URL = url
 type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 type Mod = typeof import('@/lib/notagateway/inutilizar')
+type Deps = import('@/lib/notagateway/inutilizar').DependenciasInutilizacao
 let db: Db['db']
 let m: Mod
 
@@ -142,5 +143,94 @@ test('pedido que não chegou à NG (marcado não enviado) libera o número para 
     assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok, true)
     const status = (await inutilizacoes(tx, notaA)).map(l => `${l.status}:${l.situacao}`).sort()
     assert.deepEqual(status, ['Enviando:pendente', 'NaoEnviada:negada', 'SemConfiguracao:negada'])
+  })
+})
+
+test('número em nota autorizada do mesmo grupo e série recusa antes do envio; o mesmo número em outro grupo não', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950410, '0976')
+    const notaB = await semearNotaNegada(tx, b.grupoId, 950411, '976')
+    await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, numero, serie, payload)
+      values (null, 950412, ${a.grupoId}, 'in504-950412-1', 'Homologacao', 'Autorizada', '976', '1', '{}'::jsonb)`)
+
+    const r = await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)
+    assert.equal(r.ok, false)
+    assert.match((r as { erro: string }).erro, /976 está em outra nota/)
+    assert.equal((await inutilizacoes(tx, notaA)).length, 0, 'nada gravado')
+
+    assert.ok((await m.prepararInutilizacao(tx, b.socio, notaB, JUSTIFICATIVA)).ok, 'a autorizada da A não trava o número da B')
+
+    // Grupo irmão da mesma Conta: o recorte é por grupo, não por Conta.
+    const [irmao] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('IN504 A2', '00000000050403', ${a.socio.contaId}) returning id`)
+    const notaIrmao = await semearNotaNegada(tx, irmao.id, 950413, '976')
+    assert.ok((await m.prepararInutilizacao(tx, { ...a.socio, papel: 'admin_geral' }, notaIrmao, JUSTIFICATIVA)).ok, 'a autorizada do grupo A não trava o número do grupo irmão')
+
+    // Série com zero à esquerda é a mesma série.
+    await linhas(tx, sql`update notas_fiscais_saida set serie = '001' where id_externo = 'in504-950412-1'`)
+    assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok, false, 'série 001 e 1 são a mesma')
+  })
+})
+
+test('lista de notas emitidas: a recusada elegível pode ser inutilizada até o pedido, que aparece pendente; a Conta B não vê', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950420)
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const hoje = hojeBrt()
+    const filtro = (grupoId: string, contaId: string) => ({ grupoId, contaId, ambiente: 'Homologacao' as const, de: '2000-01-01', ate: hoje })
+    const daA = async () => (await listarNotasEmitidas(filtro(a.grupoId, a.socio.contaId), tx)).find(n => n.id === notaA)!
+
+    assert.equal((await daA()).podeInutilizar, true)
+    // Número em nota autorizada do grupo: o botão some, como o servidor recusa.
+    const [aut] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, numero, serie, payload)
+      values (null, 950421, ${a.grupoId}, 'in504-950421-1', 'Homologacao', 'Autorizada', '974', '1', '{}'::jsonb) returning id`)
+    assert.equal((await daA()).podeInutilizar, false)
+    assert.equal((await daA()).numeroJaUsado, true, 'a linha explica por que não há botão')
+    await linhas(tx, sql`delete from notas_fiscais_saida where id = ${aut.id}`)
+    assert.equal((await daA()).podeInutilizar, true)
+    assert.equal((await daA()).numeroJaUsado, false)
+    assert.equal((await daA()).inutilizacao, null)
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok)
+    assert.equal((await daA()).podeInutilizar, false)
+    assert.equal((await daA()).inutilizacao?.situacao, 'pendente')
+
+    assert.equal((await listarNotasEmitidas(filtro(a.grupoId, b.socio.contaId), tx)).length, 0, 'B pedindo o grupo da A não lista nada')
+  })
+})
+
+test('envio: todo pedido fica em log_acoes com o resultado; recusa 4xx marca negada, sem resposta deixa pendente', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { InutilizacaoRecusada } = await import('@/lib/notagateway/client')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const cfg = { cfg: { token: 'x', empresaId: 'y', ambiente: 'Homologacao' as const } } as unknown as Awaited<ReturnType<Deps['config']>>
+    const deps = (enviar: Deps['enviar']) => ({ exec: tx, config: async () => cfg, enviar })
+
+    const recusada = await semearNotaNegada(tx, a.grupoId, 950430)
+    const r1 = await m.inutilizarNumeroDaNota(a.socio, recusada, JUSTIFICATIVA, deps(async () => { throw new InutilizacaoRecusada('serie invalida') }))
+    assert.equal(r1.ok, false)
+    assert.equal((await inutilizacoes(tx, recusada))[0].situacao, 'negada')
+    const logDe = async (inutilizacaoId: string) => linhas(tx, sql`select usuario_id, detalhe from log_acoes where detalhe->>'inutilizacaoId' = ${inutilizacaoId}`)
+    const [logRecusa] = await logDe((await inutilizacoes(tx, recusada))[0].id)
+    assert.equal(logRecusa.usuario_id, a.socio.id)
+    assert.equal(logRecusa.detalhe.resultado, 'recusado')
+    assert.equal(logRecusa.detalhe.notaId, recusada)
+    assert.deepEqual([logRecusa.detalhe.numero, logRecusa.detalhe.serie, logRecusa.detalhe.ambiente], [974, '1', 'Homologacao'])
+    assert.match(logRecusa.detalhe.motivo, /serie invalida/)
+
+    const semResposta = await semearNotaNegada(tx, a.grupoId, 950431, '975')
+    const r2 = await m.inutilizarNumeroDaNota(a.socio, semResposta, JUSTIFICATIVA, deps(async () => { throw new Error('fetch failed') }))
+    assert.deepEqual(r2, { ok: false, erro: 'A Nota Gateway não respondeu. O pedido ficou pendente; confira o resultado mais tarde.' })
+    const [linha] = await inutilizacoes(tx, semResposta)
+    assert.equal(linha.situacao, 'pendente')
+    const log = await logDe(linha.id)
+    assert.deepEqual(log.map(l => [l.usuario_id, l.detalhe.resultado, l.detalhe.numero]), [[a.socio.id, 'sem_resposta', 975]])
+
+    const enviada = await semearNotaNegada(tx, a.grupoId, 950432, '977')
+    assert.ok((await m.inutilizarNumeroDaNota(a.socio, enviada, JUSTIFICATIVA, deps(async () => {}))).ok)
+    assert.deepEqual((await logDe((await inutilizacoes(tx, enviada))[0].id)).map(l => l.detalhe.resultado), ['enviado'])
   })
 })
