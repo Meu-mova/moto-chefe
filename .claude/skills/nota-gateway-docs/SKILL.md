@@ -15,10 +15,10 @@ A Nota Gateway (NG) emite as NF-e do MOVA. Erro aqui fatura venda errada, trava 
 2. **Confira contra o MOVA**, nesta ordem:
    - `src/lib/notagateway/status.ts`: a classificação dos status. Para saber se a nota trava a venda, está em andamento ou foi recusada, use as funções dele, nunca uma lista escrita à mão.
    - Seção "Fiscal" do `AGENTS.md`: regras do Cesar e do contador (nome fiscal do produto, origem, homologação, segredos).
-   - `src/lib/notagateway/client.ts`: o caminho e o método que o MOVA chama de fato.
+   - `src/lib/notagateway/client.ts` e `logo-ng.ts` (ou `grep -n "chamar(" src/lib/notagateway`): o caminho e o método que o MOVA chama de fato.
    - `~/Development/work/moto-chefe/ng-nfe-modelo55.txt`, se existir na máquina (manual da NG para NF-e modelo 55, fora do repo). Não existindo, diga isso no plano.
 
-3. **Divergência = pare e pergunte.** Se a página oficial, o código e o `AGENTS.md` discordarem (um status que a doc tem e o `status.ts` não, um caminho diferente, um prazo), não decida qual está certo. Descreva a divergência com as duas fontes e pergunte ao Maestro (`maestri ask`). Deduzir aqui já liberou segunda nota para a mesma venda (#80).
+3. **Divergência = pare e pergunte.** Se a página oficial, o código e o `AGENTS.md` discordarem (um status que a doc tem e o `status.ts` não, um caminho diferente, um prazo), não decida qual está certo. Descreva a divergência com as duas fontes e pergunte ao Luis (na esteira, pelo Maestro). Deduzir aqui já liberou segunda nota para a mesma venda (#80).
 
 4. **Cite no plano e no PR.** Para cada decisão fiscal: a URL específica da página (não a home) e o trecho que a sustenta, entre aspas. Exemplo:
    > Cancelamento: `DELETE /v2/empresas/{empresaId}/nf-e/{id}` (https://docs.notagateway.com.br/v2/reference/cancelar-nota-fiscal). A página não documenta prazo de cancelamento; o prazo segue a regra da SEFAZ e o fluxo atual do MOVA.
@@ -31,5 +31,5 @@ Token e `empresaId` da NG nunca aparecem em log, terminal, issue, PR ou chat, ne
 
 ## Fora desta skill
 
-- Regra de negócio fiscal que a doc não cobre (o que o Cesar ou o contador decidem): pergunte ao Maestro; não está na NG.
+- Regra de negócio fiscal que a doc não cobre (o que o Cesar ou o contador decidem): pergunte ao Luis (na esteira, pelo Maestro); não está na NG.
 - DANFE: o MOVA gera o PDF localmente (`src/app/api/nfe/[chave]/danfe/route.ts`, pacote `nfe-danfe-pdf`); a NG não tem página de DANFE de NF-e na referência v2.
