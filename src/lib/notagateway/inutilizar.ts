@@ -196,7 +196,16 @@ export async function inutilizarNumeroDaNota(
     return { ok: false as const, erro: motivo }
   }
 
-  const c = await deps.config(pedido.grupoId, pedido.ambiente)
+  // Banco ou chave de cifra falhando ao ler a configuração: recusa, e não pedido pendente sem ter ido à NG (C6).
+  const lerConfig = async () => {
+    try {
+      return await deps.config(pedido.grupoId, pedido.ambiente)
+    } catch (e) {
+      console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
+      return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
+    }
+  }
+  const c = await lerConfig()
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
   if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {

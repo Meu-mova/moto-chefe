@@ -321,3 +321,24 @@ test('Notas emitidas: a situação da inutilização na lista segue a decisão d
     assert.deepEqual(await situacoes(a.grupoId, b.socio.contaId), [])
   })
 })
+
+test('configuração que falha ao ser lida (banco ou chave): recusa, número livre, log recusado, nada pendente (C6)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const nota = await semearNotaNegada(tx, a.grupoId, 950452, '986')
+    const erroDoConsole = mock.method(console, 'error', () => {})
+    try {
+      const r = await m.inutilizarNumeroDaNota(a.socio, nota, JUSTIFICATIVA, {
+        exec: tx, config: async () => { throw new Error('chave de cifra ausente') }, enviar: async () => { throw new Error('não devia enviar') }, vercelEnv: undefined,
+      })
+      assert.deepEqual(r, { ok: false, erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' })
+      const [linha] = await inutilizacoes(tx, nota)
+      assert.equal(linha.situacao, 'negada')
+      assert.deepEqual((await logDe(tx, linha.id)).map(l => l.detalhe.resultado), ['recusado'])
+      assert.ok((await m.prepararInutilizacao(tx, a.socio, nota, JUSTIFICATIVA)).ok, 'o número ficou livre')
+      assert.match(erroDoConsole.mock.calls.map(c => c.arguments.join(' ')).join('\n'), /configuração/)
+    } finally {
+      erroDoConsole.mock.restore()
+    }
+  })
+})
