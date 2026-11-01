@@ -54,6 +54,20 @@ de qualquer coisa (passo a passo em `docs/infra/segredos.md`).
   sozinha. Desligue na configuração da ferramenta ou apague antes do push; no squash, apague
   da mensagem antes de confirmar. Regras e o caso do #459 no `CLAUDE.md` ("Sem co-autoria de IA").
 
+## Antes do código: issue, spec e protótipo
+
+Toda mudança nasce de issue e de um plano aprovado antes do código. Além disso:
+
+- **Spec** (`/to-spec` gera a issue-mãe; `/to-tickets` quebra em uma issue por PR) quando
+  qualquer um destes vale:
+  - a entrega vira 2 ou mais PRs/issues que dependem entre si;
+  - tem regra de negócio nova que o Cesar precisa validar;
+  - toca fiscal, isolamento entre Contas, venda/caixa/estoque ou migração, onde errar custa caro;
+  - mais de uma dupla vai trabalhar nela.
+- Sem nenhum desses: a issue com checklist basta (bug, ajuste de tela, feature de 1 PR).
+- Decisão tomada em conversa fora da spec (o que fica de fora, limite escolhido) vai como
+  comentário na issue antes de delegar; senão some com o histórico do agente.
+
 ## Stack
 
 Next.js 16 (App Router, Server Actions) · React 19 · Drizzle ORM sobre Postgres

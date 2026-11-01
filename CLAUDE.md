@@ -8,6 +8,9 @@ mais se erra:
 
 - Mudança com valor visível para o Cesar **nasce de issue**, com o Luis (`LuisCarlos01`) como
   responsável, e entra no Project com Módulo e Prioridade. Tarefa miúda vira checklist dentro da issue.
+- **Spec antes do código** (`/to-spec` + `/to-tickets`) quando a entrega vira 2+ PRs dependentes,
+  traz regra de negócio nova para o Cesar validar, toca fiscal, isolamento, venda/caixa/estoque ou
+  migração, ou envolve mais de uma dupla. Detalhes no `AGENTS.md` ("Antes do código").
 - Tipo da issue é o **Issue Type**, não label. Só as labels da tabela do `CONTRIBUTING.md`; nova,
   só combinando com o Luis.
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.
