@@ -25,6 +25,8 @@ test('regime: MEI vence o Simples; sem Simples é normal; sem informação fica 
   assert.equal(mapearEmpresaReceita({ opcao_pelo_simples: true, opcao_pelo_mei: true }).regime, 'mei')
   assert.equal(mapearEmpresaReceita({ opcao_pelo_simples: false }).regime, 'normal')
   assert.equal(mapearEmpresaReceita({}).regime, null)
+  const nuncaOptou = { opcao_pelo_simples: null, regime_tributario: [{ ano: 2016, forma_de_tributacao: 'SIMPLES' }, { ano: 2022, forma_de_tributacao: 'LUCRO REAL' }] }
+  assert.equal(mapearEmpresaReceita(nuncaOptou).regime, 'normal', 'sem opção, vale o ano mais recente')
 })
 
 test('falha, erro HTTP ou CNPJ mal formado devolvem null sem lançar', async () => {
@@ -35,10 +37,16 @@ test('falha, erro HTTP ou CNPJ mal formado devolvem null sem lançar', async () 
   assert.equal(await consultarEmpresaReceita('123', falha), null)
 })
 
-test('resposta boa consulta a URL do CNPJ e devolve o mapeado', async () => {
+test('resposta boa consulta a URL do CNPJ com User-Agent do MOVA e devolve o mapeado', async () => {
   let url = ''
-  const ok = (async (u: string) => { url = u; return new Response(JSON.stringify(RESPOSTA)) }) as unknown as typeof fetch
+  let ua = ''
+  const ok = (async (u: string, init?: RequestInit) => {
+    url = u
+    ua = new Headers(init?.headers).get('user-agent') ?? ''
+    return new Response(JSON.stringify(RESPOSTA))
+  }) as unknown as typeof fetch
   const e = await consultarEmpresaReceita('12345678000195', ok)
   assert.equal(url, 'https://brasilapi.com.br/api/cnpj/v1/12345678000195')
+  assert.match(ua, /^MOVA\//, 'sem User-Agent próprio a BrasilAPI responde 403')
   assert.equal(e?.razaoSocial, 'EMPRESA TESTE LTDA')
 })
