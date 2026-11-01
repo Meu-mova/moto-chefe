@@ -37,10 +37,10 @@ A página da consulta não documenta os campos da resposta (o exemplo do 200 é 
 
 A página [Status da nota fiscal](https://docs.notagateway.com.br/v2/docs/status-da-nota-fiscal) (`updatedAt` `2026-07-13T15:59:22.000Z`) lista os status da **nota**, não os da inutilização. Os que importam aqui:
 
-- `Negada`: "A nota fiscal foi rejeitada pelo órgão." É a nota que pode ter deixado o número sem uso.
-- `Autorizada`: a nota usou o número; esse número não se inutiliza.
+- `Negada`: "A nota fiscal foi rejeitada pelo órgão."
+- `Autorizada`: "Nota fiscal autorizada e com PDF pronto para download."
 
-Os status da inutilização estão na seção abaixo, porque a doc não os lista.
+A página não diz o que cada status significa para a inutilização, nem lista os status da inutilização: estão na seção abaixo.
 
 ## O que a doc NÃO diz
 
@@ -50,6 +50,8 @@ Cada item tem fonte escrita. Doc e item divergem? Vale o que foi testado; na dú
 - **Justificativa de 15 a 255 caracteres, só ASCII básico (sem acento).** Fonte: suporte da NG, na [#504](https://github.com/Meu-mova/moto-chefe/issues/504).
 - **A NG soma +1 na numeração a cada envio de nota, mesmo com erro, e não há API para listar números usados.** O número a inutilizar sai do histórico do MOVA (`notas_fiscais_saida`). Fonte: suporte da NG, na [#504](https://github.com/Meu-mova/moto-chefe/issues/504).
 - **Nomes do status**: o suporte informou `InutilizacaoAutorizada` (com `protocoloAutorizacao`) e `InutilizacaoNegada` (motivo em `motivoStatus`), mas a consulta em homologação devolveu `Autorizada` e `Negada`. O MOVA aceita os dois nomes. Fonte: [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925) e [PR #507](https://github.com/Meu-mova/moto-chefe/pull/507).
+- **Só o número de nota `Negada` que não vai ser reenviada se inutiliza**: a nota rejeitada deixa o número gasto e sem nota; a que ainda vai ser corrigida e reenviada não se inutiliza, porque o reenvio com o mesmo `id` mantém o número. Fonte: [#504](https://github.com/Meu-mova/moto-chefe/issues/504) ("O que é") e suporte da NG no [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6502646869); no código, `elegivelParaInutilizar` recusa o que não for `Negada`.
+- **Número de nota `Autorizada` não se inutiliza**: a SEFAZ recusa número já usado. Fonte: teste em homologação, no [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925); no código, `elegivelParaInutilizar` só aceita `Negada`.
 - **Faixa já usada é recusada** (código 241 no teste em homologação). Fonte: o mesmo [comentário na #504](https://github.com/Meu-mova/moto-chefe/issues/504#issuecomment-6503150925).
 - **Na produção é irreversível**; homologação funciona igual. Fonte: suporte da NG, na [#504](https://github.com/Meu-mova/moto-chefe/issues/504).
 - **Nota denegada não se inutiliza**: "Quando uma nota é denegada, seu número não pode ser mais utilizado, cancelado ou inutilizado, pois o registro dessa nota já está na SEFAZ." Fonte: [KB da NG, rejeição 301](https://atendimento.notagateway.com.br/kb/pt-br/article/227470/rejeicao-ao-emitir-sefaz-301-uso-denegado-irregularidade-fiscal-).
