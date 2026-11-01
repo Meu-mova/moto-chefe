@@ -143,8 +143,11 @@ export async function inutilizacaoDoUsuario(tx: Executor, usuario: UsuarioInutil
   return linha
 }
 
-async function configDoAmbiente(grupoId: string, ambiente: string): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
-  const cfg = await configNotaGateway(grupoId)
+/** Credencial do grupo para o ambiente da nota; o teste de banco passa a transação. */
+export async function configDoAmbiente(
+  grupoId: string, ambiente: string, exec: Pick<typeof db, 'select'> = db,
+): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
+  const cfg = await configNotaGateway(grupoId, exec)
   if (!cfg) return { erro: 'Nota Gateway não configurada para esta empresa.' }
   if (cfg.ambiente !== ambiente) return { erro: 'O ambiente da empresa mudou desde a emissão desta nota.' }
   return { cfg }

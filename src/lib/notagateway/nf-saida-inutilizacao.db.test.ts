@@ -10,6 +10,8 @@ if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) {
   throw new Error('TEST_DATABASE_URL precisa ser loopback (Postgres descartável)')
 }
 process.env.DATABASE_URL = url
+// Chave descartável só para o cifrar() do teste da configuração.
+process.env.CERT_MASTER_KEY ??= 'a'.repeat(64)
 
 type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
@@ -38,9 +40,14 @@ const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q
 
 const JUSTIFICATIVA = 'Venda cancelada após a rejeição da nota'
 
-async function semearConta(tx: Tx, nome: string, cnpj: string) {
+/** Credencial da NG do grupo; o token só é decifrado onde o teste cifra um de verdade. */
+const configurarNg = (tx: Tx, grupoId: string, ambiente: string) =>
+  tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente) values (${grupoId}, 'token-de-teste', 'empresa-de-teste', ${ambiente})`)
+
+async function semearConta(tx: Tx, nome: string, cnpj: string, ambienteDaNg: string | null = 'Homologacao') {
   const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'IN504 ' + nome}) returning id`)
   const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'IN504 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
+  if (ambienteDaNg) await configurarNg(tx, grupo.id, ambienteDaNg)
   const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja IN504 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
   const usuario = async (papel: string) => {
     const [u] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
@@ -340,5 +347,18 @@ test('configuração que falha ao ser lida (banco ou chave): recusa, número liv
     } finally {
       erroDoConsole.mock.restore()
     }
+  })
+})
+
+test('configDoAmbiente lê a credencial do grupo: sem configuração, ambiente diferente e ambiente igual (C6)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { cifrar } = await import('@/lib/cripto')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const c = await semearConta(tx, 'C', '00000000050404', null)
+    assert.deepEqual(await m.configDoAmbiente(c.grupoId, 'Homologacao', tx), { erro: 'Nota Gateway não configurada para esta empresa.' })
+
+    await tx.execute(sql`update notagateway_config set token = ${cifrar('tok-cifrado')}, empresa_id = 'emp-1', ambiente = 'Producao' where grupo_id = ${a.grupoId}`)
+    assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Homologacao', tx), { erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Producao', tx), { cfg: { token: 'tok-cifrado', empresaId: 'emp-1', ambiente: 'Producao' } })
   })
 })

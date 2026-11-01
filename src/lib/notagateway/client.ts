@@ -22,8 +22,8 @@ export type ConfigNotaGateway = {
   ambiente: 'Homologacao' | 'Producao'
 }
 
-export async function configNotaGateway(grupoId: string): Promise<ConfigNotaGateway | null> {
-  const [cfg] = await db.select().from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, grupoId)).limit(1)
+export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, 'select'> = db): Promise<ConfigNotaGateway | null> {
+  const [cfg] = await exec.select().from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, grupoId)).limit(1)
   if (!cfg?.token || !cfg.empresaId) return null
   return {
     token: decifrar(cfg.token).toString('utf8'),
