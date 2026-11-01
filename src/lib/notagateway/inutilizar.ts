@@ -4,7 +4,8 @@ import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
-import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
+import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
+import { ambienteLiberado } from './ambiente'
 import {
   type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao,
   STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa,
@@ -147,31 +148,61 @@ async function configDoAmbiente(grupoId: string, ambiente: string): Promise<{ cf
   return { cfg }
 }
 
-/** Pede a inutilização à NG. O resultado chega depois, por consultarInutilizacao. */
+/** O que a casca pede de fora; o teste de banco troca a NG, a configuração e a transação. */
+export type DependenciasInutilizacao = {
+  exec: Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
+  config: (grupoId: string, ambiente: string) => Promise<{ cfg: ConfigNotaGateway } | { erro: string }>
+  enviar: typeof pedirInutilizacao
+  vercelEnv: string | undefined
+}
+
+const DEPENDENCIAS: DependenciasInutilizacao = { exec: db, config: configDoAmbiente, enviar: pedirInutilizacao, vercelEnv: process.env.VERCEL_ENV }
+
+export const AVISO_SEM_RESPOSTA = 'A Nota Gateway não respondeu. O pedido ficou pendente: confira o resultado mais tarde.'
+
+type ResultadoDoEnvio = 'enviado' | 'sem_resposta' | 'recusado'
+
+/**
+ * Pede a inutilização à NG; o resultado chega depois, por consultarInutilizacao. Todo
+ * pedido vai ao log com o resultado (C7): só o que o pedido tem, nunca token nem empresaId.
+ */
 export async function inutilizarNumeroDaNota(
-  usuario: UsuarioInutilizacao, notaId: string, justificativa: string,
-): Promise<Resultado<{ inutilizacaoId: string }>> {
-  const preparo = await prepararInutilizacao(db, usuario, notaId, justificativa)
+  usuario: UsuarioInutilizacao, notaId: string, justificativa: string, deps: DependenciasInutilizacao = DEPENDENCIAS,
+): Promise<Resultado<{ inutilizacaoId: string; aviso: string | null }>> {
+  const { exec } = deps
+  const preparo = await prepararInutilizacao(exec, usuario, notaId, justificativa)
   if (!preparo.ok) return preparo
   const { pedido } = preparo
-  const c = await configDoAmbiente(pedido.grupoId, pedido.ambiente)
+  const registrar = (resultado: ResultadoDoEnvio, motivo?: string) => registrarAcaoSensivel({
+    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
+    detalhe: {
+      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}), notaId, inutilizacaoId: pedido.inutilizacaoId,
+      numeroVenda: pedido.numeroVenda, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
+    },
+  }, exec)
   const recusar = async (status: string, motivo: string) => {
-    await gravarResultadoDaInutilizacao(db, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+    await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+    await registrar('recusado', motivo)
     return { ok: false as const, erro: motivo }
   }
+
+  const c = await deps.config(pedido.grupoId, pedido.ambiente)
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
-  try {
-    await pedirInutilizacao(c.cfg, pedido)
-  } catch (e) {
-    // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: segue pendente e a consulta decide.
-    if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
-    throw e
+  // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
+  if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {
+    return recusar(STATUS_SEM_CONFIGURACAO, 'Fora da produção, a Nota Gateway só roda em homologação. O número continua livre.')
   }
-  await registrarAcaoSensivel({
-    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
-    detalhe: { origem: 'mova', etapa: 'inutilizacao', notaId, inutilizacaoId: pedido.inutilizacaoId, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial },
-  })
-  return { ok: true, inutilizacaoId: pedido.inutilizacaoId }
+  try {
+    await deps.enviar(c.cfg, pedido)
+  } catch (e) {
+    // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
+    if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
+    console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : 'rede'})`)
+    await registrar('sem_resposta')
+    return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
+  }
+  await registrar('enviado')
+  return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
 }
 
 /** Consulta o resultado pelo id e grava status, motivo e protocolo. */

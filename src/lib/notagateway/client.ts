@@ -219,6 +219,13 @@ export async function xmlCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string
 
 export class InutilizacaoRecusada extends Error {}
 
+/** 5xx: a NG não disse se criou o pedido. Só o status sai daqui; o corpo não vai para log nem tela (#597). */
+export class NotaGatewayIndisponivel extends Error {
+  constructor(readonly status: number) {
+    super(`Nota Gateway com erro interno (${status})`)
+  }
+}
+
 /**
  * Pede a inutilização da faixa (#504). Como na emissão, o 200 só confirma o
  * pedido: o resultado da SEFAZ chega pela consulta. Quem chama garante que o
@@ -237,7 +244,7 @@ export async function pedirInutilizacao(
     justificativa: p.justificativa,
   })
   if (r.status >= 400 && r.status < 500) throw new InutilizacaoRecusada(mensagensDeErro(r.json, r.texto))
-  if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
+  if (r.status >= 500) throw new NotaGatewayIndisponivel(r.status)
 }
 
 export type InutilizacaoConsultada = { status: string; motivoStatus: string | null; protocolo: string | null }

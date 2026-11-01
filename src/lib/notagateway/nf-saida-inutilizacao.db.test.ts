@@ -1,6 +1,6 @@
 // Teste de banco: roda contra o Postgres descartável do CI (job `banco` do ci.yml).
 // Como montar local: ver o cabeçalho de src/lib/pedido-venda.db.test.ts.
-import { after, before, test } from 'node:test'
+import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
 
@@ -14,6 +14,7 @@ process.env.DATABASE_URL = url
 type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 type Mod = typeof import('@/lib/notagateway/inutilizar')
+type Deps = import('@/lib/notagateway/inutilizar').DependenciasInutilizacao
 let db: Db['db']
 let m: Mod
 
@@ -57,14 +58,16 @@ async function semearNotaNegada(tx: Tx, grupoId: string, vendaNumero: number, nu
 
 const inutilizacoes = (tx: Tx, notaId: string) => linhas(tx, sql`select * from notas_fiscais_saida_inutilizacoes where nota_id = ${notaId}`)
 
-type Semente = { status?: string; numero?: string; serie?: string; motivo?: string | null }
+type Semente = { status?: string; numero?: string; serie?: string; motivo?: string | null; ambiente?: string }
 
 /** Nota de venda cancelada com qualquer status: ocupa o número ou não (#597). */
-async function semearNota(tx: Tx, grupoId: string, vendaNumero: number, { status = 'Autorizada', numero = '974', serie = '1', motivo = null }: Semente = {}) {
+async function semearNota(tx: Tx, grupoId: string, vendaNumero: number, { status = 'Autorizada', numero = '974', serie = '1', motivo = null, ambiente = 'Homologacao' }: Semente = {}) {
   const [nota] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, numero, serie, payload)
-    values (null, ${vendaNumero}, ${grupoId}, ${`in597-${vendaNumero}`}, 'Homologacao', ${status}, ${motivo}, ${numero}, ${serie}, '{}'::jsonb) returning id`)
+    values (null, ${vendaNumero}, ${grupoId}, ${`in597-${vendaNumero}`}, ${ambiente}, ${status}, ${motivo}, ${numero}, ${serie}, '{}'::jsonb) returning id`)
   return nota.id as string
 }
+
+const logDe = (tx: Tx, inutilizacaoId: string) => linhas(tx, sql`select usuario_id, detalhe from log_acoes where detalhe->>'inutilizacaoId' = ${inutilizacaoId} order by criado_em`)
 
 const notasDaDecisao = (tx: Tx, ids: string[]) => linhas(tx, sql`select id, numero, serie, status, motivo_status as "motivoStatus", venda_id as "vendaId"
   from notas_fiscais_saida where id = any(${sql.param(ids)}::uuid[])`)
@@ -214,5 +217,79 @@ test('duas recusadas com o mesmo número: o pedido numa esconde o botão da outr
     // O mesmo loader com o grupo da B não enxerga o pedido nem as notas da A.
     const daB = await m.contextoDeInutilizacao(tx, { grupoId: b.grupoId, ambiente: 'Homologacao' }, notas)
     assert.deepEqual([daB.get(n1)!.pedidos, daB.get(n1)!.outrasNotas], [[], []])
+  })
+})
+
+test('envio: todo pedido vai ao log com o resultado; 4xx nega, 5xx ou rede deixa pendente com aviso, e o console só vê o status (C6, C7)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { InutilizacaoRecusada, NotaGatewayIndisponivel } = await import('@/lib/notagateway/client')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const cfg = { token: 'token-de-teste', empresaId: 'empresa-de-teste', ambiente: 'Homologacao' as const }
+    const deps = (enviar: Deps['enviar']): Deps => ({ exec: tx, config: async () => ({ cfg }), enviar, vercelEnv: undefined })
+    const erroDoConsole = mock.method(console, 'error', () => {})
+    try {
+      const recusada = await semearNotaNegada(tx, a.grupoId, 950440, '980')
+      const r1 = await m.inutilizarNumeroDaNota(a.socio, recusada, JUSTIFICATIVA, deps(async () => { throw new InutilizacaoRecusada('serie invalida') }))
+      assert.deepEqual(r1, { ok: false, erro: 'A Nota Gateway recusou o pedido: serie invalida' })
+      const [l1] = await inutilizacoes(tx, recusada)
+      assert.equal(l1.situacao, 'negada')
+      const [log1] = await logDe(tx, l1.id)
+      assert.equal(log1.usuario_id, a.socio.id)
+      assert.deepEqual(
+        [log1.detalhe.resultado, log1.detalhe.notaId, log1.detalhe.numero, log1.detalhe.serie, log1.detalhe.ambiente, log1.detalhe.numeroVenda],
+        ['recusado', recusada, 980, '1', 'Homologacao', 950440],
+      )
+      assert.match(log1.detalhe.motivo, /serie invalida/)
+
+      const semResposta = await semearNotaNegada(tx, a.grupoId, 950441, '981')
+      const r2 = await m.inutilizarNumeroDaNota(a.socio, semResposta, JUSTIFICATIVA, deps(async () => { throw new NotaGatewayIndisponivel(503) }))
+      assert.ok(r2.ok)
+      assert.equal(r2.aviso, m.AVISO_SEM_RESPOSTA)
+      const [l2] = await inutilizacoes(tx, semResposta)
+      assert.equal(l2.situacao, 'pendente')
+      assert.deepEqual((await logDe(tx, l2.id)).map(l => l.detalhe.resultado), ['sem_resposta'])
+
+      const rede = await semearNotaNegada(tx, a.grupoId, 950442, '982')
+      const r3 = await m.inutilizarNumeroDaNota(a.socio, rede, JUSTIFICATIVA, deps(async () => { throw new Error('fetch failed: corpo-cru-da-ng') }))
+      assert.ok(r3.ok && r3.aviso === m.AVISO_SEM_RESPOSTA)
+      assert.equal((await inutilizacoes(tx, rede))[0].situacao, 'pendente')
+
+      // O console vê só o status HTTP ou "rede": nunca a mensagem crua, o token ou o empresaId (C7).
+      const textos = erroDoConsole.mock.calls.map(c => c.arguments.join(' '))
+      assert.equal(textos.length, 2)
+      assert.match(textos[0], /HTTP 503/)
+      assert.match(textos[1], /rede/)
+      for (const proibido of ['corpo-cru-da-ng', 'token-de-teste', 'empresa-de-teste', 'serie invalida']) {
+        assert.ok(textos.every(t => !t.includes(proibido)), proibido)
+      }
+
+      const enviada = await semearNotaNegada(tx, a.grupoId, 950443, '983')
+      const r4 = await m.inutilizarNumeroDaNota(a.socio, enviada, JUSTIFICATIVA, deps(async () => {}))
+      assert.deepEqual(r4, { ok: true, inutilizacaoId: (await inutilizacoes(tx, enviada))[0].id, aviso: null })
+      assert.deepEqual((await logDe(tx, r4.ok ? r4.inutilizacaoId : '')).map(l => l.detalhe.resultado), ['enviado'])
+    } finally {
+      erroDoConsole.mock.restore()
+    }
+  })
+})
+
+test('produção fora do deploy de produção, ou grupo sem configuração: recusa antes do envio, número livre, log recusado (C6)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const nuncaEnvia: Deps['enviar'] = async () => { throw new Error('o teste não devia chegar ao envio') }
+    const producao = await semearNota(tx, a.grupoId, 950450, { status: 'Negada', motivo: '225 - Falha no schema', numero: '984', ambiente: 'Producao' })
+    const cfgProducao = { cfg: { token: 't', empresaId: 'e', ambiente: 'Producao' as const } }
+    const r1 = await m.inutilizarNumeroDaNota(a.socio, producao, JUSTIFICATIVA, { exec: tx, config: async () => cfgProducao, enviar: nuncaEnvia, vercelEnv: 'preview' })
+    assert.equal(r1.ok, false)
+    assert.match((r1 as { erro: string }).erro, /só roda em homologação/)
+    const [l1] = await inutilizacoes(tx, producao)
+    assert.equal(l1.situacao, 'negada')
+    assert.deepEqual((await logDe(tx, l1.id)).map(l => l.detalhe.resultado), ['recusado'])
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, producao, JUSTIFICATIVA)).ok, 'o número ficou livre para outro pedido')
+
+    const semConfig = await semearNotaNegada(tx, a.grupoId, 950451, '985')
+    const r2 = await m.inutilizarNumeroDaNota(a.socio, semConfig, JUSTIFICATIVA, { exec: tx, config: async () => ({ erro: 'Nota Gateway não configurada para esta empresa.' }), enviar: nuncaEnvia, vercelEnv: undefined })
+    assert.deepEqual(r2, { ok: false, erro: 'Nota Gateway não configurada para esta empresa.' })
+    assert.equal((await inutilizacoes(tx, semConfig))[0].situacao, 'negada')
   })
 })
