@@ -64,6 +64,11 @@ mais se erra:
 - Arquivo que você tocar sai sem cor hardcoded nas linhas que mudou. As telas antigas migram pela
   épica #90; não misture migração em massa num PR de outra coisa.
 
+## Fiscal: consulte a doc antes
+
+- Mudança ou investigação fiscal começa por `docs/fiscal/sumario.md` e pela skill `nota-gateway-docs`;
+  regra completa em `AGENTS.md`, seção "Fiscal".
+
 ## Vercel CLI
 
 - **Nunca rode `vercel env pull` sem informar o arquivo de destino.** Sem arquivo, ele sobrescreve
