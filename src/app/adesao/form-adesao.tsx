@@ -126,7 +126,8 @@ export function FormAdesao() {
     setD(x => ({ ...x, usuarios: x.usuarios.map((u, j) => (j === i ? { ...u, [k]: v } : u)) }))
 
   function ir(novo: number) { setErro(''); setPasso(novo) }
-  const mudarFiscal = (patch: Partial<DadosFiscais>) => setD(x => ({ ...x, fiscal: { ...x.fiscal, ...patch } }))
+  const mudarFiscal = (patch: Partial<DadosFiscais> | ((atual: DadosFiscais) => Partial<DadosFiscais>)) =>
+    setD(x => ({ ...x, fiscal: { ...x.fiscal, ...(typeof patch === 'function' ? patch(x.fiscal) : patch) } }))
 
   async function consultarEmpresa(): Promise<boolean> {
     if (consultado?.cert === d.cert && consultado.senha === d.certSenha) return true
@@ -249,7 +250,7 @@ export function FormAdesao() {
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold uppercase tracking-wide text-primary-text">Usuário {i + 1}</span>
                           {d.usuarios.length > 1 && (
-                            <button type="button" onClick={() => set('usuarios', d.usuarios.filter((_, j) => j !== i))} aria-label="Remover usuário" className="text-destructive"><Trash2 className="size-4" /></button>
+                            <button type="button" onClick={() => setD(x => ({ ...x, usuarios: x.usuarios.filter((_, j) => j !== i) }))} aria-label="Remover usuário" className="text-destructive"><Trash2 className="size-4" /></button>
                           )}
                         </div>
                         <div className="space-y-3 md:grid md:grid-cols-3 md:gap-3 md:space-y-0">
@@ -265,7 +266,7 @@ export function FormAdesao() {
                       </div>
                     ))}
                     {d.usuarios.length < 20 && (
-                      <button type="button" onClick={() => set('usuarios', [...d.usuarios, NOVO_USUARIO])} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-input text-sm font-medium hover:bg-muted"><Plus className="size-4" /> Adicionar usuário</button>
+                      <button type="button" onClick={() => setD(x => ({ ...x, usuarios: [...x.usuarios, NOVO_USUARIO] }))} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-input text-sm font-medium hover:bg-muted"><Plus className="size-4" /> Adicionar usuário</button>
                     )}
                   </div>
                 )}
