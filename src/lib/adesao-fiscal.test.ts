@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { colunasFiscais, faltaNosImpostos, soDigitos, type DadosFiscais } from './adesao-fiscal'
+import { colunasFiscais, comEndereco, faltaNosImpostos, soDigitos, type DadosFiscais } from './adesao-fiscal'
 
 const CNPJ = '12345678000195'
 const base: DadosFiscais = {
@@ -57,4 +57,18 @@ test('série acima de 3 dígitos ou número acima de 9 não passam na adesão', 
 test('falta de endereço ou regime recusa com a frase do campo', () => {
   assert.deepEqual(colunasFiscais({ ...base, endereco: { ...base.endereco, numero: '' } }, CNPJ), { ok: false, erro: 'Informe o número da empresa' })
   assert.deepEqual(colunasFiscais({ ...base, regime: '' }, CNPJ), { ok: false, erro: 'Escolha o regime de impostos' })
+})
+
+test('resposta do CEP aplicada sobre o estado atual mantém o número digitado durante a busca', () => {
+  const durante = comEndereco(base, { numero: '250' })
+  const resposta = comEndereco(durante, { logradouro: 'Rua Nova', bairro: 'Bairro Novo' })
+  assert.equal(resposta.endereco.numero, '250')
+  assert.equal(resposta.endereco.logradouro, 'Rua Nova')
+})
+
+test('código IBGE some quando muda CEP, cidade ou UF; fica quando muda só o número', () => {
+  assert.equal(comEndereco(base, { numero: '1' }).codigoIbge, '3550308')
+  assert.equal(comEndereco(base, { cidade: 'Campinas' }).codigoIbge, '')
+  assert.equal(comEndereco(base, { uf: 'MG' }).codigoIbge, '')
+  assert.equal(comEndereco(base, { cep: '13010000' }).codigoIbge, '')
 })

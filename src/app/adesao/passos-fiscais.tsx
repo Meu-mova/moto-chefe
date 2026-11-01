@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
 import { buscarEnderecoPorCep } from '@/lib/mascaras'
 import { ROTULO_REGIME, type RegimeAdesao } from '@/lib/adesao-campos'
-import { soDigitos, type DadosFiscais } from '@/lib/adesao-fiscal'
+import { comEndereco, soDigitos, type DadosFiscais } from '@/lib/adesao-fiscal'
 import { formatarCpfCnpj } from '@/lib/documento'
 import type { EnderecoSede } from '@/lib/endereco-sede'
 import { UFS } from '@/lib/sefaz/uf'
@@ -29,20 +29,21 @@ function Campo({ id, label, dica, className, children }: { id: string; label: st
   )
 }
 
-type Props = { f: DadosFiscais; mudar: (patch: Partial<DadosFiscais>) => void }
+// Função recebe o estado mais recente: quem espera uma resposta async usa essa forma (AGENTS.md, Interface).
+type Props = { f: DadosFiscais; mudar: (patch: Partial<DadosFiscais> | ((atual: DadosFiscais) => Partial<DadosFiscais>)) => void }
 
 export function PassoEmpresa({ f, mudar, consulta }: Props & { consulta: Consulta }) {
   // Resposta de um CEP já trocado não pode sobrescrever os campos do CEP novo.
   const ultimoCep = useRef('')
-  const end = (patch: Partial<EnderecoSede>) => mudar({ endereco: { ...f.endereco, ...patch } })
+  const end = (patch: Partial<EnderecoSede>) => mudar(atual => comEndereco(atual, patch))
 
   async function trocarCep(cep: string) {
-    // O código IBGE veio da Receita para o CEP de lá; CEP novo, código desconhecido.
-    mudar({ endereco: { ...f.endereco, cep }, codigoIbge: '' })
+    end({ cep })
     ultimoCep.current = cep
     const e = await buscarEnderecoPorCep(cep)
     if (!e || ultimoCep.current !== cep) return
-    mudar({ endereco: { ...f.endereco, cep, ...Object.fromEntries(Object.entries(e).filter(([, v]) => v)) }, codigoIbge: '' })
+    // Só o que o ViaCEP trouxe, sobre o estado de agora: número e complemento digitados durante a busca ficam.
+    end(Object.fromEntries(Object.entries(e).filter(([, v]) => v)))
   }
 
   return (
@@ -90,11 +91,11 @@ export function PassoEmpresa({ f, mudar, consulta }: Props & { consulta: Consult
           <Input id="bairro" className="h-10" value={f.endereco.bairro} onChange={e => end({ bairro: e.target.value })} />
         </Campo>
         <Campo id="cidade" label="Cidade" className="md:col-span-3">
-          <Input id="cidade" className="h-10" value={f.endereco.cidade} onChange={e => mudar({ endereco: { ...f.endereco, cidade: e.target.value }, codigoIbge: '' })} />
+          <Input id="cidade" className="h-10" value={f.endereco.cidade} onChange={e => end({ cidade: e.target.value })} />
         </Campo>
         <Campo id="uf" label="Estado" className="md:col-span-1">
           {/* select nativo: lista fechada evita UF inválida. */}
-          <select id="uf" className={selectClass} value={f.endereco.uf} onChange={e => mudar({ endereco: { ...f.endereco, uf: e.target.value }, codigoIbge: '' })}>
+          <select id="uf" className={selectClass} value={f.endereco.uf} onChange={e => end({ uf: e.target.value })}>
             <option value="">UF</option>
             {UFS.map(u => <option key={u.sigla} value={u.sigla}>{u.sigla}</option>)}
           </select>

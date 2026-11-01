@@ -33,6 +33,16 @@ export type DadosFiscais = {
   jaEmite: boolean; nfSerie: string; nfUltimoNumero: string
 }
 
+/**
+ * Aplica um pedaço do endereço sobre o estado MAIS RECENTE (use dentro de setState(prev => ...)):
+ * a resposta do CEP chega depois e não pode desfazer o que a pessoa digitou enquanto isso.
+ * O código IBGE veio da Receita para o CEP e a cidade de lá: mudou CEP, cidade ou UF, some.
+ */
+export function comEndereco(f: DadosFiscais, patch: Partial<EnderecoSede>): DadosFiscais {
+  const mudouMunicipio = (['cep', 'cidade', 'uf'] as const).some(k => k in patch && patch[k] !== f.endereco[k])
+  return { ...f, endereco: { ...f.endereco, ...patch }, codigoIbge: mudouMunicipio ? '' : f.codigoIbge }
+}
+
 /** Passo 3 (Sua empresa): primeiro campo que falta; null = pode seguir. */
 export function faltaNaEmpresa(d: DadosFiscais): string | null {
   if (!d.razaoSocial.trim()) return 'Informe a razão social'
