@@ -49,6 +49,11 @@ test('quem já emite informa série e última nota, só dígitos', () => {
   assert.deepEqual([r.colunas.nfSerieAnterior, r.colunas.nfUltimoNumero], ['1', '1532'])
 })
 
+test('série acima de 3 dígitos ou número acima de 9 não passam na adesão', () => {
+  assert.deepEqual(colunasFiscais({ ...base, jaEmite: true, nfSerie: '1000', nfUltimoNumero: '1' }, CNPJ), { ok: false, erro: 'Série tem no máximo 3 dígitos' })
+  assert.deepEqual(colunasFiscais({ ...base, jaEmite: true, nfSerie: '1', nfUltimoNumero: '1234567890' }, CNPJ), { ok: false, erro: 'Número da nota tem no máximo 9 dígitos' })
+})
+
 test('falta de endereço ou regime recusa com a frase do campo', () => {
   assert.deepEqual(colunasFiscais({ ...base, endereco: { ...base.endereco, numero: '' } }, CNPJ), { ok: false, erro: 'Informe o número da empresa' })
   assert.deepEqual(colunasFiscais({ ...base, regime: '' }, CNPJ), { ok: false, erro: 'Escolha o regime de impostos' })
