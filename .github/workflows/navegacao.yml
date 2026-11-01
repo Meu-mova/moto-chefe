@@ -60,8 +60,8 @@ jobs:
           fi
           # Matriz rota x papel (#594): só quando o PR mexe em rota, permissão ou navegação.
           # Rota: page/layout de src/app; permissão: navegacao*.ts (usuarioPodeAcessar), o
-          # AdminGuard, auth, acesso por grupo, grupos liberados, middleware e src/lib/permissoes*.
-          if printf '%s\n' "$arquivos" | grep -qE '^(src/app/.*/(page|layout)\.tsx|src/app/\(dashboard\)/admin/components/admin-guard\.tsx|src/lib/(navegacao|navegacao-servidor|auth|acesso-grupo|grupos-liberados)\.ts|src/lib/permissoes[^/]*|src/middleware\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
+          # AdminGuard, auth, grupo ativo, acesso por grupo, grupos liberados, middleware e src/lib/permissoes*.
+          if printf '%s\n' "$arquivos" | grep -qE '^(src/app/.*/(page|layout)\.tsx|src/app/\(dashboard\)/admin/components/admin-guard\.tsx|src/lib/(navegacao|navegacao-servidor|auth|acesso-grupo|grupo|grupos-liberados)\.ts|src/lib/permissoes[^/]*|src/middleware\.ts|scripts/e2e-acesso-rotas\.ts|scripts/lib/acesso-rotas\.ts|\.github/workflows/navegacao\.yml)$'; then
             echo "rodar_acesso=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nenhum PR deste commit mexe em rota, permissão ou navegação; pulando a matriz rota x papel."
@@ -157,11 +157,12 @@ jobs:
             frente=""
             for run in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/navegacao.yml/runs?per_page=100" \
                 --jq "[.workflow_runs[] | select(.status != \"completed\" and .id < $GITHUB_RUN_ID) | .id] | sort | .[]"); do
-              # Job da matriz ainda não criado (filtro rodando) ou não concluído: está na frente.
+              # Sem job da matriz: pula só se o filtro já concluiu (matriz pulada); run na fila sem job
+              # nenhum conta como na frente. Job criado e não concluído: está na frente.
               pendente=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '
                 ([.jobs[] | select(.name == "acesso rota x papel")] | if length == 0 then "sem-job" else (.[0].status) end)')
               if [ "$pendente" != "completed" ]; then
-                filtro=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '[.jobs[] | select(.name == "mexe em tela?")][0].status // "completed"')
+                filtro=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/jobs" --jq '[.jobs[] | select(.name == "mexe em tela?")][0].status // "queued"')
                 if [ "$pendente" = "sem-job" ] && [ "$filtro" = "completed" ]; then continue; fi
                 frente=$run; break
               fi
