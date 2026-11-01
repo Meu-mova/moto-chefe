@@ -4,7 +4,7 @@ import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 import { STATUS_MORTOS } from './status'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -22,9 +22,9 @@ export type Resultado<T> = { ok: true } & T | { ok: false; erro: string }
 // Mesma frase para nota de outra Conta e id inexistente: não revela que o registro existe.
 const NAO_ENCONTRADA = 'NF não encontrada'
 
-/** Irreversível na produção: só os sócios e o admin_geral, no grupo da nota (decisão do Luis, #504). */
+/** Quem pode pedir (podePedirInutilizacao), no grupo da nota. */
 async function grupoVisivel(tx: Executor, usuario: UsuarioInutilizacao, grupoId: string): Promise<boolean> {
-  if (usuario.papel !== 'admin_geral' && usuario.papel !== 'admin_socio') return false
+  if (!podePedirInutilizacao(usuario.papel)) return false
   const [grupo] = await tx.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos)
     .where(and(eq(grupos.id, grupoId), usuario.papel === 'admin_geral' ? undefined : eq(grupos.contaId, usuario.contaId ?? '')))
     .limit(1)

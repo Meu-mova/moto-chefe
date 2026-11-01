@@ -1,6 +1,13 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
 import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR } from './status'
 
+/** Irreversível na produção: só os sócios e o admin_geral (decisão do Luis, #504). Tela e servidor leem daqui. */
+const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio'] as const
+
+export function podePedirInutilizacao(papel: string): boolean {
+  return (PAPEIS_QUE_PEDEM as readonly string[]).includes(papel)
+}
+
 export const JUSTIFICATIVA_MIN = 15
 export const JUSTIFICATIVA_MAX = 255
 

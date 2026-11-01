@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -72,4 +72,13 @@ test('pedido que a NG não conhece só vence depois de 15 minutos', () => {
   const criado = new Date('2026-10-29T12:00:00Z')
   assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:14:59Z')), false)
   assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:15:00Z')), true)
+})
+
+test('quem pede a inutilização: só admin_geral e admin_socio (decisão do Luis, #504)', () => {
+  assert.equal(podePedirInutilizacao('admin_geral'), true)
+  assert.equal(podePedirInutilizacao('admin_socio'), true)
+  // O admin_rede entra na sessão como admin_socio no grupo liberado; a string crua não vale.
+  for (const papel of ['aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', 'admin_rede', '']) {
+    assert.equal(podePedirInutilizacao(papel), false, papel || '(vazio)')
+  }
 })
