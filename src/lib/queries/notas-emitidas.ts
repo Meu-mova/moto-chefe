@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { fimDoDiaBrt, inicioDoDiaBrt } from '@/lib/data-venda'
 import { grupos, motos, notasFiscaisSaida, vendas } from '@/lib/db/schema'
 import { classificarNota, notasDoLote, type CategoriaNota, type Situacao } from '@/lib/notas-emitidas'
+import { decidirInutilizacao, type DecisaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import { contextoDeInutilizacao, type EscopoInutilizacao } from '@/lib/notagateway/inutilizar'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -13,6 +15,8 @@ export type NotaEmitida = {
   status: string
   categoria: CategoriaNota
   motivoStatus: string | null
+  /** Da nota, não do filtro: o diálogo da inutilização mostra o ambiente dela (#597). */
+  ambiente: string
   criadoEm: string
   linkDanfe: string | null
   linkXml: string | null
@@ -56,6 +60,7 @@ export async function listarNotasEmitidas(
       serie: notasFiscaisSaida.serie,
       status: notasFiscaisSaida.status,
       motivoStatus: notasFiscaisSaida.motivoStatus,
+      ambiente: notasFiscaisSaida.ambiente,
       criadoEm: notasFiscaisSaida.criadoEm,
       linkDanfe: notasFiscaisSaida.linkDanfe,
       linkXml: notasFiscaisSaida.linkXml,
@@ -75,6 +80,23 @@ export async function listarNotasEmitidas(
   const linhas = await (limite === null ? consulta : consulta.limit(limite))
 
   return linhas.map(l => ({ ...l, criadoEm: l.criadoEm.toISOString(), dataVenda: l.dataVenda?.toISOString() ?? null, categoria: classificarNota(l.status) }))
+}
+
+export type NotaEmitidaComInutilizacao = NotaEmitida & { inutilizacao: DecisaoInutilizacao }
+
+/**
+ * Situação da inutilização de cada nota da tela (#597), pela mesma decisão do pedido: só as
+ * recusadas vão ao loader, numa ida ao banco para todas; as demais decidem sem consulta. O
+ * escopo é o grupo e o ambiente do filtro, que listarNotasEmitidas já prendeu à Conta.
+ */
+export async function anexarSituacaoDeInutilizacao(
+  notas: NotaEmitida[], escopo: EscopoInutilizacao, exec: Executor = db,
+): Promise<NotaEmitidaComInutilizacao[]> {
+  const contexto = await contextoDeInutilizacao(exec, escopo, notas.filter(n => n.categoria === 'recusada'))
+  return notas.map(n => ({
+    ...n,
+    inutilizacao: decidirInutilizacao(contexto.get(n.id) ?? { nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [] }),
+  }))
 }
 
 /** Notas do download (#402): a lista da tela sem o teto, presa à Conta na consulta, com a seleção aplicada por cima. */

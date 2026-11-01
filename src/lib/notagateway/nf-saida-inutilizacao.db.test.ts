@@ -293,3 +293,34 @@ test('produção fora do deploy de produção, ou grupo sem configuração: recu
     assert.equal((await inutilizacoes(tx, semConfig))[0].situacao, 'negada')
   })
 })
+
+test('Notas emitidas: a situação da inutilização na lista segue a decisão do pedido, e a Conta B não vê a da A (C1, C5, C9)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { anexarSituacaoDeInutilizacao, listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas')
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950460, '990')
+    await semearNota(tx, a.grupoId, 950461, { status: 'Autorizada', numero: '991' })
+    const situacoes = async (grupoId: string, contaId: string) => {
+      const notas = await listarNotasEmitidas({ grupoId, contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
+      return anexarSituacaoDeInutilizacao(notas, { grupoId, ambiente: 'Homologacao' }, tx)
+    }
+    const listaDaA = () => situacoes(a.grupoId, a.socio.contaId)
+    const daA = async () => (await listaDaA()).find(n => n.id === notaA)!
+
+    assert.deepEqual((await daA()).inutilizacao, { tipo: 'pode', serie: '1', numero: 990, ultimaNegada: null })
+    assert.equal((await daA()).ambiente, 'Homologacao', 'o ambiente da nota vai para a tela (C2)')
+    assert.equal((await listaDaA()).find(n => n.numero === '991')!.inutilizacao.tipo, 'nenhuma', 'autorizada não mostra nada')
+
+    const r = await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)
+    assert.ok(r.ok)
+    assert.equal((await daA()).inutilizacao.tipo, 'pendente')
+
+    await m.gravarResultadoDaInutilizacao(tx, { id: r.pedido.inutilizacaoId, grupoId: a.grupoId }, { status: 'InutilizacaoNegada', motivoStatus: 'Faixa ja utilizada', protocolo: null })
+    assert.deepEqual((await daA()).inutilizacao, { tipo: 'pode', serie: '1', numero: 990, ultimaNegada: 'Faixa ja utilizada' })
+
+    // A Conta B pedindo o grupo da A: a lista vem vazia e não há o que anexar.
+    assert.deepEqual(await situacoes(a.grupoId, b.socio.contaId), [])
+  })
+})
