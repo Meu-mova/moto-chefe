@@ -3,13 +3,14 @@ import { emailValido } from '@/lib/email-valido'
 import { ROTULO_REGIME, type RegimeAdesao } from '@/lib/adesao-campos'
 import type { adesoesMova } from '@/lib/db/schema'
 import { erroEnderecoSede, faltamNoEnderecoSede, limparEnderecoSede, montarEnderecoSede, paraColunasSede, type EnderecoSede } from '@/lib/endereco-sede'
-import { soDigitosDoc } from '@/lib/documento'
 
 // Passos "Sua empresa" e "Impostos e notas" da adesão (#588). Roda no navegador e no
 // servidor: o servidor reconfere tudo o que a tela já limpou.
 
 /** IE, IM, série e número da nota: a NG e a SEFAZ querem só dígitos. */
-export const soDigitos = (v: string) => soDigitosDoc(v)
+// Próprio, não o soDigitosDoc: documento vai aceitar letra (CNPJ alfanumérico, #534) e
+// IE, IM, série e número não, os checks da 0169 exigem só dígitos.
+export const soDigitos = (v: string) => v.replace(/\D/g, '')
 
 /**
  * Série e última nota de quem já emite: os dois obrigatórios, só dígitos. Série da NF-e vai
