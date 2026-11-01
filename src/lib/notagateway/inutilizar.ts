@@ -61,10 +61,10 @@ export async function prepararInutilizacao(
     : []
   const elegivel = elegivelParaInutilizar(nota, outraViva ?? null)
   if (!elegivel.ok) return elegivel
-  // ltrim: o número é texto e pode vir com zero à esquerda.
+  // ltrim: número e série são texto e podem vir com zero à esquerda.
   const mesmoNumero = await tx.select({ numero: notasFiscaisSaida.numero, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus })
     .from(notasFiscaisSaida).where(and(
-      eq(notasFiscaisSaida.grupoId, nota.grupoId), eq(notasFiscaisSaida.ambiente, nota.ambiente), eq(notasFiscaisSaida.serie, elegivel.serie),
+      eq(notasFiscaisSaida.grupoId, nota.grupoId), eq(notasFiscaisSaida.ambiente, nota.ambiente), sql`ltrim(${notasFiscaisSaida.serie}, '0') = ltrim(${elegivel.serie}, '0')`,
       ne(notasFiscaisSaida.id, nota.id), sql`ltrim(${notasFiscaisSaida.numero}, '0') = ${String(elegivel.numero)}`,
     ))
   if (numeroUsadoEmOutraNota(elegivel.numero, mesmoNumero)) {

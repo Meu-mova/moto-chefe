@@ -160,6 +160,15 @@ test('número em nota autorizada do mesmo grupo e série recusa antes do envio; 
     assert.equal((await inutilizacoes(tx, notaA)).length, 0, 'nada gravado')
 
     assert.ok((await m.prepararInutilizacao(tx, b.socio, notaB, JUSTIFICATIVA)).ok, 'a autorizada da A não trava o número da B')
+
+    // Grupo irmão da mesma Conta: o recorte é por grupo, não por Conta.
+    const [irmao] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('IN504 A2', '00000000050403', ${a.socio.contaId}) returning id`)
+    const notaIrmao = await semearNotaNegada(tx, irmao.id, 950413, '976')
+    assert.ok((await m.prepararInutilizacao(tx, { ...a.socio, papel: 'admin_geral' }, notaIrmao, JUSTIFICATIVA)).ok, 'a autorizada do grupo A não trava o número do grupo irmão')
+
+    // Série com zero à esquerda é a mesma série.
+    await linhas(tx, sql`update notas_fiscais_saida set serie = '001' where id_externo = 'in504-950412-1'`)
+    assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok, false, 'série 001 e 1 são a mesma')
   })
 })
 
@@ -169,10 +178,17 @@ test('lista de notas emitidas: a recusada elegível pode ser inutilizada até o 
     const a = await semearConta(tx, 'A', '00000000050401')
     const b = await semearConta(tx, 'B', '00000000050402')
     const notaA = await semearNotaNegada(tx, a.grupoId, 950420)
-    const hoje = new Date().toISOString().slice(0, 10)
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const hoje = hojeBrt()
     const filtro = (grupoId: string, contaId: string) => ({ grupoId, contaId, ambiente: 'Homologacao' as const, de: '2000-01-01', ate: hoje })
     const daA = async () => (await listarNotasEmitidas(filtro(a.grupoId, a.socio.contaId), tx)).find(n => n.id === notaA)!
 
+    assert.equal((await daA()).podeInutilizar, true)
+    // Número em nota autorizada do grupo: o botão some, como o servidor recusa.
+    const [aut] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, numero, serie, payload)
+      values (null, 950421, ${a.grupoId}, 'in504-950421-1', 'Homologacao', 'Autorizada', '974', '1', '{}'::jsonb) returning id`)
+    assert.equal((await daA()).podeInutilizar, false)
+    await linhas(tx, sql`delete from notas_fiscais_saida where id = ${aut.id}`)
     assert.equal((await daA()).podeInutilizar, true)
     assert.equal((await daA()).inutilizacao, null)
     assert.ok((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok)
