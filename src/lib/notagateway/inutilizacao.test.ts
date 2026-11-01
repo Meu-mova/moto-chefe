@@ -96,8 +96,9 @@ test('decide: recusada elegível, sem pedido e sem outra nota com o número, pod
   assert.deepEqual(decidirInutilizacao(ctxBase), { tipo: 'pode', serie: '1', numero: 974, ultimaNegada: null })
 })
 
-test('decide: pedido pendente ou autorizado do número, desta ou de outra nota, esconde o botão (C5)', () => {
+test('decide: pedido pendente ou autorizado do número esconde o botão (C5)', () => {
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [pedido()] }).tipo, 'pendente')
+  assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [pedido({ serie: '2' })] }).tipo, 'pode', 'mesmo número em outra série é outra nota')
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [pedido({ situacao: 'autorizada' })] }).tipo, 'autorizada')
   // Com o pedido em andamento, é ele que a linha diz, mesmo que outra nota ocupe o número.
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [pedido()], outrasNotas: [outra()] }).tipo, 'pendente')

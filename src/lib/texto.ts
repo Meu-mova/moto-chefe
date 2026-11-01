@@ -10,8 +10,8 @@ export function normalizar(s: string): string {
 
 /**
  * Número de nota como a SEFAZ compara: "0974" e "974" são o mesmo; só zeros vira "0".
- * Mesma regra do `ltrim(coluna, '0')` usado no SQL; quem compara número ou série
- * em JS passa por aqui (#597).
+ * O SQL pré-filtra com `ltrim(coluna, '0')` (que difere só em "000" e em espaços);
+ * a comparação final de número ou série em JS passa sempre por aqui (#597).
  */
 export function semZerosAEsquerda(texto: string | null | undefined): string {
   const aparado = (texto ?? '').trim()

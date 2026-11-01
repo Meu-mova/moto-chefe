@@ -52,8 +52,8 @@ type NotaDaDecisao = ContextoInutilizacao['nota']
 /**
  * Contexto da decisão (decidirInutilizacao) para notas do mesmo grupo e ambiente, numa
  * ida só ao banco: o pedido passa uma nota, a lista passa as recusadas visíveis. O grupo
- * vai no where das três consultas; o SQL só traz candidatos (o `ltrim` é a mesma regra de
- * semZerosAEsquerda) e a regra pura decide.
+ * vai no where das três consultas. O `ltrim` do SQL só pré-filtra candidatos; a comparação
+ * que vale é a da regra pura, com semZerosAEsquerda.
  */
 export async function contextoDeInutilizacao(
   tx: Pick<typeof db, 'select'>, escopo: EscopoInutilizacao, notas: NotaDaDecisao[],
@@ -99,7 +99,9 @@ export async function prepararInutilizacao(
     .where(and(eq(notasFiscaisSaida.id, notaId), filtroConta)).limit(1)
   if (!nota || !(await grupoVisivel(tx, usuario, nota.grupoId))) return { ok: false, erro: NAO_ENCONTRADA }
 
-  const decisao = decidirInutilizacao((await contextoDeInutilizacao(tx, nota, [nota])).get(nota.id)!)
+  // O escopo vem do registro, nunca da tela: o grupo e o ambiente da própria nota.
+  const escopo = { grupoId: nota.grupoId, ambiente: nota.ambiente }
+  const decisao = decidirInutilizacao((await contextoDeInutilizacao(tx, escopo, [nota])).get(nota.id)!)
   if (decisao.tipo !== 'pode') return { ok: false, erro: decisao.erro }
   const j = validarJustificativa(justificativaBruta)
   if (!j.ok) return { ok: false, erro: j.erro }
@@ -198,7 +200,7 @@ export async function inutilizarNumeroDaNota(
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
   if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {
-    return recusar(STATUS_SEM_CONFIGURACAO, 'Fora da produção, a Nota Gateway só roda em homologação. O número continua livre.')
+    return recusar(STATUS_NAO_ENVIADA, 'Fora da produção, a Nota Gateway só roda em homologação. O número continua livre.')
   }
   try {
     await deps.enviar(c.cfg, pedido)

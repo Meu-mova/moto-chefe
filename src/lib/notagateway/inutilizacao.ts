@@ -122,7 +122,7 @@ export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutiliza
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
   if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
   const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
-  if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo que já o usou na SEFAZ. Não há o que inutilizar.` }
+  if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo (autorizada, cancelada, denegada ou em andamento). Não há o que inutilizar.` }
   const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]
   return { tipo: 'pode', serie: elegivel.serie, numero: elegivel.numero, ultimaNegada: ultima ? ultima.motivoStatus?.trim() || 'sem motivo informado' : null }
 }

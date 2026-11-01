@@ -50,12 +50,6 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   return { grupoId: grupo.id as string, socio: await usuario('admin_socio'), aux: await usuario('aux_adm') }
 }
 
-async function semearNotaNegada(tx: Tx, grupoId: string, vendaNumero: number, numero = '974') {
-  const [nota] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, numero, serie, payload)
-    values (null, ${vendaNumero}, ${grupoId}, ${`in504-${vendaNumero}-1`}, 'Homologacao', 'Negada', '225 - Falha no schema', ${numero}, '1', '{}'::jsonb) returning id`)
-  return nota.id as string
-}
-
 const inutilizacoes = (tx: Tx, notaId: string) => linhas(tx, sql`select * from notas_fiscais_saida_inutilizacoes where nota_id = ${notaId}`)
 
 type Semente = { status?: string; numero?: string; serie?: string; motivo?: string | null; ambiente?: string }
@@ -68,6 +62,9 @@ async function semearNota(tx: Tx, grupoId: string, vendaNumero: number, { status
 }
 
 const logDe = (tx: Tx, inutilizacaoId: string) => linhas(tx, sql`select usuario_id, detalhe from log_acoes where detalhe->>'inutilizacaoId' = ${inutilizacaoId} order by criado_em`)
+
+const semearNotaNegada = (tx: Tx, grupoId: string, vendaNumero: number, numero = '974') =>
+  semearNota(tx, grupoId, vendaNumero, { status: 'Negada', motivo: '225 - Falha no schema', numero })
 
 const notasDaDecisao = (tx: Tx, ids: string[]) => linhas(tx, sql`select id, numero, serie, status, motivo_status as "motivoStatus", venda_id as "vendaId"
   from notas_fiscais_saida where id = any(${sql.param(ids)}::uuid[])`)
@@ -169,11 +166,11 @@ test('número em nota que o ocupa no mesmo grupo e série recusa antes do envio;
     await semearNota(tx, a.grupoId, 950412, { status: 'Autorizada', numero: '976' })
 
     assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA),
-      { ok: false, erro: 'O número 976 está em outra nota deste grupo que já o usou na SEFAZ. Não há o que inutilizar.' })
+      { ok: false, erro: 'O número 976 está em outra nota deste grupo (autorizada, cancelada, denegada ou em andamento). Não há o que inutilizar.' })
     assert.equal((await inutilizacoes(tx, notaA)).length, 0, 'nada gravado')
     assert.ok((await m.prepararInutilizacao(tx, b.socio, notaB, JUSTIFICATIVA)).ok, 'a autorizada da A não trava o número da B')
 
-    // Em andamento também ocupa: o candidato vem do SQL, a regra decide em JS.
+    // Em andamento também ocupa o número.
     const notaA2 = await semearNotaNegada(tx, a.grupoId, 950413, '977')
     await semearNota(tx, a.grupoId, 950414, { status: 'Processando', numero: '977' })
     assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA2, JUSTIFICATIVA)).ok, false, 'Processando ocupa')

@@ -93,7 +93,8 @@ export function resumoDoEvento(e: EventoLog): string {
     case 'venda_cancelada': return `Venda #${v('numeroVenda')} · ${v('cliente')} · ${d.valor == null ? '?' : brl(d.valor)} · “${v('motivo')}”`
     case 'nf_emitida': {
       if (d.etapa === 'inutilizacao') {
-        const resultado = { enviado: 'pedida', sem_resposta: 'pedida sem resposta da Nota Gateway', recusado: 'recusada' }[String(d.resultado)] ?? '?'
+        // Linha antiga (v1.15.0) só existia depois do envio aceito: sem `resultado`, foi pedida.
+        const resultado = d.resultado == null ? 'pedida' : { enviado: 'pedida', sem_resposta: 'pedida sem resposta da Nota Gateway', recusado: 'recusada' }[String(d.resultado)] ?? '?'
         return [`Inutilização do nº ${v('numero')} série ${v('serie')} da venda #${v('numeroVenda')}`, resultado, d.motivo ? `“${d.motivo}”` : null, d.ambiente === 'Homologacao' ? 'homologação' : null]
           .filter(Boolean).join(' · ')
       }
