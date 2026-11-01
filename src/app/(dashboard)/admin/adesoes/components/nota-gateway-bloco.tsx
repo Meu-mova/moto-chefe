@@ -81,11 +81,11 @@ function EditarNumeracao({ adesaoId, atual, onSalvo }: { adesaoId: string; atual
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label htmlFor={`${adesaoId}-serie`}>Série</Label>
-          <Input id={`${adesaoId}-serie`} inputMode="numeric" disabled={naoEmite} value={serie} onChange={e => setSerie(soDigitos(e.target.value))} />
+          <Input id={`${adesaoId}-serie`} inputMode="numeric" maxLength={3} disabled={naoEmite} value={serie} onChange={e => setSerie(soDigitos(e.target.value))} />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${adesaoId}-ultima`}>Última nota emitida</Label>
-          <Input id={`${adesaoId}-ultima`} inputMode="numeric" disabled={naoEmite} value={ultima} onChange={e => setUltima(soDigitos(e.target.value))} />
+          <Input id={`${adesaoId}-ultima`} inputMode="numeric" maxLength={9} disabled={naoEmite} value={ultima} onChange={e => setUltima(soDigitos(e.target.value))} />
         </div>
       </div>
       {erro && <p className="text-xs text-destructive">{erro}</p>}

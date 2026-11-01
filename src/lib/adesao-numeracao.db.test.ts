@@ -71,6 +71,11 @@ test('"loja não emite" limpa os dois campos e também vai para o log', async ()
   })
 })
 
+test('banco recusa série com mais de 3 dígitos mesmo se escapar da validação', async () => {
+  await assert.rejects(db.transaction(async tx => { await adesao(tx, '1000', '1') }),
+    (e: { cause?: { constraint?: string } }) => e.cause?.constraint === 'adesoes_mova_nf_serie_tamanho')
+})
+
 test('entrada inválida ou adesão inexistente não gravam nada', async () => {
   await emTransacaoDesfeita(async tx => {
     const id = await adesao(tx, '1', '1532')
